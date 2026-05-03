@@ -249,6 +249,11 @@ export const MyTracksPage: React.FC = () => {
     const handleUpdateTrack = async () => {
         if (!editingTrack) return;
         setSaving(true);
+        let scanTimer: ReturnType<typeof setTimeout> | null = null;
+        if (audioFile) {
+            setUploadProgress(0);
+            setUploadStage('uploading');
+        }
         try {
             const formData = new FormData();
             if (audioFile) formData.append('audio', audioFile);
@@ -268,7 +273,17 @@ export const MyTracksPage: React.FC = () => {
 
             const res = await axios.put(`/api/musician/tracks/${editingTrack.id}`, formData, {
                 headers: { 'Content-Type': 'multipart/form-data' },
-                withCredentials: true
+                withCredentials: true,
+                onUploadProgress: audioFile ? (evt) => {
+                    if (evt.total) {
+                        const pct = Math.round((evt.loaded / evt.total) * 100);
+                        setUploadProgress(pct);
+                        if (pct >= 100) {
+                            setUploadStage('scanning');
+                            scanTimer = setTimeout(() => setUploadStage('converting'), 4000);
+                        }
+                    }
+                } : undefined,
             });
             // Save lyrics separately
             await axios.put(`/api/musician/tracks/${editingTrack.id}/lyrics`, { lyrics: editingTrackLyrics.trim() || null, lyricsSync: null }, { withCredentials: true }).catch(() => {});
@@ -280,7 +295,10 @@ export const MyTracksPage: React.FC = () => {
         } catch (e: any) {
             setMessage({ type: 'error', text: e.response?.data?.error || 'Failed to update track' });
         } finally {
+            if (scanTimer) clearTimeout(scanTimer);
             setSaving(false);
+            setUploadStage(null);
+            setUploadProgress(0);
         }
     };
 

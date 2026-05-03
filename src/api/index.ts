@@ -810,31 +810,43 @@ app.use(session({
 }));
 
 // --- Rate Limiting ---
+// Normalise IPv6-mapped IPv4 addresses (e.g. ::ffff:1.2.3.4 -> 1.2.3.4) to avoid
+// ERR_ERL_KEY_GEN_IPV6. Trust proxy is already set on the app so we suppress the
+// redundant express-rate-limit trustProxy validation via validate:false.
+const normaliseIp = (req: any): string => {
+    const raw: string = req.ip || req.socket?.remoteAddress || 'unknown';
+    return raw.replace(/^::ffff:/, '');
+};
+const rlKey = (req: any): string => req.session?.user?.id || normaliseIp(req);
+
 const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 200,
     standardHeaders: true,
     legacyHeaders: false,
+    validate: false,
+    keyGenerator: normaliseIp,
     message: { error: 'Too many authentication attempts, please try again later.' },
 });
-// Write-only limiter � only counts POST/PUT/PATCH/DELETE so GETs (page loads) are never blocked
+// Write-only limiter -- only counts POST/PUT/PATCH/DELETE so GETs (page loads) are never blocked
 const writeLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 100,
     standardHeaders: true,
     legacyHeaders: false,
-    keyGenerator: (req: any) => req.session?.user?.id || req.ip,
+    validate: false,
+    keyGenerator: rlKey,
     skip: (req: any) => req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS',
     message: { error: 'You are doing that too fast. Please wait a moment before trying again.' },
 });
-// Strict limiter for track uploads \u2014 prevents spam and large-file abuse
+// Strict limiter for track uploads -- prevents spam and large-file abuse
 const uploadLimiter = rateLimit({
     windowMs: 10 * 60 * 1000, // 10-minute window
     max: 5,                    // 5 uploads per window per user
     standardHeaders: true,
     legacyHeaders: false,
-    keyGenerator: (req: any) => req.session?.user?.id || req.ip,
     validate: false,
+    keyGenerator: rlKey,
     message: { error: 'Upload limit reached. You can upload up to 5 tracks every 10 minutes. Please wait before trying again.' },
 });
 app.use('/api/auth', authLimiter);
@@ -846,11 +858,10 @@ const generalUploadLimiter = rateLimit({
     max: 10,                   // 10 uploads per window per user
     standardHeaders: true,
     legacyHeaders: false,
-    keyGenerator: (req: any) => req.session?.user?.id || req.ip,
     validate: false,
+    keyGenerator: rlKey,
     message: { error: 'Upload limit reached. Please wait before uploading again.' },
 });
-
 // --- Invite-Only Global Guard ---
 // Gate disabled: site is publicly launched. INVITE_ONLY env var is ignored.
 app.use('/api/', (req, res, next) => {

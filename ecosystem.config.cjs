@@ -35,13 +35,14 @@ module.exports = {
     },
 
     // ── Radio worker ────────────────────────────────────────────────────────
-    // Exits cleanly if RADIO_BOT_TOKEN is not set.
-    // Full radio playback implementation is pending; the main bot's
-    // FujiRadioPlugin continues to handle radio in the interim.
+    // Exits cleanly (code 0) when RADIO_WORKER_ENABLED is not set.
+    // stop_exit_codes:[0] prevents PM2 from restarting on a clean exit so it
+    // doesn't spin-loop when the worker is intentionally disabled.
     {
       ...defaults,
       name: 'radio-worker',
       script: 'src/bot/radio-worker.ts',
+      stop_exit_codes: [0],
       env: { NODE_ENV: 'production' },
     },
   ],
