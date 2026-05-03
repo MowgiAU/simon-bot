@@ -11,6 +11,16 @@ datasource db {
   directUrl = env("DIRECT_DATABASE_URL")
 }
 
+// Managed by connect-pg-simple — Prisma must not drop this table.
+model Session {
+  sid    String   @id
+  sess   Json
+  expire DateTime
+
+  @@ignore
+  @@map("session")
+}
+
 // --- User Accounts (Native auth with optional Discord linking) ---
 model User {
   id                      String    @id @default(cuid())
