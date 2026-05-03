@@ -249,11 +249,9 @@ export const MyTracksPage: React.FC = () => {
     const handleUpdateTrack = async () => {
         if (!editingTrack) return;
         setSaving(true);
+        setUploadProgress(0);
+        setUploadStage(audioFile ? 'uploading' : 'converting'); // show bar for all saves
         let scanTimer: ReturnType<typeof setTimeout> | null = null;
-        if (audioFile) {
-            setUploadProgress(0);
-            setUploadStage('uploading');
-        }
         try {
             const formData = new FormData();
             if (audioFile) formData.append('audio', audioFile);
@@ -609,6 +607,29 @@ export const MyTracksPage: React.FC = () => {
                     </button>
                 </div>
 
+                {/* ── Save progress (shown immediately below header when saving) ── */}
+                {saving && uploadStage && (
+                    <div style={{ marginBottom: '16px', padding: '12px 14px', backgroundColor: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: '8px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                            <span style={{ fontSize: '13px', fontWeight: 600, color: colors.primary }}>
+                                {uploadStage === 'uploading' ? `Uploading… ${uploadProgress}%` : uploadStage === 'scanning' ? 'Scanning for viruses…' : 'Saving…'}
+                            </span>
+                            <span style={{ fontSize: '11px', color: colors.textTertiary }}>
+                                {uploadStage === 'uploading' ? 'Transferring' : uploadStage === 'scanning' ? 'A few seconds' : 'Please wait'}
+                            </span>
+                        </div>
+                        <div style={{ height: '4px', backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: '2px', overflow: 'hidden' }}>
+                            <div style={{
+                                height: '100%', backgroundColor: colors.primary, borderRadius: '2px', transition: 'width 0.3s ease',
+                                width: uploadStage === 'uploading' ? `${uploadProgress}%` : '100%',
+                                opacity: uploadStage !== 'uploading' ? 0.6 : 1,
+                                backgroundImage: uploadStage !== 'uploading' ? 'repeating-linear-gradient(45deg,transparent,transparent 8px,rgba(255,255,255,0.15) 8px,rgba(255,255,255,0.15) 16px)' : 'none',
+                                animation: uploadStage !== 'uploading' ? 'stripe-slide 1s linear infinite' : 'none',
+                            }} />
+                        </div>
+                    </div>
+                )}
+
                 {/* ── File upload zones ── */}
                 {/* Audio spans full width; artwork + project side-by-side below */}
                 <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '12px', marginBottom: '20px' }}>
@@ -921,7 +942,9 @@ export const MyTracksPage: React.FC = () => {
                             boxShadow: shadows.glow,
                         }}
                     >
-                        {saving ? 'Processing...' : isEdit ? <><Save size={16} /> Save Changes</> : <><Upload size={16} /> Upload Track</>}
+                        {saving
+                            ? (uploadStage === 'uploading' ? `Uploading ${uploadProgress}%` : uploadStage === 'scanning' ? 'Scanning…' : 'Saving…')
+                            : isEdit ? <><Save size={16} /> Save Changes</> : <><Upload size={16} /> Upload Track</>}
                     </button>
                     <button
                         onClick={() => { if (isEdit) { setEditingTrack(null); setSelectedTrackGenres([]); } else { setIsAddingTrack(false); setSelectedTrackGenres([]); setAddGenreSearchTerm(''); setTosAgreed(false); } }}

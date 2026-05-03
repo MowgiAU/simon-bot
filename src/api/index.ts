@@ -1463,7 +1463,7 @@ function isValidUsername(username: string): boolean {
 // =============================================
 // REGISTRATION
 // =============================================
-const registerLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 5, message: { error: 'Too many registration attempts. Try again later.' } });
+const registerLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 5, validate: false, keyGenerator: normaliseIp, message: { error: 'Too many registration attempts. Try again later.' } });
 app.post('/api/auth/register', registerLimiter, async (req, res) => {
     try {
         const { username, email, password } = req.body;
@@ -1590,7 +1590,7 @@ const loginLimiter = rateLimit({
     keyGenerator: (req: any) => {
         // Key per email address so one user can't block others behind the same NAT/proxy IP
         const email = req.body?.email;
-        return (email ? String(email).toLowerCase().trim() : null) || req.ip || 'unknown';
+        return (email ? String(email).toLowerCase().trim() : null) || normaliseIp(req);
     },
     validate: false,
     message: { error: 'Too many login attempts, try again later.' },
@@ -1666,7 +1666,7 @@ app.post('/api/auth/email/login', loginLimiter, async (req, res) => {
 // =============================================
 // FORGOT PASSWORD / RESET PASSWORD
 // =============================================
-const forgotPasswordLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 5, message: { error: 'Too many requests, try again later.' } });
+const forgotPasswordLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 5, validate: false, keyGenerator: normaliseIp, message: { error: 'Too many requests, try again later.' } });
 app.post('/api/auth/forgot-password', forgotPasswordLimiter, async (req, res) => {
     try {
         const { email } = req.body;
