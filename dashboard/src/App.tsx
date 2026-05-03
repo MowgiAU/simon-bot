@@ -97,6 +97,8 @@ const NotificationMenu       = lazy(() => import("./components/NotificationMenu"
 const LearnPage              = lazy(() => import("./pages/LearnPage").then(m => ({ default: m.LearnPage })));
 const DrumKitGeneratorPage   = lazy(() => import("./pages/DrumKitGenerator").then(m => ({ default: m.DrumKitGeneratorPage })));
 const ServerStatsPage        = lazy(() => import("./pages/ServerStats").then(m => ({ default: m.ServerStats })));
+const SupportPage            = lazy(() => import("./pages/SupportPage").then(m => ({ default: m.SupportPage })));
+const AdminTicketsPage       = lazy(() => import("./pages/AdminTickets").then(m => ({ default: m.AdminTicketsPage })));
 // ErrorBoundary is imported statically above — NOT lazy. It is the outermost
 
 // Minimal inline spinner used while a lazy chunk loads
@@ -155,7 +157,8 @@ type Section =
   | "drum-kit"
   | "stats"
   | "database-management"
-  | "anti-external-forward";
+  | "anti-external-forward"
+  | "web-tickets";
 
 const WelcomeScreen: React.FC<{ login: () => void }> = ({ login }) => {
   const navigate = useNavigate();
@@ -336,6 +339,7 @@ const AdminDashboard: React.FC = () => {
     'email-client': 'email-client',
     'tickets': 'tickets',
     'channel-rules': 'channel-rules',
+    'web-tickets': 'web-tickets',
     'musician-profiles-admin': 'musician-profiles',
     'musician-profiles': 'musician-profiles',
     'library': 'fuji-studio',
@@ -505,6 +509,8 @@ const AdminDashboard: React.FC = () => {
           return <AcademyPage />;
         case "stats":
           return <ServerStatsPage guildId={selectedGuild.id} />;
+        case "web-tickets":
+          return <AdminTicketsPage />;
         default:
           return null;
       }
@@ -714,6 +720,7 @@ const AppInternal: React.FC = () => {
       { test: p => p === '/feed', title: 'Fuji Studio | Feed' },
       { test: p => p.startsWith('/article/'), title: 'Fuji Studio | Article' },
       { test: p => p === '/',                  title: 'Fuji Studio | Discover Music' },
+      { test: p => p === '/appeal' || p === '/support', title: 'Fuji Studio | Support' },
     ];
     const match = titles.find(t => t.test(currentPath));
     // Only set a default title if the page component won't set its own dynamic title
@@ -918,6 +925,11 @@ const AppInternal: React.FC = () => {
   // /learn → Public Academy lesson browser + player
   if (currentPath === '/learn' || currentPath.startsWith('/learn/')) {
     return <Suspense fallback={<PageSpinner />}><LearnPage /></Suspense>;
+  }
+
+  // /appeal or /support → Ban appeal / support ticket system (auth required, checked internally)
+  if (currentPath === '/appeal' || currentPath === '/support') {
+    return <Suspense fallback={<PageSpinner />}><SupportPage /></Suspense>;
   }
 
   return <Suspense fallback={<PageSpinner />}><ArtistDiscoveryPage /></Suspense>;

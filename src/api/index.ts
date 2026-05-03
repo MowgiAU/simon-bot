@@ -3891,7 +3891,7 @@ app.get('/api/guilds/:guildId/my-permissions', async (req, res) => {
         if (isAdmin) {
             return res.json({ 
                 canManagePlugins: true, 
-                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content', 'account-management', 'anti-piracy', 'leveling', 'fuji-radio', 'studio-guide', 'bot-identity', 'bot-messenger', 'booster-color', 'private-messages', 'auto-messages', 'auto-responder', 'server-boost', 'reports', 'articles', 'article-review', 'pause', 'voice-stats', 'spam-guard', 'track-announcer', 'profile-styles', 'academy', 'head-to-head', 'drum-kit'] 
+                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content', 'account-management', 'anti-piracy', 'leveling', 'fuji-radio', 'studio-guide', 'bot-identity', 'bot-messenger', 'booster-color', 'private-messages', 'auto-messages', 'auto-responder', 'server-boost', 'reports', 'articles', 'article-review', 'pause', 'voice-stats', 'spam-guard', 'track-announcer', 'profile-styles', 'academy', 'head-to-head', 'drum-kit', 'web-tickets']
             });
         }
 
@@ -17062,6 +17062,148 @@ app.post('/api/academy/complete/:lessonId', async (req: any, res) => {
     } catch (e) {
         logger.error('Failed to complete lesson', e);
         res.status(500).json({ error: 'Failed to complete lesson' });
+    }
+});
+
+// ── Web Ticket / Ban Appeal System ──────────────────────────────────────────
+
+app.post('/api/tickets/create', requireAuth, async (req: any, res) => {
+    try {
+        const userId = req.session.user.id;
+        const { subject, message } = req.body;
+        if (!subject?.trim() || !message?.trim()) {
+            return res.status(400).json({ error: 'Subject and message are required' });
+        }
+
+        const dbUser = await db.user.findFirst({ where: { discordId: userId } });
+        if (dbUser?.isTicketBlocked) {
+            return res.status(403).json({ error: 'Your access to the support system has been revoked.' });
+        }
+
+        const ticket = await db.webTicket.create({
+            data: {
+                userId,
+                subject: subject.trim(),
+                messages: {
+                    create: {
+                        senderId: userId,
+                        content: message.trim(),
+                        isAdmin: false,
+                    }
+                }
+            },
+            include: { messages: true }
+        });
+
+        // Notify mods in Discord (optional, non-blocking)
+        const logChannelId = process.env.TICKET_LOG_CHANNEL_ID;
+        if (logChannelId && process.env.DISCORD_TOKEN) {
+            axios.post(`https://discord.com/api/v10/channels/${logChannelId}/messages`, {
+                embeds: [{
+                    title: 'New Support Ticket',
+                    description: `**Subject:** ${subject.trim()}\n**From:** <@${userId}>\n**Ticket ID:** ${ticket.id}`,
+                    color: 0x10B981,
+                    timestamp: new Date().toISOString(),
+                }]
+            }, {
+                headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` }
+            }).catch(() => {});
+        }
+
+        res.json(ticket);
+    } catch (e) {
+        logger.error('Failed to create ticket', e);
+        res.status(500).json({ error: 'Failed to create ticket' });
+    }
+});
+
+app.get('/api/tickets/my-tickets', requireAuth, async (req: any, res) => {
+    try {
+        const userId = req.session.user.id;
+        const tickets = await db.webTicket.findMany({
+            where: { userId },
+            include: { messages: { orderBy: { timestamp: 'asc' } } },
+            orderBy: { createdAt: 'desc' },
+        });
+        res.json(tickets);
+    } catch (e) {
+        logger.error('Failed to fetch tickets', e);
+        res.status(500).json({ error: 'Failed to fetch tickets' });
+    }
+});
+
+app.post('/api/tickets/:id/message', requireAuth, async (req: any, res) => {
+    try {
+        const userId = req.session.user.id;
+        const { id } = req.params;
+        const { content } = req.body;
+        if (!content?.trim()) return res.status(400).json({ error: 'Message content is required' });
+
+        const ticket = await db.webTicket.findUnique({ where: { id } });
+        if (!ticket) return res.status(404).json({ error: 'Ticket not found' });
+
+        const isAdmin = req.session.user._role === 'admin';
+        if (!isAdmin && ticket.userId !== userId) {
+            return res.status(403).json({ error: 'Not authorized' });
+        }
+        if (ticket.status === 'closed' && !isAdmin) {
+            return res.status(400).json({ error: 'Ticket is closed' });
+        }
+
+        const msg = await db.webTicketMessage.create({
+            data: { ticketId: id, senderId: userId, content: content.trim(), isAdmin }
+        });
+        res.json(msg);
+    } catch (e) {
+        logger.error('Failed to send ticket message', e);
+        res.status(500).json({ error: 'Failed to send message' });
+    }
+});
+
+// Admin: list all tickets
+app.get('/api/admin/tickets', requireAdmin, async (req: any, res) => {
+    try {
+        const { status } = req.query;
+        const tickets = await db.webTicket.findMany({
+            where: status ? { status: String(status) } : undefined,
+            include: { messages: { orderBy: { timestamp: 'asc' } } },
+            orderBy: { createdAt: 'desc' },
+        });
+        res.json(tickets);
+    } catch (e) {
+        logger.error('Failed to fetch admin tickets', e);
+        res.status(500).json({ error: 'Failed to fetch tickets' });
+    }
+});
+
+// Admin: close or reopen a ticket
+app.patch('/api/admin/tickets/:id/status', requireAdmin, async (req: any, res) => {
+    try {
+        const { id } = req.params;
+        const { status } = req.body;
+        if (!['open', 'closed'].includes(status)) return res.status(400).json({ error: 'Invalid status' });
+        const ticket = await db.webTicket.update({ where: { id }, data: { status } });
+        res.json(ticket);
+    } catch (e) {
+        logger.error('Failed to update ticket status', e);
+        res.status(500).json({ error: 'Failed to update ticket' });
+    }
+});
+
+// Admin: block or unblock a user from the ticket system
+app.patch('/api/admin/tickets/:userId/block', requireAdmin, async (req: any, res) => {
+    try {
+        const { userId } = req.params;
+        const user = await db.user.findFirst({ where: { discordId: userId } });
+        if (!user) return res.status(404).json({ error: 'User not found' });
+        const updated = await db.user.update({
+            where: { id: user.id },
+            data: { isTicketBlocked: !user.isTicketBlocked }
+        });
+        res.json({ isTicketBlocked: updated.isTicketBlocked });
+    } catch (e) {
+        logger.error('Failed to toggle ticket block', e);
+        res.status(500).json({ error: 'Failed to update user' });
     }
 });
 

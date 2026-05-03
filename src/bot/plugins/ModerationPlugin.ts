@@ -354,11 +354,15 @@ export class ModerationPlugin implements IPlugin {
                 case 'timeout': messageTemplate = settings.timeoutMessage || 'You were timed out in **{server}** for {duration}. Reason: {reason}'; break;
             }
 
-            const message = messageTemplate
+            let message = messageTemplate
                 .replace(/{server}/g, member.guild.name)
                 .replace(/{user}/g, member.user.tag)
                 .replace(/{reason}/g, reason)
                 .replace(/{duration}/g, duration || '');
+
+            if (action === 'ban' || action === 'kick') {
+                message += '\n\nYou can appeal this action by visiting: https://fujistud.io/appeal';
+            }
 
             await member.send({ content: message }).catch(() => {});
         } catch (e) {
