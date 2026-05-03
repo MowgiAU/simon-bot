@@ -86,6 +86,18 @@ export const SupportPage: React.FC = () => {
     if (selected) loadMessages(selected);
   }, [selected?.id]);
 
+  // Poll for new messages every 15 seconds on open tickets
+  useEffect(() => {
+    if (!selected || selected.status !== 'open') return;
+    const interval = setInterval(() => {
+      fetch(`${API}/api/web-tickets/${selected.id}/messages`, { credentials: 'include' })
+        .then(r => r.ok ? r.json() : null)
+        .then(data => { if (data) setMessages(data); })
+        .catch(() => {});
+    }, 15000);
+    return () => clearInterval(interval);
+  }, [selected?.id, selected?.status]);
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
