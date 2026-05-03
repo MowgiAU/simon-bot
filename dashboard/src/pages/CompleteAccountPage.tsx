@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Mail, Lock, CheckCircle, Eye, EyeOff, Shield, ArrowRight, ArrowLeft, Smartphone, Copy, Download, ShieldCheck } from 'lucide-react';
 import { colors, spacing, borderRadius } from '../theme/theme';
 import { useAuth } from '../components/AuthProvider';
@@ -63,6 +63,7 @@ const ALL_STEPS: StepDef[] = [
 // ─── Component ──────────────────────────────────────────────────────────────
 export const CompleteAccountPage: React.FC = () => {
     const navigate = useNavigate();
+    const location = useLocation();
     const { user, email, emailVerified, hasPassword, totpEnabled, refreshAccountStatus, loginMethod } = useAuth();
 
     // Determine which steps are needed
@@ -109,7 +110,9 @@ export const CompleteAccountPage: React.FC = () => {
     const finishSetup = () => {
         sessionStorage.setItem('fuji_setup_dismissed', '1');
         refreshAccountStatus();
-        navigate('/');
+        // Return to the page the user was on (e.g. /appeal), not always the home page.
+        const returnPath = location.pathname;
+        navigate(returnPath && returnPath !== '/complete-account' ? returnPath : '/');
     };
 
     // ─── Email step state ─────────────────────────────────────────────
