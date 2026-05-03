@@ -3928,7 +3928,7 @@ app.get('/api/guilds/:guildId/my-permissions', async (req, res) => {
         if (isAdmin) {
             return res.json({ 
                 canManagePlugins: true, 
-                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content', 'account-management', 'anti-piracy', 'leveling', 'fuji-radio', 'studio-guide', 'bot-identity', 'bot-messenger', 'booster-color', 'private-messages', 'auto-messages', 'auto-responder', 'server-boost', 'reports', 'articles', 'article-review', 'pause', 'voice-stats', 'spam-guard', 'track-announcer', 'profile-styles', 'academy', 'head-to-head', 'drum-kit', 'web-tickets']
+                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content', 'account-management', 'anti-piracy', 'leveling', 'fuji-radio', 'studio-guide', 'bot-identity', 'bot-messenger', 'booster-color', 'private-messages', 'auto-messages', 'auto-responder', 'server-boost', 'reports', 'articles', 'article-review', 'pause', 'voice-stats', 'spam-guard', 'track-announcer', 'profile-styles', 'academy', 'head-to-head', 'drum-kit']
             });
         }
 
@@ -17102,133 +17102,216 @@ app.post('/api/academy/complete/:lessonId', async (req: any, res) => {
     }
 });
 
-// ── Web Ticket / Ban Appeal System ──────────────────────────────────────────
+// ── Web Appeal / Support Ticket System ──────────────────────────────────────
+// These routes integrate web-originated tickets with the existing Discord ticket
+// system. Opening a web ticket creates a real Discord channel so mods can reply
+// via Discord exactly as they do with native tickets, and the replies appear in
+// the web UI (the messages endpoint already reads live from Discord for open tickets).
 
-app.post('/api/tickets/create', requireAuth, async (req: any, res) => {
+// POST /api/web-tickets/create — authenticated web user opens a ticket
+app.post('/api/web-tickets/create', requireAuth, async (req: any, res) => {
     try {
-        const userId = req.session.user.id;
+        const userId: string = req.session.user.id;
+        const displayName: string = req.session.user.global_name || req.session.user.username || userId;
         const { subject, message } = req.body;
         if (!subject?.trim() || !message?.trim()) {
             return res.status(400).json({ error: 'Subject and message are required' });
         }
 
+        // Ticket-block check
         const dbUser = await db.user.findFirst({ where: { discordId: userId } });
         if (dbUser?.isTicketBlocked) {
             return res.status(403).json({ error: 'Your access to the support system has been revoked.' });
         }
 
-        const ticket = await db.webTicket.create({
-            data: {
-                userId,
-                subject: subject.trim(),
-                messages: {
-                    create: {
-                        senderId: userId,
-                        content: message.trim(),
-                        isAdmin: false,
-                    }
-                }
-            },
-            include: { messages: true }
+        const guildId = process.env.GUILD_ID;
+        if (!guildId || !process.env.DISCORD_TOKEN) {
+            return res.status(503).json({ error: 'Ticket system not configured on this server.' });
+        }
+
+        // Look up ticket settings for the primary guild
+        const settings = await db.ticketSettings.findUnique({ where: { guildId } });
+
+        // Channel name: appeal-username (sanitised, max 100 chars)
+        const safeName = displayName.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '').slice(0, 20) || userId.slice(-6);
+        const channelName = `appeal-${safeName}`;
+
+        // Permission overwrites
+        const VIEW = '1024'; const SEND = '2048'; const ATTACH = '32768'; const HISTORY = '65536';
+        const memberAllow = String(Number(VIEW) + Number(SEND) + Number(ATTACH) + Number(HISTORY));
+        const permissionOverwrites: any[] = [
+            { id: guildId, type: 0, deny: VIEW },           // @everyone: deny view
+            { id: userId,  type: 1, allow: memberAllow },    // ticket owner: allow
+        ];
+        if (settings?.staffRoleIds?.length) {
+            for (const roleId of settings.staffRoleIds) {
+                permissionOverwrites.push({ id: roleId, type: 0, allow: memberAllow });
+            }
+        }
+
+        // Create Discord channel
+        const channelBody: any = {
+            name: channelName,
+            type: 0, // GUILD_TEXT
+            permission_overwrites: permissionOverwrites,
+        };
+        if (settings?.ticketCategoryId) channelBody.parent_id = settings.ticketCategoryId;
+
+        const channelRes = await axios.post(
+            `https://discord.com/api/v10/guilds/${guildId}/channels`,
+            channelBody,
+            { headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` } }
+        );
+        const channelId: string = channelRes.data.id;
+
+        // Ensure the Guild record exists in DB (required for Ticket FK)
+        await db.guild.upsert({
+            where: { id: guildId },
+            create: { id: guildId, name: channelRes.data.guild_id || 'Server' },
+            update: {},
         });
 
-        // Notify mods in Discord (optional, non-blocking)
-        const logChannelId = process.env.TICKET_LOG_CHANNEL_ID;
-        if (logChannelId && process.env.DISCORD_TOKEN) {
-            axios.post(`https://discord.com/api/v10/channels/${logChannelId}/messages`, {
+        // Create Ticket record
+        const ticket = await db.ticket.create({
+            data: {
+                channelId,
+                guildId,
+                ownerId: userId,
+                ownerName: displayName,
+                type: 'web',
+                subject: subject.trim(),
+                status: 'open',
+            }
+        });
+
+        // Save initial message to TicketMessage
+        await db.ticketMessage.create({
+            data: {
+                ticketId: ticket.id,
+                authorId: userId,
+                authorName: displayName,
+                content: message.trim(),
+            }
+        });
+
+        // Post embed to Discord channel
+        const staffPings = settings?.staffRoleIds?.map((r: string) => `<@&${r}>`).join(' ') ?? '';
+        await axios.post(
+            `https://discord.com/api/v10/channels/${channelId}/messages`,
+            {
+                content: staffPings ? `${staffPings} — new web appeal ticket` : undefined,
                 embeds: [{
-                    title: 'New Support Ticket',
-                    description: `**Subject:** ${subject.trim()}\n**From:** <@${userId}>\n**Ticket ID:** ${ticket.id}`,
+                    title: `Web Appeal: ${subject.trim()}`,
+                    description: `**From:** <@${userId}> (${displayName})\n\n${message.trim()}`,
                     color: 0x10B981,
+                    footer: { text: `Ticket ID: ${ticket.id} • reply here or via the dashboard` },
                     timestamp: new Date().toISOString(),
                 }]
-            }, {
-                headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` }
-            }).catch(() => {});
-        }
+            },
+            { headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` } }
+        );
 
         res.json(ticket);
-    } catch (e) {
-        logger.error('Failed to create ticket', e);
-        res.status(500).json({ error: 'Failed to create ticket' });
+    } catch (e: any) {
+        logger.error('Failed to create web ticket', e);
+        const msg = e?.response?.data?.message || 'Failed to create ticket';
+        res.status(500).json({ error: msg });
     }
 });
 
-app.get('/api/tickets/my-tickets', requireAuth, async (req: any, res) => {
+// GET /api/web-tickets/my-tickets — list the authenticated user's web tickets
+app.get('/api/web-tickets/my-tickets', requireAuth, async (req: any, res) => {
     try {
-        const userId = req.session.user.id;
-        const tickets = await db.webTicket.findMany({
-            where: { userId },
-            include: { messages: { orderBy: { timestamp: 'asc' } } },
+        const userId: string = req.session.user.id;
+        const tickets = await db.ticket.findMany({
+            where: { ownerId: userId, type: 'web', deletedAt: null },
             orderBy: { createdAt: 'desc' },
         });
         res.json(tickets);
     } catch (e) {
-        logger.error('Failed to fetch tickets', e);
+        logger.error('Failed to fetch web tickets', e);
         res.status(500).json({ error: 'Failed to fetch tickets' });
     }
 });
 
-app.post('/api/tickets/:id/message', requireAuth, async (req: any, res) => {
+// GET /api/web-tickets/:id/messages — ticket owner views messages (live from Discord or DB)
+app.get('/api/web-tickets/:id/messages', requireAuth, async (req: any, res) => {
     try {
-        const userId = req.session.user.id;
-        const { id } = req.params;
-        const { content } = req.body;
-        if (!content?.trim()) return res.status(400).json({ error: 'Message content is required' });
-
-        const ticket = await db.webTicket.findUnique({ where: { id } });
+        const userId: string = req.session.user.id;
+        const ticket = await db.ticket.findUnique({ where: { id: req.params.id } });
         if (!ticket) return res.status(404).json({ error: 'Ticket not found' });
+        if (ticket.ownerId !== userId) return res.status(403).json({ error: 'Not authorized' });
 
-        const isAdmin = req.session.user._role === 'admin';
-        if (!isAdmin && ticket.userId !== userId) {
-            return res.status(403).json({ error: 'Not authorized' });
+        if (ticket.status === 'open') {
+            // Live messages from Discord channel
+            const discordRes = await axios.get(
+                `https://discord.com/api/v10/channels/${ticket.channelId}/messages?limit=100`,
+                { headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` } }
+            );
+            const msgs = (discordRes.data as any[])
+                .reverse()
+                .filter((m: any) => m.content?.trim())
+                .map((m: any) => ({
+                    id: m.id,
+                    content: m.content,
+                    timestamp: m.timestamp,
+                    author: { id: m.author.id, username: m.author.username, avatar: m.author.avatar, bot: m.author.bot },
+                }));
+            return res.json(msgs);
+        } else {
+            // Closed: return archived TicketMessage records
+            const msgs = await db.ticketMessage.findMany({
+                where: { ticketId: ticket.id },
+                orderBy: { createdAt: 'asc' },
+            });
+            return res.json(msgs.map(m => ({
+                id: m.id,
+                content: m.content,
+                timestamp: m.createdAt,
+                author: { id: m.authorId, username: m.authorName, avatar: null, bot: false },
+            })));
         }
-        if (ticket.status === 'closed' && !isAdmin) {
-            return res.status(400).json({ error: 'Ticket is closed' });
-        }
-
-        const msg = await db.webTicketMessage.create({
-            data: { ticketId: id, senderId: userId, content: content.trim(), isAdmin }
-        });
-        res.json(msg);
     } catch (e) {
-        logger.error('Failed to send ticket message', e);
-        res.status(500).json({ error: 'Failed to send message' });
+        logger.error('Failed to fetch web ticket messages', e);
+        res.status(500).json({ error: 'Failed to fetch messages' });
     }
 });
 
-// Admin: list all tickets
-app.get('/api/admin/tickets', requireAdmin, async (req: any, res) => {
+// POST /api/web-tickets/:id/reply — ticket owner posts a reply (goes to Discord)
+app.post('/api/web-tickets/:id/reply', requireAuth, async (req: any, res) => {
     try {
-        const { status } = req.query;
-        const tickets = await db.webTicket.findMany({
-            where: status ? { status: String(status) } : undefined,
-            include: { messages: { orderBy: { timestamp: 'asc' } } },
-            orderBy: { createdAt: 'desc' },
+        const userId: string = req.session.user.id;
+        const displayName: string = req.session.user.global_name || req.session.user.username || userId;
+        const { content } = req.body;
+        if (!content?.trim()) return res.status(400).json({ error: 'Message is required' });
+
+        const ticket = await db.ticket.findUnique({ where: { id: req.params.id } });
+        if (!ticket) return res.status(404).json({ error: 'Ticket not found' });
+        if (ticket.ownerId !== userId) return res.status(403).json({ error: 'Not authorized' });
+        if (ticket.status === 'closed') return res.status(400).json({ error: 'Ticket is closed' });
+
+        // Post to Discord channel (mirrors dashboard reply format)
+        await axios.post(
+            `https://discord.com/api/v10/channels/${ticket.channelId}/messages`,
+            { content: `**${displayName} (web):**\n${content.trim()}` },
+            { headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` } }
+        );
+
+        // Save to DB so it survives channel deletion on close
+        const saved = await db.ticketMessage.create({
+            data: { ticketId: ticket.id, authorId: userId, authorName: displayName, content: content.trim() }
         });
-        res.json(tickets);
+
+        res.json({ id: saved.id, content: saved.content, timestamp: saved.createdAt,
+            author: { id: userId, username: displayName, avatar: null, bot: false } });
     } catch (e) {
-        logger.error('Failed to fetch admin tickets', e);
-        res.status(500).json({ error: 'Failed to fetch tickets' });
+        logger.error('Failed to send web ticket reply', e);
+        res.status(500).json({ error: 'Failed to send reply' });
     }
 });
 
-// Admin: close or reopen a ticket
-app.patch('/api/admin/tickets/:id/status', requireAdmin, async (req: any, res) => {
-    try {
-        const { id } = req.params;
-        const { status } = req.body;
-        if (!['open', 'closed'].includes(status)) return res.status(400).json({ error: 'Invalid status' });
-        const ticket = await db.webTicket.update({ where: { id }, data: { status } });
-        res.json(ticket);
-    } catch (e) {
-        logger.error('Failed to update ticket status', e);
-        res.status(500).json({ error: 'Failed to update ticket' });
-    }
-});
-
-// Admin: block or unblock a user from the ticket system
-app.patch('/api/admin/tickets/:userId/block', requireAdmin, async (req: any, res) => {
+// Admin: toggle ticket-system block for a Discord user
+app.patch('/api/web-tickets/block/:userId', requireAdmin, async (req: any, res) => {
     try {
         const { userId } = req.params;
         const user = await db.user.findFirst({ where: { discordId: userId } });

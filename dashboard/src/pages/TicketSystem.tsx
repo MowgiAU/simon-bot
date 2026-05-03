@@ -21,6 +21,8 @@ interface TicketData {
     ownerName?: string;
     status: 'open' | 'closed';
     priority: 'low' | 'medium' | 'high';
+    type?: 'discord' | 'web';
+    subject?: string | null;
     createdAt: string;
     closedAt?: string;
 }
@@ -382,8 +384,20 @@ export const TicketSystemPage: React.FC<Props> = ({ guildId, searchParam }) => {
                                             {formatDate(ticket.createdAt).split(',')[0]}
                                         </span>
                                     </div>
+                                    {ticket.subject && (
+                                        <div style={{ fontSize: '12px', color: colors.textSecondary, marginBottom: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                            {ticket.subject}
+                                        </div>
+                                    )}
                                     <div style={{ display: 'flex', gap: '8px', fontSize: '12px', alignItems: 'center' }}>
-                                        <span style={{ 
+                                        {ticket.type === 'web' && (
+                                            <span style={{
+                                                padding: '2px 6px', borderRadius: '12px',
+                                                backgroundColor: 'rgba(88,101,242,0.2)', color: '#7289da',
+                                                fontWeight: 700, fontSize: '10px', textTransform: 'uppercase',
+                                            }}>Web</span>
+                                        )}
+                                        <span style={{
                                             padding: '2px 8px', borderRadius: '12px',
                                             backgroundColor: getPriorityColor(ticket.priority) + '20',
                                             color: getPriorityColor(ticket.priority),
@@ -415,8 +429,16 @@ export const TicketSystemPage: React.FC<Props> = ({ guildId, searchParam }) => {
                                             <button onClick={() => setSelectedTicket(null)} style={{ background: 'none', border: 'none', color: colors.textPrimary }}><ArrowLeft size={24} /></button>
                                         )}
                                         <div>
-                                            <h3 style={{ margin: 0, fontSize: '18px', color: colors.textPrimary }}>{selectedTicket.ownerName || 'User'}</h3>
-                                            <div style={{ fontSize: '12px', color: colors.textSecondary, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                <h3 style={{ margin: 0, fontSize: '18px', color: colors.textPrimary }}>{selectedTicket.ownerName || 'User'}</h3>
+                                                {selectedTicket.type === 'web' && (
+                                                    <span style={{ padding: '2px 8px', borderRadius: '10px', backgroundColor: 'rgba(88,101,242,0.2)', color: '#7289da', fontWeight: 700, fontSize: '11px' }}>Web Appeal</span>
+                                                )}
+                                            </div>
+                                            {selectedTicket.subject && (
+                                                <div style={{ fontSize: '13px', color: colors.textPrimary, fontWeight: 500, marginTop: '2px' }}>{selectedTicket.subject}</div>
+                                            )}
+                                            <div style={{ fontSize: '12px', color: colors.textSecondary, display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
                                                 <User size={12} /> ID: {selectedTicket.ownerId}
                                             </div>
                                         </div>

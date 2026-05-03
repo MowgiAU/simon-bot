@@ -5,21 +5,21 @@ import { colors, spacing, borderRadius } from '../theme/theme';
 
 const API = import.meta.env.VITE_API_URL ?? '';
 
-interface TicketMessage {
+interface Message {
   id: string;
-  senderId: string;
   content: string;
-  isAdmin: boolean;
   timestamp: string;
+  author: { id: string; username: string; avatar: string | null; bot?: boolean };
 }
 
 interface Ticket {
   id: string;
-  userId: string;
+  channelId: string;
+  ownerId: string;
+  ownerName?: string | null;
   status: 'open' | 'closed';
-  subject: string;
+  subject?: string | null;
   createdAt: string;
-  messages: TicketMessage[];
 }
 
 const discordAvatarUrl = (id: string, hash: string | null | undefined) => {
@@ -42,7 +42,7 @@ const SignInGate: React.FC = () => (
           display: 'inline-flex', alignItems: 'center', gap: spacing.md,
           padding: `${spacing.md} ${spacing.xxl}`, background: '#5865F2',
           color: '#fff', borderRadius: borderRadius.md, textDecoration: 'none',
-          fontWeight: 700, fontSize: '1rem', transition: 'opacity 0.15s',
+          fontWeight: 700, fontSize: '1rem',
         }}
         onMouseOver={e => (e.currentTarget.style.opacity = '0.85')}
         onMouseOut={e => (e.currentTarget.style.opacity = '1')}
@@ -63,19 +63,19 @@ export const SupportPage: React.FC = () => {
   const { user, loading } = useAuth();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [selected, setSelected] = useState<Ticket | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [blocked, setBlocked] = useState(false);
   const [showNewForm, setShowNewForm] = useState(false);
   const [newSubject, setNewSubject] = useState('');
   const [newMessage, setNewMessage] = useState('');
   const [replyContent, setReplyContent] = useState('');
   const [fetchLoading, setFetchLoading] = useState(true);
+  const [msgLoading, setMsgLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    document.title = 'Fuji Studio | Support';
-  }, []);
+  useEffect(() => { document.title = 'Fuji Studio | Support'; }, []);
 
   useEffect(() => {
     if (user) loadTickets();
@@ -83,104 +83,84 @@ export const SupportPage: React.FC = () => {
   }, [user, loading]);
 
   useEffect(() => {
+    if (selected) loadMessages(selected);
+  }, [selected?.id]);
+
+  useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [selected?.messages]);
+  }, [messages]);
 
   const loadTickets = async () => {
     setFetchLoading(true);
     try {
-      const res = await fetch(`${API}/api/tickets/my-tickets`, { credentials: 'include' });
+      const res = await fetch(`${API}/api/web-tickets/my-tickets`, { credentials: 'include' });
       if (res.status === 403) { setBlocked(true); return; }
       if (res.ok) setTickets(await res.json());
-    } catch {
-      setError('Failed to load tickets.');
-    } finally {
-      setFetchLoading(false);
-    }
+    } catch { setError('Failed to load tickets.'); }
+    finally { setFetchLoading(false); }
+  };
+
+  const loadMessages = async (ticket: Ticket) => {
+    setMsgLoading(true);
+    setMessages([]);
+    try {
+      const res = await fetch(`${API}/api/web-tickets/${ticket.id}/messages`, { credentials: 'include' });
+      if (res.ok) setMessages(await res.json());
+    } catch { /* non-fatal */ }
+    finally { setMsgLoading(false); }
   };
 
   const handleCreate = async () => {
     if (!newSubject.trim() || !newMessage.trim()) return;
-    setSubmitting(true);
-    setError('');
+    setSubmitting(true); setError('');
     try {
-      const res = await fetch(`${API}/api/tickets/create`, {
-        method: 'POST',
-        credentials: 'include',
+      const res = await fetch(`${API}/api/web-tickets/create`, {
+        method: 'POST', credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ subject: newSubject, message: newMessage }),
       });
       if (res.status === 403) { setBlocked(true); return; }
-      if (!res.ok) { setError('Failed to open ticket.'); return; }
-      const ticket = await res.json();
-      setTickets(prev => [ticket, ...prev]);
-      setSelected(ticket);
+      const data = await res.json();
+      if (!res.ok) { setError(data.error || 'Failed to open ticket.'); return; }
+      setTickets(prev => [data, ...prev]);
+      setSelected(data);
       setShowNewForm(false);
-      setNewSubject('');
-      setNewMessage('');
-    } catch {
-      setError('Failed to open ticket.');
-    } finally {
-      setSubmitting(false);
-    }
+      setNewSubject(''); setNewMessage('');
+    } catch { setError('Failed to open ticket.'); }
+    finally { setSubmitting(false); }
   };
 
   const handleReply = async () => {
     if (!replyContent.trim() || !selected) return;
-    setSubmitting(true);
-    setError('');
+    setSubmitting(true); setError('');
     try {
-      const res = await fetch(`${API}/api/tickets/${selected.id}/message`, {
-        method: 'POST',
-        credentials: 'include',
+      const res = await fetch(`${API}/api/web-tickets/${selected.id}/reply`, {
+        method: 'POST', credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ content: replyContent }),
       });
       if (!res.ok) { setError('Failed to send reply.'); return; }
       const msg = await res.json();
-      const updated = { ...selected, messages: [...selected.messages, msg] };
-      setSelected(updated);
-      setTickets(prev => prev.map(t => t.id === updated.id ? updated : t));
+      setMessages(prev => [...prev, msg]);
       setReplyContent('');
-    } catch {
-      setError('Failed to send reply.');
-    } finally {
-      setSubmitting(false);
-    }
+    } catch { setError('Failed to send reply.'); }
+    finally { setSubmitting(false); }
   };
 
-  const statusColor = (status: string) =>
-    status === 'open' ? colors.success : colors.textTertiary;
+  const statusColor = (s: string) => s === 'open' ? colors.success : colors.textTertiary;
 
-  if (loading) {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: colors.background, color: colors.textSecondary }}>
-        Loading...
-      </div>
-    );
-  }
-
+  if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: colors.background, color: colors.textSecondary }}>Loading...</div>;
   if (!user) return <SignInGate />;
-
-  if (blocked) {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: colors.background }}>
-        <div style={{ textAlign: 'center', padding: spacing.xxl, maxWidth: 400 }}>
-          <Lock size={48} color={colors.error} style={{ marginBottom: spacing.lg }} />
-          <h2 style={{ color: colors.textPrimary, margin: `0 0 ${spacing.md}` }}>Access Revoked</h2>
-          <p style={{ color: colors.textSecondary, margin: 0 }}>Your access to the support system has been revoked.</p>
-        </div>
+  if (blocked) return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: colors.background }}>
+      <div style={{ textAlign: 'center', padding: spacing.xxl, maxWidth: 400 }}>
+        <Lock size={48} color={colors.error} style={{ marginBottom: spacing.lg }} />
+        <h2 style={{ color: colors.textPrimary, margin: `0 0 ${spacing.md}` }}>Access Revoked</h2>
+        <p style={{ color: colors.textSecondary, margin: 0 }}>Your access to the support system has been revoked.</p>
       </div>
-    );
-  }
-
-  if (fetchLoading) {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: colors.background, color: colors.textSecondary }}>
-        Loading tickets...
-      </div>
-    );
-  }
+    </div>
+  );
+  if (fetchLoading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: colors.background, color: colors.textSecondary }}>Loading tickets...</div>;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', background: colors.background, color: colors.textPrimary }}>
@@ -190,17 +170,11 @@ export const SupportPage: React.FC = () => {
           <MessageSquare size={28} color={colors.primary} />
           <div>
             <h1 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700 }}>Support / Appeal</h1>
-            <p style={{ margin: '2px 0 0', color: colors.textSecondary, fontSize: '0.85rem' }}>
-              Appeal a moderation action or get help from our team.
-            </p>
+            <p style={{ margin: '2px 0 0', color: colors.textSecondary, fontSize: '0.85rem' }}>Appeal a moderation action or get help from our team.</p>
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm }}>
-          <img
-            src={discordAvatarUrl(user.id, user.avatar)}
-            alt=""
-            style={{ width: 32, height: 32, borderRadius: '50%' }}
-          />
+          <img src={discordAvatarUrl(user.id, user.avatar)} alt="" style={{ width: 32, height: 32, borderRadius: '50%' }} />
           <span style={{ fontSize: '0.85rem', color: colors.textSecondary }}>{(user as any).global_name || user.username}</span>
         </div>
       </div>
@@ -209,31 +183,20 @@ export const SupportPage: React.FC = () => {
         {/* Ticket list */}
         <div style={{ width: 300, minWidth: 300, borderRight: `1px solid rgba(255,255,255,0.06)`, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <div style={{ padding: spacing.md, borderBottom: `1px solid rgba(255,255,255,0.06)` }}>
-            <button
-              onClick={() => { setShowNewForm(true); setSelected(null); }}
-              style={{ width: '100%', padding: `${spacing.sm} ${spacing.md}`, background: colors.primary, color: '#fff', border: 'none', borderRadius: borderRadius.md, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, fontWeight: 600 }}
-            >
-              <Plus size={16} />
-              New Ticket
+            <button onClick={() => { setShowNewForm(true); setSelected(null); }}
+              style={{ width: '100%', padding: `${spacing.sm} ${spacing.md}`, background: colors.primary, color: '#fff', border: 'none', borderRadius: borderRadius.md, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, fontWeight: 600 }}>
+              <Plus size={16} /> New Ticket
             </button>
           </div>
-
           <div style={{ flex: 1, overflowY: 'auto' }}>
             {tickets.length === 0 && !showNewForm && (
               <p style={{ color: colors.textSecondary, padding: spacing.lg, fontSize: '0.85rem', textAlign: 'center' }}>No tickets yet.</p>
             )}
             {tickets.map(t => (
-              <button
-                key={t.id}
-                onClick={() => { setSelected(t); setShowNewForm(false); }}
-                style={{
-                  width: '100%', textAlign: 'left', background: selected?.id === t.id ? 'rgba(16,185,129,0.08)' : 'transparent',
-                  border: 'none', borderBottom: `1px solid rgba(255,255,255,0.04)`, padding: `${spacing.md} ${spacing.lg}`,
-                  cursor: 'pointer', color: colors.textPrimary,
-                }}
-              >
+              <button key={t.id} onClick={() => { setSelected(t); setShowNewForm(false); }}
+                style={{ width: '100%', textAlign: 'left', background: selected?.id === t.id ? 'rgba(16,185,129,0.08)' : 'transparent', border: 'none', borderBottom: `1px solid rgba(255,255,255,0.04)`, padding: `${spacing.md} ${spacing.lg}`, cursor: 'pointer', color: colors.textPrimary }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-                  <span style={{ fontWeight: 600, fontSize: '0.9rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 180 }}>{t.subject}</span>
+                  <span style={{ fontWeight: 600, fontSize: '0.9rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 180 }}>{t.subject || t.ownerName || 'Ticket'}</span>
                   <span style={{ fontSize: '0.7rem', color: statusColor(t.status), textTransform: 'uppercase', fontWeight: 700, flexShrink: 0, marginLeft: 4 }}>{t.status}</span>
                 </div>
                 <div style={{ fontSize: '0.75rem', color: colors.textTertiary }}>{new Date(t.createdAt).toLocaleDateString()}</div>
@@ -252,45 +215,24 @@ export const SupportPage: React.FC = () => {
                 </button>
                 <h2 style={{ margin: 0, fontSize: '1.1rem' }}>Open New Ticket</h2>
               </div>
-
               <div style={{ backgroundColor: colors.surface, padding: spacing.md, borderRadius: borderRadius.md, marginBottom: spacing.lg, borderLeft: `4px solid ${colors.primary}` }}>
                 <p style={{ margin: 0, color: colors.textPrimary, fontSize: '0.9rem' }}>
-                  Use this form to appeal a moderation action or request support. Our team will review your ticket and respond as soon as possible.
+                  Use this form to appeal a moderation action or request support. A private channel will be created in our Discord server where our team will review and respond.
                 </p>
               </div>
-
               <div style={{ marginBottom: spacing.lg }}>
                 <label style={{ display: 'block', color: colors.textSecondary, fontSize: '0.85rem', marginBottom: spacing.sm }}>Subject</label>
-                <input
-                  value={newSubject}
-                  onChange={e => setNewSubject(e.target.value)}
-                  placeholder="e.g. Ban Appeal — [your username]"
-                  style={{ width: '100%', background: colors.surface, border: `1px solid rgba(255,255,255,0.1)`, borderRadius: borderRadius.md, padding: `${spacing.sm} ${spacing.md}`, color: colors.textPrimary, fontSize: '0.9rem', boxSizing: 'border-box' }}
-                />
+                <input value={newSubject} onChange={e => setNewSubject(e.target.value)} placeholder="e.g. Ban Appeal — [your username]"
+                  style={{ width: '100%', background: colors.surface, border: `1px solid rgba(255,255,255,0.1)`, borderRadius: borderRadius.md, padding: `${spacing.sm} ${spacing.md}`, color: colors.textPrimary, fontSize: '0.9rem', boxSizing: 'border-box' }} />
               </div>
-
               <div style={{ marginBottom: spacing.lg }}>
                 <label style={{ display: 'block', color: colors.textSecondary, fontSize: '0.85rem', marginBottom: spacing.sm }}>Message</label>
-                <textarea
-                  value={newMessage}
-                  onChange={e => setNewMessage(e.target.value)}
-                  placeholder="Describe your situation in detail..."
-                  rows={6}
-                  style={{ width: '100%', background: colors.surface, border: `1px solid rgba(255,255,255,0.1)`, borderRadius: borderRadius.md, padding: `${spacing.sm} ${spacing.md}`, color: colors.textPrimary, fontSize: '0.9rem', resize: 'vertical', boxSizing: 'border-box' }}
-                />
+                <textarea value={newMessage} onChange={e => setNewMessage(e.target.value)} placeholder="Describe your situation in detail..." rows={6}
+                  style={{ width: '100%', background: colors.surface, border: `1px solid rgba(255,255,255,0.1)`, borderRadius: borderRadius.md, padding: `${spacing.sm} ${spacing.md}`, color: colors.textPrimary, fontSize: '0.9rem', resize: 'vertical', boxSizing: 'border-box' }} />
               </div>
-
-              {error && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm, color: colors.error, marginBottom: spacing.md, fontSize: '0.85rem' }}>
-                  <AlertCircle size={14} /> {error}
-                </div>
-              )}
-
-              <button
-                onClick={handleCreate}
-                disabled={submitting || !newSubject.trim() || !newMessage.trim()}
-                style={{ padding: `${spacing.sm} ${spacing.xl}`, background: colors.primary, color: '#fff', border: 'none', borderRadius: borderRadius.md, cursor: submitting ? 'wait' : 'pointer', fontWeight: 600, opacity: submitting ? 0.7 : 1 }}
-              >
+              {error && <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm, color: colors.error, marginBottom: spacing.md, fontSize: '0.85rem' }}><AlertCircle size={14} /> {error}</div>}
+              <button onClick={handleCreate} disabled={submitting || !newSubject.trim() || !newMessage.trim()}
+                style={{ padding: `${spacing.sm} ${spacing.xl}`, background: colors.primary, color: '#fff', border: 'none', borderRadius: borderRadius.md, cursor: submitting ? 'wait' : 'pointer', fontWeight: 600, opacity: submitting ? 0.7 : 1 }}>
                 {submitting ? 'Submitting…' : 'Submit Ticket'}
               </button>
             </div>
@@ -298,31 +240,28 @@ export const SupportPage: React.FC = () => {
             <>
               <div style={{ padding: `${spacing.md} ${spacing.xxl}`, borderBottom: `1px solid rgba(255,255,255,0.06)`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div>
-                  <h2 style={{ margin: 0, fontSize: '1rem', fontWeight: 700 }}>{selected.subject}</h2>
+                  <h2 style={{ margin: 0, fontSize: '1rem', fontWeight: 700 }}>{selected.subject || 'Ticket'}</h2>
                   <span style={{ fontSize: '0.75rem', color: statusColor(selected.status), textTransform: 'uppercase', fontWeight: 700 }}>{selected.status}</span>
                 </div>
                 <span style={{ color: colors.textTertiary, fontSize: '0.8rem' }}>#{selected.id.slice(-8)}</span>
               </div>
 
               <div style={{ flex: 1, overflowY: 'auto', padding: spacing.xxl, display: 'flex', flexDirection: 'column', gap: spacing.lg }}>
-                {selected.messages.map(msg => {
-                  const isMe = msg.senderId === user.id;
-                  const senderAvatar = isMe ? discordAvatarUrl(user.id, user.avatar) : discordAvatarUrl(msg.senderId, null);
+                {msgLoading && <p style={{ color: colors.textSecondary, fontSize: '0.85rem', textAlign: 'center' }}>Loading messages…</p>}
+                {messages.map(msg => {
+                  const isMe = msg.author.id === user.id;
+                  const avatarSrc = msg.author.avatar
+                    ? `https://cdn.discordapp.com/avatars/${msg.author.id}/${msg.author.avatar}.png?size=64`
+                    : discordAvatarUrl(msg.author.id, null);
                   return (
                     <div key={msg.id} style={{ display: 'flex', gap: spacing.md, flexDirection: isMe ? 'row-reverse' : 'row', alignItems: 'flex-start' }}>
-                      <img src={senderAvatar} alt="" style={{ width: 36, height: 36, borderRadius: '50%', flexShrink: 0 }} />
+                      <img src={avatarSrc} alt="" style={{ width: 36, height: 36, borderRadius: '50%', flexShrink: 0 }} />
                       <div style={{ maxWidth: '70%' }}>
                         <div style={{ marginBottom: 4, fontSize: '0.75rem', color: colors.textTertiary, textAlign: isMe ? 'right' : 'left' }}>
-                          {msg.isAdmin ? 'Fuji Studio Staff' : (isMe ? ((user as any).global_name || user.username) : 'User')}
-                          {' · '}
-                          {new Date(msg.timestamp).toLocaleString()}
+                          {isMe ? ((user as any).global_name || user.username) : (msg.author.bot ? 'Fuji Studio Staff' : msg.author.username)}
+                          {' · '}{new Date(msg.timestamp).toLocaleString()}
                         </div>
-                        <div style={{
-                          background: msg.isAdmin ? 'rgba(16,185,129,0.12)' : isMe ? 'rgba(255,255,255,0.06)' : colors.surface,
-                          padding: `${spacing.sm} ${spacing.md}`, borderRadius: borderRadius.lg,
-                          color: colors.textPrimary, fontSize: '0.9rem', lineHeight: 1.5,
-                          whiteSpace: 'pre-wrap', wordBreak: 'break-word',
-                        }}>
+                        <div style={{ background: isMe ? 'rgba(255,255,255,0.06)' : msg.author.bot ? 'rgba(16,185,129,0.12)' : colors.surface, padding: `${spacing.sm} ${spacing.md}`, borderRadius: borderRadius.lg, color: colors.textPrimary, fontSize: '0.9rem', lineHeight: 1.5, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
                           {msg.content}
                         </div>
                       </div>
@@ -334,19 +273,12 @@ export const SupportPage: React.FC = () => {
 
               {selected.status === 'open' ? (
                 <div style={{ padding: spacing.lg, borderTop: `1px solid rgba(255,255,255,0.06)`, display: 'flex', gap: spacing.md, alignItems: 'flex-end' }}>
-                  <textarea
-                    value={replyContent}
-                    onChange={e => setReplyContent(e.target.value)}
+                  <textarea value={replyContent} onChange={e => setReplyContent(e.target.value)}
                     onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleReply(); } }}
-                    placeholder="Write a reply… (Enter to send, Shift+Enter for new line)"
-                    rows={2}
-                    style={{ flex: 1, background: colors.surface, border: `1px solid rgba(255,255,255,0.1)`, borderRadius: borderRadius.md, padding: `${spacing.sm} ${spacing.md}`, color: colors.textPrimary, fontSize: '0.9rem', resize: 'none' }}
-                  />
-                  <button
-                    onClick={handleReply}
-                    disabled={submitting || !replyContent.trim()}
-                    style={{ padding: spacing.md, background: colors.primary, color: '#fff', border: 'none', borderRadius: borderRadius.md, cursor: 'pointer', display: 'flex', alignItems: 'center', opacity: submitting || !replyContent.trim() ? 0.5 : 1 }}
-                  >
+                    placeholder="Write a reply… (Enter to send, Shift+Enter for new line)" rows={2}
+                    style={{ flex: 1, background: colors.surface, border: `1px solid rgba(255,255,255,0.1)`, borderRadius: borderRadius.md, padding: `${spacing.sm} ${spacing.md}`, color: colors.textPrimary, fontSize: '0.9rem', resize: 'none' }} />
+                  <button onClick={handleReply} disabled={submitting || !replyContent.trim()}
+                    style={{ padding: spacing.md, background: colors.primary, color: '#fff', border: 'none', borderRadius: borderRadius.md, cursor: 'pointer', display: 'flex', alignItems: 'center', opacity: submitting || !replyContent.trim() ? 0.5 : 1 }}>
                     <Send size={18} />
                   </button>
                 </div>
@@ -361,7 +293,7 @@ export const SupportPage: React.FC = () => {
               <MessageSquare size={48} color={colors.textTertiary} />
               <div style={{ textAlign: 'center' }}>
                 <p style={{ margin: '0 0 8px', fontWeight: 600, color: colors.textPrimary }}>No ticket selected</p>
-                <p style={{ margin: 0, fontSize: '0.85rem' }}>Select a ticket on the left or open a new one.</p>
+                <p style={{ margin: 0, fontSize: '0.85rem' }}>Select a ticket or open a new one.</p>
               </div>
             </div>
           )}

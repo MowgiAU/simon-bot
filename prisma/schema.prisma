@@ -732,9 +732,12 @@ model Ticket {
   channelId String    @unique
   guildId   String
   ownerId   String
-  ownerName String? // Added to track the name of the person who opened the ticket
+  ownerName String?
   status    String    @default("open")
   priority  String    @default("low") // low, medium, high
+  type      String    @default("discord") // "discord" | "web"
+  subject   String?   // Subject line for web-originated tickets
+
   createdAt DateTime  @default(now())
   closedAt  DateTime?
 
@@ -744,6 +747,7 @@ model Ticket {
   guild    Guild           @relation(fields: [guildId], references: [id], onDelete: Cascade)
   messages TicketMessage[]
 
+  @@index([ownerId])
   @@map("tickets")
 }
 

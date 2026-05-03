@@ -43,7 +43,6 @@ import {
   GraduationCap,
   Drum,
   Database,
-  LifeBuoy,
 } from 'lucide-react';
 import { AnimatedWrapper } from '../components/AnimatedWrapper';
 import logoUrl from '../assets/logo.svg'; 
@@ -236,18 +235,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             </button>
           )}
 
-          {permissions.accessiblePlugins.includes('web-tickets') && (
-            <button
-                className={`nav-item ${activeSection === 'web-tickets' ? 'active' : ''}`}
-                onClick={() => onNavigate('web-tickets')}
-                title={collapsed ? "Support Tickets" : ""}
-            >
-                <span className="nav-icon"><AnimatedWrapper icon={LifeBuoy} size={20} /></span>
-                <span className="nav-label">Support Tickets</span>
-            </button>
-          )}
-
-          {permissions.accessiblePlugins.includes('fuji-radio') && (
+{permissions.accessiblePlugins.includes('fuji-radio') && (
             <button
                 className={`nav-item ${activeSection === 'fuji-radio' ? 'active' : ''}`}
                 onClick={() => onNavigate('fuji-radio')}
