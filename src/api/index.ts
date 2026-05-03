@@ -17124,6 +17124,14 @@ app.post('/api/web-tickets/create', requireAuth, async (req: any, res) => {
             return res.status(403).json({ error: 'Your access to the support system has been revoked.' });
         }
 
+        // Spam guard: max 1 open ticket at a time
+        const openCount = await db.ticket.count({
+            where: { ownerId: userId, type: 'web', status: 'open', deletedAt: null }
+        });
+        if (openCount >= 1) {
+            return res.status(429).json({ error: 'You already have an open ticket. Please wait for it to be resolved before opening a new one.' });
+        }
+
         const guildId = process.env.GUILD_ID;
         if (!guildId || !process.env.DISCORD_TOKEN) {
             return res.status(503).json({ error: 'Ticket system not configured on this server.' });
