@@ -17124,11 +17124,12 @@ app.post('/api/web-tickets/create', requireAuth, async (req: any, res) => {
             return res.status(403).json({ error: 'Your access to the support system has been revoked.' });
         }
 
-        // Spam guard: max 1 open ticket at a time
-        const openCount = await db.ticket.count({
-            where: { ownerId: userId, type: 'web', status: 'open', deletedAt: null }
+        // Spam guard: max 1 open ticket at a time (any type)
+        const existingOpenTicket = await db.ticket.findFirst({
+            where: { ownerId: userId, status: 'open', deletedAt: null },
+            select: { id: true },
         });
-        if (openCount >= 1) {
+        if (existingOpenTicket) {
             return res.status(429).json({ error: 'You already have an open ticket. Please wait for it to be resolved before opening a new one.' });
         }
 
