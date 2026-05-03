@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { MessageSquare, Plus, ChevronLeft, Send, Lock, AlertCircle } from 'lucide-react';
 import { useAuth } from '../components/AuthProvider';
-import { colors, spacing, borderRadius, shadows } from '../theme/theme';
+import { colors, spacing, borderRadius } from '../theme/theme';
 
 const API = import.meta.env.VITE_API_URL ?? '';
 
@@ -23,9 +22,45 @@ interface Ticket {
   messages: TicketMessage[];
 }
 
+const discordAvatarUrl = (id: string, hash: string | null | undefined) => {
+  if (hash) return `https://cdn.discordapp.com/avatars/${id}/${hash}.png?size=64`;
+  const idx = Number(BigInt(id) % 6n);
+  return `https://cdn.discordapp.com/embed/avatars/${idx}.png`;
+};
+
+const SignInGate: React.FC = () => (
+  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: colors.background, padding: spacing.xxl }}>
+    <div style={{ maxWidth: 420, width: '100%', textAlign: 'center' }}>
+      <MessageSquare size={52} color={colors.primary} style={{ marginBottom: spacing.lg }} />
+      <h1 style={{ color: colors.textPrimary, margin: `0 0 ${spacing.md}`, fontSize: '1.5rem' }}>Support & Ban Appeals</h1>
+      <p style={{ color: colors.textSecondary, marginBottom: spacing.xxl, lineHeight: 1.6 }}>
+        Sign in with your Discord account to open a support ticket or appeal a moderation action. No account creation required.
+      </p>
+      <a
+        href={`${API}/api/auth/appeal/login`}
+        style={{
+          display: 'inline-flex', alignItems: 'center', gap: spacing.md,
+          padding: `${spacing.md} ${spacing.xxl}`, background: '#5865F2',
+          color: '#fff', borderRadius: borderRadius.md, textDecoration: 'none',
+          fontWeight: 700, fontSize: '1rem', transition: 'opacity 0.15s',
+        }}
+        onMouseOver={e => (e.currentTarget.style.opacity = '0.85')}
+        onMouseOut={e => (e.currentTarget.style.opacity = '1')}
+      >
+        <svg width="20" height="20" viewBox="0 0 127.14 96.36" fill="white" xmlns="http://www.w3.org/2000/svg">
+          <path d="M107.7,8.07A105.15,105.15,0,0,0,81.47,0a72.06,72.06,0,0,0-3.36,6.83A97.68,97.68,0,0,0,49,6.83,72.37,72.37,0,0,0,45.64,0,105.89,105.89,0,0,0,19.39,8.09C2.79,32.65-1.71,56.6.54,80.21h0A105.73,105.73,0,0,0,32.71,96.36,77.7,77.7,0,0,0,39.6,85.25a68.42,68.42,0,0,1-10.85-5.18c.91-.66,1.8-1.34,2.66-2a75.57,75.57,0,0,0,64.32,0c.87.71,1.76,1.39,2.66,2a68.68,68.68,0,0,1-10.87,5.19,77,77,0,0,0,6.89,11.1A105.25,105.25,0,0,0,126.6,80.22h0C129.24,52.84,122.09,29.11,107.7,8.07ZM42.45,65.69C36.18,65.69,31,60,31,53s5-12.74,11.43-12.74S54,46,53.89,53,48.84,65.69,42.45,65.69Zm42.24,0C78.41,65.69,73.25,60,73.25,53s5-12.74,11.44-12.74S96.23,46,96.12,53,91.08,65.69,84.69,65.69Z"/>
+        </svg>
+        Sign in with Discord
+      </a>
+      <p style={{ color: colors.textTertiary, fontSize: '0.8rem', marginTop: spacing.lg }}>
+        We only request your username and avatar — no access to your messages or servers.
+      </p>
+    </div>
+  </div>
+);
+
 export const SupportPage: React.FC = () => {
   const { user, loading } = useAuth();
-  const navigate = useNavigate();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [selected, setSelected] = useState<Ticket | null>(null);
   const [blocked, setBlocked] = useState(false);
@@ -39,22 +74,17 @@ export const SupportPage: React.FC = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!loading && !user) {
-      navigate('/login?next=/appeal');
-    }
-  }, [user, loading, navigate]);
+    document.title = 'Fuji Studio | Support';
+  }, []);
 
   useEffect(() => {
     if (user) loadTickets();
-  }, [user]);
+    else if (!loading) setFetchLoading(false);
+  }, [user, loading]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [selected?.messages]);
-
-  useEffect(() => {
-    document.title = 'Fuji Studio | Support';
-  }, []);
 
   const loadTickets = async () => {
     setFetchLoading(true);
@@ -119,19 +149,18 @@ export const SupportPage: React.FC = () => {
     }
   };
 
-  const avatarUrl = (discordId: string) =>
-    `https://cdn.discordapp.com/embed/avatars/${Number(discordId) % 5}.png`;
-
   const statusColor = (status: string) =>
     status === 'open' ? colors.success : colors.textTertiary;
 
-  if (loading || fetchLoading) {
+  if (loading) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: colors.background, color: colors.textSecondary }}>
         Loading...
       </div>
     );
   }
+
+  if (!user) return <SignInGate />;
 
   if (blocked) {
     return (
@@ -145,16 +174,34 @@ export const SupportPage: React.FC = () => {
     );
   }
 
+  if (fetchLoading) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: colors.background, color: colors.textSecondary }}>
+        Loading tickets...
+      </div>
+    );
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', background: colors.background, color: colors.textPrimary }}>
       {/* Header */}
-      <div style={{ borderBottom: `1px solid rgba(255,255,255,0.06)`, padding: `${spacing.lg} ${spacing.xxl}`, display: 'flex', alignItems: 'center', gap: spacing.md }}>
-        <MessageSquare size={28} color={colors.primary} />
-        <div>
-          <h1 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700 }}>Support / Appeal</h1>
-          <p style={{ margin: '2px 0 0', color: colors.textSecondary, fontSize: '0.85rem' }}>
-            Open a ticket to appeal a moderation action or get help.
-          </p>
+      <div style={{ borderBottom: `1px solid rgba(255,255,255,0.06)`, padding: `${spacing.lg} ${spacing.xxl}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: spacing.md }}>
+          <MessageSquare size={28} color={colors.primary} />
+          <div>
+            <h1 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700 }}>Support / Appeal</h1>
+            <p style={{ margin: '2px 0 0', color: colors.textSecondary, fontSize: '0.85rem' }}>
+              Appeal a moderation action or get help from our team.
+            </p>
+          </div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm }}>
+          <img
+            src={discordAvatarUrl(user.id, user.avatar)}
+            alt=""
+            style={{ width: 32, height: 32, borderRadius: '50%' }}
+          />
+          <span style={{ fontSize: '0.85rem', color: colors.textSecondary }}>{(user as any).global_name || user.username}</span>
         </div>
       </div>
 
@@ -206,7 +253,6 @@ export const SupportPage: React.FC = () => {
                 <h2 style={{ margin: 0, fontSize: '1.1rem' }}>Open New Ticket</h2>
               </div>
 
-              {/* Info block */}
               <div style={{ backgroundColor: colors.surface, padding: spacing.md, borderRadius: borderRadius.md, marginBottom: spacing.lg, borderLeft: `4px solid ${colors.primary}` }}>
                 <p style={{ margin: 0, color: colors.textPrimary, fontSize: '0.9rem' }}>
                   Use this form to appeal a moderation action or request support. Our team will review your ticket and respond as soon as possible.
@@ -250,7 +296,6 @@ export const SupportPage: React.FC = () => {
             </div>
           ) : selected ? (
             <>
-              {/* Thread header */}
               <div style={{ padding: `${spacing.md} ${spacing.xxl}`, borderBottom: `1px solid rgba(255,255,255,0.06)`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div>
                   <h2 style={{ margin: 0, fontSize: '1rem', fontWeight: 700 }}>{selected.subject}</h2>
@@ -259,32 +304,24 @@ export const SupportPage: React.FC = () => {
                 <span style={{ color: colors.textTertiary, fontSize: '0.8rem' }}>#{selected.id.slice(-8)}</span>
               </div>
 
-              {/* Messages */}
               <div style={{ flex: 1, overflowY: 'auto', padding: spacing.xxl, display: 'flex', flexDirection: 'column', gap: spacing.lg }}>
                 {selected.messages.map(msg => {
-                  const isMe = msg.senderId === user?.id;
+                  const isMe = msg.senderId === user.id;
+                  const senderAvatar = isMe ? discordAvatarUrl(user.id, user.avatar) : discordAvatarUrl(msg.senderId, null);
                   return (
                     <div key={msg.id} style={{ display: 'flex', gap: spacing.md, flexDirection: isMe ? 'row-reverse' : 'row', alignItems: 'flex-start' }}>
-                      <img
-                        src={avatarUrl(msg.senderId)}
-                        alt=""
-                        style={{ width: 36, height: 36, borderRadius: '50%', flexShrink: 0, background: colors.surface }}
-                      />
+                      <img src={senderAvatar} alt="" style={{ width: 36, height: 36, borderRadius: '50%', flexShrink: 0 }} />
                       <div style={{ maxWidth: '70%' }}>
                         <div style={{ marginBottom: 4, fontSize: '0.75rem', color: colors.textTertiary, textAlign: isMe ? 'right' : 'left' }}>
-                          {msg.isAdmin ? 'Fuji Studio Staff' : (isMe ? 'You' : 'User')}
+                          {msg.isAdmin ? 'Fuji Studio Staff' : (isMe ? ((user as any).global_name || user.username) : 'User')}
                           {' · '}
                           {new Date(msg.timestamp).toLocaleString()}
                         </div>
                         <div style={{
                           background: msg.isAdmin ? 'rgba(16,185,129,0.12)' : isMe ? 'rgba(255,255,255,0.06)' : colors.surface,
-                          padding: `${spacing.sm} ${spacing.md}`,
-                          borderRadius: borderRadius.lg,
-                          color: colors.textPrimary,
-                          fontSize: '0.9rem',
-                          lineHeight: 1.5,
-                          whiteSpace: 'pre-wrap',
-                          wordBreak: 'break-word',
+                          padding: `${spacing.sm} ${spacing.md}`, borderRadius: borderRadius.lg,
+                          color: colors.textPrimary, fontSize: '0.9rem', lineHeight: 1.5,
+                          whiteSpace: 'pre-wrap', wordBreak: 'break-word',
                         }}>
                           {msg.content}
                         </div>
@@ -295,7 +332,6 @@ export const SupportPage: React.FC = () => {
                 <div ref={messagesEndRef} />
               </div>
 
-              {/* Reply input */}
               {selected.status === 'open' ? (
                 <div style={{ padding: spacing.lg, borderTop: `1px solid rgba(255,255,255,0.06)`, display: 'flex', gap: spacing.md, alignItems: 'flex-end' }}>
                   <textarea

@@ -738,9 +738,12 @@ const AppInternal: React.FC = () => {
     return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: colors.background, color: colors.textSecondary }}>Loading...</div>;
   }
 
-  // Redirect Discord-created accounts to complete setup (once per session)
+  // Redirect Discord-created accounts to complete setup (once per session).
+  // Skip for the appeal/support page — appeal users authenticate via a lightweight OAuth
+  // that doesn't create an account, so hasPassword/email will always be false for them.
+  const isAppealPath = currentPath === '/appeal' || currentPath === '/support';
   const needsSetup = user && loginMethod === 'discord' && (!hasPassword || !email || !emailVerified);
-  if (needsSetup && currentPath !== '/complete-account' && !sessionStorage.getItem('fuji_setup_dismissed')) {
+  if (needsSetup && !isAppealPath && currentPath !== '/complete-account' && !sessionStorage.getItem('fuji_setup_dismissed')) {
     return <Suspense fallback={<PageSpinner />}><CompleteAccountPage /></Suspense>;
   }
 

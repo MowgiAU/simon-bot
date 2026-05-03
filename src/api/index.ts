@@ -956,6 +956,22 @@ const getBotGuildIds = async () => {
     }
 };
 
+// Lightweight Discord OAuth for the appeal/support page — no account creation, no DB.
+app.get('/api/auth/appeal/login', (req, res) => {
+  const state = 'appeal_' + crypto.randomBytes(32).toString('hex');
+  (req.session as any)._oauthState = state;
+  const params = new URLSearchParams({
+    client_id: DISCORD_CLIENT_ID,
+    redirect_uri: DISCORD_REDIRECT_URI,
+    response_type: 'code',
+    scope: 'identify',
+    state,
+  });
+  req.session.save(() => {
+    res.redirect(`https://discord.com/api/oauth2/authorize?${params.toString()}`);
+  });
+});
+
 // Discord OAuth2 endpoints
 app.get('/api/auth/discord/login', (req, res) => {
   // SEC-04: Generate state param to prevent CSRF on OAuth login
@@ -982,8 +998,10 @@ app.get('/api/auth/discord/callback', async (req, res) => {
   const state = req.query.state as string | undefined;
   if (!code) return res.status(400).send('No code provided');
   // SEC-04: Verify OAuth state to prevent CSRF
-  // Link flows use state=link_<token> and are verified separately below
+  // Link flows use state=link_<token> and are verified separately below.
+  // Appeal flows use state=appeal_<token> — same CSRF check, but handled separately after token exchange.
   const isLinkFlow = state && state.startsWith('link_');
+  const isAppealFlow = state && state.startsWith('appeal_');
   if (!isLinkFlow) {
     if (!state || state !== (req.session as any)?._oauthState) {
       return res.status(403).send('Invalid OAuth state - please try logging in again.');
@@ -991,14 +1009,14 @@ app.get('/api/auth/discord/callback', async (req, res) => {
     delete (req.session as any)._oauthState;
   }
   try {
-    // Exchange code for token
+    // Exchange code for token — appeal flow only needs 'identify' scope
     const tokenRes = await axios.post('https://discord.com/api/oauth2/token', new URLSearchParams({
       client_id: DISCORD_CLIENT_ID,
       client_secret: DISCORD_CLIENT_SECRET,
       grant_type: 'authorization_code',
       code,
       redirect_uri: DISCORD_REDIRECT_URI,
-      scope: 'identify guilds email'
+      scope: isAppealFlow ? 'identify' : 'identify guilds email',
     }), {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
     });
@@ -1007,11 +1025,30 @@ app.get('/api/auth/discord/callback', async (req, res) => {
     const userRes = await axios.get('https://discord.com/api/users/@me', {
       headers: { Authorization: `${token_type} ${access_token}` }
     });
-    // Get user guilds
+    const user = userRes.data;
+
+    // ===== APPEAL / SUPPORT FLOW =====
+    // No account creation, no guilds lookup — just set Discord identity in session.
+    if (isAppealFlow) {
+      req.session.user = {
+        id: user.id,
+        username: user.username || `user_${user.id}`,
+        global_name: user.global_name || null,
+        avatar: user.avatar || null,
+        discriminator: user.discriminator || '0',
+        _loginMethod: 'discord',
+        _appealSession: true,
+      } as any;
+      return req.session.save((err) => {
+        if (err) logger.error('[Auth] Session save error during appeal login', err);
+        res.redirect(`${process.env.DASHBOARD_ORIGIN || ''}/appeal`);
+      });
+    }
+
+    // Get user guilds (regular + link flows only)
     const guildsRes = await axios.get('https://discord.com/api/users/@me/guilds', {
       headers: { Authorization: `${token_type} ${access_token}` }
     });
-    const user = userRes.data;
     const userGuilds = guildsRes.data;
     // Get bot guilds from DB
     const botGuilds = await getBotGuildIds();
