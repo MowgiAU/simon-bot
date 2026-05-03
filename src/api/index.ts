@@ -7,7 +7,7 @@ import cors from 'cors';
 import session from 'express-session';
 import connectPgSimple from 'connect-pg-simple';
 import helmet from 'helmet';
-import { rateLimit } from 'express-rate-limit';
+import { rateLimit, ipKeyGenerator } from 'express-rate-limit';
 import axios, { AxiosError } from 'axios';
 import crypto from 'crypto';
 import fs from 'fs';
@@ -810,22 +810,18 @@ app.use(session({
 }));
 
 // --- Rate Limiting ---
-// Normalise IPv6-mapped IPv4 addresses (e.g. ::ffff:1.2.3.4 -> 1.2.3.4) to avoid
-// ERR_ERL_KEY_GEN_IPV6. Trust proxy is already set on the app so we suppress the
-// redundant express-rate-limit trustProxy validation via validate:false.
-const normaliseIp = (req: any): string => {
-    const raw: string = req.ip || req.socket?.remoteAddress || 'unknown';
-    return raw.replace(/^::ffff:/, '');
-};
-const rlKey = (req: any): string => req.session?.user?.id || normaliseIp(req);
+// ipKeyGenerator(ip) normalises IPv6 addresses. Wrap it in a request adapter so
+// express-rate-limit's static analysis sees the helper being used (prevents
+// ERR_ERL_KEY_GEN_IPV6 at startup). Trust proxy is already set on the app.
+const ipFromReq = (req: any): string => ipKeyGenerator(req.ip ?? req.socket?.remoteAddress ?? '');
+const rlKey = (req: any): string => req.session?.user?.id || ipFromReq(req);
 
 const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 200,
     standardHeaders: true,
     legacyHeaders: false,
-    validate: false,
-    keyGenerator: normaliseIp,
+    keyGenerator: ipFromReq,
     message: { error: 'Too many authentication attempts, please try again later.' },
 });
 // Write-only limiter -- only counts POST/PUT/PATCH/DELETE so GETs (page loads) are never blocked
@@ -834,7 +830,6 @@ const writeLimiter = rateLimit({
     max: 100,
     standardHeaders: true,
     legacyHeaders: false,
-    validate: false,
     keyGenerator: rlKey,
     skip: (req: any) => req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS',
     message: { error: 'You are doing that too fast. Please wait a moment before trying again.' },
@@ -845,7 +840,6 @@ const uploadLimiter = rateLimit({
     max: 5,                    // 5 uploads per window per user
     standardHeaders: true,
     legacyHeaders: false,
-    validate: false,
     keyGenerator: rlKey,
     message: { error: 'Upload limit reached. You can upload up to 5 tracks every 10 minutes. Please wait before trying again.' },
 });
@@ -858,7 +852,6 @@ const generalUploadLimiter = rateLimit({
     max: 10,                   // 10 uploads per window per user
     standardHeaders: true,
     legacyHeaders: false,
-    validate: false,
     keyGenerator: rlKey,
     message: { error: 'Upload limit reached. Please wait before uploading again.' },
 });
@@ -1463,7 +1456,7 @@ function isValidUsername(username: string): boolean {
 // =============================================
 // REGISTRATION
 // =============================================
-const registerLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 5, validate: false, keyGenerator: normaliseIp, message: { error: 'Too many registration attempts. Try again later.' } });
+const registerLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 5, keyGenerator: ipFromReq, message: { error: 'Too many registration attempts. Try again later.' } });
 app.post('/api/auth/register', registerLimiter, async (req, res) => {
     try {
         const { username, email, password } = req.body;
@@ -1590,9 +1583,8 @@ const loginLimiter = rateLimit({
     keyGenerator: (req: any) => {
         // Key per email address so one user can't block others behind the same NAT/proxy IP
         const email = req.body?.email;
-        return (email ? String(email).toLowerCase().trim() : null) || normaliseIp(req);
+        return (email ? String(email).toLowerCase().trim() : null) || ipFromReq(req);
     },
-    validate: false,
     message: { error: 'Too many login attempts, try again later.' },
 });
 app.post('/api/auth/login', loginLimiter, async (req, res) => {
@@ -1666,7 +1658,7 @@ app.post('/api/auth/email/login', loginLimiter, async (req, res) => {
 // =============================================
 // FORGOT PASSWORD / RESET PASSWORD
 // =============================================
-const forgotPasswordLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 5, validate: false, keyGenerator: normaliseIp, message: { error: 'Too many requests, try again later.' } });
+const forgotPasswordLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 5, keyGenerator: ipFromReq, message: { error: 'Too many requests, try again later.' } });
 app.post('/api/auth/forgot-password', forgotPasswordLimiter, async (req, res) => {
     try {
         const { email } = req.body;
