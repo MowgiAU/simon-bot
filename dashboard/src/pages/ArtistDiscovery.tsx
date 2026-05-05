@@ -5,10 +5,11 @@ import {
     Play, Plus, Pause, TrendingUp, Swords,
     Activity, Trophy, Users, Timer, ListMusic,
     Star, MonitorPlay, Newspaper, BookOpen, FileText, ExternalLink, Mic2,
-    Flame, Crown, ArrowUp, ArrowDown, Minus, Sparkles
+    Flame, Crown, ArrowUp, ArrowDown, Minus, Sparkles, Upload, LogIn, UserPlus
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { usePlayer } from '../components/PlayerProvider';
+import { useAuth } from '../components/AuthProvider';
 import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
 import { FujiLogo } from '../components/FujiLogo';
 import { StyledUsername } from '../components/StyledUsername';
@@ -149,6 +150,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
     const [featuredArticle, setFeaturedArticle] = useState<any>(null);
     const [h2hChampion, setH2hChampion] = useState<any>(null);
     const { player, setTrack, togglePlay } = usePlayer();
+    const { user } = useAuth();
 
     useEffect(() => {
         const handleResize = () => setIsMobile(window.innerWidth < 1024);
@@ -771,7 +773,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
                         };
                         const tc = typeConfig[contentType] ?? typeConfig.video;
                         return (
-                            <div style={{ ...panel, gridColumn: isMobile ? undefined : '1 / -1', height: isMobile ? 'auto' : '220px', position: 'relative', overflow: 'hidden', padding: 0, border: '1px solid rgba(255,255,255,0.07)', boxSizing: 'border-box' }}>
+                            <div style={{ ...panel, gridColumn: isMobile ? undefined : 'span 2', height: isMobile ? 'auto' : '220px', position: 'relative', overflow: 'hidden', padding: 0, border: '1px solid rgba(255,255,255,0.07)', boxSizing: 'border-box' }}>
                                 {/* Blurred thumbnail/accent background */}
                                 {contentType === 'video' && (featured?.featuredTutorialThumbnail || getTutorialThumbnail()) && (
                                     <div style={{
@@ -996,7 +998,120 @@ export const ArtistDiscoveryPage: React.FC = () => {
                         );
                     })()}
 
-                    {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• FULL-WIDTH: WEEKLY CHART â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+                    {/* Get Started / Upload Action Card */}
+                    {(() => {
+                        const hasProfile = !!(user?.profileUsername);
+                        const isLoggedIn = !!user;
+
+                        let actionConfig: { label: string; sublabel: string; icon: React.ReactNode; link: string; bgGradient: string; accentColor: string; buttonText: string };
+
+                        if (!isLoggedIn) {
+                            actionConfig = {
+                                label: 'Join Fuji Studio',
+                                sublabel: 'Create an account to start your music journey',
+                                icon: <UserPlus size={20} />,
+                                link: '/login',
+                                bgGradient: 'linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%)',
+                                accentColor: '#60A5FA',
+                                buttonText: 'Create Account'
+                            };
+                        } else if (!hasProfile) {
+                            actionConfig = {
+                                label: 'Set Up Artist Profile',
+                                sublabel: 'Showcase your music and connect with fans',
+                                icon: <UserPlus size={20} />,
+                                link: '/profile/setup',
+                                bgGradient: 'linear-gradient(135deg, #451a03 0%, #1e1b4b 100%)',
+                                accentColor: '#FBBF24',
+                                buttonText: 'Start Setup'
+                            };
+                        } else {
+                            actionConfig = {
+                                label: 'Share Your Music',
+                                sublabel: 'Upload your latest track and get discovered',
+                                icon: <Upload size={20} />,
+                                link: '/my-tracks',
+                                bgGradient: 'linear-gradient(135deg, #14532d 0%, #0f172a 100%)',
+                                accentColor: '#34D399',
+                                buttonText: 'Upload Track'
+                            };
+                        }
+
+                        return (
+                            <div style={{
+                                ...panel,
+                                gridColumn: isMobile ? undefined : 'span 2',
+                                height: isMobile ? 'auto' : '220px',
+                                position: 'relative',
+                                overflow: 'hidden',
+                                padding: 0,
+                                border: `1px solid ${actionConfig.accentColor}30`,
+                                boxSizing: 'border-box',
+                            }}>
+                                <div style={{
+                                    position: 'absolute',
+                                    inset: 0,
+                                    background: actionConfig.bgGradient,
+                                    pointerEvents: 'none',
+                                }} />
+                                <div style={{
+                                    position: 'absolute',
+                                    top: '-20%',
+                                    right: '-10%',
+                                    width: '60%',
+                                    height: '80%',
+                                    background: `radial-gradient(ellipse, ${actionConfig.accentColor}15 0%, transparent 70%)`,
+                                    pointerEvents: 'none',
+                                }} />
+
+                                <div style={{
+                                    position: 'relative',
+                                    zIndex: 1,
+                                    height: '100%',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    padding: isMobile ? '20px' : '24px 28px',
+                                    boxSizing: 'border-box',
+                                }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '12px' }}>
+                                        <span style={{ color: actionConfig.accentColor, display: 'flex', alignItems: 'center' }}>{actionConfig.icon}</span>
+                                        <span style={{ fontSize: '10px', fontWeight: 800, color: actionConfig.accentColor, letterSpacing: '0.12em', textTransform: 'uppercase' }}>{actionConfig.label}</span>
+                                    </div>
+
+                                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '12px' }}>
+                                        <div style={{ fontSize: isMobile ? '18px' : '22px', fontWeight: 900, color: colors.textPrimary, letterSpacing: '-0.02em', lineHeight: 1.2 }}>
+                                            {actionConfig.sublabel}
+                                        </div>
+
+                                        <Link to={actionConfig.link} style={{
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '7px',
+                                            width: 'fit-content',
+                                            padding: '10px 22px',
+                                            borderRadius: '999px',
+                                            background: actionConfig.accentColor,
+                                            color: actionConfig.label === 'Join Fuji Studio' ? '#0f172a' : 'white',
+                                            fontSize: '12px',
+                                            fontWeight: 700,
+                                            letterSpacing: '0.03em',
+                                            textDecoration: 'none',
+                                            boxShadow: `0 4px 16px ${actionConfig.accentColor}44`,
+                                            transition: 'transform 0.15s, box-shadow 0.15s',
+                                        }}
+                                            onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = `0 6px 20px ${actionConfig.accentColor}66`; }}
+                                            onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = `0 4px 16px ${actionConfig.accentColor}44`; }}
+                                        >
+                                            {isLoggedIn ? <Upload size={14} /> : <LogIn size={14} />}
+                                            {actionConfig.buttonText}
+                                        </Link>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })()}
+
+                    {/* â•â•â•â•â•â¬â•â¬â•â¬â•â¬â•â¬â•â¬â•â¬â•â¬â•â¬ FULL-WIDTH: WEEKLY CHART â•â¬â•â¬â•â¬â•â¬â•â¬â•â¬â•â¬â•â¬â•â¬â•â¬â•â¬â•â¬â•â¬ */}
                     <div style={{
                         gridColumn: isMobile ? undefined : '1 / -1',
                         position: 'relative',
