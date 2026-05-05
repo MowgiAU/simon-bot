@@ -774,7 +774,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
                         };
                         const tc = typeConfig[contentType] ?? typeConfig.video;
                         return (
-                            <div style={{ ...panel, gridColumn: isMobile ? undefined : 'span 2', height: isMobile ? 'auto' : '220px', position: 'relative', overflow: 'hidden', padding: 0, border: '1px solid rgba(255,255,255,0.07)', boxSizing: 'border-box' }}>
+                            <div style={{ ...panel, gridColumn: isMobile ? undefined : 'span 2', height: isMobile ? 'auto' : '240px', position: 'relative', overflow: 'hidden', padding: 0, border: '1px solid rgba(255,255,255,0.07)', boxSizing: 'border-box' }}>
                                 {/* Blurred thumbnail/accent background */}
                                 {contentType === 'video' && (featured?.featuredTutorialThumbnail || getTutorialThumbnail()) && (
                                     <div style={{
@@ -1044,7 +1044,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
                             <div style={{
                                 ...panel,
                                 gridColumn: isMobile ? undefined : 'span 2',
-                                height: isMobile ? 'auto' : '220px',
+                                height: isMobile ? 'auto' : '240px',
                                 position: 'relative',
                                 overflow: 'hidden',
                                 padding: 0,
