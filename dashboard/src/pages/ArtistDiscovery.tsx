@@ -687,20 +687,21 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                     Get matched. Get a sample pack. Build a beat. Anonymous voters pick the winner.
                                 </p>
                                 {/* CTA */}
-                                <Link to="/arena" style={{
-                                    marginTop: '4px',
-                                    display: 'inline-flex', alignItems: 'center', gap: '7px', width: 'fit-content',
-                                    padding: '10px 22px', borderRadius: '999px', textDecoration: 'none',
-                                    background: 'linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%)',
-                                    color: 'white', fontSize: '12px', fontWeight: 800, letterSpacing: '0.04em',
-                                    boxShadow: '0 6px 20px rgba(139,92,246,0.45)',
-                                    transition: 'transform 0.15s, box-shadow 0.15s',
-                                }}
-                                    onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(236,72,153,0.55)'; }}
-                                    onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(139,92,246,0.45)'; }}
-                                >
-                                    <Swords size={14} /> Enter the Arena
-                                </Link>
+                                <div style={{ display: 'flex', alignItems: 'center', paddingTop: '10px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                                    <Link to="/arena" style={{
+                                        display: 'inline-flex', alignItems: 'center', gap: '7px', width: 'fit-content',
+                                        padding: '9px 20px', borderRadius: '999px', textDecoration: 'none',
+                                        background: 'linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%)',
+                                        color: 'white', fontSize: '12px', fontWeight: 700, letterSpacing: '0.03em',
+                                        boxShadow: '0 4px 16px rgba(139,92,246,0.44)',
+                                        transition: 'transform 0.15s, box-shadow 0.15s',
+                                    }}
+                                        onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(236,72,153,0.55)'; }}
+                                        onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(139,92,246,0.44)'; }}
+                                    >
+                                        <Swords size={14} /> Enter the Arena
+                                    </Link>
+                                </div>
                             </div>
 
                             {/* Right: Reigning champion or VS graphic */}
@@ -949,13 +950,15 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                                             </span>
                                                         )}
                                                     </div>
-                                                    <span style={{
-                                                        display: 'inline-flex', alignItems: 'center', gap: '7px', width: 'fit-content',
-                                                        padding: '9px 20px', borderRadius: '999px', fontSize: '12px', fontWeight: 700,
-                                                        background: tc.accentColor, color: 'white',
-                                                        letterSpacing: '0.03em',
-                                                        boxShadow: `0 4px 16px ${tc.accentColor}44`,
-                                                    }}>Read Article</span>
+                                                    <div style={{ display: 'flex', alignItems: 'center', paddingTop: '12px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                                                        <span style={{
+                                                            display: 'inline-flex', alignItems: 'center', gap: '7px', width: 'fit-content',
+                                                            padding: '9px 20px', borderRadius: '999px', fontSize: '12px', fontWeight: 700,
+                                                            background: tc.accentColor, color: 'white',
+                                                            letterSpacing: '0.03em',
+                                                            boxShadow: `0 4px 16px ${tc.accentColor}44`,
+                                                        }}>Read Article</span>
+                                                    </div>
                                                 </div>
                                             </a>
                                         ) : (
@@ -1078,24 +1081,25 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                         <span style={{ fontSize: '10px', fontWeight: 800, color: actionConfig.accentColor, letterSpacing: '0.12em', textTransform: 'uppercase' }}>{actionConfig.label}</span>
                                     </div>
 
-                                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '12px' }}>
+                                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '8px' }}>
                                         <div style={{ fontSize: isMobile ? '18px' : '22px', fontWeight: 900, color: colors.textPrimary, letterSpacing: '-0.02em', lineHeight: 1.2 }}>
                                             {actionConfig.sublabel}
                                         </div>
+                                    </div>
 
+                                    <div style={{ display: 'flex', alignItems: 'center', paddingTop: '12px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
                                         <Link to={actionConfig.link} style={{
                                             display: 'inline-flex',
                                             alignItems: 'center',
-                                            gap: '7px',
-                                            width: 'fit-content',
-                                            padding: '10px 22px',
+                                            gap: '6px',
+                                            padding: '9px 20px',
                                             borderRadius: '999px',
+                                            textDecoration: 'none',
                                             background: actionConfig.accentColor,
                                             color: actionConfig.label === 'Join Fuji Studio' ? '#0f172a' : 'white',
                                             fontSize: '12px',
                                             fontWeight: 700,
                                             letterSpacing: '0.03em',
-                                            textDecoration: 'none',
                                             boxShadow: `0 4px 16px ${actionConfig.accentColor}44`,
                                             transition: 'transform 0.15s, box-shadow 0.15s',
                                         }}
