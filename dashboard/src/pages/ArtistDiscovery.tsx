@@ -748,15 +748,23 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                         </div>
                                     </Link>
                                 ) : (
-                                    /* Fallback: VS hero graphic */
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                                        <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: 'linear-gradient(135deg, #8B5CF6, #6366F1)', border: '2px solid rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 24px rgba(139,92,246,0.45)' }}>
-                                            <Mic2 size={26} color="white" />
+                                    /* Fallback: stylised arena graphic */
+                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
+                                        <div style={{ position: 'relative', width: '120px', height: '80px' }}>
+                                            {/* Left producer */}
+                                            <div style={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)', width: '52px', height: '52px', borderRadius: '12px', background: 'linear-gradient(135deg, #6366F1, #8B5CF6)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 6px 20px rgba(99,102,241,0.5)', border: '1px solid rgba(255,255,255,0.15)' }}>
+                                                <Mic2 size={22} color="white" />
+                                            </div>
+                                            {/* VS badge */}
+                                            <div style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%,-50%)', width: '28px', height: '28px', borderRadius: '50%', background: '#0d0d1a', border: '2px solid rgba(255,255,255,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1 }}>
+                                                <span style={{ fontSize: '8px', fontWeight: 900, color: 'rgba(255,255,255,0.7)', letterSpacing: '0.05em' }}>VS</span>
+                                            </div>
+                                            {/* Right producer */}
+                                            <div style={{ position: 'absolute', right: 0, top: '50%', transform: 'translateY(-50%)', width: '52px', height: '52px', borderRadius: '12px', background: 'linear-gradient(135deg, #EC4899, #F43F5E)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 6px 20px rgba(236,72,153,0.5)', border: '1px solid rgba(255,255,255,0.15)' }}>
+                                                <Mic2 size={22} color="white" />
+                                            </div>
                                         </div>
-                                        <div style={{ fontSize: '24px', fontWeight: 900, color: '#fff', letterSpacing: '0.1em', textShadow: '0 2px 12px rgba(236,72,153,0.5)' }}>VS</div>
-                                        <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: 'linear-gradient(135deg, #EC4899, #F43F5E)', border: '2px solid rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 24px rgba(236,72,153,0.45)' }}>
-                                            <Mic2 size={26} color="white" />
-                                        </div>
+                                        <span style={{ fontSize: '10px', color: 'rgba(220,220,255,0.45)', fontWeight: 600, letterSpacing: '0.06em' }}>No matches yet — be first</span>
                                     </div>
                                 )}
                             </div>
@@ -1048,65 +1056,52 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                 position: 'relative',
                                 overflow: 'hidden',
                                 padding: 0,
-                                border: `1px solid ${actionConfig.accentColor}30`,
+                                border: `1px solid ${actionConfig.accentColor}28`,
                                 boxSizing: 'border-box',
                             }}>
-                                <div style={{
-                                    position: 'absolute',
-                                    inset: 0,
-                                    background: actionConfig.bgGradient,
-                                    pointerEvents: 'none',
-                                }} />
-                                <div style={{
-                                    position: 'absolute',
-                                    top: '-20%',
-                                    right: '-10%',
-                                    width: '60%',
-                                    height: '80%',
-                                    background: `radial-gradient(ellipse, ${actionConfig.accentColor}15 0%, transparent 70%)`,
-                                    pointerEvents: 'none',
-                                }} />
+                                {/* Background */}
+                                <div style={{ position: 'absolute', inset: 0, background: actionConfig.bgGradient, pointerEvents: 'none' }} />
+                                {/* Large icon watermark — top-right */}
+                                <div style={{ position: 'absolute', top: '-10px', right: '-10px', opacity: 0.07, pointerEvents: 'none' }}>
+                                    {React.cloneElement(actionConfig.icon as React.ReactElement, { size: 140 })}
+                                </div>
+                                {/* Glow */}
+                                <div style={{ position: 'absolute', bottom: '-30%', left: '-10%', width: '55%', height: '80%', background: `radial-gradient(ellipse, ${actionConfig.accentColor}18 0%, transparent 70%)`, pointerEvents: 'none' }} />
 
-                                <div style={{
-                                    position: 'relative',
-                                    zIndex: 1,
-                                    height: '100%',
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    padding: isMobile ? '20px' : '24px 28px',
-                                    boxSizing: 'border-box',
-                                }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '12px' }}>
-                                        <span style={{ color: actionConfig.accentColor, display: 'flex', alignItems: 'center' }}>{actionConfig.icon}</span>
-                                        <span style={{ fontSize: '10px', fontWeight: 800, color: actionConfig.accentColor, letterSpacing: '0.12em', textTransform: 'uppercase' }}>{actionConfig.label}</span>
+                                <div style={{ position: 'relative', zIndex: 1, height: '100%', display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: 'center', padding: isMobile ? '24px' : '28px 32px', boxSizing: 'border-box', gap: '24px' }}>
+                                    {/* Icon badge */}
+                                    <div style={{ flexShrink: 0, width: isMobile ? '56px' : '72px', height: isMobile ? '56px' : '72px', borderRadius: '20px', background: `${actionConfig.accentColor}18`, border: `1px solid ${actionConfig.accentColor}40`, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 8px 28px ${actionConfig.accentColor}22` }}>
+                                        {React.cloneElement(actionConfig.icon as React.ReactElement, { size: isMobile ? 26 : 32, color: actionConfig.accentColor })}
                                     </div>
 
-                                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '8px' }}>
-                                        <div style={{ fontSize: isMobile ? '18px' : '22px', fontWeight: 900, color: colors.textPrimary, letterSpacing: '-0.02em', lineHeight: 1.2 }}>
+                                    {/* Text */}
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                        <div style={{ fontSize: '10px', fontWeight: 800, color: actionConfig.accentColor, letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: '8px' }}>
+                                            {actionConfig.label}
+                                        </div>
+                                        <div style={{ fontSize: isMobile ? '18px' : '22px', fontWeight: 900, color: colors.textPrimary, letterSpacing: '-0.02em', lineHeight: 1.2, marginBottom: '8px' }}>
                                             {actionConfig.sublabel}
                                         </div>
-                                    </div>
-
-                                    <div style={{ display: 'flex', alignItems: 'center', paddingTop: '12px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                                        <div style={{ fontSize: '12px', color: colors.textSecondary, lineHeight: 1.5, marginBottom: '20px' }}>
+                                            {!isLoggedIn
+                                                ? `Join ${(artists.length || 0).toLocaleString()}+ producers already sharing their music.`
+                                                : !hasProfile
+                                                ? 'Your profile is your stage. Get discovered by listeners and other producers.'
+                                                : `${(artists.length || 0).toLocaleString()}+ tracks in the library — add yours to the mix.`}
+                                        </div>
                                         <Link to={actionConfig.link} style={{
-                                            display: 'inline-flex',
-                                            alignItems: 'center',
-                                            gap: '6px',
-                                            padding: '9px 20px',
-                                            borderRadius: '999px',
-                                            textDecoration: 'none',
+                                            display: 'inline-flex', alignItems: 'center', gap: '6px',
+                                            padding: '9px 20px', borderRadius: '999px', textDecoration: 'none',
                                             background: actionConfig.accentColor,
-                                            color: actionConfig.label === 'Join Fuji Studio' ? '#0f172a' : 'white',
-                                            fontSize: '12px',
-                                            fontWeight: 700,
-                                            letterSpacing: '0.03em',
+                                            color: !isLoggedIn ? '#0f172a' : 'white',
+                                            fontSize: '12px', fontWeight: 700, letterSpacing: '0.03em',
                                             boxShadow: `0 4px 16px ${actionConfig.accentColor}44`,
                                             transition: 'transform 0.15s, box-shadow 0.15s',
                                         }}
                                             onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = `0 6px 20px ${actionConfig.accentColor}66`; }}
                                             onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = `0 4px 16px ${actionConfig.accentColor}44`; }}
                                         >
-                                            {isLoggedIn ? <Upload size={14} /> : <LogIn size={14} />}
+                                            {isLoggedIn ? <Upload size={13} /> : <LogIn size={13} />}
                                             {actionConfig.buttonText}
                                         </Link>
                                     </div>
