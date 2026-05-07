@@ -778,7 +778,7 @@ export const TrackPage: React.FC = () => {
                                     <Layers size={20} color="white" />
                                 </div>
                                 <div>
-                                    <h2 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700 }}>FL Studio Project</h2>
+                                    <h2 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700 }}>{track.arrangement.fileType === 'als' ? 'Ableton Project' : 'FL Studio Project'}</h2>
                                     <p style={{ margin: 0, fontSize: '12px', color: colors.textSecondary }}>
                                         {track.arrangement.bpm && `${track.arrangement.bpm} BPM`}
                                         {track.arrangement.bpm && track.arrangement.tracks.length > 0 && ' · '}
@@ -795,7 +795,7 @@ export const TrackPage: React.FC = () => {
                                         <button
                                             onClick={() => user ? setFlpConfirmOpen(true) : (window.location.href = '/login')}
                                             style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: '8px', border: `1px solid ${colors.primary}44`, backgroundColor: `${colors.primary}15`, color: colors.primary, cursor: 'pointer', fontWeight: 600, fontSize: '12px' }}>
-                                            <Download size={14} /> .flp
+                                            <Download size={14} /> {track.arrangement?.fileType === 'als' ? '.als' : '.flp'}
                                         </button>
                                         <ConfirmModal
                                             open={flpConfirmOpen}
@@ -1522,8 +1522,8 @@ export const TrackPage: React.FC = () => {
                                         <div>
                                             <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', padding: '10px 14px', backgroundColor: 'rgba(255,255,255,0.03)', border: '1px dashed rgba(255,255,255,0.15)', borderRadius: borderRadius.md, color: colors.textSecondary, fontSize: '0.9rem', transition: 'border-color 0.2s' }}>
                                                 <Upload size={16} />
-                                                {editProjectFile ? editProjectFile.name : 'Replace project file (FLP or ZIP bundle)'}
-                                                <input type="file" accept=".flp,.zip" style={{ display: 'none' }} onChange={e => setEditProjectFile(e.target.files?.[0] || null)} />
+                                                {editProjectFile ? editProjectFile.name : 'Replace project file (.flp, .als, or .zip bundle)'}
+                                                <input type="file" accept=".flp,.als,.zip" style={{ display: 'none' }} onChange={e => setEditProjectFile(e.target.files?.[0] || null)} />
                                             </label>
                                             {editProjectFile?.name.endsWith('.zip') && (
                                                 <p style={{ margin: '4px 0 0 4px', fontSize: '0.78rem', color: colors.textSecondary }}>

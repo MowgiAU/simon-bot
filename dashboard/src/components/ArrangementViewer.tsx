@@ -53,6 +53,7 @@ export interface ArrangementData {
     tracks: ArrangementTrack[];
     projectInfo?: ProjectInfo;
     markers?: Array<{ position: number; name: string }>;
+    fileType?: 'flp' | 'als';
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
