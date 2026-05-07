@@ -502,6 +502,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             <span className="nav-label">Documentation</span>
           </button>
           <button
+            className={`nav-item ${activeSection === 'page-embeds' ? 'active' : ''}`}
+            onClick={() => onNavigate('page-embeds')}
+            title={collapsed ? "Page Embeds" : ""}
+          >
+            <span className="nav-icon"><AnimatedWrapper icon={Globe} size={18} /></span>
+            <span className="nav-label">Page Embeds</span>
+          </button>
+          <button
             className="nav-item"
             onClick={logout}
             title={collapsed ? "Logout" : ""}

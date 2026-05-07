@@ -11617,16 +11617,25 @@ if (fs.existsSync(distPath)) {
                     }
                 }
 
-                // --- Generic pages ---
-                const genericPages: Record<string, { title: string; description: string }> = {
-                    '/battles': { title: 'Beat Battles | Fuji Studio', description: 'Compete in beat battles, vote for your favourite tracks, and win prizes on Fuji Studio.' },
-                    '/genres': { title: 'Genres | Fuji Studio', description: 'Browse music by genre on Fuji Studio. Find beats across Hip-Hop, Trap, Lo-Fi, and more.' },
-                    '/discover': { title: 'Discover Artists | Fuji Studio', description: 'Discover talented FL Studio producers and artists on Fuji Studio.' },
-                    '/learn': { title: 'Fuji Academy | Fuji Studio', description: 'Learn FL Studio interactively with hands-on lessons in a built-in DAW simulator. No downloads required.' },
+                // --- Generic / configurable pages ---
+                // Check DB first (admin-editable), fall back to hardcoded defaults
+                const hardcodedDefaults: Record<string, { title: string; description: string }> = {
+                    '/':         { title: 'Fuji Studio | Discover Music', description: 'Discover beats, share your music, and connect with FL Studio producers.' },
+                    '/battles':  { title: 'Beat Battles | Fuji Studio', description: 'Compete in beat battles, vote for your favourite tracks, and win prizes on Fuji Studio.' },
+                    '/arena':    { title: '1v1 Arena | Fuji Studio', description: 'Producer vs producer. Get a sample pack, build a beat, let anonymous voters decide.' },
+                    '/genres':   { title: 'Genres | Fuji Studio', description: 'Browse music by genre on Fuji Studio. Find beats across Hip-Hop, Trap, Lo-Fi, and more.' },
+                    '/artists':  { title: 'Artists | Fuji Studio', description: 'Discover talented FL Studio producers and artists on Fuji Studio.' },
+                    '/library':  { title: 'Music Library | Fuji Studio', description: 'Browse and stream tracks from the Fuji Studio community.' },
+                    '/learn':    { title: 'Fuji Academy | Fuji Studio', description: 'Learn FL Studio interactively with hands-on lessons in a built-in DAW simulator.' },
+                    '/charts':   { title: 'Charts | Fuji Studio', description: 'The most-played and top-rated tracks on Fuji Studio this week.' },
+                    '/new':      { title: 'Latest Releases | Fuji Studio', description: 'Fresh music from the Fuji Studio community — uploaded in the last 7 days.' },
+                    '/appeal':   { title: 'Support & Appeals | Fuji Studio', description: 'Appeal a moderation action or get help from the Fuji Studio team.' },
                 };
-                const generic = genericPages[req.path];
-                if (generic) {
-                    return res.send(ogPage({ title: generic.title, description: generic.description, url: `${baseUrl}${req.path}`, image: defaultImage }));
+                const dbEmbed = await db.pageEmbed.findUnique({ where: { path: req.path } });
+                const embed = dbEmbed ?? hardcodedDefaults[req.path];
+                if (embed) {
+                    const img = (dbEmbed?.imageUrl ? toAbsolute(dbEmbed.imageUrl) : null) ?? defaultImage;
+                    return res.send(ogPage({ title: embed.title, description: embed.description, url: `${baseUrl}${req.path}`, image: img }));
                 }
 
                 // Fallback for any other bot-crawled page
@@ -15170,6 +15179,44 @@ app.get('/api/admin/backup/status', requireAdmin, async (_req: any, res) => {
         lastManualDownloadAt: manualBackupLastAt ? new Date(manualBackupLastAt).toISOString() : null,
         lastScheduledAt: scheduledBackupLastAt ? new Date(scheduledBackupLastAt).toISOString() : null,
     });
+});
+
+// -- Page Embeds (OG / social embed metadata per URL path) ---------------------
+
+app.get('/api/admin/page-embeds', requireAdmin, async (_req, res) => {
+    try {
+        const embeds = await db.pageEmbed.findMany({ orderBy: { path: 'asc' } });
+        res.json(embeds);
+    } catch (e) {
+        logger.error('GET /api/admin/page-embeds error', e);
+        res.status(500).json({ error: 'Failed to fetch page embeds' });
+    }
+});
+
+app.put('/api/admin/page-embeds', requireAdmin, async (req: any, res) => {
+    try {
+        const { path: p, title, description, imageUrl } = req.body;
+        if (!p?.trim() || !title?.trim()) return res.status(400).json({ error: 'path and title are required' });
+        const embed = await db.pageEmbed.upsert({
+            where: { path: p.trim() },
+            create: { path: p.trim(), title: title.trim(), description: description?.trim() ?? '', imageUrl: imageUrl?.trim() || null },
+            update: { title: title.trim(), description: description?.trim() ?? '', imageUrl: imageUrl?.trim() || null },
+        });
+        res.json(embed);
+    } catch (e) {
+        logger.error('PUT /api/admin/page-embeds error', e);
+        res.status(500).json({ error: 'Failed to save page embed' });
+    }
+});
+
+app.delete('/api/admin/page-embeds/:path(*)', requireAdmin, async (req: any, res) => {
+    try {
+        const p = '/' + req.params.path;
+        await db.pageEmbed.delete({ where: { path: p } });
+        res.json({ ok: true });
+    } catch {
+        res.json({ ok: true }); // already gone
+    }
 });
 
 // -- Booster Colour Roles ------------------------------------------------------

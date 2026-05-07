@@ -98,6 +98,7 @@ const LearnPage              = lazy(() => import("./pages/LearnPage").then(m => 
 const DrumKitGeneratorPage   = lazy(() => import("./pages/DrumKitGenerator").then(m => ({ default: m.DrumKitGeneratorPage })));
 const ServerStatsPage        = lazy(() => import("./pages/ServerStats").then(m => ({ default: m.ServerStats })));
 const SupportPage            = lazy(() => import("./pages/SupportPage").then(m => ({ default: m.SupportPage })));
+const PageEmbedsPage         = lazy(() => import("./pages/PageEmbeds").then(m => ({ default: m.PageEmbedsPage })));
 // ErrorBoundary is imported statically above — NOT lazy. It is the outermost
 
 // Minimal inline spinner used while a lazy chunk loads
@@ -156,7 +157,8 @@ type Section =
   | "drum-kit"
   | "stats"
   | "database-management"
-  | "anti-external-forward";
+  | "anti-external-forward"
+  | "page-embeds";
 
 const WelcomeScreen: React.FC<{ login: () => void }> = ({ login }) => {
   const navigate = useNavigate();
@@ -506,6 +508,8 @@ const AdminDashboard: React.FC = () => {
           return <AcademyPage />;
         case "stats":
           return <ServerStatsPage guildId={selectedGuild.id} />;
+        case "page-embeds":
+          return <PageEmbedsPage />;
         default:
           return null;
       }

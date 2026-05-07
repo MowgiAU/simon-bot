@@ -2716,6 +2716,18 @@ model H2HRating {
   @@map("h2h_ratings")
 }
 
+// Configurable OG/social embed metadata per URL path
+model PageEmbed {
+  id          String   @id @default(cuid())
+  path        String   @unique // e.g. "/" or "/battles"
+  title       String
+  description String   @default("")
+  imageUrl    String?
+  updatedAt   DateTime @updatedAt
+
+  @@map("page_embeds")
+}
+
 model WebTicket {
   id        String   @id @default(cuid())
   userId    String   // Discord ID of the ticket opener
