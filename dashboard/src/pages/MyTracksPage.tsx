@@ -732,13 +732,13 @@ export const MyTracksPage: React.FC = () => {
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontSize: '13px', fontWeight: 600, color: colors.textPrimary, marginBottom: '2px' }}>
-                                {isEdit ? 'Replace Project' : 'FL Studio Project'}
+                                {isEdit ? 'Replace Project' : 'Project File'}
                             </div>
                             <div style={{ fontSize: '11px', color: projectFile ? colors.primary : dragOver === 'project' ? colors.primary : colors.textTertiary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                {projectFile ? projectFile.name : dragOver === 'project' ? 'Drop to select' : (isEdit ? 'Drop or click to replace' : 'Drop .flp or .zip here or click')}
+                                {projectFile ? projectFile.name : dragOver === 'project' ? 'Drop to select' : (isEdit ? 'Drop or click to replace' : 'Drop .flp, .als or .zip here or click')}
                             </div>
                         </div>
-                        <input type="file" accept=".flp,.zip" onChange={e => setProjectFile(e.target.files?.[0] || null)} style={{ display: 'none' }} />
+                        <input type="file" accept=".flp,.als,.zip" onChange={e => setProjectFile(e.target.files?.[0] || null)} style={{ display: 'none' }} />
                     </label>
                 </div>
 

@@ -125,12 +125,13 @@ const upload = multer({
         cb(new Error(`Only image files are allowed for ${file.fieldname}!`));
       }
     } else if (file.fieldname === 'project') {
-      // Accept .flp (plain project) or .zip (project + samples bundle)
-      if (file.originalname.endsWith('.flp') || file.originalname.endsWith('.zip') ||
+      // Accept .flp, .als, or .zip (project + samples bundle)
+      const projExt = file.originalname.toLowerCase().slice(file.originalname.lastIndexOf('.'));
+      if (['.flp', '.als', '.zip'].includes(projExt) ||
           file.mimetype === 'application/zip' || file.mimetype === 'application/x-zip-compressed') {
         cb(null, true);
       } else {
-        cb(new Error('Only FL Studio (.flp) project files or .zip bundles are allowed!'));
+        cb(new Error('Only project files (.flp, .als) or .zip bundles are allowed!'));
       }
     } else if (file.fieldname === 'articleAudio') {
       const audioExtensions = ['.mp3', '.wav', '.flac', '.ogg', '.aac', '.m4a', '.aiff', '.aif'];
