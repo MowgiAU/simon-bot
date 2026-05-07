@@ -25,6 +25,7 @@ import { AudioService } from '../services/AudioService.js';
 import { ChartService } from '../services/ChartService.js';
 import * as mm from 'music-metadata';
 import { FLPParser } from '../bot/utils/FLPParser.js';
+import { AlsParser } from '../services/AlsParser.js';
 import { MediaConverter } from '../services/MediaConverter.js';
 import { ProjectZipProcessor } from '../services/ProjectZipProcessor.js';
 import { R2Storage } from '../services/R2Storage.js';
@@ -6844,9 +6845,11 @@ app.post('/api/musician/tracks', uploadLimiter, upload.fields([
         let projectFileUrl: string | null = null;
         let projectZipUrl: string | null = null;
         let projectFileSizeBytes: number | null = null;
-        const isZipUpload = projectFile?.originalname.endsWith('.zip');
+        const ext = projectFile?.originalname.toLowerCase().split('.').pop() ?? '';
+        const isZipUpload = ext === 'zip';
+        const isAlsUpload = ext === 'als';
 
-        if (projectFile && !isZipUpload) {
+        if (projectFile && !isZipUpload && !isAlsUpload) {
             // Plain .flp \u2014 parse arrangement only (async read to avoid blocking event loop)
             try {
                 const flpBuffer = await import('node:fs/promises').then(fsp => fsp.readFile(projectFile.path));
@@ -6856,6 +6859,18 @@ app.post('/api/musician/tracks', uploadLimiter, upload.fields([
                 logger.info(`Parsed FLP arrangement: ${projectFile.originalname} \u2014 BPM: ${arr?.bpm}, tracks: ${arr?.tracks?.length}, clips: ${arr?.tracks?.reduce((n: number, t: any) => n + t.clips.length, 0)}`);
             } catch (e) {
                 logger.warn(`Failed to parse FLP file: ${projectFile.originalname} - ${e}`);
+                // Continue without arrangement \u2014 don't block the upload
+            }
+        } else if (projectFile && isAlsUpload) {
+            // Ableton .als \u2014 decompress gzip + parse XML
+            try {
+                const alsBuffer = await import('node:fs/promises').then(fsp => fsp.readFile(projectFile.path));
+                arrangement = AlsParser.parse(alsBuffer);
+                projectFileUrl = `/uploads/projects/${path.basename(projectFile.path)}`;
+                const arr = arrangement as any;
+                logger.info(`Parsed ALS arrangement: ${projectFile.originalname} \u2014 BPM: ${arr?.bpm}, tracks: ${arr?.tracks?.length}, plugins: ${arr?.projectInfo?.plugins?.length}`);
+            } catch (e) {
+                logger.warn(`Failed to parse .als file: ${projectFile.originalname} - ${e}`);
                 // Continue without arrangement \u2014 don't block the upload
             }
         } else if (projectFile && isZipUpload) {

@@ -20,16 +20,23 @@ import {
 interface ProjectArrangement {
     bpm: number;
     signature: [number, number];
+    fileType?: 'flp' | 'als';
+    projectInfo?: {
+        plugins: string[];
+        samples: string[];
+    };
     tracks: Array<{
         id: string;
         name: string;
         color?: string;
+        trackType?: 'audio' | 'midi' | 'group' | 'return';
         clips: Array<{
             id: string;
-            start: number; // in beats/bars
+            start: number; // in beats
             length: number;
             type: 'audio' | 'pattern' | 'automation';
             name: string;
+            color?: string;
         }>;
     }>;
 }
@@ -185,36 +192,59 @@ export const ProjectViewer: React.FC = () => {
     if (viewMode === 'timeline' && selectedProject) {
         const bpm = selectedProject.arrangement.bpm || 140;
         const pixelsPerBeat = 25; // Zoom constant
+        const isAbleton = selectedProject.arrangement.fileType === 'als';
+        const accentColor = isAbleton ? '#FF7600' : colors.primary;
+        const plugins = selectedProject.arrangement.projectInfo?.plugins ?? [];
 
         return (
             <div style={{ padding: spacing.lg, color: colors.textPrimary, height: '100vh', display: 'flex', flexDirection: 'column' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.lg }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: spacing.md }}>
-                        <button 
+                    <div style={{ display: 'flex', alignItems: 'center', gap: spacing.md, flexWrap: 'wrap' }}>
+                        <button
                             onClick={() => { setViewMode('grid'); setIsPlaying(false); audioRef.current?.pause(); }}
                             style={{ background: 'none', border: `1px solid ${colors.border}`, color: colors.textPrimary, padding: '6px 12px', borderRadius: borderRadius.sm, cursor: 'pointer' }}
                         >
                             Back to Browse
                         </button>
+                        {/* DAW badge */}
+                        <span style={{
+                            display: 'inline-flex', alignItems: 'center', gap: '5px',
+                            padding: '3px 10px', borderRadius: '99px', fontSize: '11px', fontWeight: 700,
+                            background: isAbleton ? 'rgba(255,118,0,0.15)' : `${colors.primary}22`,
+                            color: accentColor, border: `1px solid ${accentColor}44`,
+                            letterSpacing: '0.04em',
+                        }}>
+                            {isAbleton ? '⬛ Ableton' : '🟢 FL Studio'}
+                        </span>
                         <h2 style={{ margin: 0 }}>{selectedProject.filename}</h2>
                         <div style={{ display: 'flex', gap: spacing.sm, color: colors.textSecondary, fontSize: '14px' }}>
-                            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Zap size={14}/> {bpm} BPM</span>
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Zap size={14} color={accentColor}/> {bpm} BPM</span>
                             {selectedProject.metadata.key && <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Music size={14}/> {selectedProject.metadata.key}</span>}
                         </div>
                     </div>
-                    
+
                     <div style={{ display: 'flex', gap: spacing.md }}>
-                         {selectedProject.projectFile && (
-                             <a 
-                                href={selectedProject.projectFile.url} 
-                                download 
+                        {selectedProject.projectFile && (
+                            <a
+                                href={selectedProject.projectFile.url}
+                                download
                                 style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px', backgroundColor: colors.surface, color: colors.textPrimary, borderRadius: borderRadius.md, textDecoration: 'none', border: `1px solid ${colors.border}` }}
-                             >
+                            >
                                 <Download size={18} /> Download Project
-                             </a>
-                         )}
+                            </a>
+                        )}
                     </div>
                 </div>
+
+                {/* Plugins strip */}
+                {plugins.length > 0 && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: spacing.md }}>
+                        <span style={{ fontSize: '11px', color: colors.textSecondary, alignSelf: 'center', marginRight: 4, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>VSTs</span>
+                        {plugins.map(p => (
+                            <span key={p} style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: `${accentColor}18`, color: accentColor, border: `1px solid ${accentColor}33`, fontWeight: 600 }}>{p}</span>
+                        ))}
+                    </div>
+                )}
 
                 {/* Timeline Toolbar */}
                 <div style={{ backgroundColor: colors.surface, padding: spacing.md, borderRadius: `${borderRadius.md} ${borderRadius.md} 0 0`, border: `1px solid ${colors.border}`, borderBottom: 'none', display: 'flex', alignItems: 'center', gap: spacing.lg }}>
@@ -270,53 +300,55 @@ export const ProjectViewer: React.FC = () => {
 
                     {/* Tracks */}
                     <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        {selectedProject.arrangement.tracks.map(track => (
-                            <div key={track.id} style={{ display: 'flex', borderBottom: '1px solid #222', height: '60px', minWidth: 'fit-content' }}>
-                                {/* Track Info Panel (Sticky) */}
-                                <div style={{ 
-                                    position: 'sticky', 
-                                    left: 0, 
-                                    width: '150px', 
-                                    backgroundColor: colors.surface, 
-                                    borderRight: `2px solid ${track.color || colors.primary}`, 
-                                    zIndex: 5,
-                                    padding: '10px',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    fontSize: '13px'
-                                }}>
-                                    {track.name}
+                        {selectedProject.arrangement.tracks.map(track => {
+                            const trackColor = track.color || accentColor;
+                            return (
+                                <div key={track.id} style={{ display: 'flex', borderBottom: '1px solid #222', height: '60px', minWidth: 'fit-content' }}>
+                                    {/* Track Info Panel (Sticky) */}
+                                    <div style={{
+                                        position: 'sticky', left: 0, width: '150px',
+                                        backgroundColor: colors.surface,
+                                        borderRight: `2px solid ${trackColor}`,
+                                        zIndex: 5, padding: '10px',
+                                        display: 'flex', alignItems: 'center', gap: '6px',
+                                        fontSize: '13px',
+                                    }}>
+                                        {track.trackType && (
+                                            <span style={{ fontSize: '9px', padding: '1px 5px', borderRadius: '3px', background: `${trackColor}22`, color: trackColor, fontWeight: 700, textTransform: 'uppercase', flexShrink: 0 }}>
+                                                {track.trackType === 'midi' ? 'M' : track.trackType === 'audio' ? 'A' : track.trackType === 'return' ? 'R' : 'G'}
+                                            </span>
+                                        )}
+                                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{track.name}</span>
+                                    </div>
+
+                                    {/* Track Clips Area */}
+                                    <div style={{ position: 'relative', flex: 1 }}>
+                                        {track.clips.map(clip => {
+                                            const clipColor = (clip as any).color || trackColor;
+                                            return (
+                                                <div
+                                                    key={clip.id}
+                                                    style={{
+                                                        position: 'absolute',
+                                                        left: `${clip.start * pixelsPerBeat}px`,
+                                                        width: `${Math.max(clip.length * pixelsPerBeat, 4)}px`,
+                                                        top: '10px', bottom: '10px',
+                                                        backgroundColor: `${clipColor}44`,
+                                                        border: `1px solid ${clipColor}`,
+                                                        borderRadius: '4px', padding: '4px',
+                                                        fontSize: '10px', overflow: 'hidden',
+                                                        whiteSpace: 'nowrap', textOverflow: 'ellipsis',
+                                                        color: '#fff', backdropFilter: 'blur(2px)',
+                                                    }}
+                                                >
+                                                    {clip.name}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
                                 </div>
-                                
-                                {/* Track Clips Area */}
-                                <div style={{ position: 'relative', flex: 1 }}>
-                                    {track.clips.map(clip => (
-                                        <div 
-                                            key={clip.id}
-                                            style={{
-                                                position: 'absolute',
-                                                left: `${clip.start * pixelsPerBeat}px`,
-                                                width: `${clip.length * pixelsPerBeat}px`,
-                                                top: '10px',
-                                                bottom: '10px',
-                                                backgroundColor: track.color ? `${track.color}44` : `${colors.primary}22`,
-                                                border: `1px solid ${track.color || colors.primary}`,
-                                                borderRadius: '4px',
-                                                padding: '4px',
-                                                fontSize: '10px',
-                                                overflow: 'hidden',
-                                                whiteSpace: 'nowrap',
-                                                textOverflow: 'ellipsis',
-                                                color: '#fff',
-                                                backdropFilter: 'blur(2px)'
-                                            }}
-                                        >
-                                            {clip.name}
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 </div>
             </div>
@@ -375,12 +407,22 @@ export const ProjectViewer: React.FC = () => {
                             onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-4px)'}
                             onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
                         >
-                            <div style={{ height: '160px', backgroundColor: '#181818', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
-                                <Box size={60} color={colors.primary} style={{ opacity: 0.2 }} />
-                                <div style={{ position: 'absolute', bottom: spacing.md, right: spacing.md, backgroundColor: 'rgba(0,0,0,0.7)', padding: '4px 8px', borderRadius: borderRadius.sm, fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                    <Clock size={12} /> {p.duration ? `${Math.floor(p.duration / 60)}:${Math.floor(p.duration % 60).toString().padStart(2, '0')}` : '--:--'}
-                                </div>
-                            </div>
+                            {(() => {
+                                const isAls = p.arrangement?.fileType === 'als';
+                                const cardAccent = isAls ? '#FF7600' : colors.primary;
+                                return (
+                                    <div style={{ height: '160px', backgroundColor: '#181818', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', borderBottom: `2px solid ${cardAccent}44` }}>
+                                        <Box size={60} color={cardAccent} style={{ opacity: 0.2 }} />
+                                        {/* DAW label */}
+                                        <div style={{ position: 'absolute', top: spacing.sm, left: spacing.sm, padding: '3px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: 700, background: `${cardAccent}22`, color: cardAccent, border: `1px solid ${cardAccent}44` }}>
+                                            {isAls ? 'Ableton' : 'FL Studio'}
+                                        </div>
+                                        <div style={{ position: 'absolute', bottom: spacing.md, right: spacing.md, backgroundColor: 'rgba(0,0,0,0.7)', padding: '4px 8px', borderRadius: borderRadius.sm, fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                            <Clock size={12} /> {p.duration ? `${Math.floor(p.duration / 60)}:${Math.floor(p.duration % 60).toString().padStart(2, '0')}` : '--:--'}
+                                        </div>
+                                    </div>
+                                );
+                            })()}
                             <div style={{ padding: spacing.md }}>
                                 <h3 style={{ margin: '0 0 8px 0', fontSize: '16px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.filename}</h3>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
