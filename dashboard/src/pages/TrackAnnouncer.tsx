@@ -11,12 +11,14 @@ interface TrackAnnouncerSettings {
     guildId: string;
     enabled: boolean;
     channelId: string | null;
+    channelId2: string | null;
 }
 
 const DEFAULT: TrackAnnouncerSettings = {
     guildId: '',
     enabled: true,
     channelId: null,
+    channelId2: null,
 };
 
 export default function TrackAnnouncer() {
@@ -58,6 +60,7 @@ export default function TrackAnnouncer() {
                 body: JSON.stringify({
                     enabled: settings.enabled,
                     channelId: settings.channelId || null,
+                    channelId2: settings.channelId2 || null,
                 }),
             });
             if (!res.ok) throw new Error('Save failed');
@@ -151,7 +154,7 @@ export default function TrackAnnouncer() {
                     </button>
                 </div>
 
-                {/* Channel picker */}
+                {/* Primary channel picker */}
                 <div>
                     <label style={{ display: 'block', fontWeight: 600, color: colors.textPrimary, fontSize: '15px', marginBottom: '8px' }}>
                         Announcement Channel
@@ -161,14 +164,38 @@ export default function TrackAnnouncer() {
                     </p>
                     <ChannelSelect
                         guildId={guildId}
-                        value={settings.channelId}
-                        onChange={channelId => setSettings(s => ({ ...s, channelId }))}
+                        value={settings.channelId ?? ''}
+                        onChange={v => setSettings(s => ({ ...s, channelId: (Array.isArray(v) ? v[0] : v) ?? null }))}
                         placeholder="Select a channel..."
                     />
                     {!settings.channelId && settings.enabled && (
                         <p style={{ margin: '8px 0 0', color: colors.warning, fontSize: '12px' }}>
                             ⚠ No channel selected — announcements will be skipped until a channel is configured.
                         </p>
+                    )}
+                </div>
+
+                {/* Second channel picker (optional) */}
+                <div>
+                    <label style={{ display: 'block', fontWeight: 600, color: colors.textPrimary, fontSize: '15px', marginBottom: '8px' }}>
+                        Second Announcement Channel <span style={{ fontWeight: 400, color: colors.textTertiary, fontSize: '13px' }}>— optional</span>
+                    </label>
+                    <p style={{ margin: '0 0 12px', color: colors.textSecondary, fontSize: '13px' }}>
+                        If set, announcements are posted to both channels simultaneously.
+                    </p>
+                    <ChannelSelect
+                        guildId={guildId}
+                        value={settings.channelId2 ?? ''}
+                        onChange={v => setSettings(s => ({ ...s, channelId2: (Array.isArray(v) ? v[0] : v) ?? null }))}
+                        placeholder="Select a second channel (optional)..."
+                    />
+                    {settings.channelId2 && (
+                        <button
+                            onClick={() => setSettings(s => ({ ...s, channelId2: null }))}
+                            style={{ marginTop: '8px', background: 'none', border: 'none', color: colors.textTertiary, fontSize: '12px', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}
+                        >
+                            Clear second channel
+                        </button>
                     )}
                 </div>
 

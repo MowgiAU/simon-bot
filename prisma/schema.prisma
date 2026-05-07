@@ -2399,10 +2399,11 @@ model AntiExternalForwardSettings {
 // ── Track Announcer ────────────────────────────────────────────────────────────
 
 model TrackAnnouncerSettings {
-  id        String  @id @default(cuid())
-  guildId   String  @unique
-  enabled   Boolean @default(true)
-  channelId String? // Discord channel ID to post announcements in
+  id         String  @id @default(cuid())
+  guildId    String  @unique
+  enabled    Boolean @default(true)
+  channelId  String? // Primary announcement channel
+  channelId2 String? // Optional second channel
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

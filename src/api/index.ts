@@ -13101,8 +13101,8 @@ app.post('/api/track-announcer/:guildId', requireAuth, async (req: any, res) => 
     try {
         const { guildId } = req.params;
         if (!hasDashboardAccess(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
-        const { enabled, channelId } = req.body;
-        const data = { enabled: enabled ?? true, channelId: channelId || null };
+        const { enabled, channelId, channelId2 } = req.body;
+        const data = { enabled: enabled ?? true, channelId: channelId || null, channelId2: channelId2 || null };
         const settings = await db.trackAnnouncerSettings.upsert({
             where: { guildId },
             create: { guildId, ...data },

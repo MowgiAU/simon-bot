@@ -10,6 +10,9 @@ import { PrismaClient } from '@prisma/client';
 
 const POLL_INTERVAL_MS = 30_000; // 30 seconds
 const EMBED_COLOR = 0x2b8c71; // Fuji Studio green
+// Minimum age before posting — gives the background artwork processor time to
+// finish converting to WebP and uploading to R2 before the embed fires.
+const MIN_AGE_MS = 60_000; // 60 seconds
 
 export class TrackAnnouncerPlugin implements IPlugin {
     readonly id = 'track-announcer';
@@ -27,6 +30,7 @@ export class TrackAnnouncerPlugin implements IPlugin {
     readonly configSchema = z.object({
         enabled: z.boolean().default(true),
         channelId: z.string().optional(),
+        channelId2: z.string().optional(),
     });
 
     private db!: PrismaClient;
@@ -43,7 +47,7 @@ export class TrackAnnouncerPlugin implements IPlugin {
 
         // Poll for pending announcements written by the API process
         this.pollTimer = setInterval(() => this.processPending(), POLL_INTERVAL_MS);
-        // Also run shortly after boot so the first announcement isn't delayed
+        // Also run shortly after boot so the first announcement isn't delayed more than needed
         setTimeout(() => this.processPending(), 10_000);
     }
 
@@ -58,8 +62,15 @@ export class TrackAnnouncerPlugin implements IPlugin {
 
     private async processPending(): Promise<void> {
         try {
+            const cutoff = new Date(Date.now() - MIN_AGE_MS);
             const pending = await this.db.trackAnnouncement.findMany({
-                where: { postedAt: null },
+                where: {
+                    postedAt: null,
+                    // Only pick up announcements older than MIN_AGE_MS so the
+                    // background artwork processor (WebP convert + R2 upload) has
+                    // had time to finish before we read the cover URL.
+                    createdAt: { lt: cutoff },
+                },
                 orderBy: { createdAt: 'asc' },
                 take: 20,
             });
@@ -97,11 +108,14 @@ export class TrackAnnouncerPlugin implements IPlugin {
 
         if (!settings?.enabled || !settings?.channelId) return;
 
-        const channel = this.client.channels.cache.get(settings.channelId) as TextChannel | undefined;
-        if (!channel || !channel.isTextBased()) {
-            this.logger.warn(`[TrackAnnouncer] Channel ${settings.channelId} not found or not text-based for guild ${ann.guildId}`);
-            return;
-        }
+        // Re-fetch the latest coverUrl from the Track record — the background
+        // processor may have updated it (WebP conversion, R2 upload) after the
+        // announcement was queued.
+        const freshTrack = await this.db.track.findUnique({
+            where: { id: ann.trackId },
+            select: { coverUrl: true },
+        });
+        const coverUrl = freshTrack?.coverUrl ?? ann.coverUrl;
 
         // Build track URL — prefer slug, fall back to trackId
         const trackPath = ann.trackSlug
@@ -112,10 +126,10 @@ export class TrackAnnouncerPlugin implements IPlugin {
 
         // Resolve cover URL — may be relative or CDN absolute
         let thumbnailUrl: string | null = null;
-        if (ann.coverUrl) {
-            thumbnailUrl = ann.coverUrl.startsWith('http')
-                ? ann.coverUrl
-                : `${this.siteBase}${ann.coverUrl}`;
+        if (coverUrl) {
+            thumbnailUrl = coverUrl.startsWith('http')
+                ? coverUrl
+                : `${this.siteBase}${coverUrl}`;
         }
 
         const genreText = ann.genres.length > 0 ? ann.genres.join(' · ') : null;
@@ -128,9 +142,7 @@ export class TrackAnnouncerPlugin implements IPlugin {
 
         const embed = new EmbedBuilder()
             .setColor(EMBED_COLOR)
-            .setAuthor({
-                name: '🔔 New Track Drop',
-            })
+            .setAuthor({ name: '🔔 New Track Drop' })
             .setTitle(ann.trackTitle)
             .setURL(trackUrl)
             .setDescription(descParts.join('\n'))
@@ -141,7 +153,18 @@ export class TrackAnnouncerPlugin implements IPlugin {
             embed.setImage(thumbnailUrl);
         }
 
-        await channel.send({ embeds: [embed] });
-        this.logger.info(`[TrackAnnouncer] Posted track "${ann.trackTitle}" by ${ann.artistName} to channel ${settings.channelId}`);
+        // Post to primary channel
+        const channels: string[] = [settings.channelId];
+        if ((settings as any).channelId2) channels.push((settings as any).channelId2);
+
+        for (const channelId of channels) {
+            const channel = this.client.channels.cache.get(channelId) as TextChannel | undefined;
+            if (!channel || !channel.isTextBased()) {
+                this.logger.warn(`[TrackAnnouncer] Channel ${channelId} not found or not text-based for guild ${ann.guildId}`);
+                continue;
+            }
+            await channel.send({ embeds: [embed] });
+            this.logger.info(`[TrackAnnouncer] Posted "${ann.trackTitle}" by ${ann.artistName} to channel ${channelId}`);
+        }
     }
 }
