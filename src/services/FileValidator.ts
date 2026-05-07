@@ -70,14 +70,16 @@ const IMAGE_SIGS: MagicEntry[] = [
     { bytes: [0x52, 0x49, 0x46, 0x46, null, null, null, null, 0x57, 0x45, 0x42, 0x50], desc: 'WebP' },
 ];
 
-/** Project file magic byte signatures — FL Studio .flp, ZIP-based archives */
+/** Project file magic byte signatures — FL Studio .flp, ZIP-based archives, Ableton .als */
 const PROJECT_SIGS: MagicEntry[] = [
     // FL Studio .flp
     { bytes: [0x46, 0x4C, 0x68, 0x64], desc: 'FLP' },
-    // ZIP (used by .als, .logicx zips, .dawproject, etc.)
+    // ZIP (used by .zip bundles, .logicx, .dawproject, etc.)
     { bytes: [0x50, 0x4B, 0x03, 0x04], desc: 'ZIP' },
     // ZIP empty
     { bytes: [0x50, 0x4B, 0x05, 0x06], desc: 'ZIP' },
+    // Gzip — Ableton .als files are gzip-compressed XML, not ZIP
+    { bytes: [0x1F, 0x8B], desc: 'GZIP' },
 ];
 
 export class FileValidator {
