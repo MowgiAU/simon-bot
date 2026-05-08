@@ -1549,17 +1549,6 @@ const VoteTab: React.FC = () => {
             <Loader className="h2h-spin" size={32} color={NEON.cyan} />
         </div>
     );
-    if (!data.eligible) return (
-        <Panel glowColor={NEON.yellow}>
-            <div style={{ textAlign: 'center', padding: '20px 0' }}>
-                <Vote size={36} color={NEON.yellow} style={{ opacity: 0.6, marginBottom: 8 }} />
-                <p style={{ margin: 0, color: 'rgba(255,255,255,0.8)' }}>{data.reason}</p>
-                <p style={{ margin: '6px 0 0', color: 'rgba(255,255,255,0.5)', fontSize: 12 }}>
-                    Only active competitors may judge other matches.
-                </p>
-            </div>
-        </Panel>
-    );
     if (data.matches.length === 0) return (
         <Panel>
             <div style={{ textAlign: 'center', padding: '20px 0' }}>
@@ -1573,7 +1562,7 @@ const VoteTab: React.FC = () => {
     return (
         <div>
             <div style={{ marginBottom: 12, fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: '0.06em' }}>
-                Vote for the better track. Your vote matters - only active competitors judge.
+                Vote for the better track. Your vote is anonymous — producers can't see who voted.
             </div>
             {data.matches.map(m => {
                 const chName = profileName(m.challengerProfile, m.challengerId);
@@ -1761,7 +1750,7 @@ const RulesTab: React.FC<{ settings: Settings | null }> = ({ settings }) => {
                         ['Can I change my submission?', 'Yes, until the production timer hits zero. Just upload a new file and it overwrites the previous one.'],
                         ['What audio formats are accepted?', 'Standard formats: MP3, WAV, FLAC, OGG. Aim for a clean stereo mix; no need for mastering chains.'],
                         ['What if my opponent disappears?', 'If they don\'t ready up, vote on melodics, or submit before the deadline, you win automatically and they take a forfeit on their record.'],
-                        ['Can I vote on my own match?', 'No. Participants are filtered out of their own match\'s judging pool.'],
+                        ['Can I vote on my own match?', 'No. Participants cannot vote on their own match, but any other logged-in member can judge.'],
                         ['When are identities revealed?', 'Only after the match reaches a terminal state (completed, forfeited, or cancelled). Until then everyone sees Mystery Producer aliases.'],
                     ].map(([q, a]) => (
                         <div key={q}>

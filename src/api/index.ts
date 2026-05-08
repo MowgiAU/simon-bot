@@ -12591,25 +12591,7 @@ async function openVoting(match: any): Promise<void> {
 app.get('/api/head-to-head/voting/queue', requireAuth, async (req: any, res) => {
     try {
         const userId = req.session.user.id;
-        // Eligibility: user must currently be queued, in producing/voting, or have completed a match in the last 7 days.
-        const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-        const ownMatch = await db.h2HMatch.findFirst({
-            where: {
-                AND: [
-                    { OR: [{ challengerId: userId }, { opponentId: userId }] },
-                    {
-                        OR: [
-                            { status: { in: ['queued', 'ready_check', 'melodics_vote', 'producing', 'voting'] } },
-                            { status: 'completed', updatedAt: { gte: sevenDaysAgo } },
-                        ],
-                    },
-                ],
-            },
-        });
-        if (!ownMatch) {
-            return res.json({ eligible: false, reason: 'Join the queue or complete a match in the last 7 days to vote on others.', matches: [] });
-        }
-        // Fetch active voting matches the user is NOT a part of
+        // Any logged-in user can judge — participants are excluded from their own match below.
         const matches = await db.h2HMatch.findMany({
             where: {
                 status: 'voting',
@@ -12651,23 +12633,7 @@ app.post('/api/head-to-head/match/:id/vote', requireAuth, async (req: any, res) 
         if (![match.challengerId, match.opponentId].includes(voteFor)) {
             return res.status(400).json({ error: 'Invalid vote target' });
         }
-        // Eligibility: must have an active match or recently completed
-        const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-        const ownMatch = await db.h2HMatch.findFirst({
-            where: {
-                AND: [
-                    { OR: [{ challengerId: userId }, { opponentId: userId }] },
-                    {
-                        OR: [
-                            { status: { in: ['queued', 'ready_check', 'melodics_vote', 'producing', 'voting'] } },
-                            { status: 'completed', updatedAt: { gte: sevenDaysAgo } },
-                        ],
-                    },
-                ],
-            },
-        });
-        if (!ownMatch) return res.status(403).json({ error: 'Only active competitors can vote' });
-
+        // Any logged-in user can vote (participants in the match are already excluded above)
         await db.h2HVote.upsert({
             where: { matchId_voterId: { matchId: match.id, voterId: userId } },
             create: { matchId: match.id, voterId: userId, voteFor },
