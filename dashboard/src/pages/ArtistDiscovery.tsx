@@ -1,4 +1,5 @@
 ﻿import React, { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
 import { colors, spacing, borderRadius } from '../theme/theme';
 import {
@@ -140,15 +141,7 @@ function generateWaveform(seed: string, bars = 32): number[] {
 }
 
 export const ArtistDiscoveryPage: React.FC = () => {
-    const [artists, setArtists] = useState<ArtistProfile[]>([]);
-    const [topTracks, setTopTracks] = useState<TrackInfo[]>([]);
-    const [weeklyChart, setWeeklyChart] = useState<{ position: number; positionChange: number | null; prevPosition: number | null; playsInPeriod: number; track: TrackInfo }[]>([]);
-    const [loading, setLoading] = useState(true);
     const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
-    const [featured, setFeatured] = useState<FeaturedData | null>(null);
-    const [popularPlaylists, setPopularPlaylists] = useState<PopularPlaylist[]>([]);
-    const [featuredArticle, setFeaturedArticle] = useState<any>(null);
-    const [h2hChampion, setH2hChampion] = useState<any>(null);
     const { player, setTrack, togglePlay } = usePlayer();
     const { user } = useAuth();
 
@@ -158,33 +151,38 @@ export const ArtistDiscoveryPage: React.FC = () => {
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
-    useEffect(() => {
-        axios.get('/api/discovery/settings').then(r => setFeatured(r.data)).catch(() => {});
-        axios.get('/api/playlists/popular').then(r => setPopularPlaylists(r.data)).catch(() => {});
-        axios.get('/api/articles/featured/current').then(r => setFeaturedArticle(r.data)).catch(() => {});
-        axios.get('/api/head-to-head/leaderboard?limit=1').then(r => setH2hChampion(Array.isArray(r.data) && r.data.length > 0 ? r.data[0] : null)).catch(() => {});
-    }, []);
+    // Cached queries — navigating back re-uses cache, no spinner
+    const { data: discoveryData, isLoading: loading } = useQuery({
+        queryKey: ['discovery-home'],
+        queryFn: async () => {
+            const [profilesRes, tracksRes, chartRes, featuredRes, playlistsRes, articleRes, h2hRes] = await Promise.all([
+                axios.get('/api/musician/profiles'),
+                axios.get('/api/musician/leaderboards/tracks', { params: { limit: 12 } }),
+                axios.get('/api/charts/weekly', { params: { limit: 10 } }),
+                axios.get('/api/discovery/settings').catch(() => ({ data: null })),
+                axios.get('/api/playlists/popular').catch(() => ({ data: [] })),
+                axios.get('/api/articles/featured/current').catch(() => ({ data: null })),
+                axios.get('/api/head-to-head/leaderboard?limit=1').catch(() => ({ data: [] })),
+            ]);
+            return {
+                artists: ([...profilesRes.data] as ArtistProfile[]).sort((a, b) => (b.totalPlays || 0) - (a.totalPlays || 0)),
+                topTracks: tracksRes.data as TrackInfo[],
+                weeklyChart: (chartRes.data?.entries || []) as { position: number; positionChange: number | null; prevPosition: number | null; playsInPeriod: number; track: TrackInfo }[],
+                featured: featuredRes.data as FeaturedData | null,
+                popularPlaylists: playlistsRes.data as PopularPlaylist[],
+                featuredArticle: articleRes.data,
+                h2hChampion: Array.isArray(h2hRes.data) && h2hRes.data.length > 0 ? h2hRes.data[0] : null,
+            };
+        },
+    });
 
-    useEffect(() => {
-        const fetchData = async () => {
-            setLoading(true);
-            try {
-                const [profilesRes, tracksRes, chartRes] = await Promise.all([
-                    axios.get('/api/musician/profiles'),
-                    axios.get('/api/musician/leaderboards/tracks', { params: { limit: 12 } }),
-                    axios.get('/api/charts/weekly', { params: { limit: 10 } })
-                ]);
-                setArtists([...profilesRes.data].sort((a: ArtistProfile, b: ArtistProfile) => (b.totalPlays || 0) - (a.totalPlays || 0)));
-                setTopTracks(tracksRes.data);
-                setWeeklyChart(chartRes.data?.entries || []);
-            } catch (err) {
-                console.error('Failed to fetch', err);
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchData();
-    }, []);
+    const artists = discoveryData?.artists ?? [];
+    const topTracks = discoveryData?.topTracks ?? [];
+    const weeklyChart = discoveryData?.weeklyChart ?? [];
+    const featured = discoveryData?.featured ?? null;
+    const popularPlaylists = discoveryData?.popularPlaylists ?? [];
+    const featuredArticle = discoveryData?.featuredArticle ?? null;
+    const h2hChampion = discoveryData?.h2hChampion ?? null;
 
     // â”€â”€ Helpers â”€â”€
     const heroTrack = featured?.featuredTrack;

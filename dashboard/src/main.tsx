@@ -2,9 +2,21 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import axios from 'axios';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import App from './App';
 import './index.css';
 import { showToast } from './components/Toast';
+
+export const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 60_000,         // treat data fresh for 1 minute → back-button renders instantly
+      gcTime: 5 * 60_000,        // keep unused cache 5 minutes
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 // Global 429 interceptor — show warning toast instead of breaking the page
 axios.interceptors.response.use(
@@ -26,9 +38,11 @@ if (!rootElement) {
   try {
     const root = ReactDOM.createRoot(rootElement);
     root.render(
-      <BrowserRouter>
-        <App />
-      </BrowserRouter>
+      <QueryClientProvider client={queryClient}>
+        <BrowserRouter>
+          <App />
+        </BrowserRouter>
+      </QueryClientProvider>
     );
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : String(err);

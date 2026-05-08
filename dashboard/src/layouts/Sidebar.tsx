@@ -1,4 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { colors, spacing, borderRadius } from '../theme/theme';
 import { SidebarStyles } from './SidebarStyles';
@@ -61,6 +63,28 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, user, guild, permissions, logout }) => {
   const [collapsed, setCollapsed] = useState(false);
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+
+  // Prefetch data on nav-item hover so the section renders instantly on click
+  const prefetch = useCallback((section: string) => {
+    const guildId = guild?.id;
+    if (!guildId) return;
+    const opts = { staleTime: 60_000 };
+    switch (section) {
+      case 'tickets':
+        queryClient.prefetchQuery({ queryKey: ['tickets', guildId], queryFn: () => axios.get(`/api/tickets/list/${guildId}`).then(r => r.data), ...opts });
+        break;
+      case 'moderation':
+        queryClient.prefetchQuery({ queryKey: ['moderation-settings', guildId], queryFn: () => axios.get(`/api/moderation/settings/${guildId}`).then(r => r.data), ...opts });
+        break;
+      case 'logs':
+        queryClient.prefetchQuery({ queryKey: ['logs', guildId], queryFn: () => axios.get(`/api/logs/${guildId}?limit=50`).then(r => r.data), ...opts });
+        break;
+      case 'beat-battle':
+        queryClient.prefetchQuery({ queryKey: ['beat-battles', guildId], queryFn: () => axios.get(`/api/beat-battle/battles?guildId=${guildId}&status=active`).then(r => r.data), ...opts });
+        break;
+    }
+  }, [queryClient, guild?.id]);
 
   useEffect(() => {
     const style = document.createElement('style');
@@ -150,6 +174,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
           <button
             className={`nav-item ${activeSection === 'moderation' ? 'active' : ''}`}
             onClick={() => onNavigate('moderation')}
+            onMouseEnter={() => prefetch('moderation')}
             title={collapsed ? "Moderation" : ""}
           >
             <span className="nav-icon"><AnimatedWrapper icon={ShieldAlert} size={20} /></span>
@@ -228,6 +253,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             <button
                 className={`nav-item ${activeSection === 'tickets' ? 'active' : ''}`}
                 onClick={() => onNavigate('tickets')}
+                onMouseEnter={() => prefetch('tickets')}
                 title={collapsed ? "Tickets" : ""}
             >
                 <span className="nav-icon"><AnimatedWrapper icon={Ticket} size={20} /></span>
@@ -349,6 +375,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
           <button
             className={`nav-item ${activeSection === 'logs' ? 'active' : ''}`}
             onClick={() => onNavigate('logs')}
+            onMouseEnter={() => prefetch('logs')}
             title={collapsed ? "Audit Logs" : ""}
           >
             <span className="nav-icon"><AnimatedWrapper icon={ScrollText} size={20} /></span>
@@ -420,6 +447,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             <button
                 className={`nav-item ${activeSection === 'beat-battle' ? 'active' : ''}`}
                 onClick={() => onNavigate('beat-battle')}
+                onMouseEnter={() => prefetch('beat-battle')}
                 title={collapsed ? "Beat Battles" : ""}
             >
                 <span className="nav-icon"><AnimatedWrapper icon={Swords} size={20} /></span>

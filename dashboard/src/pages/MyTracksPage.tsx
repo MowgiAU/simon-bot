@@ -1,4 +1,5 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, memo } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { colors, spacing, borderRadius, shadows } from '../theme/theme';
 import { useAuth } from '../components/AuthProvider';
 import axios from 'axios';
@@ -78,6 +79,7 @@ const fileZoneDragging: React.CSSProperties = {
 export const MyTracksPage: React.FC = () => {
     const { user, loading: authLoading, isGuildMember } = useAuth();
     const navigate = useNavigate();
+    const queryClient = useQueryClient();
     const [tracks, setTracks] = useState<any[]>([]);
     const [allGenres, setAllGenres] = useState<Genre[]>([]);
     const [loading, setLoading] = useState(true);
@@ -131,34 +133,46 @@ export const MyTracksPage: React.FC = () => {
         return () => window.removeEventListener('resize', onResize);
     }, []);
 
+    // Cached data fetch — staleTime/gcTime set globally in QueryClient.
+    // Back-navigation re-uses cache instead of showing a spinner.
+    const profileQueryKey = ['musician-profile', user?.id] as const;
+    const { data: profileData, error: profileError, isFetching } = useQuery({
+        queryKey: profileQueryKey,
+        queryFn: async () => {
+            const [profileRes, genresRes] = await Promise.all([
+                axios.get(`/api/musician/profile/${user!.id}`, { withCredentials: true }),
+                axios.get('/api/musician/genres', { withCredentials: true }),
+            ]);
+            return { profile: profileRes.data, genres: genresRes.data as Genre[] };
+        },
+        enabled: !!user?.id && !authLoading,
+    });
+
     useEffect(() => {
-        const fetchData = async () => {
-            if (!user) {
-                if (!authLoading) window.location.href = '/api/auth/discord/login';
-                return;
-            }
-            setLoading(true);
-            try {
-                const [profileRes, genresRes] = await Promise.all([
-                    axios.get(`/api/musician/profile/${user.id}`, { withCredentials: true }),
-                    axios.get('/api/musician/genres', { withCredentials: true })
-                ]);
-                const data = profileRes.data;
-                if (data?.tracks) setTracks(data.tracks);
-                if (data?.username) setUsername(data.username);
-                setAllGenres(genresRes.data);
-            } catch (err: any) {
-                if (err.response?.status === 404) {
-                    navigate('/profile/setup', { replace: true });
-                } else {
-                    setMessage({ type: 'error', text: 'Failed to load tracks' });
-                }
-            } finally {
+        if (profileData) {
+            if (profileData.profile?.tracks) setTracks(profileData.profile.tracks);
+            if (profileData.profile?.username) setUsername(profileData.profile.username);
+            setAllGenres(profileData.genres);
+            setLoading(false);
+        }
+    }, [profileData]);
+
+    useEffect(() => {
+        if (profileError) {
+            if ((profileError as any)?.response?.status === 404) {
+                navigate('/profile/setup', { replace: true });
+            } else {
+                setMessage({ type: 'error', text: 'Failed to load tracks' });
                 setLoading(false);
             }
-        };
-        fetchData();
-    }, [user?.id, authLoading]);
+        }
+    }, [profileError]);
+
+    useEffect(() => {
+        if (!user && !authLoading) window.location.href = '/api/auth/discord/login';
+    }, [user, authLoading]);
+
+    useEffect(() => { setLoading(isFetching && !profileData); }, [isFetching, profileData]);
 
     const handleAddTrack = async () => {
         if (!audioFile) {
@@ -210,6 +224,7 @@ export const MyTracksPage: React.FC = () => {
                 await axios.put(`/api/musician/tracks/${res.data.id}/lyrics`, { lyrics: newTrackLyrics.trim(), lyricsSync: null }, { withCredentials: true }).catch(() => {});
             }
             setTracks([...tracks, res.data]);
+            queryClient.invalidateQueries({ queryKey: profileQueryKey });
             setIsAddingTrack(false);
             setNewTrack({ title: '', description: '', artist: '', album: '', year: '', bpm: '', key: '', allowAudioDownload: true, allowProjectDownload: true, license: 'all-rights-reserved' });
             setAudioFile(null); setArtworkFile(null); setProjectFile(null); setArtworkPreviewUrl(null);
@@ -239,6 +254,7 @@ export const MyTracksPage: React.FC = () => {
         try {
             await axios.delete(`/api/musician/tracks/${trackId}`, { withCredentials: true });
             setTracks(tracks.filter(t => t.id !== trackId));
+            queryClient.invalidateQueries({ queryKey: profileQueryKey });
             setMessage({ type: 'success', text: 'Track deleted' });
         } catch (e: any) {
             const serverMsg = e?.response?.data?.error;
@@ -286,6 +302,7 @@ export const MyTracksPage: React.FC = () => {
             // Save lyrics separately
             await axios.put(`/api/musician/tracks/${editingTrack.id}/lyrics`, { lyrics: editingTrackLyrics.trim() || null, lyricsSync: null }, { withCredentials: true }).catch(() => {});
             setTracks(tracks.map(t => t.id === editingTrack.id ? res.data : t));
+            queryClient.invalidateQueries({ queryKey: profileQueryKey });
             setEditingTrack(null);
             setAudioFile(null); setArtworkFile(null); setProjectFile(null); setArtworkPreviewUrl(null);
             setSelectedTrackGenres([]); setEditingTrackLyrics('');
