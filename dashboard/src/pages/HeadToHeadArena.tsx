@@ -916,10 +916,35 @@ const ActiveMatchPanel: React.FC<{ match: MatchInfo; myUserId: string; onChange:
             )}
 
             {match.status === 'voting' && (
-                <div style={{ textAlign: 'center', padding: '8px 0' }}>
-                    <p style={{ margin: 0, color: 'rgba(255,255,255,0.75)', fontSize: 13 }}>
+                <div style={{ padding: '8px 0' }}>
+                    <p style={{ margin: '0 0 16px', color: 'rgba(255,255,255,0.75)', fontSize: 13, textAlign: 'center' }}>
                         Submissions locked. Other competitors are casting their votes.
                     </p>
+                    {/* Both players can hear each other's tracks while being judged */}
+                    {(() => {
+                        const myUrl = isCh ? match.challengerSubmissionUrl : match.opponentSubmissionUrl;
+                        const oppUrl = isCh ? match.opponentSubmissionUrl : match.challengerSubmissionUrl;
+                        return (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                {myUrl && (
+                                    <div style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${NEON.cyan}44`, borderRadius: 10, padding: '12px 16px' }}>
+                                        <div style={{ fontSize: 11, fontWeight: 800, color: NEON.cyan, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 8 }}>
+                                            Your Track
+                                        </div>
+                                        <audio controls src={`${myUrl.startsWith('http') ? '' : API}${myUrl}`} style={{ width: '100%', accentColor: NEON.cyan }} />
+                                    </div>
+                                )}
+                                {oppUrl && (
+                                    <div style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${NEON.pink}44`, borderRadius: 10, padding: '12px 16px' }}>
+                                        <div style={{ fontSize: 11, fontWeight: 800, color: NEON.pink, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 8 }}>
+                                            Opponent's Track
+                                        </div>
+                                        <audio controls src={`${oppUrl.startsWith('http') ? '' : API}${oppUrl}`} style={{ width: '100%', accentColor: NEON.pink }} />
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })()}
                 </div>
             )}
 
