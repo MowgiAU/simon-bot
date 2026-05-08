@@ -1,4 +1,5 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import JSZip from 'jszip';
 import { Swords, Trophy, Clock, CheckCircle, Upload, Loader, Award, Vote, Zap, Flame, Crown, Medal, Target, TrendingUp, Skull, Headphones, Radio, Play, Pause, Download, Package, BookOpen, Users, Sparkles } from 'lucide-react';
 import { colors } from '../theme/theme';
@@ -268,8 +269,21 @@ const Avatar: React.FC<{ profile: Profile | null | undefined; userId: string; si
 // Main
 // ─────────────────────────────────────────────────────────────────────────────
 
+const VALID_TABS = ['arena', 'vote', 'leaderboard', 'rules'] as const;
+type Tab = typeof VALID_TABS[number];
+
+function hashToTab(hash: string): Tab {
+    const slug = hash.replace(/^#/, '');
+    return (VALID_TABS as readonly string[]).includes(slug) ? slug as Tab : 'arena';
+}
+
 export const HeadToHeadArenaPage: React.FC = () => {
-    const [tab, setTab] = useState<'arena' | 'vote' | 'leaderboard' | 'rules'>('arena');
+    const location = useLocation();
+    const navigate = useNavigate();
+    const tab: Tab = useMemo(() => hashToTab(location.hash), [location.hash]);
+    const setTab = useCallback((t: Tab) => {
+        navigate(`/arena#${t}`, { replace: true });
+    }, [navigate]);
     const [settings, setSettings] = useState<Settings | null>(null);
 
     useEffect(() => {
@@ -1603,15 +1617,16 @@ const SubmissionPlayer: React.FC<{ matchId: string; side: 'challenger' | 'oppone
 // ─────────────────────────────────────────────────────────────────────────────
 const VoteTab: React.FC = () => {
     const [data, setData] = useState<{ eligible: boolean; reason?: string; matches: VotingMatch[] } | null>(null);
-    const [loading, setLoading] = useState(true);
+    const [loaded, setLoaded] = useState(false);
+    const [isLoggedIn, setIsLoggedIn] = useState(true);
     const [, force] = useState(0);
     useEffect(() => { const t = setInterval(() => force(x => x + 1), 1000); return () => clearInterval(t); }, []);
 
     const reload = async () => {
-        setLoading(true);
         const res = await fetch(`${API}/api/head-to-head/voting/queue`, { credentials: 'include' });
+        if (res.status === 401 || res.status === 403) setIsLoggedIn(false);
         if (res.ok) setData(await res.json());
-        setLoading(false);
+        setLoaded(true);
     };
 
     useEffect(() => { reload(); }, []);
@@ -1625,12 +1640,34 @@ const VoteTab: React.FC = () => {
         await reload();
     };
 
-    if (loading || !data) return (
+    if (!loaded) return (
         <div style={{ display: 'flex', justifyContent: 'center', padding: 60 }}>
             <Loader className="h2h-spin" size={32} color={NEON.cyan} />
         </div>
     );
-    if (data.matches.length === 0) return (
+
+    if (!isLoggedIn) return (
+        <Panel glowColor={NEON.cyan}>
+            <div style={{ textAlign: 'center', padding: '24px 0' }}>
+                <Vote size={40} color={NEON.cyan} style={{ opacity: 0.7, marginBottom: 12 }} />
+                <div style={{ fontSize: 20, fontWeight: 900, color: '#fff', marginBottom: 8, letterSpacing: '-0.02em' }}>
+                    Sign In to Judge
+                </div>
+                <p style={{ margin: '0 0 20px', color: 'rgba(255,255,255,0.65)', fontSize: 14, lineHeight: 1.6, maxWidth: 340, marginLeft: 'auto', marginRight: 'auto' }}>
+                    Any logged-in member can listen to both tracks and cast a vote. Your judgement shapes the leaderboard.
+                </p>
+                <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
+                    <a href="/login" style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '10px 22px', borderRadius: 8, background: `linear-gradient(135deg, ${NEON.cyan}, ${NEON.purple})`, color: '#fff', fontWeight: 800, fontSize: 13, textDecoration: 'none', letterSpacing: '0.04em', boxShadow: `0 0 18px ${NEON.cyan}55` }}>
+                        <Vote size={15} /> Sign In to Vote
+                    </a>
+                    <a href="/login?tab=register" style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '10px 22px', borderRadius: 8, background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.8)', fontWeight: 700, fontSize: 13, textDecoration: 'none', border: '1px solid rgba(255,255,255,0.12)' }}>
+                        Create Account
+                    </a>
+                </div>
+            </div>
+        </Panel>
+    );
+    if (!data || data.matches.length === 0) return (
         <Panel>
             <div style={{ textAlign: 'center', padding: '20px 0' }}>
                 <Headphones size={36} color={NEON.cyan} style={{ opacity: 0.6, marginBottom: 8 }} />
