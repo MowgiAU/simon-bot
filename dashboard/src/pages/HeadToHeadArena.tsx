@@ -1907,107 +1907,115 @@ const LeaderboardTab: React.FC = () => {
 
     useEffect(() => { load(genreId); }, [genreId]);
 
-    const podium = rows.slice(0, 3);
-    const rest = rows.slice(3);
-    const podiumOrder = [podium[1], podium[0], podium[2]].filter(Boolean); // 2-1-3 layout
+    const MEDAL = ['🥇', '🥈', '🥉'];
+    const MEDAL_COLOR = [NEON.yellow, '#C0C0C0', '#CD7F32'];
 
     return (
-        <div>
-            <Panel glowColor={NEON.yellow}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <Trophy size={22} color={NEON.yellow} />
-                        <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, letterSpacing: '0.08em' }}>HALL OF CHAMPIONS</h3>
-                    </div>
-                    <select value={genreId} onChange={e => setGenreId(e.target.value)} style={{ ...selectStyle, width: 'auto', minWidth: 200 }}>
-                        <option value="">⚡ Global Rankings</option>
-                        {genres.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
-                    </select>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {/* Header */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <Trophy size={20} color={NEON.yellow} style={{ filter: `drop-shadow(0 0 6px ${NEON.yellow})` }} />
+                    <span style={{ fontWeight: 900, fontSize: 16, letterSpacing: '0.1em', color: NEON.yellow }}>HALL OF CHAMPIONS</span>
                 </div>
+                <select value={genreId} onChange={e => setGenreId(e.target.value)}
+                    style={{ ...selectStyle, width: 'auto', minWidth: 180, fontSize: 12 }}>
+                    <option value="">⚡ Global</option>
+                    {genres.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+                </select>
+            </div>
 
-                {loading ? (
-                    <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}>
-                        <Loader className="h2h-spin" size={28} color={NEON.cyan} />
-                    </div>
-                ) : rows.length === 0 ? (
-                    <p style={{ color: 'rgba(255,255,255,0.5)', textAlign: 'center', padding: 20 }}>No rankings yet - be the first.</p>
-                ) : (
-                    <>
-                        {/* Podium */}
-                        {podium.length > 0 && (
-                            <div style={{
-                                display: 'grid',
-                                gridTemplateColumns: `repeat(${podiumOrder.length}, 1fr)`,
-                                gap: 12, marginBottom: 18, alignItems: 'end',
-                            }}>
-                                {podiumOrder.map(p => {
-                                    const isFirst = p.rank === 1;
-                                    const isSecond = p.rank === 2;
-                                    const podiumColor = isFirst ? NEON.yellow : isSecond ? '#C0C0C0' : '#CD7F32';
-                                    const height = isFirst ? 200 : isSecond ? 170 : 150;
-                                    return (
-                                        <div key={p.userId} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                            <Avatar profile={p.profile} userId={p.userId} size={isFirst ? 72 : 56} ring={podiumColor} ringPulse={isFirst} />
-                                            <div style={{ marginTop: 8, fontWeight: 800, fontSize: 13, color: '#fff', textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>
-                                                {profileName(p.profile, p.userId)}
+            {loading ? (
+                <div style={{ display: 'flex', justifyContent: 'center', padding: 48 }}>
+                    <Loader className="h2h-spin" size={28} color={NEON.yellow} />
+                </div>
+            ) : rows.length === 0 ? (
+                <Panel>
+                    <p style={{ color: 'rgba(255,255,255,0.5)', textAlign: 'center', padding: 20, margin: 0 }}>
+                        No rankings yet — be the first to compete.
+                    </p>
+                </Panel>
+            ) : (
+                <>
+                    {/* Top 3 — prominent cards */}
+                    {rows.slice(0, 3).length > 0 && (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10 }}>
+                            {rows.slice(0, 3).map((p, i) => {
+                                const mc = MEDAL_COLOR[i];
+                                const t = tierFor(p.elo);
+                                const winRate = p.matchesPlayed > 0 ? Math.round((p.wins / p.matchesPlayed) * 100) : 0;
+                                return (
+                                    <div key={p.userId} style={{
+                                        background: `linear-gradient(135deg, ${mc}18, ${mc}06)`,
+                                        border: `1px solid ${mc}44`,
+                                        borderRadius: 14,
+                                        padding: '18px 16px',
+                                        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
+                                        boxShadow: i === 0 ? `0 0 28px ${mc}44` : 'none',
+                                        position: 'relative',
+                                    }}>
+                                        <div style={{ position: 'absolute', top: 10, left: 14, fontSize: 22 }}>{MEDAL[i]}</div>
+                                        {i === 0 && <Crown size={16} color={mc} style={{ position: 'absolute', top: 10, right: 14, filter: `drop-shadow(0 0 6px ${mc})` }} />}
+                                        <Avatar profile={p.profile} userId={p.userId} size={60} ring={mc} ringPulse={i === 0} />
+                                        <div style={{ fontWeight: 800, fontSize: 14, color: '#fff', textAlign: 'center', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                            {profileName(p.profile, p.userId)}
+                                        </div>
+                                        <TierBadge elo={p.elo} size="sm" />
+                                        <div style={{ display: 'flex', gap: 14, alignItems: 'baseline' }}>
+                                            <div style={{ textAlign: 'center' }}>
+                                                <div style={{ fontSize: 22, fontWeight: 900, color: mc, letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>{p.elo}</div>
+                                                <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', fontWeight: 700, letterSpacing: '0.06em', marginTop: 2 }}>ELO</div>
                                             </div>
-                                            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>{p.wins}W · {p.losses}L</div>
-                                            <div style={{
-                                                width: '100%', height,
-                                                background: `linear-gradient(180deg, ${podiumColor}cc, ${podiumColor}33)`,
-                                                borderRadius: '10px 10px 0 0',
-                                                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start',
-                                                paddingTop: 14,
-                                                boxShadow: `0 0 24px ${podiumColor}66, inset 0 1px 0 rgba(255,255,255,0.2)`,
-                                                position: 'relative',
-                                            }}>
-                                                <div style={{ fontSize: isFirst ? 36 : 28, fontWeight: 900, color: '#fff', textShadow: `0 0 14px ${podiumColor}` }}>#{p.rank}</div>
-                                                <div style={{ fontSize: isFirst ? 22 : 18, fontWeight: 800, color: '#fff', marginTop: 4, fontVariantNumeric: 'tabular-nums' }}>{p.elo}</div>
-                                                <div style={{ marginTop: 6 }}>
-                                                    <TierBadge elo={p.elo} size="sm" />
-                                                </div>
-                                                {isFirst && (
-                                                    <Crown size={28} color="#fff" style={{ position: 'absolute', top: -18, filter: `drop-shadow(0 0 8px ${podiumColor})` }} />
-                                                )}
+                                            <div style={{ width: 1, height: 28, background: 'rgba(255,255,255,0.08)' }} />
+                                            <div style={{ textAlign: 'center' }}>
+                                                <div style={{ fontSize: 16, fontWeight: 800, color: NEON.green, letterSpacing: '-0.01em', lineHeight: 1 }}>{winRate}%</div>
+                                                <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', fontWeight: 700, letterSpacing: '0.06em', marginTop: 2 }}>WIN RATE</div>
                                             </div>
                                         </div>
-                                    );
-                                })}
-                            </div>
-                        )}
-
-                        {/* Rest of leaderboard */}
-                        {rest.length > 0 && (
-                            <div>
-                                {rest.map(r => {
-                                    const t = tierFor(r.elo);
-                                    return (
-                                        <div key={r.userId} className="h2h-row-hover" style={{
-                                            display: 'flex', alignItems: 'center', gap: 12,
-                                            padding: '10px 12px', borderRadius: 8,
-                                            background: 'rgba(255,255,255,0.02)',
-                                            marginBottom: 4,
-                                        }}>
-                                            <span style={{ width: 36, fontSize: 14, fontWeight: 800, color: 'rgba(255,255,255,0.45)', fontVariantNumeric: 'tabular-nums', textAlign: 'center' }}>#{r.rank}</span>
-                                            <Avatar profile={r.profile} userId={r.userId} size={36} ring={t.color} />
-                                            <div style={{ flex: 1, minWidth: 0 }}>
-                                                <div style={{ fontWeight: 700, fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                                    {profileName(r.profile, r.userId)}
-                                                </div>
-                                                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)' }}>{r.wins}W · {r.losses}L · {r.matchesPlayed} battles</div>
-                                            </div>
-                                            <TierBadge elo={r.elo} size="sm" />
-                                            <span style={{ fontSize: 16, fontWeight: 800, color: t.color, fontVariantNumeric: 'tabular-nums', textShadow: `0 0 10px ${t.glow}`, minWidth: 50, textAlign: 'right' }}>
-                                                {r.elo}
-                                            </span>
+                                        <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', letterSpacing: '0.04em' }}>
+                                            {p.wins}W · {p.losses}L · {p.matchesPlayed} battles
                                         </div>
-                                    );
-                                })}
-                            </div>
-                        )}
-                    </>
-                )}
-            </Panel>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+
+                    {/* Ranks 4+ */}
+                    {rows.slice(3).length > 0 && (
+                        <Panel>
+                            {rows.slice(3).map((r, i) => {
+                                const t = tierFor(r.elo);
+                                const winRate = r.matchesPlayed > 0 ? Math.round((r.wins / r.matchesPlayed) * 100) : 0;
+                                return (
+                                    <div key={r.userId} className="h2h-row-hover" style={{
+                                        display: 'flex', alignItems: 'center', gap: 12,
+                                        padding: '10px 8px',
+                                        borderBottom: i < rows.slice(3).length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none',
+                                    }}>
+                                        <span style={{ width: 30, fontSize: 13, fontWeight: 800, color: 'rgba(255,255,255,0.35)', textAlign: 'center', fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>
+                                            {r.rank}
+                                        </span>
+                                        <Avatar profile={r.profile} userId={r.userId} size={34} ring={t.color} />
+                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                            <div style={{ fontWeight: 700, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#fff' }}>
+                                                {profileName(r.profile, r.userId)}
+                                            </div>
+                                            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 1 }}>
+                                                {r.wins}W · {r.losses}L · {winRate}% win rate
+                                            </div>
+                                        </div>
+                                        <TierBadge elo={r.elo} size="sm" />
+                                        <span style={{ fontSize: 15, fontWeight: 800, color: t.color, fontVariantNumeric: 'tabular-nums', minWidth: 44, textAlign: 'right', flexShrink: 0 }}>
+                                            {r.elo}
+                                        </span>
+                                    </div>
+                                );
+                            })}
+                        </Panel>
+                    )}
+                </>
+            )}
         </div>
     );
 };
