@@ -377,17 +377,21 @@ const ArenaTab: React.FC<{ settings: Settings | null }> = ({ settings }) => {
     const [prodMin, setProdMin] = useState<number>(60);
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [loaded, setLoaded] = useState(false);
+    const [isLoggedIn, setIsLoggedIn] = useState(true);
 
     const reload = useCallback(async () => {
         const [mRes, gRes] = await Promise.all([
             fetch(`${API}/api/head-to-head/me`, { credentials: 'include' }),
             fetch(`${API}/api/head-to-head/genres`),
         ]);
+        if (mRes.status === 401 || mRes.status === 403) setIsLoggedIn(false);
         if (mRes.ok) setMe(await mRes.json());
         if (gRes.ok) {
             const data = await gRes.json();
             setGenres(data.genres || []);
         }
+        setLoaded(true);
     }, []);
 
     useEffect(() => { reload(); }, [reload]);
@@ -421,10 +425,32 @@ const ArenaTab: React.FC<{ settings: Settings | null }> = ({ settings }) => {
         await reload();
     };
 
-    if (!me) return (
+    if (!loaded) return (
         <div style={{ display: 'flex', justifyContent: 'center', padding: 60 }}>
             <Loader className="h2h-spin" size={32} color={NEON.cyan} />
         </div>
+    );
+
+    if (!isLoggedIn || !me) return (
+        <Panel glowColor={NEON.cyan}>
+            <div style={{ textAlign: 'center', padding: '24px 0' }}>
+                <Swords size={40} color={NEON.cyan} style={{ opacity: 0.7, marginBottom: 12 }} />
+                <div style={{ fontSize: 20, fontWeight: 900, color: '#fff', marginBottom: 8, letterSpacing: '-0.02em' }}>
+                    Join the Arena
+                </div>
+                <p style={{ margin: '0 0 20px', color: 'rgba(255,255,255,0.65)', fontSize: 14, lineHeight: 1.6, maxWidth: 340, marginLeft: 'auto', marginRight: 'auto' }}>
+                    Sign in or create a free account to enter the 1v1 queue, compete against other producers, and climb the leaderboard.
+                </p>
+                <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
+                    <a href="/login" style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '10px 22px', borderRadius: 8, background: `linear-gradient(135deg, ${NEON.cyan}, ${NEON.purple})`, color: '#fff', fontWeight: 800, fontSize: 13, textDecoration: 'none', letterSpacing: '0.04em', boxShadow: `0 0 18px ${NEON.cyan}55` }}>
+                        <Swords size={15} /> Sign In to Compete
+                    </a>
+                    <a href="/login?tab=register" style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '10px 22px', borderRadius: 8, background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.8)', fontWeight: 700, fontSize: 13, textDecoration: 'none', border: '1px solid rgba(255,255,255,0.12)' }}>
+                        Create Account
+                    </a>
+                </div>
+            </div>
+        </Panel>
     );
 
     const tier = me.globalRating.matchesPlayed === 0 ? TIERS[0] : tierFor(me.globalRating.elo);
