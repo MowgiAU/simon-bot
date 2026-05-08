@@ -882,6 +882,36 @@ const ActiveMatchPanel: React.FC<{ match: MatchInfo; myUserId: string; onChange:
                                 onChange={e => e.target.files?.[0] && submit(e.target.files[0])} />
                         </label>
                     </div>
+
+                    {/* Listen to submitted tracks — your own once submitted, opponent's once both have submitted */}
+                    {mySubmitted && (() => {
+                        const myUrl = isCh ? match.challengerSubmissionUrl : match.opponentSubmissionUrl;
+                        const oppUrl = isCh ? match.opponentSubmissionUrl : match.challengerSubmissionUrl;
+                        return (
+                            <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                {/* Your submission */}
+                                <div style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${NEON.cyan}44`, borderRadius: 10, padding: '12px 16px' }}>
+                                    <div style={{ fontSize: 11, fontWeight: 800, color: NEON.cyan, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 8 }}>
+                                        Your Submission
+                                    </div>
+                                    <audio controls src={`${API}${myUrl!.startsWith('http') ? '' : ''}${myUrl!}`} style={{ width: '100%', accentColor: NEON.cyan }} />
+                                </div>
+                                {/* Opponent's submission — only shown once they've submitted too */}
+                                {oppSubmitted && oppUrl ? (
+                                    <div style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${NEON.pink}44`, borderRadius: 10, padding: '12px 16px' }}>
+                                        <div style={{ fontSize: 11, fontWeight: 800, color: NEON.pink, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 8 }}>
+                                            Opponent's Submission
+                                        </div>
+                                        <audio controls src={`${API}${oppUrl.startsWith('http') ? '' : ''}${oppUrl}`} style={{ width: '100%', accentColor: NEON.pink }} />
+                                    </div>
+                                ) : (
+                                    <div style={{ textAlign: 'center', fontSize: 12, color: 'rgba(255,255,255,0.4)', padding: '8px 0' }}>
+                                        Waiting for opponent to submit their track…
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })()}
                 </div>
             )}
 
