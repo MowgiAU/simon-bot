@@ -20,7 +20,8 @@ export class StatsPlugin implements IPlugin {
 
   private context: IPluginContext | null = null;
   private logger: Logger;
-  private voiceSessions = new Map<string, { startTime: number; guildId: string }>(); // userId -> session info
+  private voiceSessions = new Map<string, { startTime: number; guildId: string }>();
+  private snapshotTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor() {
     this.logger = new Logger('StatsPlugin');
@@ -29,31 +30,43 @@ export class StatsPlugin implements IPlugin {
   async initialize(context: IPluginContext): Promise<void> {
     this.context = context;
     this.logger.info('Stats plugin initialized');
-    
-    // Scan for existing voice states on startup
-    // This catches users who are already in voice when the bot starts
-    if (this.context.client?.guilds) {
-        this.context.client.guilds.cache.forEach(guild => {
-            guild.voiceStates.cache.forEach(state => {
-                if (state.channelId && state.id && state.guild.id) {
-                    this.voiceSessions.set(state.id, { startTime: Date.now(), guildId: state.guild.id });
-                }
+
+    const onReady = () => {
+        this.scanVoiceChannels();
+        // Snapshot immediately on ready, then every 6 hours.
+        // This guarantees a daily record even on quiet days or after bot restarts.
+        this.takeDailySnapshot();
+        this.snapshotTimer = setInterval(() => this.takeDailySnapshot(), 6 * 60 * 60_000);
+    };
+
+    if (this.context.client?.guilds?.cache.size) {
+        // Client is already ready (guild cache populated)
+        onReady();
+    } else if (this.context.client) {
+        this.context.client.once('ready', onReady);
+    }
+  }
+
+  // Ensures every guild has a serverStats row for today even on quiet days.
+  // Called on ready and every 6 hours. Only upserts memberCount — never zeroes
+  // out message/voice counts that event handlers may have already written.
+  private async takeDailySnapshot(): Promise<void> {
+    if (!this.context?.client) return;
+    const today = this.getToday();
+    let count = 0;
+    for (const guild of this.context.client.guilds.cache.values()) {
+        try {
+            await this.context.db.serverStats.upsert({
+                where: { guildId_date: { guildId: guild.id, date: today } },
+                create: { guildId: guild.id, date: today, memberCount: guild.memberCount },
+                update: { memberCount: guild.memberCount },
             });
-        });
-        this.logger.info(`Restored ${this.voiceSessions.size} active voice sessions from scan`);
-    } else {
-        // Client might not be ready yet? Usually initialize is called after ready if we wait for it, 
-        // but in SimonBot.start(), initialize happens BEFORE 'ready' event for some reason?
-        // Let's check index.ts ordering locally.
-        // Actually, this.client.login is called AFTER initialize in index.ts.
-        // So guilds.cache is empty here.
-        // We need to listen for 'ready' event.
-        if (this.context.client) {
-            this.context.client.on('ready', () => {
-                this.scanVoiceChannels();
-            });
+            count++;
+        } catch (e) {
+            this.logger.error(`[StatsPlugin] snapshot failed for guild ${guild.id}`, e);
         }
     }
+    this.logger.info(`[StatsPlugin] Daily snapshot written for ${count} guild(s)`);
   }
 
   private scanVoiceChannels() {
@@ -76,6 +89,7 @@ export class StatsPlugin implements IPlugin {
   }
 
   async shutdown(): Promise<void> {
+    if (this.snapshotTimer) { clearInterval(this.snapshotTimer); this.snapshotTimer = null; }
     this.logger.info('Stats plugin shutting down, saving pending voice sessions...');
     await this.savePendingSessions();
   }
