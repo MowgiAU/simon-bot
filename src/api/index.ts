@@ -3504,11 +3504,10 @@ app.get('/api/guilds/:guildId/stats', async (req, res) => {
       artistCount,
       trackCount,
     ] = await Promise.all([
-      // 1. Server Stats History
+      // 1. Server Stats History — last 60 days, most recent first so take(60) never clips new data
       db.serverStats.findMany({
-        where: { guildId },
+        where: { guildId, date: { gte: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000) } },
         orderBy: { date: 'asc' },
-        take: 30,
       }),
       // 2. Top Channels (Last 7 days)
       db.channelStats.groupBy({
