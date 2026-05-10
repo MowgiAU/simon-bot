@@ -1181,6 +1181,23 @@ app.get('/api/auth/discord/callback', async (req, res) => {
     // If no account exists for this Discord user, auto-create one.
     try {
         let dbUser = await db.user.findUnique({ where: { discordId: user.id } });
+
+        // If not found via the normal (non-deleted) lookup, check whether a soft-deleted
+        // account with this discordId exists. If so, reactivate it instead of creating a
+        // duplicate — this is the root cause of double-account spam after admin deletions.
+        if (!dbUser) {
+            const deletedUser = await db.user.findFirst({
+                where: { discordId: user.id, deletedAt: { not: null } },
+            });
+            if (deletedUser) {
+                dbUser = await db.user.update({
+                    where: { id: deletedUser.id },
+                    data: { deletedAt: null, lastLoginAt: new Date(), avatar: user.avatar, displayName: user.global_name || user.username },
+                });
+                logger.info(`[Auth] Reactivated soft-deleted account ${deletedUser.id} for Discord user ${user.id}`);
+            }
+        }
+
         if (!dbUser) {
             // Auto-create account from Discord profile
             const discordUsername = (user.username || `user_${user.id}`).toLowerCase().replace(/[^a-z0-9_-]/g, '_').slice(0, 30);
@@ -15113,6 +15130,65 @@ app.post('/api/admin/users/bulk-invite', requireAdmin, async (req, res) => {
     } catch (e) {
         logger.error('Failed to bulk invite users', e);
         res.status(500).json({ error: 'Failed to bulk invite' });
+    }
+});
+
+// -- Repair orphaned profile/tracks for a Discord user (admin only) ----------
+// Undeletes soft-deleted MusicianProfile and/or its tracks, and makes all
+// tracks public. Use when admin deleted the wrong account and the profile/tracks
+// became invisible.
+app.post('/api/admin/users/:discordId/repair-profile', requireAdmin, async (req: any, res) => {
+    try {
+        const { discordId } = req.params;
+
+        // 1. Restore soft-deleted MusicianProfile for this Discord user
+        const profile = await db.musicianProfile.findFirst({
+            where: { userId: discordId, deletedAt: { not: null } },
+        });
+        if (profile) {
+            await db.musicianProfile.update({ where: { id: profile.id }, data: { deletedAt: null } });
+            logger.info(`[Repair] Restored soft-deleted MusicianProfile ${profile.id} for discordId ${discordId}`);
+        }
+
+        // Also find active profile (in case it was never deleted)
+        const activeProfile = await db.musicianProfile.findFirst({ where: { userId: discordId } });
+        const profileId = activeProfile?.id;
+
+        let tracksRestored = 0;
+        let tracksMadePublic = 0;
+
+        if (profileId) {
+            // 2. Restore soft-deleted tracks on this profile
+            const deletedTracks = await db.track.findMany({
+                where: { profileId, deletedAt: { not: null } },
+                select: { id: true },
+            });
+            if (deletedTracks.length) {
+                await db.track.updateMany({ where: { id: { in: deletedTracks.map(t => t.id) } }, data: { deletedAt: null } });
+                tracksRestored = deletedTracks.length;
+            }
+
+            // 3. Make all tracks public
+            const privateTracks = await db.track.findMany({
+                where: { profileId, isPublic: false },
+                select: { id: true },
+            });
+            if (privateTracks.length) {
+                await db.track.updateMany({ where: { id: { in: privateTracks.map(t => t.id) } }, data: { isPublic: true } });
+                tracksMadePublic = privateTracks.length;
+            }
+        }
+
+        res.json({
+            ok: true,
+            profileRestored: !!profile,
+            tracksRestored,
+            tracksMadePublic,
+            profileId,
+        });
+    } catch (e: any) {
+        logger.error('Profile repair failed', e);
+        res.status(500).json({ error: e.message });
     }
 });
 
