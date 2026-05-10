@@ -8040,7 +8040,9 @@ app.get('/api/musician/profiles', publicCache(120), async (req, res) => {
 });
 
 // Public Profile Retrieval
-app.get('/api/musician/profile/:userId', publicCache(120), async (req, res) => {
+// No publicCache here — we use server-side apiResponseCache (invalidated on upload/edit/delete)
+// so Cloudflare edge caching would only serve stale profiles after new track uploads.
+app.get('/api/musician/profile/:userId', async (req, res) => {
     try {
         const { userId } = req.params;
 
@@ -8106,20 +8108,13 @@ app.get('/api/musician/profile/:userId', publicCache(120), async (req, res) => {
 
         // Only cache for non-owner requests — owner always gets a live query (see above)
         if (!isOwnerRequest) setCachedResponse(cacheKey, profileData);
-        // Override publicCache(120) CDN headers for the owner so Cloudflare/browser
-        // never serve a stale snapshot of their own track list.
-        if (isOwnerRequest) {
-            res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-            res.set('Pragma', 'no-cache');
-            res.set('Expires', '0');
-        }
         res.json(profileData);
     } catch (e: any) {
         res.status(500).json({ error: 'Internal server error' });
     }
 });
 
-app.get('/api/musician/tracks/:username/:trackSlug', publicCache(120), async (req, res) => {
+app.get('/api/musician/tracks/:username/:trackSlug', publicCache(15), async (req, res) => {
     try {
         const { username, trackSlug } = req.params;
         
