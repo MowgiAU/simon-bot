@@ -1229,18 +1229,10 @@ app.get('/api/auth/discord/callback', async (req, res) => {
             }
 
             if (!dbUser) {
-                dbUser = await db.user.create({
-                    data: {
-                        discordId: user.id,
-                        username: finalUsername,
-                        displayName: user.global_name || user.username,
-                        avatar: user.avatar,
-                        email: emailToUse,
-                        emailVerified: emailToUse ? new Date() : null,
-                        lastLoginAt: new Date(),
-                    },
-                });
-                logger.info(`[Auth] Auto-created account ${dbUser.id} for Discord user ${user.username} (${user.id})`);
+                // No existing account found — do NOT auto-create.
+                // Discord is for login/linking only; new accounts must be registered via email.
+                logger.info(`[Auth] Discord login rejected for ${user.username} (${user.id}): no matching Fuji Studio account`);
+                return res.redirect(`${process.env.DASHBOARD_ORIGIN || ''}/login?error=discord_no_account`);
             }
         } else {
             await db.user.update({
