@@ -8019,7 +8019,19 @@ app.get('/api/musician/profiles', publicCache(120), async (req, res) => {
       }
 
       // Filter suspended/banned profiles application-side (safe before migration runs)
-      const activeProfiles = profiles.filter((p: any) => !p.status || p.status === 'active');
+      let activeProfiles = profiles.filter((p: any) => !p.status || p.status === 'active');
+
+      // Deduplicate by username — keep the profile with the most tracks when duplicates exist
+      // (can occur after the duplicate-account bug where two MusicianProfile rows share a username)
+      const seenUsernames = new Map<string, any>();
+      for (const p of activeProfiles) {
+          const key = (p.username || '').toLowerCase();
+          const existing = seenUsernames.get(key);
+          if (!existing || (p._count?.tracks ?? 0) > (existing._count?.tracks ?? 0)) {
+              seenUsernames.set(key, p);
+          }
+      }
+      activeProfiles = Array.from(seenUsernames.values());
 
       // Track permission backfill for profile previews
       activeProfiles.forEach((p: any) => {
@@ -8224,6 +8236,12 @@ app.post('/api/musician/profile/:userId', async (req: any, res) => {
             return res.status(403).json({ error: 'Forbidden' });
         }
 
+        // Normalize to the internal DB user ID. When a Discord account is linked to an email
+        // account, session.user.id becomes the Discord ID (numeric string) while _localId holds
+        // the real cuid. Using the Discord ID for the upsert would create a second MusicianProfile
+        // alongside the original email-signup profile, causing the duplicate-profile bug.
+        const canonicalUserId = req.session?.user?._localId || userId;
+
         const data = req.body;
 
         // Validate displayName against word filters if provided
@@ -8251,8 +8269,8 @@ app.post('/api/musician/profile/:userId', async (req: any, res) => {
             const fallbackRaw = user?.username
                 || (data.displayName as string | undefined)
                 || (req as any).session?.user?.username
-                || `producer-${userId.slice(-6)}`;
-            data.username = fallbackRaw.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || `producer-${userId.slice(-6)}`;
+                || `producer-${canonicalUserId.slice(-6)}`;
+            data.username = fallbackRaw.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || `producer-${canonicalUserId.slice(-6)}`;
         }
 
         // Auto-update avatar from Discord ONLY if no custom avatar is provided
@@ -8275,11 +8293,11 @@ app.post('/api/musician/profile/:userId', async (req: any, res) => {
 
         // Basic check for common structure
         if (!data.genres) data.genres = [];
-        
+
         // Extract IDs if passed as objects from frontend
         const genreIds = data.genres.map((g: any) => typeof g === 'string' ? g : g.id).filter(Boolean);
 
-        const updated = await profileService.updateProfile(userId, {
+        const updated = await profileService.updateProfile(canonicalUserId, {
             ...data,
             socials,
             genreIds,
@@ -8288,10 +8306,10 @@ app.post('/api/musician/profile/:userId', async (req: any, res) => {
         });
 
         // Log profile creation/update
-        await logAction('GLOBAL', 'profile_updated', userId, updated.id, { username: updated.username });
+        await logAction('GLOBAL', 'profile_updated', canonicalUserId, updated.id, { username: updated.username });
 
         // Invalidate profile cache for this user
-        apiResponseCache.delete(`profile-${userId.toLowerCase()}`);
+        apiResponseCache.delete(`profile-${canonicalUserId.toLowerCase()}`);
         if (updated.username) apiResponseCache.delete(`profile-${updated.username.toLowerCase()}`);
 
         res.json(updated);
