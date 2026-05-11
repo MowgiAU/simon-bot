@@ -8117,38 +8117,42 @@ app.get('/api/musician/profile/:userId', async (req, res) => {
 app.get('/api/musician/tracks/:username/:trackSlug', publicCache(15), async (req, res) => {
     try {
         const { username, trackSlug } = req.params;
-        
-        const profile = await db.musicianProfile.findFirst({
-            where: { username: { equals: username, mode: 'insensitive' } }
-        });
 
-        if (!profile) return res.status(404).json({ error: 'Artist not found' });
-
-        const track = (await db.track.findFirst({
-            where: { 
-                profileId: profile.id,
-                slug: { equals: trackSlug, mode: 'insensitive' }
+        // Look up by slug + profile username in one query.
+        // This avoids the two-step profile-then-track pattern which fails when multiple
+        // MusicianProfile rows share the same username (duplicate-account edge case):
+        // findFirst on username alone may return the wrong profile, missing the track.
+        const includeShape = {
+            profile: true,
+            genres: { include: { genre: true } },
+            plays: true,
+            samples: true,
+        };
+        let track = (await db.track.findFirst({
+            where: {
+                slug: { equals: trackSlug, mode: 'insensitive' },
+                profile: { username: { equals: username, mode: 'insensitive' } },
             },
-            include: { 
-                profile: true,
-                genres: { include: { genre: true } },
-                plays: true,
-                samples: true
-            }
+            include: includeShape,
         })) as any;
 
+        // Fallback: treat trackSlug as a track ID (for old links that used ID instead of slug)
         if (!track) {
-            // Fallback: try by ID if slug doesn't match
-            const byId = (await db.track.findFirst({
-                where: { profileId: profile.id, id: trackSlug },
-                include: { profile: true, genres: { include: { genre: true } }, plays: true, samples: true }
+            track = (await db.track.findFirst({
+                where: {
+                    id: trackSlug,
+                    profile: { username: { equals: username, mode: 'insensitive' } },
+                },
+                include: includeShape,
             })) as any;
-            if (byId) {
-                if (byId.allowAudioDownload === undefined) byId.allowAudioDownload = true;
-                if (byId.allowProjectDownload === undefined) byId.allowProjectDownload = true;
-                return res.json(byId);
-            }
-            return res.status(404).json({ error: 'Track not found' });
+        }
+
+        if (!track) {
+            // Verify whether the artist exists at all for a better error message
+            const artistExists = await db.musicianProfile.findFirst({
+                where: { username: { equals: username, mode: 'insensitive' } }
+            });
+            return res.status(404).json({ error: artistExists ? 'Track not found' : 'Artist not found' });
         }
 
         if (track.allowAudioDownload === undefined) track.allowAudioDownload = true;
