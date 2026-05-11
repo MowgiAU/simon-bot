@@ -29,7 +29,7 @@ const GEAR_CATEGORIES = [
 ];
 
 export const ProfileSetupWizard: React.FC = () => {
-    const { user } = useAuth();
+    const { user, refreshAccountStatus } = useAuth();
     const navigate = useNavigate();
     const [step, setStep] = useState(0);
     const [saving, setSaving] = useState(false);
@@ -107,6 +107,7 @@ export const ProfileSetupWizard: React.FC = () => {
                 });
             }
 
+            await refreshAccountStatus();
             navigate(`/profile/${usernameSlug}`);
         } catch (err: any) {
             setMessage({ type: 'error', text: err.response?.data?.error || 'Failed to save profile' });
