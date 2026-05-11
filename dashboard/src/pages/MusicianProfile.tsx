@@ -74,10 +74,10 @@ export const MusicianProfilePage: React.FC = () => {
                     <User size={64} color={colors.primary} style={{ marginBottom: spacing.xl, opacity: 0.5 }} />
                     <h2 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '16px' }}>Sign in to view your profile</h2>
                     <button
-                        onClick={() => window.location.href = '/api/auth/discord/login'}
+                        onClick={() => window.location.href = '/login'}
                         style={{ backgroundColor: colors.primary, color: 'white', border: 'none', padding: '12px 32px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}
                     >
-                        Login with Discord
+                        Sign In
                     </button>
                 </div>
             </DiscoveryLayout>

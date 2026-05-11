@@ -2351,13 +2351,16 @@ app.get('/api/auth/status', async (req, res) => {
         }
     }
 
-    // Fetch MusicianProfile avatar/displayName/username for the session user
+    // Fetch MusicianProfile avatar/displayName/username for the session user.
+    // Use _localId (internal cuid) first — for Discord-linked email users session.user.id
+    // is the Discord snowflake, but the MusicianProfile is stored under the cuid.
     let profileAvatar: string | null = null;
     let profileDisplayName: string | null = null;
     let profileUsername: string | null = null;
     try {
-        const mp = await db.musicianProfile.findUnique({
-            where: { userId: req.session.user.id },
+        const profileLookupId = req.session.user._localId || req.session.user.id;
+        const mp = await db.musicianProfile.findFirst({
+            where: { userId: profileLookupId },
             select: { avatar: true, displayName: true, username: true },
         });
         if (mp) {

@@ -119,11 +119,22 @@ export class ProfileService {
     }
 
     async getProfile(identifier: string) {
+        // If identifier looks like a Discord snowflake, resolve it to the internal
+        // cuid so profiles stored under the cuid are found for Discord-linked users.
+        let resolvedId = identifier;
+        if (/^\d{17,19}$/.test(identifier)) {
+            const discordUser = await this.prisma.user.findFirst({
+                where: { discordId: identifier },
+                select: { id: true },
+            });
+            if (discordUser) resolvedId = discordUser.id;
+        }
+
         const profile = await this.prisma.musicianProfile.findFirst({
             where: {
                 OR: [
-                    { userId: identifier },
-                    { username: { equals: identifier, mode: 'insensitive' } }
+                    { userId: resolvedId },
+                    { username: { equals: resolvedId, mode: 'insensitive' } }
                 ]
             },
             include: {
