@@ -15257,22 +15257,42 @@ app.post('/api/admin/retranscode-mp3', requireAdmin, async (_req: any, res) => {
         // Process sequentially in the background to avoid overwhelming the server
         setImmediate(async () => {
             let done = 0, failed = 0;
-            for (const track of tracks) {
-                try {
-                    // Resolve local path from URL
-                    const localPath = track.url.startsWith('http')
-                        ? null
-                        : path.join(process.cwd(), 'public', track.url);
-                    if (!localPath || !fs.existsSync(localPath)) { failed++; continue; }
+            const tmpDir = path.join(process.cwd(), 'uploads', 'tmp', 'mp3-retranscode');
+            fs.mkdirSync(tmpDir, { recursive: true });
 
-                    const mp3Path = await MediaConverter.convertToMp3(localPath);
+            for (const track of tracks) {
+                let tmpOggPath: string | null = null;
+                try {
+                    let oggPath: string;
+
+                    if (track.url.startsWith('http')) {
+                        // Download from CDN/R2 to a temp file
+                        const ext = path.extname(new URL(track.url).pathname) || '.ogg';
+                        tmpOggPath = path.join(tmpDir, `${track.id}${ext}`);
+                        const response = await axios.get(track.url, { responseType: 'arraybuffer', timeout: 60_000 });
+                        fs.writeFileSync(tmpOggPath, Buffer.from(response.data));
+                        oggPath = tmpOggPath;
+                    } else {
+                        oggPath = path.join(process.cwd(), 'public', track.url);
+                        if (!fs.existsSync(oggPath)) { failed++; continue; }
+                    }
+
+                    const mp3Path = await MediaConverter.convertToMp3(oggPath);
                     const r2Key = `tracks/${track.id}/audio/${path.basename(mp3Path)}`;
                     const localMp3Url = `/uploads/tracks/${path.basename(mp3Path)}`;
                     const mp3Url = await uploadToR2OrLocal(mp3Path, r2Key, 'audio/mpeg', localMp3Url);
                     await db.track.update({ where: { id: track.id }, data: { mp3Url } });
+
+                    // Clean up temp OGG download and converted MP3 if it was stored locally
+                    if (tmpOggPath && fs.existsSync(tmpOggPath)) fs.unlinkSync(tmpOggPath);
+                    // If mp3Path differs from the final url (i.e. was uploaded to R2), remove local copy
+                    if (mp3Url !== localMp3Url && fs.existsSync(mp3Path)) fs.unlinkSync(mp3Path);
+
                     done++;
+                    if (done % 10 === 0) logger.info(`[RetranscodeMp3] Progress: ${done}/${tracks.length}`);
                 } catch (e: any) {
                     logger.warn(`[RetranscodeMp3] Failed for track ${track.id}: ${e.message}`);
+                    if (tmpOggPath && fs.existsSync(tmpOggPath)) { try { fs.unlinkSync(tmpOggPath); } catch {} }
                     failed++;
                 }
             }
