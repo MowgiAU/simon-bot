@@ -48,7 +48,10 @@ export const ArtistsPage: React.FC = () => {
     }, []);
 
     useEffect(() => {
-        axios.get('/api/discovery/genres').then(res => setGenres(res.data)).catch(() => {});
+        axios.get('/api/discovery/genres').then(res => {
+            const sorted = [...res.data].sort((a: DiscoveryGenre, b: DiscoveryGenre) => a.name.localeCompare(b.name));
+            setGenres(sorted);
+        }).catch(() => {});
     }, []);
 
     const fetchArtists = async () => {

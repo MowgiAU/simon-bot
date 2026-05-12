@@ -1,7 +1,7 @@
 
 import React from 'react';
 import {
-    Play, Heart, Volume2, SkipBack, SkipForward, Shuffle, Repeat, Pause, List, X, Repeat2
+    Play, Heart, Volume2, SkipBack, SkipForward, Shuffle, Repeat, Pause, List, X, Repeat2, ChevronUp, ChevronDown
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { usePlayer } from './PlayerProvider';
@@ -18,7 +18,16 @@ export const GlobalPlayer: React.FC = () => {
     const [showSpeedMenu, setShowSpeedMenu] = React.useState(false);
     const lastCheckedTrackId = React.useRef<string | null>(null);
     const [isMobile, setIsMobile] = React.useState(window.innerWidth < 1024);
+    const [isCollapsed, setIsCollapsed] = React.useState(() => localStorage.getItem('player_collapsed') === '1');
     const speedMenuRef = React.useRef<HTMLDivElement>(null);
+
+    const toggleCollapse = () => {
+        setIsCollapsed(v => {
+            const next = !v;
+            localStorage.setItem('player_collapsed', next ? '1' : '0');
+            return next;
+        });
+    };
 
     // Close speed menu on outside click
     React.useEffect(() => {
@@ -78,7 +87,9 @@ export const GlobalPlayer: React.FC = () => {
     const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => seek(parseFloat(e.target.value));
     const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => setVolume(parseFloat(e.target.value));
 
-    const playerHeight = isMobile ? 100 : 80;
+    const collapsedHeight = 44;
+    const expandedHeight = isMobile ? 100 : 80;
+    const playerHeight = isCollapsed ? collapsedHeight : expandedHeight;
     const bottomOffset = isMobile ? 60 : 0;
 
     const t = player.currentTrack as any;
@@ -178,12 +189,47 @@ export const GlobalPlayer: React.FC = () => {
                 zIndex: 1000,
                 boxShadow: '0 -10px 25px rgba(0,0,0,0.3)',
                 display: 'flex',
-                flexDirection: isMobile ? 'column' : 'row',
-                alignItems: isMobile ? 'stretch' : 'center',
-                justifyContent: isMobile ? 'flex-start' : 'space-between',
-                padding: isMobile ? '0' : '0 24px',
+                flexDirection: isCollapsed ? 'row' : isMobile ? 'column' : 'row',
+                alignItems: 'center',
+                justifyContent: isCollapsed ? 'space-between' : isMobile ? 'flex-start' : 'space-between',
+                padding: isCollapsed ? '0 16px' : isMobile ? '0' : '0 24px',
+                overflow: 'hidden',
+                transition: 'height 0.25s cubic-bezier(0.4,0,0.2,1)',
             }}>
-                {isMobile ? (
+                {/* ── Collapsed mini bar ── */}
+                {isCollapsed && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0, animation: 'fadeIn 0.2s ease' }}>
+                        <div style={{ width: '28px', height: '28px', borderRadius: '4px', overflow: 'hidden', backgroundColor: '#0f1320', flexShrink: 0 }}>
+                            {player.currentTrack.cover
+                                ? <img src={player.currentTrack.cover} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Play size={10} color="rgba(255,255,255,0.2)" /></div>
+                            }
+                        </div>
+                        <button onClick={togglePlay} aria-label={player.isPlaying ? 'Pause' : 'Play'}
+                            style={{ width: '28px', height: '28px', borderRadius: '50%', backgroundColor: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', cursor: 'pointer', flexShrink: 0, transition: 'transform 0.1s' }}
+                            onMouseDown={e => (e.currentTarget.style.transform = 'scale(0.9)')}
+                            onMouseUp={e => (e.currentTarget.style.transform = 'scale(1)')}>
+                            {player.isPlaying ? <Pause fill="#1A1E2E" size={12} /> : <Play fill="#1A1E2E" size={12} style={{ marginLeft: '1px' }} />}
+                        </button>
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                            <p style={{ margin: 0, fontSize: '12px', fontWeight: 600, color: 'white', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                {player.currentTrack.title}
+                            </p>
+                        </div>
+                        {/* Progress bar */}
+                        <div style={{ width: '120px', height: '3px', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: '2px', flexShrink: 0, overflow: 'hidden' }}>
+                            <div style={{ width: `${player.duration ? (player.currentTime / player.duration) * 100 : 0}%`, height: '100%', backgroundColor: colors.primary, borderRadius: '2px', transition: 'width 0.5s linear' }} />
+                        </div>
+                        <button onClick={toggleCollapse} aria-label="Expand player"
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#B9C3CE', padding: '4px', flexShrink: 0, display: 'flex', transition: 'color 0.2s' }}
+                            onMouseEnter={e => (e.currentTarget.style.color = 'white')}
+                            onMouseLeave={e => (e.currentTarget.style.color = '#B9C3CE')}>
+                            <ChevronUp size={16} />
+                        </button>
+                    </div>
+                )}
+                {isCollapsed && <style>{`@keyframes fadeIn{from{opacity:0}to{opacity:1}}`}</style>}
+                {!isCollapsed && isMobile ? (
                     /* ── MOBILE: 2-row layout ── */
                     <>
                         {/* Row 1: Cover + title/artist + fav + queue */}
@@ -261,7 +307,7 @@ export const GlobalPlayer: React.FC = () => {
                             </span>
                         </div>
                     </>
-                ) : (
+                ) : !isCollapsed ? (
                     /* ── DESKTOP: 3-column layout ── */
                     <>
                         {/* Left: Track info */}
@@ -384,9 +430,15 @@ export const GlobalPlayer: React.FC = () => {
                                 style={{ background: 'none', border: 'none', cursor: 'pointer', color: showQueue ? colors.primary : '#B9C3CE', padding: '4px', transition: 'color 0.2s' }}>
                                 <List size={20} />
                             </button>
+                            <button onClick={toggleCollapse} aria-label="Collapse player"
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#B9C3CE', padding: '4px', transition: 'color 0.2s' }}
+                                onMouseEnter={e => (e.currentTarget.style.color = 'white')}
+                                onMouseLeave={e => (e.currentTarget.style.color = '#B9C3CE')}>
+                                <ChevronDown size={18} />
+                            </button>
                         </div>
                     </>
-                )}
+                ) : null}
             </footer>
         </>
     );

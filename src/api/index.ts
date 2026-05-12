@@ -7986,7 +7986,7 @@ app.get('/api/musician/profiles', publicCache(120), async (req, res) => {
       }
 
       let orderBy: any = { createdAt: 'desc' };
-      if (sort === 'popular') orderBy = { playCount: 'desc' }; // Note: Schema might need total play count field or aggregation
+      if (sort === 'popular') orderBy = { totalPlays: 'desc' };
       if (sort === 'oldest') orderBy = { createdAt: 'asc' };
 
       const profiles = await db.musicianProfile.findMany({
