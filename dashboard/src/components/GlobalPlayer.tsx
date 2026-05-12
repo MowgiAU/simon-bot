@@ -193,7 +193,6 @@ export const GlobalPlayer: React.FC = () => {
                 alignItems: 'center',
                 justifyContent: isCollapsed ? 'space-between' : isMobile ? 'flex-start' : 'space-between',
                 padding: isCollapsed ? '0 16px' : isMobile ? '0' : '0 24px',
-                overflow: 'hidden',
                 transition: 'height 0.25s cubic-bezier(0.4,0,0.2,1)',
             }}>
                 {/* ── Collapsed mini bar ── */}
