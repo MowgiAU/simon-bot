@@ -15249,7 +15249,7 @@ app.post('/api/admin/users/:discordId/repair-profile', requireAdmin, async (req:
 app.post('/api/admin/retranscode-mp3', requireAdmin, async (_req: any, res) => {
     try {
         const tracks = await db.track.findMany({
-            where: { mp3Url: null, url: { not: null } },
+            where: { mp3Url: null, NOT: { url: '' } },
             select: { id: true, url: true },
         });
         res.json({ queued: tracks.length });
