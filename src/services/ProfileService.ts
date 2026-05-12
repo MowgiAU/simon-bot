@@ -132,7 +132,10 @@ export class ProfileService {
             if (discordUser) userIdConditions.push(discordUser.id);
         }
 
-        const profile = await this.prisma.musicianProfile.findFirst({
+        // Use findMany so we can pick the profile with the most tracks when
+        // duplicate username rows exist (duplicate-account edge case). findFirst
+        // returns by insertion order which is often the empty placeholder profile.
+        const profiles = await this.prisma.musicianProfile.findMany({
             where: {
                 OR: [
                     { userId: { in: userIdConditions } },
@@ -211,6 +214,12 @@ export class ProfileService {
                 }
             }
         });
+
+        // Pick the profile with the most tracks when duplicates share a username
+        const profile = profiles.reduce<typeof profiles[0] | null>((best, p) => {
+            if (!best) return p;
+            return (p.tracks?.length ?? 0) >= (best.tracks?.length ?? 0) ? p : best;
+        }, null);
 
         // If the featured track has been privated or soft-deleted, clear it from the response and DB
         if (profile && profile.featuredTrack && (!profile.featuredTrack.isPublic || (profile.featuredTrack as any).deletedAt)) {
