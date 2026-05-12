@@ -1082,7 +1082,7 @@ export const MyTracksPage: React.FC = () => {
                         <CheckSquare size={15} /> {bulkMode ? 'Exit Select' : 'Select'}
                     </button>
                 )}
-                {isGuildMember && !isAddingTrack && !editingTrack && !bulkMode && (
+                {!isAddingTrack && !editingTrack && !bulkMode && (
                     <button onClick={() => setIsAddingTrack(true)} style={{
                         display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px',
                         backgroundColor: colors.primary, color: 'white', border: 'none',
@@ -1112,25 +1112,6 @@ export const MyTracksPage: React.FC = () => {
                 </div>
             )}
 
-            {/* ── Not a guild member ── */}
-            {!isGuildMember && (
-                <div style={{
-                    ...card, textAlign: 'center', marginBottom: '24px',
-                    borderColor: 'rgba(251,191,36,0.2)',
-                    backgroundColor: 'rgba(251,191,36,0.04)',
-                }}>
-                    <p style={{ margin: '0 0 8px', color: colors.textPrimary, fontWeight: 600, fontSize: '15px' }}>Discord Server Membership Required</p>
-                    <p style={{ margin: '0 0 16px', color: colors.textSecondary, fontSize: '13px' }}>You must be a member of our Discord server to upload tracks.</p>
-                    <a href="https://discord.gg/flstudio" target="_blank" rel="noopener noreferrer"
-                        style={{
-                            display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 24px',
-                            backgroundColor: '#5865F2', color: 'white', borderRadius: borderRadius.md,
-                            textDecoration: 'none', fontWeight: 600, fontSize: '13px',
-                        }}>
-                        Join Discord Server
-                    </a>
-                </div>
-            )}
 
             {/* ── Upload / Edit form ── */}
             {isAddingTrack && renderTrackForm(false)}
@@ -1146,7 +1127,7 @@ export const MyTracksPage: React.FC = () => {
                     <p style={{ margin: '0 0 20px', fontSize: '13px', color: colors.textTertiary, maxWidth: '360px', marginLeft: 'auto', marginRight: 'auto' }}>
                         Upload your first track to start building your portfolio and sharing your music with the community.
                     </p>
-                    {isGuildMember && !isAddingTrack && (
+                    {!isAddingTrack && (
                         <button onClick={() => setIsAddingTrack(true)} style={{
                             display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 24px',
                             backgroundColor: colors.primary, color: 'white', border: 'none',

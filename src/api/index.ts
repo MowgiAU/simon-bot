@@ -6785,10 +6785,6 @@ app.post('/api/musician/tracks', uploadLimiter, upload.fields([
         const userId = req.session?.user?.id;
         if (!userId) return res.status(401).json({ error: 'Unauthorized' });
 
-        // Guild membership gate
-        if (process.env.GUILD_ID && !req.session.isGuildMember) {
-            return res.status(403).json({ error: 'You must be a member of the Discord server to upload tracks.' });
-        }
         
         const files = req.files as { [fieldname: string]: Express.Multer.File[] };
         const audioFile = files['audio']?.[0];
