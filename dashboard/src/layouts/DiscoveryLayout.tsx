@@ -516,6 +516,50 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
             {user && messengerOpen && (
                 <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 99 }} onClick={() => setMessengerOpen(false)} />
             )}
+
+            {/* ── Floating Upload Button ── */}
+            {/* Only shown to logged-in users who have a profile set up */}
+            {user?.profileUsername && pathname !== '/my-tracks' && (
+                <Link
+                    to="/my-tracks?upload=1"
+                    aria-label="Upload a track"
+                    style={{
+                        position: 'fixed',
+                        right: isMobile ? '16px' : '24px',
+                        bottom: (() => {
+                            const hasPlayer = !!player.currentTrack;
+                            const collapsed = localStorage.getItem('player_collapsed') === '1';
+                            if (isMobile) {
+                                if (!hasPlayer) return '76px';      // above mobile nav (60px) + gap
+                                return collapsed ? '120px' : '176px'; // + player height
+                            } else {
+                                if (!hasPlayer) return '24px';
+                                return collapsed ? '60px' : '96px';
+                            }
+                        })(),
+                        width: isMobile ? '48px' : '52px',
+                        height: isMobile ? '48px' : '52px',
+                        borderRadius: '50%',
+                        backgroundColor: colors.primary,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        boxShadow: '0 4px 20px rgba(43,141,113,0.5)',
+                        zIndex: 201,
+                        textDecoration: 'none',
+                        transition: 'transform 0.2s, box-shadow 0.2s, bottom 0.25s cubic-bezier(0.4,0,0.2,1)',
+                        cursor: 'pointer',
+                    }}
+                    onMouseEnter={e => {
+                        (e.currentTarget as HTMLElement).style.transform = 'scale(1.1)';
+                        (e.currentTarget as HTMLElement).style.boxShadow = '0 6px 28px rgba(43,141,113,0.7)';
+                    }}
+                    onMouseLeave={e => {
+                        (e.currentTarget as HTMLElement).style.transform = 'scale(1)';
+                        (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 20px rgba(43,141,113,0.5)';
+                    }}
+                >
+                    <Upload size={isMobile ? 20 : 22} color="white" />
+                </Link>
+            )}
         </div>
     );
 };

@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
 import { ConfirmModal } from '../components/ConfirmModal';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { User } from 'lucide-react';
 
 const VALID_TITLE_REGEX = /^[a-zA-Z0-9\s\-_.,!()\[\]'"]+$/;
@@ -79,6 +79,7 @@ const fileZoneDragging: React.CSSProperties = {
 export const MyTracksPage: React.FC = () => {
     const { user, loading: authLoading, isGuildMember } = useAuth();
     const navigate = useNavigate();
+    const location = useLocation();
     const queryClient = useQueryClient();
     const [tracks, setTracks] = useState<any[]>([]);
     const [allGenres, setAllGenres] = useState<Genre[]>([]);
@@ -89,8 +90,10 @@ export const MyTracksPage: React.FC = () => {
     const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
     const [username, setUsername] = useState('');
 
-    // Add track state
-    const [isAddingTrack, setIsAddingTrack] = useState(false);
+    // Auto-open upload form when navigated from the floating upload button (?upload=1)
+    const [isAddingTrack, setIsAddingTrack] = useState(
+        () => new URLSearchParams(location.search).get('upload') === '1'
+    );
     const [tosAgreed, setTosAgreed] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(0);
     const [uploadStage, setUploadStage] = useState<'uploading' | 'scanning' | 'converting' | null>(null);
