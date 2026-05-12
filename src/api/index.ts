@@ -7025,9 +7025,17 @@ app.post('/api/musician/tracks', uploadLimiter, upload.fields([
             try {
                 const bgUpdates: Record<string, any> = {};
 
-                // Convert audio to OGG Opus
+                // Convert audio to OGG Opus (primary stream)
                 const finalAudioPath = await MediaConverter.convertToOgg(_bgRawAudioPath);
                 bgUpdates.url = `/uploads/tracks/${path.basename(finalAudioPath)}`;
+
+                // Also generate MP3 fallback for iOS Safari (doesn't delete the OGG source)
+                try {
+                    const mp3AudioPath = await MediaConverter.convertToMp3(finalAudioPath);
+                    bgUpdates.mp3Url = `/uploads/tracks/${path.basename(mp3AudioPath)}`;
+                } catch (mp3Err: any) {
+                    logger.warn(`[Upload BG] MP3 fallback conversion failed for ${_bgTrackId}: ${mp3Err.message}`);
+                }
 
                 // Optimise artwork to WebP
                 let finalArtworkPath: string | null = null;
@@ -7052,6 +7060,16 @@ app.post('/api/musician/tracks', uploadLimiter, upload.fields([
                     const cdn = await uploadToR2OrLocal(finalAudioPath, key, 'audio/ogg', bgUpdates.url as string);
                     if (cdn !== bgUpdates.url) r2Updates.url = cdn;
                 })());
+
+                if (bgUpdates.mp3Url) {
+                    const localMp3Url = bgUpdates.mp3Url as string;
+                    const mp3LocalPath = path.join(process.cwd(), 'public', localMp3Url);
+                    r2Jobs.push((async () => {
+                        const key = `tracks/${_bgTrackId}/audio/${path.basename(mp3LocalPath)}`;
+                        const cdn = await uploadToR2OrLocal(mp3LocalPath, key, 'audio/mpeg', localMp3Url);
+                        if (cdn !== localMp3Url) r2Updates.mp3Url = cdn;
+                    })());
+                }
 
                 if (finalArtworkPath) {
                     const localArtUrl = bgUpdates.coverUrl as string;
@@ -7353,11 +7371,20 @@ app.put('/api/musician/tracks/:trackId', generalUploadLimiter, upload.fields([
             } catch (err) {
                 logger.warn(`Failed to parse metadata for replaced audio: ${err}`);
             }
-            // Convert to OGG Opus
+            // Convert to OGG Opus (primary)
             const finalAudioPath = await MediaConverter.convertToOgg(audioFile.path);
-            // Delete old audio from R2 or local
+            // Also generate MP3 fallback for iOS
+            try {
+                const mp3Path = await MediaConverter.convertToMp3(finalAudioPath);
+                const r2Mp3Key = `tracks/${trackId}/audio/${path.basename(mp3Path)}`;
+                if (track.mp3Url) await deleteFromStorage((track as any).mp3Url);
+                updateData.mp3Url = await uploadToR2OrLocal(mp3Path, r2Mp3Key, 'audio/mpeg', `/uploads/tracks/${path.basename(mp3Path)}`);
+            } catch (mp3Err: any) {
+                logger.warn(`[Edit track] MP3 fallback conversion failed: ${mp3Err.message}`);
+            }
+            // Delete old OGG from R2 or local
             await deleteFromStorage(track.url);
-            // Upload new audio to R2 or store locally
+            // Upload new OGG to R2 or store locally
             const r2AudioKey = `tracks/${trackId}/audio/${path.basename(finalAudioPath)}`;
             updateData.url = await uploadToR2OrLocal(finalAudioPath, r2AudioKey, 'audio/ogg', `/uploads/tracks/${path.basename(finalAudioPath)}`);
         }
@@ -9768,9 +9795,23 @@ app.get('/api/fuji/libraries', async (req, res) => {
 
 const PORT = process.env.API_PORT || 3001;
 
-// In-memory timestamps for the backup status endpoint
-let manualBackupLastAt: number | null = null;
-let scheduledBackupLastAt: number | null = null;
+// Backup timestamps — persisted to disk so they survive API restarts
+const BACKUP_STAMP_FILE = path.join(process.cwd(), 'data', 'backup-stamps.json');
+const _loadBackupStamps = (): { manual: number | null; scheduled: number | null } => {
+    try {
+        const raw = fs.readFileSync(BACKUP_STAMP_FILE, 'utf8');
+        return JSON.parse(raw);
+    } catch { return { manual: null, scheduled: null }; }
+};
+const _saveBackupStamps = () => {
+    try {
+        fs.mkdirSync(path.dirname(BACKUP_STAMP_FILE), { recursive: true });
+        fs.writeFileSync(BACKUP_STAMP_FILE, JSON.stringify({ manual: manualBackupLastAt, scheduled: scheduledBackupLastAt }));
+    } catch { /* non-fatal */ }
+};
+const _stamps = _loadBackupStamps();
+let manualBackupLastAt: number | null = _stamps.manual;
+let scheduledBackupLastAt: number | null = _stamps.scheduled;
 
 // ---------------------------------------------------------------------------
 // Embeddable audio player (used by Discord/Reddit embeds via iframe)
@@ -15203,6 +15244,46 @@ app.post('/api/admin/users/:discordId/repair-profile', requireAdmin, async (req:
     }
 });
 
+// -- Batch MP3 re-transcode: generate mp3Url for all tracks missing it --------
+// Runs in the background; returns immediately with a job count.
+app.post('/api/admin/retranscode-mp3', requireAdmin, async (_req: any, res) => {
+    try {
+        const tracks = await db.track.findMany({
+            where: { mp3Url: null, url: { not: null } },
+            select: { id: true, url: true },
+        });
+        res.json({ queued: tracks.length });
+
+        // Process sequentially in the background to avoid overwhelming the server
+        setImmediate(async () => {
+            let done = 0, failed = 0;
+            for (const track of tracks) {
+                try {
+                    // Resolve local path from URL
+                    const localPath = track.url.startsWith('http')
+                        ? null
+                        : path.join(process.cwd(), 'public', track.url);
+                    if (!localPath || !fs.existsSync(localPath)) { failed++; continue; }
+
+                    const mp3Path = await MediaConverter.convertToMp3(localPath);
+                    const r2Key = `tracks/${track.id}/audio/${path.basename(mp3Path)}`;
+                    const localMp3Url = `/uploads/tracks/${path.basename(mp3Path)}`;
+                    const mp3Url = await uploadToR2OrLocal(mp3Path, r2Key, 'audio/mpeg', localMp3Url);
+                    await db.track.update({ where: { id: track.id }, data: { mp3Url } });
+                    done++;
+                } catch (e: any) {
+                    logger.warn(`[RetranscodeMp3] Failed for track ${track.id}: ${e.message}`);
+                    failed++;
+                }
+            }
+            logger.info(`[RetranscodeMp3] Complete — ${done} succeeded, ${failed} failed`);
+        });
+    } catch (e: any) {
+        logger.error('Retranscode MP3 job failed', e);
+        res.status(500).json({ error: 'Failed to start retranscode job' });
+    }
+});
+
 // -- Manual Backup Trigger (admin only) --------------------------------------
 app.post('/api/admin/backup', requireAdmin, async (_req: any, res) => {
     try {
@@ -15227,6 +15308,7 @@ app.get('/api/admin/backup/download', requireAdmin, async (_req: any, res) => {
 
         // Track last manual download time
         manualBackupLastAt = Date.now();
+        _saveBackupStamps();
 
         res.setHeader('Content-Type', 'application/gzip');
         res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
@@ -17472,6 +17554,7 @@ const server = app.listen(PORT, async () => {
       try {
         const result = await runBackup();
         scheduledBackupLastAt = Date.now();
+        _saveBackupStamps();
         logger.info(`[Scheduled Backup] Success: ${result.key} (${(result.sizeBytes / 1024 / 1024).toFixed(2)} MB)`);
       } catch (e: any) {
         logger.error('[Scheduled Backup] Failed', e);

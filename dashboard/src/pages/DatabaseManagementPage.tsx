@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { Database, Download, RefreshCw, CheckCircle, AlertTriangle, Clock, X } from 'lucide-react';
+import { Database, Download, RefreshCw, CheckCircle, AlertTriangle, Clock, X, Music } from 'lucide-react';
 import { colors, spacing, borderRadius } from '../theme/theme';
 
 const API = import.meta.env.VITE_API_URL || '';
@@ -27,6 +27,7 @@ export const DatabaseManagementPage: React.FC = () => {
     const [status, setStatus] = useState<BackupStatus | null>(null);
     const [loading, setLoading] = useState(true);
     const [downloading, setDownloading] = useState(false);
+    const [retranscoding, setRetranscoding] = useState(false);
     const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
     const [reminderDismissed, setReminderDismissed] = useState(
         () => sessionStorage.getItem(DISMISSED_KEY) === '1'
@@ -186,9 +187,45 @@ export const DatabaseManagementPage: React.FC = () => {
                     : <><Download size={16} /> Download Manual Backup</>
                 }
             </button>
-            <p style={{ marginTop: '8px', fontSize: '12px', color: colors.textSecondary }}>
+                    <p style={{ marginTop: '8px', fontSize: '12px', color: colors.textSecondary }}>
                 Runs <code>pg_dump</code> live and streams a <code>.sql.gz</code> file directly to your browser.
             </p>
+
+            {/* iOS MP3 re-transcode */}
+            <div style={{ marginTop: '32px', paddingTop: '24px', borderTop: `1px solid ${colors.border}` }}>
+                <h2 style={{ margin: '0 0 8px', fontSize: '16px', fontWeight: 700 }}>iOS Audio Compatibility</h2>
+                <p style={{ margin: '0 0 16px', fontSize: '13px', color: colors.textSecondary }}>
+                    Existing tracks only have an OGG stream. Run this once to generate MP3 fallbacks for all tracks — required for playback on iOS Safari.
+                    The job runs in the background; check server logs for progress.
+                </p>
+                <button
+                    onClick={async () => {
+                        setRetranscoding(true);
+                        setMessage(null);
+                        try {
+                            const res = await axios.post(`${API}/api/admin/retranscode-mp3`, {}, { withCredentials: true });
+                            setMessage({ type: 'success', text: `MP3 re-transcode queued for ${res.data.queued} tracks. Running in background.` });
+                        } catch (e: any) {
+                            setMessage({ type: 'error', text: e?.response?.data?.error || 'Failed to start re-transcode job.' });
+                        } finally {
+                            setRetranscoding(false);
+                        }
+                    }}
+                    disabled={retranscoding}
+                    style={{
+                        display: 'inline-flex', alignItems: 'center', gap: '8px',
+                        padding: '10px 20px', backgroundColor: 'rgba(43,141,113,0.15)',
+                        color: colors.primary, border: `1px solid ${colors.primary}40`,
+                        borderRadius: borderRadius.md, cursor: retranscoding ? 'not-allowed' : 'pointer',
+                        fontWeight: 600, fontSize: '13px', opacity: retranscoding ? 0.6 : 1,
+                    }}
+                >
+                    {retranscoding
+                        ? <><RefreshCw size={14} style={{ animation: 'spin 1s linear infinite' }} /> Starting…</>
+                        : <><Music size={14} /> Generate MP3 Fallbacks for All Tracks</>
+                    }
+                </button>
+            </div>
             <style>{`@keyframes spin { 0%{transform:rotate(0deg)} 100%{transform:rotate(360deg)} }`}</style>
         </div>
     );

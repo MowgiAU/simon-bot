@@ -40,13 +40,21 @@ export class ProjectZipProcessor {
         fs.mkdirSync(tempDir, { recursive: true });
 
         try {
-            // ── Step 1: Extract ZIP (with Zip Slip protection) ────────────────
+            // ── Step 1: Extract ZIP (with Zip Slip + zip-bomb protection) ──────
             const zip = new AdmZip(zipPath);
             const resolvedTempDir = path.resolve(tempDir);
+            const ZIP_UNCOMPRESSED_LIMIT = 2 * 1024 * 1024 * 1024; // 2 GB
+            let totalUncompressed = 0;
             for (const entry of zip.getEntries()) {
+                // Path traversal check
                 const entryTarget = path.resolve(tempDir, entry.entryName);
                 if (!entryTarget.startsWith(resolvedTempDir + path.sep) && entryTarget !== resolvedTempDir) {
                     throw new Error(`Blocked path traversal in ZIP entry: ${entry.entryName}`);
+                }
+                // Zip bomb check: sum uncompressed sizes before extracting anything
+                totalUncompressed += entry.header.size;
+                if (totalUncompressed > ZIP_UNCOMPRESSED_LIMIT) {
+                    throw new Error('ZIP rejected: total uncompressed content exceeds 2 GB');
                 }
             }
             zip.extractAllTo(tempDir, /* overwrite */ true);

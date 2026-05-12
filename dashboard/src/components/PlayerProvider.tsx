@@ -10,6 +10,7 @@ interface PlayerState {
     slug?: string;
     cover: string;
     url?: string;
+    mp3Url?: string | null;
   } | null;
   isPlaying: boolean;
   volume: number;
@@ -39,6 +40,18 @@ interface PlayerContextType {
 }
 
 const PlayerContext = createContext<PlayerContextType | undefined>(undefined);
+
+// Detect OGG Opus support once at module load — iOS Safari returns '' here
+const canPlayOgg = (() => {
+    try { return new Audio().canPlayType('audio/ogg; codecs=opus') !== ''; }
+    catch { return false; }
+})();
+
+const pickAudioUrl = (track: any): string => {
+    // Prefer OGG on supporting browsers; fall back to mp3Url for iOS
+    if (canPlayOgg) return track.url || track.mp3Url || '';
+    return track.mp3Url || track.url || '';
+};
 
 export const PlayerProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [player, setPlayer] = useState<PlayerState>({
@@ -113,24 +126,26 @@ export const PlayerProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       slug: trackData.slug || '',
       cover: trackData.coverUrl || trackData.cover || '',
       url: trackData.url,
+      mp3Url: trackData.mp3Url || null,
       entryRoute: trackData.entryRoute || ''
     };
 
-    if (newTrack.url) {
+    const resolvedUrl = pickAudioUrl(newTrack);
+    if (resolvedUrl) {
       // Reset play recording flag for the new track
       hasRecordedPlay.current = null;
       // Set src and call play() directly — cannot rely on the isPlaying effect
       // because if isPlaying is already true the effect won't re-run for the new src.
-      audio.src = newTrack.url;
+      audio.src = resolvedUrl;
       audio.play().catch(err => console.error('Playback failed', err));
-      
+
       setPlayer(prev => {
         const queue = newQueue || prev.queue;
         const index = queue.findIndex(t => t.id === newTrack.id);
-        return { 
-          ...prev, 
-          currentTrack: newTrack, 
-          isPlaying: true, 
+        return {
+          ...prev,
+          currentTrack: newTrack,
+          isPlaying: true,
           currentTime: 0,
           queue: queue,
           currentIndex: index

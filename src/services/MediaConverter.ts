@@ -113,6 +113,44 @@ export class MediaConverter {
     }
 
     /**
+     * Converts an audio file to 192kbps MP3 WITHOUT deleting the source.
+     * Used to generate an iOS-compatible fallback alongside the OGG primary.
+     * Output path replaces the source extension with `.mp3`.
+     */
+    static async convertToMp3(inputPath: string): Promise<string> {
+        const base = inputPath.replace(/\.[^.]+$/, '');
+        const outputPath = base + '.mp3';
+        const tempOutputPath = base + '._converting_mp3.mp3';
+
+        // Already an MP3 at the target path — nothing to do
+        if (inputPath === outputPath) return outputPath;
+
+        return new Promise((resolve) => {
+            ffmpeg(inputPath)
+                .audioCodec('libmp3lame')
+                .audioBitrate('192k')
+                .noVideo()
+                .output(tempOutputPath)
+                .on('end', () => {
+                    try {
+                        if (fs.existsSync(tempOutputPath)) fs.renameSync(tempOutputPath, outputPath);
+                        logger.info(`Audio converted to 192kbps MP3 (iOS fallback): ${path.basename(outputPath)}`);
+                        resolve(outputPath);
+                    } catch (e) {
+                        logger.warn(`MP3 post-conversion file ops failed: ${e}`);
+                        resolve(tempOutputPath);
+                    }
+                })
+                .on('error', (err) => {
+                    logger.warn(`MP3 fallback conversion failed for ${path.basename(inputPath)}: ${err.message}`);
+                    if (fs.existsSync(tempOutputPath)) { try { fs.unlinkSync(tempOutputPath); } catch {} }
+                    resolve(inputPath); // return whatever we have on failure
+                })
+                .run();
+        });
+    }
+
+    /**
      * Optimizes an image file to WebP format (quality 82, max 2000x2000).
      * Animated GIFs / animated WebPs are preserved as animated WebP.
      * Returns the path of the converted file.

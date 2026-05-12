@@ -908,7 +908,8 @@ model Track {
   title       String
   slug        String? // URL identifier (e.g., 'hey-brother')
   description String? @db.Text
-  url         String // Audio file URL (S3/Cloudinary)
+  url         String  // OGG Opus stream (primary, ~128kbps)
+  mp3Url      String? // MP3 192kbps fallback for iOS Safari
   coverUrl    String? // Cover image URL
 
   duration             Int     @default(0) // In seconds
