@@ -889,9 +889,10 @@ model MusicianProfile {
   featuredPlaylistId String?
   featuredPlaylist   Playlist? @relation("ProfileFeaturedPlaylist", fields: [featuredPlaylistId], references: [id], onDelete: SetNull)
 
-  comments  Comment[]
-  followers ArtistFollow[]
-  playlists Playlist[]
+  comments       Comment[]
+  followers      ArtistFollow[]
+  playlists      Playlist[]
+  collaborations TrackCollaborator[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -961,6 +962,7 @@ model Track {
   playlistTracks PlaylistTrack[]
   radioQueues    RadioQueue[]
   radioHistories RadioHistory[]
+  collaborators  TrackCollaborator[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -973,6 +975,24 @@ model Track {
   @@index([isPublic, status, playCount(sort: Desc)]) // Leaderboard with status filter
   @@index([isPublic, status, createdAt(sort: Desc)]) // Discovery with status filter
   @@map("musician_tracks")
+}
+
+model TrackCollaborator {
+  id           String    @id @default(cuid())
+  trackId      String
+  profileId    String    // Collaborator's MusicianProfile.id
+  contribution String    // e.g. "vocals", "production", "guitar", "mixing"
+  category     String    @default("collaboration") // "collaboration" | "1v1-battle" | "feature" | "remix" | "split"
+  status       String    @default("pending") // "pending" | "accepted" | "rejected"
+  invitedAt    DateTime  @default(now())
+  respondedAt  DateTime?
+
+  track   Track           @relation(fields: [trackId], references: [id], onDelete: Cascade)
+  profile MusicianProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@unique([trackId, profileId])
+  @@index([profileId, status])
+  @@map("track_collaborators")
 }
 
 model TrackPlay {

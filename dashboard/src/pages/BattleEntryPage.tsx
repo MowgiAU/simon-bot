@@ -231,20 +231,27 @@ export const BattleEntryPage: React.FC = () => {
                 ]);
                 setEntry({ ...res.data, ...flattenBattleEntry(res.data) });
                 setAllGenres(genresRes.data);
-                // Load favourite and repost data for the linked track
+                // Load favourite and repost counts (public, always fetch)
                 if (res.data.track) {
                     try {
-                        const [countRes, favRes, repostCountRes, repostRes] = await Promise.all([
+                        const [countRes, repostCountRes] = await Promise.all([
                             axios.get(`/api/tracks/${res.data.track.id}/favourite-count`),
-                            axios.get(`/api/tracks/${res.data.track.id}/favourite`, { withCredentials: true }),
                             axios.get(`/api/tracks/${res.data.track.id}/repost-count`),
-                            axios.get(`/api/tracks/${res.data.track.id}/repost`, { withCredentials: true }),
                         ]);
                         setFavouriteCount(countRes.data.count);
-                        setIsFavourited(favRes.data.favourited);
                         setRepostCount(repostCountRes.data.count);
-                        setIsReposted(repostRes.data.reposted);
-                    } catch { /* not logged in or error */ }
+                    } catch { /* non-fatal */ }
+                    // Load user-specific state only when logged in
+                    if (user) {
+                        try {
+                            const [favRes, repostRes] = await Promise.all([
+                                axios.get(`/api/tracks/${res.data.track.id}/favourite`, { withCredentials: true }),
+                                axios.get(`/api/tracks/${res.data.track.id}/repost`, { withCredentials: true }),
+                            ]);
+                            setIsFavourited(favRes.data.favourited);
+                            setIsReposted(repostRes.data.reposted);
+                        } catch { /* non-fatal */ }
+                    }
                 }
             } catch (err: any) {
                 setError(err.response?.status === 404 ? 'Entry not found' : 'Failed to load entry');

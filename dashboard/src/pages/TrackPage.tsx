@@ -212,19 +212,26 @@ export const TrackPage: React.FC = () => {
                 ]);
                 setTrackData(res.data);
                 setAllGenres(genresRes.data);
-                // Load favourite and repost data
+                // Load favourite and repost counts (public, always fetch)
                 try {
-                    const [countRes, favRes, repostCountRes, repostRes] = await Promise.all([
+                    const [countRes, repostCountRes] = await Promise.all([
                         axios.get(`/api/tracks/${res.data.id}/favourite-count`),
-                        axios.get(`/api/tracks/${res.data.id}/favourite`, { withCredentials: true }),
                         axios.get(`/api/tracks/${res.data.id}/repost-count`),
-                        axios.get(`/api/tracks/${res.data.id}/repost`, { withCredentials: true }),
                     ]);
                     setFavouriteCount(countRes.data.count);
-                    setIsFavourited(favRes.data.favourited);
                     setRepostCount(repostCountRes.data.count);
-                    setIsReposted(repostRes.data.reposted);
-                } catch { /* not logged in or error */ }
+                } catch { /* non-fatal */ }
+                // Load user-specific state only when logged in
+                if (user) {
+                    try {
+                        const [favRes, repostRes] = await Promise.all([
+                            axios.get(`/api/tracks/${res.data.id}/favourite`, { withCredentials: true }),
+                            axios.get(`/api/tracks/${res.data.id}/repost`, { withCredentials: true }),
+                        ]);
+                        setIsFavourited(favRes.data.favourited);
+                        setIsReposted(repostRes.data.reposted);
+                    } catch { /* non-fatal */ }
+                }
             } catch (err: any) {
                 setError(err.response?.status === 404 ? 'Track not found' : 'Failed to load track');
             } finally {
@@ -564,9 +571,25 @@ export const TrackPage: React.FC = () => {
                                     </div>
                                 )}
                                 <h1 style={{ fontSize: isMobile ? '1.8rem' : '2.8rem', margin: '0 0 8px', lineHeight: 1.1, fontWeight: 800, letterSpacing: '-0.02em', wordBreak: 'break-word' }}>{track.title}</h1>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '1.1rem', color: colors.textSecondary, marginBottom: '16px', justifyContent: isMobile ? 'center' : 'flex-start' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', fontSize: '1.1rem', color: colors.textSecondary, marginBottom: (track as any).collaborators?.length ? '8px' : '16px', justifyContent: isMobile ? 'center' : 'flex-start' }}>
                                     by <a href={`/profile/${track.profile.username}`} style={{ color: colors.primary, textDecoration: 'none', fontWeight: 600 }}><StyledUsername userId={track.profile.userId} showBadge={false}>{track.profile.displayName || track.profile.username}</StyledUsername></a>
+                                    {(track as any).collaborators?.map((c: any, i: number) => (
+                                        <span key={c.id} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                            <span style={{ color: colors.textTertiary }}>·</span>
+                                            <a href={`/profile/${c.profile.username}`} style={{ color: colors.primary, textDecoration: 'none', fontWeight: 600 }}>
+                                                {c.profile.displayName || c.profile.username}
+                                            </a>
+                                            <span style={{ fontSize: '0.75rem', color: colors.textTertiary }}>({c.contribution})</span>
+                                        </span>
+                                    ))}
                                 </div>
+                                {(track as any).collaborators?.length > 0 && (track as any).collaborators[0].category && (
+                                    <div style={{ marginBottom: '16px', justifyContent: isMobile ? 'center' : 'flex-start', display: 'flex' }}>
+                                        <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: colors.textTertiary, padding: '3px 10px', borderRadius: '20px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                                            {(track as any).collaborators[0].category.replace(/-/g, ' ')}
+                                        </span>
+                                    </div>
+                                )}
 
                                 {/* Quick metadata badges */}
                                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '20px', justifyContent: isMobile ? 'center' : 'flex-start' }}>

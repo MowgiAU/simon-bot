@@ -6,7 +6,8 @@ import axios from 'axios';
 import {
     Music, Plus, X, ExternalLink, ArrowLeft, Tag, FileAudio,
     Image as ImageIcon, Edit3, Upload, Trash2, Eye, EyeOff, Clock,
-    BarChart3, AlertCircle, Check, Save, AlignLeft, Scale, CheckSquare, Square, Download
+    BarChart3, AlertCircle, Check, Save, AlignLeft, Scale, CheckSquare, Square, Download,
+    Users, Search, UserPlus, Mic2
 } from 'lucide-react';
 import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
 import { ConfirmModal } from '../components/ConfirmModal';
@@ -125,6 +126,17 @@ export const MyTracksPage: React.FC = () => {
     // Edit track state
     const [editingTrack, setEditingTrack] = useState<any>(null);
 
+    // Collaborator state
+    const [collaborators, setCollaborators] = useState<any[]>([]);
+    // Collaborators staged while composing a new upload (not yet saved to DB)
+    const [stagedCollabs, setStagedCollabs] = useState<{ profile: any; contribution: string; category: string }[]>([]);
+    const [collabSearch, setCollabSearch] = useState('');
+    const [collabSearchResults, setCollabSearchResults] = useState<any[]>([]);
+    const [collabSearching, setCollabSearching] = useState(false);
+    const [newCollabContribution, setNewCollabContribution] = useState('');
+    const [newCollabCategory, setNewCollabCategory] = useState('collaboration');
+    const [pendingInvites, setPendingInvites] = useState<any[]>([]);
+
     // Bulk selection state
     const [bulkMode, setBulkMode] = useState(false);
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -177,6 +189,81 @@ export const MyTracksPage: React.FC = () => {
 
     useEffect(() => { setLoading(isFetching && !profileData); }, [isFetching, profileData]);
 
+    // Load collaborators when a track is opened for editing
+    useEffect(() => {
+        if (!editingTrack) { setCollaborators([]); setCollabSearch(''); setCollabSearchResults([]); return; }
+        axios.get(`/api/musician/tracks/${editingTrack.id}/collaborators`, { withCredentials: true })
+            .then(r => setCollaborators(r.data))
+            .catch(() => {});
+    }, [editingTrack?.id]);
+
+    // Load pending collab invites on mount
+    useEffect(() => {
+        if (!user) return;
+        axios.get('/api/musician/my-collaborations', { withCredentials: true })
+            .then(r => setPendingInvites(r.data))
+            .catch(() => {});
+    }, [user?.id]);
+
+    // Debounced collab artist search
+    useEffect(() => {
+        if (collabSearch.trim().length < 2) { setCollabSearchResults([]); return; }
+        const t = setTimeout(async () => {
+            setCollabSearching(true);
+            try {
+                const r = await axios.get(`/api/musician/profiles/search?q=${encodeURIComponent(collabSearch)}`, { withCredentials: true });
+                setCollabSearchResults(r.data);
+            } catch { setCollabSearchResults([]); }
+            finally { setCollabSearching(false); }
+        }, 300);
+        return () => clearTimeout(t);
+    }, [collabSearch]);
+
+    const handleAddCollaborator = async (profile: any, isEdit: boolean) => {
+        if (!newCollabContribution.trim()) return;
+        if (isEdit) {
+            // Edit mode — save immediately to DB
+            try {
+                const r = await axios.post(`/api/musician/tracks/${editingTrack.id}/collaborators`, {
+                    profileId: profile.id,
+                    contribution: newCollabContribution.trim(),
+                    category: newCollabCategory,
+                }, { withCredentials: true });
+                setCollaborators(prev => [...prev.filter(c => c.profileId !== profile.id), r.data]);
+            } catch (e: any) {
+                setMessage({ type: 'error', text: e.response?.data?.error || 'Failed to add collaborator' });
+            }
+        } else {
+            // Upload mode — stage locally; will be sent after track is created
+            setStagedCollabs(prev => [
+                ...prev.filter(c => c.profile.id !== profile.id),
+                { profile, contribution: newCollabContribution.trim(), category: newCollabCategory },
+            ]);
+        }
+        setCollabSearch('');
+        setCollabSearchResults([]);
+        setNewCollabContribution('');
+    };
+
+    const handleRemoveCollaborator = async (collaboratorId: string) => {
+        if (!editingTrack) return;
+        try {
+            await axios.delete(`/api/musician/tracks/${editingTrack.id}/collaborators/${collaboratorId}`, { withCredentials: true });
+            setCollaborators(prev => prev.filter(c => c.id !== collaboratorId));
+        } catch {
+            setMessage({ type: 'error', text: 'Failed to remove collaborator' });
+        }
+    };
+
+    const handleRespondToInvite = async (collab: any, status: 'accepted' | 'rejected') => {
+        try {
+            await axios.patch(`/api/musician/tracks/${collab.trackId}/collaborators/${collab.id}`, { status }, { withCredentials: true });
+            setPendingInvites(prev => prev.map(c => c.id === collab.id ? { ...c, status } : c));
+        } catch {
+            setMessage({ type: 'error', text: 'Failed to respond to invite' });
+        }
+    };
+
     const handleAddTrack = async () => {
         if (!audioFile) {
             setMessage({ type: 'error', text: 'Please select an audio file' });
@@ -226,12 +313,20 @@ export const MyTracksPage: React.FC = () => {
             if (newTrackLyrics.trim()) {
                 await axios.put(`/api/musician/tracks/${res.data.id}/lyrics`, { lyrics: newTrackLyrics.trim(), lyricsSync: null }, { withCredentials: true }).catch(() => {});
             }
+            // Send collab invites for any staged collaborators
+            for (const c of stagedCollabs) {
+                await axios.post(`/api/musician/tracks/${res.data.id}/collaborators`, {
+                    profileId: c.profile.id,
+                    contribution: c.contribution,
+                    category: c.category,
+                }, { withCredentials: true }).catch(() => {});
+            }
             setTracks([...tracks, res.data]);
             queryClient.invalidateQueries({ queryKey: profileQueryKey });
             setIsAddingTrack(false);
             setNewTrack({ title: '', description: '', artist: '', album: '', year: '', bpm: '', key: '', allowAudioDownload: true, allowProjectDownload: true, license: 'all-rights-reserved' });
             setAudioFile(null); setArtworkFile(null); setProjectFile(null); setArtworkPreviewUrl(null);
-            setSelectedTrackGenres([]); setTosAgreed(false); setNewTrackLyrics('');
+            setSelectedTrackGenres([]); setTosAgreed(false); setNewTrackLyrics(''); setStagedCollabs([]);
             setMessage({ type: 'success', text: 'Track uploaded successfully! It may take a minute to appear on your profile.' });
         } catch (e: any) {
             setMessage({ type: 'error', text: e.response?.data?.error || e.message || 'Failed to upload track.' });
@@ -899,6 +994,113 @@ export const MyTracksPage: React.FC = () => {
                     )}
                 </div>
 
+                {/* ── Collaborators ── */}
+                {(() => {
+                    const activeList = isEdit ? collaborators : stagedCollabs.map((c, i) => ({ id: `staged-${i}`, profileId: c.profile.id, profile: c.profile, contribution: c.contribution, category: c.category, status: 'pending' }));
+                    return (
+                        <div style={{ padding: '14px 16px', borderRadius: borderRadius.md, backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', marginBottom: '20px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '14px' }}>
+                                <Users size={14} color={colors.textSecondary} />
+                                <span style={{ fontSize: '12px', fontWeight: 600, color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Collaborators</span>
+                                {!isEdit && <span style={{ fontSize: '11px', color: colors.textTertiary }}>(invites sent after upload)</span>}
+                            </div>
+
+                            {/* Current / staged collaborators */}
+                            {activeList.length > 0 && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '14px' }}>
+                                    {activeList.map(c => (
+                                        <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 12px', borderRadius: borderRadius.md, backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                                            {c.profile.avatar
+                                                ? <img src={`https://cdn.discordapp.com/avatars/${c.profile.userId}/${c.profile.avatar}.png`} alt="" style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0 }} />
+                                                : <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><User size={14} color={colors.textTertiary} /></div>
+                                            }
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                <div style={{ fontSize: '13px', fontWeight: 600, color: colors.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                    {c.profile.displayName || c.profile.username}
+                                                </div>
+                                                <div style={{ fontSize: '11px', color: colors.textTertiary }}>
+                                                    {c.contribution} · {c.category.replace(/-/g, ' ')}
+                                                </div>
+                                            </div>
+                                            <span style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', padding: '2px 8px', borderRadius: '20px', flexShrink: 0,
+                                                backgroundColor: c.status === 'accepted' ? 'rgba(16,185,129,0.15)' : c.status === 'rejected' ? 'rgba(239,68,68,0.15)' : 'rgba(255,255,255,0.08)',
+                                                color: c.status === 'accepted' ? colors.success : c.status === 'rejected' ? colors.error : colors.textTertiary,
+                                            }}>
+                                                {isEdit ? c.status : 'queued'}
+                                            </span>
+                                            <button
+                                                onClick={() => isEdit ? handleRemoveCollaborator(c.id) : setStagedCollabs(prev => prev.filter(s => s.profile.id !== c.profileId))}
+                                                style={{ background: 'none', border: 'none', color: colors.textTertiary, cursor: 'pointer', padding: '2px', flexShrink: 0 }}>
+                                                <X size={14} />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            {/* Add new collaborator */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                                    <div>
+                                        <div style={{ fontSize: '11px', color: colors.textTertiary, marginBottom: '4px' }}>Contribution</div>
+                                        <input
+                                            value={newCollabContribution}
+                                            onChange={e => setNewCollabContribution(e.target.value)}
+                                            placeholder="e.g. vocals, production, guitar…"
+                                            style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, padding: '8px 10px', color: colors.textPrimary, fontSize: '13px', boxSizing: 'border-box' }}
+                                        />
+                                    </div>
+                                    <div>
+                                        <div style={{ fontSize: '11px', color: colors.textTertiary, marginBottom: '4px' }}>Category</div>
+                                        <select value={newCollabCategory} onChange={e => setNewCollabCategory(e.target.value)}
+                                            style={{ width: '100%', background: colors.surface, border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, padding: '8px 10px', color: colors.textPrimary, fontSize: '13px', cursor: 'pointer' }}>
+                                            <option value="collaboration">Collaboration</option>
+                                            <option value="1v1-battle">1v1 Battle</option>
+                                            <option value="feature">Feature</option>
+                                            <option value="remix">Remix</option>
+                                            <option value="split">Split</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div style={{ position: 'relative' }}>
+                                    <div style={{ fontSize: '11px', color: colors.textTertiary, marginBottom: '4px' }}>Search Artist</div>
+                                    <div style={{ position: 'relative' }}>
+                                        <Search size={14} color={colors.textTertiary} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
+                                        <input
+                                            value={collabSearch}
+                                            onChange={e => setCollabSearch(e.target.value)}
+                                            placeholder="Search by username…"
+                                            style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, padding: '8px 10px 8px 32px', color: colors.textPrimary, fontSize: '13px', boxSizing: 'border-box' }}
+                                        />
+                                    </div>
+                                    {collabSearchResults.length > 0 && (
+                                        <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50, background: colors.surface, border: `1px solid ${colors.glassBorder}`, borderRadius: borderRadius.md, marginTop: '4px', overflow: 'hidden' }}>
+                                            {collabSearchResults
+                                                .filter(p => !activeList.some(c => c.profileId === p.id))
+                                                .map(p => (
+                                                <button key={p.id} onClick={() => handleAddCollaborator(p, isEdit)}
+                                                    disabled={!newCollabContribution.trim()}
+                                                    title={!newCollabContribution.trim() ? 'Enter a contribution first' : ''}
+                                                    style={{ width: '100%', background: 'none', border: 'none', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: '10px', cursor: newCollabContribution.trim() ? 'pointer' : 'not-allowed', opacity: newCollabContribution.trim() ? 1 : 0.5, textAlign: 'left' }}>
+                                                    {p.avatar
+                                                        ? <img src={`https://cdn.discordapp.com/avatars/${p.userId}/${p.avatar}.png`} alt="" style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0 }} />
+                                                        : <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><User size={14} color={colors.textTertiary} /></div>
+                                                    }
+                                                    <div>
+                                                        <div style={{ fontSize: '13px', fontWeight: 600, color: colors.textPrimary }}>{p.displayName || p.username}</div>
+                                                        <div style={{ fontSize: '11px', color: colors.textTertiary }}>@{p.username}</div>
+                                                    </div>
+                                                    <UserPlus size={14} color={colors.primary} style={{ marginLeft: 'auto', flexShrink: 0 }} />
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    );
+                })()}
+
                 {/* ── ToS (add only) ── */}
                 {!isEdit && (
                     <div style={{
@@ -1119,6 +1321,47 @@ export const MyTracksPage: React.FC = () => {
             {/* ── Upload / Edit form ── */}
             {isAddingTrack && renderTrackForm(false)}
             {editingTrack && renderTrackForm(true)}
+
+            {/* ── Pending collab invites ── */}
+            {pendingInvites.filter(c => c.status === 'pending').length > 0 && !editingTrack && !isAddingTrack && (
+                <div style={{ ...card, marginBottom: '24px', borderColor: 'rgba(16,185,129,0.3)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+                        <Mic2 size={16} color={colors.primary} />
+                        <span style={{ fontSize: '14px', fontWeight: 700, color: colors.textPrimary }}>Collaboration Invites</span>
+                        <span style={{ fontSize: '11px', fontWeight: 700, padding: '2px 8px', borderRadius: '20px', backgroundColor: 'rgba(16,185,129,0.15)', color: colors.primary }}>
+                            {pendingInvites.filter(c => c.status === 'pending').length}
+                        </span>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        {pendingInvites.filter(c => c.status === 'pending').map(c => (
+                            <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 14px', borderRadius: borderRadius.md, backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                                {c.track?.coverUrl
+                                    ? <img src={c.track.coverUrl} alt="" style={{ width: 40, height: 40, borderRadius: '6px', objectFit: 'cover', flexShrink: 0 }} />
+                                    : <div style={{ width: 40, height: 40, borderRadius: '6px', background: 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Music size={16} color={colors.textTertiary} /></div>
+                                }
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ fontSize: '13px', fontWeight: 600, color: colors.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                        {c.track?.title}
+                                    </div>
+                                    <div style={{ fontSize: '11px', color: colors.textTertiary }}>
+                                        by {c.track?.profile?.displayName || c.track?.profile?.username} · <strong style={{ color: colors.textSecondary }}>{c.contribution}</strong> · {c.category.replace(/-/g, ' ')}
+                                    </div>
+                                </div>
+                                <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+                                    <button onClick={() => handleRespondToInvite(c, 'accepted')}
+                                        style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', borderRadius: borderRadius.sm, border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: 600, backgroundColor: 'rgba(16,185,129,0.15)', color: colors.success }}>
+                                        <Check size={12} /> Accept
+                                    </button>
+                                    <button onClick={() => handleRespondToInvite(c, 'rejected')}
+                                        style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', borderRadius: borderRadius.sm, border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: 600, backgroundColor: 'rgba(239,68,68,0.1)', color: colors.error }}>
+                                        <X size={12} /> Decline
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             {/* ── Track library ── */}
             {tracks.length === 0 ? (

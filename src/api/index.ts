@@ -6128,8 +6128,7 @@ app.get('/api/tickets/settings/:guildId', async (req, res) => {
     if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
     const { guildId } = req.params;
 
-    // Security check
-    if (!hasDashboardAccess(guildId, req)) {
+    if (!await checkPluginAccess(guildId, req, 'ticket')) {
         return res.status(403).json({ error: 'Forbidden' });
     }
 
@@ -6177,8 +6176,7 @@ app.get('/api/tickets/list/:guildId', async (req, res) => {
     if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
     const { guildId } = req.params;
 
-    // Security check
-    if (!hasDashboardAccess(guildId, req)) {
+    if (!await checkPluginAccess(guildId, req, 'ticket')) {
         return res.status(403).json({ error: 'Forbidden' });
     }
 
@@ -6339,8 +6337,8 @@ app.get('/api/tickets/:ticketId/messages', async (req, res) => {
     const ticket = await db.ticket.findUnique({ where: { id: ticketId } });
     if (!ticket) return res.status(404).json({ error: 'Ticket not found' });
 
-    // Verify user is admin in the ticket's guild
-    if (!isTrueAdmin(ticket.guildId, req)) return res.status(403).json({ error: 'Forbidden' });
+    // Verify user has ticket plugin access
+    if (!await checkPluginAccess(ticket.guildId, req, 'ticket')) return res.status(403).json({ error: 'Forbidden' });
 
     // If ticket is closed, fetch from DB
     if (ticket.status === 'closed') {
@@ -6393,8 +6391,7 @@ app.post('/api/tickets/:ticketId/reply', async (req, res) => {
     const ticket = await db.ticket.findUnique({ where: { id: ticketId } });
     if (!ticket) return res.status(404).json({ error: 'Ticket not found' });
 
-    // Verify user is admin in the ticket's guild
-    if (!isTrueAdmin(ticket.guildId, req)) return res.status(403).json({ error: 'Forbidden' });
+    if (!await checkPluginAccess(ticket.guildId, req, 'ticket')) return res.status(403).json({ error: 'Forbidden' });
 
     try {
         // Post as Bot
@@ -7158,6 +7155,17 @@ app.put('/api/musician/tracks/:trackId/lyrics', async (req: any, res) => {
             return res.status(403).json({ error: 'Forbidden' });
         }
 
+        // Block edits from the track owner if submitted to a beat battle
+        if (!isAdmin) {
+            const battleEntryCount = await db.battleEntry.count({ where: { trackId } });
+            if (battleEntryCount > 0) {
+                return res.status(409).json({
+                    error: 'This track is a Beat Battle submission and cannot be modified.',
+                    code: 'TRACK_IN_BATTLE',
+                });
+            }
+        }
+
         // Validate lyricsSync shape: must be array of { time: number, text: string } or null
         if (lyricsSync !== undefined && lyricsSync !== null) {
             if (!Array.isArray(lyricsSync)) {
@@ -7198,6 +7206,15 @@ app.patch('/api/musician/tracks/:trackId', async (req: any, res) => {
         const track = await db.track.findUnique({ where: { id: trackId }, include: { profile: true } });
         if (!track || track.profile.userId !== userId) {
             return res.status(403).json({ error: 'Forbidden' });
+        }
+
+        // Block edits if the track has been submitted to a beat battle
+        const battleEntryCount = await db.battleEntry.count({ where: { trackId } });
+        if (battleEntryCount > 0) {
+            return res.status(409).json({
+                error: 'This track is a Beat Battle submission and cannot be modified.',
+                code: 'TRACK_IN_BATTLE',
+            });
         }
 
         // If track is being made private, clear it as the featured track on the profile
@@ -7317,6 +7334,15 @@ app.put('/api/musician/tracks/:trackId', generalUploadLimiter, upload.fields([
         const track = await db.track.findUnique({ where: { id: trackId }, include: { profile: true } });
         if (!track || track.profile.userId !== userId) {
             return res.status(403).json({ error: 'Forbidden' });
+        }
+
+        // Block edits if the track has been submitted to a beat battle
+        const battleEntryCount = await db.battleEntry.count({ where: { trackId } });
+        if (battleEntryCount > 0) {
+            return res.status(409).json({
+                error: 'This track is a Beat Battle submission and cannot be modified.',
+                code: 'TRACK_IN_BATTLE',
+            });
         }
 
         const files = req.files as { [fieldname: string]: Express.Multer.File[] };
@@ -8147,6 +8173,34 @@ app.get('/api/musician/profile/:userId', async (req, res) => {
                 _originalArtist: r.track.profile,
             }));
 
+        // Fetch accepted collab tracks (tracks where this profile is a confirmed collaborator)
+        const collabEntries = await db.trackCollaborator.findMany({
+            where: { profileId: profileData.id, status: 'accepted' },
+            include: {
+                track: {
+                    select: {
+                        id: true, profileId: true, title: true, slug: true,
+                        url: true, coverUrl: true, duration: true, playCount: true,
+                        isPublic: true, status: true, bpm: true, key: true,
+                        artist: true, createdAt: true, waveformPeaks: true,
+                        profile: { select: { userId: true, username: true, displayName: true, avatar: true } },
+                        genres: { include: { genre: true } },
+                        _count: { select: { favourites: true, reposts: true, comments: true } },
+                    },
+                },
+            },
+        });
+        profileData.collaborations = collabEntries
+            .filter(c => c.track && c.track.isPublic && (!c.track.status || c.track.status === 'active'))
+            .map(c => ({
+                ...c.track,
+                waveformPeaks: Array.isArray(c.track.waveformPeaks) ? downsamplePeaks(c.track.waveformPeaks as number[], 60) : c.track.waveformPeaks,
+                _collab: true,
+                _collabContribution: c.contribution,
+                _collabCategory: c.category,
+                _originalArtist: c.track.profile,
+            }));
+
         // Only cache for non-owner requests — owner always gets a live query (see above)
         if (!isOwnerRequest) setCachedResponse(cacheKey, profileData);
         res.json(profileData);
@@ -8168,6 +8222,11 @@ app.get('/api/musician/tracks/:username/:trackSlug', publicCache(15), async (req
             genres: { include: { genre: true } },
             plays: true,
             samples: true,
+            collaborators: {
+                where: { status: 'accepted' },
+                include: { profile: { select: { id: true, userId: true, username: true, displayName: true, avatar: true } } },
+                orderBy: { invitedAt: 'asc' as const },
+            },
         };
         let track = (await db.track.findFirst({
             where: {
@@ -9061,6 +9120,201 @@ app.delete('/api/musician/profile/:userId/banner', async (req: any, res) => {
         await logAction('GLOBAL', 'banner_removed', userId, profile.id, {});
 
         res.json({ success: true });
+    } catch (e: any) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Public: Search Profiles (for collaborator picker)
+app.get('/api/musician/profiles/search', async (req: any, res) => {
+    try {
+        const { q } = req.query;
+        if (!q || String(q).trim().length < 2) return res.json([]);
+        const profiles = await db.musicianProfile.findMany({
+            where: {
+                deletedAt: null,
+                status: 'active',
+                OR: [
+                    { username: { contains: String(q), mode: 'insensitive' } },
+                    { displayName: { contains: String(q), mode: 'insensitive' } },
+                ],
+            },
+            select: { id: true, userId: true, username: true, displayName: true, avatar: true },
+            take: 10,
+        });
+        res.json(profiles);
+    } catch (e: any) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// ── Track Collaborators ────────────────────────────────────────────────────
+
+// List collaborators for a track (public)
+app.get('/api/musician/tracks/:trackId/collaborators', async (req, res) => {
+    try {
+        const { trackId } = req.params;
+        const collabs = await db.trackCollaborator.findMany({
+            where: { trackId },
+            include: { profile: { select: { id: true, userId: true, username: true, displayName: true, avatar: true } } },
+            orderBy: { invitedAt: 'asc' },
+        });
+        res.json(collabs);
+    } catch (e: any) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Add a collaborator (track owner only)
+app.post('/api/musician/tracks/:trackId/collaborators', requireAuth, async (req: any, res) => {
+    try {
+        const userId = req.session.user.id;
+        const { trackId } = req.params;
+        const { profileId, contribution, category } = req.body;
+
+        if (!profileId || !contribution?.trim()) {
+            return res.status(400).json({ error: 'profileId and contribution are required' });
+        }
+
+        const track = await db.track.findUnique({ where: { id: trackId }, include: { profile: true } });
+        if (!track) return res.status(404).json({ error: 'Track not found' });
+        if (track.profile.userId !== userId) return res.status(403).json({ error: 'Forbidden' });
+
+        // Can't add yourself
+        if (track.profile.id === profileId) {
+            return res.status(400).json({ error: 'You cannot add yourself as a collaborator' });
+        }
+
+        const collaboratorProfile = await db.musicianProfile.findUnique({ where: { id: profileId } });
+        if (!collaboratorProfile) return res.status(404).json({ error: 'Artist not found' });
+
+        const collab = await db.trackCollaborator.upsert({
+            where: { trackId_profileId: { trackId, profileId } },
+            create: {
+                trackId, profileId,
+                contribution: contribution.trim(),
+                category: category || 'collaboration',
+                status: 'pending',
+            },
+            update: {
+                contribution: contribution.trim(),
+                category: category || 'collaboration',
+                status: 'pending',
+                respondedAt: null,
+            },
+            include: { profile: { select: { id: true, userId: true, username: true, displayName: true, avatar: true } } },
+        });
+
+        // Notify the invited artist via MusicNotification
+        const ownerProfile = await db.musicianProfile.findUnique({ where: { id: track.profileId }, select: { displayName: true, username: true, avatar: true } });
+        const ownerName = ownerProfile?.displayName || ownerProfile?.username || 'Someone';
+        db.musicNotification.create({
+            data: {
+                userId: collaboratorProfile.userId,
+                type: 'collab_invite',
+                title: `${ownerName} invited you to collaborate`,
+                message: `"${track.title}" — ${contribution.trim()}`,
+                link: `/track/${track.profile.username}/${track.slug || track.id}`,
+                actorId: userId,
+                actorName: ownerName,
+                actorAvatar: ownerProfile?.avatar || null,
+            },
+        }).catch(() => {});
+
+        res.json(collab);
+    } catch (e: any) {
+        if (e.code === 'P2002') return res.status(409).json({ error: 'This artist is already a collaborator' });
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Accept or reject a collab invite (the invited artist only)
+app.patch('/api/musician/tracks/:trackId/collaborators/:collaboratorId', requireAuth, async (req: any, res) => {
+    try {
+        const userId = req.session.user.id;
+        const { trackId, collaboratorId } = req.params;
+        const { status } = req.body;
+
+        if (status !== 'accepted' && status !== 'rejected') {
+            return res.status(400).json({ error: 'status must be "accepted" or "rejected"' });
+        }
+
+        const collab = await db.trackCollaborator.findUnique({
+            where: { id: collaboratorId },
+            include: { profile: true },
+        });
+        if (!collab || collab.trackId !== trackId) return res.status(404).json({ error: 'Not found' });
+        if (collab.profile.userId !== userId) return res.status(403).json({ error: 'Forbidden' });
+
+        const updated = await db.trackCollaborator.update({
+            where: { id: collaboratorId },
+            data: { status, respondedAt: new Date() },
+            include: { profile: { select: { id: true, userId: true, username: true, displayName: true, avatar: true } } },
+        });
+
+        // If accepted, notify the track owner
+        if (status === 'accepted') {
+            const track = await db.track.findUnique({ where: { id: trackId }, include: { profile: true } });
+            if (track) {
+                const collabProfile = await db.musicianProfile.findUnique({ where: { userId }, select: { displayName: true, username: true, avatar: true } });
+                const collabName = collabProfile?.displayName || collabProfile?.username || 'Someone';
+                db.musicNotification.create({
+                    data: {
+                        userId: track.profile.userId,
+                        type: 'collab_accepted',
+                        title: `${collabName} accepted your collab invite`,
+                        message: `"${track.title}"`,
+                        link: `/track/${track.profile.username}/${track.slug || track.id}`,
+                        actorId: userId,
+                        actorName: collabName,
+                        actorAvatar: collabProfile?.avatar || null,
+                    },
+                }).catch(() => {});
+            }
+        }
+
+        res.json(updated);
+    } catch (e: any) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Remove a collaborator (track owner only)
+app.delete('/api/musician/tracks/:trackId/collaborators/:collaboratorId', requireAuth, async (req: any, res) => {
+    try {
+        const userId = req.session.user.id;
+        const { trackId, collaboratorId } = req.params;
+
+        const track = await db.track.findUnique({ where: { id: trackId }, include: { profile: true } });
+        if (!track || track.profile.userId !== userId) return res.status(403).json({ error: 'Forbidden' });
+
+        await db.trackCollaborator.deleteMany({ where: { id: collaboratorId, trackId } });
+        res.json({ success: true });
+    } catch (e: any) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// List pending collab invites for the current user
+app.get('/api/musician/my-collaborations', requireAuth, async (req: any, res) => {
+    try {
+        const userId = req.session.user.id;
+        const profile = await db.musicianProfile.findUnique({ where: { userId } });
+        if (!profile) return res.json([]);
+
+        const collabs = await db.trackCollaborator.findMany({
+            where: { profileId: profile.id },
+            include: {
+                track: {
+                    select: {
+                        id: true, title: true, slug: true, coverUrl: true,
+                        profile: { select: { userId: true, username: true, displayName: true, avatar: true } },
+                    },
+                },
+            },
+            orderBy: { invitedAt: 'desc' },
+        });
+        res.json(collabs);
     } catch (e: any) {
         res.status(500).json({ error: 'Internal server error' });
     }

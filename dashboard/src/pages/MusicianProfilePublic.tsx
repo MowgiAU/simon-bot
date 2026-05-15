@@ -103,7 +103,7 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
     const [isFollowing, setIsFollowing] = useState(false);
     const [followerCount, setFollowerCount] = useState(0);
     const [startingChat, setStartingChat] = useState(false);
-    const [discographyFilter, setDiscographyFilter] = useState<'all' | 'tracks' | 'reposts'>('all');
+    const [discographyFilter, setDiscographyFilter] = useState<'all' | 'tracks' | 'reposts' | 'collabs'>('all');
     const [favourites, setFavourites] = useState<Record<string, boolean>>({});
     const [reposts, setReposts] = useState<Record<string, boolean>>({});
 
@@ -270,7 +270,7 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
             }
 
             // Load all supplementary data in parallel (non-blocking — page already rendered)
-            const allTrackIds = [...(data.tracks || []).map((t: any) => t.id), ...(data.reposts || []).map((t: any) => t.id)];
+            const allTrackIds = [...(data.tracks || []).map((t: any) => t.id), ...(data.reposts || []).map((t: any) => t.id), ...(data.collaborations || []).map((t: any) => t.id)];
             const supplementary: Promise<any>[] = [
                 axios.get(`/api/artists/${data.id}/follower-count`).catch(() => null),
                 axios.get(`/api/artists/${data.id}/follow`, { withCredentials: true }).catch(() => null),
@@ -718,17 +718,18 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                                 <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '10px', color: cardText }}>
                                     <Award size={20} color="#F27B13" /> Discography
                                 </h3>
-                                <div style={{ display: 'flex', gap: '4px', backgroundColor: isLightCard ? 'rgba(0,0,0,0.05)' : '#1A1E2E', borderRadius: '8px', padding: '3px' }}>
-                                    {(['all', 'tracks', 'reposts'] as const).map(tab => (
+                                <div style={{ display: 'flex', gap: '4px', backgroundColor: isLightCard ? 'rgba(0,0,0,0.05)' : '#1A1E2E', borderRadius: '8px', padding: '3px', flexWrap: 'wrap' }}>
+                                    {(['all', 'tracks', 'reposts', 'collabs'] as const).filter(tab => tab !== 'collabs' || (profile as any).collaborations?.length > 0).map(tab => (
                                         <button key={tab} onClick={() => setDiscographyFilter(tab)} style={{
                                             padding: '6px 14px', borderRadius: '6px', border: 'none', cursor: 'pointer',
                                             fontSize: '12px', fontWeight: 600, transition: 'all 0.2s',
                                             backgroundColor: discographyFilter === tab ? accent : 'transparent',
                                             color: discographyFilter === tab ? 'white' : cardTextSec,
                                         }}>
-                                            {tab === 'all' ? `All (${(profile.tracks?.length || 0) + (profile.reposts?.length || 0)})` :
+                                            {tab === 'all' ? `All (${(profile.tracks?.length || 0) + (profile.reposts?.length || 0) + ((profile as any).collaborations?.length || 0)})` :
                                              tab === 'tracks' ? `Tracks (${profile.tracks?.length || 0})` :
-                                             `Reposts (${profile.reposts?.length || 0})`}
+                                             tab === 'reposts' ? `Reposts (${profile.reposts?.length || 0})` :
+                                             `Collabs (${(profile as any).collaborations?.length || 0})`}
                                         </button>
                                     ))}
                                 </div>
@@ -736,10 +737,12 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                             {(() => {
                                 const ownTracks = (profile.tracks || []).map(t => ({ ...t, username: profile.username, _repost: false as const, _repostedAt: null as string | null, _originalArtist: null as any }));
                                 const repostedTracks = (profile.reposts || []).map(t => ({ ...t, username: t._originalArtist?.username || profile.username, _repost: true as const }));
+                                const collabTracks = ((profile as any).collaborations || []).map((t: any) => ({ ...t, username: t._originalArtist?.username || profile.username }));
                                 let filtered = discographyFilter === 'tracks' ? ownTracks
                                              : discographyFilter === 'reposts' ? repostedTracks
-                                             : [...ownTracks, ...repostedTracks];
-                                filtered.sort((a, b) => {
+                                             : discographyFilter === 'collabs' ? collabTracks
+                                             : [...ownTracks, ...repostedTracks, ...collabTracks];
+                                filtered.sort((a: any, b: any) => {
                                     const dateA = a._repostedAt || a.createdAt || '';
                                     const dateB = b._repostedAt || b.createdAt || '';
                                     return new Date(dateB).getTime() - new Date(dateA).getTime();
@@ -749,7 +752,7 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                                     <div style={{ textAlign: 'center', padding: '40px', backgroundColor: cardBg, borderRadius: '12px', border: `1px solid ${cardBorder}` }}>
                                         <Music size={40} color={cardTextSec} style={{ opacity: 0.2, marginBottom: '12px' }} />
                                         <p style={{ color: cardTextSec, fontSize: '13px', margin: 0 }}>
-                                            {discographyFilter === 'reposts' ? 'No reposts yet.' : discographyFilter === 'tracks' ? 'No tracks uploaded yet.' : 'No tracks uploaded yet.'}
+                                            {discographyFilter === 'reposts' ? 'No reposts yet.' : discographyFilter === 'tracks' ? 'No tracks uploaded yet.' : discographyFilter === 'collabs' ? 'No collaborations yet.' : 'No tracks uploaded yet.'}
                                         </p>
                                     </div>
                                 );
@@ -764,7 +767,7 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
 
                                 return (
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                        {filtered.map(track => {
+                                        {filtered.map((track: any) => {
                                             const isCurrentTrack = player.currentTrack?.id === track.id;
                                             const isPlaying = isCurrentTrack && player.isPlaying;
                                             const progress = isCurrentTrack ? (player.currentTime / (player.duration || 1)) : 0;
