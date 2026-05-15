@@ -2684,8 +2684,10 @@ model H2HMatch {
   opponentSubmissionAt    DateTime?
 
   // Voting
-  votingStart DateTime?
-  votingEnd   DateTime?
+  votingStart        DateTime?
+  votingEnd          DateTime?
+  votingAnnouncedAt  DateTime? // set once the "ready to judge" Discord announcement is posted
+  winnerAnnouncedAt  DateTime? // set once the winner Discord announcement is posted
 
   // Outcome
   winnerId      String?

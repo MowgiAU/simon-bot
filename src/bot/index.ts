@@ -45,6 +45,7 @@ import { PausePlugin } from './plugins/PausePlugin';
 import { VoiceStatChannelsPlugin } from './plugins/VoiceStatChannelsPlugin';
 import { SpamGuardPlugin } from './plugins/SpamGuardPlugin';
 import { TrackAnnouncerPlugin } from './plugins/TrackAnnouncerPlugin';
+import { HeadToHeadAnnouncerPlugin } from './plugins/HeadToHeadAnnouncerPlugin';
 import { FujiGenerator } from './utils/FujiGenerator';
 import { FujiScanner } from './utils/FujiScanner';
 import { softDeleteMiddleware } from '../services/softDelete.js';
@@ -150,6 +151,7 @@ export class SimonBot {
       this.pluginManager.register(new VoiceStatChannelsPlugin());
       this.pluginManager.register(new SpamGuardPlugin());
       this.pluginManager.register(new TrackAnnouncerPlugin());
+      this.pluginManager.register(new HeadToHeadAnnouncerPlugin());
 
       // Initialize enabled plugins
       for (const plugin of this.pluginManager.getEnabled()) {
