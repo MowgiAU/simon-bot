@@ -7,7 +7,7 @@ import {
     Music, Plus, X, ExternalLink, ArrowLeft, Tag, FileAudio,
     Image as ImageIcon, Edit3, Upload, Trash2, Eye, EyeOff, Clock,
     BarChart3, AlertCircle, Check, Save, AlignLeft, Scale, CheckSquare, Square, Download,
-    Users, Search, UserPlus, Mic2
+    Users, Search, UserPlus, Mic2, GripVertical, Link as LinkIcon, RefreshCw, Disc
 } from 'lucide-react';
 import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
 import { ConfirmModal } from '../components/ConfirmModal';
@@ -100,7 +100,8 @@ export const MyTracksPage: React.FC = () => {
     const [uploadStage, setUploadStage] = useState<'uploading' | 'scanning' | 'converting' | null>(null);
     const [newTrack, setNewTrack] = useState({
         title: '', description: '', artist: '', album: '', year: '', bpm: '', key: '',
-        allowAudioDownload: true, allowProjectDownload: true, license: 'all-rights-reserved'
+        allowAudioDownload: true, allowProjectDownload: true, license: 'all-rights-reserved',
+        trackType: 'original',
     });
     const [audioFile, setAudioFile] = useState<File | null>(null);
     const [artworkFile, setArtworkFile] = useState<File | null>(null);
@@ -136,6 +137,10 @@ export const MyTracksPage: React.FC = () => {
     const [newCollabContribution, setNewCollabContribution] = useState('');
     const [newCollabCategory, setNewCollabCategory] = useState('collaboration');
     const [pendingInvites, setPendingInvites] = useState<any[]>([]);
+
+    // Drag-to-reorder state
+    const [dragReorderIdx, setDragReorderIdx] = useState<number | null>(null);
+    const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
 
     // Bulk selection state
     const [bulkMode, setBulkMode] = useState(false);
@@ -264,6 +269,15 @@ export const MyTracksPage: React.FC = () => {
         }
     };
 
+    const handleDragEnd = async (reorderedTracks: any[]) => {
+        setTracks(reorderedTracks);
+        try {
+            await axios.put('/api/musician/tracks/positions', { trackIds: reorderedTracks.map(t => t.id) }, { withCredentials: true });
+        } catch {
+            setMessage({ type: 'error', text: 'Failed to save track order' });
+        }
+    };
+
     const handleAddTrack = async () => {
         if (!audioFile) {
             setMessage({ type: 'error', text: 'Please select an audio file' });
@@ -288,6 +302,7 @@ export const MyTracksPage: React.FC = () => {
         formData.append('allowAudioDownload', String(newTrack.allowAudioDownload));
         formData.append('allowProjectDownload', String(newTrack.allowProjectDownload));
         formData.append('license', newTrack.license);
+        if (newTrack.trackType) formData.append('trackType', newTrack.trackType);
         if (selectedTrackGenres.length > 0) formData.append('genreIds', JSON.stringify(selectedTrackGenres));
 
         setSaving(true);
@@ -324,7 +339,7 @@ export const MyTracksPage: React.FC = () => {
             setTracks([...tracks, res.data]);
             queryClient.invalidateQueries({ queryKey: profileQueryKey });
             setIsAddingTrack(false);
-            setNewTrack({ title: '', description: '', artist: '', album: '', year: '', bpm: '', key: '', allowAudioDownload: true, allowProjectDownload: true, license: 'all-rights-reserved' });
+            setNewTrack({ title: '', description: '', artist: '', album: '', year: '', bpm: '', key: '', allowAudioDownload: true, allowProjectDownload: true, license: 'all-rights-reserved', trackType: 'original' });
             setAudioFile(null); setArtworkFile(null); setProjectFile(null); setArtworkPreviewUrl(null);
             setSelectedTrackGenres([]); setTosAgreed(false); setNewTrackLyrics(''); setStagedCollabs([]);
             setMessage({ type: 'success', text: 'Track uploaded successfully! It may take a minute to appear on your profile.' });
@@ -381,6 +396,8 @@ export const MyTracksPage: React.FC = () => {
             formData.append('allowAudioDownload', String(editingTrack.allowAudioDownload ?? true));
             formData.append('allowProjectDownload', String(editingTrack.allowProjectDownload ?? true));
             formData.append('license', editingTrack.license || 'all-rights-reserved');
+            formData.append('trackType', editingTrack.trackType || 'original');
+            if (editingTrack.customSlug?.trim()) formData.append('slug', editingTrack.customSlug.trim());
             formData.append('genreIds', JSON.stringify(selectedTrackGenres));
 
             const res = await axios.put(`/api/musician/tracks/${editingTrack.id}`, formData, {
@@ -881,6 +898,30 @@ export const MyTracksPage: React.FC = () => {
                         )}
                     </div>
                     <div>
+                        <span style={label}>Track Type</span>
+                        <select value={track.trackType || 'original'} onChange={e => setField('trackType', e.target.value)} style={{ ...inputBase, cursor: 'pointer' }}>
+                            <option value="original">Original</option>
+                            <option value="remix">Remix</option>
+                            <option value="cover">Cover</option>
+                        </select>
+                    </div>
+                    {isEdit && (
+                        <div>
+                            <span style={label}><LinkIcon size={11} style={{ marginRight: 4 }} />Custom URL</span>
+                            <input
+                                type="text"
+                                placeholder={track.slug || 'auto-generated'}
+                                value={track.customSlug ?? track.slug ?? ''}
+                                onChange={e => setField('customSlug', e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+                                style={inputBase}
+                                maxLength={80}
+                            />
+                            <span style={{ fontSize: '11px', color: colors.textTertiary, marginTop: '4px', display: 'block' }}>
+                                fujistud.io/track/{username}/{track.customSlug || track.slug || '…'}
+                            </span>
+                        </div>
+                    )}
+                    <div>
                         <span style={label}>Artist</span>
                         <input type="text" placeholder="Artist name" value={track.artist || ''} onChange={e => setField('artist', e.target.value)} style={inputBase} maxLength={100} />
                     </div>
@@ -1184,19 +1225,44 @@ export const MyTracksPage: React.FC = () => {
     };
 
     /* ─── Track card component ─── */
-    const renderTrackCard = (track: any) => {
+    const renderTrackCard = (track: any, idx: number) => {
         const isEditing = editingTrack?.id === track.id;
+        const isDragging = dragReorderIdx === idx;
+        const isDropTarget = dragOverIdx === idx && dragReorderIdx !== idx;
         const duration = track.duration ? `${Math.floor(track.duration / 60)}:${(track.duration % 60).toString().padStart(2, '0')}` : '--:--';
+        const trackTypeLabel = track.trackType === 'remix' ? 'Remix' : track.trackType === 'cover' ? 'Cover' : null;
 
         return (
-            <div key={track.id} style={{
-                backgroundColor: colors.surface,
-                borderRadius: borderRadius.lg,
-                border: `1px solid ${isEditing ? colors.primary : colors.glassBorder}`,
-                overflow: 'hidden',
-                transition: 'border-color 0.15s',
-            }}>
+            <div key={track.id}
+                draggable={!bulkMode && !editingTrack}
+                onDragStart={() => setDragReorderIdx(idx)}
+                onDragOver={e => { e.preventDefault(); setDragOverIdx(idx); }}
+                onDragEnd={() => {
+                    if (dragReorderIdx !== null && dragOverIdx !== null && dragReorderIdx !== dragOverIdx) {
+                        const reordered = [...tracks];
+                        const [moved] = reordered.splice(dragReorderIdx, 1);
+                        reordered.splice(dragOverIdx, 0, moved);
+                        handleDragEnd(reordered);
+                    }
+                    setDragReorderIdx(null);
+                    setDragOverIdx(null);
+                }}
+                style={{
+                    backgroundColor: colors.surface,
+                    borderRadius: borderRadius.lg,
+                    border: `1px solid ${isDropTarget ? colors.primary : isEditing ? colors.primary : colors.glassBorder}`,
+                    overflow: 'hidden',
+                    transition: 'border-color 0.15s, opacity 0.15s',
+                    opacity: isDragging ? 0.4 : 1,
+                    outline: isDropTarget ? `2px solid ${colors.primary}` : 'none',
+                }}>
                 <div style={{ display: 'flex', gap: '16px', padding: '16px', alignItems: 'center' }}>
+                    {/* Drag handle */}
+                    {!bulkMode && !editingTrack && (
+                        <div style={{ cursor: 'grab', color: colors.textTertiary, flexShrink: 0, paddingRight: '4px' }} title="Drag to reorder">
+                            <GripVertical size={16} />
+                        </div>
+                    )}
                     {/* Cover art */}
                     <div style={{
                         width: isMobile ? '56px' : '64px', height: isMobile ? '56px' : '64px',
@@ -1214,8 +1280,15 @@ export const MyTracksPage: React.FC = () => {
 
                     {/* Track info */}
                     <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: '15px', fontWeight: 600, color: colors.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: '4px' }}>
-                            {track.title}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                            <div style={{ fontSize: '15px', fontWeight: 600, color: colors.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {track.title}
+                            </div>
+                            {trackTypeLabel && (
+                                <span style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', padding: '1px 6px', borderRadius: '4px', flexShrink: 0, backgroundColor: 'rgba(124,58,237,0.15)', color: '#A78BFA', letterSpacing: '0.04em' }}>
+                                    {trackTypeLabel}
+                                </span>
+                            )}
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
                             <span style={{ fontSize: '12px', color: colors.textTertiary, display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -1438,7 +1511,7 @@ export const MyTracksPage: React.FC = () => {
                     )}
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                        {tracks.map(track => {
+                        {tracks.map((track, idx) => {
                             const isSelected = selectedIds.has(track.id);
                             return (
                                 <div key={track.id} style={{ position: 'relative' }} onClick={bulkMode ? () => toggleSelect(track.id) : undefined}>
@@ -1454,7 +1527,7 @@ export const MyTracksPage: React.FC = () => {
                                         </div>
                                     )}
                                     <div style={{ opacity: bulkMode && !isSelected ? 0.55 : 1, transition: 'opacity 0.15s', paddingLeft: bulkMode ? '40px' : '0', cursor: bulkMode ? 'pointer' : 'default', outline: isSelected ? `2px solid ${colors.primary}` : '2px solid transparent', borderRadius: borderRadius.lg }}>
-                                        {renderTrackCard(track)}
+                                        {renderTrackCard(track, idx)}
                                     </div>
                                 </div>
                             );

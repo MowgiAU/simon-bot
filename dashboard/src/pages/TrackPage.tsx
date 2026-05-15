@@ -593,6 +593,11 @@ export const TrackPage: React.FC = () => {
 
                                 {/* Quick metadata badges */}
                                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '20px', justifyContent: isMobile ? 'center' : 'flex-start' }}>
+                                    {(track as any).trackType && (track as any).trackType !== 'original' && (
+                                        <span style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '5px 12px', borderRadius: '6px', backgroundColor: 'rgba(124,58,237,0.15)', border: '1px solid rgba(124,58,237,0.3)', fontSize: '13px', fontWeight: 600, color: '#A78BFA', textTransform: 'capitalize' }}>
+                                            {(track as any).trackType}
+                                        </span>
+                                    )}
                                     {track.bpm && (
                                         <span style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '5px 12px', borderRadius: '6px', backgroundColor: 'rgba(242,123,19,0.15)', border: '1px solid rgba(242,123,19,0.3)', fontSize: '13px', fontWeight: 600, color: colors.primary }}>
                                             <Activity size={13} /> {track.bpm} BPM

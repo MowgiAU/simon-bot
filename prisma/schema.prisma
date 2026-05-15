@@ -918,6 +918,8 @@ model Track {
   isPublic             Boolean @default(true)
   allowAudioDownload   Boolean @default(true)
   allowProjectDownload Boolean @default(true)
+  trackType            String  @default("original") // "original" | "remix" | "cover"
+  position             Int     @default(0) // display order on profile timeline
 
   // Creative Commons license
   license String @default("all-rights-reserved") // "all-rights-reserved" | "cc-by" | "cc-by-sa" | "cc-by-nc" | "cc-by-nc-sa" | "cc-by-nd" | "cc-by-nc-nd" | "cc0"
@@ -968,6 +970,7 @@ model Track {
   updatedAt DateTime @updatedAt
 
   @@index([profileId])
+  @@index([profileId, position]) // profile timeline ordering
   @@index([slug])
   @@index([profileId, isPublic, playCount(sort: Desc)]) // Fast per-profile top-track lookup
   @@index([isPublic, playCount(sort: Desc)]) // Leaderboard: top public tracks by plays
@@ -1619,6 +1622,7 @@ model Playlist {
   coverUrl           String?
   isPublic           Boolean           @default(true)
   releaseType        String? // 'album' | 'ep' | 'single' | null = plain playlist
+  profilePosition    Int               @default(0) // display order on profile sidebar
   trackCount         Int               @default(0)
   totalPlays         Int               @default(0)
   tracks             PlaylistTrack[]

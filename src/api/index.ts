@@ -6948,6 +6948,7 @@ app.post('/api/musician/tracks', uploadLimiter, upload.fields([
             allowAudioDownload: req.body.allowAudioDownload === 'true',
             allowProjectDownload: req.body.allowProjectDownload === 'true',
             ...(req.body.license ? { license: req.body.license } : {}),
+            ...(req.body.trackType ? { trackType: req.body.trackType } : {}),
             ...(arrangement ? { arrangement } : {}),
             ...(projectFileUrl ? { projectFileUrl } : {}),
             ...(projectZipUrl ? { projectZipUrl } : {}),
@@ -7194,13 +7195,36 @@ app.put('/api/musician/tracks/:trackId/lyrics', async (req: any, res) => {
     }
 });
 
+// Reorder tracks on profile timeline
+app.put('/api/musician/tracks/positions', requireAuth, async (req: any, res) => {
+    try {
+        const userId = req.session.user.id;
+        const { trackIds } = req.body;
+        if (!Array.isArray(trackIds) || trackIds.length === 0) {
+            return res.status(400).json({ error: 'trackIds array required' });
+        }
+        // Verify all tracks belong to this user
+        const profile = await db.musicianProfile.findUnique({ where: { userId } });
+        if (!profile) return res.status(404).json({ error: 'Profile not found' });
+        const owned = await db.track.count({ where: { id: { in: trackIds }, profileId: profile.id } });
+        if (owned !== trackIds.length) return res.status(403).json({ error: 'Forbidden' });
+        await db.$transaction(
+            trackIds.map((id: string, idx: number) => db.track.update({ where: { id }, data: { position: idx } }))
+        );
+        invalidateProfileCache(userId);
+        res.json({ success: true });
+    } catch (e: any) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 // Update track info
 app.patch('/api/musician/tracks/:trackId', async (req: any, res) => {
     try {
         const userId = req.session?.user?.id;
         if (!userId) return res.status(401).json({ error: 'Unauthorized' });
         const { trackId } = req.params;
-        const { title, description, isPublic, artist, album, year, bpm, key, genreIds, allowAudioDownload, allowProjectDownload, license } = req.body;
+        const { title, description, isPublic, artist, album, year, bpm, key, genreIds, allowAudioDownload, allowProjectDownload, license, trackType, slug } = req.body;
 
         // Ownership check
         const track = await db.track.findUnique({ where: { id: trackId }, include: { profile: true } });
@@ -7225,10 +7249,26 @@ app.patch('/api/musician/tracks/:trackId', async (req: any, res) => {
             });
         }
 
+        // Validate and normalise custom slug if provided
+        let resolvedSlug: string | undefined;
+        if (slug !== undefined) {
+            const raw = String(slug).toLowerCase().trim();
+            if (raw.length > 0) {
+                if (!/^[a-z0-9][a-z0-9-]{1,78}[a-z0-9]$|^[a-z0-9]{1,3}$/.test(raw)) {
+                    return res.status(400).json({ error: 'Slug must be 3–80 characters, lowercase letters, numbers, and hyphens only.' });
+                }
+                // Uniqueness check within this profile (exclude current track)
+                const conflict = await db.track.findFirst({ where: { slug: raw, profileId: track.profileId, id: { not: trackId } } });
+                if (conflict) return res.status(409).json({ error: 'That URL is already used by another track on your profile.' });
+                resolvedSlug = raw;
+            }
+        }
+
         const updated = await db.track.update({
             where: { id: trackId },
-            data: { 
-                ...(title !== undefined && { title: sanitizeDisplayName(title) }),
+            data: {
+                ...(title !== undefined && { title: sanitizeDisplayName(title), slug: safeTrackSlug(title) }),
+                ...(resolvedSlug !== undefined && { slug: resolvedSlug }),
                 ...(description !== undefined && { description }),
                 ...(isPublic !== undefined && { isPublic }),
                 ...(artist !== undefined && { artist: sanitizeDisplayName(artist) }),
@@ -7239,6 +7279,7 @@ app.patch('/api/musician/tracks/:trackId', async (req: any, res) => {
                 ...(allowAudioDownload !== undefined && { allowAudioDownload: allowAudioDownload === 'true' || allowAudioDownload === true }),
                 ...(allowProjectDownload !== undefined && { allowProjectDownload: allowProjectDownload === 'true' || allowProjectDownload === true }),
                 ...(license !== undefined && { license }),
+                ...(trackType !== undefined && { trackType }),
             }
         });
 
@@ -8136,6 +8177,8 @@ app.get('/api/musician/profile/:userId', async (req, res) => {
         // Filter out non-active tracks and back-fill permission defaults
         if (profileData.tracks) {
             profileData.tracks = profileData.tracks.filter((t: any) => t.status === 'active' || !t.status);
+            // Sort by explicit position first, then by createdAt for tracks with equal positions
+            profileData.tracks.sort((a: any, b: any) => (a.position ?? 0) - (b.position ?? 0) || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
             profileData.tracks.forEach((t: any) => {
                 if (t.allowAudioDownload === undefined) t.allowAudioDownload = true;
                 if (t.allowProjectDownload === undefined) t.allowProjectDownload = true;
@@ -8200,6 +8243,25 @@ app.get('/api/musician/profile/:userId', async (req, res) => {
                 _collabCategory: c.category,
                 _originalArtist: c.track.profile,
             }));
+
+        // Fetch public playlists for this profile — releases first, then by profilePosition
+        const profilePlaylists = await db.playlist.findMany({
+            where: { userId: profileData.userId, isPublic: true, deletedAt: null },
+            orderBy: [{ profilePosition: 'asc' }],
+            include: {
+                tracks: {
+                    where: { track: { deletedAt: null } },
+                    orderBy: { position: 'asc' },
+                    take: 4,
+                    include: { track: { select: { id: true, coverUrl: true, title: true } } },
+                },
+            },
+        });
+        // Releases (have a releaseType) bubble to the top within same profilePosition tier
+        profileData.playlists = [
+            ...profilePlaylists.filter(p => p.releaseType),
+            ...profilePlaylists.filter(p => !p.releaseType),
+        ];
 
         // Only cache for non-owner requests — owner always gets a live query (see above)
         if (!isOwnerRequest) setCachedResponse(cacheKey, profileData);
@@ -14628,6 +14690,25 @@ app.put('/api/playlists/:playlistId/reorder', requireAuth, async (req: any, res)
             )
         );
 
+        res.json({ success: true });
+    } catch (e: any) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Reorder playlists on profile sidebar
+app.put('/api/playlists/profile-positions', requireAuth, async (req: any, res) => {
+    try {
+        const userId = req.session.user.id;
+        const { playlistIds } = req.body;
+        if (!Array.isArray(playlistIds) || playlistIds.length === 0) {
+            return res.status(400).json({ error: 'playlistIds array required' });
+        }
+        const owned = await db.playlist.count({ where: { id: { in: playlistIds }, userId } });
+        if (owned !== playlistIds.length) return res.status(403).json({ error: 'Forbidden' });
+        await db.$transaction(
+            playlistIds.map((id: string, idx: number) => db.playlist.update({ where: { id }, data: { profilePosition: idx } }))
+        );
         res.json({ success: true });
     } catch (e: any) {
         res.status(500).json({ error: 'Internal server error' });
