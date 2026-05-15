@@ -5,6 +5,7 @@ import {
     GuildMember,
     PermissionFlagsBits,
     MessageFlags,
+    SlashCommandBuilder,
 } from 'discord.js';
 import { IPlugin, IPluginContext } from '../types/plugin';
 import { z } from 'zod';
@@ -28,6 +29,19 @@ export class BoosterColorPlugin implements IPlugin {
     private client!: Client;
     private db!: PrismaClient;
     private logger: any;
+
+    async registerCommands(): Promise<SlashCommandBuilder[]> {
+        const cmd = new SlashCommandBuilder()
+            .setName('booster')
+            .setDescription('Choose your exclusive name colour as a server booster')
+            .addStringOption(opt =>
+                opt.setName('role')
+                    .setDescription('The colour role to apply')
+                    .setRequired(true)
+                    .setAutocomplete(true)
+            ) as SlashCommandBuilder;
+        return [cmd];
+    }
 
     async initialize(context: IPluginContext): Promise<void> {
         this.client = context.client;
