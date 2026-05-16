@@ -5,7 +5,7 @@ import axios from 'axios';
 import {
     Flag, AlertTriangle, CheckCircle, XCircle, Clock, Eye,
     ChevronLeft, ChevronRight, ExternalLink, User, MessageSquare,
-    Music, UserCircle, Filter, Search, X
+    Music, UserCircle, Filter, Search, X, Trash2
 } from 'lucide-react';
 
 interface Report {
@@ -82,6 +82,7 @@ export const ReportsPage: React.FC = () => {
     const [selectedReport, setSelectedReport] = useState<Report | null>(null);
     const [resolutionNote, setResolutionNote] = useState('');
     const [saving, setSaving] = useState(false);
+    const [deletingComment, setDeletingComment] = useState(false);
     const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
     useEffect(() => {
@@ -121,6 +122,20 @@ export const ReportsPage: React.FC = () => {
             setResolutionNote('');
         } catch {}
         setSaving(false);
+    };
+
+    const handleDeleteComment = async (report: Report) => {
+        if (!window.confirm('Permanently delete this comment? This cannot be undone.')) return;
+        setDeletingComment(true);
+        try {
+            await axios.delete(`/api/comments/${report.targetId}`, { withCredentials: true });
+            // Auto-resolve the report after deleting
+            await handleStatusChange(report.id, 'resolved');
+        } catch {
+            // ignore
+        } finally {
+            setDeletingComment(false);
+        }
     };
 
     const renderSnapshot = (report: Report) => {
@@ -419,6 +434,12 @@ export const ReportsPage: React.FC = () => {
                                         style={{ padding: '8px 16px', borderRadius: borderRadius.sm, border: '1px solid rgba(107,114,128,0.4)', backgroundColor: 'rgba(107,114,128,0.1)', color: '#6b7280', cursor: 'pointer', fontWeight: 600, fontSize: '13px', opacity: saving ? 0.5 : 1 }}>
                                         <XCircle size={13} style={{ verticalAlign: '-2px', marginRight: '4px' }} /> Dismiss
                                     </button>
+                                    {selectedReport.targetType === 'comment' && (
+                                        <button onClick={() => handleDeleteComment(selectedReport)} disabled={saving || deletingComment}
+                                            style={{ padding: '8px 16px', borderRadius: borderRadius.sm, border: '1px solid rgba(239,68,68,0.4)', backgroundColor: 'rgba(239,68,68,0.1)', color: '#ef4444', cursor: 'pointer', fontWeight: 600, fontSize: '13px', opacity: (saving || deletingComment) ? 0.5 : 1 }}>
+                                            <Trash2 size={13} style={{ verticalAlign: '-2px', marginRight: '4px' }} /> Delete Comment
+                                        </button>
+                                    )}
                                 </div>
                             </div>
                         )}

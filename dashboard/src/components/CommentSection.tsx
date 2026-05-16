@@ -248,7 +248,8 @@ const EmojiPicker: React.FC<{ onSelect: (emoji: string) => void; onClose: () => 
 // ─── Comment Section ──────────────────────────────────────────────────────
 
 export const CommentSection: React.FC<CommentSectionProps> = ({ trackId, profileId, battleEntryId, ownerId, currentTrackTime, isCurrentTrack, onCommentPosted, onSeek }) => {
-    const { user } = useAuth();
+    const { user, mutualAdminGuilds } = useAuth();
+    const isAdmin = mutualAdminGuilds.length > 0;
     const [comments, setComments] = useState<Comment[]>([]);
     const [loading, setLoading] = useState(true);
     const [hasMore, setHasMore] = useState(false);
@@ -374,6 +375,14 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ trackId, profile
         if (!user) return false;
         if (comment.userId === user.id) return true;
         if (ownerId && user.id === ownerId) return true;
+        if (isAdmin) return true;
+        return false;
+    };
+
+    const canEdit = (comment: Comment) => {
+        if (!user) return false;
+        if (comment.userId === user.id) return true;
+        if (isAdmin) return true;
         return false;
     };
 
@@ -638,7 +647,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ trackId, profile
                                             style={{ background: 'none', border: 'none', cursor: user ? 'pointer' : 'default', color: comment.userVote === 'dislike' ? '#EF4444' : colors.textSecondary, fontSize: '12px', display: 'flex', alignItems: 'center', gap: '3px', padding: 0 }}>
                                             <ThumbsDown size={13} fill={comment.userVote === 'dislike' ? '#EF4444' : 'none'} /> {comment.dislikeCount || 0}
                                         </button>
-                                        {user && comment.userId === user.id && (
+                                        {canEdit(comment) && (
                                             <button onClick={() => { setEditingId(comment.id); setEditContent(comment.content); setEditGifUrl(comment.gifUrl); }}
                                                 style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.textSecondary, fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px', padding: 0 }}>
                                                 <Edit3 size={12} /> Edit
@@ -792,7 +801,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ trackId, profile
                                                                         style={{ background: 'none', border: 'none', cursor: user ? 'pointer' : 'default', color: reply.userVote === 'dislike' ? '#EF4444' : colors.textSecondary, fontSize: '11px', display: 'flex', alignItems: 'center', gap: '3px', padding: 0 }}>
                                                                         <ThumbsDown size={11} fill={reply.userVote === 'dislike' ? '#EF4444' : 'none'} /> {reply.dislikeCount || 0}
                                                                     </button>
-                                                                    {user && reply.userId === user.id && (
+                                                                    {canEdit(reply) && (
                                                                         <button onClick={() => { setEditingId(reply.id); setEditContent(reply.content); setEditGifUrl(reply.gifUrl); }}
                                                                             style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.textSecondary, fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', padding: 0 }}>
                                                                             <Edit3 size={11} /> Edit

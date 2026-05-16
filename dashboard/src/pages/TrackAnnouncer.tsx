@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { colors, spacing, borderRadius } from '../theme/theme';
 import { ChannelSelect } from '../components/ChannelSelect';
 import { useAuth } from '../components/AuthProvider';
-import { Radio, Save, ToggleLeft, ToggleRight, Loader } from 'lucide-react';
+import { Radio, Save, ToggleLeft, ToggleRight, Loader, Swords } from 'lucide-react';
 
 const API = import.meta.env.VITE_API_URL ?? '';
 
@@ -26,6 +26,7 @@ export default function TrackAnnouncer() {
     const guildId = selectedGuild?.id ?? '';
 
     const [settings, setSettings] = useState<TrackAnnouncerSettings>(DEFAULT);
+    const [h2hChannelId, setH2hChannelId] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [saved, setSaved] = useState(false);
@@ -35,10 +36,13 @@ export default function TrackAnnouncer() {
         if (!guildId) return;
         setLoading(true);
         setError(null);
-        fetch(`${API}/api/track-announcer/${guildId}`, { credentials: 'include' })
-            .then(r => r.json())
-            .then(data => {
-                setSettings({ ...DEFAULT, ...data });
+        Promise.all([
+            fetch(`${API}/api/track-announcer/${guildId}`, { credentials: 'include' }).then(r => r.json()),
+            fetch(`${API}/api/head-to-head/admin/settings`, { credentials: 'include' }).then(r => r.json()),
+        ])
+            .then(([trackData, h2hData]) => {
+                setSettings({ ...DEFAULT, ...trackData });
+                setH2hChannelId(h2hData?.announcementChannelId ?? null);
                 setLoading(false);
             })
             .catch(() => {
@@ -53,17 +57,24 @@ export default function TrackAnnouncer() {
         setError(null);
         setSaved(false);
         try {
-            const res = await fetch(`${API}/api/track-announcer/${guildId}`, {
-                method: 'POST',
-                credentials: 'include',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    enabled: settings.enabled,
-                    channelId: settings.channelId || null,
-                    channelId2: settings.channelId2 || null,
+            await Promise.all([
+                fetch(`${API}/api/track-announcer/${guildId}`, {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        enabled: settings.enabled,
+                        channelId: settings.channelId || null,
+                        channelId2: settings.channelId2 || null,
+                    }),
                 }),
-            });
-            if (!res.ok) throw new Error('Save failed');
+                fetch(`${API}/api/head-to-head/admin/settings`, {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ announcementChannelId: h2hChannelId || null }),
+                }),
+            ]);
             setSaved(true);
             setTimeout(() => setSaved(false), 3000);
         } catch {
@@ -87,9 +98,9 @@ export default function TrackAnnouncer() {
             <div style={{ display: 'flex', alignItems: 'center', marginBottom: '24px' }}>
                 <Radio size={32} color={colors.primary} style={{ marginRight: '16px', flexShrink: 0 }} />
                 <div>
-                    <h1 style={{ margin: 0, fontSize: '24px', color: colors.textPrimary }}>Track Announcer</h1>
+                    <h1 style={{ margin: 0, fontSize: '24px', color: colors.textPrimary }}>Announcers</h1>
                     <p style={{ margin: '4px 0 0', color: colors.textSecondary }}>
-                        Automatically post a Discord embed when a member uploads a new track on Fuji Studio.
+                        Configure Discord channels for automatic track drops, 1v1 battle events, and queue alerts.
                     </p>
                 </div>
             </div>
@@ -104,9 +115,8 @@ export default function TrackAnnouncer() {
                 borderLeft: `4px solid ${colors.primary}`,
             }}>
                 <p style={{ margin: 0, color: colors.textPrimary, lineHeight: 1.6 }}>
-                    When a member uploads a track on the Fuji Studio platform, the bot will post a rich embed in the
-                    configured channel. The embed includes the track's artwork thumbnail, title, artist name, genre tags,
-                    and a direct link to listen on Fuji Studio.
+                    The bot automatically posts embeds when members drop new tracks, when a 1v1 battle opens for voting,
+                    when a winner is decided, and when a player is in the queue waiting for an opponent.
                 </p>
             </div>
 
@@ -195,6 +205,39 @@ export default function TrackAnnouncer() {
                             style={{ marginTop: '8px', background: 'none', border: 'none', color: colors.textTertiary, fontSize: '12px', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}
                         >
                             Clear second channel
+                        </button>
+                    )}
+                </div>
+
+                {/* Divider */}
+                <div style={{ borderTop: '1px solid rgba(255,255,255,0.07)', paddingTop: '24px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
+                        <Swords size={18} color={colors.primary} />
+                        <div>
+                            <div style={{ fontWeight: 700, color: colors.textPrimary, fontSize: '15px' }}>1v1 Arena Announcements</div>
+                            <div style={{ color: colors.textSecondary, fontSize: '13px', marginTop: '2px' }}>
+                                Voting-open, winner, and queue-waiting embeds for Head-to-Head battles.
+                            </div>
+                        </div>
+                    </div>
+                    <label style={{ display: 'block', fontWeight: 600, color: colors.textPrimary, fontSize: '14px', marginBottom: '8px' }}>
+                        Arena Announcement Channel
+                    </label>
+                    <p style={{ margin: '0 0 12px', color: colors.textSecondary, fontSize: '13px' }}>
+                        All 1v1 arena embeds (voting open, winner decided, looking for opponent) post here.
+                    </p>
+                    <ChannelSelect
+                        guildId={guildId}
+                        value={h2hChannelId ?? ''}
+                        onChange={v => setH2hChannelId((Array.isArray(v) ? v[0] : v) ?? null)}
+                        placeholder="Select a channel..."
+                    />
+                    {h2hChannelId && (
+                        <button
+                            onClick={() => setH2hChannelId(null)}
+                            style={{ marginTop: '8px', background: 'none', border: 'none', color: colors.textTertiary, fontSize: '12px', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}
+                        >
+                            Clear channel
                         </button>
                     )}
                 </div>

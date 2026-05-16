@@ -372,15 +372,6 @@ const SettingsTab: React.FC = () => {
                     {s.enabled ? 'Module is active' : 'Module is disabled'}
                 </label>
             </Field>
-            <Field label="Announcement channel ID" hint="Discord channel where voting-open and winner announcements are posted. Right-click a channel in Discord (with Developer Mode on) and copy its ID.">
-                <input
-                    type="text"
-                    value={s.announcementChannelId ?? ''}
-                    onChange={e => setS({ ...s, announcementChannelId: e.target.value.trim() || null })}
-                    placeholder="e.g. 1234567890123456789"
-                    style={numStyle}
-                />
-            </Field>
             <Field label="Default production minutes" hint="How long players have to produce after readying up.">
                 <input type="number" value={s.defaultProductionMinutes} min={5} max={720}
                     onChange={e => setS({ ...s, defaultProductionMinutes: Number(e.target.value) })} style={numStyle} />

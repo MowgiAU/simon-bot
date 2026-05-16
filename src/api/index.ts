@@ -3518,6 +3518,7 @@ app.get('/api/guilds/:guildId/stats', async (req, res) => {
       filterSettings,
       artistCount,
       trackCount,
+      openReports,
     ] = await Promise.all([
       // 1. Server Stats History — last 60 days, most recent first so take(60) never clips new data
       db.serverStats.findMany({
@@ -3562,8 +3563,10 @@ app.get('/api/guilds/:guildId/stats', async (req, res) => {
       db.filterSettings.findUnique({ where: { guildId } }),
       // 11. Artist count (global � platform-wide Fuji Studio profiles)
       db.musicianProfile.count({ where: { status: 'active', deletedAt: null } }),
-      // 12. Track count (global � platform-wide public tracks)
+      // 12. Track count (global — platform-wide public tracks)
       db.track.count({ where: { status: 'active', isPublic: true, deletedAt: null } }),
+      // 13. Open reports needing attention
+      db.report.count({ where: { status: { in: ['open', 'reviewing'] } } }),
     ]);
 
     const topChannels = topChannelsRaw.map(c => ({
@@ -3608,7 +3611,8 @@ app.get('/api/guilds/:guildId/stats', async (req, res) => {
         email: { unread: unreadEmails },
         economy: { totalBalance: economyAgg._sum.balance || 0 },
         welcome: { enabled: welcomeSettings?.enabled || false },
-        filter: { enabled: filterSettings?.enabled || false }
+        filter: { enabled: filterSettings?.enabled || false },
+        reports: { open: openReports },
       }
     });
 
@@ -14275,7 +14279,8 @@ app.put('/api/comments/:commentId', requireAuth, async (req: any, res) => {
 
         const comment = await db.comment.findUnique({ where: { id: commentId } });
         if (!comment) return res.status(404).json({ error: 'Comment not found' });
-        if (comment.userId !== userId) return res.status(403).json({ error: 'You can only edit your own comments' });
+        const isAdmin = (req.session.mutualAdminGuilds as any[])?.length > 0;
+        if (comment.userId !== userId && !isAdmin) return res.status(403).json({ error: 'You can only edit your own comments' });
 
         const cleanEditContent = content ? sanitizeDisplayName(content, 500) : '';
         if (!cleanEditContent.trim() && !gifUrl) return res.status(400).json({ error: 'Content or GIF is required' });

@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area 
 } from 'recharts';
-import { 
+import {
   MessageSquare, Shield, ShieldAlert, DollarSign, UserPlus, Settings,
-  Users, Mic, Bot, Globe, Music, Headphones, type LucideIcon
+  Users, Mic, Bot, Globe, Music, Headphones, Flag, type LucideIcon
 } from 'lucide-react';
 import { colors } from '../theme/theme';
 import './Dashboard.css';
@@ -46,6 +46,7 @@ interface DashboardStats {
     economy: { totalBalance: number };
     welcome: { enabled: boolean };
     filter: { enabled: boolean };
+    reports?: { open: number };
   };
   recentLogs?: Array<{
     id: string;
@@ -281,6 +282,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ guildId, onNavigate, acces
                 <div className="info-row" style={{ cursor: 'pointer' }} onClick={() => onNavigate('economy')}>
                   <span className="info-label">Economy Balance</span>
                   <span className="info-value">{formatNumber(stats?.pluginsData?.economy?.totalBalance || 0)}</span>
+                </div>
+                )}
+                {(stats?.pluginsData?.reports?.open ?? 0) > 0 && (
+                <div className="info-row" style={{ cursor: 'pointer', borderTop: '1px solid rgba(239,68,68,0.2)', paddingTop: '10px', marginTop: '4px' }} onClick={() => onNavigate('reports')}>
+                  <span className="info-label" style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#ef4444' }}>
+                    <Flag size={13} /> Pending Reports
+                  </span>
+                  <span className="info-value" style={{ color: '#ef4444', fontWeight: 700 }}>{stats.pluginsData!.reports!.open}</span>
                 </div>
                 )}
               </div>

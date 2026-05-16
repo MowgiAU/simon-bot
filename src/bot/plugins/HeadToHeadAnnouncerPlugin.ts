@@ -8,10 +8,13 @@ import { IPlugin, IPluginContext } from '../types/plugin';
 import { z } from 'zod';
 import { PrismaClient } from '@prisma/client';
 
-const POLL_INTERVAL_MS = 30_000;
+const POLL_INTERVAL_MS  = 30_000;
+const EMBED_COLOR_QUEUE  = 0x3b82f6; // blue  — looking for opponent
 const EMBED_COLOR_VOTE   = 0xf97316; // orange — voting open
 const EMBED_COLOR_WINNER = 0xfbbf24; // gold   — winner
 const H2H_GUILD_ID = 'default-guild';
+// Only announce queue after 2 minutes so instant matches don't get announced
+const QUEUE_ANNOUNCE_DELAY_MS = 2 * 60 * 1000;
 
 export class HeadToHeadAnnouncerPlugin implements IPlugin {
     readonly id = 'head-to-head-announcer';
@@ -63,11 +66,68 @@ export class HeadToHeadAnnouncerPlugin implements IPlugin {
             const channel = this.client.channels.cache.get(settings.announcementChannelId) as TextChannel | undefined;
             if (!channel?.isTextBased()) return;
 
+            await this.announceQueueWaiting(channel);
             await this.announceVotingOpen(channel);
             await this.announceWinners(channel);
         } catch (err: any) {
             this.logger.warn(`[H2HAnnouncer] processPending error: ${err.message}`);
         }
+    }
+
+    // ─── Queue waiting ─────────────────────────────────────────────────────────
+
+    private async announceQueueWaiting(channel: TextChannel): Promise<void> {
+        const cutoff = new Date(Date.now() - QUEUE_ANNOUNCE_DELAY_MS);
+        const matches = await (this.db as any).h2HMatch.findMany({
+            where: { status: 'queued', opponentId: null, queueAnnouncedAt: null, createdAt: { lte: cutoff } },
+            orderBy: { createdAt: 'asc' },
+            take: 5,
+        });
+
+        for (const match of matches) {
+            await (this.db as any).h2HMatch.update({
+                where: { id: match.id },
+                data: { queueAnnouncedAt: new Date() },
+            });
+            await this.postQueueAnnouncement(channel, match).catch((err: any) =>
+                this.logger.warn(`[H2HAnnouncer] Failed to post queue announcement for match ${match.id}: ${err.message}`)
+            );
+        }
+    }
+
+    private async postQueueAnnouncement(channel: TextChannel, match: any): Promise<void> {
+        const [challenger, genre] = await Promise.all([
+            this.getProfile(match.challengerId),
+            match.genreId ? this.getGenreName(match.genreId) : null,
+        ]);
+
+        const arenaUrl = `${this.siteBase}/arena`;
+        const challengerName = challenger?.displayName || challenger?.username || `<@${match.challengerId}>`;
+        const challengerLink = challenger ? `[${challengerName}](${this.siteBase}/profile/${challenger.username})` : challengerName;
+
+        const desc = [
+            `⚔️ **${challengerLink}** is in the queue and looking for an opponent!`,
+            genre ? `🎧 Genre: **${genre}**` : null,
+            `Join the arena to accept the challenge.`,
+            '',
+            `**[🏟️ Join the Arena](${arenaUrl})**`,
+        ].filter(Boolean).join('\n');
+
+        const embed = new EmbedBuilder()
+            .setColor(EMBED_COLOR_QUEUE)
+            .setAuthor({ name: '🔍 1v1 Arena — Looking for Opponent' })
+            .setTitle(`${challengerName} wants to battle`)
+            .setURL(arenaUrl)
+            .setDescription(desc)
+            .setFooter({ text: 'Fuji Studio Arena' })
+            .setTimestamp();
+
+        if (challenger?.avatar) {
+            embed.setThumbnail(`https://cdn.discordapp.com/avatars/${challenger.userId}/${challenger.avatar}.png`);
+        }
+
+        await channel.send({ embeds: [embed] });
+        this.logger.info(`[H2HAnnouncer] Posted queue announcement for match ${match.id} — challenger: ${challengerName}`);
     }
 
     // ─── Voting open ───────────────────────────────────────────────────────────
