@@ -651,7 +651,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ trackId, profile
                                             </button>
                                         )}
                                         {user && comment.userId !== user.id && (
-                                            <ReportButton targetType="comment" targetId={comment.id} iconOnly style={{ padding: 0, fontSize: '12px' }} />
+                                            <ReportButton targetType="comment" targetId={comment.id} style={{ padding: 0, fontSize: '12px' }} />
                                         )}
                                         <button onClick={() => { setReplyingTo(replyingTo === comment.id ? null : comment.id); setReplyContent(''); setShowReplyEmoji(false); }}
                                             style={{ background: 'none', border: 'none', cursor: 'pointer', color: replyingTo === comment.id ? colors.primary : colors.textSecondary, fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px', padding: 0 }}>
@@ -805,7 +805,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ trackId, profile
                                                                         </button>
                                                                     )}
                                                                     {user && reply.userId !== user.id && (
-                                                                        <ReportButton targetType="comment" targetId={reply.id} iconOnly style={{ padding: 0, fontSize: '11px' }} />
+                                                                        <ReportButton targetType="comment" targetId={reply.id} style={{ padding: 0, fontSize: '11px' }} />
                                                                     )}
                                                                     {user && (
                                                                         <button onClick={() => { setReplyingTo(replyingTo === reply.id ? null : reply.id); setReplyContent(replyingTo === reply.id ? '' : `@${reply.username} `); setShowReplyEmoji(false); }}
