@@ -14088,10 +14088,41 @@ app.get('/api/comments', async (req: any, res) => {
 });
 
 // POST create a comment
+/** Validate a GIF URL — only allow known CDN domains returned by Klipy/Tenor */
+function validateGifUrl(url: unknown): string | null {
+    if (!url || typeof url !== 'string') return null;
+    try {
+        const parsed = new URL(url);
+        if (parsed.protocol !== 'https:') return null;
+        const ALLOWED_GIF_HOSTS = [
+            'media.tenor.com',
+            'media1.tenor.com',
+            'c.tenor.com',
+            'media.klipy.com',
+            'media1.klipy.com',
+            'i.giphy.com',
+            'media.giphy.com',
+            'media0.giphy.com',
+            'media1.giphy.com',
+            'media2.giphy.com',
+            'media3.giphy.com',
+            'media4.giphy.com',
+        ];
+        if (!ALLOWED_GIF_HOSTS.includes(parsed.hostname)) return null;
+        // Must look like an actual media file path
+        if (!/\.(gif|mp4|webp|webm)(\?|$)/i.test(parsed.pathname + parsed.search)) return null;
+        return url;
+    } catch {
+        return null;
+    }
+}
+
 app.post('/api/comments', requireAuth, async (req: any, res) => {
     try {
         const userId = req.session.user.id;
-        const { content, gifUrl, trackId, profileId, battleEntryId, parentId, trackTimestamp } = req.body;
+        const { content, gifUrl: rawGifUrl, trackId, profileId, battleEntryId, parentId, trackTimestamp } = req.body;
+        const gifUrl = validateGifUrl(rawGifUrl);
+        if (rawGifUrl && !gifUrl) return res.status(400).json({ error: 'Invalid GIF URL' });
 
         if (!content?.trim() && !gifUrl) return res.status(400).json({ error: 'Content or GIF is required' });
         // Strip Zalgo combining marks before length check so the limit applies to clean text
@@ -14238,7 +14269,9 @@ app.put('/api/comments/:commentId', requireAuth, async (req: any, res) => {
     try {
         const userId = req.session.user.id;
         const { commentId } = req.params;
-        const { content, gifUrl } = req.body;
+        const { content, gifUrl: rawEditGifUrl } = req.body;
+        const gifUrl = validateGifUrl(rawEditGifUrl);
+        if (rawEditGifUrl && !gifUrl) return res.status(400).json({ error: 'Invalid GIF URL' });
 
         const comment = await db.comment.findUnique({ where: { id: commentId } });
         if (!comment) return res.status(404).json({ error: 'Comment not found' });
