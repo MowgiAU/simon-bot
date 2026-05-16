@@ -11816,6 +11816,228 @@ app.put('/api/guilds/:guildId/beat-battle/settings', async (req: any, res) => {
     }
 });
 
+// ─── robots.txt ───────────────────────────────────────────────────────────────
+app.get('/robots.txt', (req, res) => {
+    const host = `${req.protocol}://${req.get('host')}`;
+    res.type('text/plain').send([
+        'User-agent: *',
+        'Allow: /',
+        // Private / authenticated pages — no value to index
+        'Disallow: /api/',
+        'Disallow: /uploads/',
+        'Disallow: /my-tracks',
+        'Disallow: /my-playlists',
+        'Disallow: /my-favourites',
+        'Disallow: /feed',
+        'Disallow: /account',
+        'Disallow: /profile/edit',
+        'Disallow: /profile/setup',
+        'Disallow: /complete-account',
+        'Disallow: /dashboard',
+        '',
+        `Sitemap: ${host}/sitemap-index.xml`,
+    ].join('\n'));
+});
+
+// ─── Sitemap helpers ──────────────────────────────────────────────────────────
+
+// Simple server-side cache so sitemap generation doesn't hammer the DB on every crawl
+const sitemapCache = new Map<string, { xml: string; at: number }>();
+const SITEMAP_TTL = 60 * 60 * 1000; // 1 hour
+
+function xmlUrl(loc: string, opts?: { lastmod?: Date | string; changefreq?: string; priority?: string }): string {
+    const parts = [`<url><loc>${escapeHtml(loc)}</loc>`];
+    if (opts?.lastmod) {
+        const d = opts.lastmod instanceof Date ? opts.lastmod : new Date(opts.lastmod);
+        if (!isNaN(d.getTime())) parts.push(`<lastmod>${d.toISOString().split('T')[0]}</lastmod>`);
+    }
+    if (opts?.changefreq) parts.push(`<changefreq>${opts.changefreq}</changefreq>`);
+    if (opts?.priority)   parts.push(`<priority>${opts.priority}</priority>`);
+    parts.push('</url>');
+    return parts.join('');
+}
+
+function buildSitemapXml(urls: string[]): string {
+    return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.join('\n')}\n</urlset>`;
+}
+
+// ─── Sitemap index ────────────────────────────────────────────────────────────
+app.get('/sitemap-index.xml', (req, res) => {
+    const host = `${req.protocol}://${req.get('host')}`;
+    const sitemaps = ['static', 'tracks', 'profiles', 'playlists', 'battles', 'genres', 'articles'];
+    const today = new Date().toISOString().split('T')[0];
+    const xml = [
+        `<?xml version="1.0" encoding="UTF-8"?>`,
+        `<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">`,
+        ...sitemaps.map(s => `<sitemap><loc>${host}/sitemap-${s}.xml</loc><lastmod>${today}</lastmod></sitemap>`),
+        `</sitemapindex>`,
+    ].join('\n');
+    res.type('application/xml').set('Cache-Control', 'public, max-age=3600').send(xml);
+});
+
+// ─── Static pages sitemap ─────────────────────────────────────────────────────
+app.get('/sitemap-static.xml', (req, res) => {
+    const host = `${req.protocol}://${req.get('host')}`;
+    const pages = [
+        { path: '/',         freq: 'daily',   pri: '1.0' },
+        { path: '/battles',  freq: 'daily',   pri: '0.9' },
+        { path: '/arena',    freq: 'hourly',  pri: '0.9' },
+        { path: '/new',      freq: 'hourly',  pri: '0.8' },
+        { path: '/artists',  freq: 'daily',   pri: '0.8' },
+        { path: '/charts',   freq: 'daily',   pri: '0.8' },
+        { path: '/genres',   freq: 'weekly',  pri: '0.7' },
+        { path: '/library',  freq: 'daily',   pri: '0.7' },
+        { path: '/learn',    freq: 'weekly',  pri: '0.7' },
+        { path: '/feed',     freq: 'hourly',  pri: '0.6' },
+        { path: '/appeal',   freq: 'monthly', pri: '0.4' },
+        { path: '/terms',    freq: 'monthly', pri: '0.3' },
+    ];
+    const urls = pages.map(p => xmlUrl(`${host}${p.path}`, { changefreq: p.freq, priority: p.pri }));
+    res.type('application/xml').set('Cache-Control', 'public, max-age=3600').send(buildSitemapXml(urls));
+});
+
+// ─── Track sitemap ────────────────────────────────────────────────────────────
+app.get('/sitemap-tracks.xml', async (req, res) => {
+    const host = `${req.protocol}://${req.get('host')}`;
+    const cached = sitemapCache.get('tracks');
+    if (cached && Date.now() - cached.at < SITEMAP_TTL) {
+        return res.type('application/xml').set('Cache-Control', 'public, max-age=3600').send(cached.xml);
+    }
+    try {
+        const tracks = await db.track.findMany({
+            where: { isPublic: true, status: 'active', deletedAt: null },
+            select: { slug: true, id: true, updatedAt: true, profile: { select: { username: true } } },
+            orderBy: { updatedAt: 'desc' },
+            take: 40000,
+        });
+        const urls = tracks.map(t =>
+            xmlUrl(`${host}/track/${t.profile.username}/${t.slug || t.id}`, { lastmod: t.updatedAt, changefreq: 'weekly', priority: '0.8' })
+        );
+        const xml = buildSitemapXml(urls);
+        sitemapCache.set('tracks', { xml, at: Date.now() });
+        res.type('application/xml').set('Cache-Control', 'public, max-age=3600').send(xml);
+    } catch {
+        res.status(500).send('<?xml version="1.0"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"/>');
+    }
+});
+
+// ─── Profile sitemap ──────────────────────────────────────────────────────────
+app.get('/sitemap-profiles.xml', async (req, res) => {
+    const host = `${req.protocol}://${req.get('host')}`;
+    const cached = sitemapCache.get('profiles');
+    if (cached && Date.now() - cached.at < SITEMAP_TTL) {
+        return res.type('application/xml').set('Cache-Control', 'public, max-age=3600').send(cached.xml);
+    }
+    try {
+        const profiles = await db.musicianProfile.findMany({
+            where: { status: 'active', deletedAt: null },
+            select: { username: true, updatedAt: true },
+            orderBy: { updatedAt: 'desc' },
+            take: 20000,
+        });
+        const urls = profiles.map(p =>
+            xmlUrl(`${host}/profile/${p.username}`, { lastmod: p.updatedAt, changefreq: 'weekly', priority: '0.7' })
+        );
+        const xml = buildSitemapXml(urls);
+        sitemapCache.set('profiles', { xml, at: Date.now() });
+        res.type('application/xml').set('Cache-Control', 'public, max-age=3600').send(xml);
+    } catch {
+        res.status(500).send('<?xml version="1.0"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"/>');
+    }
+});
+
+// ─── Playlist sitemap ─────────────────────────────────────────────────────────
+app.get('/sitemap-playlists.xml', async (req, res) => {
+    const host = `${req.protocol}://${req.get('host')}`;
+    const cached = sitemapCache.get('playlists');
+    if (cached && Date.now() - cached.at < SITEMAP_TTL) {
+        return res.type('application/xml').set('Cache-Control', 'public, max-age=3600').send(cached.xml);
+    }
+    try {
+        const playlists = await db.playlist.findMany({
+            where: { isPublic: true, deletedAt: null },
+            select: { id: true, updatedAt: true, releaseType: true },
+            orderBy: { updatedAt: 'desc' },
+            take: 10000,
+        });
+        const urls = playlists.map(p =>
+            xmlUrl(`${host}/playlist/${p.id}`, { lastmod: p.updatedAt, changefreq: 'weekly', priority: p.releaseType ? '0.8' : '0.6' })
+        );
+        const xml = buildSitemapXml(urls);
+        sitemapCache.set('playlists', { xml, at: Date.now() });
+        res.type('application/xml').set('Cache-Control', 'public, max-age=3600').send(xml);
+    } catch {
+        res.status(500).send('<?xml version="1.0"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"/>');
+    }
+});
+
+// ─── Battle sitemap ───────────────────────────────────────────────────────────
+app.get('/sitemap-battles.xml', async (req, res) => {
+    const host = `${req.protocol}://${req.get('host')}`;
+    const cached = sitemapCache.get('battles');
+    if (cached && Date.now() - cached.at < SITEMAP_TTL) {
+        return res.type('application/xml').set('Cache-Control', 'public, max-age=3600').send(cached.xml);
+    }
+    try {
+        const [battles, entries] = await Promise.all([
+            db.beatBattle.findMany({ select: { id: true, slug: true, updatedAt: true, status: true }, orderBy: { updatedAt: 'desc' }, take: 5000 }),
+            db.battleEntry.findMany({ where: { deletedAt: null }, select: { id: true, createdAt: true }, orderBy: { createdAt: 'desc' }, take: 20000 }),
+        ]);
+        const urls = [
+            ...battles.map(b => xmlUrl(`${host}/battles/${b.slug || b.id}`, { lastmod: b.updatedAt, changefreq: b.status === 'completed' ? 'monthly' : 'hourly', priority: b.status === 'completed' ? '0.6' : '0.9' })),
+            ...entries.map(e => xmlUrl(`${host}/battles/entry/${e.id}`, { lastmod: e.createdAt, changefreq: 'weekly', priority: '0.7' })),
+        ];
+        const xml = buildSitemapXml(urls);
+        sitemapCache.set('battles', { xml, at: Date.now() });
+        res.type('application/xml').set('Cache-Control', 'public, max-age=3600').send(xml);
+    } catch {
+        res.status(500).send('<?xml version="1.0"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"/>');
+    }
+});
+
+// ─── Genre sitemap ────────────────────────────────────────────────────────────
+app.get('/sitemap-genres.xml', async (req, res) => {
+    const host = `${req.protocol}://${req.get('host')}`;
+    const cached = sitemapCache.get('genres');
+    if (cached && Date.now() - cached.at < SITEMAP_TTL) {
+        return res.type('application/xml').set('Cache-Control', 'public, max-age=3600').send(cached.xml);
+    }
+    try {
+        const genres = await db.genre.findMany({ select: { slug: true }, orderBy: { name: 'asc' } });
+        const urls = genres.map(g => xmlUrl(`${host}/category/${g.slug}`, { changefreq: 'weekly', priority: '0.6' }));
+        const xml = buildSitemapXml(urls);
+        sitemapCache.set('genres', { xml, at: Date.now() });
+        res.type('application/xml').set('Cache-Control', 'public, max-age=3600').send(xml);
+    } catch {
+        res.status(500).send('<?xml version="1.0"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"/>');
+    }
+});
+
+// ─── Article sitemap ──────────────────────────────────────────────────────────
+app.get('/sitemap-articles.xml', async (req, res) => {
+    const host = `${req.protocol}://${req.get('host')}`;
+    const cached = sitemapCache.get('articles');
+    if (cached && Date.now() - cached.at < SITEMAP_TTL) {
+        return res.type('application/xml').set('Cache-Control', 'public, max-age=3600').send(cached.xml);
+    }
+    try {
+        const articles = await (db as any).article.findMany({
+            where: { status: 'published' },
+            select: { slug: true, updatedAt: true, publishedAt: true },
+            orderBy: { publishedAt: 'desc' },
+            take: 5000,
+        });
+        const urls = articles.map((a: any) =>
+            xmlUrl(`${host}/article/${a.slug}`, { lastmod: a.updatedAt || a.publishedAt, changefreq: 'monthly', priority: '0.7' })
+        );
+        const xml = buildSitemapXml(urls);
+        sitemapCache.set('articles', { xml, at: Date.now() });
+        res.type('application/xml').set('Cache-Control', 'public, max-age=3600').send(xml);
+    } catch {
+        res.status(500).send('<?xml version="1.0"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"/>');
+    }
+});
+
 // --- Serve Dashboard Dist in Production ---
 const distPath = path.join(PROJECT_ROOT, 'dashboard/dist');
 const indexHtml = path.join(distPath, 'index.html');
@@ -11844,12 +12066,33 @@ if (fs.existsSync(distPath)) {
     const ARTICLE_PATH     = /^\/article\/([^/?#]+)\/?$/;
     const CATEGORY_PATH    = /^\/(genres?|category)\/([^/?#]+)\/?$/;
 
-    /** Build a complete HTML page with OG + Twitter/X + Discord meta tags for bot crawlers */
-    function ogPage(tags: Record<string, string>, extras: string[] = []): string {
-        const safeTitle = escapeHtml(tags.title || 'Fuji Studio');
-        const safeDesc  = escapeHtml(tags.description || 'The home of FL Studio producers.');
-        const safeImage = tags.image || '';
+    /** Build a complete HTML page with OG + Twitter/X + Discord meta tags + JSON-LD for bot crawlers */
+    function ogPage(tags: Record<string, string>, extras: string[] = [], schema?: object): string {
+        const safeTitle    = escapeHtml(tags.title || 'Fuji Studio');
+        const safeDesc     = escapeHtml(tags.description || 'The home of FL Studio producers.');
+        const safeImage    = tags.image || '';
         const safeImageAlt = escapeHtml(tags.imageAlt || tags.title || 'Fuji Studio');
+
+        // Base JSON-LD: WebSite with SearchAction on every page
+        const baseSchema = {
+            '@context': 'https://schema.org',
+            '@graph': [
+                {
+                    '@type': 'WebSite',
+                    '@id': 'https://fujistud.io/#website',
+                    name: 'Fuji Studio',
+                    url: 'https://fujistud.io',
+                    description: 'The home of FL Studio producers. Discover beats, share tracks, and join beat battles.',
+                    potentialAction: {
+                        '@type': 'SearchAction',
+                        target: { '@type': 'EntryPoint', urlTemplate: 'https://fujistud.io/artists?q={search_term_string}' },
+                        'query-input': 'required name=search_term_string',
+                    },
+                },
+                ...(schema ? [schema] : []),
+            ],
+        };
+
         const meta = [
             `<meta charset="utf-8">`,
             `<meta name="viewport" content="width=device-width, initial-scale=1">`,
@@ -11873,12 +12116,14 @@ if (fs.existsSync(distPath)) {
             `<meta name="twitter:description" content="${safeDesc}">`,
             safeImage  ? `<meta name="twitter:image" content="${escapeHtml(safeImage)}">` : '',
             safeImage  ? `<meta name="twitter:image:alt" content="${safeImageAlt}">` : '',
-            // Theme
+            // Theme & canonical
             `<meta name="theme-color" content="#2B8C71">`,
             tags.url ? `<link rel="canonical" href="${escapeHtml(tags.url)}">` : '',
             ...extras,
+            // JSON-LD
+            `<script type="application/ld+json">${JSON.stringify(baseSchema)}</script>`,
         ].filter(Boolean).join('\n');
-        // Minimal redirect so browsers that somehow hit this page still go to the SPA
+
         return `<!DOCTYPE html><html lang="en"><head>\n${meta}\n<meta http-equiv="refresh" content="0;url=${escapeHtml(tags.url || '/')}"></head><body></body></html>`;
     }
 
@@ -11934,6 +12179,18 @@ if (fs.existsSync(distPath)) {
                             const description = bodyText ? `${metaLine}\n${bodyText}` : metaLine;
                             const oembedUrl = `${baseUrl}/api/oembed?url=${encodeURIComponent(trackUrl)}&format=json`;
                             const typeLabel = track.trackType === 'remix' ? 'Remix' : track.trackType === 'cover' ? 'Cover' : 'Track';
+                            const trackSchema = {
+                                '@type': 'MusicRecording',
+                                '@id': `${trackUrl}#track`,
+                                name: track.title,
+                                byArtist: { '@type': 'MusicGroup', name: artistName, url: `${baseUrl}/profile/${username}` },
+                                url: trackUrl,
+                                image: imageUrl,
+                                ...(track.duration ? { duration: `PT${Math.floor(track.duration / 60)}M${track.duration % 60}S` } : {}),
+                                ...(genreNames.length ? { genre: genreNames } : {}),
+                                ...(track.bpm ? { additionalProperty: { '@type': 'PropertyValue', name: 'BPM', value: track.bpm } } : {}),
+                                interactionStatistic: { '@type': 'InteractionCounter', interactionType: 'https://schema.org/ListenAction', userInteractionCount: track.playCount ?? 0 },
+                            };
                             return res.send(ogPage(
                                 { title: `${track.title} — ${typeLabel} by ${artistName} | Fuji Studio`, description, type: 'music.song', url: trackUrl, image: imageUrl, imageAlt: `Cover art for ${track.title}`, imageWidth: '500', imageHeight: '500' },
                                 [
@@ -11943,6 +12200,7 @@ if (fs.existsSync(distPath)) {
                                     `<meta property="music:musician" content="${baseUrl}/profile/${username}">`,
                                     `<link rel="alternate" type="application/json+oembed" href="${oembedUrl}" title="${escapeHtml(track.title)}">`,
                                 ].filter(Boolean),
+                                trackSchema,
                             ));
                         }
                     }
@@ -11973,6 +12231,16 @@ if (fs.existsSync(distPath)) {
                         if (stats.length) parts.push(stats.join(' · '));
                         const description = parts.join('\n') || 'Artist on Fuji Studio';
                         const image = toAbsolute(profile.bannerUrl || profile.avatar) ?? defaultImage;
+                        const profileSchema = {
+                            '@type': 'MusicGroup',
+                            '@id': `${baseUrl}/profile/${username}#artist`,
+                            name: displayName,
+                            url: `${baseUrl}/profile/${username}`,
+                            ...(profile.avatar ? { image: toAbsolute(profile.avatar) } : {}),
+                            ...(profile.bio ? { description: profile.bio.slice(0, 200) } : {}),
+                            ...(profile.location ? { location: { '@type': 'Place', name: profile.location } } : {}),
+                            interactionStatistic: { '@type': 'InteractionCounter', interactionType: 'https://schema.org/FollowAction', userInteractionCount: profile._count?.followers ?? 0 },
+                        };
                         return res.send(ogPage({
                             title: `${displayName} | Fuji Studio`,
                             description,
@@ -11982,7 +12250,7 @@ if (fs.existsSync(distPath)) {
                             imageAlt: `${displayName}'s profile on Fuji Studio`,
                         }, [
                             `<meta property="profile:username" content="${escapeHtml(username)}">`,
-                        ]));
+                        ], profileSchema));
                     }
                 }
 
@@ -12033,13 +12301,25 @@ if (fs.existsSync(distPath)) {
                         if (prize) parts.push(prize);
                         if (battle.description) parts.push(battle.description.slice(0, 100));
                         const image = toAbsolute(battle.bannerUrl || battle.cardImageUrl) ?? defaultImage;
+                        const battleSchema: any = {
+                            '@type': 'Event',
+                            '@id': `${baseUrl}/battles/${idOrSlug}#event`,
+                            name: battle.title,
+                            url: `${baseUrl}/battles/${idOrSlug}`,
+                            description: parts.join(' · '),
+                            image,
+                            organizer: { '@type': 'Organization', name: 'Fuji Studio', url: baseUrl },
+                            eventStatus: battle.status === 'completed' ? 'https://schema.org/EventScheduled' : 'https://schema.org/EventScheduled',
+                        };
+                        if (battle.submissionStart) battleSchema.startDate = new Date(battle.submissionStart).toISOString();
+                        if (battle.votingEnd)        battleSchema.endDate   = new Date(battle.votingEnd).toISOString();
                         return res.send(ogPage({
                             title: `${battle.title} | Beat Battle | Fuji Studio`,
                             description: parts.join(' · '),
                             url: `${baseUrl}/battles/${idOrSlug}`,
                             image,
                             imageAlt: `${battle.title} beat battle banner`,
-                        }));
+                        }, [], battleSchema));
                     }
                 }
 
@@ -12060,6 +12340,16 @@ if (fs.existsSync(distPath)) {
                         parts.push(`${trackCount} track${trackCount === 1 ? '' : 's'}`);
                         if (playlist.description) parts.push(playlist.description.slice(0, 100));
                         const image = toAbsolute(playlist.coverUrl) ?? defaultImage;
+                        const playlistSchema = {
+                            '@type': playlist.releaseType ? 'MusicAlbum' : 'MusicPlaylist',
+                            '@id': `${baseUrl}/playlist/${playlistId}#playlist`,
+                            name: playlist.name,
+                            url: `${baseUrl}/playlist/${playlistId}`,
+                            ...(image !== defaultImage ? { image } : {}),
+                            ...(playlist.description ? { description: playlist.description.slice(0, 200) } : {}),
+                            numTracks: trackCount,
+                            ...(creator ? { byArtist: { '@type': 'MusicGroup', name: creator } } : {}),
+                        };
                         return res.send(ogPage({
                             title: `${playlist.name} | ${typeLabel} | Fuji Studio`,
                             description: parts.join(' · '),
@@ -12068,7 +12358,7 @@ if (fs.existsSync(distPath)) {
                             imageAlt: `Cover for ${playlist.name}`,
                         }, [
                             `<meta property="music:song_count" content="${trackCount}">`,
-                        ]));
+                        ], playlistSchema));
                     }
                 }
 
@@ -12176,7 +12466,16 @@ if (fs.existsSync(distPath)) {
                         const img = toAbsolute(dbEmbed?.imageUrl) ?? defaultImage;
                         const title = dbEmbed?.title || data.title;
                         const description = dbEmbed?.description || data.description;
-                        return res.send(ogPage({ title, description, url: `${baseUrl}${req.path}`, image: img }));
+                        // Homepage gets an Organization schema
+                        const homeSchema = req.path === '/' ? {
+                            '@type': 'Organization',
+                            '@id': `${baseUrl}/#organization`,
+                            name: 'Fuji Studio',
+                            url: baseUrl,
+                            logo: { '@type': 'ImageObject', url: `${baseUrl}/logo.svg` },
+                            sameAs: ['https://discord.gg/fujistudio'],
+                        } : undefined;
+                        return res.send(ogPage({ title, description, url: `${baseUrl}${req.path}`, image: img }, [], homeSchema));
                     }
                 }
 
