@@ -577,8 +577,16 @@ export class FLPParser {
             });
         }
 
+        // Detect tempo automation — FL Studio names the tempo automation clip "Tempo"
+        // by default. If the arrangement contains an automation clip matching this, the
+        // playhead in the viewer will desync because the BPM isn't constant.
+        const hasTempoAutomation = clips.some(
+            c => c.type === 'automation' && /^tempo$/i.test(c.name.trim())
+        );
+
         return stripNullBytes({
             bpm: bpm || 140,
+            hasTempoAutomation,
             signature: [4, 4],
             projectInfo,
             markers,

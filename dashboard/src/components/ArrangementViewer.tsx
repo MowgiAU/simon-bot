@@ -50,6 +50,7 @@ export interface ProjectInfo {
 
 export interface ArrangementData {
     bpm: number;
+    hasTempoAutomation?: boolean;
     tracks: ArrangementTrack[];
     projectInfo?: ProjectInfo;
     markers?: Array<{ position: number; name: string }>;
@@ -369,6 +370,20 @@ export const ArrangementViewer: React.FC<{
     const playheadRef = useRef<HTMLDivElement>(null);
     const scrollContainerRef = useRef<HTMLDivElement>(null);
 
+    // Detect tempo automation — either flagged by the parser, or inferred from a
+    // significant mismatch between the expected duration (at constant BPM) and the
+    // actual audio duration. >10% difference strongly suggests variable tempo.
+    const tempoWarning = useMemo(() => {
+        if (arrangement.hasTempoAutomation) return true;
+        if (duration <= 5) return false;
+        const bpm = arrangement.bpm || 140;
+        const lastBeat = arrangement.tracks.reduce((max, t) =>
+            t.clips.reduce((tm, c) => Math.max(tm, c.start + c.length), max), 0);
+        if (lastBeat <= 0) return false;
+        const expectedDuration = lastBeat * 60 / bpm;
+        return Math.abs(duration - expectedDuration) / expectedDuration > 0.10;
+    }, [arrangement, duration]);
+
     // Memoize heavy arrangement computations — only recompute when arrangement data changes
     const { totalBeats, activeTracks, markers, bpm, startBeat, spanBeats } = useMemo(() => {
         const lastClipEnd = arrangement.tracks.reduce((max, t) => {
@@ -540,6 +555,12 @@ export const ArrangementViewer: React.FC<{
                     </div>
                 </div>
             </div>
+            {tempoWarning && (
+                <div style={{ marginBottom: '10px', padding: '8px 14px', borderRadius: borderRadius.sm, backgroundColor: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.35)', fontSize: '0.8rem', color: '#fbbf24', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ flexShrink: 0 }}>⚠</span>
+                    <span>This project uses tempo automation — the playhead position is approximate and may drift from the audio.</span>
+                </div>
+            )}
             <div ref={scrollContainerRef} style={{ overflowX: 'auto', borderRadius: borderRadius.md, border: '1px solid rgba(255,255,255,0.08)', backgroundColor: '#0d1117', scrollBehavior: 'smooth' }}>
                 <div style={{ width: timelineWidth, minWidth: '100%', position: 'relative', paddingTop: '28px', paddingBottom: '16px', boxSizing: 'border-box' }}>
                     {/* Beat ruler */}
@@ -549,7 +570,7 @@ export const ArrangementViewer: React.FC<{
                     {/* Track rows */}
                     {trackRows}
                     {/* Playhead — positioned via rAF, no React re-renders */}
-                    <div ref={playheadRef} style={{ position: 'absolute', top: 0, bottom: 0, width: '2px', backgroundColor: '#fff', opacity: 0.8, pointerEvents: 'none', zIndex: 10, display: 'none', willChange: 'left' }} />
+                    <div ref={playheadRef} style={{ position: 'absolute', top: 0, bottom: 0, width: '2px', backgroundColor: tempoWarning ? '#fbbf24' : '#fff', opacity: tempoWarning ? 0.5 : 0.8, pointerEvents: 'none', zIndex: 10, display: 'none', willChange: 'left' }} />
                     {/* Timeline markers */}
                     {markerElements}
                 </div>
