@@ -14121,6 +14121,95 @@ function validateGifUrl(url: unknown): string | null {
     }
 }
 
+// ─── Comment spam / malicious-link guard ──────────────────────────────────────
+
+// Known IP-logger, phishing, and malware domains
+const BLOCKED_LINK_HOSTS = new Set([
+    // IP grabbers / loggers
+    'grabify.link', 'grabify.io', 'iplogger.org', 'iplogger.com', 'iplogger.ru',
+    'yip.su', '2no.co', 'blasze.tk', 'blasze.com', 'ipgrabber.ru', 'ipgrabb.er',
+    'cactus.pics', 'gyazo-login.com', 'dis.gd', 'ip-api.io', 'ip-tracker.org',
+    'iptracker.net', 'checkip.dyndns.org', 'getipintel.net', 'showmyip.com',
+    // Fake Discord / Steam / crypto phishing
+    'discord.gift', 'steamcommunity.ru', 'steamcommun1ty.com', 'discordapp.io',
+    'discordnitro.gift', 'discordnitro.fun', 'free-nitro.ru', 'discordfree.gift',
+    'claimnitro.com', 'nitrogift.xyz', 'nitro-generator.com',
+    // Common phishing shorteners abused for malice
+    'bit.ly', 'tinyurl.com', 'ow.ly', 't.co', 'shorturl.at', 'rebrand.ly',
+    'is.gd', 'buff.ly', 'tiny.cc', 'clck.ru', 'cutt.ly',
+]);
+
+// Regex patterns that signal spam or scam content regardless of URLs
+const SPAM_PATTERNS: Array<{ re: RegExp; reason: string }> = [
+    { re: /(.)\1{20,}/u,                                                reason: 'Excessive repeated characters' },
+    { re: /free\s+(nitro|robux|v[\s-]?bucks|gift\s*card|steam\s*key)/i, reason: 'Scam giveaway pattern' },
+    { re: /click\s+here\s+(to\s+)?(get|claim|receive)\s+free/i,         reason: 'Scam call-to-action' },
+    { re: /your\s+account\s+(has\s+been\s+|is\s+)(hacked|compromised|suspended|banned)/i, reason: 'Phishing scare tactic' },
+    { re: /\b(nitro|robux|vbucks)\s+generator\b/i,                      reason: 'Generator scam pattern' },
+    { re: /\bdiscord\s*\.?\s*gift\b/i,                                   reason: 'Fake Discord gift link' },
+    { re: /airdrop.*crypto|crypto.*airdrop/i,                            reason: 'Crypto airdrop scam' },
+    { re: /send\s+\d+\s*(btc|eth|sol|usdt)\s*,?\s*(get|receive)\s+\d+/i, reason: 'Crypto doubling scam' },
+];
+
+// Per-user comment rate limit: max 8 per 60 seconds (in-memory, resets on restart — acceptable)
+const commentUserRL = new Map<string, { count: number; resetAt: number }>();
+const COMMENT_RL_WINDOW = 60_000;
+const COMMENT_RL_MAX    = 8;
+
+function extractUrls(text: string): string[] {
+    // Matches http(s):// and bare domain.tld/path patterns
+    const re = /https?:\/\/[^\s<>"']+|(?<![/@\w])(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+(?:com|net|org|io|gg|ru|xyz|tk|ml|ga|cf|gq|fun|gift|app|dev|tv|me|co|link|click|live|site|online|store|shop)[/\w!?#=&%+\-.]*/gi;
+    return text.match(re) ?? [];
+}
+
+/**
+ * Returns a rejection reason string if the comment content is spam/malicious,
+ * or null if it's clean.
+ */
+function analyseComment(userId: string, content: string): string | null {
+    // 1. Per-user rate limit
+    const now = Date.now();
+    const rl = commentUserRL.get(userId);
+    if (rl && now < rl.resetAt) {
+        if (rl.count >= COMMENT_RL_MAX) return 'You are posting too fast. Please slow down.';
+        rl.count++;
+    } else {
+        commentUserRL.set(userId, { count: 1, resetAt: now + COMMENT_RL_WINDOW });
+    }
+
+    if (!content?.trim()) return null; // no text to analyse (gif-only comment)
+
+    // 2. Spam pattern check
+    for (const { re, reason } of SPAM_PATTERNS) {
+        if (re.test(content)) return reason;
+    }
+
+    // 3. Caps ratio: more than 70% uppercase letters in comments longer than 20 chars is a spam signal
+    const letters = content.replace(/[^a-zA-Z]/g, '');
+    if (letters.length > 20) {
+        const upperRatio = (content.replace(/[^A-Z]/g, '').length) / letters.length;
+        if (upperRatio > 0.70) return 'Excessive use of capital letters';
+    }
+
+    // 4. URL / domain check
+    const urls = extractUrls(content);
+    for (const raw of urls) {
+        try {
+            const u = raw.startsWith('http') ? new URL(raw) : new URL(`https://${raw}`);
+            const host = u.hostname.toLowerCase().replace(/^www\./, '');
+            if (BLOCKED_LINK_HOSTS.has(host)) return `Links to ${host} are not permitted`;
+            // Subdomain check (e.g. steal.grabify.link)
+            for (const blocked of BLOCKED_LINK_HOSTS) {
+                if (host.endsWith(`.${blocked}`)) return `Links to ${blocked} are not permitted`;
+            }
+        } catch {
+            // unparseable URL — skip
+        }
+    }
+
+    return null;
+}
+
 app.post('/api/comments', requireAuth, async (req: any, res) => {
     try {
         const userId = req.session.user.id;
@@ -14132,6 +14221,9 @@ app.post('/api/comments', requireAuth, async (req: any, res) => {
         // Strip Zalgo combining marks before length check so the limit applies to clean text
         const cleanContent = content ? sanitizeDisplayName(content, 500) : '';
         if (!cleanContent.trim() && !gifUrl) return res.status(400).json({ error: 'Content or GIF is required' });
+
+        const spamReason = analyseComment(userId, cleanContent);
+        if (spamReason) return res.status(400).json({ error: spamReason });
         if (cleanContent.length > 500) return res.status(400).json({ error: 'Comment must be 500 characters or fewer' });
 
         let resolvedTrackId = trackId;
@@ -14285,6 +14377,12 @@ app.put('/api/comments/:commentId', requireAuth, async (req: any, res) => {
         const cleanEditContent = content ? sanitizeDisplayName(content, 500) : '';
         if (!cleanEditContent.trim() && !gifUrl) return res.status(400).json({ error: 'Content or GIF is required' });
         if (cleanEditContent.length > 500) return res.status(400).json({ error: 'Comment must be 500 characters or fewer' });
+
+        // Admins editing for moderation purposes bypass spam analysis
+        if (!isAdmin) {
+            const editSpamReason = analyseComment(userId, cleanEditContent);
+            if (editSpamReason) return res.status(400).json({ error: editSpamReason });
+        }
 
         const updated = await db.comment.update({
             where: { id: commentId },
