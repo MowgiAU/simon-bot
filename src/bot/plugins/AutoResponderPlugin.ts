@@ -149,12 +149,18 @@ export class AutoResponderPlugin implements IPlugin {
         let globalCooldownUpdated = false;
 
         for (const rule of rules) {
-            // Resolve effective settings — category overrides per-rule when assigned
+            // Resolve effective settings — category values take precedence when set
             const cat = rule.categoryId ? categoryMap.get(rule.categoryId) : null;
+            // Channel filters: category fully overrides rule when category is assigned
             const effectiveAllowedChannels = cat ? cat.allowedChannels : rule.allowedChannels;
             const effectiveIgnoredChannels  = cat ? cat.ignoredChannels  : rule.ignoredChannels;
-            const effectiveCooldownSeconds  = cat ? cat.cooldownSeconds  : rule.cooldownSeconds;
-            const effectiveCooldownReactionEmoji = cat ? cat.cooldownReactionEmoji : rule.cooldownReactionEmoji;
+            // Cooldown: category cooldown takes precedence only when it's explicitly set (> 0).
+            // If the category has no cooldown (0/default), fall back to the rule's own cooldown.
+            // This prevents a category's default-zero from silently wiping a rule-level cooldown.
+            const effectiveCooldownSeconds =
+                (cat?.cooldownSeconds ?? 0) > 0 ? cat!.cooldownSeconds : rule.cooldownSeconds;
+            const effectiveCooldownReactionEmoji =
+                (cat?.cooldownSeconds ?? 0) > 0 ? cat!.cooldownReactionEmoji : rule.cooldownReactionEmoji;
 
             // Channel filtering
             if (effectiveAllowedChannels) {
