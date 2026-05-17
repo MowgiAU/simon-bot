@@ -42,7 +42,7 @@ export class EconomyPlugin implements IPlugin {
 
     configSchema = z.object({});
 
-    commands = ['wallet', 'wealth', 'market', 'buy', 'nick-optout', 'pay'];
+    commands = ['wallet', 'wealth', 'market', 'buy', 'nick-optout', 'pay', 'use'];
 
     private client: any;
     private db: any;
@@ -51,6 +51,7 @@ export class EconomyPlugin implements IPlugin {
     private censor!: WordCensor;
 
     private messageCooldowns = new Map<string, number>();
+    private grantExpiryTimer: ReturnType<typeof setInterval> | null = null;
 
     async initialize(context: EconomyContext): Promise<void> {
         this.client = context.client;
@@ -58,10 +59,15 @@ export class EconomyPlugin implements IPlugin {
         this.logger = context.logger;
         this.logAction = context.logAction;
         this.censor = new WordCensor(context.db);
+
+        // Poll every 5 minutes for expired token grants and remove their roles
+        this.grantExpiryTimer = setInterval(() => this.processExpiredGrants(), 5 * 60 * 1000);
+        setTimeout(() => this.processExpiredGrants(), 30_000);
     }
 
     async shutdown(): Promise<void> {
         this.messageCooldowns.clear();
+        if (this.grantExpiryTimer) clearInterval(this.grantExpiryTimer);
     }
 
     private async handleAutocomplete(interaction: AutocompleteInteraction) {
@@ -97,7 +103,8 @@ export class EconomyPlugin implements IPlugin {
      */
     async onInteractionCreate(interaction: Interaction): Promise<void> {
         if (interaction.isAutocomplete()) {
-            if (interaction.commandName === 'buy') await this.handleAutocomplete(interaction);
+            if (interaction.commandName === 'buy')  await this.handleAutocomplete(interaction);
+            if (interaction.commandName === 'use')  await this.handleUseAutocomplete(interaction);
             return;
         }
 
@@ -112,6 +119,7 @@ export class EconomyPlugin implements IPlugin {
         else if (commandName === 'wealth') await this.handleWealth(interaction);
         else if (commandName === 'market') await this.handleMarket(interaction);
         else if (commandName === 'buy') await this.handleBuy(interaction);
+        else if (commandName === 'use') await this.handleUse(interaction);
         else if (commandName === 'nick-optout') await this.handleNickOptout(interaction);
         else if (commandName === 'pay') await this.handlePay(interaction);
     }
@@ -369,6 +377,20 @@ export class EconomyPlugin implements IPlugin {
             return interaction.reply({ content: 'This item is out of stock.', flags: MessageFlags.Ephemeral });
         }
 
+        // Per-user purchase limit check
+        if (item.purchaseLimitCount && item.purchaseLimitDays) {
+            const since = new Date(Date.now() - item.purchaseLimitDays * 24 * 60 * 60 * 1000);
+            const recent = await this.db.economyPurchaseLog.count({
+                where: { guildId: interaction.guildId, userId: interaction.user.id, itemId: item.id, purchasedAt: { gte: since } },
+            });
+            if (recent >= item.purchaseLimitCount) {
+                return interaction.reply({
+                    content: `You can only buy **${item.name}** ${item.purchaseLimitCount} time${item.purchaseLimitCount === 1 ? '' : 's'} every ${item.purchaseLimitDays} day${item.purchaseLimitDays === 1 ? '' : 's'}.`,
+                    flags: MessageFlags.Ephemeral,
+                });
+            }
+        }
+
         // Verify recipient is actually in the guild
         if (isGift) {
             const recipientMember = await interaction.guild?.members.fetch(recipientId).catch(() => null);
@@ -381,6 +403,13 @@ export class EconomyPlugin implements IPlugin {
             // Deduct from buyer
             await this.addBalance(interaction.guildId, interaction.user.id, -item.price, 'SHOP',
                 isGift ? `Gifted ${item.name} to <@${recipientId}>` : `Bought ${item.name}`);
+
+            // Record purchase for per-user limit tracking
+            if (item.purchaseLimitCount && item.purchaseLimitDays) {
+                await this.db.economyPurchaseLog.create({
+                    data: { guildId: interaction.guildId, userId: interaction.user.id, itemId: item.id },
+                });
+            }
 
             // Reduce stock
             if (item.stock !== null) {
@@ -427,6 +456,139 @@ export class EconomyPlugin implements IPlugin {
         }
     }
 
+
+    /**
+     * Autocomplete: /use — only TOKEN items the user has in inventory
+     */
+    private async handleUseAutocomplete(interaction: AutocompleteInteraction) {
+        if (!interaction.guildId) return;
+        const inventory = await this.db.economyInventory.findMany({
+            where: { guildId: interaction.guildId, userId: interaction.user.id, quantity: { gt: 0 } },
+            select: { itemId: true },
+        });
+        const itemIds = inventory.map((i: any) => i.itemId);
+        const items = await this.db.economyItem.findMany({
+            where: { guildId: interaction.guildId, id: { in: itemIds }, type: 'TOKEN' },
+            orderBy: { name: 'asc' },
+            take: 25,
+        });
+        await interaction.respond(items.map((item: any) => ({ name: item.name, value: item.name })));
+    }
+
+    /**
+     * Command: /use [token] — consume a TOKEN from inventory and grant a temporary role
+     */
+    private async handleUse(interaction: ChatInputCommandInteraction) {
+        if (!interaction.guildId) return;
+
+        const itemName = interaction.options.getString('token', true);
+        const item = await this.db.economyItem.findUnique({
+            where: { guildId_name: { guildId: interaction.guildId, name: itemName } },
+        });
+
+        if (!item || item.type !== 'TOKEN') {
+            return interaction.reply({ content: 'Token not found.', flags: MessageFlags.Ephemeral });
+        }
+
+        const roleId: string | undefined = (item.metadata as any)?.roleId;
+        const durationDays: number = Math.max(1, (item.metadata as any)?.durationDays ?? 1);
+
+        if (!roleId) {
+            return interaction.reply({ content: 'This token is not configured correctly (missing role).', flags: MessageFlags.Ephemeral });
+        }
+
+        // Check inventory
+        const inv = await this.db.economyInventory.findUnique({
+            where: { guildId_userId_itemId: { guildId: interaction.guildId, userId: interaction.user.id, itemId: item.id } },
+        });
+        if (!inv || inv.quantity < 1) {
+            return interaction.reply({ content: `You don't have any **${item.name}** tokens.`, flags: MessageFlags.Ephemeral });
+        }
+
+        // Check not already active
+        const existing = await this.db.economyTokenGrant.findFirst({
+            where: { guildId: interaction.guildId, userId: interaction.user.id, itemId: item.id, removedAt: null, expiresAt: { gt: new Date() } },
+        });
+        if (existing) {
+            const ts = Math.floor(existing.expiresAt.getTime() / 1000);
+            return interaction.reply({ content: `You already have an active **${item.name}** grant — it expires <t:${ts}:R>.`, flags: MessageFlags.Ephemeral });
+        }
+
+        const expiresAt = new Date(Date.now() + durationDays * 24 * 60 * 60 * 1000);
+
+        try {
+            // Deduct from inventory
+            if (inv.quantity <= 1) {
+                await this.db.economyInventory.delete({
+                    where: { guildId_userId_itemId: { guildId: interaction.guildId, userId: interaction.user.id, itemId: item.id } },
+                });
+            } else {
+                await this.db.economyInventory.update({
+                    where: { guildId_userId_itemId: { guildId: interaction.guildId, userId: interaction.user.id, itemId: item.id } },
+                    data: { quantity: { decrement: 1 } },
+                });
+            }
+
+            // Grant the role
+            const member = await interaction.guild?.members.fetch(interaction.user.id);
+            await member?.roles.add(roleId).catch((e: any) => this.logger.error('Failed to add token role', e));
+
+            // Record the grant
+            await this.db.economyTokenGrant.create({
+                data: { guildId: interaction.guildId, userId: interaction.user.id, itemId: item.id, roleId, expiresAt },
+            });
+
+            await this.logAction({
+                guildId: interaction.guildId,
+                actionType: 'token_used',
+                executorId: interaction.user.id,
+                details: { item: item.name, roleId, expiresAt },
+            });
+
+            const ts = Math.floor(expiresAt.getTime() / 1000);
+            await interaction.reply({
+                content: `✅ Used **${item.name}**! Your role has been granted and will be removed <t:${ts}:R>.`,
+            });
+        } catch (e) {
+            this.logger.error('Token use failed', e);
+            await interaction.reply({ content: 'Failed to use token.', flags: MessageFlags.Ephemeral });
+        }
+    }
+
+    /**
+     * Polls for expired token grants and removes the associated roles
+     */
+    private async processExpiredGrants(): Promise<void> {
+        try {
+            const expired = await this.db.economyTokenGrant.findMany({
+                where: { expiresAt: { lte: new Date() }, removedAt: null },
+                take: 50,
+            });
+
+            for (const grant of expired) {
+                // Mark removed immediately to prevent double-processing
+                await this.db.economyTokenGrant.update({
+                    where: { id: grant.id },
+                    data: { removedAt: new Date() },
+                });
+
+                try {
+                    const guild = await this.client.guilds.fetch(grant.guildId).catch(() => null);
+                    if (!guild) continue;
+                    const member = await guild.members.fetch(grant.userId).catch(() => null);
+                    if (member) {
+                        await member.roles.remove(grant.roleId).catch((e: any) =>
+                            this.logger.warn(`[Economy] Failed to remove expired token role ${grant.roleId} from ${grant.userId}: ${e.message}`)
+                        );
+                    }
+                } catch (e: any) {
+                    this.logger.warn(`[Economy] Grant expiry error for ${grant.id}: ${e.message}`);
+                }
+            }
+        } catch (e: any) {
+            this.logger.warn(`[Economy] processExpiredGrants error: ${e.message}`);
+        }
+    }
 
     /**
      * Command: /nick-optout - Toggle auto-nickname opt-out

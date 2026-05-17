@@ -93,11 +93,13 @@ model Guild {
   boosterColorSettings BoosterColorSettings?
   welcomeGateSettings  WelcomeGateSettings?
 
-  economyAccounts  EconomyAccount[]
-  economySettings  EconomySettings?
-  economyItems     EconomyItem[]
-  economyInventory EconomyInventory[]
-  economyTrans     EconomyTransaction[]
+  economyAccounts    EconomyAccount[]
+  economySettings    EconomySettings?
+  economyItems       EconomyItem[]
+  economyInventory   EconomyInventory[]
+  economyTrans       EconomyTransaction[]
+  economyPurchaseLog EconomyPurchaseLog[]
+  economyTokenGrants EconomyTokenGrant[]
 
   // Feedback Plugin
   feedbackProfiles FeedbackProfile[]
@@ -531,22 +533,62 @@ model EconomyItem {
   name        String
   description String?
   price       Int
-  type        String // ROLE, EXTERNAL, ITEM
+  type        String // ROLE, EXTERNAL, ITEM, TOKEN
   category    String  @default("General")
 
-  // Metadata for types (e.g., Role ID for ROLE type)
+  // Metadata for types
+  // ROLE:  { roleId }
+  // TOKEN: { roleId, durationDays }
   metadata Json?
 
   // Stock control
   stock      Int? // Null = infinite
   maxPerUser Int?
 
+  // Per-user purchase limit (e.g. 1 purchase per 365 days)
+  purchaseLimitCount Int? // max purchases allowed in the window (null = unlimited)
+  purchaseLimitDays  Int? // rolling window in days (null = no window)
+
   createdAt DateTime @default(now())
 
-  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  guild          Guild                 @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  purchaseLog    EconomyPurchaseLog[]
+  tokenGrants    EconomyTokenGrant[]
 
   @@unique([guildId, name]) // Unique names per guild
   @@map("economy_items")
+}
+
+// Tracks individual purchases for per-user limit enforcement
+model EconomyPurchaseLog {
+  id        String   @id @default(cuid())
+  guildId   String
+  userId    String
+  itemId    String
+  purchasedAt DateTime @default(now())
+
+  item  EconomyItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  guild Guild       @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  @@index([guildId, userId, itemId, purchasedAt])
+  @@map("economy_purchase_log")
+}
+
+// Tracks active temporary role grants from TOKEN-type items
+model EconomyTokenGrant {
+  id        String    @id @default(cuid())
+  guildId   String
+  userId    String
+  itemId    String
+  roleId    String
+  expiresAt DateTime
+  removedAt DateTime? // null = still active
+
+  item  EconomyItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  guild Guild       @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  @@index([expiresAt, removedAt])
+  @@map("economy_token_grants")
 }
 
 model EconomyInventory {

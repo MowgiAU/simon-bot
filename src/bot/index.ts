@@ -787,10 +787,16 @@ export class SimonBot {
         .addStringOption(opt => opt.setName('item').setRequired(true).setAutocomplete(true).setDescription('The name of the item to buy'))
         .addUserOption(opt => opt.setName('gift_to').setRequired(false).setDescription('Gift this item to another member (you still pay)'));
 
+    const useCommand = new SlashCommandBuilder()
+        .setName('use')
+        .setDescription('Use a token from your inventory to activate a temporary effect')
+        .addStringOption(opt => opt.setName('token').setRequired(true).setAutocomplete(true).setDescription('The token to use'));
+
     commands.push(walletCommand.toJSON());
     commands.push(wealthCommand.toJSON());
     commands.push(marketCommand.toJSON());
     commands.push(buyCommand.toJSON());
+    commands.push(useCommand.toJSON());
 
     const nickOptoutCommand = new SlashCommandBuilder()
         .setName('nick-optout')
