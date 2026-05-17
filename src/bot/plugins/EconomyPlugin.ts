@@ -345,8 +345,12 @@ export class EconomyPlugin implements IPlugin {
      */
     private async handleBuy(interaction: ChatInputCommandInteraction) {
         if (!interaction.guildId) return;
-        
-        const itemName = interaction.options.getString('item', true);
+
+        const itemName  = interaction.options.getString('item', true);
+        const giftUser  = interaction.options.getUser('gift_to') ?? null;
+        const isGift    = giftUser !== null && giftUser.id !== interaction.user.id;
+        const recipientId = isGift ? giftUser!.id : interaction.user.id;
+
         const item = await this.db.economyItem.findUnique({
             where: { guildId_name: { guildId: interaction.guildId, name: itemName } }
         });
@@ -356,9 +360,8 @@ export class EconomyPlugin implements IPlugin {
         }
 
         const settings = await this.getSettings(interaction.guildId);
-        const account = await this.getAccount(interaction.guildId, interaction.user.id);
+        const account  = await this.getAccount(interaction.guildId, interaction.user.id);
 
-        // Checks
         if (account.balance < item.price) {
             return interaction.reply({ content: `You need ${settings.currencyEmoji} ${item.price - account.balance} more to buy this.`, flags: MessageFlags.Ephemeral });
         }
@@ -366,12 +369,20 @@ export class EconomyPlugin implements IPlugin {
             return interaction.reply({ content: 'This item is out of stock.', flags: MessageFlags.Ephemeral });
         }
 
-        // Process Transaction
+        // Verify recipient is actually in the guild
+        if (isGift) {
+            const recipientMember = await interaction.guild?.members.fetch(recipientId).catch(() => null);
+            if (!recipientMember) {
+                return interaction.reply({ content: 'That user is not in this server.', flags: MessageFlags.Ephemeral });
+            }
+        }
+
         try {
-            // Deduct
-            await this.addBalance(interaction.guildId, interaction.user.id, -item.price, 'SHOP', `Bought ${item.name}`);
-            
-            // Reduce Stock
+            // Deduct from buyer
+            await this.addBalance(interaction.guildId, interaction.user.id, -item.price, 'SHOP',
+                isGift ? `Gifted ${item.name} to <@${recipientId}>` : `Bought ${item.name}`);
+
+            // Reduce stock
             if (item.stock !== null) {
                 await this.db.economyItem.update({
                     where: { id: item.id },
@@ -379,31 +390,36 @@ export class EconomyPlugin implements IPlugin {
                 });
             }
 
-            // Add to Inventory
+            // Add to recipient's inventory
             await this.db.economyInventory.upsert({
-                where: { guildId_userId_itemId: { guildId: interaction.guildId, userId: interaction.user.id, itemId: item.id } },
+                where: { guildId_userId_itemId: { guildId: interaction.guildId, userId: recipientId, itemId: item.id } },
                 update: { quantity: { increment: 1 } },
-                create: { guildId: interaction.guildId, userId: interaction.user.id, itemId: item.id, quantity: 1 }
+                create: { guildId: interaction.guildId, userId: recipientId, itemId: item.id, quantity: 1 }
             });
 
-            // Handle Item Effects
+            // Apply role effect to recipient
             if (item.type === 'ROLE') {
                 const roleId = (item.metadata as any)?.roleId;
                 if (roleId) {
-                    const member = await interaction.guild?.members.fetch(interaction.user.id);
+                    const member = await interaction.guild?.members.fetch(recipientId);
                     await member?.roles.add(roleId).catch(e => this.logger.error('Failed to add role', e));
                 }
             }
 
-            // Log
             await this.logAction({
                 guildId: interaction.guildId,
                 actionType: 'item_bought',
                 executorId: interaction.user.id,
-                details: { item: item.name, price: item.price }
+                details: { item: item.name, price: item.price, ...(isGift && { giftedTo: recipientId }) }
             });
 
-            interaction.reply({ content: `Successfully purchased **${item.name}** for ${settings.currencyEmoji} ${item.price}!` });
+            if (isGift) {
+                interaction.reply({
+                    content: `🎁 You gifted **${item.name}** to <@${recipientId}> for ${settings.currencyEmoji} ${item.price}!`,
+                });
+            } else {
+                interaction.reply({ content: `Successfully purchased **${item.name}** for ${settings.currencyEmoji} ${item.price}!` });
+            }
 
         } catch (e) {
             this.logger.error('Purchase failed', e);
