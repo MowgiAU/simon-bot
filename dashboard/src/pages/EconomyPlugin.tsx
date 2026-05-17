@@ -320,15 +320,28 @@ const InventoryTab = ({ items, refresh, guildId, currency, isMobile }: { items: 
                          <input placeholder="Name" value={editing.name} onChange={e => setEditing({...editing, name: e.target.value})} style={inputStyle} />
                          <input placeholder="Price" type="number" value={editing.price} onChange={e => setEditing({...editing, price: Number(e.target.value)})} style={inputStyle} />
                          <select value={editing.type} onChange={e => setEditing({...editing, type: e.target.value})} style={inputStyle}>
-                             <option value="ROLE">Role (Grants Link)</option>
-                             <option value="ITEM">Item (Simple Inventory)</option>
+                             <option value="ROLE">Role (Grants a role on purchase)</option>
+                             <option value="ITEM">Item (Simple inventory item)</option>
+                             <option value="TOKEN">Token (Consumable — grants a temporary role)</option>
                          </select>
                          <input placeholder="Stock (Leave empty for infinite)" type="number" value={editing.stock || ''} onChange={e => setEditing({...editing, stock: e.target.value ? Number(e.target.value) : null})} style={inputStyle} />
                     </div>
                     <textarea placeholder="Description" value={editing.description || ''} onChange={e => setEditing({...editing, description: e.target.value})} style={{ ...inputStyle, width: '100%', marginBottom: '10px' }} />
-                    
+
                     {editing.type === 'ROLE' && (
-                         <input placeholder="Role ID to Grant" value={editing.metadata?.roleId || ''} onChange={e => setEditing({...editing, metadata: { ...editing.metadata, roleId: e.target.value }})} style={{ ...inputStyle, width: '100%', marginBottom: '10px' }} />
+                        <input placeholder="Role ID to grant on purchase" value={editing.metadata?.roleId || ''} onChange={e => setEditing({...editing, metadata: { ...editing.metadata, roleId: e.target.value }})} style={{ ...inputStyle, width: '100%', marginBottom: '10px' }} />
+                    )}
+
+                    {editing.type === 'TOKEN' && (
+                        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
+                            <input placeholder="Role ID to grant when used" value={editing.metadata?.roleId || ''} onChange={e => setEditing({...editing, metadata: { ...editing.metadata, roleId: e.target.value }})} style={inputStyle} />
+                            <input placeholder="Duration (days, e.g. 1)" type="number" min={1} value={editing.metadata?.durationDays || ''} onChange={e => setEditing({...editing, metadata: { ...editing.metadata, durationDays: Number(e.target.value) || 1 }})} style={inputStyle} />
+                            <input placeholder="Purchase limit per user (e.g. 1)" type="number" min={1} value={editing.purchaseLimitCount || ''} onChange={e => setEditing({...editing, purchaseLimitCount: e.target.value ? Number(e.target.value) : null})} style={inputStyle} />
+                            <input placeholder="Limit window in days (e.g. 365)" type="number" min={1} value={editing.purchaseLimitDays || ''} onChange={e => setEditing({...editing, purchaseLimitDays: e.target.value ? Number(e.target.value) : null})} style={inputStyle} />
+                            <p style={{ gridColumn: '1/-1', margin: 0, fontSize: '11px', color: colors.textTertiary }}>
+                                Example: limit 1 per 365 days = one birthday token per year. Users redeem with <strong>/use</strong>.
+                            </p>
+                        </div>
                     )}
 
                     <div style={{ display: 'flex', gap: '10px', flexDirection: isMobile ? 'column' : 'row' }}>

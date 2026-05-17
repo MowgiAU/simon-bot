@@ -4064,24 +4064,25 @@ app.post('/api/economy/items/:guildId', async (req, res) => {
         const { guildId } = req.params;
         if (!await checkPluginAccess(guildId, req, 'economy')) return res.status(403).json({ error: 'Forbidden' });
         
-        const { id, name, description, price, type, stock, metadata } = req.body;
-        
+        const { id, name, description, price, type, stock, metadata, purchaseLimitCount, purchaseLimitDays } = req.body;
+
         // Validation
         if (!name || price < 0) return res.status(400).json({ error: 'Invalid data' });
 
+        const itemData = {
+            name, description, price, type, stock,
+            metadata,
+            purchaseLimitCount: purchaseLimitCount != null ? Number(purchaseLimitCount) || null : null,
+            purchaseLimitDays:  purchaseLimitDays  != null ? Number(purchaseLimitDays)  || null : null,
+        };
+
         if (id) {
-             // Verify item belongs to the authorized guild
              const existing = await db.economyItem.findUnique({ where: { id } });
              if (!existing || existing.guildId !== guildId) return res.status(403).json({ error: 'Forbidden' });
-             const item = await db.economyItem.update({
-                 where: { id },
-                 data: { name, description, price, type, stock, metadata }
-             });
+             const item = await db.economyItem.update({ where: { id }, data: itemData });
              res.json(item);
         } else {
-             const item = await db.economyItem.create({
-                 data: { guildId, name, description, price, type, stock, metadata }
-             });
+             const item = await db.economyItem.create({ data: { guildId, ...itemData } });
              res.json(item);
         }
     } catch (e) {
