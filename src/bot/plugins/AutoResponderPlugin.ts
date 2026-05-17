@@ -41,9 +41,9 @@ export class AutoResponderPlugin implements IPlugin {
     private context: IPluginContext | null = null;
     private logger = new Logger('AutoResponderPlugin');
     private censor!: WordCensor;
-    // Per-rule/category per-user cooldown tracker (userId:entityId -> last triggered timestamp)
+    // Per-rule/category per-user cooldown tracker (userId:entityId -> expiry timestamp)
     private cooldowns = new Map<string, number>();
-    // Global per-user cooldown tracker (guildId:userId -> last triggered timestamp)
+    // Global per-user cooldown tracker (guildId:userId -> expiry timestamp)
     private userCooldowns = new Map<string, number>();
     private cleanupInterval: ReturnType<typeof setInterval> | null = null;
 
@@ -98,12 +98,12 @@ export class AutoResponderPlugin implements IPlugin {
         if (!this.cleanupInterval) {
             this.cleanupInterval = setInterval(() => {
                 const now = Date.now();
-                const maxAge = 300_000; // 5 minutes
-                for (const [key, ts] of this.cooldowns) {
-                    if (now - ts > maxAge) this.cooldowns.delete(key);
+                // Entries store expiry timestamps — delete only truly expired ones
+                for (const [key, expiresAt] of this.cooldowns) {
+                    if (now > expiresAt) this.cooldowns.delete(key);
                 }
-                for (const [key, ts] of this.userCooldowns) {
-                    if (now - ts > maxAge) this.userCooldowns.delete(key);
+                for (const [key, expiresAt] of this.userCooldowns) {
+                    if (now > expiresAt) this.userCooldowns.delete(key);
                 }
             }, 300_000);
         }
@@ -145,7 +145,7 @@ export class AutoResponderPlugin implements IPlugin {
         // within this message don't cascade-block each other.
         const userKey = `${guildId}:${msg.author.id}`;
         const globalCooldownBlocked = globalCooldownSeconds > 0 &&
-            (Date.now() - (this.userCooldowns.get(userKey) || 0)) < globalCooldownSeconds * 1000;
+            Date.now() < (this.userCooldowns.get(userKey) || 0);
         let globalCooldownUpdated = false;
 
         for (const rule of rules) {
@@ -221,8 +221,8 @@ export class AutoResponderPlugin implements IPlugin {
             const cooldownEntity = cat ? cat.id : rule.id;
             const cooldownKey = `${msg.author.id}:${cooldownEntity}`;
             if (effectiveCooldownSeconds > 0) {
-                const lastFired = this.cooldowns.get(cooldownKey) || 0;
-                if (Date.now() - lastFired < effectiveCooldownSeconds * 1000) {
+                const expiresAt = this.cooldowns.get(cooldownKey) || 0;
+                if (Date.now() < expiresAt) {
                     // Still react normally even on cooldown
                     if (rule.reactionEmoji) {
                         try {
@@ -346,11 +346,13 @@ export class AutoResponderPlugin implements IPlugin {
                     continue;
                 }
 
-                // Update per-rule (or per-category) cooldown
-                this.cooldowns.set(cooldownKey, Date.now());
+                // Update per-rule (or per-category) cooldown — store expiry time
+                if (effectiveCooldownSeconds > 0) {
+                    this.cooldowns.set(cooldownKey, Date.now() + effectiveCooldownSeconds * 1000);
+                }
                 // Update global user cooldown once per message (first fired rule)
                 if (globalCooldownSeconds > 0 && !globalCooldownBlocked && !globalCooldownUpdated) {
-                    this.userCooldowns.set(userKey, Date.now());
+                    this.userCooldowns.set(userKey, Date.now() + globalCooldownSeconds * 1000);
                     globalCooldownUpdated = true;
                 }
 
