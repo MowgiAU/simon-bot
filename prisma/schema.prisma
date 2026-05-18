@@ -1168,6 +1168,9 @@ model DiscoverySettings {
   // Featured Article
   featuredArticleId String? @map("featured_article_id") // Article ID to feature on the front page
 
+  // Trending Artist Override (admin-only, silent to public)
+  trendingArtistOverrideId String? // userId of artist to pin as trending; null = auto
+
   updatedAt DateTime @updatedAt
 
   @@map("discovery_settings")

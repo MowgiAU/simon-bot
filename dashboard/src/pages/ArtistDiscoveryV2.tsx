@@ -544,13 +544,16 @@ export const ArtistDiscoveryPage: React.FC = () => {
                     {/* ═══════════════ ROW 2: TRENDING ARTISTS / PLAYLISTS / TUTORIAL ═══════════════ */}
 
                     {/* Trending Artist */}
+                    {(() => {
+                        const trendingArtist = (featured as any)?.trendingArtistOverride ?? artists[0] ?? null;
+                        return (
                     <div style={{ ...panel, height: isMobile ? 'auto' : '260px', position: 'relative', overflow: 'hidden', padding: 0, border: '1px solid rgba(255,255,255,0.07)', gridColumn: isMobile ? undefined : 'span 2' }}>
-                        {artists[0] ? (
+                        {trendingArtist ? (
                             <>
                                 {/* Full-bleed blurred background */}
                                 <div style={{
                                     position: 'absolute', inset: 0,
-                                    backgroundImage: `url(${getAvatarUrl(artists[0].avatar, artists[0].userId)})`,
+                                    backgroundImage: `url(${getAvatarUrl(trendingArtist.avatar, trendingArtist.userId)})`,
                                     backgroundSize: 'cover', backgroundPosition: 'center',
                                     filter: 'blur(40px) brightness(0.2) saturate(1.6)',
                                     transform: 'scale(1.3)', pointerEvents: 'none',
@@ -567,7 +570,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                             <div style={{ position: 'absolute', inset: '-5px', borderRadius: '50%', background: `conic-gradient(from 45deg, ${colors.primary}, #a78bfa, #FBBF24, #F472B6, ${colors.primary})`, opacity: 0.7, filter: 'blur(1px)' }} />
                                             <div style={{ position: 'absolute', inset: '-3px', borderRadius: '50%', background: 'rgba(14,18,26,0.8)' }} />
                                             <div style={{ width: isMobile ? '90px' : '110px', height: isMobile ? '90px' : '110px', borderRadius: '50%', overflow: 'hidden', position: 'relative', zIndex: 1, boxShadow: '0 12px 40px rgba(0,0,0,0.6)' }}>
-                                                <img src={getAvatarUrl(artists[0].avatar, artists[0].userId)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                <img src={getAvatarUrl(trendingArtist.avatar, trendingArtist.userId)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                                     onError={(e) => { (e.target as HTMLImageElement).src = 'https://cdn.discordapp.com/embed/avatars/0.png'; }} />
                                             </div>
                                             {/* #1 badge */}
@@ -583,25 +586,25 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                             <span style={{ fontSize: '10px', fontWeight: 800, color: '#FBBF24', letterSpacing: '0.12em', textTransform: 'uppercase' }}>Trending Artist</span>
                                         </div>
                                         {/* Name */}
-                                        <Link to={`/profile/${artists[0].username}`} style={{ textDecoration: 'none' }}>
+                                        <Link to={`/profile/${trendingArtist.username}`} style={{ textDecoration: 'none' }}>
                                             <div style={{ fontWeight: 900, fontSize: isMobile ? '18px' : '22px', color: colors.textPrimary, letterSpacing: '-0.03em', lineHeight: 1.1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                                <StyledUsername userId={artists[0].userId}>{artists[0].displayName || artists[0].username}</StyledUsername>
+                                                <StyledUsername userId={trendingArtist.userId}>{trendingArtist.displayName || trendingArtist.username}</StyledUsername>
                                             </div>
                                         </Link>
                                         {/* Genre pills */}
-                                        {(artists[0].primaryGenre || artists[0].genres?.length > 0) && (
+                                        {(trendingArtist.primaryGenre || trendingArtist.genres?.length > 0) && (
                                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
-                                                {artists[0].primaryGenre && (
+                                                {trendingArtist.primaryGenre && (
                                                     <span style={{ fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', padding: '4px 10px', borderRadius: '20px', background: `${colors.primary}22`, border: `1px solid ${colors.primary}55`, color: colors.primary }}>
-                                                        {artists[0].primaryGenre.name}
+                                                        {trendingArtist.primaryGenre.name}
                                                     </span>
                                                 )}
-                                                {artists[0].genres?.filter(g => g.genre && (!artists[0].primaryGenre || g.genre.name !== artists[0].primaryGenre!.name)).slice(0, 2).map((g, i) => (
+                                                {trendingArtist.genres?.filter((g: any) => g.genre && (!trendingArtist.primaryGenre || g.genre.name !== trendingArtist.primaryGenre!.name)).slice(0, 2).map((g: any, i: number) => (
                                                     <span key={i} style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', padding: '4px 10px', borderRadius: '20px', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)', color: colors.textSecondary }}>
                                                         {g.genre.name}
                                                     </span>
                                                 ))}
-                                                {!artists[0].primaryGenre && artists[0].genres?.slice(0, 3).map((g, i) => (
+                                                {!trendingArtist.primaryGenre && trendingArtist.genres?.slice(0, 3).map((g: any, i: number) => (
                                                     <span key={`fb-${i}`} style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', padding: '4px 10px', borderRadius: '20px', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)', color: colors.textSecondary }}>
                                                         {g.genre.name}
                                                     </span>
@@ -609,20 +612,20 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                             </div>
                                         )}
                                         {/* Bio */}
-                                        {artists[0].bio && (
+                                        {trendingArtist.bio && (
                                             <p style={{ fontSize: '12px', color: 'rgba(185,195,210,0.7)', lineHeight: 1.6, margin: 0, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any }}>
-                                                {artists[0].bio}
+                                                {trendingArtist.bio}
                                             </p>
                                         )}
                                         {/* Stats + CTA row */}
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginTop: '4px', paddingTop: '10px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
                                             <div style={{ display: 'flex', alignItems: 'baseline', gap: '5px' }}>
                                                 <span style={{ fontSize: '22px', fontWeight: 900, color: colors.primary, lineHeight: 1, letterSpacing: '-0.02em' }}>
-                                                    {artists[0].totalPlays >= 1000 ? `${(artists[0].totalPlays / 1000).toFixed(1)}k` : (artists[0].totalPlays || 0).toLocaleString()}
+                                                    {trendingArtist.totalPlays >= 1000 ? `${(trendingArtist.totalPlays / 1000).toFixed(1)}k` : (trendingArtist.totalPlays || 0).toLocaleString()}
                                                 </span>
                                                 <span style={{ fontSize: '10px', color: colors.textSecondary, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>plays</span>
                                             </div>
-                                            <Link to={`/profile/${artists[0].username}`} style={{
+                                            <Link to={`/profile/${trendingArtist.username}`} style={{
                                                 marginLeft: 'auto',
                                                 display: 'inline-flex', alignItems: 'center', gap: '6px',
                                                 padding: '9px 20px', borderRadius: '999px', textDecoration: 'none',
@@ -647,6 +650,8 @@ export const ArtistDiscoveryPage: React.FC = () => {
                             </div>
                         )}
                     </div>
+                        );
+                    })()}
 
                     {/* Featured Content — 2 cols wide */}
                     {(() => {

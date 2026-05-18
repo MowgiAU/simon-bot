@@ -8729,6 +8729,17 @@ app.get('/api/discovery/settings', publicCache(120), async (req, res) => {
         result.featuredTutorialAuthor = (settings as any).featuredTutorialAuthor;
         result.featuredTutorialDate = (settings as any).featuredTutorialDate;
 
+        // Trending artist override (admin-set, invisible to public)
+        const trendingOverrideId = (settings as any).trendingArtistOverrideId;
+        if (trendingOverrideId) {
+            queries.push(db.musicianProfile.findUnique({
+                where: { userId: trendingOverrideId },
+                include: { genres: { include: { genre: true } } },
+            }).then(profile => { result.trendingArtistOverride = profile || null; }));
+        } else {
+            result.trendingArtistOverride = null;
+        }
+
         // Featured article (for 'article' content type)
         const featuredArticleId = (settings as any).featuredArticleId;
         if (featuredArticleId) {
@@ -8764,7 +8775,8 @@ app.post('/api/discovery/settings', requireAdmin, async (req, res) => {
             featuredTutorialUrl, featuredTutorialTitle, featuredTutorialDescription, featuredTutorialThumbnail,
             featuredTutorialAuthor, featuredTutorialDate,
             featuredBattleId, featuredBattleDescription,
-            featuredArticleId
+            featuredArticleId,
+            trendingArtistOverrideId,
         } = req.body;
 
         const updateData: any = {};
@@ -8787,6 +8799,7 @@ app.post('/api/discovery/settings', requireAdmin, async (req, res) => {
         if (featuredBattleId !== undefined) updateData.featuredBattleId = featuredBattleId;
         if (featuredBattleDescription !== undefined) updateData.featuredBattleDescription = featuredBattleDescription;
         if (featuredArticleId !== undefined) updateData.featuredArticleId = featuredArticleId;
+        if (trendingArtistOverrideId !== undefined) updateData.trendingArtistOverrideId = trendingArtistOverrideId || null;
 
         const settings = await db.discoverySettings.upsert({
             where: { id: 'singleton' },

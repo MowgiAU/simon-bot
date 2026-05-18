@@ -4,7 +4,7 @@ import { colors, spacing, borderRadius } from '../theme/theme';
 import { useAuth } from '../components/AuthProvider';
 import axios from 'axios';
 import { ConfirmModal } from '../components/ConfirmModal';
-import { Settings, Plus, X, List, Music, Database, Edit3, Trash2, Star, Search, Tag, ExternalLink, ShieldOff, UserX, UserCheck, ChevronDown, ChevronUp, AlertTriangle, Swords, Compass, MonitorPlay, Newspaper, BookOpen, FileText } from 'lucide-react';
+import { Settings, Plus, X, List, Music, Database, Edit3, Trash2, Star, Search, Tag, ExternalLink, ShieldOff, UserX, UserCheck, ChevronDown, ChevronUp, AlertTriangle, Swords, Compass, MonitorPlay, Newspaper, BookOpen, FileText, TrendingUp } from 'lucide-react';
 
 interface Genre {
     id: string;
@@ -89,6 +89,11 @@ export const MusicianProfileAdmin: React.FC = () => {
     const [producerResults, setProducerResults] = useState<any[]>([]);
     const [searchingProducer, setSearchingProducer] = useState(false);
     const [featuredProducerNote, setFeaturedProducerNote] = useState('');
+
+    // Trending Artist Override state
+    const [trendingSearch, setTrendingSearch] = useState('');
+    const [trendingResults, setTrendingResults] = useState<any[]>([]);
+    const [searchingTrending, setSearchingTrending] = useState(false);
 
     // Featured Content state
     const [featuredContentType, setFeaturedContentType] = useState<'video' | 'news' | 'guide' | 'article'>('video');
@@ -435,6 +440,33 @@ export const MusicianProfileAdmin: React.FC = () => {
             setProducerResults([]);
         } catch (err) {
             setMsg({ type: 'error', text: 'Failed to update featured producer' });
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleSearchTrending = async (query: string) => {
+        setTrendingSearch(query);
+        if (query.length < 2) { setTrendingResults([]); return; }
+        setSearchingTrending(true);
+        try {
+            const res = await axios.get('/api/admin/musician/profiles/search', { params: { search: query }, withCredentials: true });
+            setTrendingResults(res.data);
+        } catch { /* ignore */ } finally {
+            setSearchingTrending(false);
+        }
+    };
+
+    const handleSetTrendingOverride = async (userId: string | null) => {
+        setSaving(true);
+        try {
+            await axios.post('/api/discovery/settings', { trendingArtistOverrideId: userId }, { withCredentials: true });
+            setMsg({ type: 'success', text: userId ? 'Trending artist overridden.' : 'Trending artist override cleared — auto mode.' });
+            fetchDiscoverySettings();
+            setTrendingSearch('');
+            setTrendingResults([]);
+        } catch {
+            setMsg({ type: 'error', text: 'Failed to update trending override' });
         } finally {
             setSaving(false);
         }
@@ -1004,6 +1036,64 @@ export const MusicianProfileAdmin: React.FC = () => {
                     </div>
                 </div>
 
+
+                {/* ── Trending Artist Override ── */}
+                <div style={{ marginTop: spacing.xl, paddingTop: spacing.xl, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                    <h4 style={{ marginTop: 0, marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.95rem' }}>
+                        <TrendingUp size={16} color="#FBBF24" /> Trending Artist Override
+                    </h4>
+                    <p style={{ margin: '0 0 12px', fontSize: '0.8rem', color: colors.textSecondary }}>
+                        Pin a specific artist as "Trending" on the front page. Invisible to the audience — they see the artist as naturally trending.
+                    </p>
+                    {/* Current override */}
+                    {(discoveryConfig as any).trendingArtistOverride ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: spacing.md, padding: spacing.md, backgroundColor: 'rgba(251,191,36,0.06)', borderRadius: borderRadius.sm, marginBottom: spacing.md, border: '1px solid rgba(251,191,36,0.2)' }}>
+                            {(discoveryConfig as any).trendingArtistOverride.avatar ? (
+                                <img src={(discoveryConfig as any).trendingArtistOverride.avatar.startsWith('http') ? (discoveryConfig as any).trendingArtistOverride.avatar : `https://cdn.discordapp.com/avatars/${(discoveryConfig as any).trendingArtistOverride.userId}/${(discoveryConfig as any).trendingArtistOverride.avatar}.png`} alt="" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover' }} />
+                            ) : (
+                                <div style={{ width: 40, height: 40, borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Music size={18} color={colors.textSecondary} /></div>
+                            )}
+                            <div style={{ flex: 1 }}>
+                                <div style={{ fontWeight: 600 }}>{(discoveryConfig as any).trendingArtistOverride.displayName || (discoveryConfig as any).trendingArtistOverride.username}</div>
+                                <div style={{ fontSize: '0.8rem', color: colors.textSecondary }}>@{(discoveryConfig as any).trendingArtistOverride.username} · <span style={{ color: '#FBBF24' }}>Pinned</span></div>
+                            </div>
+                            <button onClick={() => handleSetTrendingOverride(null)} title="Clear override" style={{ background: 'none', border: 'none', color: '#ff4444', cursor: 'pointer', padding: '8px' }}>
+                                <X size={18} />
+                            </button>
+                        </div>
+                    ) : (
+                        <div style={{ padding: spacing.md, backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: borderRadius.sm, marginBottom: spacing.md, color: colors.textSecondary, fontSize: '0.9rem', fontStyle: 'italic', textAlign: 'center', border: '1px dashed rgba(255,255,255,0.1)' }}>
+                            Auto — showing highest-play artist.
+                        </div>
+                    )}
+                    {/* Search */}
+                    <div style={{ position: 'relative', marginBottom: spacing.sm }}>
+                        <Search size={16} color={colors.textSecondary} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
+                        <input type="text" value={trendingSearch} onChange={e => handleSearchTrending(e.target.value)} placeholder="Search artist to pin..."
+                            style={{ width: '100%', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, padding: `${spacing.sm} ${spacing.sm} ${spacing.sm} 36px`, color: colors.textPrimary, outline: 'none' }} />
+                    </div>
+                    {trendingResults.length > 0 && (
+                        <div style={{ marginBottom: spacing.md, border: '1px solid rgba(255,255,255,0.08)', borderRadius: borderRadius.sm, maxHeight: '200px', overflowY: 'auto' }}>
+                            {trendingResults.map((p: any) => (
+                                <div key={p.id} onClick={() => handleSetTrendingOverride(p.userId)}
+                                    style={{ display: 'flex', alignItems: 'center', gap: spacing.sm, padding: '10px 12px', cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.04)' }}
+                                    onMouseOver={e => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)'}
+                                    onMouseOut={e => e.currentTarget.style.backgroundColor = 'transparent'}>
+                                    {p.avatar ? (
+                                        <img src={p.avatar.startsWith('http') ? p.avatar : `https://cdn.discordapp.com/avatars/${p.userId}/${p.avatar}.png`} alt="" style={{ width: 30, height: 30, borderRadius: '50%', objectFit: 'cover' }} />
+                                    ) : (
+                                        <div style={{ width: 30, height: 30, borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Music size={14} color={colors.textSecondary} /></div>
+                                    )}
+                                    <div>
+                                        <div style={{ fontWeight: 600, fontSize: '0.85rem' }}>{p.displayName || p.username}</div>
+                                        <div style={{ fontSize: '0.72rem', color: colors.textSecondary }}>@{p.username}</div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                    {searchingTrending && <div style={{ fontSize: '0.8rem', color: colors.textSecondary, marginBottom: '8px' }}>Searching...</div>}
+                </div>
 
                 {/* ── Featured Producer ── */}
                 <div style={{ marginTop: spacing.xl, paddingTop: spacing.xl, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
