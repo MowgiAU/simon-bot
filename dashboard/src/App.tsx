@@ -7,7 +7,6 @@ import { GlobalPlayer } from "./components/GlobalPlayer";
 import { ToastContainer } from "./components/Toast";
 import { ChatProvider, useChat } from "./components/ChatProvider";
 import { ChatHead } from "./components/ChatHead";
-import { BugReportButton } from "./components/BugReportButton";
 import './lib/errorCapture'; // initialise global error listener as side-effect
 import { Sidebar } from "./layouts/Sidebar";
 import { colors } from "./theme/theme";
@@ -979,7 +978,6 @@ export const App: React.FC = () => {
             <AppInternal />
             <GlobalPlayer />
             <ToastContainer />
-            <BugReportButton />
           </ChatWrapper>
         </PlayerProvider>
       </AuthProvider>

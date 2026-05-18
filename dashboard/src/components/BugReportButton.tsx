@@ -1,23 +1,27 @@
 import React, { useState, useRef } from 'react';
-import { Bug, X, Send, Camera, ChevronDown, ChevronUp, Loader, CheckCircle } from 'lucide-react';
-import { colors, borderRadius, spacing } from '../theme/theme';
+import { Bug, X, Send, Camera, ChevronDown, ChevronUp, Loader, CheckCircle, Paperclip } from 'lucide-react';
+import { colors, borderRadius } from '../theme/theme';
 import { useAuth } from './AuthProvider';
 import { getRecentErrors } from '../lib/errorCapture';
 
 const MAX_DESC = 2000;
 
-export const BugReportButton: React.FC = () => {
+interface Props {
+    bottom?: string | number;
+    right?: string | number;
+}
+
+export const BugReportButton: React.FC<Props> = ({ bottom = 24, right = 24 }) => {
     const { user } = useAuth();
     const [open, setOpen] = useState(false);
     const [desc, setDesc] = useState('');
     const [screenshotBlob, setScreenshotBlob] = useState<Blob | null>(null);
     const [screenshotPreview, setScreenshotPreview] = useState<string | null>(null);
-    const [wantScreenshot, setWantScreenshot] = useState(false);
-    const [capturing, setCapturing] = useState(false);
     const [showErrors, setShowErrors] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [done, setDone] = useState(false);
     const [error, setError] = useState('');
+    const fileInputRef = useRef<HTMLInputElement>(null);
     const errors = getRecentErrors();
 
     const openModal = () => {
@@ -27,38 +31,32 @@ export const BugReportButton: React.FC = () => {
         setDesc('');
         setScreenshotBlob(null);
         setScreenshotPreview(null);
-        setWantScreenshot(false);
         setShowErrors(false);
     };
 
-    const captureScreen = async () => {
-        setCapturing(true);
-        try {
-            const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
-            const video = document.createElement('video');
-            video.srcObject = stream;
-            video.muted = true;
-            await new Promise<void>(res => { video.onloadedmetadata = () => { video.play(); res(); }; });
-            await new Promise(res => requestAnimationFrame(res));
-            const canvas = document.createElement('canvas');
-            canvas.width = video.videoWidth || 1920;
-            canvas.height = video.videoHeight || 1080;
-            canvas.getContext('2d')!.drawImage(video, 0, 0);
-            stream.getTracks().forEach(t => t.stop());
-            const blob = await new Promise<Blob>(res => canvas.toBlob(b => res(b!), 'image/jpeg', 0.75));
-            setScreenshotBlob(blob);
-            setScreenshotPreview(URL.createObjectURL(blob));
-        } catch {
-            // user cancelled or browser denied — silently ignore
-        } finally {
-            setCapturing(false);
+    const attachFile = (file: File) => {
+        if (!file.type.startsWith('image/')) return;
+        setScreenshotBlob(file);
+        setScreenshotPreview(URL.createObjectURL(file));
+    };
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) attachFile(file);
+        e.target.value = '';
+    };
+
+    const handlePaste = (e: React.ClipboardEvent) => {
+        const item = Array.from(e.clipboardData.items).find(i => i.type.startsWith('image/'));
+        if (item) {
+            const file = item.getAsFile();
+            if (file) attachFile(file);
         }
     };
 
-    const handleScreenshotToggle = async (checked: boolean) => {
-        setWantScreenshot(checked);
-        if (checked && !screenshotBlob) await captureScreen();
-        if (!checked) { setScreenshotBlob(null); setScreenshotPreview(null); }
+    const removeScreenshot = () => {
+        setScreenshotBlob(null);
+        setScreenshotPreview(null);
     };
 
     const handleSubmit = async () => {
@@ -96,12 +94,13 @@ export const BugReportButton: React.FC = () => {
                 onClick={openModal}
                 title="Report a bug"
                 style={{
-                    position: 'fixed', bottom: 24, left: 24, zIndex: 9000,
+                    position: 'fixed', bottom, right, zIndex: 202,
                     width: 44, height: 44, borderRadius: '50%',
                     background: 'rgba(30,35,50,0.92)', border: '1px solid rgba(255,255,255,0.12)',
                     boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    cursor: 'pointer', color: colors.textTertiary, transition: 'all 0.2s',
+                    cursor: 'pointer', color: colors.textTertiary,
+                    transition: 'color 0.2s, border-color 0.2s, bottom 0.25s cubic-bezier(0.4,0,0.2,1)',
                 }}
                 onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = colors.primary; (e.currentTarget as HTMLButtonElement).style.borderColor = colors.primary; }}
                 onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = colors.textTertiary; (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(255,255,255,0.12)'; }}
@@ -109,11 +108,12 @@ export const BugReportButton: React.FC = () => {
                 <Bug size={18} />
             </button>
 
-            {/* Modal overlay */}
+            {/* Modal */}
             {open && (
-                <div style={{ position: 'fixed', inset: 0, zIndex: 9500, display: 'flex', alignItems: 'flex-end', justifyContent: 'flex-start', padding: '0 0 80px 24px', pointerEvents: 'none' }}>
+                <div style={{ position: 'fixed', inset: 0, zIndex: 9500, display: 'flex', alignItems: 'flex-end', justifyContent: 'flex-end', padding: '0 24px 80px 0', pointerEvents: 'none' }}>
                     <div
                         onClick={e => e.stopPropagation()}
+                        onPaste={handlePaste}
                         style={{
                             pointerEvents: 'all',
                             width: 380, maxWidth: 'calc(100vw - 48px)',
@@ -160,6 +160,7 @@ export const BugReportButton: React.FC = () => {
                                         <textarea
                                             value={desc}
                                             onChange={e => setDesc(e.target.value.slice(0, MAX_DESC))}
+                                            onPaste={handlePaste}
                                             placeholder="Describe the bug — what did you expect vs what happened?"
                                             rows={4}
                                             style={{ width: '100%', boxSizing: 'border-box', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, padding: '8px 10px', color: colors.textPrimary, fontSize: 13, resize: 'vertical', outline: 'none', minHeight: 80 }}
@@ -167,34 +168,34 @@ export const BugReportButton: React.FC = () => {
                                         <div style={{ fontSize: 10, color: colors.textTertiary, textAlign: 'right', marginTop: 2 }}>{desc.length}/{MAX_DESC}</div>
                                     </div>
 
-                                    {/* Screenshot permission */}
+                                    {/* Screenshot */}
                                     <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: borderRadius.sm, padding: '10px 12px' }}>
-                                        <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer' }}>
-                                            <input
-                                                type="checkbox"
-                                                checked={wantScreenshot}
-                                                onChange={e => handleScreenshotToggle(e.target.checked)}
-                                                disabled={capturing}
-                                                style={{ marginTop: 2, accentColor: colors.primary, flexShrink: 0 }}
-                                            />
-                                            <div>
-                                                <div style={{ fontSize: 13, fontWeight: 600, color: colors.textPrimary, display: 'flex', alignItems: 'center', gap: 6 }}>
-                                                    <Camera size={13} /> Attach a screenshot
-                                                    {capturing && <Loader size={12} color={colors.primary} style={{ animation: 'spin 1s linear infinite' }} />}
-                                                </div>
-                                                <div style={{ fontSize: 11, color: colors.textTertiary, marginTop: 2 }}>
-                                                    Your browser will ask you to select a tab to share. No audio is captured.
-                                                </div>
-                                            </div>
-                                        </label>
-                                        {screenshotPreview && (
-                                            <div style={{ marginTop: 10, position: 'relative' }}>
+                                        <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFileChange} />
+                                        {screenshotPreview ? (
+                                            <div style={{ position: 'relative' }}>
                                                 <img src={screenshotPreview} alt="Screenshot preview" style={{ width: '100%', borderRadius: 4, border: '1px solid rgba(255,255,255,0.1)', display: 'block' }} />
                                                 <button
-                                                    onClick={() => { setScreenshotBlob(null); setScreenshotPreview(null); setWantScreenshot(false); }}
+                                                    onClick={removeScreenshot}
                                                     style={{ position: 'absolute', top: 4, right: 4, background: 'rgba(0,0,0,0.7)', border: 'none', borderRadius: '50%', width: 22, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff' }}
                                                 >
                                                     <X size={12} />
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                <div>
+                                                    <div style={{ fontSize: 13, fontWeight: 600, color: colors.textPrimary, display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                        <Camera size={13} /> Attach a screenshot
+                                                    </div>
+                                                    <div style={{ fontSize: 11, color: colors.textTertiary, marginTop: 2 }}>
+                                                        Upload a file or paste an image (Ctrl+V)
+                                                    </div>
+                                                </div>
+                                                <button
+                                                    onClick={() => fileInputRef.current?.click()}
+                                                    style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: borderRadius.sm, color: colors.textSecondary, fontSize: 12, cursor: 'pointer' }}
+                                                >
+                                                    <Paperclip size={12} /> Choose file
                                                 </button>
                                             </div>
                                         )}

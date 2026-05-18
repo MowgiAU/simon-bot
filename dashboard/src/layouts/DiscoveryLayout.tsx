@@ -8,6 +8,7 @@ import { FujiLogo } from '../components/FujiLogo';
 import { MusicNotificationMenu } from '../components/MusicNotificationMenu';
 import { MessengerPopup } from '../components/MessengerPopup';
 import { useChat } from '../components/ChatProvider';
+import { BugReportButton } from '../components/BugReportButton';
 
 interface DiscoveryLayoutProps {
     children: ReactNode;
@@ -517,6 +518,19 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
             {user && messengerOpen && (
                 <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 99 }} onClick={() => setMessengerOpen(false)} />
             )}
+
+            {/* ── Floating Bug Report Button ── */}
+            {(() => {
+                const hasPlayer = !!player.currentTrack;
+                const collapsed = localStorage.getItem('player_collapsed') === '1';
+                const uploadBtnWidth = isMobile ? 48 : 52;
+                const uploadBtnRight = isMobile ? 16 : 24;
+                const bugBtnBottom = isMobile
+                    ? (!hasPlayer ? '76px' : collapsed ? '120px' : '176px')
+                    : (!hasPlayer ? '24px' : collapsed ? '60px' : '96px');
+                const bugBtnRight = `${uploadBtnRight + uploadBtnWidth + 10}px`;
+                return <BugReportButton bottom={bugBtnBottom} right={bugBtnRight} />;
+            })()}
 
             {/* ── Floating Upload Button ── */}
             {/* Only shown to logged-in users who have a profile set up */}

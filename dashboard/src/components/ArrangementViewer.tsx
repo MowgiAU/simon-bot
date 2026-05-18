@@ -370,19 +370,7 @@ export const ArrangementViewer: React.FC<{
     const playheadRef = useRef<HTMLDivElement>(null);
     const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-    // Detect tempo automation — either flagged by the parser, or inferred from a
-    // significant mismatch between the expected duration (at constant BPM) and the
-    // actual audio duration. >10% difference strongly suggests variable tempo.
-    const tempoWarning = useMemo(() => {
-        if (arrangement.hasTempoAutomation) return true;
-        if (duration <= 5) return false;
-        const bpm = arrangement.bpm || 140;
-        const lastBeat = arrangement.tracks.reduce((max, t) =>
-            t.clips.reduce((tm, c) => Math.max(tm, c.start + c.length), max), 0);
-        if (lastBeat <= 0) return false;
-        const expectedDuration = lastBeat * 60 / bpm;
-        return Math.abs(duration - expectedDuration) / expectedDuration > 0.10;
-    }, [arrangement, duration]);
+    const tempoWarning = arrangement.hasTempoAutomation === true;
 
     // Memoize heavy arrangement computations — only recompute when arrangement data changes
     const { totalBeats, activeTracks, markers, bpm, startBeat, spanBeats } = useMemo(() => {
@@ -515,7 +503,7 @@ export const ArrangementViewer: React.FC<{
                                     )}
                                     {clip.type === 'audio' && (
                                         <MiniWaveform color={trackColor} clipId={clip.id}
-                                            peaks={(clip.sampleFileName ? samplesMap[clip.sampleFileName.toLowerCase()] : undefined) ?? clip.peaks} />
+                                            peaks={(() => { const m = clip.sampleFileName ? samplesMap[clip.sampleFileName.toLowerCase()] : undefined; return (m && m.length > 0) ? m : (clip.peaks && clip.peaks.length > 0) ? clip.peaks : undefined; })()} />
                                     )}
                                 </div>
                             );
@@ -580,7 +568,7 @@ export const ArrangementViewer: React.FC<{
             )}
             {selectedClip && selectedClip.clip.type === 'audio' && (
                 <SampleInfoModal clip={selectedClip.clip} color={selectedClip.color}
-                    peaks={(selectedClip.clip.sampleFileName ? samplesMap[selectedClip.clip.sampleFileName.toLowerCase()] : undefined) ?? selectedClip.clip.peaks}
+                    peaks={(() => { const m = selectedClip.clip.sampleFileName ? samplesMap[selectedClip.clip.sampleFileName.toLowerCase()] : undefined; return (m && m.length > 0) ? m : (selectedClip.clip.peaks && selectedClip.clip.peaks.length > 0) ? selectedClip.clip.peaks : undefined; })()}
                     projectZipUrl={projectZipUrl} trackId={trackId} onClose={() => setSelectedClip(null)} />
             )}
         </div>
