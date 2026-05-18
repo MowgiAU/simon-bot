@@ -397,6 +397,7 @@ export const ArticleReviewPage: React.FC = () => {
     const [filterCategory, setFilterCategory] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
+    const [deletingId, setDeletingId] = useState<string | null>(null);
 
     const fetchArticles = useCallback(async () => {
         setLoading(true);
@@ -416,6 +417,21 @@ export const ArticleReviewPage: React.FC = () => {
     const handleAction = () => {
         setSelectedArticle(null);
         fetchArticles();
+    };
+
+    const handleQuickDelete = async (e: React.MouseEvent, article: Article) => {
+        e.stopPropagation();
+        if (!confirm(`Delete "${article.title}"? This cannot be undone.`)) return;
+        setDeletingId(article.id);
+        try {
+            await axios.delete(`/api/admin/articles/${article.id}`, { withCredentials: true });
+            if (selectedArticle?.id === article.id) setSelectedArticle(null);
+            fetchArticles();
+        } catch (err: any) {
+            alert(err.response?.data?.error || 'Failed to delete article');
+        } finally {
+            setDeletingId(null);
+        }
     };
 
     // Count by status (simple: just use the current list for display, not a separate request)
@@ -558,17 +574,43 @@ export const ArticleReviewPage: React.FC = () => {
                                 </div>
                             </div>
 
-                            {/* Quick action badge for pending */}
-                            {article.status === 'pending' && (
-                                <div style={{
-                                    padding: '6px 12px', borderRadius: borderRadius.sm,
-                                    background: `${colors.warning}15`, border: `1px solid ${colors.warning}25`,
-                                    fontSize: '11px', fontWeight: 700, color: colors.warning,
-                                    flexShrink: 0,
-                                }}>
-                                    Needs Review
-                                </div>
-                            )}
+                            {/* Row actions */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                                {article.status === 'pending' && (
+                                    <div style={{
+                                        padding: '6px 12px', borderRadius: borderRadius.sm,
+                                        background: `${colors.warning}15`, border: `1px solid ${colors.warning}25`,
+                                        fontSize: '11px', fontWeight: 700, color: colors.warning,
+                                    }}>
+                                        Needs Review
+                                    </div>
+                                )}
+                                <button
+                                    onClick={e => handleQuickDelete(e, article)}
+                                    disabled={deletingId === article.id}
+                                    title="Delete article"
+                                    style={{
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        width: 30, height: 30, borderRadius: borderRadius.sm,
+                                        background: 'transparent', border: '1px solid transparent',
+                                        color: colors.textTertiary, cursor: 'pointer', flexShrink: 0,
+                                        transition: 'all 0.15s',
+                                        opacity: deletingId === article.id ? 0.4 : 1,
+                                    }}
+                                    onMouseEnter={e => {
+                                        (e.currentTarget as HTMLButtonElement).style.color = colors.error;
+                                        (e.currentTarget as HTMLButtonElement).style.borderColor = `${colors.error}30`;
+                                        (e.currentTarget as HTMLButtonElement).style.background = `${colors.error}10`;
+                                    }}
+                                    onMouseLeave={e => {
+                                        (e.currentTarget as HTMLButtonElement).style.color = colors.textTertiary;
+                                        (e.currentTarget as HTMLButtonElement).style.borderColor = 'transparent';
+                                        (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
+                                    }}
+                                >
+                                    <Trash2 size={14} />
+                                </button>
+                            </div>
                         </div>
                     ))}
                 </div>
