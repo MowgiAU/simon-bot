@@ -99,6 +99,7 @@ function waveHeights(seed: string, count = 32): number[] {
 interface Battle {
     id: string;
     title: string;
+    subtitle: string | null;
     description: string | null;
     status: string;
     rules: string | null;
@@ -499,8 +500,6 @@ export const BattleDetailPage: React.FC = () => {
                 .hd-bar { flex: 1; min-width: 2px; border-radius: 3px; background: linear-gradient(180deg, rgba(43,140,113,0.35) 0%, rgba(43,140,113,0.18) 100%); transform-origin: center; transition: background 0.15s ease; }
                 .hd-wave-playing .hd-bar { background: linear-gradient(180deg, #34D399 0%, rgba(43,140,113,0.7) 100%); animation: hd-bar-pulse 0.9s ease-in-out infinite; }
 
-                .hd-sponsor-bar { opacity: 0.55; filter: grayscale(1); transition: all 0.4s; }
-                .hd-sponsor-bar:hover { opacity: 1; filter: grayscale(0); }
             `}</style>
 
             {/* Submission success toast */}
@@ -554,9 +553,9 @@ export const BattleDetailPage: React.FC = () => {
                                 {battle.title}
                             </h1>
 
-                            {battle.description && (
-                                <p style={{ margin: 0, fontSize: isMobile ? '14px' : '16px', color: colors.textSecondary, maxWidth: '520px', lineHeight: 1.7 }}>
-                                    {renderWithLinks(battle.description)}
+                            {battle.subtitle && (
+                                <p style={{ margin: 0, fontSize: isMobile ? '14px' : '18px', color: colors.textSecondary, lineHeight: 1.5, fontWeight: 500 }}>
+                                    {battle.subtitle}
                                 </p>
                             )}
 
@@ -662,6 +661,28 @@ export const BattleDetailPage: React.FC = () => {
                     </div>
                 </section>
 
+                {/* ── DESCRIPTION ── */}
+                {battle.description && (
+                    <section style={{ maxWidth: '1300px', margin: '0 auto', padding: isMobile ? '0 16px 32px' : '0 24px 48px' }}>
+                        <div style={{
+                            backgroundColor: 'rgba(255,255,255,0.025)',
+                            border: '1px solid rgba(255,255,255,0.07)',
+                            borderRadius: borderRadius.lg,
+                            padding: isMobile ? '24px 20px' : '36px 40px',
+                        }}>
+                            <div
+                                className="battle-description-prose"
+                                dangerouslySetInnerHTML={{ __html: battle.description }}
+                                style={{
+                                    color: colors.textSecondary,
+                                    fontSize: isMobile ? '14px' : '16px',
+                                    lineHeight: 1.8,
+                                }}
+                            />
+                        </div>
+                    </section>
+                )}
+
                 {/* ── TIMELINE ── */}
                 <section style={{ maxWidth: '1300px', margin: '0 auto', padding: isMobile ? '32px 16px' : '56px 24px' }}>
                     <h2 style={{ margin: '0 0 32px', fontSize: '20px', fontWeight: 700, color: colors.textPrimary, display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -711,29 +732,48 @@ export const BattleDetailPage: React.FC = () => {
 
                 {/* ── SPONSOR STRIP ── */}
                 {battle.sponsor && (
-                    <section style={{ borderTop: '1px solid rgba(255,255,255,0.05)', borderBottom: '1px solid rgba(255,255,255,0.05)', padding: '40px 24px', backgroundColor: 'rgba(255,255,255,0.015)', marginBottom: '48px' }}>
-                        <div style={{ maxWidth: '1300px', margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
-                            <p style={{ textAlign: 'center', fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.2em', color: colors.textSecondary, margin: 0 }}>Official Sponsor</p>
-                            <div className="hd-sponsor-bar" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
-                                {battle.sponsor.logoUrl && (
-                                    <img src={battle.sponsor.logoUrl} alt={battle.sponsor.name} style={{ height: '36px' }} />
+                    <section style={{ position: 'relative', overflow: 'hidden', marginBottom: '48px' }}>
+                        {/* Glow backdrop */}
+                        <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(90deg, ${colors.primary}08 0%, ${colors.primary}14 50%, ${colors.primary}08 100%)`, pointerEvents: 'none' }} />
+                        <div style={{ borderTop: `1px solid ${colors.primary}25`, borderBottom: `1px solid ${colors.primary}25`, padding: isMobile ? '28px 16px' : '36px 24px', position: 'relative' }}>
+                            <div style={{ maxWidth: '1300px', margin: '0 auto' }}>
+                                <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: 'center', gap: isMobile ? '20px' : '32px', justifyContent: 'center' }}>
+                                    {/* Label */}
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                                        <div style={{ width: '3px', height: '28px', backgroundColor: colors.primary, borderRadius: '2px' }} />
+                                        <span style={{ fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.2em', color: colors.primary }}>Official Sponsor</span>
+                                    </div>
+                                    {/* Logo + name */}
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                                        {battle.sponsor.logoUrl && (
+                                            <img src={battle.sponsor.logoUrl} alt={battle.sponsor.name} style={{ height: '40px', objectFit: 'contain' }} />
+                                        )}
+                                        <span style={{ fontWeight: 800, fontSize: isMobile ? '20px' : '24px', color: '#fff', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                                            {battle.sponsor.name}
+                                        </span>
+                                    </div>
+                                    {/* Links */}
+                                    {battle.sponsor.links.length > 0 && (
+                                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'center' }}>
+                                            {battle.sponsor.links.map(l => (
+                                                <a key={l.id} href={l.url} target="_blank" rel="noopener noreferrer"
+                                                    onClick={() => fetch(`${API}/api/beat-battle/sponsor-links/${l.id}/click`, { method: 'POST' }).catch(() => {})}
+                                                    style={{ fontSize: '13px', fontWeight: 700, color: '#fff', display: 'flex', alignItems: 'center', gap: '5px', textDecoration: 'none', backgroundColor: colors.primary, padding: '8px 16px', borderRadius: '8px', boxShadow: `0 4px 16px ${colors.primary}40`, transition: 'opacity 0.15s' }}
+                                                    onMouseEnter={e => (e.currentTarget.style.opacity = '0.85')}
+                                                    onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
+                                                >
+                                                    {l.label} <ExternalLink size={12} />
+                                                </a>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                                {battle.sponsor.description && (
+                                    <p style={{ margin: '16px auto 0', textAlign: 'center', fontSize: '13px', color: colors.textSecondary, maxWidth: '560px', lineHeight: 1.6 }}>
+                                        {renderWithLinks(battle.sponsor.description)}
+                                    </p>
                                 )}
-                                <span style={{ fontWeight: 800, fontSize: '18px', color: 'rgba(255,255,255,0.75)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-                                    {battle.sponsor.name}
-                                </span>
-                                {battle.sponsor.links.map(l => (
-                                    <a key={l.id} href={l.url} target="_blank" rel="noopener noreferrer"
-                                        onClick={() => fetch(`${API}/api/beat-battle/sponsor-links/${l.id}/click`, { method: 'POST' }).catch(() => {})}
-                                        style={{ fontSize: '12px', color: colors.primary, display: 'flex', alignItems: 'center', gap: '4px', textDecoration: 'none', backgroundColor: `${colors.primary}15`, padding: '5px 10px', borderRadius: '6px', border: `1px solid ${colors.primary}25` }}>
-                                        {l.label} <ExternalLink size={11} />
-                                    </a>
-                                ))}
                             </div>
-                            {battle.sponsor.description && (
-                                <p style={{ margin: 0, textAlign: 'center', fontSize: '13px', color: colors.textSecondary, maxWidth: '560px', lineHeight: 1.6 }}>
-                                    {renderWithLinks(battle.sponsor.description)}
-                                </p>
-                            )}
                         </div>
                     </section>
                 )}

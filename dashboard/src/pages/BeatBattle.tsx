@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../components/AuthProvider';
+import { RichTextEditor } from '../components/RichTextEditor';
 import { colors, spacing, borderRadius } from '../theme/theme';
 import { ChannelSelect } from '../components/ChannelSelect';
 import { ConfirmModal } from '../components/ConfirmModal';
@@ -134,7 +135,7 @@ export const BeatBattlePage: React.FC = () => {
 
     // Form state
     const [form, setForm] = useState({
-        title: '', description: '',
+        title: '', subtitle: '', description: '',
         rulesData: [{ text: '', links: [] as { label: string; url: string }[], samples: [] as { name: string; url: string }[] }],
         submissionStart: '', submissionEnd: '', votingStart: '', votingEnd: '',
         sponsorId: '', announcementChannelId: '',
@@ -230,7 +231,7 @@ export const BeatBattlePage: React.FC = () => {
         Promise.all([fetchBattles(), fetchSponsors(), fetchSettings()]).finally(() => setLoading(false));
     }, [fetchBattles, fetchSponsors, fetchSettings]);
 
-    const resetForm = () => setForm({ title: '', description: '', rulesData: [{ text: '', links: [], samples: [] }], submissionStart: '', submissionEnd: '', votingStart: '', votingEnd: '', sponsorId: '', announcementChannelId: '', prizes: [{ place: '1st Place', title: '', description: '', imageUrl: '', link: '' }], maxVotesPerUser: 0, requireProjectFile: false, entryFeeEnabled: false, entryFee: 0, prizePoolEnabled: false, prizeFirst: 0, prizeSecond: 0, prizeThird: 0, voterReward: 0, suddenDeathDurationMinutes: 60 });
+    const resetForm = () => setForm({ title: '', subtitle: '', description: '', rulesData: [{ text: '', links: [], samples: [] }], submissionStart: '', submissionEnd: '', votingStart: '', votingEnd: '', sponsorId: '', announcementChannelId: '', prizes: [{ place: '1st Place', title: '', description: '', imageUrl: '', link: '' }], maxVotesPerUser: 0, requireProjectFile: false, entryFeeEnabled: false, entryFee: 0, prizePoolEnabled: false, prizeFirst: 0, prizeSecond: 0, prizeThird: 0, voterReward: 0, suddenDeathDurationMinutes: 60 });
 
     const handleCreateBattle = async () => {
         try {
@@ -240,6 +241,7 @@ export const BeatBattlePage: React.FC = () => {
                 credentials: 'include',
                 body: JSON.stringify({
                     title: form.title,
+                    subtitle: form.subtitle,
                     description: form.description,
                     rules: form.rulesData.map(r => r.text).filter(Boolean).join('\n'),
                     rulesData: form.rulesData,
@@ -309,6 +311,7 @@ export const BeatBattlePage: React.FC = () => {
                 credentials: 'include',
                 body: JSON.stringify({
                     title: form.title,
+                    subtitle: form.subtitle,
                     description: form.description,
                     rules: form.rulesData.map(r => r.text).filter(Boolean).join('\n'),
                     rulesData: form.rulesData,
@@ -579,6 +582,7 @@ export const BeatBattlePage: React.FC = () => {
         setEditingBattle(b);
         setForm({
             title: b.title,
+            subtitle: (b as any).subtitle || '',
             description: b.description || '',
             rulesData: (b.rulesData && (b.rulesData as any[]).length > 0)
                 ? (b.rulesData as any[]).map(r => ({ text: r.text || '', links: r.links || [], samples: r.samples || [] }))
@@ -737,8 +741,22 @@ export const BeatBattlePage: React.FC = () => {
                                     <input style={inputStyle} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Beat Battle #1" />
                                 </div>
                                 <div style={{ gridColumn: 'span 2' }}>
-                                    <label style={labelStyle}>Description</label>
-                                    <textarea style={{ ...inputStyle, minHeight: '80px', resize: 'vertical' }} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Describe the battle theme..." />
+                                    <label style={labelStyle}>Subtitle <span style={{ color: colors.textTertiary, fontWeight: 400 }}>(shown under the title on both pages — max 200 chars)</span></label>
+                                    <input
+                                        style={inputStyle}
+                                        value={form.subtitle}
+                                        onChange={e => setForm({ ...form, subtitle: e.target.value.slice(0, 200) })}
+                                        placeholder="e.g. Season 3 Finals · Trap Edition"
+                                    />
+                                    <div style={{ fontSize: '10px', color: colors.textTertiary, textAlign: 'right', marginTop: '2px' }}>{form.subtitle.length}/200</div>
+                                </div>
+                                <div style={{ gridColumn: 'span 2' }}>
+                                    <label style={labelStyle}>Full Description <span style={{ color: colors.textTertiary, fontWeight: 400 }}>(shown on the individual battle page — supports rich text)</span></label>
+                                    <RichTextEditor
+                                        value={form.description}
+                                        onChange={desc => setForm({ ...form, description: desc })}
+                                        placeholder="Describe the battle in detail — supports headings, lists, links, images..."
+                                    />
                                 </div>
                                 <div style={{ gridColumn: 'span 2' }}>
                                     <label style={labelStyle}>Rules</label>

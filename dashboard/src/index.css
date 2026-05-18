@@ -237,6 +237,45 @@ input[type="range"]:focus-visible {
   to { transform: rotate(360deg); }
 }
 
+/* ── Rich-text prose (battle descriptions, article body) ── */
+.battle-description-prose h1,
+.battle-description-prose h2,
+.battle-description-prose h3,
+.battle-description-prose h4 {
+  color: #F8FAFC;
+  margin: 1.4em 0 0.5em;
+  line-height: 1.25;
+}
+.battle-description-prose h1 { font-size: 1.5em; }
+.battle-description-prose h2 { font-size: 1.25em; }
+.battle-description-prose h3 { font-size: 1.1em; }
+.battle-description-prose p  { margin: 0 0 1em; }
+.battle-description-prose p:last-child { margin-bottom: 0; }
+.battle-description-prose ul,
+.battle-description-prose ol { margin: 0 0 1em 1.4em; }
+.battle-description-prose li { margin-bottom: 0.3em; }
+.battle-description-prose a  { color: #10B981; text-decoration: underline; }
+.battle-description-prose a:hover { opacity: 0.8; }
+.battle-description-prose strong { color: #F8FAFC; }
+.battle-description-prose blockquote {
+  border-left: 3px solid rgba(16,185,129,0.4);
+  padding: 6px 0 6px 16px;
+  margin: 0 0 1em;
+  color: #8B95A5;
+}
+.battle-description-prose code {
+  background: rgba(255,255,255,0.07);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.9em;
+  font-family: monospace;
+}
+.battle-description-prose img {
+  max-width: 100%;
+  border-radius: 8px;
+  margin: 0.5em 0;
+}
+
 .user-profile {
   display: flex;
   align-items: center;

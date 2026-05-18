@@ -1300,9 +1300,10 @@ model BeatBattle {
   id          String  @id @default(cuid())
   slug        String? @unique
   guildId     String
-  title       String
+  title            String
   description String? @db.Text
-  status      String  @default("upcoming") // upcoming | active | voting | completed
+  subtitle    String? @db.VarChar(200)
+  status           String  @default("upcoming") // upcoming | active | voting | completed
   rules       String? @db.Text
   rulesData   Json? // Array of { text, links: {label,url}[], samples: {name,url}[] }
 
