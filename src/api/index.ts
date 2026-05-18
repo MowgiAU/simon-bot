@@ -759,11 +759,19 @@ app.use(helmet({
     contentSecurityPolicy: {
         directives: {
             defaultSrc: ["'self'"],
-            scriptSrc: ["'self'", "'unsafe-inline'"],
+            scriptSrc: [
+                "'self'",
+                "'unsafe-inline'",
+                'https://static.cloudflareinsights.com', // Cloudflare Web Analytics
+            ],
             styleSrc: ["'self'", "'unsafe-inline'"],
             imgSrc: ["'self'", 'data:', 'https:'],
             mediaSrc: ["'self'", 'blob:', 'https:'],
-            connectSrc: ["'self'", 'https:'],
+            connectSrc: [
+                "'self'",
+                'https:',
+                'https://cloudflareinsights.com', // Cloudflare analytics beacon
+            ],
             fontSrc: ["'self'", 'https:', 'data:'],
         },
     },
@@ -7968,19 +7976,11 @@ app.get('/api/tracks/:trackId/stream', streamLimiter, async (req: any, res) => {
             return res.status(404).send();
         }
 
-        // For non-downloadable tracks: enforce session auth + same-site origin
-        if (!track.allowAudioDownload) {
-            if (!req.session?.user) {
-                return res.status(401).json({ error: 'Login required to stream this track' });
-            }
-            const origin  = (req.headers['origin']  as string | undefined)?.replace(/\/$/, '');
-            const referer = (req.headers['referer'] as string | undefined);
-            const refererOrigin = referer ? new URL(referer).origin : null;
-            const fromSite = (origin && STREAM_ALLOWED_ORIGINS.has(origin)) ||
-                             (refererOrigin && STREAM_ALLOWED_ORIGINS.has(refererOrigin));
-            if (!fromSite) {
-                return res.status(403).json({ error: 'Streaming is only available from the Fuji Studio website' });
-            }
+        // For non-downloadable tracks: require an active login session.
+        // This stops unauthenticated curl/wget. The audio element sends cookies
+        // automatically for same-origin requests, so browser playback is unaffected.
+        if (!track.allowAudioDownload && !req.session?.user) {
+            return res.status(401).json({ error: 'Login required to stream this track' });
         }
 
         const useMp3 = req.query.format === 'mp3' && track.mp3Url;
