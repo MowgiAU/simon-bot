@@ -7976,12 +7976,8 @@ app.get('/api/tracks/:trackId/stream', streamLimiter, async (req: any, res) => {
             return res.status(404).send();
         }
 
-        // For non-downloadable tracks: require an active login session.
-        // This stops unauthenticated curl/wget. The audio element sends cookies
-        // automatically for same-origin requests, so browser playback is unaffected.
-        if (!track.allowAudioDownload && !req.session?.user) {
-            return res.status(401).json({ error: 'Login required to stream this track' });
-        }
+        // allowAudioDownload = false means "no download button / no CDN URL exposed",
+        // not "login required to listen". Streaming is always public for public tracks.
 
         const useMp3 = req.query.format === 'mp3' && track.mp3Url;
         const sourceUrl: string = useMp3 ? track.mp3Url! : track.url;
