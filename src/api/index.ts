@@ -7945,18 +7945,42 @@ const streamLimiter = rateLimit({
     message: { error: 'Stream rate limit exceeded. Please wait before playing more tracks.' },
 });
 
+// Allowed origins for the stream endpoint — requests must come from the site itself
+// or a known CDN/development origin for non-downloadable tracks.
+const STREAM_ALLOWED_ORIGINS = new Set([
+    process.env.DASHBOARD_ORIGIN?.replace(/\/$/, '') || 'https://fujistud.io',
+    'https://www.fujistud.io',
+]);
+
 // Proxy stream for tracks with allowAudioDownload = false.
 // Supports Range requests (required for seek/scrub in audio players).
 // Never redirects to the CDN URL — always pipes through the server.
+// For download-disabled tracks, requires an active login session AND an
+// Origin/Referer header from the same site — blocks raw curl/wget/API scraping.
 app.get('/api/tracks/:trackId/stream', streamLimiter, async (req: any, res) => {
     try {
         const { trackId } = req.params;
         const track = await db.track.findUnique({
             where: { id: trackId },
-            select: { url: true, mp3Url: true, isPublic: true, status: true, deletedAt: true },
+            select: { url: true, mp3Url: true, isPublic: true, status: true, deletedAt: true, allowAudioDownload: true },
         });
         if (!track || !track.isPublic || track.status !== 'active' || track.deletedAt) {
             return res.status(404).send();
+        }
+
+        // For non-downloadable tracks: enforce session auth + same-site origin
+        if (!track.allowAudioDownload) {
+            if (!req.session?.user) {
+                return res.status(401).json({ error: 'Login required to stream this track' });
+            }
+            const origin  = (req.headers['origin']  as string | undefined)?.replace(/\/$/, '');
+            const referer = (req.headers['referer'] as string | undefined);
+            const refererOrigin = referer ? new URL(referer).origin : null;
+            const fromSite = (origin && STREAM_ALLOWED_ORIGINS.has(origin)) ||
+                             (refererOrigin && STREAM_ALLOWED_ORIGINS.has(refererOrigin));
+            if (!fromSite) {
+                return res.status(403).json({ error: 'Streaming is only available from the Fuji Studio website' });
+            }
         }
 
         const useMp3 = req.query.format === 'mp3' && track.mp3Url;
