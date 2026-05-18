@@ -37,6 +37,7 @@ import {
   Zap,
   Gift,
   Flag,
+  Bug,
   Hammer,
   BarChart2,
   BarChart3,
@@ -429,6 +430,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             >
                 <span className="nav-icon"><AnimatedWrapper icon={Flag} size={20} /></span>
                 <span className="nav-label">Reports</span>
+            </button>
+          )}
+
+          {permissions.canManagePlugins && (
+            <button
+                className={`nav-item ${activeSection === 'bug-reports' ? 'active' : ''}`}
+                onClick={() => onNavigate('bug-reports')}
+                title={collapsed ? "Bug Reports" : ""}
+            >
+                <span className="nav-icon"><AnimatedWrapper icon={Bug} size={20} /></span>
+                <span className="nav-label">Bug Reports</span>
             </button>
           )}
 

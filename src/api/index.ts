@@ -17082,6 +17082,110 @@ app.post('/api/reports', async (req: any, res) => {
     }
 });
 
+// ── Bug Reports ───────────────────────────────────────────────────────────────
+
+const bugReportLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000, // 1 hour
+    max: 3,
+    keyGenerator: (req: any) => req.session?.user?.id || req.ip,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'You can submit at most 3 bug reports per hour. Please wait before trying again.' },
+});
+
+const bugReportUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } }); // 5 MB max for screenshots
+
+app.post('/api/bug-reports', requireAuth, bugReportLimiter, bugReportUpload.single('screenshot'), async (req: any, res) => {
+    try {
+        const userId   = req.session.user.id;
+        const username = req.session.user.global_name || req.session.user.username || userId;
+
+        const { pageUrl, description, errors, userAgent, viewport } = req.body;
+        if (!description?.trim()) return res.status(400).json({ error: 'Description is required' });
+        if (!pageUrl)             return res.status(400).json({ error: 'pageUrl is required' });
+
+        // Hard rate-limit: also enforce in DB so it survives restarts
+        const since = new Date(Date.now() - 60 * 60 * 1000);
+        const recentCount = await db.bugReport.count({ where: { userId, createdAt: { gte: since } } });
+        if (recentCount >= 3) return res.status(429).json({ error: 'You can submit at most 3 bug reports per hour.' });
+
+        let screenshotUrl: string | null = null;
+        if (req.file) {
+            try {
+                if (R2Storage.isConfigured()) {
+                    const key = `bug-reports/${userId}/${Date.now()}-screenshot.jpg`;
+                    screenshotUrl = await R2Storage.uploadBuffer(key, req.file.buffer, 'image/jpeg');
+                }
+            } catch { /* non-fatal — skip screenshot if R2 unavailable */ }
+        }
+
+        let parsedErrors: any = null;
+        try { parsedErrors = errors ? JSON.parse(errors) : null; } catch { /* ignore */ }
+
+        const report = await db.bugReport.create({
+            data: {
+                userId,
+                username,
+                pageUrl: String(pageUrl).slice(0, 2000),
+                description: String(description).trim().slice(0, 5000),
+                errors: parsedErrors,
+                userAgent: userAgent ? String(userAgent).slice(0, 500) : null,
+                viewport: viewport ? String(viewport).slice(0, 50) : null,
+                screenshotUrl,
+            },
+        });
+
+        logger.info(`[BugReport] ${username} filed report ${report.id} for ${pageUrl}`);
+        res.json({ id: report.id });
+    } catch (e: any) {
+        logger.error('POST /api/bug-reports error', e);
+        res.status(500).json({ error: 'Failed to submit bug report' });
+    }
+});
+
+// Admin: list bug reports
+app.get('/api/admin/bug-reports', requireAdmin, async (req: any, res) => {
+    try {
+        const { status, page = '1', limit = '50' } = req.query;
+        const where: any = {};
+        if (status) where.status = status;
+        const take = Math.min(parseInt(limit as string) || 50, 100);
+        const skip = (Math.max(parseInt(page as string) || 1, 1) - 1) * take;
+        const [reports, total] = await Promise.all([
+            db.bugReport.findMany({ where, orderBy: { createdAt: 'desc' }, take, skip }),
+            db.bugReport.count({ where }),
+        ]);
+        res.json({ reports, total, pages: Math.ceil(total / take) });
+    } catch (e: any) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Admin: update bug report status
+app.patch('/api/admin/bug-reports/:id', requireAdmin, async (req: any, res) => {
+    try {
+        const admin = req.session.user;
+        const { status, resolutionNote } = req.body;
+        const validStatuses = ['open', 'investigating', 'resolved', 'closed'];
+        if (!validStatuses.includes(status)) return res.status(400).json({ error: 'Invalid status' });
+        const report = await db.bugReport.update({
+            where: { id: req.params.id },
+            data: {
+                status,
+                resolutionNote: resolutionNote?.slice(0, 2000) || null,
+                ...(['resolved', 'closed'].includes(status) ? {
+                    resolvedByUserId: admin.id,
+                    resolvedByName: admin.global_name || admin.username,
+                    resolvedAt: new Date(),
+                } : {}),
+            },
+        });
+        res.json(report);
+    } catch (e: any) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 // Admin: List all reports (with filters)
 app.get('/api/admin/reports', requireAdmin, async (req: any, res) => {
     try {

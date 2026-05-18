@@ -2285,6 +2285,31 @@ model Report {
   @@map("reports")
 }
 
+model BugReport {
+  id          String  @id @default(cuid())
+  userId      String  // reporter's Discord/native user ID
+  username    String  // cached at submission time
+  pageUrl     String
+  description String  @db.Text
+  errors      Json?   // last N window errors captured at submission
+  userAgent   String?
+  viewport    String?
+  screenshotUrl String? // R2 URL of screenshot if provided
+
+  status         String    @default("open") // "open" | "investigating" | "resolved" | "closed"
+  resolvedByUserId String?
+  resolvedByName   String?
+  resolvedAt       DateTime?
+  resolutionNote   String?   @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, createdAt(sort: Desc)])
+  @@index([userId])
+  @@map("bug_reports")
+}
+
 // ──────────────────── Articles / News Plugin ────────────────────
 model Article {
   id            String  @id @default(cuid())

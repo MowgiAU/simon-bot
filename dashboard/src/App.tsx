@@ -7,6 +7,8 @@ import { GlobalPlayer } from "./components/GlobalPlayer";
 import { ToastContainer } from "./components/Toast";
 import { ChatProvider, useChat } from "./components/ChatProvider";
 import { ChatHead } from "./components/ChatHead";
+import { BugReportButton } from "./components/BugReportButton";
+import './lib/errorCapture'; // initialise global error listener as side-effect
 import { Sidebar } from "./layouts/Sidebar";
 import { colors } from "./theme/theme";
 import { Info, ArrowRight, ShieldAlert } from "lucide-react";
@@ -86,6 +88,7 @@ const ProfileStylesPage      = lazy(() => import("./pages/ProfileStyles"));
 const BoostPage              = lazy(() => import("./pages/Boost").then(m => ({ default: m.BoostPage })));
 const AutomationPage         = lazy(() => import("./pages/Automation").then(m => ({ default: m.AutomationPage })));
 const ReportsPage            = lazy(() => import("./pages/Reports").then(m => ({ default: m.ReportsPage })));
+const BugReportsAdminPage    = lazy(() => import("./pages/BugReportsAdmin").then(m => ({ default: m.BugReportsAdmin })));
 const ArticlesPage           = lazy(() => import("./pages/Articles").then(m => ({ default: m.ArticlesPage })));
 const ArticleReviewPage      = lazy(() => import("./pages/ArticleReview").then(m => ({ default: m.ArticleReviewPage })));
 const ArticlePage            = lazy(() => import("./pages/ArticlePage").then(m => ({ default: m.ArticlePage })));
@@ -498,6 +501,8 @@ const AdminDashboard: React.FC = () => {
           return <AccountManagementPage />;
         case "reports":
           return <ReportsPage />;
+        case "bug-reports":
+          return <BugReportsAdminPage />;
         case "articles":
           return <ArticlesPage />;
         case "article-review":
@@ -974,6 +979,7 @@ export const App: React.FC = () => {
             <AppInternal />
             <GlobalPlayer />
             <ToastContainer />
+            <BugReportButton />
           </ChatWrapper>
         </PlayerProvider>
       </AuthProvider>
