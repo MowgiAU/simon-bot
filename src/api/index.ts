@@ -7863,11 +7863,13 @@ app.get('/api/discovery/tracks', publicCache(120), async (req, res) => {
 
         // Ensure new permission fields exist even if migration hasn't run fully or records are old
         // Filter out suspended/hidden tracks and profiles (application-level so it's safe before migration)
-        const activeTracks = tracks.filter((t: any) => (!t.status || t.status === 'active') && (!t.profile?.status || t.profile.status === 'active'));
-        activeTracks.forEach((t: any) => {
-            if (t.allowAudioDownload === undefined) t.allowAudioDownload = true;
-            if (t.allowProjectDownload === undefined) t.allowProjectDownload = true;
-        });
+        const activeTracks = tracks
+            .filter((t: any) => (!t.status || t.status === 'active') && (!t.profile?.status || t.profile.status === 'active'))
+            .map((t: any) => {
+                if (t.allowAudioDownload === undefined) t.allowAudioDownload = true;
+                if (t.allowProjectDownload === undefined) t.allowProjectDownload = true;
+                return redactTrackUrls(t);
+            });
 
         if (isDefaultQuery) setCachedResponse('discovery-tracks', { tracks: activeTracks, genre: null });
 
@@ -7910,6 +7912,80 @@ app.get('/api/musician/leaderboards/artists', publicCache(120), async (req, res)
         res.json(topArtists);
     } catch (e: any) {
         res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// ── Audio/project URL redaction ───────────────────────────────────────────────
+// Replaces direct CDN URLs with the server-side stream proxy for tracks that
+// have downloads disabled, so the raw storage URL is never sent to the client.
+function redactTrackUrls(track: any): any {
+    if (!track || typeof track !== 'object') return track;
+    const t = { ...track };
+    if (!t.allowAudioDownload) {
+        // Replace with proxy endpoint — player still works, CDN URL stays hidden
+        t.url    = t.id ? `/api/tracks/${t.id}/stream` : null;
+        t.mp3Url = null;
+    }
+    if (!t.allowProjectDownload) {
+        t.projectFileUrl       = null;
+        t.projectZipUrl        = null;
+        t.projectFileSizeBytes = null;
+    }
+    return t;
+}
+
+// Rate limiter for the stream proxy — generous enough to support audio seeking
+// (multiple range requests per play) but hard enough to throttle bulk ripping.
+const streamLimiter = rateLimit({
+    windowMs: 60_000,
+    max: 120,
+    keyGenerator: rlKey,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Stream rate limit exceeded. Please wait before playing more tracks.' },
+});
+
+// Proxy stream for tracks with allowAudioDownload = false.
+// Supports Range requests (required for seek/scrub in audio players).
+// Never redirects to the CDN URL — always pipes through the server.
+app.get('/api/tracks/:trackId/stream', streamLimiter, async (req: any, res) => {
+    try {
+        const { trackId } = req.params;
+        const track = await db.track.findUnique({
+            where: { id: trackId },
+            select: { url: true, mp3Url: true, isPublic: true, status: true, deletedAt: true },
+        });
+        if (!track || !track.isPublic || track.status !== 'active' || track.deletedAt) {
+            return res.status(404).send();
+        }
+
+        const useMp3 = req.query.format === 'mp3' && track.mp3Url;
+        const sourceUrl: string = useMp3 ? track.mp3Url! : track.url;
+        const contentType = useMp3 ? 'audio/mpeg' : 'audio/ogg';
+
+        const upstreamHeaders: Record<string, string> = {};
+        if (req.headers.range) upstreamHeaders['Range'] = req.headers.range as string;
+
+        const upstream = await axios.get(sourceUrl, {
+            responseType: 'stream',
+            headers: upstreamHeaders,
+            validateStatus: s => s < 500,
+        });
+
+        const outHeaders: Record<string, string | number> = {
+            'Content-Type': contentType,
+            'Content-Disposition': 'inline',
+            'Accept-Ranges': 'bytes',
+            'Cache-Control': 'no-store, no-cache, must-revalidate',
+            'X-Content-Type-Options': 'nosniff',
+        };
+        if (upstream.headers['content-length']) outHeaders['Content-Length'] = upstream.headers['content-length'] as string;
+        if (upstream.headers['content-range'])  outHeaders['Content-Range']  = upstream.headers['content-range']  as string;
+
+        res.writeHead(upstream.status, outHeaders);
+        (upstream.data as NodeJS.ReadableStream).pipe(res);
+    } catch (e: any) {
+        if (!res.headersSent) res.status(500).send();
     }
 });
 
@@ -8184,11 +8260,12 @@ app.get('/api/musician/profile/:userId', async (req, res) => {
             profileData.tracks = profileData.tracks.filter((t: any) => t.status === 'active' || !t.status);
             // Sort by explicit position first, then by createdAt for tracks with equal positions
             profileData.tracks.sort((a: any, b: any) => (a.position ?? 0) - (b.position ?? 0) || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-            profileData.tracks.forEach((t: any) => {
+            profileData.tracks = profileData.tracks.map((t: any) => {
                 if (t.allowAudioDownload === undefined) t.allowAudioDownload = true;
                 if (t.allowProjectDownload === undefined) t.allowProjectDownload = true;
                 // Downsample waveform to 60pts for the profile card view (full 200pts served on track detail page)
                 if (Array.isArray(t.waveformPeaks)) t.waveformPeaks = downsamplePeaks(t.waveformPeaks, 60);
+                return redactTrackUrls(t);
             });
         }
 
@@ -8213,7 +8290,7 @@ app.get('/api/musician/profile/:userId', async (req, res) => {
         });
         profileData.reposts = reposts
             .filter(r => r.track && r.track.isPublic && (!r.track.status || r.track.status === 'active'))
-            .map(r => ({
+            .map(r => redactTrackUrls({
                 ...r.track,
                 waveformPeaks: Array.isArray(r.track.waveformPeaks) ? downsamplePeaks(r.track.waveformPeaks as number[], 60) : r.track.waveformPeaks,
                 _repost: true,
@@ -8240,7 +8317,7 @@ app.get('/api/musician/profile/:userId', async (req, res) => {
         });
         profileData.collaborations = collabEntries
             .filter(c => c.track && c.track.isPublic && (!c.track.status || c.track.status === 'active'))
-            .map(c => ({
+            .map(c => redactTrackUrls({
                 ...c.track,
                 waveformPeaks: Array.isArray(c.track.waveformPeaks) ? downsamplePeaks(c.track.waveformPeaks as number[], 60) : c.track.waveformPeaks,
                 _collab: true,
@@ -8345,7 +8422,7 @@ app.get('/api/musician/tracks/:username/:trackSlug', publicCache(15), async (req
             }));
         } catch { track.battles = []; }
 
-        res.json(track);
+        res.json(redactTrackUrls(track));
     } catch (e: any) {
         res.status(500).json({ error: 'Internal server error' });
     }
@@ -14977,7 +15054,7 @@ app.get('/api/feed', requireAuth, async (req: any, res) => {
             : [];
         const profileMap = new Map(repostProfiles.map(p => [p.userId, p]));
 
-        const finalTracks = merged.map(t => ({
+        const finalTracks = merged.map(t => redactTrackUrls({
             ...t,
             repostedBy: t.repostedBy ? (profileMap.get(t.repostedBy) || { username: 'Someone', displayName: null }) : null,
         }));
