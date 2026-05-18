@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+﻿import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useLocation } from 'react-router-dom';
 import { colors, borderRadius, spacing } from '../theme/theme';
@@ -236,9 +236,10 @@ export const BattleDetailPage: React.FC = () => {
     }, [battleId, battle?.id, user]);
 
     useEffect(() => {
-        const onResize = () => setIsMobile(window.innerWidth < 768);
+        let _rt: ReturnType<typeof setTimeout>;
+        const onResize = () => { clearTimeout(_rt); _rt = setTimeout(() => setIsMobile(window.innerWidth < 768), 150); };
         window.addEventListener('resize', onResize);
-        return () => window.removeEventListener('resize', onResize);
+        return () => { clearTimeout(_rt); window.removeEventListener('resize', onResize); };
     }, []);
 
     // Countdown timer

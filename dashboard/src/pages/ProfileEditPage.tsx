@@ -136,9 +136,10 @@ export const ProfileEditPage: React.FC = () => {
     };
 
     useEffect(() => {
-        const onResize = () => setIsMobile(window.innerWidth < 768);
+        let t: ReturnType<typeof setTimeout>;
+        const onResize = () => { clearTimeout(t); t = setTimeout(() => setIsMobile(window.innerWidth < 768), 150); };
         window.addEventListener('resize', onResize);
-        return () => window.removeEventListener('resize', onResize);
+        return () => { clearTimeout(t); window.removeEventListener('resize', onResize); };
     }, []);
 
     // Load Discord link status

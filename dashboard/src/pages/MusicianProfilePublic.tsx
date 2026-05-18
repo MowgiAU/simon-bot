@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { colors, spacing, borderRadius } from '../theme/theme';
 import { useAuth } from '../components/AuthProvider';
@@ -190,9 +190,10 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
     };
 
     useEffect(() => {
-        const handleResize = () => setIsMobile(window.innerWidth < 1024);
+        let _rt: ReturnType<typeof setTimeout>;
+        const handleResize = () => { clearTimeout(_rt); _rt = setTimeout(() => setIsMobile(window.innerWidth < 1024), 150); };
         window.addEventListener('resize', handleResize);
-        return () => window.removeEventListener('resize', handleResize);
+        return () => { clearTimeout(_rt); window.removeEventListener('resize', handleResize); };
     }, []);
 
     useEffect(() => {

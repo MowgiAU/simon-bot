@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" translate="no">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -47,7 +47,11 @@
               "@type": "EntryPoint",
               "urlTemplate": "https://fujistud.io/artists?q={search_term_string}"
             },
-            "query-input": "required name=search_term_string"
+            "query-input": {
+              "@type": "PropertyValueSpecification",
+              "valueRequired": true,
+              "valueName": "search_term_string"
+            }
           }
         },
         {

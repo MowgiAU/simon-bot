@@ -192,9 +192,10 @@ export const TrackPage: React.FC = () => {
     const canEdit = isOwner || isAdmin;
 
     useEffect(() => {
-        const handleResize = () => setIsMobile(window.innerWidth < 1024);
+        let _rt: ReturnType<typeof setTimeout>;
+        const handleResize = () => { clearTimeout(_rt); _rt = setTimeout(() => setIsMobile(window.innerWidth < 1024), 150); };
         window.addEventListener('resize', handleResize);
-        return () => window.removeEventListener('resize', handleResize);
+        return () => { clearTimeout(_rt); window.removeEventListener('resize', handleResize); };
     }, []);
 
     useEffect(() => {

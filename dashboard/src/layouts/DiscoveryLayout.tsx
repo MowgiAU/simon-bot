@@ -1,4 +1,4 @@
-import React, { useState, useEffect, ReactNode } from 'react';
+﻿import React, { useState, useEffect, ReactNode } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { colors } from '../theme/theme';
 import { Search, Music, Zap, User, LogIn, LogOut, Menu, Home, Mic2, ChevronDown, ExternalLink, Edit3, Upload, Swords, Heart, ListMusic, X, Rss, BarChart3, Settings, MessageCircle, Sparkles } from 'lucide-react';
@@ -58,9 +58,10 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
     const hasDashboardAccess = permissions.canManagePlugins || dashboardGuilds.length > 0;
 
     useEffect(() => {
-        const handleResize = () => setIsMobile(window.innerWidth < 1024);
+        let _rt: ReturnType<typeof setTimeout>;
+        const handleResize = () => { clearTimeout(_rt); _rt = setTimeout(() => setIsMobile(window.innerWidth < 1024), 150); };
         window.addEventListener('resize', handleResize);
-        return () => window.removeEventListener('resize', handleResize);
+        return () => { clearTimeout(_rt); window.removeEventListener('resize', handleResize); };
     }, []);
 
     useEffect(() => {

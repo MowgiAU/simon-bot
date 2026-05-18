@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
+﻿import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { colors } from '../theme/theme';
 import { useAuth } from '../components/AuthProvider';
@@ -381,9 +381,10 @@ export const FeedPage: React.FC = () => {
     const [reposts, setReposts] = useState<Record<string, boolean>>({});
 
     useEffect(() => {
-        const handleResize = () => setIsMobile(window.innerWidth < 768);
+        let _rt: ReturnType<typeof setTimeout>;
+        const handleResize = () => { clearTimeout(_rt); _rt = setTimeout(() => setIsMobile(window.innerWidth < 768), 150); };
         window.addEventListener('resize', handleResize);
-        return () => window.removeEventListener('resize', handleResize);
+        return () => { clearTimeout(_rt); window.removeEventListener('resize', handleResize); };
     }, []);
 
     const fetchFeed = useCallback(async (cursor?: string) => {

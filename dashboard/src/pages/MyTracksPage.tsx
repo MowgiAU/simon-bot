@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, memo } from 'react';
+﻿import React, { useEffect, useState, useRef, memo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { colors, spacing, borderRadius, shadows } from '../theme/theme';
 import { useAuth } from '../components/AuthProvider';
@@ -148,9 +148,10 @@ export const MyTracksPage: React.FC = () => {
     const [bulkSaving, setBulkSaving] = useState(false);
 
     useEffect(() => {
-        const onResize = () => setIsMobile(window.innerWidth < 768);
+        let _rt: ReturnType<typeof setTimeout>;
+        const onResize = () => { clearTimeout(_rt); _rt = setTimeout(() => setIsMobile(window.innerWidth < 768), 150); };
         window.addEventListener('resize', onResize);
-        return () => window.removeEventListener('resize', onResize);
+        return () => { clearTimeout(_rt); window.removeEventListener('resize', onResize); };
     }, []);
 
     // Cached data fetch — staleTime/gcTime set globally in QueryClient.
