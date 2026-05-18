@@ -853,9 +853,9 @@ export const BattleDetailPage: React.FC = () => {
                             {battle.prizes && battle.prizes.length > 0 ? (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                     {battle.prizes.map((p, i) => (
-                                        <div key={i} style={{ display: 'flex', gap: '14px', padding: '14px 16px', backgroundColor: `${colors.primary}08`, border: `1px solid ${colors.primary}18`, borderRadius: borderRadius.md, alignItems: 'flex-start' }}>
+                                        <div key={i} style={{ display: 'flex', gap: '16px', padding: '16px', backgroundColor: `${colors.primary}08`, border: `1px solid ${colors.primary}18`, borderRadius: borderRadius.md, alignItems: 'flex-start' }}>
                                             {p.imageUrl && (
-                                                <img src={p.imageUrl} alt={p.title || p.place} style={{ width: '60px', height: '60px', borderRadius: '8px', objectFit: 'cover', flexShrink: 0, border: '1px solid rgba(255,255,255,0.1)' }} />
+                                                <img src={p.imageUrl} alt={p.title || p.place} style={{ width: '100px', height: '100px', borderRadius: '10px', objectFit: 'cover', flexShrink: 0, border: '1px solid rgba(255,255,255,0.12)' }} />
                                             )}
                                             <div style={{ flex: 1, minWidth: 0 }}>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
