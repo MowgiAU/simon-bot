@@ -91,6 +91,7 @@ const BugReportsAdminPage    = lazy(() => import("./pages/BugReportsAdmin").then
 const ArticlesPage           = lazy(() => import("./pages/Articles").then(m => ({ default: m.ArticlesPage })));
 const ArticleReviewPage      = lazy(() => import("./pages/ArticleReview").then(m => ({ default: m.ArticleReviewPage })));
 const ArticlePage            = lazy(() => import("./pages/ArticlePage").then(m => ({ default: m.ArticlePage })));
+const ArticlesArchivePage    = lazy(() => import("./pages/ArticlesArchivePage").then(m => ({ default: m.ArticlesArchivePage })));
 const ProgressionPage        = lazy(() => import("./pages/Progression").then(m => ({ default: m.ProgressionPage })));
 const MessagesPage           = lazy(() => import("./pages/Messages").then(m => ({ default: m.MessagesPage })));
 const SetupPasswordModal     = lazy(() => import("./components/SetupPasswordModal").then(m => ({ default: m.SetupPasswordModal })));
@@ -924,6 +925,9 @@ const AppInternal: React.FC = () => {
   }
 
   // /article/:slug → Public article view
+  if (currentPath === '/articles') {
+    return <Suspense fallback={<PageSpinner />}><ArticlesArchivePage /></Suspense>;
+  }
   if (currentPath.startsWith('/article/')) {
     return <Suspense fallback={<PageSpinner />}><ArticlePage /></Suspense>;
   }
