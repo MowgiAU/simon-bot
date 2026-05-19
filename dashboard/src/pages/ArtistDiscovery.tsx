@@ -1116,6 +1116,47 @@ export const ArtistDiscoveryPage: React.FC = () => {
                     })()}
 
                     {/* â•â•â•â•â•â¬â•â¬â•â¬â•â¬â•â¬â•â¬â•â¬â•â¬â•â¬ FULL-WIDTH: WEEKLY CHART â•â¬â•â¬â•â¬â•â¬â•â¬â•â¬â•â¬â•â¬â•â¬â•â¬â•â¬â•â¬â•â¬ */}
+                    {/* ── Brand Partners Strip ── */}
+                    {featured?.globalSponsors && featured.globalSponsors.length > 0 && (
+                        <div style={{ gridColumn: isMobile ? undefined : '1 / -1', position: 'relative', overflow: 'hidden', borderRadius: '16px' }}>
+                            <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(90deg, ${colors.primary}06 0%, ${colors.primary}10 50%, ${colors.primary}06 100%)`, pointerEvents: 'none' }} />
+                            <div style={{ border: `1px solid ${colors.primary}20`, borderRadius: '16px', padding: isMobile ? '16px' : '20px 32px', position: 'relative' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: isMobile ? '20px' : '40px', flexWrap: 'wrap' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                                        <div style={{ width: '2px', height: '18px', backgroundColor: colors.primary, borderRadius: '1px' }} />
+                                        <span style={{ fontSize: '9px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.2em', color: colors.primary, whiteSpace: 'nowrap' }}>
+                                            {featured.globalSponsorTitle || 'Our Partners'}
+                                        </span>
+                                    </div>
+                                    {featured.globalSponsors.map((s: any) => {
+                                        const href = s.links?.[0]?.url || s.websiteUrl;
+                                        const inner = (
+                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+                                                {s.logoUrl
+                                                    ? <img src={s.logoUrl} alt={s.name} style={{ height: '32px', maxWidth: '120px', objectFit: 'contain' }} />
+                                                    : <span style={{ fontWeight: 800, fontSize: '14px', color: '#fff', letterSpacing: '0.04em' }}>{s.name}</span>
+                                                }
+                                                <span style={{ fontSize: '10px', fontWeight: 600, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.04em' }}>{s.name}</span>
+                                            </div>
+                                        );
+                                        const wrapStyle: React.CSSProperties = { textDecoration: 'none', display: 'flex', alignItems: 'center', padding: '10px 20px', borderRadius: '10px', backgroundColor: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', transition: 'all 0.2s' };
+                                        return href ? (
+                                            <a key={s.id} href={href} target="_blank" rel="noopener noreferrer"
+                                                onClick={() => s.links?.[0] && fetch(`/api/beat-battle/sponsor-links/${s.links[0].id}/click`, { method: 'POST' }).catch(() => {})}
+                                                style={wrapStyle}
+                                                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.backgroundColor = 'rgba(255,255,255,0.11)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.25)'; }}
+                                                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = 'rgba(255,255,255,0.06)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.12)'; }}
+                                            >{inner}</a>
+                                        ) : (
+                                            <div key={s.id} style={wrapStyle}>{inner}</div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Charts card */}
                     <div style={{
                         gridColumn: isMobile ? undefined : '1 / -1',
                         position: 'relative',
@@ -1315,39 +1356,6 @@ export const ArtistDiscoveryPage: React.FC = () => {
 
                 </div>
 
-                {/* ── Brand Partners Strip ── */}
-                {featured?.globalSponsors && (featured as any).globalSponsors.length > 0 && (
-                    <div style={{ position: 'relative', overflow: 'hidden', marginTop: '24px' }}>
-                        <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(90deg, ${colors.primary}06 0%, ${colors.primary}10 50%, ${colors.primary}06 100%)`, pointerEvents: 'none' }} />
-                        <div style={{ borderTop: `1px solid ${colors.primary}20`, borderBottom: `1px solid ${colors.primary}20`, padding: isMobile ? '16px' : '20px 0', position: 'relative' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: isMobile ? '16px' : '28px', flexWrap: 'wrap' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-                                    <div style={{ width: '2px', height: '18px', backgroundColor: colors.primary, borderRadius: '1px' }} />
-                                    <span style={{ fontSize: '9px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.2em', color: colors.primary, whiteSpace: 'nowrap' }}>
-                                        {(featured as any).globalSponsorTitle || 'Our Partners'}
-                                    </span>
-                                </div>
-                                {(featured as any).globalSponsors.map((s: any) => {
-                                    const href = s.links?.[0]?.url || s.websiteUrl;
-                                    const inner = s.logoUrl
-                                        ? <img src={s.logoUrl} alt={s.name} style={{ height: '28px', maxWidth: '120px', objectFit: 'contain' }} />
-                                        : <span style={{ fontWeight: 800, fontSize: '13px', color: '#fff', letterSpacing: '0.04em' }}>{s.name}</span>;
-                                    const wrapStyle: React.CSSProperties = { textDecoration: 'none', display: 'flex', alignItems: 'center', padding: '7px 16px', borderRadius: '8px', backgroundColor: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', transition: 'all 0.2s' };
-                                    return href ? (
-                                        <a key={s.id} href={href} target="_blank" rel="noopener noreferrer"
-                                            onClick={() => s.links?.[0] && fetch(`/api/beat-battle/sponsor-links/${s.links[0].id}/click`, { method: 'POST' }).catch(() => {})}
-                                            style={wrapStyle}
-                                            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.backgroundColor = 'rgba(255,255,255,0.11)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.25)'; }}
-                                            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = 'rgba(255,255,255,0.06)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.12)'; }}
-                                        >{inner}</a>
-                                    ) : (
-                                        <div key={s.id} style={wrapStyle}>{inner}</div>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    </div>
-                )}
             </div>
         </DiscoveryLayout>
     );
