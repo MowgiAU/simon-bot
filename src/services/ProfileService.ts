@@ -51,20 +51,11 @@ export class ProfileService {
             } catch { return false; }
         });
 
-        // 2. Clear and re-set relations (Transaction-based)
-        return await this.prisma.$transaction(async (tx) => {
-            // If setting a featured track, clear it from any OTHER profile first.
-            // featuredTrackId has a @unique constraint — if a stale duplicate profile
-            // already holds the same track ID, the upsert below would throw P2002.
-            if (data.featuredTrackId) {
-                await tx.musicianProfile.updateMany({
-                    where: { featuredTrackId: data.featuredTrackId, userId: { not: userId } },
-                    data: { featuredTrackId: null },
-                });
-            }
-
-            // Find or create the profile base
-            const profile = await tx.musicianProfile.upsert({
+        // 2. Upsert the core profile fields (featuredTrackId intentionally excluded —
+        //    it's updated separately below to avoid P2002 from Prisma's upsert
+        //    INSERT-first behaviour conflicting with the @unique constraint).
+        const profile = await this.prisma.$transaction(async (tx) => {
+            const p = await tx.musicianProfile.upsert({
                 where: { userId },
                 create: {
                     userId,
@@ -80,7 +71,6 @@ export class ProfileService {
                     socials: validatedSocials,
                     hardware: data.gearList || [],
                     primaryGenreId: data.primaryGenreId || null,
-                    featuredTrackId: data.featuredTrackId,
                     featuredPlaylistId: data.featuredPlaylistId,
                     accentColor: data.accentColor ?? null,
                     cardBgColor: data.cardBgColor ?? null
@@ -98,34 +88,45 @@ export class ProfileService {
                     socials: validatedSocials,
                     hardware: data.gearList,
                     primaryGenreId: data.primaryGenreId !== undefined ? (data.primaryGenreId || null) : undefined,
-                    featuredTrackId: data.featuredTrackId,
                     featuredPlaylistId: data.featuredPlaylistId,
                     accentColor: data.accentColor !== undefined ? (data.accentColor || null) : undefined,
                     cardBgColor: data.cardBgColor !== undefined ? (data.cardBgColor || null) : undefined
                 }
             });
 
-            // 3. Handle Genre Mapping (Sync many-to-many)
+            // Handle Genre Mapping (Sync many-to-many)
             if (data.genreIds) {
-                // Delete existing genres
-                await tx.profileGenre.deleteMany({
-                    where: { profileId: profile.id }
-                });
-
-                // Batch insert new ones
-                const validGenreIds = data.genreIds.filter(gid => !!gid);
+                await tx.profileGenre.deleteMany({ where: { profileId: p.id } });
+                const validGenreIds = data.genreIds.filter((gid: string) => !!gid);
                 if (validGenreIds.length > 0) {
                     await tx.profileGenre.createMany({
-                        data: validGenreIds.map(gid => ({
-                            profileId: profile.id,
-                            genreId: gid
-                        }))
+                        data: validGenreIds.map((gid: string) => ({ profileId: p.id, genreId: gid }))
                     });
                 }
             }
 
-            return profile;
+            return p;
         });
+
+        // 3. Update featuredTrackId separately — outside the main transaction — to avoid
+        //    P2002 from Prisma's upsert trying an INSERT that hits the @unique constraint
+        //    before falling back to UPDATE. Two steps: clear any stale holder, then set ours.
+        if (data.featuredTrackId !== undefined) {
+            if (data.featuredTrackId) {
+                // Clear the track from any other profile that currently features it
+                await this.prisma.musicianProfile.updateMany({
+                    where: { featuredTrackId: data.featuredTrackId, id: { not: profile.id } },
+                    data: { featuredTrackId: null },
+                });
+            }
+            await this.prisma.musicianProfile.update({
+                where: { id: profile.id },
+                data: { featuredTrackId: data.featuredTrackId },
+            });
+            profile.featuredTrackId = data.featuredTrackId;
+        }
+
+        return profile;
     }
 
     async getProfile(identifier: string) {
