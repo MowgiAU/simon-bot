@@ -6,12 +6,12 @@ import { colors, spacing, borderRadius } from '../theme/theme';
 import { ChannelSelect } from '../components/ChannelSelect';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { useMobile } from '../hooks/useMobile';
-import { 
+import {
     Swords, Plus, Trophy, Users, BarChart2, BarChart3, Calendar,
     ChevronDown, ChevronUp, Trash2, Edit, Play, Vote,
     ExternalLink, Award, Archive, Upload, Clock, X, Save,
     Building2, Link2, FileDown, Settings, Gift, Megaphone,
-    Image, Loader2, Music, Pause, Download
+    Image, Loader2, Music, Pause, Download, Search, Crown
 } from 'lucide-react';
 
 const API = import.meta.env.VITE_API_URL || '';
@@ -115,6 +115,15 @@ interface VoteReport {
     entries: VoteEntry[];
 }
 
+interface BackfillEntry {
+    trackId: string | null;
+    trackTitle: string;
+    artistName: string;
+    coverUrl: string | null;
+    userId: string;
+    place: number; // 1=1st, 2=2nd, etc., 0=no placement
+}
+
 type Tab = 'battles' | 'sponsors' | 'backfill' | 'settings';
 
 export const BeatBattlePage: React.FC = () => {
@@ -170,9 +179,18 @@ export const BeatBattlePage: React.FC = () => {
 
     // Backfill form
     const [backfillForm, setBackfillForm] = useState({
-        title: '', description: '', sponsorId: '', completedAt: '',
-        winners: [{ userId: '', username: '', trackTitle: '', audioUrl: '' }] as { userId: string; username: string; trackTitle: string; audioUrl: string }[],
+        title: '', subtitle: '', description: '', sponsorId: '', completedAt: '',
+        prizes: [{ place: '1st Place', title: '', description: '', imageUrl: '', link: '' }] as { place: string; title: string; description: string; imageUrl: string; link: string }[],
+        entries: [] as BackfillEntry[],
     });
+    const [backfillBannerFile, setBackfillBannerFile] = useState<File | null>(null);
+    const [backfillBannerPreview, setBackfillBannerPreview] = useState('');
+    const [backfillCardImageFile, setBackfillCardImageFile] = useState<File | null>(null);
+    const [backfillCardImagePreview, setBackfillCardImagePreview] = useState('');
+    const [uploadingBackfillPrizeIdx, setUploadingBackfillPrizeIdx] = useState<number | null>(null);
+    const [backfillTrackSearch, setBackfillTrackSearch] = useState('');
+    const [backfillTrackResults, setBackfillTrackResults] = useState<{ id: string; title: string; coverUrl: string | null; userId: string; artistName: string }[]>([]);
+    const [backfillSearchLoading, setBackfillSearchLoading] = useState(false);
 
     // Settings state
     const [settings, setSettings] = useState({
@@ -237,6 +255,18 @@ export const BeatBattlePage: React.FC = () => {
         setLoading(true);
         Promise.all([fetchBattles(), fetchSponsors(), fetchSettings()]).finally(() => setLoading(false));
     }, [fetchBattles, fetchSponsors, fetchSettings]);
+
+    useEffect(() => {
+        if (backfillTrackSearch.length < 2) { setBackfillTrackResults([]); return; }
+        const timer = setTimeout(async () => {
+            setBackfillSearchLoading(true);
+            try {
+                const res = await fetch(`${API}/api/beat-battle/admin/track-search?q=${encodeURIComponent(backfillTrackSearch)}`, { credentials: 'include' });
+                if (res.ok) setBackfillTrackResults(await res.json());
+            } catch {} finally { setBackfillSearchLoading(false); }
+        }, 300);
+        return () => clearTimeout(timer);
+    }, [backfillTrackSearch]);
 
     const resetForm = () => setForm({ title: '', subtitle: '', description: '', rulesData: [{ text: '', links: [], samples: [] }], submissionStart: '', submissionEnd: '', votingStart: '', votingEnd: '', sponsorId: '', announcementChannelId: '', prizes: [{ place: '1st Place', title: '', description: '', imageUrl: '', link: '' }], maxVotesPerUser: 0, requireProjectFile: false, pingOnSubmissions: false, pingOnVoting: false, pingOnWinners: false, entryFeeEnabled: false, entryFee: 0, prizePoolEnabled: false, prizeFirst: 0, prizeSecond: 0, prizeThird: 0, voterReward: 0, suddenDeathDurationMinutes: 60 });
 
@@ -585,6 +615,19 @@ export const BeatBattlePage: React.FC = () => {
         setLoadingSponsorAnalytics(false);
     };
 
+    const uploadBackfillPrizeImage = async (idx: number, file: File) => {
+        setUploadingBackfillPrizeIdx(idx);
+        try {
+            const fd = new FormData();
+            fd.append('prizeImage', file);
+            const res = await fetch(`${API}/api/beat-battle/admin/prize-image`, { method: 'POST', credentials: 'include', body: fd });
+            if (res.ok) {
+                const { url } = await res.json();
+                setBackfillForm(f => { const p = [...f.prizes]; p[idx] = { ...p[idx], imageUrl: url }; return { ...f, prizes: p }; });
+            }
+        } catch {} finally { setUploadingBackfillPrizeIdx(null); }
+    };
+
     const handleBackfill = async () => {
         try {
             const res = await fetch(`${API}/api/beat-battle/admin/backfill`, {
@@ -593,16 +636,30 @@ export const BeatBattlePage: React.FC = () => {
                 credentials: 'include',
                 body: JSON.stringify({
                     title: backfillForm.title,
+                    subtitle: backfillForm.subtitle,
                     description: backfillForm.description,
                     sponsorId: backfillForm.sponsorId || null,
                     completedAt: backfillForm.completedAt,
-                    winners: backfillForm.winners,
+                    prizes: backfillForm.prizes,
+                    entries: backfillForm.entries,
                     guildId,
                 }),
             });
             if (res.ok) {
+                const created = await res.json();
+                if (backfillBannerFile) {
+                    const fd = new FormData(); fd.append('battleBanner', backfillBannerFile);
+                    await fetch(`${API}/api/beat-battle/admin/battles/${created.id}/banner`, { method: 'POST', credentials: 'include', body: fd }).catch(() => {});
+                }
+                if (backfillCardImageFile) {
+                    const fd = new FormData(); fd.append('battleCardImage', backfillCardImageFile);
+                    await fetch(`${API}/api/beat-battle/admin/battles/${created.id}/card-image`, { method: 'POST', credentials: 'include', body: fd }).catch(() => {});
+                }
                 await fetchBattles();
-                setBackfillForm({ title: '', description: '', sponsorId: '', completedAt: '', winners: [{ userId: '', username: '', trackTitle: '', audioUrl: '' }] });
+                setBackfillForm({ title: '', subtitle: '', description: '', sponsorId: '', completedAt: '', prizes: [{ place: '1st Place', title: '', description: '', imageUrl: '', link: '' }], entries: [] });
+                setBackfillBannerFile(null); setBackfillBannerPreview('');
+                setBackfillCardImageFile(null); setBackfillCardImagePreview('');
+                setBackfillTrackSearch(''); setBackfillTrackResults([]);
             }
         } catch {}
     };
@@ -1481,11 +1538,24 @@ export const BeatBattlePage: React.FC = () => {
                 <>
                     <h2 style={{ margin: '0 0 16px', color: colors.textPrimary, fontSize: '18px' }}>Backfill Past Battles</h2>
                     <div style={{ ...cardStyle, borderLeft: `4px solid ${colors.warning}` }}>
-                        <p style={{ margin: '0 0 16px', color: colors.textSecondary, fontSize: '13px' }}>Add past beat battles that happened before this system was in place. They will appear in the archive.</p>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                        <p style={{ margin: '0 0 20px', color: colors.textSecondary, fontSize: '13px' }}>Add past beat battles that happened before this system was in place. They will appear in the archive.</p>
+
+                        {/* ── Section 1: Basic Info ── */}
+                        <h4 style={{ margin: '0 0 12px', color: colors.textPrimary, fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.06em', opacity: 0.7 }}>Basic Info</h4>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '20px' }}>
                             <div style={{ gridColumn: 'span 2' }}>
                                 <label style={labelStyle}>Battle Title *</label>
                                 <input style={inputStyle} value={backfillForm.title} onChange={(e) => setBackfillForm({ ...backfillForm, title: e.target.value })} placeholder="Beat Battle #0" />
+                            </div>
+                            <div style={{ gridColumn: 'span 2' }}>
+                                <label style={labelStyle}>Subtitle <span style={{ color: colors.textTertiary, fontWeight: 400 }}>(optional — max 200 chars)</span></label>
+                                <input
+                                    style={inputStyle}
+                                    value={backfillForm.subtitle}
+                                    onChange={(e) => setBackfillForm({ ...backfillForm, subtitle: e.target.value.slice(0, 200) })}
+                                    placeholder="e.g. Season 1 · Lo-Fi Edition"
+                                />
+                                <div style={{ fontSize: '10px', color: colors.textTertiary, textAlign: 'right', marginTop: '2px' }}>{backfillForm.subtitle.length}/200</div>
                             </div>
                             <div style={{ gridColumn: 'span 2' }}>
                                 <label style={labelStyle}>Description</label>
@@ -1493,11 +1563,7 @@ export const BeatBattlePage: React.FC = () => {
                             </div>
                             <div>
                                 <label style={labelStyle}>Sponsor (optional)</label>
-                                <select
-                                    style={inputStyle}
-                                    value={backfillForm.sponsorId}
-                                    onChange={(e) => setBackfillForm({ ...backfillForm, sponsorId: e.target.value })}
-                                >
+                                <select style={inputStyle} value={backfillForm.sponsorId} onChange={(e) => setBackfillForm({ ...backfillForm, sponsorId: e.target.value })}>
                                     <option value="">— None —</option>
                                     {sponsors.filter(s => s.isActive).map(s => (
                                         <option key={s.id} value={s.id}>{s.name}</option>
@@ -1510,46 +1576,214 @@ export const BeatBattlePage: React.FC = () => {
                             </div>
                         </div>
 
-                        <div style={{ marginTop: '16px' }}>
-                            <label style={{ ...labelStyle, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                <span>Winners <span style={{ color: colors.textSecondary, fontWeight: 400, fontSize: '11px' }}>(listed in placement order — 1st, 2nd, 3rd…)</span></span>
-                                <button
-                                    onClick={() => setBackfillForm({ ...backfillForm, winners: [...backfillForm.winners, { userId: '', username: '', trackTitle: '', audioUrl: '' }] })}
-                                    style={{ ...btnSecondary, fontSize: '12px', padding: '4px 10px' }}
-                                >
-                                    <Plus size={12} /> Add Winner
-                                </button>
-                            </label>
-                            {backfillForm.winners.map((w, i) => (
-                                <div key={i} style={{ backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: borderRadius.md, padding: '12px', marginBottom: '10px' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-                                        <span style={{ fontSize: '12px', fontWeight: 700, color: i === 0 ? '#FFD700' : i === 1 ? '#C0C0C0' : i === 2 ? '#CD7F32' : colors.textSecondary }}>
-                                            {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i + 1}`} {i === 0 ? '1st Place' : i === 1 ? '2nd Place' : i === 2 ? '3rd Place' : `${i + 1}th Place`}
-                                        </span>
-                                        {backfillForm.winners.length > 1 && (
-                                            <button onClick={() => setBackfillForm({ ...backfillForm, winners: backfillForm.winners.filter((_, idx) => idx !== i) })} style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.error, padding: '2px' }}>
-                                                <X size={14} />
-                                            </button>
-                                        )}
+                        {/* ── Section 2: Images ── */}
+                        <h4 style={{ margin: '0 0 12px', color: colors.textPrimary, fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.06em', opacity: 0.7 }}>Images</h4>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '20px' }}>
+                            <div>
+                                <label style={labelStyle}>Hero Banner Image</label>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                                    <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 14px', backgroundColor: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: borderRadius.md, cursor: 'pointer', color: colors.textPrimary, fontSize: '13px', fontWeight: 600 }}>
+                                        <Upload size={14} /> {backfillBannerFile ? backfillBannerFile.name : 'Upload Image'}
+                                        <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => {
+                                            const f = e.target.files?.[0];
+                                            if (!f) return;
+                                            setBackfillBannerFile(f);
+                                            const reader = new FileReader();
+                                            reader.onload = (ev) => setBackfillBannerPreview(ev.target?.result as string);
+                                            reader.readAsDataURL(f);
+                                        }} />
+                                    </label>
+                                    {backfillBannerPreview && (
+                                        <>
+                                            <img src={backfillBannerPreview} alt="Banner preview" style={{ height: '60px', width: '120px', objectFit: 'cover', borderRadius: borderRadius.sm, border: '1px solid rgba(255,255,255,0.1)' }} />
+                                            <button onClick={() => { setBackfillBannerFile(null); setBackfillBannerPreview(''); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.error, padding: '4px' }} title="Remove"><X size={16} /></button>
+                                        </>
+                                    )}
+                                </div>
+                                <p style={{ margin: '4px 0 0', fontSize: '11px', color: colors.textSecondary }}>1920×600px recommended.</p>
+                            </div>
+                            <div>
+                                <label style={labelStyle}>Homepage Card Image</label>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                                    <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 14px', backgroundColor: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: borderRadius.md, cursor: 'pointer', color: colors.textPrimary, fontSize: '13px', fontWeight: 600 }}>
+                                        <Upload size={14} /> {backfillCardImageFile ? backfillCardImageFile.name : 'Upload Image'}
+                                        <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => {
+                                            const f = e.target.files?.[0];
+                                            if (!f) return;
+                                            setBackfillCardImageFile(f);
+                                            const reader = new FileReader();
+                                            reader.onload = (ev) => setBackfillCardImagePreview(ev.target?.result as string);
+                                            reader.readAsDataURL(f);
+                                        }} />
+                                    </label>
+                                    {backfillCardImagePreview && (
+                                        <>
+                                            <img src={backfillCardImagePreview} alt="Card image preview" style={{ height: '60px', width: '120px', objectFit: 'cover', borderRadius: borderRadius.sm, border: '1px solid rgba(255,255,255,0.1)' }} />
+                                            <button onClick={() => { setBackfillCardImageFile(null); setBackfillCardImagePreview(''); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.error, padding: '4px' }} title="Remove"><X size={16} /></button>
+                                        </>
+                                    )}
+                                </div>
+                                <p style={{ margin: '4px 0 0', fontSize: '11px', color: colors.textSecondary }}>16:9, min 600×340px recommended.</p>
+                            </div>
+                        </div>
+
+                        {/* ── Section 3: Prizes ── */}
+                        <h4 style={{ margin: '0 0 12px', color: colors.textPrimary, fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.06em', opacity: 0.7 }}>Prizes</h4>
+                        <div style={{ marginBottom: '20px' }}>
+                            {backfillForm.prizes.map((prize, i) => (
+                                <div key={i} style={{ marginBottom: '10px', padding: '12px', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: borderRadius.md, border: '1px solid rgba(255,255,255,0.07)' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                                        <span style={{ fontSize: '11px', fontWeight: 700, color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Prize #{i + 1}</span>
+                                        <button onClick={() => setBackfillForm({ ...backfillForm, prizes: backfillForm.prizes.filter((_, idx) => idx !== i) })} style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.error, padding: '2px' }}><X size={14} /></button>
                                     </div>
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                                         <div>
-                                            <label style={{ ...labelStyle, fontSize: '11px' }}>Discord User ID</label>
-                                            <input style={inputStyle} value={w.userId} onChange={(e) => { const ws = [...backfillForm.winners]; ws[i] = { ...ws[i], userId: e.target.value }; setBackfillForm({ ...backfillForm, winners: ws }); }} placeholder="123456789012345678" />
+                                            <label style={{ fontSize: '11px', color: colors.textSecondary, display: 'block', marginBottom: '3px' }}>Place Label</label>
+                                            <input style={{ ...inputStyle, padding: '7px 10px', fontSize: '13px' }} value={prize.place} onChange={(e) => { const p = [...backfillForm.prizes]; p[i] = { ...p[i], place: e.target.value }; setBackfillForm({ ...backfillForm, prizes: p }); }} placeholder="1st Place" />
                                         </div>
                                         <div>
-                                            <label style={{ ...labelStyle, fontSize: '11px' }}>Username</label>
-                                            <input style={inputStyle} value={w.username} onChange={(e) => { const ws = [...backfillForm.winners]; ws[i] = { ...ws[i], username: e.target.value }; setBackfillForm({ ...backfillForm, winners: ws }); }} placeholder="Producer123" />
+                                            <label style={{ fontSize: '11px', color: colors.textSecondary, display: 'block', marginBottom: '3px' }}>Prize Title</label>
+                                            <input style={{ ...inputStyle, padding: '7px 10px', fontSize: '13px' }} value={prize.title} onChange={(e) => { const p = [...backfillForm.prizes]; p[i] = { ...p[i], title: e.target.value }; setBackfillForm({ ...backfillForm, prizes: p }); }} placeholder="Splice Subscription" />
+                                        </div>
+                                        <div style={{ gridColumn: 'span 2' }}>
+                                            <label style={{ fontSize: '11px', color: colors.textSecondary, display: 'block', marginBottom: '3px' }}>Description</label>
+                                            <input style={{ ...inputStyle, padding: '7px 10px', fontSize: '13px' }} value={prize.description} onChange={(e) => { const p = [...backfillForm.prizes]; p[i] = { ...p[i], description: e.target.value }; setBackfillForm({ ...backfillForm, prizes: p }); }} placeholder="3 months of Splice + $100 cash" />
                                         </div>
                                         <div>
-                                            <label style={{ ...labelStyle, fontSize: '11px' }}>Track Title</label>
-                                            <input style={inputStyle} value={w.trackTitle} onChange={(e) => { const ws = [...backfillForm.winners]; ws[i] = { ...ws[i], trackTitle: e.target.value }; setBackfillForm({ ...backfillForm, winners: ws }); }} placeholder="Fire Beat" />
+                                            <label style={{ fontSize: '11px', color: colors.textSecondary, display: 'block', marginBottom: '3px' }}>Link (Optional)</label>
+                                            <input style={{ ...inputStyle, padding: '7px 10px', fontSize: '13px' }} value={prize.link} onChange={(e) => { const p = [...backfillForm.prizes]; p[i] = { ...p[i], link: e.target.value }; setBackfillForm({ ...backfillForm, prizes: p }); }} placeholder="https://splice.com" />
                                         </div>
                                         <div>
-                                            <label style={{ ...labelStyle, fontSize: '11px' }}>Audio URL (optional)</label>
-                                            <input style={inputStyle} value={w.audioUrl} onChange={(e) => { const ws = [...backfillForm.winners]; ws[i] = { ...ws[i], audioUrl: e.target.value }; setBackfillForm({ ...backfillForm, winners: ws }); }} placeholder="/uploads/battles/..." />
+                                            <label style={{ fontSize: '11px', color: colors.textSecondary, display: 'block', marginBottom: '3px' }}>Image (Optional)</label>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                <label style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '6px 10px', backgroundColor: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: borderRadius.sm, cursor: uploadingBackfillPrizeIdx === i ? 'not-allowed' : 'pointer', fontSize: '12px', color: colors.textPrimary }}>
+                                                    {uploadingBackfillPrizeIdx === i ? <Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} /> : <Image size={12} />}
+                                                    {uploadingBackfillPrizeIdx === i ? 'Uploading...' : 'Upload'}
+                                                    <input type="file" accept="image/*" style={{ display: 'none' }} disabled={uploadingBackfillPrizeIdx === i} onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadBackfillPrizeImage(i, f); e.target.value = ''; }} />
+                                                </label>
+                                                {prize.imageUrl && (
+                                                    <>
+                                                        <img src={prize.imageUrl} alt="" style={{ width: '36px', height: '36px', borderRadius: '6px', objectFit: 'cover', border: '1px solid rgba(255,255,255,0.1)' }} />
+                                                        <button onClick={() => { const p = [...backfillForm.prizes]; p[i] = { ...p[i], imageUrl: '' }; setBackfillForm({ ...backfillForm, prizes: p }); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.textSecondary, padding: '2px' }}><X size={12} /></button>
+                                                    </>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
+                                </div>
+                            ))}
+                            <button onClick={() => setBackfillForm({ ...backfillForm, prizes: [...backfillForm.prizes, { place: `${backfillForm.prizes.length + 1}${['st','nd','rd'][backfillForm.prizes.length] || 'th'} Place`, title: '', description: '', imageUrl: '', link: '' }] })} style={{ ...btnSecondary, fontSize: '12px', padding: '4px 10px' }}>
+                                <Gift size={12} /> Add Prize
+                            </button>
+                        </div>
+
+                        {/* ── Section 4: Submissions ── */}
+                        <h4 style={{ margin: '0 0 12px', color: colors.textPrimary, fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.06em', opacity: 0.7 }}>Submissions</h4>
+                        <div style={{ marginBottom: '20px' }}>
+                            {/* Track search */}
+                            <div style={{ position: 'relative', marginBottom: '8px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px', backgroundColor: colors.background, border: `1px solid ${colors.border}`, borderRadius: borderRadius.md }}>
+                                    {backfillSearchLoading ? <Loader2 size={14} color={colors.textSecondary} style={{ animation: 'spin 1s linear infinite', flexShrink: 0 }} /> : <Search size={14} color={colors.textSecondary} style={{ flexShrink: 0 }} />}
+                                    <input
+                                        style={{ flex: 1, background: 'none', border: 'none', outline: 'none', color: colors.textPrimary, fontSize: '14px' }}
+                                        value={backfillTrackSearch}
+                                        onChange={(e) => setBackfillTrackSearch(e.target.value)}
+                                        placeholder="Search tracks by title or artist…"
+                                    />
+                                    {backfillTrackSearch && (
+                                        <button onClick={() => { setBackfillTrackSearch(''); setBackfillTrackResults([]); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.textSecondary, padding: '2px', flexShrink: 0 }}><X size={14} /></button>
+                                    )}
+                                </div>
+                                {backfillTrackResults.length > 0 && (
+                                    <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 100, backgroundColor: colors.surface, border: `1px solid ${colors.border}`, borderRadius: borderRadius.md, marginTop: '4px', boxShadow: '0 8px 24px rgba(0,0,0,0.4)', overflow: 'hidden' }}>
+                                        {backfillTrackResults.map((r) => (
+                                            <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', borderBottom: `1px solid rgba(255,255,255,0.05)`, cursor: 'default' }}>
+                                                {r.coverUrl
+                                                    ? <img src={r.coverUrl} alt="" style={{ width: '40px', height: '40px', borderRadius: borderRadius.sm, objectFit: 'cover', flexShrink: 0 }} />
+                                                    : <div style={{ width: '40px', height: '40px', borderRadius: borderRadius.sm, backgroundColor: 'rgba(255,255,255,0.08)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Music size={16} color={colors.textTertiary} /></div>
+                                                }
+                                                <div style={{ flex: 1, minWidth: 0 }}>
+                                                    <div style={{ color: colors.textPrimary, fontSize: '13px', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.title}</div>
+                                                    <div style={{ color: colors.textSecondary, fontSize: '11px' }}>{r.artistName}</div>
+                                                </div>
+                                                <button
+                                                    onClick={() => {
+                                                        setBackfillForm(f => ({
+                                                            ...f,
+                                                            entries: [...f.entries, { trackId: r.id, trackTitle: r.title, artistName: r.artistName, coverUrl: r.coverUrl, userId: r.userId, place: f.entries.length + 1 }],
+                                                        }));
+                                                        setBackfillTrackSearch('');
+                                                        setBackfillTrackResults([]);
+                                                    }}
+                                                    style={{ ...btnPrimary, fontSize: '12px', padding: '5px 10px', flexShrink: 0 }}
+                                                >
+                                                    <Plus size={12} /> Add
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                            <button
+                                onClick={() => setBackfillForm(f => ({ ...f, entries: [...f.entries, { trackId: null, trackTitle: '', artistName: '', coverUrl: null, userId: '', place: f.entries.length + 1 }] }))}
+                                style={{ ...btnSecondary, fontSize: '12px', padding: '5px 12px', marginBottom: '12px' }}
+                            >
+                                <Plus size={12} /> Add Manually
+                            </button>
+
+                            {/* Entries list */}
+                            {backfillForm.entries.length === 0 && (
+                                <p style={{ color: colors.textTertiary, fontSize: '13px', margin: '8px 0' }}>No submissions yet. Search for platform tracks or add manually.</p>
+                            )}
+                            {backfillForm.entries.map((entry, i) => (
+                                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', backgroundColor: 'rgba(255,255,255,0.03)', border: `1px solid ${entry.place === 1 ? 'rgba(255,215,0,0.25)' : 'rgba(255,255,255,0.07)'}`, borderRadius: borderRadius.md, marginBottom: '8px' }}>
+                                    {/* Cover */}
+                                    {entry.coverUrl
+                                        ? <img src={entry.coverUrl} alt="" style={{ width: '40px', height: '40px', borderRadius: borderRadius.sm, objectFit: 'cover', flexShrink: 0 }} />
+                                        : <div style={{ width: '40px', height: '40px', borderRadius: borderRadius.sm, backgroundColor: 'rgba(255,255,255,0.08)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Music size={16} color={colors.textTertiary} /></div>
+                                    }
+                                    {/* Track info */}
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                        {entry.trackId ? (
+                                            <>
+                                                <div style={{ color: colors.textPrimary, fontSize: '13px', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.trackTitle}</div>
+                                                <div style={{ color: colors.textSecondary, fontSize: '11px' }}>{entry.artistName}</div>
+                                            </>
+                                        ) : (
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '6px' }}>
+                                                <div>
+                                                    <div style={{ fontSize: '10px', color: colors.textTertiary, marginBottom: '2px' }}>Track Title</div>
+                                                    <input style={{ ...inputStyle, padding: '5px 8px', fontSize: '12px' }} value={entry.trackTitle} onChange={(e) => { const es = [...backfillForm.entries]; es[i] = { ...es[i], trackTitle: e.target.value }; setBackfillForm({ ...backfillForm, entries: es }); }} placeholder="Track name" />
+                                                </div>
+                                                <div>
+                                                    <div style={{ fontSize: '10px', color: colors.textTertiary, marginBottom: '2px' }}>Artist / Username</div>
+                                                    <input style={{ ...inputStyle, padding: '5px 8px', fontSize: '12px' }} value={entry.artistName} onChange={(e) => { const es = [...backfillForm.entries]; es[i] = { ...es[i], artistName: e.target.value }; setBackfillForm({ ...backfillForm, entries: es }); }} placeholder="Producer123" />
+                                                </div>
+                                                <div>
+                                                    <div style={{ fontSize: '10px', color: colors.textTertiary, marginBottom: '2px' }}>Discord User ID</div>
+                                                    <input style={{ ...inputStyle, padding: '5px 8px', fontSize: '12px' }} value={entry.userId} onChange={(e) => { const es = [...backfillForm.entries]; es[i] = { ...es[i], userId: e.target.value }; setBackfillForm({ ...backfillForm, entries: es }); }} placeholder="123456789012345678" />
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                    {/* Place selector */}
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                                        {entry.place === 1 && <span title="Winner" style={{ display: 'inline-flex' }}><Crown size={14} color="#FFD700" /></span>}
+                                        <select
+                                            value={entry.place}
+                                            onChange={(e) => { const es = [...backfillForm.entries]; es[i] = { ...es[i], place: Number(e.target.value) }; setBackfillForm({ ...backfillForm, entries: es }); }}
+                                            style={{ ...inputStyle, width: 'auto', padding: '5px 8px', fontSize: '12px' }}
+                                        >
+                                            <option value={0}>No placement</option>
+                                            <option value={1}>1st</option>
+                                            <option value={2}>2nd</option>
+                                            <option value={3}>3rd</option>
+                                            <option value={4}>4th</option>
+                                            <option value={5}>5th</option>
+                                        </select>
+                                    </div>
+                                    {/* Remove */}
+                                    <button onClick={() => setBackfillForm({ ...backfillForm, entries: backfillForm.entries.filter((_, idx) => idx !== i) })} style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.error, padding: '4px', flexShrink: 0 }}><X size={14} /></button>
                                 </div>
                             ))}
                         </div>

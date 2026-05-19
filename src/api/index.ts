@@ -12071,10 +12071,46 @@ app.get('/api/beat-battle/admin/battles/:id/votes', requireAdmin, async (req: an
     }
 });
 
+// --- Admin: Track search for backfill ---
+app.get('/api/beat-battle/admin/track-search', requireAdmin, async (req: any, res) => {
+    try {
+        const q = (req.query.q as string || '').trim();
+        if (!q || q.length < 2) return res.json([]);
+
+        const tracks = await db.track.findMany({
+            where: {
+                status: 'active',
+                deletedAt: null,
+                OR: [
+                    { title: { contains: q, mode: 'insensitive' } },
+                    { profile: { username: { contains: q, mode: 'insensitive' } } },
+                    { profile: { displayName: { contains: q, mode: 'insensitive' } } },
+                ],
+            },
+            include: {
+                profile: { select: { userId: true, username: true, displayName: true, avatar: true } },
+            },
+            take: 10,
+            orderBy: { playCount: 'desc' },
+        });
+
+        res.json(tracks.map((t: any) => ({
+            id: t.id,
+            title: t.title,
+            coverUrl: t.coverUrl || null,
+            userId: t.profile?.userId || '',
+            artistName: t.profile?.displayName || t.profile?.username || 'Unknown',
+        })));
+    } catch (e: any) {
+        logger.error('Beat Battle API: track search failed', e);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 // --- Admin: Backfill old battle data ---
 app.post('/api/beat-battle/admin/backfill', requireAdmin, async (req: any, res) => {
     try {
-        const { title, description, winners, sponsorId: rawSponsorId, completedAt, guildId } = req.body;
+        const { title, subtitle, description, entries, sponsorId: rawSponsorId, completedAt, prizes, guildId } = req.body;
 
         if (!title) return res.status(400).json({ error: 'Title is required' });
 
@@ -12092,7 +12128,9 @@ app.post('/api/beat-battle/admin/backfill', requireAdmin, async (req: any, res) 
             data: {
                 guildId: effectiveGuildId,
                 title,
+                subtitle: subtitle || null,
                 description,
+                prizes: prizes || [],
                 status: 'completed',
                 sponsorId,
                 slug: (() => { const b = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''); return `${b}-${Date.now()}`; })(),
@@ -12103,57 +12141,74 @@ app.post('/api/beat-battle/admin/backfill', requireAdmin, async (req: any, res) 
             },
         });
 
-        // Create winner entries (one per winner, descending vote counts for ranking)
-        const validWinners = (winners || []).filter((w: any) => w.userId && w.trackTitle);
-        let firstEntryId: string | null = null;
-        for (let i = 0; i < validWinners.length; i++) {
-            const w = validWinners[i];
+        // Create entries (one per submission, descending vote counts for ranking)
+        const validEntries = (entries || []).filter((e: any) => (e.trackId || (e.userId && e.trackTitle)));
+        let winnerEntryId: string | null = null;
+        for (const e of validEntries) {
+            const place: number = typeof e.place === 'number' ? e.place : 0;
+            const voteCount = place > 0 ? (validEntries.length + 1 - place) : 0;
 
-            // Ensure a MusicianProfile exists for this winner (backfill creates a stub if missing)
-            let profile = await db.musicianProfile.findUnique({ where: { userId: w.userId } });
-            if (!profile) {
-                const fallbackName = (w.username || `producer-${w.userId.slice(-6)}`)
-                    .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || `producer-${w.userId.slice(-6)}`;
-                profile = await db.musicianProfile.create({
+            let trackId: string;
+            let userId: string;
+
+            if (e.trackId) {
+                // Use existing platform track
+                const existingTrack = await db.track.findUnique({
+                    where: { id: e.trackId },
+                    include: { profile: { select: { userId: true } } },
+                });
+                if (!existingTrack) continue;
+                trackId = existingTrack.id;
+                userId = existingTrack.profile?.userId || e.userId || '';
+            } else {
+                // Manual entry — create stub profile + new track
+                let profile = await db.musicianProfile.findUnique({ where: { userId: e.userId } });
+                if (!profile) {
+                    const fallbackName = (e.username || `producer-${e.userId.slice(-6)}`)
+                        .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || `producer-${e.userId.slice(-6)}`;
+                    profile = await db.musicianProfile.create({
+                        data: {
+                            userId: e.userId,
+                            username: fallbackName,
+                            displayName: e.username || null,
+                        },
+                    });
+                }
+                const track = await db.track.create({
                     data: {
-                        userId: w.userId,
-                        username: fallbackName,
-                        displayName: w.username || null,
+                        profileId: profile.id,
+                        title: e.trackTitle,
+                        url: e.audioUrl || '',
+                        isPublic: true,
                     },
                 });
+                trackId = track.id;
+                userId = e.userId;
             }
-
-            // Create the Track that this entry will reference
-            const track = await db.track.create({
-                data: {
-                    profileId: profile.id,
-                    title: w.trackTitle,
-                    url: w.audioUrl || '',
-                    isPublic: true,
-                },
-            });
 
             const entry = await db.battleEntry.create({
                 data: {
                     battleId: battle.id,
-                    userId: w.userId,
-                    trackId: track.id,
-                    voteCount: validWinners.length - i, // 1st place gets highest count
+                    userId,
+                    trackId,
+                    voteCount,
                     source: 'backfill',
                 },
             });
-            if (i === 0) firstEntryId = entry.id;
+
+            if (place === 1) winnerEntryId = entry.id;
         }
 
-        if (firstEntryId) {
+        if (winnerEntryId) {
             await db.beatBattle.update({
                 where: { id: battle.id },
-                data: { winnerEntryId: firstEntryId },
+                data: { winnerEntryId },
             });
         }
 
         res.json(battle);
     } catch (e: any) {
+        logger.error('Beat Battle API: backfill failed', e);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
