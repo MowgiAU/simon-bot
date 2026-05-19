@@ -8168,10 +8168,10 @@ app.post('/api/musician/tracks/:trackId/play', async (req, res) => {
 // Discovery (List all profiles)
 app.get('/api/musician/profiles', publicCache(120), async (req, res) => {
   try {
-      const { search, genre, sort = 'newest', limit = 50 } = req.query;
-      
+      const { search, genre, sort = 'newest', limit = 500 } = req.query;
+
       // Cache unfiltered default requests
-      const isDefaultQuery = !search && !genre && sort === 'newest' && Number(limit) === 50;
+      const isDefaultQuery = !search && !genre && sort === 'newest' && Number(limit) === 500;
       if (isDefaultQuery) {
           const cached = getCachedResponse('musician-profiles');
           if (cached) return res.json(cached);
@@ -8234,15 +8234,6 @@ app.get('/api/musician/profiles', publicCache(120), async (req, res) => {
           take: Number(limit)
       });
 
-      // Sort alphabetically by display name (falling back to username) when requested
-      if (sort === 'alphabetical') {
-          profiles.sort((a: any, b: any) => {
-              const nameA = (a.displayName || a.username).toLowerCase();
-              const nameB = (b.displayName || b.username).toLowerCase();
-              return nameA.localeCompare(nameB);
-          });
-      }
-
       let activeProfiles = [...profiles];
 
       // Deduplicate by username — keep the profile with the most tracks when duplicates exist
@@ -8256,6 +8247,14 @@ app.get('/api/musician/profiles', publicCache(120), async (req, res) => {
           }
       }
       activeProfiles = Array.from(seenUsernames.values());
+
+      // Re-sort after dedup — dedup can place an older profile at a newer slot when it
+      // swaps the Map value (older profile has more tracks) while keeping the key position
+      // (first-seen = newer profile). Re-applying the sort restores correct order.
+      if (sort === 'newest') activeProfiles.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      else if (sort === 'oldest') activeProfiles.sort((a: any, b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+      else if (sort === 'popular') activeProfiles.sort((a: any, b: any) => (b.totalPlays ?? 0) - (a.totalPlays ?? 0));
+      else if (sort === 'alphabetical') activeProfiles.sort((a: any, b: any) => (a.displayName || a.username).toLowerCase().localeCompare((b.displayName || b.username).toLowerCase()));
 
       // Track permission backfill for profile previews
       activeProfiles.forEach((p: any) => {
