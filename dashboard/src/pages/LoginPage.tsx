@@ -205,6 +205,9 @@ export const LoginPage: React.FC = () => {
                                         <Mail size={16} color={colors.textTertiary} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)' }} />
                                         <input
                                             type="email"
+                                            id="login-email"
+                                            name="email"
+                                            autoComplete="email"
                                             value={email}
                                             onChange={e => setEmail(e.target.value)}
                                             required
@@ -219,6 +222,9 @@ export const LoginPage: React.FC = () => {
                                         <Lock size={16} color={colors.textTertiary} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)' }} />
                                         <input
                                             type={showPassword ? 'text' : 'password'}
+                                            id="login-password"
+                                            name="password"
+                                            autoComplete="current-password"
                                             value={password}
                                             onChange={e => setPassword(e.target.value)}
                                             required
@@ -309,6 +315,9 @@ export const LoginPage: React.FC = () => {
                                 <User size={16} color={colors.textTertiary} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)' }} />
                                 <input
                                     type="text"
+                                    id="register-username"
+                                    name="username"
+                                    autoComplete="username"
                                     value={username}
                                     onChange={e => setUsername(e.target.value)}
                                     required
@@ -326,6 +335,9 @@ export const LoginPage: React.FC = () => {
                                 <Mail size={16} color={colors.textTertiary} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)' }} />
                                 <input
                                     type="email"
+                                    id="register-email"
+                                    name="email"
+                                    autoComplete="email"
                                     value={email}
                                     onChange={e => setEmail(e.target.value)}
                                     required
@@ -340,6 +352,9 @@ export const LoginPage: React.FC = () => {
                                 <Lock size={16} color={colors.textTertiary} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)' }} />
                                 <input
                                     type={showPassword ? 'text' : 'password'}
+                                    id="register-password"
+                                    name="password"
+                                    autoComplete="new-password"
                                     value={password}
                                     onChange={e => setPassword(e.target.value)}
                                     required
@@ -358,6 +373,9 @@ export const LoginPage: React.FC = () => {
                                 <Lock size={16} color={colors.textTertiary} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)' }} />
                                 <input
                                     type="password"
+                                    id="register-confirm-password"
+                                    name="confirm-password"
+                                    autoComplete="new-password"
                                     value={confirmPassword}
                                     onChange={e => setConfirmPassword(e.target.value)}
                                     required
