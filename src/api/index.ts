@@ -15405,9 +15405,14 @@ app.get('/api/music/notifications', requireAuth, async (req: any, res) => {
             take: 50,
         });
 
-        // Check if user has a musician profile � if not, prepend a prompt notification
+        // Check if user has a musician profile — if not, prepend a prompt notification.
+        // Use OR lookup to handle both Discord-ID and cuid userId formats after consolidation.
         try {
-            const profile = await db.musicianProfile.findUnique({ where: { userId }, select: { id: true } });
+            const canonicalNotifId = req.session?.user?._localId || userId;
+            const profile = await db.musicianProfile.findFirst({
+                where: { userId: { in: [...new Set([userId, canonicalNotifId])] } },
+                select: { id: true },
+            });
             if (!profile) {
                 notifications.unshift({
                     id: '_create_profile',
