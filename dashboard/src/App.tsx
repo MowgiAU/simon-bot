@@ -263,7 +263,7 @@ const AdminDashboard: React.FC = () => {
   const [navigationParams, setNavigationParams] = useState<any>(null);
   const navigate = useNavigate();
 
-  const { user, dashboardGuilds, selectedGuild, setSelectedGuild, permissions, loading, login, logout, impersonating, impersonatingAs, exitImpersonation } = useAuth();
+  const { user, dashboardGuilds, selectedGuild, setSelectedGuild, permissions, loading, login, logout, impersonating } = useAuth();
 
   if (loading) return (
     <div style={{ 
@@ -530,25 +530,6 @@ const AdminDashboard: React.FC = () => {
 
   return (
     <div className={`app ${sidebarOpen ? "sidebar-open" : ""}`}>
-      {impersonating && impersonatingAs && (
-        <div style={{
-          position: 'fixed', top: 0, left: 0, right: 0, zIndex: 9999,
-          background: 'linear-gradient(90deg, #b45309, #d97706)',
-          color: '#fff', padding: '8px 16px',
-          display: 'flex', alignItems: 'center', gap: '12px',
-          fontSize: '13px', fontWeight: 600, boxShadow: '0 2px 12px rgba(0,0,0,0.4)',
-        }}>
-          <ShieldAlert size={16} />
-          <span>Impersonating <strong>{impersonatingAs.displayName || impersonatingAs.username}</strong> (@{impersonatingAs.username}) — you are seeing the site as this user</span>
-          <div style={{ flex: 1 }} />
-          <button
-            onClick={exitImpersonation}
-            style={{ background: 'rgba(255,255,255,0.2)', border: '1px solid rgba(255,255,255,0.4)', color: '#fff', padding: '4px 14px', borderRadius: '6px', fontWeight: 700, fontSize: '12px', cursor: 'pointer' }}
-          >
-            Exit Impersonation
-          </button>
-        </div>
-      )}
       <Sidebar
           activeSection={activeSection}
           onNavigate={handleNavigate}
@@ -565,7 +546,6 @@ const AdminDashboard: React.FC = () => {
         height: "100vh",
         display: "flex",
         flexDirection: "column",
-        paddingTop: impersonating ? '36px' : undefined,
       }}>
         <div style={{ 
           display: "flex", 
@@ -721,6 +701,30 @@ const AdminDashboard: React.FC = () => {
  * AppInternal: Pure path-based routing. All providers are already wrapped above,
  * so every hook (useAuth, usePlayer, useResources) is always available.
  */
+const ImpersonationBanner: React.FC = () => {
+  const { impersonating, impersonatingAs, exitImpersonation } = useAuth();
+  if (!impersonating || !impersonatingAs) return null;
+  return (
+    <div style={{
+      position: 'fixed', top: 0, left: 0, right: 0, zIndex: 99999,
+      background: 'linear-gradient(90deg, #b45309, #d97706)',
+      color: '#fff', padding: '8px 16px',
+      display: 'flex', alignItems: 'center', gap: '12px',
+      fontSize: '13px', fontWeight: 600, boxShadow: '0 2px 12px rgba(0,0,0,0.4)',
+    }}>
+      <ShieldAlert size={16} style={{ flexShrink: 0 }} />
+      <span>Impersonating <strong>{impersonatingAs.displayName || impersonatingAs.username}</strong> (@{impersonatingAs.username}) — you are seeing the site as this user</span>
+      <div style={{ flex: 1 }} />
+      <button
+        onClick={exitImpersonation}
+        style={{ background: 'rgba(255,255,255,0.2)', border: '1px solid rgba(255,255,255,0.4)', color: '#fff', padding: '4px 14px', borderRadius: '6px', fontWeight: 700, fontSize: '12px', cursor: 'pointer', flexShrink: 0 }}
+      >
+        Exit Impersonation
+      </button>
+    </div>
+  );
+};
+
 const AppInternal: React.FC = () => {
   const { pathname: currentPath } = useLocation();
   const { user, invited, role, dashboardGuilds, loading, loginMethod, hasPassword, email, emailVerified } = useAuth();
@@ -1007,6 +1011,7 @@ export const App: React.FC = () => {
             <AppInternal />
             <GlobalPlayer />
             <ToastContainer />
+            <ImpersonationBanner />
           </ChatWrapper>
         </PlayerProvider>
       </AuthProvider>
