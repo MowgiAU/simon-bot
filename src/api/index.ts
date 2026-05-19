@@ -10225,6 +10225,10 @@ app.post('/api/admin/consolidate-profile', requireAdmin, async (req: any, res) =
         }
 
         // ── 6. Merge profile fields — fill in winner's blanks from loser ───────
+        // featuredTrackId is intentionally excluded here: it has a @unique constraint so
+        // it cannot be set on the winner while the loser row still holds the same value.
+        // It is transferred in step 8 after the loser is deleted.
+        const loserFeaturedTrackId = (loser as any).featuredTrackId ?? null;
         const mergeFields: any = {};
         if (!winner.bio          && loser.bio)          mergeFields.bio          = loser.bio;
         if (!winner.displayName  && loser.displayName)  mergeFields.displayName  = loser.displayName;
@@ -10232,20 +10236,22 @@ app.post('/api/admin/consolidate-profile', requireAdmin, async (req: any, res) =
         if (!winner.location     && (loser as any).location)     mergeFields.location     = (loser as any).location;
         if (!winner.primaryDAW   && (loser as any).primaryDAW)   mergeFields.primaryDAW   = (loser as any).primaryDAW;
         if (!winner.contactEmail && (loser as any).contactEmail) mergeFields.contactEmail = (loser as any).contactEmail;
-        if (!(winner as any).featuredTrackId && (loser as any).featuredTrackId) mergeFields.featuredTrackId = (loser as any).featuredTrackId;
 
         if (Object.keys(mergeFields).length > 0) {
             await db.musicianProfile.update({ where: { id: winner.id }, data: mergeFields });
         }
 
-        // ── 7. Delete the loser profile (cascades genres + any remaining refs) ─
-        // Must happen BEFORE updating winner's userId — if the loser holds the cuid
-        // userId, deleting it first frees the unique constraint for the winner to claim it.
+        // ── 7. Delete the loser profile ───────────────────────────────────────
         await db.musicianProfile.delete({ where: { id: loser.id } });
 
-        // ── 8. Canonicalise winner userId to internal cuid (now safe after delete) ─
-        if (winner.userId !== user.id) {
-            await db.musicianProfile.update({ where: { id: winner.id }, data: { userId: user.id } });
+        // ── 8. Post-delete updates (safe now that loser is gone) ──────────────
+        const postMerge: any = {};
+        // Canonicalise userId to internal cuid
+        if (winner.userId !== user.id) postMerge.userId = user.id;
+        // Transfer featuredTrackId only if winner doesn't already have one
+        if (!(winner as any).featuredTrackId && loserFeaturedTrackId) postMerge.featuredTrackId = loserFeaturedTrackId;
+        if (Object.keys(postMerge).length > 0) {
+            await db.musicianProfile.update({ where: { id: winner.id }, data: postMerge });
         }
 
         // Invalidate caches
