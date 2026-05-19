@@ -3995,7 +3995,7 @@ app.get('/api/guilds/:guildId/my-permissions', async (req, res) => {
         if (isAdmin) {
             return res.json({ 
                 canManagePlugins: true, 
-                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content', 'account-management', 'anti-piracy', 'leveling', 'fuji-radio', 'studio-guide', 'bot-identity', 'bot-messenger', 'booster-color', 'private-messages', 'auto-messages', 'auto-responder', 'server-boost', 'reports', 'articles', 'article-review', 'pause', 'voice-stats', 'spam-guard', 'track-announcer', 'profile-styles', 'academy', 'head-to-head', 'drum-kit', 'bug-reports', 'plugin-registry', 'activity-logs']
+                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content', 'account-management', 'anti-piracy', 'leveling', 'fuji-radio', 'studio-guide', 'bot-identity', 'bot-messenger', 'booster-color', 'private-messages', 'auto-messages', 'auto-responder', 'server-boost', 'reports', 'articles', 'article-review', 'pause', 'voice-stats', 'spam-guard', 'track-announcer', 'profile-styles', 'academy', 'head-to-head', 'drum-kit', 'bug-reports', 'plugin-registry', 'activity-logs', 'duplicate-profiles']
             });
         }
 
@@ -10098,6 +10098,151 @@ app.post('/api/admin/impersonate/exit', async (req: any, res) => {
 
     await new Promise<void>((resolve, reject) => req.session.save((err: any) => err ? reject(err) : resolve()));
     res.json({ success: true });
+});
+
+// ─── Admin: Duplicate Profile Detection & Consolidation ─────────────────────
+
+// GET /api/admin/duplicate-profiles — find all users with two MusicianProfile rows
+app.get('/api/admin/duplicate-profiles', requireAdmin, async (_req, res) => {
+    try {
+        // Find all users with a discordId (the population that can have duplicates)
+        const users = await db.user.findMany({
+            where: { discordId: { not: null } },
+            select: { id: true, discordId: true, username: true, email: true },
+        });
+
+        const duplicates: any[] = [];
+        for (const user of users) {
+            const profiles = await db.musicianProfile.findMany({
+                where: { userId: { in: [user.id, user.discordId!] } },
+                select: {
+                    id: true, userId: true, username: true, displayName: true,
+                    bio: true, avatar: true, createdAt: true, totalPlays: true,
+                    _count: { select: { tracks: { where: { deletedAt: null } } } },
+                },
+            });
+            if (profiles.length >= 2) {
+                duplicates.push({ user, profiles });
+            }
+        }
+
+        res.json(duplicates);
+    } catch (e: any) {
+        logger.error('Duplicate profiles check failed', e);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// POST /api/admin/consolidate-profile — merge duplicate profiles for a user
+// Body: { internalUserId: string }  (the User.id cuid)
+app.post('/api/admin/consolidate-profile', requireAdmin, async (req: any, res) => {
+    try {
+        const { internalUserId } = req.body;
+        if (!internalUserId) return res.status(400).json({ error: 'internalUserId required' });
+
+        const user = await db.user.findUnique({ where: { id: internalUserId } });
+        if (!user || !user.discordId) return res.status(404).json({ error: 'User not found or no discordId' });
+
+        const profiles = await db.musicianProfile.findMany({
+            where: { userId: { in: [user.id, user.discordId] } },
+            include: {
+                genres: true,
+                _count: { select: { tracks: { where: { deletedAt: null } } } },
+            },
+        });
+
+        if (profiles.length < 2) return res.json({ message: 'No duplicate to consolidate', profiles: profiles.length });
+
+        // Winner = most tracks. Tie → prefer cuid profile (canonical)
+        const sorted = [...profiles].sort((a, b) => {
+            if (b._count.tracks !== a._count.tracks) return b._count.tracks - a._count.tracks;
+            return a.userId === user.id ? -1 : 1; // prefer cuid
+        });
+        const winner = sorted[0];
+        const loser  = sorted[1];
+
+        logger.info(`[Consolidate] user=${user.username}(${user.id}) winner=${winner.userId}(${winner._count.tracks} tracks) loser=${loser.userId}(${loser._count.tracks} tracks)`);
+
+        // ── 1. Move tracks (most important — zero data loss) ──────────────────
+        const movedTracks = await db.track.updateMany({
+            where: { profileId: loser.id },
+            data:  { profileId: winner.id },
+        });
+        logger.info(`[Consolidate] moved ${movedTracks.count} tracks from loser to winner`);
+
+        // ── 2. Merge profile genres (composite PK — insert missing, skip dupes) ─
+        const winnerGenreIds = new Set(winner.genres.map((g: any) => g.genreId));
+        const missingGenres  = loser.genres.filter((g: any) => !winnerGenreIds.has(g.genreId));
+        if (missingGenres.length > 0) {
+            await db.profileGenre.createMany({
+                data: missingGenres.map((g: any) => ({ profileId: winner.id, genreId: g.genreId })),
+                skipDuplicates: true,
+            });
+        }
+
+        // ── 3. Move track collaborators (unique [trackId, profileId]) ──────────
+        const loserCollabs = await db.trackCollaborator.findMany({ where: { profileId: loser.id } });
+        for (const c of loserCollabs) {
+            const exists = await db.trackCollaborator.findUnique({ where: { trackId_profileId: { trackId: c.trackId, profileId: winner.id } } });
+            if (!exists) {
+                await db.trackCollaborator.update({ where: { id: c.id }, data: { profileId: winner.id } });
+            } else {
+                await db.trackCollaborator.delete({ where: { id: c.id } }); // winner already has it
+            }
+        }
+
+        // ── 4. Move profile-page comments ──────────────────────────────────────
+        await db.comment.updateMany({
+            where: { profileId: loser.id },
+            data:  { profileId: winner.id },
+        });
+
+        // ── 5. Move artist follows (unique [followerId, artistId]) ─────────────
+        const loserFollows = await db.artistFollow.findMany({ where: { artistId: loser.id } });
+        for (const f of loserFollows) {
+            const exists = await db.artistFollow.findUnique({ where: { followerId_artistId: { followerId: f.followerId, artistId: winner.id } } });
+            if (!exists) {
+                await db.artistFollow.update({ where: { id: f.id }, data: { artistId: winner.id } });
+            } else {
+                await db.artistFollow.delete({ where: { id: f.id } }); // already follows winner
+            }
+        }
+
+        // ── 6. Merge profile fields — fill in winner's blanks from loser ───────
+        const mergeFields: any = {};
+        if (!winner.bio          && loser.bio)          mergeFields.bio          = loser.bio;
+        if (!winner.displayName  && loser.displayName)  mergeFields.displayName  = loser.displayName;
+        if (!winner.avatar       && loser.avatar)        mergeFields.avatar       = loser.avatar;
+        if (!winner.location     && (loser as any).location)     mergeFields.location     = (loser as any).location;
+        if (!winner.primaryDAW   && (loser as any).primaryDAW)   mergeFields.primaryDAW   = (loser as any).primaryDAW;
+        if (!winner.contactEmail && (loser as any).contactEmail) mergeFields.contactEmail = (loser as any).contactEmail;
+        if (!(winner as any).featuredTrackId && (loser as any).featuredTrackId) mergeFields.featuredTrackId = (loser as any).featuredTrackId;
+
+        // ── 7. Ensure winner userId is the canonical cuid ──────────────────────
+        if (winner.userId !== user.id) mergeFields.userId = user.id;
+
+        if (Object.keys(mergeFields).length > 0) {
+            await db.musicianProfile.update({ where: { id: winner.id }, data: mergeFields });
+        }
+
+        // ── 8. Delete the loser profile (cascades genres + any remaining refs) ─
+        await db.musicianProfile.delete({ where: { id: loser.id } });
+
+        // Invalidate caches
+        apiResponseCache.delete(`profile-${user.id.toLowerCase()}`);
+        apiResponseCache.delete(`profile-${user.discordId.toLowerCase()}`);
+        apiResponseCache.delete(`profile-${winner.username?.toLowerCase()}`);
+
+        await logAction('GLOBAL', 'profile_consolidated', req.session.user.id, winner.id, {
+            username: winner.username, loserUserId: loser.userId, tracksMovedIn: movedTracks.count,
+        });
+
+        logger.info(`[Consolidate] done — winner profile ${winner.id} (userId now ${user.id})`);
+        res.json({ success: true, winnerId: winner.id, tracksKept: winner._count.tracks + movedTracks.count });
+    } catch (e: any) {
+        logger.error('Profile consolidation failed', e);
+        res.status(500).json({ error: e.message || 'Internal server error' });
+    }
 });
 
 // ─── Admin: Activity Logs ────────────────────────────────────────────────────

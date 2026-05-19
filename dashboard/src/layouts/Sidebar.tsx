@@ -48,6 +48,7 @@ import {
   Database,
   Puzzle,
   Activity,
+  GitMerge,
 } from 'lucide-react';
 import { AnimatedWrapper } from '../components/AnimatedWrapper';
 import logoUrl from '../assets/logo.svg'; 
@@ -465,6 +466,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             >
                 <span className="nav-icon"><AnimatedWrapper icon={Activity} size={20} /></span>
                 <span className="nav-label">Activity Logs</span>
+            </button>
+          )}
+
+          {permissions.canManagePlugins && (
+            <button
+                className={`nav-item ${activeSection === 'duplicate-profiles' ? 'active' : ''}`}
+                onClick={() => onNavigate('duplicate-profiles')}
+                title={collapsed ? "Duplicate Profiles" : ""}
+            >
+                <span className="nav-icon"><AnimatedWrapper icon={GitMerge} size={20} /></span>
+                <span className="nav-label">Duplicate Profiles</span>
             </button>
           )}
 

@@ -90,6 +90,7 @@ const AutomationPage         = lazy(() => import("./pages/Automation").then(m =>
 const ReportsPage            = lazy(() => import("./pages/Reports").then(m => ({ default: m.ReportsPage })));
 const BugReportsAdminPage    = lazy(() => import("./pages/BugReportsAdmin").then(m => ({ default: m.BugReportsAdmin })));
 const ActivityLogsPage       = lazy(() => import("./pages/ActivityLogs").then(m => ({ default: m.ActivityLogsPage })));
+const DuplicateProfilesPage  = lazy(() => import("./pages/DuplicateProfiles").then(m => ({ default: m.DuplicateProfilesPage })));
 const ArticlesPage           = lazy(() => import("./pages/Articles").then(m => ({ default: m.ArticlesPage })));
 const ArticleReviewPage      = lazy(() => import("./pages/ArticleReview").then(m => ({ default: m.ArticleReviewPage })));
 const ArticlePage            = lazy(() => import("./pages/ArticlePage").then(m => ({ default: m.ArticlePage })));
@@ -166,7 +167,8 @@ type Section =
   | "page-embeds"
   | "plugin-registry"
   | "bug-reports"
-  | "activity-logs";
+  | "activity-logs"
+  | "duplicate-profiles";
 
 const WelcomeScreen: React.FC<{ login: () => void }> = ({ login }) => {
   const navigate = useNavigate();
@@ -510,6 +512,8 @@ const AdminDashboard: React.FC = () => {
           return <BugReportsAdminPage />;
         case "activity-logs":
           return <ActivityLogsPage />;
+        case "duplicate-profiles":
+          return <DuplicateProfilesPage />;
         case "articles":
           return <ArticlesPage />;
         case "article-review":
