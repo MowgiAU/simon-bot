@@ -11,6 +11,7 @@ interface KnownPlugin {
     imageUrl: string | null;
     link: string | null;
     category: string | null;
+    developer: string | null;
     description: string | null;
     isActive: boolean;
 }
@@ -18,7 +19,7 @@ interface KnownPlugin {
 const CATEGORIES = ['synth', 'effect', 'sampler', 'utility', 'other'];
 
 const empty = (): Partial<KnownPlugin> => ({
-    name: '', aliases: [], displayName: '', link: '', category: '', description: '', isActive: true,
+    name: '', aliases: [], displayName: '', link: '', category: '', developer: '', description: '', isActive: true,
 });
 
 export const PluginRegistry: React.FC = () => {
@@ -55,7 +56,7 @@ export const PluginRegistry: React.FC = () => {
 
     const openEdit = (p: KnownPlugin) => {
         setEditing(p);
-        setForm({ ...p });
+        setForm({ ...p, developer: p.developer || '', description: p.description || '' });
         setAliasInput('');
         setImageFile(null);
         setImagePreview('');
@@ -168,7 +169,7 @@ export const PluginRegistry: React.FC = () => {
                                 {/* Info */}
                                 <div style={{ flex: 1, minWidth: 0 }}>
                                     <div style={{ fontWeight: 700, fontSize: '13px', color: colors.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.displayName || p.name}</div>
-                                    <div style={{ fontSize: '11px', color: colors.textTertiary, marginTop: '1px' }}>{p.name}</div>
+                                    <div style={{ fontSize: '11px', color: colors.textTertiary, marginTop: '1px' }}>{p.developer ? `${p.developer} · ` : ''}{p.name}</div>
                                     <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '6px' }}>
                                         {p.category && (
                                             <span style={{ fontSize: '10px', padding: '2px 7px', borderRadius: '4px', backgroundColor: `${colors.primary}18`, color: colors.primary, fontWeight: 600, textTransform: 'capitalize' }}>{p.category}</span>
@@ -229,6 +230,24 @@ export const PluginRegistry: React.FC = () => {
                                     <option value="">— Select category —</option>
                                     {CATEGORIES.map(c => <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>)}
                                 </select>
+                            </div>
+
+                            {/* Link */}
+                            <div>
+                                <label style={labelStyle}>Developer / Company</label>
+                                <input style={inputStyle} value={form.developer || ''} onChange={e => setForm(f => ({ ...f, developer: e.target.value }))} placeholder="e.g. Xfer Records, Native Instruments" />
+                            </div>
+
+                            {/* Description */}
+                            <div>
+                                <label style={labelStyle}>Description</label>
+                                <textarea
+                                    value={form.description || ''}
+                                    onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+                                    placeholder="Brief description shown in the plugin popup..."
+                                    rows={3}
+                                    style={{ ...inputStyle, resize: 'vertical', minHeight: '72px', fontFamily: 'inherit' }}
+                                />
                             </div>
 
                             {/* Link */}

@@ -1189,6 +1189,7 @@ model KnownPlugin {
   imageUrl    String?  // Logo / screenshot
   link        String?  // Affiliate / referral URL
   category    String?  // 'synth' | 'effect' | 'sampler' | 'utility' | 'other'
+  developer   String?  // Plugin developer / company name
   description String?  @db.Text
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())

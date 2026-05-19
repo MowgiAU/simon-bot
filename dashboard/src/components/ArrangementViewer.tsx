@@ -588,6 +588,7 @@ interface KnownPlugin {
     imageUrl: string | null;
     link: string | null;
     category: string | null;
+    developer: string | null;
     description: string | null;
 }
 
@@ -662,11 +663,16 @@ const PluginModal: React.FC<{ rawName: string; known: KnownPlugin | undefined; o
                         {known?.name && known.name !== label && (
                             <div style={{ fontSize: '0.75rem', color: colors.textTertiary, marginBottom: '6px' }}>Detected as: <code style={{ color: colors.textSecondary }}>{rawName}</code></div>
                         )}
-                        {known?.category && (
-                            <span style={{ display: 'inline-block', fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', padding: '2px 8px', borderRadius: '4px', backgroundColor: `${colors.primary}20`, color: colors.primary, border: `1px solid ${colors.primary}40` }}>
-                                {known.category}
-                            </span>
-                        )}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginTop: '6px' }}>
+                            {known?.category && (
+                                <span style={{ display: 'inline-block', fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', padding: '2px 8px', borderRadius: '4px', backgroundColor: `${colors.primary}20`, color: colors.primary, border: `1px solid ${colors.primary}40` }}>
+                                    {known.category}
+                                </span>
+                            )}
+                            {known?.developer && (
+                                <span style={{ fontSize: '0.75rem', color: colors.textSecondary, fontWeight: 500 }}>{known.developer}</span>
+                            )}
+                        </div>
                     </div>
 
                     {known?.description && (
@@ -710,27 +716,28 @@ export const PluginBadge: React.FC<{ name: string; registry: KnownPlugin[]; fall
 
 const PluginCard: React.FC<{ rawName: string; known: KnownPlugin | undefined; label: string }> = ({ known, label }) => (
     <div style={{
-        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px',
-        padding: '12px 14px', borderRadius: '12px', cursor: 'pointer',
+        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px',
+        padding: '16px 12px', borderRadius: '14px', cursor: 'pointer',
         backgroundColor: 'rgba(255,255,255,0.04)',
         border: `1px solid ${known ? colors.primary + '35' : 'rgba(255,255,255,0.08)'}`,
-        minWidth: '90px', maxWidth: '120px',
+        minWidth: '200px', width: '200px',
         transition: 'border-color 0.15s, background-color 0.15s',
     }}
         onMouseEnter={e => { (e.currentTarget as HTMLElement).style.backgroundColor = 'rgba(255,255,255,0.08)'; (e.currentTarget as HTMLElement).style.borderColor = known ? colors.primary + '70' : 'rgba(255,255,255,0.18)'; }}
         onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = 'rgba(255,255,255,0.04)'; (e.currentTarget as HTMLElement).style.borderColor = known ? colors.primary + '35' : 'rgba(255,255,255,0.08)'; }}
     >
         {known?.imageUrl ? (
-            <img src={known.imageUrl} alt={label} style={{ width: '48px', height: '48px', borderRadius: '10px', objectFit: 'cover' }} />
+            <img src={known.imageUrl} alt={label} style={{ width: '80px', height: '80px', borderRadius: '14px', objectFit: 'cover' }} />
         ) : (
-            <div style={{ width: '48px', height: '48px', borderRadius: '10px', backgroundColor: 'rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', fontWeight: 800, color: 'rgba(255,255,255,0.25)' }}>
+            <div style={{ width: '80px', height: '80px', borderRadius: '14px', backgroundColor: 'rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px', fontWeight: 800, color: 'rgba(255,255,255,0.25)' }}>
                 {label.slice(0, 2).toUpperCase()}
             </div>
         )}
-        <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#CBD5E1', lineHeight: 1.2, wordBreak: 'break-word' }}>{label}</div>
-            {known?.category && <div style={{ fontSize: '0.6rem', color: colors.textTertiary, textTransform: 'capitalize', marginTop: '2px' }}>{known.category}</div>}
-            {known?.link && <div style={{ fontSize: '0.6rem', color: colors.primary, marginTop: '2px' }}>View →</div>}
+        <div style={{ textAlign: 'center', width: '100%' }}>
+            <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#CBD5E1', lineHeight: 1.3, wordBreak: 'break-word' }}>{label}</div>
+            {known?.developer && <div style={{ fontSize: '0.7rem', color: colors.textSecondary, marginTop: '2px' }}>{known.developer}</div>}
+            {known?.category && <div style={{ fontSize: '0.65rem', color: colors.textTertiary, textTransform: 'capitalize', marginTop: '2px' }}>{known.category}</div>}
+            {known?.link && <div style={{ fontSize: '0.7rem', color: colors.primary, marginTop: '4px', fontWeight: 600 }}>View →</div>}
         </div>
     </div>
 );

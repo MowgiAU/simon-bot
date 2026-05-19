@@ -47,6 +47,7 @@ interface Track {
     arrangement: ArrangementData | null;
     projectFileUrl: string | null;
     projectZipUrl: string | null;
+    isPublic: boolean;
     allowAudioDownload: boolean;
     allowProjectDownload: boolean;
     license: string;
@@ -136,14 +137,15 @@ export const TrackPage: React.FC = () => {
     const [editing, setEditing] = useState(false);
     const [saving, setSaving] = useState(false);
     const [editMsg, setEditMsg] = useState<{ type: 'success' | 'error', text: string } | null>(null);
-    const [editForm, setEditForm] = useState({ 
-        title: '', 
-        description: '', 
-        artist: '', 
-        album: '', 
-        year: '', 
-        bpm: '', 
+    const [editForm, setEditForm] = useState({
+        title: '',
+        description: '',
+        artist: '',
+        album: '',
+        year: '',
+        bpm: '',
         key: '',
+        isPublic: true,
         allowAudioDownload: true,
         allowProjectDownload: true,
         license: 'all-rights-reserved'
@@ -285,6 +287,7 @@ export const TrackPage: React.FC = () => {
             year: track.year?.toString() || '',
             bpm: track.bpm?.toString() || '',
             key: track.key || '',
+            isPublic: track.isPublic ?? true,
             allowAudioDownload: track.allowAudioDownload ?? true,
             allowProjectDownload: track.allowProjectDownload ?? true,
             license: track.license || 'all-rights-reserved',
@@ -351,6 +354,7 @@ export const TrackPage: React.FC = () => {
             formData.append('year', editForm.year);
             formData.append('bpm', editForm.bpm);
             formData.append('key', editForm.key);
+            formData.append('isPublic', String(editForm.isPublic));
             formData.append('allowAudioDownload', String(editForm.allowAudioDownload));
             formData.append('allowProjectDownload', String(editForm.allowProjectDownload));
             formData.append('license', editForm.license);
@@ -1476,6 +1480,15 @@ export const TrackPage: React.FC = () => {
                                             })()}
                                         </select>
                                     </div>
+                                </div>
+
+                                {/* Visibility */}
+                                <div style={{ marginTop: '4px', padding: '12px', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: borderRadius.md }}>
+                                    <div style={{ fontSize: '0.85rem', fontWeight: 600, marginBottom: '8px', color: colors.textSecondary }}>Visibility</div>
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.9rem' }}>
+                                        <input type="checkbox" checked={editForm.isPublic} onChange={e => setEditForm(f => ({ ...f, isPublic: e.target.checked }))} style={{ accentColor: colors.primary }} />
+                                        Public (visible to everyone)
+                                    </label>
                                 </div>
 
                                 {/* Download Settings */}

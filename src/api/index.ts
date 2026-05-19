@@ -9420,10 +9420,10 @@ app.get('/api/admin/plugins/registry', requireAdmin, async (_req, res) => {
 
 app.post('/api/admin/plugins/registry', requireAdmin, async (req: any, res) => {
     try {
-        const { name, aliases, displayName, link, category, description } = req.body;
+        const { name, aliases, displayName, link, category, developer, description } = req.body;
         if (!name?.trim()) return res.status(400).json({ error: 'Name is required' });
         const plugin = await db.knownPlugin.create({
-            data: { name: name.trim(), aliases: aliases || [], displayName: displayName?.trim() || null, link: link?.trim() || null, category: category?.trim() || null, description: description?.trim() || null },
+            data: { name: name.trim(), aliases: aliases || [], displayName: displayName?.trim() || null, link: link?.trim() || null, category: category?.trim() || null, developer: developer?.trim() || null, description: description?.trim() || null },
         });
         res.json(plugin);
     } catch (e: any) {
@@ -9434,13 +9434,14 @@ app.post('/api/admin/plugins/registry', requireAdmin, async (req: any, res) => {
 
 app.patch('/api/admin/plugins/registry/:id', requireAdmin, async (req: any, res) => {
     try {
-        const { name, aliases, displayName, link, category, description, isActive } = req.body;
+        const { name, aliases, displayName, link, category, developer, description, isActive } = req.body;
         const data: any = {};
         if (name !== undefined) data.name = name.trim();
         if (aliases !== undefined) data.aliases = aliases;
         if (displayName !== undefined) data.displayName = displayName?.trim() || null;
         if (link !== undefined) data.link = link?.trim() || null;
         if (category !== undefined) data.category = category?.trim() || null;
+        if (developer !== undefined) data.developer = developer?.trim() || null;
         if (description !== undefined) data.description = description?.trim() || null;
         if (isActive !== undefined) data.isActive = isActive;
         const plugin = await db.knownPlugin.update({ where: { id: req.params.id }, data });
