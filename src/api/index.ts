@@ -9075,22 +9075,15 @@ app.post('/api/admin/reprocess-flps', requireAdmin, async (req, res) => {
         }
 
         // ── Pass 2: Re-enrich ZIP bundle tracks from TrackSample DB rows ──────
-        // The original ZIP processing stores peaks/oggUrl/duration both in TrackSample rows
-        // AND embedded in arrangement clip objects. If clip.peaks is missing (e.g. background
-        // processing failed or was interrupted), this re-injects them from the DB rows.
         const tracksWithZips = await db.track.findMany({
             where: { projectZipUrl: { not: null }, arrangement: { not: undefined } },
             include: { samples: true }
         }) as any[];
 
         results.zipTotal = tracksWithZips.length;
+        const tracksNeedingReprocess: any[] = [];
 
         for (const track of tracksWithZips) {
-            if (!track.arrangement || !(track.samples as any[]).length) {
-                results.failed++;
-                results.errors.push(`ZIP track "${track.title}" — no arrangement or no TrackSample rows found`);
-                continue;
-            }
             try {
                 const arr = JSON.parse(JSON.stringify(track.arrangement));
                 const sampleMap = new Map<string, any>(
@@ -9098,23 +9091,68 @@ app.post('/api/admin/reprocess-flps', requireAdmin, async (req, res) => {
                 );
                 const clips: any[] = arr.tracks?.flatMap((t: any) => t.clips ?? []) ?? [];
                 let enriched = 0;
+                let missingPeaks = 0;
                 for (const clip of clips) {
                     if (clip.type !== 'audio' || !clip.sampleFileName) continue;
                     const sample = sampleMap.get(clip.sampleFileName.toLowerCase());
                     if (sample) {
-                        clip.peaks = sample.peaks;
-                        clip.oggUrl = sample.oggUrl;
-                        clip.duration = sample.duration ?? clip.duration;
-                        enriched++;
+                        // Only copy peaks if they're actually populated — don't overwrite good data with null
+                        if (sample.peaks && (sample.peaks as any[]).length > 0) {
+                            clip.peaks = sample.peaks;
+                            enriched++;
+                        } else {
+                            missingPeaks++;
+                        }
+                        if (sample.oggUrl) clip.oggUrl = sample.oggUrl;
+                        if (sample.duration != null) clip.duration = sample.duration;
+                    } else {
+                        missingPeaks++;
                     }
                 }
                 if (track.bpm && track.bpm > 0) arr.bpm = track.bpm;
                 await db.track.update({ where: { id: track.id }, data: { arrangement: arr } });
                 results.zipSuccess++;
-                logger.info(`ZIP re-enrich: "${track.title}" — ${enriched} clips enriched from ${(track.samples as any[]).length} samples`);
+                if (missingPeaks > 0) {
+                    tracksNeedingReprocess.push(track);
+                    logger.info(`ZIP re-enrich: "${track.title}" — ${enriched} enriched, ${missingPeaks} clips need full re-extraction`);
+                } else {
+                    logger.info(`ZIP re-enrich: "${track.title}" — ${enriched} clips enriched`);
+                }
             } catch (err: any) {
                 results.failed++;
                 results.errors.push(`ZIP error for "${track.title}": ${err.message}`);
+            }
+        }
+
+        // ── Pass 3: Full re-extraction for tracks with missing peaks ─────────
+        // Reads the ZIP, re-converts audio, re-extracts peaks, updates TrackSample + arrangement.
+        (results as any).reextractTotal = tracksNeedingReprocess.length;
+        (results as any).reextractSuccess = 0;
+
+        for (const track of tracksNeedingReprocess) {
+            try {
+                const zipUrl: string = track.projectZipUrl;
+                let zipBuffer: Buffer;
+
+                if (zipUrl.startsWith('http')) {
+                    // R2 / CDN — fetch publicly
+                    const resp = await fetch(zipUrl);
+                    if (!resp.ok) throw new Error(`Failed to fetch ZIP from ${zipUrl}: ${resp.status}`);
+                    zipBuffer = Buffer.from(await resp.arrayBuffer());
+                } else {
+                    // Local uploads
+                    const localPath = path.resolve(PROJECT_ROOT, 'public', zipUrl.replace(/^\//, ''));
+                    if (!fs.existsSync(localPath)) throw new Error(`ZIP not found at ${localPath}`);
+                    zipBuffer = fs.readFileSync(localPath);
+                }
+
+                const { arrangement: freshArr, sampleCount } = await ProjectZipProcessor.process(zipBuffer, track.id);
+                await db.track.update({ where: { id: track.id }, data: { arrangement: freshArr as any } });
+                (results as any).reextractSuccess++;
+                logger.info(`ZIP re-extract: "${track.title}" — ${sampleCount} samples re-processed`);
+            } catch (err: any) {
+                results.errors.push(`Re-extract failed for "${track.title}": ${err.message}`);
+                logger.warn(`ZIP re-extract failed for "${track.title}": ${err.message}`);
             }
         }
 

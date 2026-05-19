@@ -591,7 +591,7 @@ interface KnownPlugin {
 }
 
 function getRegistry(): Promise<KnownPlugin[]> {
-    if (registryCache) return Promise.resolve(registryCache);
+    if (registryCache !== null) return Promise.resolve(registryCache);
     if (!registryFetch) {
         registryFetch = fetch('/api/plugins/registry')
             .then(r => r.ok ? r.json() : [])
