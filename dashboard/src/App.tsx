@@ -89,6 +89,7 @@ const BoostPage              = lazy(() => import("./pages/Boost").then(m => ({ d
 const AutomationPage         = lazy(() => import("./pages/Automation").then(m => ({ default: m.AutomationPage })));
 const ReportsPage            = lazy(() => import("./pages/Reports").then(m => ({ default: m.ReportsPage })));
 const BugReportsAdminPage    = lazy(() => import("./pages/BugReportsAdmin").then(m => ({ default: m.BugReportsAdmin })));
+const ActivityLogsPage       = lazy(() => import("./pages/ActivityLogs").then(m => ({ default: m.ActivityLogsPage })));
 const ArticlesPage           = lazy(() => import("./pages/Articles").then(m => ({ default: m.ArticlesPage })));
 const ArticleReviewPage      = lazy(() => import("./pages/ArticleReview").then(m => ({ default: m.ArticleReviewPage })));
 const ArticlePage            = lazy(() => import("./pages/ArticlePage").then(m => ({ default: m.ArticlePage })));
@@ -164,7 +165,8 @@ type Section =
   | "anti-external-forward"
   | "page-embeds"
   | "plugin-registry"
-  | "bug-reports";
+  | "bug-reports"
+  | "activity-logs";
 
 const WelcomeScreen: React.FC<{ login: () => void }> = ({ login }) => {
   const navigate = useNavigate();
@@ -506,6 +508,8 @@ const AdminDashboard: React.FC = () => {
           return <ReportsPage />;
         case "bug-reports":
           return <BugReportsAdminPage />;
+        case "activity-logs":
+          return <ActivityLogsPage />;
         case "articles":
           return <ArticlesPage />;
         case "article-review":

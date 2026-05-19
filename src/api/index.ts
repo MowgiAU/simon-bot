@@ -836,6 +836,22 @@ app.use(session({
 const ipFromReq = (req: any): string => ipKeyGenerator(req.ip ?? req.socket?.remoteAddress ?? '');
 const rlKey = (req: any): string => req.session?.user?.id || ipFromReq(req);
 
+// ── User activity logging (fire-and-forget, never blocks a response) ──────────
+function logActivity(
+    req: any,
+    action: string,
+    targetId?: string,
+    targetType?: string,
+    metadata?: Record<string, any>,
+): void {
+    const userId = req.session?.user?._localId || req.session?.user?.id || null;
+    const ip     = ipFromReq(req);
+    const ua     = (req.headers?.['user-agent'] as string | undefined)?.slice(0, 500) ?? null;
+    db.activityLog.create({
+        data: { userId, ip, userAgent: ua, action, targetId: targetId ?? null, targetType: targetType ?? null, metadata: metadata ?? null },
+    }).catch(() => {});
+}
+
 const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 200,
@@ -1325,6 +1341,7 @@ app.get('/api/auth/discord/callback', async (req, res) => {
         logger.error('Session save error during callback', err);
         return res.status(500).send('Session save error');
       }
+      logActivity(req, 'auth.login', user._localId, 'user', { method: 'discord', username: user.username });
       res.redirect(process.env.DASHBOARD_ORIGIN || '/');
     });
   } catch (err) {
@@ -1669,6 +1686,7 @@ app.post('/api/auth/login', loginLimiter, async (req, res) => {
 
         req.session.save((err) => {
             if (err) return res.status(500).json({ error: 'Login failed' });
+            logActivity(req, 'auth.login', dbUser.id, 'user', { method: 'email', username: dbUser.username });
             res.json({ success: true, user: req.session.user });
         });
     } catch (e) {
@@ -3977,7 +3995,7 @@ app.get('/api/guilds/:guildId/my-permissions', async (req, res) => {
         if (isAdmin) {
             return res.json({ 
                 canManagePlugins: true, 
-                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content', 'account-management', 'anti-piracy', 'leveling', 'fuji-radio', 'studio-guide', 'bot-identity', 'bot-messenger', 'booster-color', 'private-messages', 'auto-messages', 'auto-responder', 'server-boost', 'reports', 'articles', 'article-review', 'pause', 'voice-stats', 'spam-guard', 'track-announcer', 'profile-styles', 'academy', 'head-to-head', 'drum-kit', 'bug-reports', 'plugin-registry']
+                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content', 'account-management', 'anti-piracy', 'leveling', 'fuji-radio', 'studio-guide', 'bot-identity', 'bot-messenger', 'booster-color', 'private-messages', 'auto-messages', 'auto-responder', 'server-boost', 'reports', 'articles', 'article-review', 'pause', 'voice-stats', 'spam-guard', 'track-announcer', 'profile-styles', 'academy', 'head-to-head', 'drum-kit', 'bug-reports', 'plugin-registry', 'activity-logs']
             });
         }
 
@@ -7023,6 +7041,7 @@ app.post('/api/musician/tracks', uploadLimiter, upload.fields([
 
         invalidateProfileCache(userId);
         res.json(fullTrack);
+        logActivity(req, 'track.upload', fullTrack?.id, 'track', { title: fullTrack?.title, isPublic: _isPublic });
 
         // Queue a Discord track announcement for the bot to pick up (separate PM2 process).
         // Skip when this upload is part of a battle submission \u2014 the BeatBattle plugin
@@ -7333,6 +7352,7 @@ app.patch('/api/musician/tracks/:trackId', async (req: any, res) => {
         });
         await logAction('GLOBAL', 'track_edited', userId, trackId, { title: fullTrack?.title }).catch(() => {});
         invalidateProfileCache(userId);
+        logActivity(req, 'track.edit', trackId, 'track', { title: fullTrack?.title });
         res.json(fullTrack);
     } catch (e: any) {
         res.status(500).json({ error: 'Internal server error' });
@@ -7383,6 +7403,7 @@ app.delete('/api/musician/tracks/:trackId', async (req: any, res) => {
         await db.track.delete({ where: { id: trackId } });
         await logAction('GLOBAL', 'track_deleted', userId, trackId, { title: track.title }).catch(() => {});
         invalidateProfileCache(userId);
+        logActivity(req, 'track.delete', trackId, 'track', { title: track.title });
         res.json({ success: true });
     } catch (e: any) {
         logger.error(`[Track] Delete failed for trackId=${req.params.trackId}`, e);
@@ -8069,6 +8090,7 @@ app.get('/api/downloads/audio/:trackId', requireAuth, async (req: any, res) => {
         const safeName = (track.title || 'audio').replace(/[^a-z0-9_\- ]/gi, '_');
         const ext = path.extname(track.url) || '.mp3';
         await logDownload(req, 'audio', trackId, `${safeName}${ext}`);
+        logActivity(req, 'track.download', trackId, 'track', { title: track.title, type: 'audio' });
 
         if (track.url.startsWith('http')) {
             return res.redirect(302, track.url);
@@ -10071,6 +10093,35 @@ app.post('/api/admin/impersonate/exit', async (req: any, res) => {
     res.json({ success: true });
 });
 
+// ─── Admin: Activity Logs ────────────────────────────────────────────────────
+
+app.get('/api/admin/activity-logs', requireAdmin, async (req: any, res) => {
+    try {
+        const { userId, ip, action, page = '1', limit = '50', dateFrom, dateTo } = req.query;
+        const take = Math.min(Number(limit) || 50, 200);
+        const skip = (Math.max(Number(page), 1) - 1) * take;
+
+        const where: any = {};
+        if (userId)   where.userId = userId;
+        if (ip)       where.ip = { contains: ip as string };
+        if (action)   where.action = { contains: action as string };
+        if (dateFrom || dateTo) {
+            where.createdAt = {};
+            if (dateFrom) where.createdAt.gte = new Date(dateFrom as string);
+            if (dateTo)   where.createdAt.lte = new Date(dateTo as string);
+        }
+
+        const [logs, total] = await Promise.all([
+            db.activityLog.findMany({ where, orderBy: { createdAt: 'desc' }, take, skip }),
+            db.activityLog.count({ where }),
+        ]);
+
+        res.json({ logs, total, page: Number(page), pages: Math.ceil(total / take) });
+    } catch (e: any) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 // ─── Admin Account Management ───────────────────────────────────────────────
 
 // GET /api/admin/accounts \u2014 list + search accounts
@@ -11000,6 +11051,7 @@ app.post('/api/beat-battle/entries/:entryId/vote', requireAuth, async (req: any,
             }
         } catch { /* non-critical */ }
 
+        logActivity(req, rank !== null ? 'battle.vote' : 'battle.vote_clear', entryId, 'battle', { battleId: entry.battleId, rank });
         res.json({ rank, votes: await fetchUserVotes(entry.battleId, userId) });
     } catch (e: any) {
         logger.error('Beat Battle API: vote failed', e);
@@ -11123,6 +11175,7 @@ app.post('/api/beat-battle/battles/:battleId/submit', requireAuth, async (req: a
         await db.battleAnalytics.create({
             data: { battleId, eventType: 'submission', userId },
         }).catch(() => {});
+        logActivity(req, 'battle.enter', entry.id, 'battle', { battleId, trackId, battleTitle: battle.title });
 
         res.json(entry);
     } catch (e: any) {
@@ -14887,6 +14940,10 @@ app.post('/api/comments', requireAuth, async (req: any, res) => {
             content: (content || '').trim().slice(0, 120),
             ...(parentId ? { parentId } : {}),
         }).catch(() => {});
+        logActivity(req, 'comment.post', comment.id, 'comment', {
+            targetId: resolvedTrackId || resolvedProfileId || resolvedBattleEntryId || null,
+            snippet: (cleanContent || '').slice(0, 100),
+        });
 
         // Notifications (fire-and-forget)
         (async () => {
@@ -15051,6 +15108,7 @@ app.delete('/api/comments/:commentId', requireAuth, async (req: any, res) => {
             targetType: comment.trackId ? 'track' : comment.profileId ? 'profile' : 'battleEntry',
             targetEntityId: comment.trackId || comment.profileId || comment.battleEntryId,
         }).catch(() => {});
+        logActivity(req, 'comment.delete', commentId, 'comment', { ownComment: comment.userId === userId });
 
         res.json({ success: true });
     } catch (e: any) {
@@ -15216,10 +15274,12 @@ app.post('/api/tracks/:trackId/favourite', requireAuth, async (req: any, res) =>
         if (existing) {
             await db.trackFavourite.delete({ where: { id: existing.id } });
             await logAction('GLOBAL', 'track_unfavourited', userId, trackId, { title: track.title }).catch(() => {});
+            logActivity(req, 'track.unfavourite', trackId, 'track', { title: track.title });
             res.json({ favourited: false });
         } else {
             await db.trackFavourite.create({ data: { userId, trackId } });
             await logAction('GLOBAL', 'track_favourited', userId, trackId, { title: track.title }).catch(() => {});
+            logActivity(req, 'track.favourite', trackId, 'track', { title: track.title });
             // Notify track owner
             if (track.profile.userId !== userId) {
                 const actorProfile = await db.musicianProfile.findUnique({ where: { userId }, select: { avatar: true, displayName: true, username: true } });
@@ -15325,10 +15385,12 @@ app.post('/api/tracks/:trackId/repost', requireAuth, async (req: any, res) => {
         if (existing) {
             await db.trackRepost.delete({ where: { id: existing.id } });
             await logAction('GLOBAL', 'track_unreposted', userId, trackId, { title: track.title }).catch(() => {});
+            logActivity(req, 'track.unrepost', trackId, 'track', { title: track.title });
             res.json({ reposted: false });
         } else {
             await db.trackRepost.create({ data: { userId, trackId } });
             await logAction('GLOBAL', 'track_reposted', userId, trackId, { title: track.title, owner: track.profile?.username }).catch(() => {});
+            logActivity(req, 'track.repost', trackId, 'track', { title: track.title });
             // Notify track owner
             if (track.profile.userId !== userId) {
                 const actorProfile = await db.musicianProfile.findUnique({ where: { userId }, select: { avatar: true, displayName: true, username: true } });

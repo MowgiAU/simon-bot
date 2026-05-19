@@ -47,6 +47,7 @@ import {
   Drum,
   Database,
   Puzzle,
+  Activity,
 } from 'lucide-react';
 import { AnimatedWrapper } from '../components/AnimatedWrapper';
 import logoUrl from '../assets/logo.svg'; 
@@ -453,6 +454,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             >
                 <span className="nav-icon"><AnimatedWrapper icon={Bug} size={20} /></span>
                 <span className="nav-label">Bug Reports</span>
+            </button>
+          )}
+
+          {permissions.canManagePlugins && (
+            <button
+                className={`nav-item ${activeSection === 'activity-logs' ? 'active' : ''}`}
+                onClick={() => onNavigate('activity-logs')}
+                title={collapsed ? "Activity Logs" : ""}
+            >
+                <span className="nav-icon"><AnimatedWrapper icon={Activity} size={20} /></span>
+                <span className="nav-label">Activity Logs</span>
             </button>
           )}
 

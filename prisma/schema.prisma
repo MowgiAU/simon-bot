@@ -2900,3 +2900,26 @@ model WebTicketMessage {
   @@index([ticketId])
   @@map("web_ticket_messages")
 }
+
+// ──────────────────────────────────────────────
+// User Activity Logs (security / audit)
+// ──────────────────────────────────────────────
+
+model ActivityLog {
+  id         String   @id @default(cuid())
+  userId     String?  // Internal DB user ID (null for unauthenticated)
+  ip         String?
+  userAgent  String?  @db.VarChar(500)
+  action     String   // e.g. track.upload, comment.post, auth.login
+  targetId   String?  // ID of the entity acted on
+  targetType String?  // 'track' | 'comment' | 'profile' | 'battle' | etc.
+  metadata   Json?    // Extra context (track title, comment snippet, etc.)
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+  @@index([ip])
+  @@index([action])
+  @@index([createdAt(sort: Desc)])
+  @@map("activity_logs")
+}
+
