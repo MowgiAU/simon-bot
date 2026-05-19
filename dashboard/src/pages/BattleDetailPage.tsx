@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { BattleSubmitModal } from '../components/BattleSubmitModal';
 import { flattenBattleEntry } from '../hooks/useBattleEntry';
+import { appendSponsorRef, trackSponsorClick, trackPromoLinkClick } from '../lib/sponsorUtils';
 
 const API = import.meta.env.VITE_API_URL || '';
 const ACCENT = '#F97316';
@@ -745,8 +746,8 @@ export const BattleDetailPage: React.FC = () => {
                                     </div>
                                     {/* Logo + name */}
                                     {battle.sponsor.websiteUrl ? (
-                                        <a href={battle.sponsor.websiteUrl} target="_blank" rel="noopener noreferrer"
-                                            onClick={() => fetch(`${API}/api/beat-battle/sponsors/${battle.sponsor!.id}/click`, { method: 'POST' }).catch(() => {})}
+                                        <a href={appendSponsorRef(battle.sponsor.websiteUrl, `/battles/${battle.slug || battle.id}`)} target="_blank" rel="noopener noreferrer"
+                                            onClick={() => trackSponsorClick(battle.sponsor!.id, `battles/${battle.slug || battle.id}`)}
                                             style={{ display: 'flex', alignItems: 'center', gap: '14px', textDecoration: 'none' }}>
                                             {battle.sponsor.logoUrl && (
                                                 <img src={battle.sponsor.logoUrl} alt={battle.sponsor.name} style={{ height: '40px', objectFit: 'contain' }} />
@@ -770,7 +771,7 @@ export const BattleDetailPage: React.FC = () => {
                                         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'center' }}>
                                             {battle.sponsor.links.map(l => (
                                                 <a key={l.id} href={l.url} target="_blank" rel="noopener noreferrer"
-                                                    onClick={() => fetch(`${API}/api/beat-battle/sponsor-links/${l.id}/click`, { method: 'POST' }).catch(() => {})}
+                                                    onClick={() => trackPromoLinkClick(l.id, `battles/${battle.slug || battle.id}`, API)}
                                                     style={{ fontSize: '13px', fontWeight: 700, color: '#fff', display: 'flex', alignItems: 'center', gap: '5px', textDecoration: 'none', backgroundColor: colors.primary, padding: '8px 16px', borderRadius: '8px', boxShadow: `0 4px 16px ${colors.primary}40`, transition: 'opacity 0.15s' }}
                                                     onMouseEnter={e => (e.currentTarget.style.opacity = '0.85')}
                                                     onMouseLeave={e => (e.currentTarget.style.opacity = '1')}

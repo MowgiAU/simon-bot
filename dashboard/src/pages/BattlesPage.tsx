@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { BattleSubmitModal } from '../components/BattleSubmitModal';
 import { flattenBattleEntry } from '../hooks/useBattleEntry';
+import { appendSponsorRef, trackSponsorClick } from '../lib/sponsorUtils';
 
 const API = import.meta.env.VITE_API_URL || '';
 const ACCENT = '#F97316';
@@ -468,13 +469,13 @@ export const BattlesPage: React.FC = () => {
                                     <span style={{ fontSize: '9px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.2em', color: '#10B981' }}>{sponsorSectionTitle}</span>
                                 </div>
                                 {globalSponsors.map(s => {
-                                    const href = s.websiteUrl;
+                                    const href = appendSponsorRef(s.websiteUrl, '/battles');
                                     const inner = s.logoUrl
                                         ? <img src={s.logoUrl} alt={s.name} style={{ height: '28px', objectFit: 'contain' }} />
                                         : <span style={{ fontWeight: 800, fontSize: '13px', color: '#fff', letterSpacing: '0.04em' }}>{s.name.toUpperCase()}</span>;
-                                    return href ? (
+                                    return href !== '#' ? (
                                         <a key={s.id} href={href} target="_blank" rel="noopener noreferrer"
-                                            onClick={() => fetch(`${API}/api/beat-battle/sponsors/${s.id}/click`, { method: 'POST' }).catch(() => {})}
+                                            onClick={() => trackSponsorClick(s.id, 'battles')}
                                             style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', padding: '8px 16px', borderRadius: '8px', backgroundColor: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.15)', transition: 'all 0.2s' }}
                                             onMouseEnter={e => { (e.currentTarget as HTMLElement).style.backgroundColor = 'rgba(255,255,255,0.12)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.3)'; }}
                                             onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = 'rgba(255,255,255,0.07)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.15)'; }}

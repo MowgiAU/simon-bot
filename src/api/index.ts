@@ -11650,12 +11650,81 @@ app.post('/api/beat-battle/admin/battles/:id/card-image', requireAdmin, upload.s
 // --- Sponsor Analytics: Track website URL click ---
 app.post('/api/beat-battle/sponsors/:sponsorId/click', async (req: any, res) => {
     try {
-        const sponsor = await db.battleSponsor.update({
-            where: { id: req.params.sponsorId },
-            data: { websiteClicks: { increment: 1 } },
-        });
-        res.json({ websiteClicks: sponsor.websiteClicks });
+        const { page } = req.body || {};
+        const ipHash = req.ip ? crypto.createHash('sha256').update(req.ip).digest('hex').slice(0, 16) : null;
+        await Promise.all([
+            db.battleSponsor.update({ where: { id: req.params.sponsorId }, data: { websiteClicks: { increment: 1 } } }),
+            db.sponsorClick.create({ data: { sponsorId: req.params.sponsorId, linkId: null, userId: req.session?.user?.id || null, ipHash, page: page || null } }),
+        ]);
+        res.json({ ok: true });
     } catch {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// --- Sponsor Analytics: Track page view (impression) ---
+app.post('/api/beat-battle/sponsors/:sponsorId/view', async (req: any, res) => {
+    try {
+        await db.battleSponsor.update({ where: { id: req.params.sponsorId }, data: { viewCount: { increment: 1 } } });
+        res.json({ ok: true });
+    } catch {
+        res.json({ ok: true }); // silent fail — views are best-effort
+    }
+});
+
+// --- Sponsor Analytics: Get detailed analytics (admin) ---
+app.get('/api/beat-battle/admin/sponsors/:sponsorId/analytics', requireAdmin, async (req: any, res) => {
+    try {
+        const { sponsorId } = req.params;
+        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+        const [sponsor, recentClicks] = await Promise.all([
+            db.battleSponsor.findUnique({
+                where: { id: sponsorId },
+                include: { links: { select: { id: true, label: true, clicks: true } } },
+            }),
+            db.sponsorClick.findMany({
+                where: { sponsorId, createdAt: { gte: thirtyDaysAgo } },
+                select: { id: true, ipHash: true, linkId: true, createdAt: true },
+                orderBy: { createdAt: 'asc' },
+            }),
+        ]);
+
+        if (!sponsor) return res.status(404).json({ error: 'Not found' });
+
+        // Total + unique clicks (all time from counter fields)
+        const totalPromoClicks = sponsor.links.reduce((s: number, l: any) => s + l.clicks, 0);
+        const totalWebClicks = (sponsor as any).websiteClicks || 0;
+        const totalClicks = totalPromoClicks + totalWebClicks;
+
+        // Unique clicks from recent 30-day log (distinct ipHash)
+        const uniqueIps = new Set(recentClicks.map((c: any) => c.ipHash).filter(Boolean));
+        const uniqueClicks30d = uniqueIps.size;
+
+        // Daily click breakdown (last 30 days)
+        const dailyMap: Record<string, number> = {};
+        for (let i = 0; i < 30; i++) {
+            const d = new Date(Date.now() - (29 - i) * 24 * 60 * 60 * 1000);
+            dailyMap[d.toISOString().slice(0, 10)] = 0;
+        }
+        for (const c of recentClicks) {
+            const day = c.createdAt.toISOString().slice(0, 10);
+            if (dailyMap[day] !== undefined) dailyMap[day]++;
+        }
+        const dailyClicks = Object.entries(dailyMap).map(([date, clicks]) => ({ date, clicks }));
+
+        res.json({
+            totalClicks,
+            totalWebClicks,
+            totalPromoClicks,
+            uniqueClicks30d,
+            viewCount: (sponsor as any).viewCount || 0,
+            promoLinks: sponsor.links,
+            dailyClicks,
+            clicks30d: recentClicks.length,
+        });
+    } catch (e: any) {
+        logger.error('Sponsor analytics error', e);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
@@ -11663,27 +11732,14 @@ app.post('/api/beat-battle/sponsors/:sponsorId/click', async (req: any, res) => 
 // --- Sponsor Analytics: Track promo link clicks ---
 app.post('/api/beat-battle/sponsor-links/:linkId/click', async (req: any, res) => {
     try {
+        const { page } = req.body || {};
+        const ipHash = req.ip ? crypto.createHash('sha256').update(req.ip).digest('hex').slice(0, 16) : null;
         const link = await db.battleSponsorLink.update({
             where: { id: req.params.linkId },
             data: { clicks: { increment: 1 } },
         });
-
-        // Also record in analytics
-        const sponsor = await db.battleSponsor.findUnique({
-            where: { id: link.sponsorId },
-            include: { battles: { take: 1, orderBy: { createdAt: 'desc' } } },
-        });
-        if (sponsor?.battles?.[0]) {
-            await db.battleAnalytics.create({
-                data: {
-                    battleId: sponsor.battles[0].id,
-                    eventType: 'sponsor_click',
-                    userId: req.session?.user?.id,
-                    metadata: { linkId: link.id, label: link.label },
-                },
-            }).catch(() => {});
-        }
-
+        // Log to SponsorClick for detailed analytics
+        db.sponsorClick.create({ data: { sponsorId: link.sponsorId, linkId: link.id, userId: req.session?.user?.id || null, ipHash, page: page || null } }).catch(() => {});
         res.json({ clicks: link.clicks });
     } catch (e: any) {
         res.status(500).json({ error: 'Internal server error' });

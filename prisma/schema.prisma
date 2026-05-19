@@ -1448,15 +1448,33 @@ model BattleSponsor {
   isActive      Boolean  @default(true)
   showOnPage    Boolean  @default(true)
   websiteClicks Int      @default(0)
+  viewCount     Int      @default(0)
   createdAt     DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   guild   Guild               @relation(fields: [guildId], references: [id], onDelete: Cascade)
   battles BeatBattle[]
   links   BattleSponsorLink[]
+  clicks  SponsorClick[]
 
   @@index([guildId])
   @@map("battle_sponsors")
+}
+
+model SponsorClick {
+  id        String   @id @default(cuid())
+  sponsorId String
+  linkId    String?  // null = website URL click, non-null = promo link
+  userId    String?  // null = anonymous
+  ipHash    String?  // first 16 chars of SHA-256(IP) — unique detection without storing PII
+  page      String?  // 'discover' | 'battles' | 'battle-detail' | etc.
+  createdAt DateTime @default(now())
+
+  sponsor BattleSponsor @relation(fields: [sponsorId], references: [id], onDelete: Cascade)
+
+  @@index([sponsorId, createdAt])
+  @@index([sponsorId, ipHash])
+  @@map("sponsor_clicks")
 }
 
 model BattleSponsorLink {
@@ -1472,6 +1490,7 @@ model BattleSponsorLink {
   @@index([sponsorId])
   @@map("battle_sponsor_links")
 }
+
 
 model BattleAnalytics {
   id        String   @id @default(cuid())

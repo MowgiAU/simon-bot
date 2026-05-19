@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { useAuth } from '../components/AuthProvider';
 import { RichTextEditor } from '../components/RichTextEditor';
 import { colors, spacing, borderRadius } from '../theme/theme';
@@ -6,7 +7,7 @@ import { ChannelSelect } from '../components/ChannelSelect';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { useMobile } from '../hooks/useMobile';
 import { 
-    Swords, Plus, Trophy, Users, BarChart3, Calendar, 
+    Swords, Plus, Trophy, Users, BarChart2, BarChart3, Calendar,
     ChevronDown, ChevronUp, Trash2, Edit, Play, Vote,
     ExternalLink, Award, Archive, Upload, Clock, X, Save,
     Building2, Link2, FileDown, Settings, Gift, Megaphone,
@@ -132,6 +133,11 @@ export const BeatBattlePage: React.FC = () => {
     const [analyticsFor, setAnalyticsFor] = useState<string | null>(null);
     const [voteReport, setVoteReport] = useState<VoteReport | null>(null);
     const [votesFor, setVotesFor] = useState<string | null>(null);
+
+    // Sponsor analytics modal
+    const [sponsorAnalytics, setSponsorAnalytics] = useState<any | null>(null);
+    const [sponsorAnalyticsFor, setSponsorAnalyticsFor] = useState<string | null>(null);
+    const [loadingSponsorAnalytics, setLoadingSponsorAnalytics] = useState(false);
 
     // Form state
     const [form, setForm] = useState({
@@ -560,6 +566,16 @@ export const BeatBattlePage: React.FC = () => {
     };
     const handleDeleteSponsor = async (id: string) => {
         setDeleteConfirm({ type: 'sponsor', id });
+    };
+
+    const openSponsorAnalytics = async (sponsorId: string) => {
+        setSponsorAnalyticsFor(sponsorId);
+        setLoadingSponsorAnalytics(true);
+        try {
+            const res = await fetch(`${API}/api/beat-battle/admin/sponsors/${sponsorId}/analytics`, { credentials: 'include' });
+            if (res.ok) setSponsorAnalytics(await res.json());
+        } catch {}
+        setLoadingSponsorAnalytics(false);
     };
 
     const handleBackfill = async () => {
@@ -1319,6 +1335,7 @@ export const BeatBattlePage: React.FC = () => {
                                         </div>
                                     </div>
                                     <div style={{ display: 'flex', gap: '6px' }}>
+                                        <button onClick={() => openSponsorAnalytics(s.id)} style={{ ...btnSecondary, padding: '6px 10px', fontSize: '12px' }} title="Analytics"><BarChart2 size={14} /></button>
                                         <button onClick={() => startEditSponsor(s)} style={{ ...btnSecondary, padding: '6px 10px', fontSize: '12px' }} title="Edit"><Edit size={14} /></button>
                                         <button onClick={() => handleDeleteSponsor(s.id)} style={{ ...btnDanger, padding: '6px 10px', fontSize: '12px' }} title="Delete"><Trash2 size={14} /></button>
                                     </div>
@@ -1334,6 +1351,82 @@ export const BeatBattlePage: React.FC = () => {
                                 )}
                             </div>
                         ))
+                    )}
+
+                    {/* ── Sponsor Analytics Modal ── */}
+                    {sponsorAnalyticsFor && (
+                        <div style={{ position: 'fixed', inset: 0, zIndex: 9000, backgroundColor: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}
+                            onClick={() => { setSponsorAnalyticsFor(null); setSponsorAnalytics(null); }}>
+                            <div onClick={e => e.stopPropagation()} style={{ backgroundColor: '#1a1e2e', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.1)', width: '100%', maxWidth: '720px', maxHeight: '90vh', overflowY: 'auto', padding: '24px', boxShadow: '0 24px 64px rgba(0,0,0,0.6)' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                        <BarChart2 size={20} color={colors.primary} />
+                                        <h3 style={{ margin: 0, color: colors.textPrimary }}>Sponsor Analytics</h3>
+                                        <span style={{ fontSize: '12px', color: colors.textSecondary }}>
+                                            {sponsors.find(s => s.id === sponsorAnalyticsFor)?.name}
+                                        </span>
+                                    </div>
+                                    <button onClick={() => { setSponsorAnalyticsFor(null); setSponsorAnalytics(null); }} style={{ background: 'none', border: 'none', color: colors.textTertiary, cursor: 'pointer' }}><X size={18} /></button>
+                                </div>
+
+                                {loadingSponsorAnalytics ? (
+                                    <div style={{ textAlign: 'center', padding: '40px', color: colors.textSecondary }}>Loading analytics...</div>
+                                ) : sponsorAnalytics ? (
+                                    <>
+                                        {/* Stat cards */}
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '12px', marginBottom: '24px' }}>
+                                            {[
+                                                { label: 'Total Clicks', value: sponsorAnalytics.totalClicks, sub: `${sponsorAnalytics.totalWebClicks} site · ${sponsorAnalytics.totalPromoClicks} promo` },
+                                                { label: 'Unique (30d)', value: sponsorAnalytics.uniqueClicks30d, sub: 'distinct visitors' },
+                                                { label: 'Clicks (30d)', value: sponsorAnalytics.clicks30d, sub: 'last 30 days' },
+                                                { label: 'Page Views', value: (sponsorAnalytics.viewCount || 0).toLocaleString(), sub: 'impressions' },
+                                            ].map(card => (
+                                                <div key={card.label} style={{ backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)', padding: '14px 16px' }}>
+                                                    <div style={{ fontSize: '11px', color: colors.textTertiary, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>{card.label}</div>
+                                                    <div style={{ fontSize: '24px', fontWeight: 800, color: colors.primary, lineHeight: 1 }}>{typeof card.value === 'number' ? card.value.toLocaleString() : card.value}</div>
+                                                    <div style={{ fontSize: '11px', color: colors.textTertiary, marginTop: '4px' }}>{card.sub}</div>
+                                                </div>
+                                            ))}
+                                        </div>
+
+                                        {/* Daily clicks bar chart */}
+                                        <div style={{ marginBottom: '20px' }}>
+                                            <div style={{ fontSize: '12px', fontWeight: 700, color: colors.textSecondary, marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Daily Clicks — Last 30 Days</div>
+                                            <div style={{ height: 180 }}>
+                                                <ResponsiveContainer width="100%" height="100%">
+                                                    <BarChart data={sponsorAnalytics.dailyClicks} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+                                                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                                                        <XAxis dataKey="date" tick={{ fill: colors.textTertiary, fontSize: 9 }} tickFormatter={(v: string) => v.slice(5)} interval={4} />
+                                                        <YAxis tick={{ fill: colors.textTertiary, fontSize: 10 }} allowDecimals={false} />
+                                                        <Tooltip contentStyle={{ backgroundColor: '#1a1e2e', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '8px', color: colors.textPrimary }} labelStyle={{ color: colors.textSecondary, fontSize: 11 }} />
+                                                        <Bar dataKey="clicks" fill={colors.primary} radius={[3, 3, 0, 0]} />
+                                                    </BarChart>
+                                                </ResponsiveContainer>
+                                            </div>
+                                        </div>
+
+                                        {/* Promo link breakdown */}
+                                        {sponsorAnalytics.promoLinks?.length > 0 && (
+                                            <div>
+                                                <div style={{ fontSize: '12px', fontWeight: 700, color: colors.textSecondary, marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Promo Link Breakdown</div>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                                    {sponsorAnalytics.promoLinks.map((l: any) => (
+                                                        <div key={l.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '8px 12px', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                                                            <Link2 size={12} color={colors.textTertiary} />
+                                                            <span style={{ flex: 1, fontSize: '13px', color: colors.textPrimary }}>{l.label}</span>
+                                                            <span style={{ fontSize: '13px', fontWeight: 700, color: colors.primary }}>{l.clicks.toLocaleString()}</span>
+                                                            <span style={{ fontSize: '11px', color: colors.textTertiary }}>clicks</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </>
+                                ) : (
+                                    <div style={{ textAlign: 'center', padding: '40px', color: colors.textTertiary }}>No analytics data yet.</div>
+                                )}
+                            </div>
+                        </div>
                     )}
                 </>
             )}
