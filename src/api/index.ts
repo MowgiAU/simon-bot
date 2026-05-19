@@ -11,6 +11,7 @@ import { rateLimit, ipKeyGenerator } from 'express-rate-limit';
 import axios, { AxiosError } from 'axios';
 import crypto from 'crypto';
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import FormData from 'form-data';
@@ -9146,10 +9147,16 @@ app.post('/api/admin/reprocess-flps', requireAdmin, async (req, res) => {
                     zipBuffer = fs.readFileSync(localPath);
                 }
 
-                const { arrangement: freshArr, sampleCount } = await ProjectZipProcessor.process(zipBuffer, track.id, db);
-                await db.track.update({ where: { id: track.id }, data: { arrangement: freshArr as any } });
-                (results as any).reextractSuccess++;
-                logger.info(`ZIP re-extract: "${track.title}" — ${sampleCount} samples re-processed`);
+                const tmpZipPath = path.join(os.tmpdir(), `reextract_${track.id}_${Date.now()}.zip`);
+                fs.writeFileSync(tmpZipPath, zipBuffer);
+                try {
+                    const { arrangement: freshArr, sampleCount } = await ProjectZipProcessor.process(tmpZipPath, track.id, db);
+                    await db.track.update({ where: { id: track.id }, data: { arrangement: freshArr as any } });
+                    (results as any).reextractSuccess++;
+                    logger.info(`ZIP re-extract: "${track.title}" — ${sampleCount} samples re-processed`);
+                } finally {
+                    try { fs.unlinkSync(tmpZipPath); } catch {}
+                }
             } catch (err: any) {
                 results.errors.push(`Re-extract failed for "${track.title}": ${err.message}`);
                 logger.warn(`ZIP re-extract failed for "${track.title}": ${err.message}`);
