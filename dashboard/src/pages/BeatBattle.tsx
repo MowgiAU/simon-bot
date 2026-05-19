@@ -148,6 +148,7 @@ export const BeatBattlePage: React.FC = () => {
         prizes: [{ place: '1st Place', title: '', description: '', imageUrl: '', link: '' }] as { place: string; title: string; description: string; imageUrl: string; link: string }[],
         maxVotesPerUser: 0,
         requireProjectFile: false,
+        pingOnSubmissions: false, pingOnVoting: false, pingOnWinners: false,
         entryFeeEnabled: false, entryFee: 0,
         prizePoolEnabled: false, prizeFirst: 0, prizeSecond: 0, prizeThird: 0,
         voterReward: 0,
@@ -169,7 +170,7 @@ export const BeatBattlePage: React.FC = () => {
 
     // Backfill form
     const [backfillForm, setBackfillForm] = useState({
-        title: '', description: '', sponsorName: '', completedAt: '',
+        title: '', description: '', sponsorId: '', completedAt: '',
         winners: [{ userId: '', username: '', trackTitle: '', audioUrl: '' }] as { userId: string; username: string; trackTitle: string; audioUrl: string }[],
     });
 
@@ -237,7 +238,7 @@ export const BeatBattlePage: React.FC = () => {
         Promise.all([fetchBattles(), fetchSponsors(), fetchSettings()]).finally(() => setLoading(false));
     }, [fetchBattles, fetchSponsors, fetchSettings]);
 
-    const resetForm = () => setForm({ title: '', subtitle: '', description: '', rulesData: [{ text: '', links: [], samples: [] }], submissionStart: '', submissionEnd: '', votingStart: '', votingEnd: '', sponsorId: '', announcementChannelId: '', prizes: [{ place: '1st Place', title: '', description: '', imageUrl: '', link: '' }], maxVotesPerUser: 0, requireProjectFile: false, entryFeeEnabled: false, entryFee: 0, prizePoolEnabled: false, prizeFirst: 0, prizeSecond: 0, prizeThird: 0, voterReward: 0, suddenDeathDurationMinutes: 60 });
+    const resetForm = () => setForm({ title: '', subtitle: '', description: '', rulesData: [{ text: '', links: [], samples: [] }], submissionStart: '', submissionEnd: '', votingStart: '', votingEnd: '', sponsorId: '', announcementChannelId: '', prizes: [{ place: '1st Place', title: '', description: '', imageUrl: '', link: '' }], maxVotesPerUser: 0, requireProjectFile: false, pingOnSubmissions: false, pingOnVoting: false, pingOnWinners: false, entryFeeEnabled: false, entryFee: 0, prizePoolEnabled: false, prizeFirst: 0, prizeSecond: 0, prizeThird: 0, voterReward: 0, suddenDeathDurationMinutes: 60 });
 
     const handleCreateBattle = async () => {
         try {
@@ -261,6 +262,9 @@ export const BeatBattlePage: React.FC = () => {
                     announcementChannelId: form.announcementChannelId,
                     maxVotesPerUser: form.maxVotesPerUser,
                     requireProjectFile: form.requireProjectFile,
+                    pingOnSubmissions: form.pingOnSubmissions,
+                    pingOnVoting: form.pingOnVoting,
+                    pingOnWinners: form.pingOnWinners,
                     entryFeeEnabled: form.entryFeeEnabled,
                     entryFee: form.entryFee,
                     prizePoolEnabled: form.prizePoolEnabled,
@@ -330,6 +334,9 @@ export const BeatBattlePage: React.FC = () => {
                     announcementChannelId: form.announcementChannelId,
                     maxVotesPerUser: form.maxVotesPerUser,
                     requireProjectFile: form.requireProjectFile,
+                    pingOnSubmissions: form.pingOnSubmissions,
+                    pingOnVoting: form.pingOnVoting,
+                    pingOnWinners: form.pingOnWinners,
                     entryFeeEnabled: form.entryFeeEnabled,
                     entryFee: form.entryFee,
                     prizePoolEnabled: form.prizePoolEnabled,
@@ -587,7 +594,7 @@ export const BeatBattlePage: React.FC = () => {
                 body: JSON.stringify({
                     title: backfillForm.title,
                     description: backfillForm.description,
-                    sponsorName: backfillForm.sponsorName,
+                    sponsorId: backfillForm.sponsorId || null,
                     completedAt: backfillForm.completedAt,
                     winners: backfillForm.winners,
                     guildId,
@@ -595,7 +602,7 @@ export const BeatBattlePage: React.FC = () => {
             });
             if (res.ok) {
                 await fetchBattles();
-                setBackfillForm({ title: '', description: '', sponsorName: '', completedAt: '', winners: [{ userId: '', username: '', trackTitle: '', audioUrl: '' }] });
+                setBackfillForm({ title: '', description: '', sponsorId: '', completedAt: '', winners: [{ userId: '', username: '', trackTitle: '', audioUrl: '' }] });
             }
         } catch {}
     };
@@ -620,6 +627,9 @@ export const BeatBattlePage: React.FC = () => {
                 : [{ place: '1st Place', title: '', description: '', imageUrl: '', link: '' }],
             maxVotesPerUser: (b as any).maxVotesPerUser || 0,
             requireProjectFile: (b as any).requireProjectFile || false,
+            pingOnSubmissions: (b as any).pingOnSubmissions || false,
+            pingOnVoting: (b as any).pingOnVoting || false,
+            pingOnWinners: (b as any).pingOnWinners || false,
             entryFeeEnabled: (b as any).entryFeeEnabled || false,
             entryFee: (b as any).entryFee || 0,
             prizePoolEnabled: (b as any).prizePoolEnabled || false,
@@ -976,6 +986,41 @@ export const BeatBattlePage: React.FC = () => {
                                             {form.requireProjectFile ? 'Submitters must upload .flp or .zip project file' : 'Project files optional'}
                                         </span>
                                     </div>
+                                </div>
+                            </div>
+                            {/* @everyone Ping Settings */}
+                            <div style={{ borderTop: '1px solid rgba(255,255,255,0.07)', paddingTop: '16px', marginTop: '8px' }}>
+                                <h4 style={{ margin: '0 0 4px', color: colors.textPrimary, fontSize: '14px' }}>@everyone Pings</h4>
+                                <p style={{ margin: '0 0 14px', color: colors.textSecondary, fontSize: '12px' }}>Choose which announcements ping @everyone in the announcement channel.</p>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                    {([
+                                        { key: 'pingOnSubmissions', label: 'Submissions open', desc: 'When the battle launches and entries are accepted' },
+                                        { key: 'pingOnVoting', label: 'Voting opens', desc: 'When submission period ends and voting begins' },
+                                        { key: 'pingOnWinners', label: 'Winners announced', desc: 'When the results are posted' },
+                                    ] as { key: 'pingOnSubmissions' | 'pingOnVoting' | 'pingOnWinners'; label: string; desc: string }[]).map(({ key, label, desc }) => (
+                                        <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                            <button
+                                                onClick={() => setForm({ ...form, [key]: !form[key] })}
+                                                style={{
+                                                    width: '44px', height: '24px', borderRadius: '12px', border: 'none', cursor: 'pointer', flexShrink: 0,
+                                                    backgroundColor: form[key] ? '#ef4444' : 'rgba(255,255,255,0.15)',
+                                                    position: 'relative', transition: 'background-color 0.2s',
+                                                }}
+                                            >
+                                                <div style={{
+                                                    width: '18px', height: '18px', borderRadius: '50%', backgroundColor: colors.textPrimary,
+                                                    position: 'absolute', top: '3px', left: form[key] ? '23px' : '3px',
+                                                    transition: 'left 0.2s',
+                                                }} />
+                                            </button>
+                                            <div>
+                                                <span style={{ fontSize: '13px', color: form[key] ? colors.textPrimary : colors.textSecondary, fontWeight: form[key] ? 600 : 400 }}>
+                                                    {label}
+                                                </span>
+                                                <span style={{ fontSize: '11px', color: colors.textTertiary, marginLeft: '6px' }}>{desc}</span>
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
                             {/* Economy Integration (per-battle) */}
@@ -1447,8 +1492,17 @@ export const BeatBattlePage: React.FC = () => {
                                 <textarea style={{ ...inputStyle, minHeight: '60px', resize: 'vertical' }} value={backfillForm.description} onChange={(e) => setBackfillForm({ ...backfillForm, description: e.target.value })} />
                             </div>
                             <div>
-                                <label style={labelStyle}>Sponsor Name (optional)</label>
-                                <input style={inputStyle} value={backfillForm.sponsorName} onChange={(e) => setBackfillForm({ ...backfillForm, sponsorName: e.target.value })} />
+                                <label style={labelStyle}>Sponsor (optional)</label>
+                                <select
+                                    style={inputStyle}
+                                    value={backfillForm.sponsorId}
+                                    onChange={(e) => setBackfillForm({ ...backfillForm, sponsorId: e.target.value })}
+                                >
+                                    <option value="">— None —</option>
+                                    {sponsors.filter(s => s.isActive).map(s => (
+                                        <option key={s.id} value={s.id}>{s.name}</option>
+                                    ))}
+                                </select>
                             </div>
                             <div>
                                 <label style={labelStyle}>Completed Date</label>

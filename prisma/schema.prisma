@@ -1358,6 +1358,9 @@ model BeatBattle {
 
   // Announcement
   pendingAnnouncement Boolean @default(false) // Set true to trigger bot announcement on next lifecycle check
+  pingOnSubmissions   Boolean @default(false) // Ping @everyone when submissions open
+  pingOnVoting        Boolean @default(false) // Ping @everyone when voting opens
+  pingOnWinners       Boolean @default(false) // Ping @everyone when winners are announced
 
   // Sponsor
   sponsorId String?

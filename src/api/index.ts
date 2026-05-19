@@ -11013,7 +11013,7 @@ app.post('/api/beat-battle/battles/:battleId/submit', requireAuth, async (req: a
 // --- Admin: Create battle ---
 app.post('/api/beat-battle/admin/battles', requireAdmin, async (req: any, res) => {
     try {
-        const { title, description, subtitle, rules, rulesData, prizes, guildId, submissionStart, submissionEnd, votingStart, votingEnd, sponsorId, announcementChannelId, maxVotesPerUser, requireProjectFile, entryFeeEnabled, entryFee, prizePoolEnabled, prizeFirst, prizeSecond, prizeThird, voterReward, suddenDeathDurationMinutes } = req.body;
+        const { title, description, subtitle, rules, rulesData, prizes, guildId, submissionStart, submissionEnd, votingStart, votingEnd, sponsorId, announcementChannelId, maxVotesPerUser, requireProjectFile, pingOnSubmissions, pingOnVoting, pingOnWinners, entryFeeEnabled, entryFee, prizePoolEnabled, prizeFirst, prizeSecond, prizeThird, voterReward, suddenDeathDurationMinutes } = req.body;
 
         if (!title) return res.status(400).json({ error: 'Title is required' });
 
@@ -11048,6 +11048,9 @@ app.post('/api/beat-battle/admin/battles', requireAdmin, async (req: any, res) =
                 announcementChannelId: announcementChannelId || null,
                 maxVotesPerUser: maxVotesPerUser != null ? Number(maxVotesPerUser) : 0,
                 requireProjectFile: requireProjectFile === true || requireProjectFile === 'true',
+                pingOnSubmissions: pingOnSubmissions === true,
+                pingOnVoting: pingOnVoting === true,
+                pingOnWinners: pingOnWinners === true,
                 entryFeeEnabled: entryFeeEnabled === true,
                 entryFee: entryFee != null ? Number(entryFee) : 0,
                 prizePoolEnabled: prizePoolEnabled === true,
@@ -11084,7 +11087,7 @@ app.post('/api/beat-battle/admin/battles', requireAdmin, async (req: any, res) =
 // --- Admin: Update battle ---
 app.patch('/api/beat-battle/admin/battles/:id', requireAdmin, async (req: any, res) => {
     try {
-        const { title, description, subtitle, rules, rulesData, prizes, status, submissionStart, submissionEnd, votingStart, votingEnd, sponsorId, announcementChannelId, maxVotesPerUser, requireProjectFile, entryFeeEnabled, entryFee, prizePoolEnabled, prizeFirst, prizeSecond, prizeThird, voterReward, suddenDeathDurationMinutes } = req.body;
+        const { title, description, subtitle, rules, rulesData, prizes, status, submissionStart, submissionEnd, votingStart, votingEnd, sponsorId, announcementChannelId, maxVotesPerUser, requireProjectFile, pingOnSubmissions, pingOnVoting, pingOnWinners, entryFeeEnabled, entryFee, prizePoolEnabled, prizeFirst, prizeSecond, prizeThird, voterReward, suddenDeathDurationMinutes } = req.body;
 
         // Fetch old battle to detect status change
         const oldBattle = await db.beatBattle.findUnique({ where: { id: req.params.id } });
@@ -11120,6 +11123,9 @@ app.patch('/api/beat-battle/admin/battles/:id', requireAdmin, async (req: any, r
         if (announcementChannelId !== undefined) data.announcementChannelId = announcementChannelId;
         if (maxVotesPerUser !== undefined) data.maxVotesPerUser = Number(maxVotesPerUser);
         if (requireProjectFile !== undefined) data.requireProjectFile = requireProjectFile === true || requireProjectFile === 'true';
+        if (pingOnSubmissions !== undefined) data.pingOnSubmissions = pingOnSubmissions === true;
+        if (pingOnVoting !== undefined) data.pingOnVoting = pingOnVoting === true;
+        if (pingOnWinners !== undefined) data.pingOnWinners = pingOnWinners === true;
         if (entryFeeEnabled !== undefined) data.entryFeeEnabled = entryFeeEnabled === true;
         if (entryFee !== undefined) data.entryFee = Number(entryFee);
         if (prizePoolEnabled !== undefined) data.prizePoolEnabled = prizePoolEnabled === true;
@@ -11396,6 +11402,22 @@ async function postBattleAnnouncement(battle: any, settings: any): Promise<strin
             footer: { text: 'Fuji Studio Beat Battle' },
             timestamp: new Date().toISOString(),
         };
+        if (battle.pingOnSubmissions) {
+            try {
+                await discordReq('POST', `/channels/${annChannelId}/messages`, {
+                    content: '@everyone',
+                    embeds: [embed],
+                    allowed_mentions: { parse: ['everyone'] },
+                });
+                return null;
+            } catch (err: any) {
+                const status = err.response?.status;
+                if (status === 403) return `Bot lacks Send Messages permission in <#${annChannelId}>. Grant the bot "Send Messages" in that channel, then try again.`;
+                if (status === 404) return `Announcement channel not found (ID: ${annChannelId}). Check the channel ID in Beat Battle settings.`;
+                logger.error(`Beat Battle: failed to post announcement to channel ${annChannelId}: ${err.message}`);
+                return `Discord error: ${err.message}`;
+            }
+        }
     } else if (battle.status === 'voting') {
         const fields: any[] = [];
         if (battle.votingEnd) {
@@ -11410,6 +11432,22 @@ async function postBattleAnnouncement(battle: any, settings: any): Promise<strin
             footer: { text: 'Fuji Studio Beat Battle' },
             timestamp: new Date().toISOString(),
         };
+        if (battle.pingOnVoting) {
+            try {
+                await discordReq('POST', `/channels/${annChannelId}/messages`, {
+                    content: '@everyone',
+                    embeds: [embed],
+                    allowed_mentions: { parse: ['everyone'] },
+                });
+                return null;
+            } catch (err: any) {
+                const status = err.response?.status;
+                if (status === 403) return `Bot lacks Send Messages permission in <#${annChannelId}>. Grant the bot "Send Messages" in that channel, then try again.`;
+                if (status === 404) return `Announcement channel not found (ID: ${annChannelId}). Check the channel ID in Beat Battle settings.`;
+                logger.error(`Beat Battle: failed to post announcement to channel ${annChannelId}: ${err.message}`);
+                return `Discord error: ${err.message}`;
+            }
+        }
     } else if (battle.status === 'completed') {
         const winners = await rankedBattleEntries(battle.id, 3);
         if (!winners.length) return null;
@@ -11426,12 +11464,16 @@ async function postBattleAnnouncement(battle: any, settings: any): Promise<strin
             footer: { text: 'Fuji Studio Beat Battle' },
             timestamp: new Date().toISOString(),
         };
-        // Tag winners in the message body so they get notified.
+        // Tag winners (and optionally @everyone) in the message body.
+        const content = battle.pingOnWinners ? `@everyone ${winnerMentions}` : winnerMentions;
+        const allowed_mentions = battle.pingOnWinners
+            ? { parse: ['everyone'], users: winners.map((w: any) => w.userId) }
+            : { users: winners.map((w: any) => w.userId) };
         try {
             await discordReq('POST', `/channels/${annChannelId}/messages`, {
-                content: winnerMentions,
+                content,
                 embeds: [embed],
-                allowed_mentions: { users: winners.map(w => w.userId) },
+                allowed_mentions,
             });
             return null;
         } catch (err: any) {
@@ -12032,18 +12074,17 @@ app.get('/api/beat-battle/admin/battles/:id/votes', requireAdmin, async (req: an
 // --- Admin: Backfill old battle data ---
 app.post('/api/beat-battle/admin/backfill', requireAdmin, async (req: any, res) => {
     try {
-        const { title, description, winners, sponsorName, completedAt, guildId } = req.body;
+        const { title, description, winners, sponsorId: rawSponsorId, completedAt, guildId } = req.body;
 
         if (!title) return res.status(400).json({ error: 'Title is required' });
 
         const effectiveGuildId = guildId || 'default-guild';
 
-        // Create sponsor if provided
+        // Validate sponsorId if provided
         let sponsorId: string | null = null;
-        if (sponsorName) {
-            const sponsor = await db.battleSponsor.create({
-                data: { guildId: effectiveGuildId, name: sponsorName },
-            });
+        if (rawSponsorId) {
+            const sponsor = await db.battleSponsor.findUnique({ where: { id: rawSponsorId } });
+            if (!sponsor) return res.status(400).json({ error: 'Sponsor not found' });
             sponsorId = sponsor.id;
         }
 
