@@ -848,7 +848,7 @@ function logActivity(
     const ip     = ipFromReq(req);
     const ua     = (req.headers?.['user-agent'] as string | undefined)?.slice(0, 500) ?? null;
     db.activityLog.create({
-        data: { userId, ip, userAgent: ua, action, targetId: targetId ?? null, targetType: targetType ?? null, metadata: metadata ?? null },
+        data: { userId, ip, userAgent: ua, action, targetId: targetId ?? null, targetType: targetType ?? null, metadata: metadata ?? undefined },
     }).catch(() => {});
 }
 
