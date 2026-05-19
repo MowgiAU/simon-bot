@@ -53,6 +53,13 @@ declare module 'express-session' {
         guilds?: any[];
         _discordLinkToken?: string;
         _discordLinkReturn?: string;
+        _impersonating?: {
+            originalUser: any;
+            originalGuilds: any[];
+            originalMutualAdminGuilds: any[];
+            originalMutualStaffGuilds: any[];
+            originalIsGuildMember: boolean;
+        };
     }
 }
 
