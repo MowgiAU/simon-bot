@@ -96,19 +96,13 @@ export class HeadToHeadAnnouncerPlugin implements IPlugin {
     }
 
     private async postQueueAnnouncement(channel: TextChannel, match: any): Promise<void> {
-        const [challenger, genre] = await Promise.all([
-            this.getProfile(match.challengerId),
-            match.genreId ? this.getGenreName(match.genreId) : null,
-        ]);
-
+        const genre = match.genreId ? await this.getGenreName(match.genreId) : null;
         const arenaUrl = `${this.siteBase}/arena`;
-        const challengerName = challenger?.displayName || challenger?.username || `<@${match.challengerId}>`;
-        const challengerLink = challenger ? `[${challengerName}](${this.siteBase}/profile/${challenger.username})` : challengerName;
 
         const desc = [
-            `⚔️ **${challengerLink}** is in the queue and looking for an opponent!`,
+            `⚔️ A producer is in the queue and looking for an opponent!`,
             genre ? `🎧 Genre: **${genre}**` : null,
-            `Join the arena to accept the challenge.`,
+            `Jump in the arena to accept the challenge.`,
             '',
             `**[🏟️ Join the Arena](${arenaUrl})**`,
         ].filter(Boolean).join('\n');
@@ -116,18 +110,14 @@ export class HeadToHeadAnnouncerPlugin implements IPlugin {
         const embed = new EmbedBuilder()
             .setColor(EMBED_COLOR_QUEUE)
             .setAuthor({ name: '🔍 1v1 Arena — Looking for Opponent' })
-            .setTitle(`${challengerName} wants to battle`)
+            .setTitle('Someone wants to battle')
             .setURL(arenaUrl)
             .setDescription(desc)
             .setFooter({ text: 'Fuji Studio Arena' })
             .setTimestamp();
 
-        if (challenger?.avatar) {
-            embed.setThumbnail(`https://cdn.discordapp.com/avatars/${challenger.userId}/${challenger.avatar}.png`);
-        }
-
         await channel.send({ embeds: [embed] });
-        this.logger.info(`[H2HAnnouncer] Posted queue announcement for match ${match.id} — challenger: ${challengerName}`);
+        this.logger.info(`[H2HAnnouncer] Posted queue announcement for match ${match.id}`);
     }
 
     // ─── Voting open ───────────────────────────────────────────────────────────
@@ -153,27 +143,16 @@ export class HeadToHeadAnnouncerPlugin implements IPlugin {
     }
 
     private async postVotingAnnouncement(channel: TextChannel, match: any): Promise<void> {
-        const [challenger, opponent, genre] = await Promise.all([
-            this.getProfile(match.challengerId),
-            match.opponentId ? this.getProfile(match.opponentId) : null,
-            match.genreId ? this.getGenreName(match.genreId) : null,
-        ]);
-
+        const genre = match.genreId ? await this.getGenreName(match.genreId) : null;
         const arenaUrl = `${this.siteBase}/arena#vote`;
-        const challengerName = challenger?.displayName || challenger?.username || `<@${match.challengerId}>`;
-        const opponentName   = opponent?.displayName   || opponent?.username   || (match.opponentId ? `<@${match.opponentId}>` : 'TBD');
-
-        const challengerLink = challenger ? `[${challengerName}](${this.siteBase}/profile/${challenger.username})` : challengerName;
-        const opponentLink   = opponent   ? `[${opponentName}](${this.siteBase}/profile/${opponent.username})`   : opponentName;
-
         const deadline = match.votingEnd ? `<t:${Math.floor(new Date(match.votingEnd).getTime() / 1000)}:R>` : null;
 
         const desc = [
-            `⚔️ **${challengerLink}** vs **${opponentLink}**`,
+            `⚔️ Two anonymous producers have gone head-to-head!`,
             genre ? `🎧 Genre: **${genre}**` : null,
             deadline ? `⏰ Voting closes ${deadline}` : null,
             '',
-            `**[🗳️ Cast Your Vote on Fuji Studio](${arenaUrl})**`,
+            `**[🗳️ Listen & Vote on Fuji Studio](${arenaUrl})**`,
         ].filter(Boolean).join('\n');
 
         const embed = new EmbedBuilder()
@@ -211,51 +190,27 @@ export class HeadToHeadAnnouncerPlugin implements IPlugin {
     }
 
     private async postWinnerAnnouncement(channel: TextChannel, match: any): Promise<void> {
-        const [winner, loser, genre] = await Promise.all([
-            this.getProfile(match.winnerId),
-            match.loserId ? this.getProfile(match.loserId) : null,
-            match.genreId ? this.getGenreName(match.genreId) : null,
-        ]);
-
+        const genre = match.genreId ? await this.getGenreName(match.genreId) : null;
         const arenaUrl = `${this.siteBase}/arena`;
 
-        const winnerName = winner?.displayName || winner?.username || `<@${match.winnerId}>`;
-        const loserName  = loser?.displayName  || loser?.username  || (match.loserId ? `<@${match.loserId}>` : null);
-
-        const winnerLink = winner ? `[${winnerName}](${this.siteBase}/profile/${winner.username})` : winnerName;
-        const loserLink  = loser  ? `[${loserName}](${this.siteBase}/profile/${loser.username})`  : loserName;
-
-        // Elo delta for winner
-        const winnerEloDelta = (match.challengerId === match.winnerId)
-            ? (match.challengerEloAfter != null && match.challengerEloBefore != null ? match.challengerEloAfter - match.challengerEloBefore : null)
-            : (match.opponentEloAfter  != null && match.opponentEloBefore  != null ? match.opponentEloAfter  - match.opponentEloBefore  : null);
-
-        const eloText = winnerEloDelta != null ? ` (+${winnerEloDelta} Elo)` : '';
-
         const descParts = [
-            `🏆 **${winnerLink}** wins!${eloText}`,
-            loserLink ? `vs ${loserLink}` : null,
+            `🏆 The votes are in — a winner has been decided!`,
             genre ? `🎧 Genre: **${genre}**` : null,
             '',
-            `**[🏟️ View on Fuji Studio Arena](${arenaUrl})**`,
+            `**[🏟️ See the Results on Fuji Studio](${arenaUrl})**`,
         ].filter(Boolean).join('\n');
 
         const embed = new EmbedBuilder()
             .setColor(EMBED_COLOR_WINNER)
             .setAuthor({ name: '🏆 1v1 Battle — Winner Decided!' })
-            .setTitle(winnerName)
+            .setTitle('A 1v1 battle has concluded')
             .setURL(arenaUrl)
             .setDescription(descParts)
             .setFooter({ text: 'Fuji Studio Arena' })
             .setTimestamp();
 
-        if (winner?.avatar) {
-            const avatarUrl = `https://cdn.discordapp.com/avatars/${winner.userId}/${winner.avatar}.png`;
-            embed.setThumbnail(avatarUrl);
-        }
-
         await channel.send({ embeds: [embed] });
-        this.logger.info(`[H2HAnnouncer] Posted winner announcement for match ${match.id} — winner: ${winnerName}`);
+        this.logger.info(`[H2HAnnouncer] Posted winner announcement for match ${match.id}`);
     }
 
     // ─── Helpers ───────────────────────────────────────────────────────────────
