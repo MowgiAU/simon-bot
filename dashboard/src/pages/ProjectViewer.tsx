@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { PluginBadge, usePluginRegistry } from '../components/ArrangementViewer';
+import { PluginList, usePluginRegistry } from '../components/ArrangementViewer';
 import axios from 'axios';
 import { useAuth } from '../components/AuthProvider';
 import { colors, spacing, borderRadius } from '../theme/theme';
@@ -242,10 +242,7 @@ export const ProjectViewer: React.FC = () => {
                 {plugins.length > 0 && (
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: spacing.md }}>
                         <span style={{ fontSize: '11px', color: colors.textSecondary, alignSelf: 'center', marginRight: 4, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>VSTs</span>
-                        {plugins.map(p => (
-                            <PluginBadge key={p} name={p} registry={pluginRegistry}
-                                fallbackStyle={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: `${accentColor}18`, color: accentColor, border: `1px solid ${accentColor}33`, fontWeight: 600 }} />
-                        ))}
+                        <PluginList plugins={plugins} registry={pluginRegistry} />
                     </div>
                 )}
 

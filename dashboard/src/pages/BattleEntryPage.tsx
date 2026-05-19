@@ -20,7 +20,7 @@ import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { CommentSection } from '../components/CommentSection';
 import { AddToPlaylistModal } from '../components/AddToPlaylistModal';
 import { ReportButton } from '../components/ReportButton';
-import { ArrangementViewer, ArrangementData, PluginBadge, usePluginRegistry } from '../components/ArrangementViewer';
+import { ArrangementViewer, ArrangementData, PluginList, usePluginRegistry } from '../components/ArrangementViewer';
 
 interface TrackSample {
     id: string;
@@ -1033,12 +1033,7 @@ export const BattleEntryPage: React.FC = () => {
                                                         <Zap size={15} color={colors.primary} />
                                                         <span style={{ fontSize: '12px', fontWeight: 700, color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Plugins ({track.arrangement.projectInfo!.plugins.length})</span>
                                                     </div>
-                                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                                                        {track.arrangement.projectInfo!.plugins.map((plugin, i) => (
-                                                            <PluginBadge key={i} name={plugin} registry={pluginRegistry}
-                                                                fallbackStyle={{ padding: '5px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 500, backgroundColor: 'rgba(242,123,19,0.08)', border: '1px solid rgba(242,123,19,0.15)', color: '#F0A060' }} />
-                                                        ))}
-                                                    </div>
+                                                    <PluginList plugins={track.arrangement.projectInfo!.plugins} registry={pluginRegistry} />
                                                 </div>
                                             )}
                                             {track.arrangement.projectInfo!.samples.length > 0 && (
