@@ -32,6 +32,7 @@ const CATEGORY_COLOR: Record<string, string> = {
 };
 interface Settings {
     enabled: boolean;
+    announceQueueEnabled: boolean;
     announcementChannelId: string | null;
     defaultProductionMinutes: number;
     defaultVotingMinutes: number;
@@ -370,6 +371,12 @@ const SettingsTab: React.FC = () => {
                 <label style={{ display: 'flex', alignItems: 'center', gap: 8, color: colors.textPrimary }}>
                     <input type="checkbox" checked={s.enabled} onChange={e => setS({ ...s, enabled: e.target.checked })} />
                     {s.enabled ? 'Module is active' : 'Module is disabled'}
+                </label>
+            </Field>
+            <Field label="Announce queue entries" hint="Post a Discord message when someone is waiting for an opponent (after 2 minutes, to skip instant matches). Voting and winner announcements are unaffected by this toggle.">
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, color: colors.textPrimary }}>
+                    <input type="checkbox" checked={s.announceQueueEnabled ?? true} onChange={e => setS({ ...s, announceQueueEnabled: e.target.checked })} />
+                    {(s.announceQueueEnabled ?? true) ? 'Post "looking for opponent" messages' : 'Queue announcements off'}
                 </label>
             </Field>
             <Field label="Default production minutes" hint="How long players have to produce after readying up.">

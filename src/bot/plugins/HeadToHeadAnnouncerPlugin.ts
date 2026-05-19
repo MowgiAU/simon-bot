@@ -66,7 +66,7 @@ export class HeadToHeadAnnouncerPlugin implements IPlugin {
             const channel = this.client.channels.cache.get(settings.announcementChannelId) as TextChannel | undefined;
             if (!channel?.isTextBased()) return;
 
-            await this.announceQueueWaiting(channel);
+            if (settings.announceQueueEnabled !== false) await this.announceQueueWaiting(channel);
             await this.announceVotingOpen(channel);
             await this.announceWinners(channel);
         } catch (err: any) {

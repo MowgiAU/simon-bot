@@ -2702,6 +2702,7 @@ model HeadToHeadSettings {
   id                       String   @id @default(cuid())
   guildId                  String   @unique
   enabled                  Boolean  @default(true)
+  announceQueueEnabled     Boolean  @default(true)  // Post "looking for opponent" messages
   announcementChannelId    String?
   defaultProductionMinutes Int      @default(60)
   defaultVotingMinutes     Int      @default(30)
