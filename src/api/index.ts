@@ -8353,9 +8353,25 @@ app.get('/api/musician/profile/:userId', async (req, res) => {
             });
         }
 
+        // Collect all user IDs that could own reposts for this profile.
+        // TrackRepost.userId stores the Discord session ID (snowflake), but after profile
+        // consolidation profileData.userId is the internal cuid. Look up the User record
+        // to get both so reposts created under either ID are found.
+        const repostUserIds: string[] = [profileData.userId];
+        try {
+            const linkedUser = await db.user.findFirst({
+                where: { OR: [{ id: profileData.userId }, { discordId: profileData.userId }] },
+                select: { id: true, discordId: true },
+            });
+            if (linkedUser) {
+                if (linkedUser.id && !repostUserIds.includes(linkedUser.id)) repostUserIds.push(linkedUser.id);
+                if (linkedUser.discordId && !repostUserIds.includes(linkedUser.discordId)) repostUserIds.push(linkedUser.discordId);
+            }
+        } catch { /* non-fatal */ }
+
         // Fetch reposts in parallel-after-profile (userId is now known)
         const reposts = await db.trackRepost.findMany({
-            where: { userId: profileData.userId, track: { deletedAt: null } },
+            where: { userId: { in: repostUserIds }, track: { deletedAt: null } },
             orderBy: { createdAt: 'desc' },
             take: 50,
             include: {
