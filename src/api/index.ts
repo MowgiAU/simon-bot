@@ -13755,6 +13755,10 @@ app.get('/api/head-to-head/me', requireAuth, async (req: any, res) => {
             db.h2HMatch.findMany({
                 where: {
                     OR: [{ challengerId: userId }, { opponentId: userId }],
+                    // Exclude cancelled matches where no opponent ever joined — those are
+                    // queue abandonments, not real matches. Cancelled matches with an opponent
+                    // (e.g. admin cancel, both no-shows) are still shown.
+                    NOT: { status: 'cancelled', opponentId: null },
                     status: { in: ['completed', 'forfeited', 'cancelled'] },
                 },
                 orderBy: { updatedAt: 'desc' },
