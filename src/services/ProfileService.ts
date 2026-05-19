@@ -53,6 +53,16 @@ export class ProfileService {
 
         // 2. Clear and re-set relations (Transaction-based)
         return await this.prisma.$transaction(async (tx) => {
+            // If setting a featured track, clear it from any OTHER profile first.
+            // featuredTrackId has a @unique constraint — if a stale duplicate profile
+            // already holds the same track ID, the upsert below would throw P2002.
+            if (data.featuredTrackId) {
+                await tx.musicianProfile.updateMany({
+                    where: { featuredTrackId: data.featuredTrackId, userId: { not: userId } },
+                    data: { featuredTrackId: null },
+                });
+            }
+
             // Find or create the profile base
             const profile = await tx.musicianProfile.upsert({
                 where: { userId },

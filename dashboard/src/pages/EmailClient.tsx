@@ -542,30 +542,39 @@ export const EmailClientPage: React.FC<EmailPageProps> = ({ searchParam }) => {
                 {emails.map(email => {
                     const isSelected = selectedEmail?.threadId === email.threadId;
                     return (
-                    <div 
+                    <div
                         key={email.threadId}
                         onClick={() => handleSelectEmail(email)}
                         style={{
                             padding: '12px 16px',
                             borderBottom: `1px solid ${colors.border}`,
-                            background: isSelected ? colors.background : 'transparent',
+                            background: isSelected
+                                ? colors.background
+                                : !email.read ? 'rgba(59,130,246,0.06)' : 'transparent',
                             cursor: 'pointer',
-                            borderLeft: isSelected ? `4px solid ${colors.primary}` : '4px solid transparent',
+                            borderLeft: isSelected
+                                ? `4px solid ${colors.primary}`
+                                : !email.read ? '4px solid #3b82f6' : '4px solid transparent',
                         }}
                     >
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', alignItems: 'center' }}>
-                            <span style={{ fontWeight: !email.read ? 700 : 500, color: colors.textPrimary, fontSize: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '200px' }}>
-                                {view === 'sent' ? `To: ${email.toEmail || email.from}` : email.from}
-                            </span>
-                            <span style={{ fontSize: '11px', color: colors.textSecondary, whiteSpace: 'nowrap' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
+                                {!email.read && (
+                                    <div style={{ width: '7px', height: '7px', borderRadius: '50%', backgroundColor: '#3b82f6', flexShrink: 0 }} />
+                                )}
+                                <span style={{ fontWeight: !email.read ? 700 : 500, color: colors.textPrimary, fontSize: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '180px' }}>
+                                    {view === 'sent' ? `To: ${email.toEmail || email.from}` : email.from}
+                                </span>
+                            </div>
+                            <span style={{ fontSize: '11px', color: !email.read ? '#60a5fa' : colors.textSecondary, whiteSpace: 'nowrap', flexShrink: 0, marginLeft: '8px' }}>
                                 {new Date(email.date).toLocaleDateString([], { month: 'short', day: 'numeric' })}
                             </span>
                         </div>
-                        <div style={{ fontWeight: !email.read ? 700 : 400, marginBottom: '2px', fontSize: '13px', color: colors.textPrimary }}>
+                        <div style={{ fontWeight: !email.read ? 700 : 400, marginBottom: '2px', fontSize: '13px', color: !email.read ? colors.textPrimary : colors.textSecondary }}>
                             {email.subject || '(No Subject)'}
                         </div>
-                        <div style={{ fontSize: '12px', color: colors.textSecondary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', height: '20px' }}>
-                             {email.body.replace(/<[^>]*>?/gm, ' ').substring(0, 100)}
+                        <div style={{ fontSize: '12px', color: colors.textTertiary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', height: '20px' }}>
+                            {email.body.replace(/<[^>]*>?/gm, ' ').substring(0, 100)}
                         </div>
                     </div>
                 )})}

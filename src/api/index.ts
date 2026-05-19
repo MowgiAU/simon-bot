@@ -8595,6 +8595,7 @@ app.post('/api/musician/profile/:userId', async (req: any, res) => {
 
         res.json(updated);
     } catch (e: any) {
+        logger.error('Profile save failed', { userId: req.params?.userId, message: e.message, code: e.code });
         res.status(500).json({ error: 'Internal server error' });
     }
 });
