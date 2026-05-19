@@ -8636,14 +8636,19 @@ app.post('/api/musician/profile/:userId', async (req: any, res) => {
         // the profile was created with a Discord numeric ID but the session now
         // carries a different cuid (_localId). Always update the profile that
         // getProfile() would return, not a phantom one.
-        const existingProfile = await db.musicianProfile.findFirst({
+        // Use the same profile-selection logic as ProfileService.getProfile: pick the candidate
+        // with the most tracks. Picking by totalPlays diverges from getProfile when a user
+        // has duplicate rows, causing saves to go to a different row than the one displayed.
+        const profileCandidates = await db.musicianProfile.findMany({
             where: { OR: [{ userId: canonicalUserId }, { userId }] },
-            orderBy: { totalPlays: 'desc' },
-            select: { userId: true, id: true, username: true },
+            select: { userId: true, id: true, username: true, _count: { select: { tracks: { where: { deletedAt: null } } } } },
         });
+        const existingProfile = profileCandidates.reduce<typeof profileCandidates[0] | null>(
+            (best, p) => (!best || p._count.tracks >= best._count.tracks) ? p : best, null
+        );
         const profileUserId = existingProfile?.userId ?? canonicalUserId;
 
-        logger.info(`[Profile save] urlUserId=${userId} canonicalId=${canonicalUserId} existingProfile.userId=${existingProfile?.userId ?? 'none'} → updating profileUserId=${profileUserId} displayName=${data.displayName} bio=${String(data.bio || '').slice(0, 40)}`);
+        logger.info(`[Profile save] urlUserId=${userId} canonicalId=${canonicalUserId} candidates=${profileCandidates.length} → updating profileUserId=${profileUserId} displayName=${data.displayName} bio=${String(data.bio || '').slice(0, 40)}`);
 
         const updated = await profileService.updateProfile(profileUserId, {
             ...data,
