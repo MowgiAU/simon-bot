@@ -42,6 +42,7 @@ module.exports = {
       ...defaults,
       name: 'radio-worker',
       script: 'src/bot/radio-worker.ts',
+      autorestart: false,
       stop_exit_codes: [0],
       env: { NODE_ENV: 'production' },
     },

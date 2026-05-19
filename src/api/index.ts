@@ -9190,7 +9190,8 @@ app.post('/api/admin/reprocess-flps', requireAdmin, async (req, res) => {
 
         res.json(results);
     } catch (e: any) {
-        res.status(500).json({ error: 'Internal server error' });
+        logger.error('Reprocess FLPs error', e);
+        res.status(500).json({ error: e?.message || 'Internal server error' });
     }
 });
 
@@ -17362,7 +17363,7 @@ app.post('/api/reports', async (req: any, res) => {
 const bugReportLimiter = rateLimit({
     windowMs: 60 * 60 * 1000, // 1 hour
     max: 3,
-    keyGenerator: (req: any) => req.session?.user?.id || req.ip,
+    keyGenerator: (req: any) => req.session?.user?.id || ipKeyGenerator(req),
     standardHeaders: true,
     legacyHeaders: false,
     message: { error: 'You can submit at most 3 bug reports per hour. Please wait before trying again.' },
