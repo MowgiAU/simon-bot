@@ -46,6 +46,7 @@ import {
   GraduationCap,
   Drum,
   Database,
+  Puzzle,
 } from 'lucide-react';
 import { AnimatedWrapper } from '../components/AnimatedWrapper';
 import logoUrl from '../assets/logo.svg'; 
@@ -397,6 +398,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             >
                 <span className="nav-icon"><AnimatedWrapper icon={Palette} size={20} /></span>
                 <span className="nav-label">Discover & Profiles</span>
+            </button>
+          )}
+
+          {permissions.accessiblePlugins.includes('musician-profiles') && (
+            <button
+                className={`nav-item ${activeSection === 'plugin-registry' ? 'active' : ''}`}
+                onClick={() => onNavigate('plugin-registry')}
+                title={collapsed ? "Plugin Registry" : ""}
+            >
+                <span className="nav-icon"><AnimatedWrapper icon={Puzzle} size={20} /></span>
+                <span className="nav-label">Plugin Registry</span>
             </button>
           )}
 

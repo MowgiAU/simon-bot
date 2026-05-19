@@ -2,7 +2,7 @@
  * Shared FLP Arrangement Viewer components.
  * Used by both TrackPage and BattleEntryPage.
  */
-import React, { useEffect, useMemo, useRef, useCallback } from 'react';
+import React, { useEffect, useMemo, useRef, useCallback, useState } from 'react';
 import { colors, borderRadius } from '../theme/theme';
 import { Music, Zap, FileAudio, X, Play, Pause, Download, Layers } from 'lucide-react';
 
@@ -575,41 +575,112 @@ export const ArrangementViewer: React.FC<{
     );
 });
 
+// ── Plugin registry cache (module-level so all panel instances share one fetch) ─
+
+let registryCache: KnownPlugin[] | null = null;
+let registryFetch: Promise<KnownPlugin[]> | null = null;
+
+interface KnownPlugin {
+    id: string;
+    name: string;
+    aliases: string[];
+    displayName: string | null;
+    imageUrl: string | null;
+    link: string | null;
+    category: string | null;
+}
+
+function getRegistry(): Promise<KnownPlugin[]> {
+    if (registryCache) return Promise.resolve(registryCache);
+    if (!registryFetch) {
+        registryFetch = fetch('/api/plugins/registry')
+            .then(r => r.ok ? r.json() : [])
+            .then(data => { registryCache = data; return data; })
+            .catch(() => []);
+    }
+    return registryFetch;
+}
+
+function matchPlugin(name: string, registry: KnownPlugin[]): KnownPlugin | undefined {
+    const lower = name.toLowerCase();
+    return registry.find(p =>
+        p.name.toLowerCase() === lower ||
+        (p.aliases || []).some((a: string) => a.toLowerCase() === lower)
+    );
+}
+
 // ── ProjectInfoPanel ──────────────────────────────────────────────────────────
 
-export const ProjectInfoPanel: React.FC<{ projectInfo: ProjectInfo }> = ({ projectInfo }) => (
-    <div style={{ marginTop: '32px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-            <Layers size={20} color={colors.primary} />
-            <h2 style={{ margin: 0, fontSize: '1.25rem' }}>Project Details</h2>
+export const ProjectInfoPanel: React.FC<{ projectInfo: ProjectInfo }> = ({ projectInfo }) => {
+    const [registry, setRegistry] = useState<KnownPlugin[]>(registryCache || []);
+
+    useEffect(() => {
+        getRegistry().then(setRegistry);
+    }, []);
+
+    return (
+        <div style={{ marginTop: '32px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+                <Layers size={20} color={colors.primary} />
+                <h2 style={{ margin: 0, fontSize: '1.25rem' }}>Project Details</h2>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: projectInfo.plugins.length > 0 && projectInfo.samples.length > 0 ? '1fr 1fr' : '1fr', gap: '16px' }}>
+                {projectInfo.plugins.length > 0 && (
+                    <div style={{ backgroundColor: '#0d1117', borderRadius: borderRadius.md, border: '1px solid rgba(255,255,255,0.08)', padding: '16px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                            <Zap size={16} color={colors.primary} />
+                            <span style={{ fontSize: '0.85rem', fontWeight: 600, color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Plugins ({projectInfo.plugins.length})</span>
+                        </div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                            {projectInfo.plugins.map((plugin, i) => {
+                                const known = matchPlugin(plugin, registry);
+                                if (known) {
+                                    const label = known.displayName || plugin;
+                                    const inner = (
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            {known.imageUrl && (
+                                                <img src={known.imageUrl} alt={label} style={{ width: 28, height: 28, borderRadius: '5px', objectFit: 'cover', flexShrink: 0 }} />
+                                            )}
+                                            <div>
+                                                <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#CBD5E1', lineHeight: 1.2 }}>{label}</div>
+                                                {known.category && <div style={{ fontSize: '0.65rem', color: colors.textTertiary, textTransform: 'capitalize', marginTop: '1px' }}>{known.category}</div>}
+                                            </div>
+                                            {known.link && <span style={{ fontSize: '0.65rem', color: colors.primary, marginLeft: 'auto', flexShrink: 0 }}>↗</span>}
+                                        </div>
+                                    );
+                                    return known.link ? (
+                                        <a key={i} href={known.link} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', backgroundColor: 'rgba(255,255,255,0.05)', padding: '6px 10px', borderRadius: '8px', border: `1px solid ${colors.primary}30`, minWidth: known.imageUrl ? '120px' : undefined, display: 'block' }}
+                                            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = `${colors.primary}60`; }}
+                                            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = `${colors.primary}30`; }}>
+                                            {inner}
+                                        </a>
+                                    ) : (
+                                        <div key={i} style={{ backgroundColor: 'rgba(255,255,255,0.05)', padding: '6px 10px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)', minWidth: known.imageUrl ? '120px' : undefined }}>
+                                            {inner}
+                                        </div>
+                                    );
+                                }
+                                return (
+                                    <span key={i} style={{ backgroundColor: 'rgba(255,255,255,0.05)', color: '#CBD5E1', padding: '4px 10px', borderRadius: '6px', fontSize: '0.8rem', border: '1px solid rgba(255,255,255,0.08)' }}>{plugin}</span>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
+                {projectInfo.samples.length > 0 && (
+                    <div style={{ backgroundColor: '#0d1117', borderRadius: borderRadius.md, border: '1px solid rgba(255,255,255,0.08)', padding: '16px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                            <FileAudio size={16} color={colors.primary} />
+                            <span style={{ fontSize: '0.85rem', fontWeight: 600, color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Samples ({projectInfo.samples.length})</span>
+                        </div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                            {projectInfo.samples.map((sample, i) => (
+                                <span key={i} style={{ backgroundColor: 'rgba(255,255,255,0.05)', color: '#CBD5E1', padding: '4px 10px', borderRadius: '6px', fontSize: '0.8rem', border: '1px solid rgba(255,255,255,0.08)', maxWidth: '300px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sample}</span>
+                            ))}
+                        </div>
+                    </div>
+                )}
+            </div>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: projectInfo.plugins.length > 0 && projectInfo.samples.length > 0 ? '1fr 1fr' : '1fr', gap: '16px' }}>
-            {projectInfo.plugins.length > 0 && (
-                <div style={{ backgroundColor: '#0d1117', borderRadius: borderRadius.md, border: '1px solid rgba(255,255,255,0.08)', padding: '16px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-                        <Zap size={16} color={colors.primary} />
-                        <span style={{ fontSize: '0.85rem', fontWeight: 600, color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Plugins ({projectInfo.plugins.length})</span>
-                    </div>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                        {projectInfo.plugins.map((plugin, i) => (
-                            <span key={i} style={{ backgroundColor: 'rgba(255,255,255,0.05)', color: '#CBD5E1', padding: '4px 10px', borderRadius: '6px', fontSize: '0.8rem', border: '1px solid rgba(255,255,255,0.08)' }}>{plugin}</span>
-                        ))}
-                    </div>
-                </div>
-            )}
-            {projectInfo.samples.length > 0 && (
-                <div style={{ backgroundColor: '#0d1117', borderRadius: borderRadius.md, border: '1px solid rgba(255,255,255,0.08)', padding: '16px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-                        <FileAudio size={16} color={colors.primary} />
-                        <span style={{ fontSize: '0.85rem', fontWeight: 600, color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Samples ({projectInfo.samples.length})</span>
-                    </div>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                        {projectInfo.samples.map((sample, i) => (
-                            <span key={i} style={{ backgroundColor: 'rgba(255,255,255,0.05)', color: '#CBD5E1', padding: '4px 10px', borderRadius: '6px', fontSize: '0.8rem', border: '1px solid rgba(255,255,255,0.08)', maxWidth: '300px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sample}</span>
-                        ))}
-                    </div>
-                </div>
-            )}
-        </div>
-    </div>
-);
+    );
+};

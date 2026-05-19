@@ -39,6 +39,7 @@ const Logs                   = lazy(() => import("./pages/Logs"));
 const DatabaseManagementPage = lazy(() => import("./pages/DatabaseManagementPage").then(m => ({ default: m.DatabaseManagementPage })));
 const StagingTest            = lazy(() => import("./pages/StagingTest").then(m => ({ default: m.StagingTest })));
 const PluginManagementPage   = lazy(() => import("./pages/PluginManagement").then(m => ({ default: m.PluginManagementPage })));
+const PluginRegistryPage     = lazy(() => import("./pages/PluginRegistry").then(m => ({ default: m.PluginRegistry })));
 const ArtistDiscoveryPage    = lazy(() => import("./pages/ArtistDiscovery").then(m => ({ default: m.ArtistDiscoveryPage })));
 const ArtistsPage            = lazy(() => import("./pages/ArtistsPage").then(m => ({ default: m.ArtistsPage })));
 const GenresPage             = lazy(() => import("./pages/GenresPage").then(m => ({ default: m.GenresPage })));
@@ -161,7 +162,9 @@ type Section =
   | "stats"
   | "database-management"
   | "anti-external-forward"
-  | "page-embeds";
+  | "page-embeds"
+  | "plugin-registry"
+  | "bug-reports";
 
 const WelcomeScreen: React.FC<{ login: () => void }> = ({ login }) => {
   const navigate = useNavigate();
@@ -507,6 +510,8 @@ const AdminDashboard: React.FC = () => {
           return <ArticlesPage />;
         case "article-review":
           return <ArticleReviewPage />;
+        case "plugin-registry":
+          return <Suspense fallback={<PageSpinner />}><PluginRegistryPage /></Suspense>;
         case "genres-list":
           return <GenresPage />;
         case "academy":

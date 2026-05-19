@@ -90,6 +90,8 @@ const storage = multer.diskStorage({
       dir = path.join(PROJECT_ROOT, 'public/uploads/articles/projects');
     } else if (file.fieldname === 'articlePreset') {
       dir = path.join(PROJECT_ROOT, 'public/uploads/articles/presets');
+    } else if (file.fieldname === 'pluginImage') {
+      dir = path.join(PROJECT_ROOT, 'public/uploads/plugins');
     }
 
     // Ensure directory exists synchronously to prevent race conditions during target upload
@@ -9330,6 +9332,74 @@ app.get('/api/musician/profiles/count', publicCache(300), async (_req, res) => {
     } catch {
         res.status(500).json({ error: 'Internal server error' });
     }
+});
+
+// ── Plugin Registry ──────────────────────────────────────────────────────────
+
+app.get('/api/plugins/registry', publicCache(300), async (_req, res) => {
+    try {
+        const plugins = await db.knownPlugin.findMany({
+            where: { isActive: true },
+            orderBy: { name: 'asc' },
+        });
+        res.json(plugins);
+    } catch { res.status(500).json({ error: 'Internal server error' }); }
+});
+
+app.get('/api/admin/plugins/registry', requireAdmin, async (_req, res) => {
+    try {
+        const plugins = await db.knownPlugin.findMany({ orderBy: { name: 'asc' } });
+        res.json(plugins);
+    } catch { res.status(500).json({ error: 'Internal server error' }); }
+});
+
+app.post('/api/admin/plugins/registry', requireAdmin, async (req: any, res) => {
+    try {
+        const { name, aliases, displayName, link, category, description } = req.body;
+        if (!name?.trim()) return res.status(400).json({ error: 'Name is required' });
+        const plugin = await db.knownPlugin.create({
+            data: { name: name.trim(), aliases: aliases || [], displayName: displayName?.trim() || null, link: link?.trim() || null, category: category?.trim() || null, description: description?.trim() || null },
+        });
+        res.json(plugin);
+    } catch (e: any) {
+        if (e.code === 'P2002') return res.status(409).json({ error: 'A plugin with that name already exists' });
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+app.patch('/api/admin/plugins/registry/:id', requireAdmin, async (req: any, res) => {
+    try {
+        const { name, aliases, displayName, link, category, description, isActive } = req.body;
+        const data: any = {};
+        if (name !== undefined) data.name = name.trim();
+        if (aliases !== undefined) data.aliases = aliases;
+        if (displayName !== undefined) data.displayName = displayName?.trim() || null;
+        if (link !== undefined) data.link = link?.trim() || null;
+        if (category !== undefined) data.category = category?.trim() || null;
+        if (description !== undefined) data.description = description?.trim() || null;
+        if (isActive !== undefined) data.isActive = isActive;
+        const plugin = await db.knownPlugin.update({ where: { id: req.params.id }, data });
+        apiResponseCache.delete('plugin-registry');
+        res.json(plugin);
+    } catch { res.status(500).json({ error: 'Internal server error' }); }
+});
+
+app.delete('/api/admin/plugins/registry/:id', requireAdmin, async (req: any, res) => {
+    try {
+        await db.knownPlugin.delete({ where: { id: req.params.id } });
+        apiResponseCache.delete('plugin-registry');
+        res.json({ ok: true });
+    } catch { res.status(500).json({ error: 'Internal server error' }); }
+});
+
+app.post('/api/admin/plugins/registry/:id/image', requireAdmin, upload.single('pluginImage'), async (req: any, res) => {
+    try {
+        if (!req.file) return res.status(400).json({ error: 'No image provided' });
+        const url = `/uploads/plugins/${req.file.filename}`;
+        const plugin = await db.knownPlugin.update({ where: { id: req.params.id }, data: { imageUrl: url } });
+        apiResponseCache.delete('plugin-registry');
+        res.json({ url: plugin.imageUrl });
+    } catch { res.status(500).json({ error: 'Internal server error' }); }
 });
 
 // Public: Search Profiles (for collaborator picker)
