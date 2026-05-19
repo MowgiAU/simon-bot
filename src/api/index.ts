@@ -8729,6 +8729,22 @@ app.get('/api/discovery/settings', publicCache(120), async (req, res) => {
         result.featuredTutorialAuthor = (settings as any).featuredTutorialAuthor;
         result.featuredTutorialDate = (settings as any).featuredTutorialDate;
 
+        // Global brand partners (front page + battles page)
+        const globalSponsorIds = ((settings as any).globalSponsorIds as string[] | null) || [];
+        if (globalSponsorIds.length > 0) {
+            queries.push(db.battleSponsor.findMany({
+                where: { id: { in: globalSponsorIds } },
+                include: { links: true },
+            }).then(sponsors => {
+                const map = new Map(sponsors.map((s: any) => [s.id, s]));
+                result.globalSponsors = globalSponsorIds.map((id: string) => map.get(id)).filter(Boolean);
+                result.globalSponsorTitle = (settings as any).globalSponsorTitle || 'Our Partners';
+            }));
+        } else {
+            result.globalSponsors = [];
+            result.globalSponsorTitle = (settings as any).globalSponsorTitle || 'Our Partners';
+        }
+
         // Trending artist override (admin-set, invisible to public)
         const trendingOverrideId = (settings as any).trendingArtistOverrideId;
         if (trendingOverrideId) {
@@ -8777,6 +8793,8 @@ app.post('/api/discovery/settings', requireAdmin, async (req, res) => {
             featuredBattleId, featuredBattleDescription,
             featuredArticleId,
             trendingArtistOverrideId,
+            globalSponsorIds,
+            globalSponsorTitle,
         } = req.body;
 
         const updateData: any = {};
@@ -8800,6 +8818,8 @@ app.post('/api/discovery/settings', requireAdmin, async (req, res) => {
         if (featuredBattleDescription !== undefined) updateData.featuredBattleDescription = featuredBattleDescription;
         if (featuredArticleId !== undefined) updateData.featuredArticleId = featuredArticleId;
         if (trendingArtistOverrideId !== undefined) updateData.trendingArtistOverrideId = trendingArtistOverrideId || null;
+        if (globalSponsorIds !== undefined) updateData.globalSponsorIds = Array.isArray(globalSponsorIds) ? globalSponsorIds : [];
+        if (globalSponsorTitle !== undefined) updateData.globalSponsorTitle = globalSponsorTitle || null;
 
         const settings = await db.discoverySettings.upsert({
             where: { id: 'singleton' },

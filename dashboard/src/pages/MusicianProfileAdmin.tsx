@@ -4,7 +4,7 @@ import { colors, spacing, borderRadius } from '../theme/theme';
 import { useAuth } from '../components/AuthProvider';
 import axios from 'axios';
 import { ConfirmModal } from '../components/ConfirmModal';
-import { Settings, Plus, X, List, Music, Database, Edit3, Trash2, Star, Search, Tag, ExternalLink, ShieldOff, UserX, UserCheck, ChevronDown, ChevronUp, AlertTriangle, Swords, Compass, MonitorPlay, Newspaper, BookOpen, FileText, TrendingUp } from 'lucide-react';
+import { Settings, Plus, X, List, Music, Database, Edit3, Trash2, Star, Search, Tag, ExternalLink, ShieldOff, UserX, UserCheck, ChevronDown, ChevronUp, AlertTriangle, Swords, Compass, MonitorPlay, Newspaper, BookOpen, FileText, TrendingUp, Building2 } from 'lucide-react';
 
 interface Genre {
     id: string;
@@ -95,6 +95,12 @@ export const MusicianProfileAdmin: React.FC = () => {
     const [trendingResults, setTrendingResults] = useState<any[]>([]);
     const [searchingTrending, setSearchingTrending] = useState(false);
 
+    // Global Brand Partners state
+    const [allSponsors, setAllSponsors] = useState<any[]>([]);
+    const [globalSponsorIds, setGlobalSponsorIds] = useState<string[]>([]);
+    const [globalSponsorTitle, setGlobalSponsorTitle] = useState('Our Partners');
+    const [sponsorPickSearch, setSponsorPickSearch] = useState('');
+
     // Featured Content state
     const [featuredContentType, setFeaturedContentType] = useState<'video' | 'news' | 'guide' | 'article'>('video');
     const [featuredTutorialUrl, setFeaturedTutorialUrl] = useState('');
@@ -144,6 +150,9 @@ export const MusicianProfileAdmin: React.FC = () => {
         fetchGenres();
         fetchDiscoverySettings();
         fetchBattles();
+        axios.get('/api/beat-battle/admin/sponsors?guildId=default-guild', { withCredentials: true })
+            .then(r => setAllSponsors(r.data || []))
+            .catch(() => {});
     }, []);
 
     const handleSearchProfiles = async (query: string) => {
@@ -219,6 +228,8 @@ export const MusicianProfileAdmin: React.FC = () => {
             setFeaturedArticle(res.data.featuredArticle || null);
             setFeaturedBattleDesc(res.data.featuredBattleDescription || '');
             setFeaturedHeroDesc(res.data.featuredDescription || '');
+            setGlobalSponsorIds(res.data.globalSponsorIds || []);
+            setGlobalSponsorTitle(res.data.globalSponsorTitle || 'Our Partners');
         } catch (err) {
             console.error('Failed to load discovery settings');
         }
@@ -467,6 +478,19 @@ export const MusicianProfileAdmin: React.FC = () => {
             setTrendingResults([]);
         } catch {
             setMsg({ type: 'error', text: 'Failed to update trending override' });
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleSaveGlobalSponsors = async (ids: string[], title: string) => {
+        setSaving(true);
+        try {
+            await axios.post('/api/discovery/settings', { globalSponsorIds: ids, globalSponsorTitle: title || null }, { withCredentials: true });
+            setMsg({ type: 'success', text: 'Brand partners saved.' });
+            fetchDiscoverySettings();
+        } catch {
+            setMsg({ type: 'error', text: 'Failed to save brand partners' });
         } finally {
             setSaving(false);
         }
@@ -1093,6 +1117,88 @@ export const MusicianProfileAdmin: React.FC = () => {
                         </div>
                     )}
                     {searchingTrending && <div style={{ fontSize: '0.8rem', color: colors.textSecondary, marginBottom: '8px' }}>Searching...</div>}
+                </div>
+
+                {/* ── Global Brand Partners ── */}
+                <div style={{ marginTop: spacing.xl, paddingTop: spacing.xl, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                    <h4 style={{ marginTop: 0, marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.95rem' }}>
+                        <Building2 size={16} color={colors.primary} /> Brand Partners
+                    </h4>
+                    <p style={{ margin: '0 0 12px', fontSize: '0.8rem', color: colors.textSecondary }}>
+                        Choose which sponsors appear on the front page and battles page, and drag them into the order you want.
+                    </p>
+
+                    {/* Section title */}
+                    <div style={{ display: 'flex', gap: spacing.sm, marginBottom: spacing.md }}>
+                        <input
+                            value={globalSponsorTitle}
+                            onChange={e => setGlobalSponsorTitle(e.target.value)}
+                            placeholder='Section title (e.g. "Our Partners")'
+                            style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, padding: spacing.sm, color: colors.textPrimary, outline: 'none', fontSize: '0.85rem' }}
+                        />
+                    </div>
+
+                    {/* Current ordered list */}
+                    {globalSponsorIds.length > 0 ? (
+                        <div style={{ marginBottom: spacing.md, display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            {globalSponsorIds.map((id, idx) => {
+                                const s = allSponsors.find(sp => sp.id === id);
+                                if (!s) return null;
+                                return (
+                                    <div key={id} style={{ display: 'flex', alignItems: 'center', gap: spacing.sm, padding: '8px 12px', backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: borderRadius.sm, border: '1px solid rgba(255,255,255,0.08)' }}>
+                                        {s.logoUrl ? (
+                                            <img src={s.logoUrl} alt={s.name} style={{ width: 32, height: 32, objectFit: 'contain', borderRadius: '4px', background: 'rgba(255,255,255,0.06)' }} />
+                                        ) : (
+                                            <div style={{ width: 32, height: 32, borderRadius: '4px', backgroundColor: 'rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 700, color: colors.textSecondary }}>{s.name[0]}</div>
+                                        )}
+                                        <span style={{ flex: 1, fontWeight: 600, fontSize: '0.85rem' }}>{s.name}</span>
+                                        {/* Reorder */}
+                                        <button onClick={() => { const a = [...globalSponsorIds]; if (idx > 0) { [a[idx-1], a[idx]] = [a[idx], a[idx-1]]; setGlobalSponsorIds(a); } }} disabled={idx === 0} style={{ background: 'none', border: 'none', color: idx === 0 ? colors.textTertiary : colors.textSecondary, cursor: idx === 0 ? 'default' : 'pointer', padding: '2px 4px' }}>↑</button>
+                                        <button onClick={() => { const a = [...globalSponsorIds]; if (idx < a.length - 1) { [a[idx], a[idx+1]] = [a[idx+1], a[idx]]; setGlobalSponsorIds(a); } }} disabled={idx === globalSponsorIds.length - 1} style={{ background: 'none', border: 'none', color: idx === globalSponsorIds.length - 1 ? colors.textTertiary : colors.textSecondary, cursor: idx === globalSponsorIds.length - 1 ? 'default' : 'pointer', padding: '2px 4px' }}>↓</button>
+                                        <button onClick={() => setGlobalSponsorIds(globalSponsorIds.filter(i => i !== id))} style={{ background: 'none', border: 'none', color: colors.error, cursor: 'pointer', padding: '2px 4px' }}><X size={14} /></button>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    ) : (
+                        <div style={{ padding: spacing.md, backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: borderRadius.sm, marginBottom: spacing.md, color: colors.textSecondary, fontSize: '0.9rem', fontStyle: 'italic', textAlign: 'center', border: '1px dashed rgba(255,255,255,0.1)' }}>
+                            No sponsors selected. Pick from the list below.
+                        </div>
+                    )}
+
+                    {/* Sponsor picker */}
+                    <div style={{ marginBottom: spacing.sm }}>
+                        <input
+                            value={sponsorPickSearch}
+                            onChange={e => setSponsorPickSearch(e.target.value)}
+                            placeholder="Filter available sponsors..."
+                            style={{ width: '100%', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, padding: spacing.sm, color: colors.textPrimary, outline: 'none', fontSize: '0.85rem', boxSizing: 'border-box' }}
+                        />
+                    </div>
+                    <div style={{ border: '1px solid rgba(255,255,255,0.08)', borderRadius: borderRadius.sm, maxHeight: '200px', overflowY: 'auto', marginBottom: spacing.md }}>
+                        {allSponsors.filter(s => !globalSponsorIds.includes(s.id) && (!sponsorPickSearch || s.name.toLowerCase().includes(sponsorPickSearch.toLowerCase()))).map(s => (
+                            <div key={s.id} onClick={() => setGlobalSponsorIds([...globalSponsorIds, s.id])}
+                                style={{ display: 'flex', alignItems: 'center', gap: spacing.sm, padding: '10px 12px', cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.04)' }}
+                                onMouseOver={e => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)'}
+                                onMouseOut={e => e.currentTarget.style.backgroundColor = 'transparent'}>
+                                {s.logoUrl ? (
+                                    <img src={s.logoUrl} alt={s.name} style={{ width: 28, height: 28, objectFit: 'contain', borderRadius: '4px', background: 'rgba(255,255,255,0.06)' }} />
+                                ) : (
+                                    <div style={{ width: 28, height: 28, borderRadius: '4px', backgroundColor: 'rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 700, color: colors.textSecondary }}>{s.name[0]}</div>
+                                )}
+                                <span style={{ fontSize: '0.85rem', fontWeight: 500 }}>{s.name}</span>
+                                <span style={{ marginLeft: 'auto', fontSize: '0.72rem', color: colors.primary }}>+ Add</span>
+                            </div>
+                        ))}
+                        {allSponsors.filter(s => !globalSponsorIds.includes(s.id)).length === 0 && (
+                            <div style={{ padding: '12px', textAlign: 'center', color: colors.textTertiary, fontSize: '0.8rem' }}>All sponsors added</div>
+                        )}
+                    </div>
+
+                    <button onClick={() => handleSaveGlobalSponsors(globalSponsorIds, globalSponsorTitle)} disabled={saving}
+                        style={{ backgroundColor: colors.primary, color: 'white', border: 'none', borderRadius: borderRadius.sm, padding: `${spacing.sm} ${spacing.md}`, cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>
+                        Save Brand Partners
+                    </button>
                 </div>
 
                 {/* ── Featured Producer ── */}

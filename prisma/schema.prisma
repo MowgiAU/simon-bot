@@ -1171,6 +1171,10 @@ model DiscoverySettings {
   // Trending Artist Override (admin-only, silent to public)
   trendingArtistOverrideId String? // userId of artist to pin as trending; null = auto
 
+  // Global Brand Partners (shown on front page + battles page)
+  globalSponsorIds   Json?   @default("[]") // Ordered array of BattleSponsor IDs
+  globalSponsorTitle String? @default("Our Partners")
+
   updatedAt DateTime @updatedAt
 
   @@map("discovery_settings")

@@ -130,10 +130,11 @@ export const BattlesPage: React.FC = () => {
     const load = useCallback(async () => {
         setLoading(true);
         try {
-            const [battlesRes, pageSettingsRes, sponsorsRes] = await Promise.all([
+            const [battlesRes, pageSettingsRes, sponsorsRes, discoveryRes] = await Promise.all([
                 fetch(`${API}/api/beat-battle/battles?guildId=default-guild`),
                 fetch(`${API}/api/beat-battle/page-settings?guildId=default-guild`),
                 fetch(`${API}/api/beat-battle/sponsors?guildId=default-guild`),
+                fetch(`${API}/api/discovery/settings`),
             ]);
             if (!battlesRes.ok) return;
             const data: Battle[] = await battlesRes.json();
@@ -146,10 +147,18 @@ export const BattlesPage: React.FC = () => {
             }));
             setBattles(flattened);
 
+            // Prefer globally-curated sponsors from discovery settings; fall back to showOnPage sponsors
+            const discoveryData = discoveryRes.ok ? await discoveryRes.json() : null;
+            if (discoveryData?.globalSponsors?.length > 0) {
+                setGlobalSponsors(discoveryData.globalSponsors);
+                setSponsorSectionTitle(discoveryData.globalSponsorTitle || 'Our Partners');
+            } else if (sponsorsRes.ok) {
+                setGlobalSponsors(await sponsorsRes.json());
+            }
+
             if (pageSettingsRes.ok) {
                 const ps = await pageSettingsRes.json();
-                if (ps.sponsorSectionTitle) setSponsorSectionTitle(ps.sponsorSectionTitle);
-                if (sponsorsRes.ok) setGlobalSponsors(await sponsorsRes.json());
+                if (ps.sponsorSectionTitle && !discoveryData?.globalSponsors?.length) setSponsorSectionTitle(ps.sponsorSectionTitle);
 
                 const featured = ps.featuredBattleId ? data.find((b: Battle) => b.id === ps.featuredBattleId) : null;
                 const active = featured ||
@@ -161,7 +170,6 @@ export const BattlesPage: React.FC = () => {
                     if (detail.ok) setCurrentBattle(await detail.json());
                 }
             } else {
-                if (sponsorsRes.ok) setGlobalSponsors(await sponsorsRes.json());
                 const active = data.find(b => b.status === 'voting') ||
                                data.find(b => b.status === 'active') ||
                                data.find(b => b.status === 'upcoming');
