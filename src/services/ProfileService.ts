@@ -108,14 +108,14 @@ export class ProfileService {
             return p;
         });
 
-        // 3. Update featuredTrackId separately — outside the main transaction — to avoid
-        //    P2002 from Prisma's upsert trying an INSERT that hits the @unique constraint
-        //    before falling back to UPDATE. Two steps: clear any stale holder, then set ours.
+        // 3. Update featuredTrackId separately — two plain statements outside the main
+        //    transaction to avoid Prisma upsert P2002 issues. Clear ALL holders first
+        //    (including the target profile itself), then set it only on our profile.
+        //    This sidesteps duplicate-profile ambiguity about which row is "the same" one.
         if (data.featuredTrackId !== undefined) {
             if (data.featuredTrackId) {
-                // Clear the track from any other profile that currently features it
                 await this.prisma.musicianProfile.updateMany({
-                    where: { featuredTrackId: data.featuredTrackId, id: { not: profile.id } },
+                    where: { featuredTrackId: data.featuredTrackId },
                     data: { featuredTrackId: null },
                 });
             }
