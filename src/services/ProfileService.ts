@@ -108,21 +108,25 @@ export class ProfileService {
             return p;
         });
 
-        // 3. Update featuredTrackId separately — two plain statements outside the main
-        //    transaction to avoid Prisma upsert P2002 issues. Clear ALL holders first
-        //    (including the target profile itself), then set it only on our profile.
-        //    This sidesteps duplicate-profile ambiguity about which row is "the same" one.
+        // 3. Update featuredTrackId in a single raw SQL statement so PostgreSQL's
+        //    end-of-statement unique-constraint check fires only once — after all rows
+        //    have been updated. Two sequential Prisma calls (clear + set) leave a window
+        //    where the constraint is re-checked between statements and P2002 fires.
         if (data.featuredTrackId !== undefined) {
             if (data.featuredTrackId) {
-                await this.prisma.musicianProfile.updateMany({
-                    where: { featuredTrackId: data.featuredTrackId },
+                // One statement: set our profile's featuredTrackId, null everyone else's.
+                await this.prisma.$executeRaw`
+                    UPDATE musician_profiles
+                    SET "featuredTrackId" = CASE WHEN id = ${profile.id} THEN ${data.featuredTrackId} ELSE NULL END
+                    WHERE "featuredTrackId" = ${data.featuredTrackId} OR id = ${profile.id}
+                `;
+            } else {
+                // Clearing — no uniqueness concern, plain update is fine.
+                await this.prisma.musicianProfile.update({
+                    where: { id: profile.id },
                     data: { featuredTrackId: null },
                 });
             }
-            await this.prisma.musicianProfile.update({
-                where: { id: profile.id },
-                data: { featuredTrackId: data.featuredTrackId },
-            });
             profile.featuredTrackId = data.featuredTrackId;
         }
 
