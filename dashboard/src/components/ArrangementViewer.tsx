@@ -284,31 +284,33 @@ export const SampleInfoModal: React.FC<{ clip: ArrangementClip; color: string; p
                     </div>
                     <button onClick={onClose} style={{ background: 'none', border: 'none', color: colors.textSecondary, cursor: 'pointer', padding: '4px', display: 'flex' }}><X size={18} /></button>
                 </div>
-                <div style={{ padding: '16px 16px 0' }}>
-                    <div onClick={clip.oggUrl ? seekClick : undefined} style={{ backgroundColor: 'rgba(0,0,0,0.4)', borderRadius: borderRadius.md, padding: '12px 8px', border: `1px solid ${color}22`, cursor: clip.oggUrl ? 'pointer' : 'default', position: 'relative' }}>
-                        <svg viewBox={`0 0 ${bars} 40`} preserveAspectRatio="none" style={{ width: '100%', height: '64px', display: 'block' }}>
-                            {hasPeaks
-                                ? Array.from({ length: bars }, (_, i) => {
-                                    const start = Math.floor(i * step);
-                                    const end = Math.min(Math.ceil((i + 1) * step), peaks!.length);
-                                    let sum = 0;
-                                    for (let j = start; j < end; j++) sum += peaks![j];
-                                    const amp = sum / (end - start);
-                                    const h = Math.max(amp * 36, 1);
-                                    return <rect key={i} x={i} y={20 - h / 2} width={0.7} height={h} fill={color} opacity={0.85} />;
-                                })
-                                : Array.from({ length: bars }, (_, i) => {
-                                    const seed = clip.id;
-                                    const amp = (Math.sin(seed * 0.1 + i * 0.7) * 0.4 + 0.5) * (Math.sin(i * 0.3 + seed * 0.05) * 0.3 + 0.7);
-                                    const h = Math.max(amp * 36, 1);
-                                    return <rect key={i} x={i} y={20 - h / 2} width={0.7} height={h} fill={color} opacity={0.55} />;
-                                })
-                            }
-                            {audioDuration > 0 && <line x1={playheadX} y1={0} x2={playheadX} y2={40} stroke="white" strokeWidth="0.5" opacity="0.9" />}
-                        </svg>
-                        {!hasPeaks && <div style={{ textAlign: 'center', fontSize: '0.65rem', color: colors.textSecondary, marginTop: '4px' }}>Waveform unavailable for this sample</div>}
+                {/* Only show waveform/seek box when there's real data to display */}
+                {(hasPeaks || clip.oggUrl) && (
+                    <div style={{ padding: '16px 16px 0' }}>
+                        <div onClick={clip.oggUrl ? seekClick : undefined} style={{ backgroundColor: 'rgba(0,0,0,0.4)', borderRadius: borderRadius.md, padding: '12px 8px', border: `1px solid ${color}22`, cursor: clip.oggUrl ? 'pointer' : 'default', position: 'relative' }}>
+                            <svg viewBox={`0 0 ${bars} 40`} preserveAspectRatio="none" style={{ width: '100%', height: '64px', display: 'block' }}>
+                                {hasPeaks
+                                    ? Array.from({ length: bars }, (_, i) => {
+                                        const start = Math.floor(i * step);
+                                        const end = Math.min(Math.ceil((i + 1) * step), peaks!.length);
+                                        let sum = 0;
+                                        for (let j = start; j < end; j++) sum += peaks![j];
+                                        const amp = sum / (end - start);
+                                        const h = Math.max(amp * 36, 1);
+                                        return <rect key={i} x={i} y={20 - h / 2} width={0.7} height={h} fill={color} opacity={0.85} />;
+                                    })
+                                    : Array.from({ length: bars }, (_, i) => {
+                                        const seed = clip.id;
+                                        const amp = (Math.sin(seed * 0.1 + i * 0.7) * 0.4 + 0.5) * (Math.sin(i * 0.3 + seed * 0.05) * 0.3 + 0.7);
+                                        const h = Math.max(amp * 36, 1);
+                                        return <rect key={i} x={i} y={20 - h / 2} width={0.7} height={h} fill={color} opacity={0.55} />;
+                                    })
+                                }
+                                {audioDuration > 0 && <line x1={playheadX} y1={0} x2={playheadX} y2={40} stroke="white" strokeWidth="0.5" opacity="0.9" />}
+                            </svg>
+                        </div>
                     </div>
-                </div>
+                )}
                 {clip.oggUrl && (
                     <div style={{ padding: '10px 16px 0' }}>
                         <audio ref={audioRef} src={clip.oggUrl}
