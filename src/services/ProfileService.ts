@@ -231,8 +231,10 @@ export class ProfileService {
             return (p.tracks?.length ?? 0) >= (best.tracks?.length ?? 0) ? p : best;
         }, null);
 
-        // If the featured track has been privated or soft-deleted, clear it from the response and DB
-        if (profile && profile.featuredTrack && (!profile.featuredTrack.isPublic || (profile.featuredTrack as any).deletedAt)) {
+        // If the featured track has been soft-deleted, clear the FK from the DB permanently.
+        // If it's just private, leave the FK intact (owner may publish it later) but null it
+        // in the response — the API layer hides it from non-owners.
+        if (profile && profile.featuredTrack && (profile.featuredTrack as any).deletedAt) {
             await this.prisma.musicianProfile.update({
                 where: { id: profile.id },
                 data: { featuredTrackId: null }

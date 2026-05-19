@@ -8302,6 +8302,13 @@ app.get('/api/musician/profile/:userId', async (req, res) => {
             || (!!requestingUserId && profileData.userId === requestingUserId)
             || (!!canonicalRequestId && profileData.userId === canonicalRequestId);
 
+        // Hide private featured track from non-owners (but keep the FK in DB so it shows
+        // automatically once the track is made public again).
+        if (!isOwner && profileData.featuredTrack && !profileData.featuredTrack.isPublic) {
+            profileData.featuredTrack = null;
+            // Leave featuredTrackId intact in DB — just don't expose it publicly
+        }
+
         // Filter out non-active tracks and back-fill permission defaults
         if (profileData.tracks) {
             profileData.tracks = profileData.tracks.filter((t: any) =>
