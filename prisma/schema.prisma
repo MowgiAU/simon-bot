@@ -927,7 +927,7 @@ model MusicianProfile {
 
   // Featured Content
   featuredTrackId    String?   @unique
-  featuredTrack      Track?    @relation("FeaturedTrack", fields: [featuredTrackId], references: [id])
+  featuredTrack      Track?    @relation("FeaturedTrack", fields: [featuredTrackId], references: [id], onDelete: SetNull)
   featuredPlaylistId String?
   featuredPlaylist   Playlist? @relation("ProfileFeaturedPlaylist", fields: [featuredPlaylistId], references: [id], onDelete: SetNull)
 

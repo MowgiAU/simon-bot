@@ -8578,6 +8578,20 @@ app.post('/api/musician/profile/:userId', async (req: any, res) => {
         // Extract IDs if passed as objects from frontend
         const genreIds = data.genres.map((g: any) => typeof g === 'string' ? g : g.id).filter(Boolean);
 
+        // Normalize featuredTrackId — convert empty string to null, validate the track still exists.
+        // Stale references (track deleted without clearing the FK) cause P2003 FK constraint failures.
+        data.featuredTrackId = data.featuredTrackId || null;
+        if (data.featuredTrackId) {
+            const trackOk = await db.track.findFirst({
+                where: { id: data.featuredTrackId, deletedAt: null },
+                select: { id: true },
+            });
+            if (!trackOk) data.featuredTrackId = null;
+        }
+
+        // Same normalization for featuredPlaylistId
+        data.featuredPlaylistId = data.featuredPlaylistId || null;
+
         // Resolve the actual DB userId for the profile — handles the case where
         // the profile was created with a Discord numeric ID but the session now
         // carries a different cuid (_localId). Always update the profile that
@@ -8606,7 +8620,15 @@ app.post('/api/musician/profile/:userId', async (req: any, res) => {
         apiResponseCache.delete(`profile-${userId.toLowerCase()}`);
         if (updated.username) apiResponseCache.delete(`profile-${updated.username.toLowerCase()}`);
 
-        res.json(updated);
+        // Return the profile with the featuredTrack relation so the frontend can
+        // sync state immediately without a second round-trip.
+        const withRelations = await db.musicianProfile.findUnique({
+            where: { id: updated.id },
+            include: {
+                featuredTrack: { select: { id: true, title: true, slug: true, url: true, coverUrl: true, duration: true, playCount: true, bpm: true, key: true, isPublic: true, status: true, profileId: true, createdAt: true } },
+            },
+        });
+        res.json(withRelations || updated);
     } catch (e: any) {
         logger.error('Profile save failed', { userId: req.params?.userId, message: e.message, code: e.code });
         res.status(500).json({ error: 'Internal server error' });

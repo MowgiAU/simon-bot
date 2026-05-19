@@ -276,8 +276,8 @@ export const ProfileEditPage: React.FC = () => {
         }
         setSaving(true);
         try {
-            const payload = { 
-                ...profile, 
+            const payload = {
+                ...profile,
                 gearList: (profile.gearList || []).map(g => JSON.stringify(g)),
                 genres: profile.genres?.map(g => typeof g === 'string' ? g : (g.id || (g as any).genreId)).filter(Boolean) || [],
                 primaryGenreId: profile.primaryGenreId || null
@@ -285,8 +285,18 @@ export const ProfileEditPage: React.FC = () => {
             const endpoint = isAdminMode
                 ? `/api/admin/musician/profile/${effectiveUserId}`
                 : `/api/musician/profile/${user.id}`;
-            await axios.post(endpoint, payload, { withCredentials: true });
-            setMessage({ type: 'success', text: isAdminMode ? 'Profile updated by admin.' : 'Profile updated! Changes may take a minute to appear on your public profile.' });
+            const { data: saved } = await axios.post(endpoint, payload, { withCredentials: true });
+            // Sync local state from what was actually saved — featuredTrackId may have been
+            // silently cleared server-side if it was pointing to a deleted track.
+            if (saved) {
+                setProfile(prev => prev ? {
+                    ...prev,
+                    featuredTrackId: saved.featuredTrackId ?? prev.featuredTrackId,
+                    featuredTrack: saved.featuredTrack ?? (saved.featuredTrackId ? prev.featuredTrack : null),
+                    username: saved.username ?? prev.username,
+                } : prev);
+            }
+            setMessage({ type: 'success', text: isAdminMode ? 'Profile updated by admin.' : 'Profile saved!' });
             setIsDirty(false);
         } catch (err: any) {
             setMessage({ type: 'error', text: err.response?.data?.error || 'Failed to save profile' });
