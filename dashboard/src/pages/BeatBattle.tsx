@@ -482,27 +482,33 @@ export const BeatBattlePage: React.FC = () => {
     };
 
     const handleCreateSponsor = async () => {
+        const payload = { ...sponsorForm, guildId, links: sponsorForm.links.filter(l => l.label && l.url) };
+        let createdId: string | null = null;
         try {
-            const payload = { ...sponsorForm, guildId, links: sponsorForm.links.filter(l => l.label && l.url) };
             const res = await fetch(`${API}/api/beat-battle/admin/sponsors`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
                 body: JSON.stringify(payload),
             });
-            if (res.ok) {
-                const created = await res.json();
-                if (sponsorLogoFile) {
-                    const fd = new FormData();
-                    fd.append('sponsorLogo', sponsorLogoFile);
-                    await fetch(`${API}/api/beat-battle/admin/sponsors/${created.id}/logo`, { method: 'POST', credentials: 'include', body: fd }).catch(() => {});
-                }
-                await fetchSponsors();
-                setShowSponsorForm(false);
-                setSponsorForm({ name: '', logoUrl: '', websiteUrl: '', description: '', showOnPage: true, links: [{ label: '', url: '' }] });
-                setSponsorLogoFile(null); setSponsorLogoPreview('');
-            }
-        } catch {}
+            if (!res.ok) return;
+            const created = await res.json().catch(() => null);
+            createdId = created?.id ?? null;
+        } catch { return; }
+
+        // Logo upload — best-effort, doesn't block list refresh
+        if (createdId && sponsorLogoFile) {
+            const fd = new FormData();
+            fd.append('sponsorLogo', sponsorLogoFile);
+            await fetch(`${API}/api/beat-battle/admin/sponsors/${createdId}/logo`, { method: 'POST', credentials: 'include', body: fd }).catch(() => {});
+        }
+
+        // Always refresh + close form if POST succeeded
+        await fetchSponsors();
+        setShowSponsorForm(false);
+        setSponsorForm({ name: '', logoUrl: '', websiteUrl: '', description: '', showOnPage: true, links: [{ label: '', url: '' }] });
+        setSponsorLogoFile(null);
+        setSponsorLogoPreview('');
     };
     const handleUpdateSponsor = async () => {
         if (!editingSponsor) return;
