@@ -2401,6 +2401,7 @@ app.get('/api/auth/status', async (req, res) => {
         const mp = await db.musicianProfile.findFirst({
             where: { userId: { in: idsToCheck } },
             select: { avatar: true, displayName: true, username: true },
+            orderBy: { totalPlays: 'desc' },
         });
         if (mp) {
             profileAvatar = mp.avatar || null;

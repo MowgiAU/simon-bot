@@ -100,7 +100,7 @@ const inputBase: React.CSSProperties = {
 };
 
 export const ProfileEditPage: React.FC = () => {
-    const { user, loading: authLoading, mutualAdminGuilds } = useAuth();
+    const { user, loading: authLoading, mutualAdminGuilds, refreshAccountStatus } = useAuth();
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const adminTargetId = searchParams.get('adminTarget');
@@ -331,6 +331,7 @@ export const ProfileEditPage: React.FC = () => {
             });
             setProfile({ ...profile, avatar: res.data.avatar });
             setMessage({ type: 'success', text: 'Profile picture updated!' });
+            refreshAccountStatus(); // sync navbar avatar
         } catch (err: any) {
             setMessage({ type: 'error', text: err.response?.data?.error || 'Failed to upload avatar' });
         } finally {

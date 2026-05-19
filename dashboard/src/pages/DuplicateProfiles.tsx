@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { colors, spacing, borderRadius } from '../theme/theme';
 import { Users, GitMerge, RefreshCw, CheckCircle, AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react';
+import { useAuth } from '../components/AuthProvider';
 
 interface Profile {
     id: string;
@@ -20,6 +21,7 @@ interface DuplicateEntry {
 }
 
 export const DuplicateProfilesPage: React.FC = () => {
+    const { user, refreshAccountStatus } = useAuth();
     const [data, setData] = useState<DuplicateEntry[]>([]);
     const [loading, setLoading] = useState(true);
     const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -58,6 +60,11 @@ export const DuplicateProfilesPage: React.FC = () => {
             if (res.ok) {
                 setResults(r => ({ ...r, [entry.user.id]: { ok: true, msg: `Merged — ${d.tracksKept} tracks kept on winning profile` } }));
                 setData(prev => prev.filter(e => e.user.id !== entry.user.id));
+                // If the admin just consolidated their own account, refresh auth so
+                // profileUsername and profileAvatar reflect the merged profile immediately.
+                if (user && (entry.user.id === user._localId || entry.user.discordId === user.id)) {
+                    refreshAccountStatus();
+                }
             } else {
                 setResults(r => ({ ...r, [entry.user.id]: { ok: false, msg: d.error || 'Failed' } }));
             }
