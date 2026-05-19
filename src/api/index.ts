@@ -2394,10 +2394,21 @@ app.get('/api/auth/status', async (req, res) => {
     let profileDisplayName: string | null = null;
     let profileUsername: string | null = null;
     try {
-        const idsToCheck = [...new Set([
-            req.session.user._localId,
-            req.session.user.id,
-        ].filter(Boolean))] as string[];
+        const sessionIds = [req.session.user._localId, req.session.user.id].filter(Boolean) as string[];
+
+        // If _localId is absent (session predates that field) or the profile may now have a
+        // cuid userId after consolidation, also resolve via the User table so we always find
+        // the correct profile regardless of which userId format was stored.
+        const discordId = req.session.user.id;
+        if (discordId && /^\d{17,19}$/.test(discordId)) {
+            const linkedUser = await db.user.findFirst({
+                where: { discordId },
+                select: { id: true },
+            });
+            if (linkedUser?.id) sessionIds.push(linkedUser.id);
+        }
+
+        const idsToCheck = [...new Set(sessionIds)];
         const mp = await db.musicianProfile.findFirst({
             where: { userId: { in: idsToCheck } },
             select: { avatar: true, displayName: true, username: true },
