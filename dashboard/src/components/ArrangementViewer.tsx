@@ -4,7 +4,7 @@
  */
 import React, { useEffect, useMemo, useRef, useCallback, useState } from 'react';
 import { colors, borderRadius } from '../theme/theme';
-import { Music, Zap, FileAudio, X, Play, Pause, Download, Layers } from 'lucide-react';
+import { Music, Zap, FileAudio, X, Play, Pause, Download, Layers, Maximize2, Minimize2 } from 'lucide-react';
 
 // ── Interfaces ───────────────────────────────────────────────────────────────
 
@@ -367,8 +367,17 @@ export const ArrangementViewer: React.FC<{
     samplesMap?: Record<string, number[]>;
 }> = React.memo(({ arrangement, duration, currentTimeRef, isPlayingRef, projectFileUrl, projectZipUrl, trackId, zoom, setZoom, samplesMap = EMPTY_SAMPLES_MAP }) => {
     const [selectedClip, setSelectedClip] = React.useState<{ clip: ArrangementClip; color: string } | null>(null);
+    const [fullscreen, setFullscreen] = React.useState(false);
     const playheadRef = useRef<HTMLDivElement>(null);
     const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+    // Close fullscreen on Escape
+    React.useEffect(() => {
+        if (!fullscreen) return;
+        const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setFullscreen(false); };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, [fullscreen]);
 
     const tempoWarning = arrangement.hasTempoAutomation === true;
 
@@ -518,37 +527,80 @@ export const ArrangementViewer: React.FC<{
     const markerElements = useMemo(() => markers.map((marker, mi) => {
         const pct = (marker.position / totalBeats) * 100;
         return (
-            <div key={mi} style={{ position: 'absolute', top: 0, bottom: 0, left: `calc(140px + (100% - 140px) * ${pct / 100})`, width: '1px', backgroundColor: '#f59e0b', opacity: 0.7, pointerEvents: 'none', zIndex: 8 }}>
+            <div key={mi} style={{ position: 'absolute', top: 0, bottom: 0, left: `calc(140px + (100% - 140px) * ${pct / 100})`, width: '1px', backgroundColor: '#f59e0b', opacity: 0.25, pointerEvents: 'none', zIndex: 8 }}>
                 <div style={{ position: 'absolute', top: '6px', left: '-4px', width: 0, height: 0, borderLeft: '4px solid transparent', borderRight: '4px solid transparent', borderTop: '6px solid #f59e0b' }} />
                 <div style={{ position: 'absolute', top: '2px', left: '6px', fontSize: '0.6rem', color: '#f59e0b', whiteSpace: 'nowrap', fontWeight: 600, pointerEvents: 'none', textShadow: '0 1px 3px rgba(0,0,0,0.9), 0 0 6px rgba(0,0,0,0.8)', letterSpacing: '0.02em', backgroundColor: 'rgba(13,17,23,0.85)', padding: '1px 4px', borderRadius: '2px' }}>{marker.name}</div>
             </div>
         );
     }), [markers, totalBeats]);
 
-    return (
-        <div style={{ marginTop: '40px', maxWidth: '100%', overflow: 'hidden' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <Music size={20} color={colors.primary} />
-                    <h2 style={{ margin: 0, fontSize: '1.25rem' }}>Playlist</h2>
-                    <span style={{ fontSize: '0.8rem', color: colors.textSecondary, backgroundColor: 'rgba(255,255,255,0.05)', padding: '2px 8px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
-                        {arrangement.bpm} BPM
-                    </span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'rgba(255,255,255,0.05)', padding: '4px 8px', borderRadius: borderRadius.sm, border: '1px solid rgba(255,255,255,0.1)' }}>
-                        <button onClick={() => setZoom(Math.max(1, zoom - 0.5))} style={{ background: 'none', border: 'none', color: zoom <= 1 ? colors.textSecondary : colors.textPrimary, cursor: zoom <= 1 ? 'default' : 'pointer', padding: '2px 8px', fontSize: '1.2rem', fontWeight: 'bold' }}>-</button>
-                        <span style={{ fontSize: '0.75rem', color: colors.textSecondary, minWidth: '40px', textAlign: 'center' }}>{Math.round(zoom * 100)}%</span>
-                        <button onClick={() => setZoom(Math.min(10, zoom + 0.5))} style={{ background: 'none', border: 'none', color: zoom >= 10 ? colors.textSecondary : colors.textPrimary, cursor: zoom >= 10 ? 'default' : 'pointer', padding: '2px 8px', fontSize: '1.2rem', fontWeight: 'bold' }}>+</button>
-                    </div>
-                </div>
+    const toolbar = (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <Music size={20} color={colors.primary} />
+                <h2 style={{ margin: 0, fontSize: '1.25rem' }}>Playlist</h2>
+                <span style={{ fontSize: '0.8rem', color: colors.textSecondary, backgroundColor: 'rgba(255,255,255,0.05)', padding: '2px 8px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                    {arrangement.bpm} BPM
+                </span>
             </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'rgba(255,255,255,0.05)', padding: '4px 8px', borderRadius: borderRadius.sm, border: '1px solid rgba(255,255,255,0.1)' }}>
+                    <button onClick={() => setZoom(Math.max(1, zoom - 0.5))} style={{ background: 'none', border: 'none', color: zoom <= 1 ? colors.textSecondary : colors.textPrimary, cursor: zoom <= 1 ? 'default' : 'pointer', padding: '2px 8px', fontSize: '1.2rem', fontWeight: 'bold' }}>-</button>
+                    <span style={{ fontSize: '0.75rem', color: colors.textSecondary, minWidth: '40px', textAlign: 'center' }}>{Math.round(zoom * 100)}%</span>
+                    <button onClick={() => setZoom(Math.min(10, zoom + 0.5))} style={{ background: 'none', border: 'none', color: zoom >= 10 ? colors.textSecondary : colors.textPrimary, cursor: zoom >= 10 ? 'default' : 'pointer', padding: '2px 8px', fontSize: '1.2rem', fontWeight: 'bold' }}>+</button>
+                </div>
+                <button
+                    onClick={() => setFullscreen(f => !f)}
+                    title={fullscreen ? 'Exit fullscreen (Esc)' : 'Fullscreen'}
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, cursor: 'pointer', color: colors.textSecondary, flexShrink: 0 }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = colors.primary; (e.currentTarget as HTMLButtonElement).style.borderColor = colors.primary; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = colors.textSecondary; (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(255,255,255,0.1)'; }}
+                >
+                    {fullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+                </button>
+            </div>
+        </div>
+    );
+
+    const viewerContent = (
+        <>
+            {toolbar}
             {tempoWarning && (
                 <div style={{ marginBottom: '10px', padding: '8px 14px', borderRadius: borderRadius.sm, backgroundColor: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.35)', fontSize: '0.8rem', color: '#fbbf24', display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <span style={{ flexShrink: 0 }}>⚠</span>
                     <span>This project uses tempo automation — the playhead position is approximate and may drift from the audio.</span>
                 </div>
             )}
+        </>
+    );
+
+    if (fullscreen) {
+        return (
+            <div style={{ position: 'fixed', inset: 0, zIndex: 8000, backgroundColor: '#0B0F19', display: 'flex', flexDirection: 'column', padding: '20px 24px', overflowY: 'auto' }}>
+                {viewerContent}
+                <div ref={scrollContainerRef} style={{ flex: 1, overflowX: 'auto', borderRadius: borderRadius.md, border: '1px solid rgba(255,255,255,0.08)', backgroundColor: '#0d1117', scrollBehavior: 'smooth' }}>
+                    <div style={{ width: timelineWidth, minWidth: '100%', position: 'relative', paddingTop: '28px', paddingBottom: '16px', boxSizing: 'border-box' }}>
+                        <div style={{ display: 'flex', marginLeft: '140px', marginBottom: '8px', width: 'calc(100% - 140px)' }}>{beatRuler}</div>
+                        {trackRows}
+                        <div ref={playheadRef} style={{ position: 'absolute', top: 0, bottom: 0, width: '2px', backgroundColor: tempoWarning ? '#fbbf24' : '#fff', opacity: tempoWarning ? 0.5 : 0.8, pointerEvents: 'none', zIndex: 10, display: 'none', willChange: 'left' }} />
+                        {markerElements}
+                    </div>
+                </div>
+                {selectedClip && selectedClip.clip.type === 'pattern' && selectedClip.clip.notes && selectedClip.clip.notes.length > 0 && (
+                    <PianoRollModal clip={selectedClip.clip} color={selectedClip.color} onClose={() => setSelectedClip(null)} />
+                )}
+                {selectedClip && selectedClip.clip.type === 'audio' && (
+                    <SampleInfoModal clip={selectedClip.clip} color={selectedClip.color}
+                        peaks={(() => { const m = selectedClip.clip.sampleFileName ? samplesMap[selectedClip.clip.sampleFileName.toLowerCase()] : undefined; return (m && m.length > 0) ? m : (selectedClip.clip.peaks && selectedClip.clip.peaks.length > 0) ? selectedClip.clip.peaks : undefined; })()}
+                        projectZipUrl={projectZipUrl} trackId={trackId} onClose={() => setSelectedClip(null)} />
+                )}
+            </div>
+        );
+    }
+
+    return (
+        <div style={{ marginTop: '40px', maxWidth: '100%', overflow: 'hidden' }}>
+            {viewerContent}
             <div ref={scrollContainerRef} style={{ overflowX: 'auto', borderRadius: borderRadius.md, border: '1px solid rgba(255,255,255,0.08)', backgroundColor: '#0d1117', scrollBehavior: 'smooth' }}>
                 <div style={{ width: timelineWidth, minWidth: '100%', position: 'relative', paddingTop: '28px', paddingBottom: '16px', boxSizing: 'border-box' }}>
                     {/* Beat ruler */}

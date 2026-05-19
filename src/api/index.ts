@@ -9097,7 +9097,7 @@ app.post('/api/admin/reprocess-flps', requireAdmin, async (req, res) => {
 
         // ── Pass 2: Re-enrich ZIP bundle tracks from TrackSample DB rows ──────
         const tracksWithZips = await db.track.findMany({
-            where: { projectZipUrl: { not: null }, arrangement: { not: undefined } },
+            where: { projectZipUrl: { not: null } },
             include: { samples: true }
         }) as any[];
 
@@ -9106,6 +9106,12 @@ app.post('/api/admin/reprocess-flps', requireAdmin, async (req, res) => {
 
         for (const track of tracksWithZips) {
             try {
+                // No arrangement at all — re-process from scratch
+                if (!track.arrangement) {
+                    tracksNeedingReprocess.push(track);
+                    continue;
+                }
+
                 const arr = JSON.parse(JSON.stringify(track.arrangement));
                 const sampleMap = new Map<string, any>(
                     (track.samples as any[]).map((s: any) => [s.originalFilename.toLowerCase(), s])
@@ -9156,10 +9162,9 @@ app.post('/api/admin/reprocess-flps', requireAdmin, async (req, res) => {
                 let zipBuffer: Buffer;
 
                 if (zipUrl.startsWith('http')) {
-                    // R2 / CDN — fetch publicly
-                    const resp = await fetch(zipUrl);
-                    if (!resp.ok) throw new Error(`Failed to fetch ZIP from ${zipUrl}: ${resp.status}`);
-                    zipBuffer = Buffer.from(await resp.arrayBuffer());
+                    // R2 / CDN — download via axios (works across all Node versions)
+                    const resp = await axios.get(zipUrl, { responseType: 'arraybuffer', timeout: 120_000 });
+                    zipBuffer = Buffer.from(resp.data);
                 } else {
                     // Local uploads
                     const localPath = path.resolve(PROJECT_ROOT, 'public', zipUrl.replace(/^\//, ''));
