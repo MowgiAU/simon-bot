@@ -9397,7 +9397,11 @@ app.post('/api/musician/profile/:userId/avatar', generalUploadLimiter, upload.si
         const finalAvatarPath = await MediaConverter.optimizeImage(file.path);
 
         // Update profile with the new avatar URL
-        const profile = await db.musicianProfile.findFirst({ where: { userId } });
+        const canonicalAvatarId = req.session?.user?._localId || userId;
+        const profile = await db.musicianProfile.findFirst({
+            where: { userId: { in: [...new Set([userId, canonicalAvatarId])] } },
+            orderBy: { totalPlays: 'desc' },
+        });
         if (!profile) {
             return res.status(404).json({ error: 'Profile not found' });
         }
@@ -9449,7 +9453,11 @@ app.post('/api/musician/profile/:userId/banner', generalUploadLimiter, upload.si
         // Convert to WebP
         const finalPath = await MediaConverter.optimizeImage(file.path);
 
-        const profile = await db.musicianProfile.findFirst({ where: { userId } });
+        const canonicalBannerId = req.session?.user?._localId || userId;
+        const profile = await db.musicianProfile.findFirst({
+            where: { userId: { in: [...new Set([userId, canonicalBannerId])] } },
+            orderBy: { totalPlays: 'desc' },
+        });
         if (!profile) {
             return res.status(404).json({ error: 'Profile not found' });
         }
@@ -9482,7 +9490,11 @@ app.delete('/api/musician/profile/:userId/banner', async (req: any, res) => {
             return res.status(403).json({ error: 'Forbidden' });
         }
 
-        const profile = await db.musicianProfile.findFirst({ where: { userId } });
+        const canonicalBannerDelId = req.session?.user?._localId || userId;
+        const profile = await db.musicianProfile.findFirst({
+            where: { userId: { in: [...new Set([userId, canonicalBannerDelId])] } },
+            orderBy: { totalPlays: 'desc' },
+        });
         if (!profile) {
             return res.status(404).json({ error: 'Profile not found' });
         }
