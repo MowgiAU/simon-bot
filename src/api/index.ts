@@ -9146,7 +9146,7 @@ app.post('/api/admin/reprocess-flps', requireAdmin, async (req, res) => {
                     zipBuffer = fs.readFileSync(localPath);
                 }
 
-                const { arrangement: freshArr, sampleCount } = await ProjectZipProcessor.process(zipBuffer, track.id);
+                const { arrangement: freshArr, sampleCount } = await ProjectZipProcessor.process(zipBuffer, track.id, db);
                 await db.track.update({ where: { id: track.id }, data: { arrangement: freshArr as any } });
                 (results as any).reextractSuccess++;
                 logger.info(`ZIP re-extract: "${track.title}" — ${sampleCount} samples re-processed`);
