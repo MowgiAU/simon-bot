@@ -19,7 +19,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { CommentSection } from '../components/CommentSection';
 import { AddToPlaylistModal } from '../components/AddToPlaylistModal';
 import { ReportButton } from '../components/ReportButton';
-import { ArrangementViewer, ArrangementData, ProjectInfo, ArrangementClip, NoteData, AutomationPoint } from '../components/ArrangementViewer';
+import { ArrangementViewer, ArrangementData, ProjectInfo, ArrangementClip, NoteData, AutomationPoint, PluginBadge, usePluginRegistry } from '../components/ArrangementViewer';
 
 interface TrackSample {
     id: string;
@@ -124,6 +124,7 @@ export const TrackPage: React.FC = () => {
     const { pathname } = useLocation();
     const navigate = useNavigate();
     const { user, mutualAdminGuilds } = useAuth();
+    const pluginRegistry = usePluginRegistry();
     const [track, setTrackData] = useState<Track | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -903,13 +904,10 @@ export const TrackPage: React.FC = () => {
                                                             Plugins ({track.arrangement.projectInfo.plugins.length})
                                                         </span>
                                                     </div>
-                                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                                                         {track.arrangement.projectInfo.plugins.map((plugin, i) => (
-                                                            <span key={i} style={{
-                                                                padding: '5px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 500,
-                                                                backgroundColor: 'rgba(242,123,19,0.08)', border: '1px solid rgba(242,123,19,0.15)',
-                                                                color: '#F0A060',
-                                                            }}>{plugin}</span>
+                                                            <PluginBadge key={i} name={plugin} registry={pluginRegistry}
+                                                                fallbackStyle={{ padding: '5px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 500, backgroundColor: 'rgba(242,123,19,0.08)', border: '1px solid rgba(242,123,19,0.15)', color: '#F0A060' }} />
                                                         ))}
                                                     </div>
                                                 </div>

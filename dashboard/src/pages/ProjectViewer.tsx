@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { PluginBadge, usePluginRegistry } from '../components/ArrangementViewer';
 import axios from 'axios';
 import { useAuth } from '../components/AuthProvider';
 import { colors, spacing, borderRadius } from '../theme/theme';
@@ -59,6 +60,7 @@ interface ProjectMetadata {
 
 export const ProjectViewer: React.FC = () => {
     const { selectedGuild } = useAuth();
+    const pluginRegistry = usePluginRegistry();
     const [projects, setProjects] = useState<any[]>([]);
     const [selectedProject, setSelectedProject] = useState<ProjectMetadata | null>(null);
     const [loading, setLoading] = useState(false);
@@ -241,7 +243,8 @@ export const ProjectViewer: React.FC = () => {
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: spacing.md }}>
                         <span style={{ fontSize: '11px', color: colors.textSecondary, alignSelf: 'center', marginRight: 4, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>VSTs</span>
                         {plugins.map(p => (
-                            <span key={p} style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: `${accentColor}18`, color: accentColor, border: `1px solid ${accentColor}33`, fontWeight: 600 }}>{p}</span>
+                            <PluginBadge key={p} name={p} registry={pluginRegistry}
+                                fallbackStyle={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', background: `${accentColor}18`, color: accentColor, border: `1px solid ${accentColor}33`, fontWeight: 600 }} />
                         ))}
                     </div>
                 )}

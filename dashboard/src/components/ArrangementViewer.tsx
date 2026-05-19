@@ -590,7 +590,7 @@ interface KnownPlugin {
     category: string | null;
 }
 
-function getRegistry(): Promise<KnownPlugin[]> {
+export function getRegistry(): Promise<KnownPlugin[]> {
     if (registryCache !== null) return Promise.resolve(registryCache);
     if (!registryFetch) {
         registryFetch = fetch('/api/plugins/registry')
@@ -601,7 +601,7 @@ function getRegistry(): Promise<KnownPlugin[]> {
     return registryFetch;
 }
 
-function matchPlugin(name: string, registry: KnownPlugin[]): KnownPlugin | undefined {
+export function matchPlugin(name: string, registry: KnownPlugin[]): KnownPlugin | undefined {
     const lower = name.toLowerCase();
     return registry.find(p =>
         p.name.toLowerCase() === lower ||
@@ -609,14 +609,54 @@ function matchPlugin(name: string, registry: KnownPlugin[]): KnownPlugin | undef
     );
 }
 
+// ── Shared hook ──────────────────────────────────────────────────────────────
+
+export function usePluginRegistry(): KnownPlugin[] {
+    const [registry, setRegistry] = useState<KnownPlugin[]>(registryCache ?? []);
+    useEffect(() => { getRegistry().then(setRegistry); }, []);
+    return registry;
+}
+
+// ── PluginBadge — renders one plugin, enriched if in registry ────────────────
+
+export const PluginBadge: React.FC<{ name: string; registry: KnownPlugin[]; fallbackStyle?: React.CSSProperties }> = ({ name, registry, fallbackStyle }) => {
+    const known = matchPlugin(name, registry);
+    if (known) {
+        const label = known.displayName || name;
+        const inner = (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {known.imageUrl && (
+                    <img src={known.imageUrl} alt={label} style={{ width: 26, height: 26, borderRadius: '5px', objectFit: 'cover', flexShrink: 0 }} />
+                )}
+                <div>
+                    <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#CBD5E1', lineHeight: 1.2 }}>{label}</div>
+                    {known.category && <div style={{ fontSize: '0.65rem', color: colors.textTertiary, textTransform: 'capitalize', marginTop: '1px' }}>{known.category}</div>}
+                </div>
+                {known.link && <span style={{ fontSize: '0.65rem', color: colors.primary, marginLeft: 'auto', paddingLeft: '4px', flexShrink: 0 }}>↗</span>}
+            </div>
+        );
+        const cardStyle: React.CSSProperties = { backgroundColor: 'rgba(255,255,255,0.05)', padding: '5px 10px', borderRadius: '8px', border: `1px solid ${colors.primary}30`, display: 'inline-block' };
+        return known.link ? (
+            <a href={known.link} target="_blank" rel="noopener noreferrer" style={{ ...cardStyle, textDecoration: 'none' }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = `${colors.primary}60`; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = `${colors.primary}30`; }}>
+                {inner}
+            </a>
+        ) : (
+            <div style={cardStyle}>{inner}</div>
+        );
+    }
+    return (
+        <span style={fallbackStyle ?? { backgroundColor: 'rgba(255,255,255,0.05)', color: '#CBD5E1', padding: '4px 10px', borderRadius: '6px', fontSize: '0.8rem', border: '1px solid rgba(255,255,255,0.08)' }}>
+            {name}
+        </span>
+    );
+};
+
 // ── ProjectInfoPanel ──────────────────────────────────────────────────────────
 
 export const ProjectInfoPanel: React.FC<{ projectInfo: ProjectInfo }> = ({ projectInfo }) => {
-    const [registry, setRegistry] = useState<KnownPlugin[]>(registryCache || []);
-
-    useEffect(() => {
-        getRegistry().then(setRegistry);
-    }, []);
+    const registry = usePluginRegistry();
 
     return (
         <div style={{ marginTop: '32px' }}>
@@ -632,38 +672,9 @@ export const ProjectInfoPanel: React.FC<{ projectInfo: ProjectInfo }> = ({ proje
                             <span style={{ fontSize: '0.85rem', fontWeight: 600, color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Plugins ({projectInfo.plugins.length})</span>
                         </div>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                            {projectInfo.plugins.map((plugin, i) => {
-                                const known = matchPlugin(plugin, registry);
-                                if (known) {
-                                    const label = known.displayName || plugin;
-                                    const inner = (
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                            {known.imageUrl && (
-                                                <img src={known.imageUrl} alt={label} style={{ width: 28, height: 28, borderRadius: '5px', objectFit: 'cover', flexShrink: 0 }} />
-                                            )}
-                                            <div>
-                                                <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#CBD5E1', lineHeight: 1.2 }}>{label}</div>
-                                                {known.category && <div style={{ fontSize: '0.65rem', color: colors.textTertiary, textTransform: 'capitalize', marginTop: '1px' }}>{known.category}</div>}
-                                            </div>
-                                            {known.link && <span style={{ fontSize: '0.65rem', color: colors.primary, marginLeft: 'auto', flexShrink: 0 }}>↗</span>}
-                                        </div>
-                                    );
-                                    return known.link ? (
-                                        <a key={i} href={known.link} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', backgroundColor: 'rgba(255,255,255,0.05)', padding: '6px 10px', borderRadius: '8px', border: `1px solid ${colors.primary}30`, minWidth: known.imageUrl ? '120px' : undefined, display: 'block' }}
-                                            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = `${colors.primary}60`; }}
-                                            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = `${colors.primary}30`; }}>
-                                            {inner}
-                                        </a>
-                                    ) : (
-                                        <div key={i} style={{ backgroundColor: 'rgba(255,255,255,0.05)', padding: '6px 10px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)', minWidth: known.imageUrl ? '120px' : undefined }}>
-                                            {inner}
-                                        </div>
-                                    );
-                                }
-                                return (
-                                    <span key={i} style={{ backgroundColor: 'rgba(255,255,255,0.05)', color: '#CBD5E1', padding: '4px 10px', borderRadius: '6px', fontSize: '0.8rem', border: '1px solid rgba(255,255,255,0.08)' }}>{plugin}</span>
-                                );
-                            })}
+                            {projectInfo.plugins.map((plugin, i) => (
+                                <PluginBadge key={i} name={plugin} registry={registry} />
+                            ))}
                         </div>
                     </div>
                 )}
