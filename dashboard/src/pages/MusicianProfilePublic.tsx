@@ -10,7 +10,7 @@ import {
     Music, Hammer, Instagram, Youtube, MessageCircle, Radio,
     Edit3, Pause, ExternalLink, Award, Zap, Play, Copy, Check,
     Swords, Trophy, Flame, UserPlus, UserCheck, Repeat2, Heart, Share2, ListMusic, Clock, Star,
-    GripVertical, ChevronUp, ChevronDown, Disc
+    GripVertical, ChevronUp, ChevronDown, Disc, EyeOff
 } from 'lucide-react';
 import { CommentSection } from '../components/CommentSection';
 import { FujiLogo } from '../components/FujiLogo';
@@ -890,12 +890,19 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                                                             </div>
 
                                                             {/* Track title */}
-                                                            <Link to={`/track/${trackArtistUsername}/${track.slug || track.id}`}
-                                                                style={{ color: cardText, textDecoration: 'none', fontSize: '14px', fontWeight: 700, marginBottom: '6px', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
-                                                                onMouseEnter={e => e.currentTarget.style.color = accent}
-                                                                onMouseLeave={e => e.currentTarget.style.color = cardText}>
-                                                                {track.title}
-                                                            </Link>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px', minWidth: 0 }}>
+                                                                <Link to={`/track/${trackArtistUsername}/${track.slug || track.id}`}
+                                                                    style={{ color: cardText, textDecoration: 'none', fontSize: '14px', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1, minWidth: 0 }}
+                                                                    onMouseEnter={e => e.currentTarget.style.color = accent}
+                                                                    onMouseLeave={e => e.currentTarget.style.color = cardText}>
+                                                                    {track.title}
+                                                                </Link>
+                                                                {isOwnProfile && !track.isPublic && (
+                                                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', padding: '2px 7px', borderRadius: '999px', fontSize: '10px', fontWeight: 700, backgroundColor: 'rgba(239,68,68,0.15)', color: '#f87171', border: '1px solid rgba(239,68,68,0.25)', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                                                                        <EyeOff size={9} /> Private
+                                                                    </span>
+                                                                )}
+                                                            </div>
 
                                                             {/* Waveform */}
                                                             <div

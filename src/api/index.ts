@@ -8274,6 +8274,7 @@ app.get('/api/musician/profile/:userId', async (req, res) => {
         // When the requesting user is the profile owner, skip the server cache entirely
         // so their own track list is always fresh after an upload/edit/delete.
         const requestingUserId = (req as any).session?.user?.id;
+        const canonicalRequestId = (req as any).session?.user?._localId || requestingUserId;
         const isOwnerRequest = !!requestingUserId && requestingUserId.toLowerCase() === userId.toLowerCase();
 
         // Check per-profile cache first (5-minute TTL via 'profile' prefix key)
@@ -8291,9 +8292,17 @@ app.get('/api/musician/profile/:userId', async (req, res) => {
             return res.status(404).json({ error: 'Profile not found' });
         }
 
+        // Determine true owner after profile fetch — handles username-based lookups where
+        // the :userId param is a username, not the Discord ID, so isOwnerRequest is false.
+        const isOwner = isOwnerRequest
+            || (!!requestingUserId && profileData.userId === requestingUserId)
+            || (!!canonicalRequestId && profileData.userId === canonicalRequestId);
+
         // Filter out non-active tracks and back-fill permission defaults
         if (profileData.tracks) {
-            profileData.tracks = profileData.tracks.filter((t: any) => t.status === 'active' || !t.status);
+            profileData.tracks = profileData.tracks.filter((t: any) =>
+                (t.status === 'active' || !t.status) && (isOwner || t.isPublic)
+            );
             // Sort by explicit position first, then by createdAt for tracks with equal positions
             profileData.tracks.sort((a: any, b: any) => (a.position ?? 0) - (b.position ?? 0) || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
             profileData.tracks = profileData.tracks.map((t: any) => {
@@ -8382,7 +8391,7 @@ app.get('/api/musician/profile/:userId', async (req, res) => {
         ];
 
         // Only cache for non-owner requests — owner always gets a live query (see above)
-        if (!isOwnerRequest) setCachedResponse(cacheKey, profileData);
+        if (!isOwner) setCachedResponse(cacheKey, profileData);
         res.json(profileData);
     } catch (e: any) {
         res.status(500).json({ error: 'Internal server error' });

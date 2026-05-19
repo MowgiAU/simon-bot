@@ -158,7 +158,7 @@ export class ProfileService {
                 },
                 primaryGenre: true,
                 tracks: {
-                    where: { isPublic: true, deletedAt: null },
+                    where: { deletedAt: null },
                     orderBy: { createdAt: 'desc' },
                     // Explicitly select only what the profile page needs.
                     // Critically EXCLUDES: arrangement (can be MBs of FL Studio JSON),
