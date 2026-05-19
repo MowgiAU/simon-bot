@@ -468,13 +468,12 @@ export const BattlesPage: React.FC = () => {
                                     <span style={{ fontSize: '9px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.2em', color: '#10B981' }}>{sponsorSectionTitle}</span>
                                 </div>
                                 {globalSponsors.map(s => {
-                                    const href = s.links[0]?.url || s.websiteUrl;
+                                    const href = s.websiteUrl;
                                     const inner = s.logoUrl
                                         ? <img src={s.logoUrl} alt={s.name} style={{ height: '28px', objectFit: 'contain' }} />
                                         : <span style={{ fontWeight: 800, fontSize: '13px', color: '#fff', letterSpacing: '0.04em' }}>{s.name.toUpperCase()}</span>;
                                     return href ? (
                                         <a key={s.id} href={href} target="_blank" rel="noopener noreferrer"
-                                            onClick={() => s.links[0] && fetch(`${API}/api/beat-battle/sponsor-links/${s.links[0].id}/click`, { method: 'POST' }).catch(() => {})}
                                             style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', padding: '8px 16px', borderRadius: '8px', backgroundColor: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.15)', transition: 'all 0.2s' }}
                                             onMouseEnter={e => { (e.currentTarget as HTMLElement).style.backgroundColor = 'rgba(255,255,255,0.12)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.3)'; }}
                                             onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = 'rgba(255,255,255,0.07)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.15)'; }}
