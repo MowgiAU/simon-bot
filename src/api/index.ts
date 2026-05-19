@@ -2411,15 +2411,16 @@ app.get('/api/auth/status', async (req, res) => {
         const idsToCheck = [...new Set(sessionIds)];
         const mp = await db.musicianProfile.findFirst({
             where: { userId: { in: idsToCheck } },
-            select: { avatar: true, displayName: true, username: true },
+            select: { id: true, avatar: true, displayName: true, username: true, userId: true },
             orderBy: { totalPlays: 'desc' },
         });
+        logger.info(`[auth/status] user=${req.session.user.id} idsToCheck=${JSON.stringify(idsToCheck)} mp=${mp ? `id=${mp.id} userId=${mp.userId} username="${mp.username}" avatar=${mp.avatar ? 'set' : 'null'}` : 'NOT FOUND'}`);
         if (mp) {
             profileAvatar = mp.avatar || null;
             profileDisplayName = mp.displayName || mp.username || null;
             profileUsername = mp.username || null;
         }
-    } catch { /* non-fatal */ }
+    } catch (e: any) { logger.warn(`[auth/status] profile lookup failed: ${e.message}`); }
 
     res.json({
       authenticated: true,
