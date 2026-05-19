@@ -85,7 +85,7 @@ export const TrackUploadForm: React.FC<TrackUploadFormProps> = ({
     /* ─── form state ─── */
     const [newTrack, setNewTrack] = useState({
         title: '', description: '', artist: '', album: '', year: '', bpm: '', key: '',
-        allowAudioDownload: true, allowProjectDownload: true, license: 'all-rights-reserved',
+        isPublic: true, allowAudioDownload: true, allowProjectDownload: true, license: 'all-rights-reserved',
     });
     const [audioFile, setAudioFile] = useState<File | null>(null);
     const [artworkFile, setArtworkFile] = useState<File | null>(null);
@@ -272,6 +272,7 @@ export const TrackUploadForm: React.FC<TrackUploadFormProps> = ({
         if (newTrack.year) formData.append('year', newTrack.year);
         if (newTrack.bpm) formData.append('bpm', newTrack.bpm);
         if (newTrack.key) formData.append('key', newTrack.key);
+        formData.append('isPublic', String(newTrack.isPublic));
         formData.append('allowAudioDownload', String(newTrack.allowAudioDownload));
         formData.append('allowProjectDownload', String(newTrack.allowProjectDownload));
         formData.append('license', newTrack.license);
@@ -551,6 +552,14 @@ export const TrackUploadForm: React.FC<TrackUploadFormProps> = ({
                 backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)',
                 marginBottom: '20px',
             }}>
+                <div style={{ fontSize: '12px', fontWeight: 600, color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: '0.05em', minWidth: '110px', paddingTop: '2px' }}>
+                    Visibility
+                </div>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', color: colors.textPrimary }}>
+                    <input type="checkbox" checked={newTrack.isPublic} onChange={e => setField('isPublic', e.target.checked)}
+                        style={{ accentColor: colors.primary, width: '16px', height: '16px' }} />
+                    Public (visible to everyone)
+                </label>
                 <div style={{ fontSize: '12px', fontWeight: 600, color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: '0.05em', minWidth: '110px', paddingTop: '2px' }}>
                     Downloads
                 </div>

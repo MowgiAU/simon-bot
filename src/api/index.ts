@@ -6949,6 +6949,7 @@ app.post('/api/musician/tracks', uploadLimiter, upload.fields([
         const slug = safeTrackSlug(metadata.title);
 
         // 3. Save to database
+        const _isPublic = req.body.isPublic === 'false' || req.body.isPublic === false ? false : true;
         const track = await audioService.addTrack(userId, {
             title: metadata.title,
             slug,
@@ -6961,6 +6962,7 @@ app.post('/api/musician/tracks', uploadLimiter, upload.fields([
             year: metadata.year,
             bpm: metadata.bpm,
             key: metadata.key,
+            isPublic: _isPublic,
             allowAudioDownload: req.body.allowAudioDownload === 'true',
             allowProjectDownload: req.body.allowProjectDownload === 'true',
             ...(req.body.license ? { license: req.body.license } : {}),
@@ -7011,7 +7013,7 @@ app.post('/api/musician/tracks', uploadLimiter, upload.fields([
         // Skip when this upload is part of a battle submission \u2014 the BeatBattle plugin
         // will announce it in the battles channel instead.
         const _annGuildId = process.env.GUILD_ID;
-        const _suppressAnnounce = req.body?.battleId || req.body?.suppressAnnounce === 'true' || req.body?.suppressAnnounce === true;
+        const _suppressAnnounce = req.body?.battleId || req.body?.suppressAnnounce === 'true' || req.body?.suppressAnnounce === true || !_isPublic;
         if (_annGuildId && uploaderProfile && !_suppressAnnounce) {
             const genreNames = (fullTrack?.genres ?? []).map((tg: any) => tg.genre?.name).filter(Boolean);
             db.trackAnnouncement.create({
@@ -7427,7 +7429,7 @@ app.put('/api/musician/tracks/:trackId', generalUploadLimiter, upload.fields([
         const updateData: any = {};
 
         // Text field updates
-        const { title, description, artist, album, year, bpm, key: musicKey, genreIds, allowAudioDownload, allowProjectDownload, license } = req.body;
+        const { title, description, isPublic: isPublicEdit, artist, album, year, bpm, key: musicKey, genreIds, allowAudioDownload, allowProjectDownload, license } = req.body;
         logger.info(`[PUT track ${trackId}] allowAudioDownload=${JSON.stringify(allowAudioDownload)} allowProjectDownload=${JSON.stringify(allowProjectDownload)}`);
         if (title !== undefined) {
             const cleanTitle = sanitizeDisplayName(title);
@@ -7440,9 +7442,14 @@ app.put('/api/musician/tracks/:trackId', generalUploadLimiter, upload.fields([
         if (year !== undefined) updateData.year = year ? parseInt(year) : null;
         if (bpm !== undefined) updateData.bpm = bpm ? parseInt(bpm) : null;
         if (musicKey !== undefined) updateData.key = musicKey || null;
+        if (isPublicEdit !== undefined) updateData.isPublic = isPublicEdit === 'true' || isPublicEdit === true;
         if (allowAudioDownload !== undefined) updateData.allowAudioDownload = allowAudioDownload === 'true' || allowAudioDownload === true;
         if (allowProjectDownload !== undefined) updateData.allowProjectDownload = allowProjectDownload === 'true' || allowProjectDownload === true;
         if (license !== undefined) updateData.license = license;
+        // If making private, clear as featured track
+        if (updateData.isPublic === false) {
+            db.musicianProfile.updateMany({ where: { featuredTrackId: trackId }, data: { featuredTrackId: null } }).catch(() => {});
+        }
         logger.info(`[PUT track ${trackId}] updateData.allowAudioDownload=${updateData.allowAudioDownload}`);
 
         // Audio file replacement

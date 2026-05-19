@@ -394,6 +394,7 @@ export const MyTracksPage: React.FC = () => {
             formData.append('year', editingTrack.year || '');
             formData.append('bpm', editingTrack.bpm || '');
             formData.append('key', editingTrack.key || '');
+            formData.append('isPublic', String(editingTrack.isPublic ?? true));
             formData.append('allowAudioDownload', String(editingTrack.allowAudioDownload ?? true));
             formData.append('allowProjectDownload', String(editingTrack.allowProjectDownload ?? true));
             formData.append('license', editingTrack.license || 'all-rights-reserved');
@@ -980,6 +981,14 @@ export const MyTracksPage: React.FC = () => {
                     backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)',
                     marginBottom: '20px',
                 }}>
+                    <div style={{ fontSize: '12px', fontWeight: 600, color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: '0.05em', minWidth: '110px', paddingTop: '2px' }}>
+                        Visibility
+                    </div>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', color: colors.textPrimary }}>
+                        <input type="checkbox" checked={track.isPublic ?? true} onChange={e => setField('isPublic', e.target.checked)}
+                            style={{ accentColor: colors.primary, width: '16px', height: '16px' }} />
+                        Public (visible to everyone)
+                    </label>
                     <div style={{ fontSize: '12px', fontWeight: 600, color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: '0.05em', minWidth: '110px', paddingTop: '2px' }}>
                         Downloads
                     </div>

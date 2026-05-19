@@ -76,6 +76,18 @@ export class TrackAnnouncerPlugin implements IPlugin {
             });
 
             for (const ann of pending) {
+                // Verify track is still public before announcing
+                const track = await this.db.track.findUnique({
+                    where: { id: ann.trackId },
+                    select: { isPublic: true, deletedAt: true, status: true },
+                });
+                if (!track || !track.isPublic || track.deletedAt || track.status === 'deleted') {
+                    // Skip silently — mark as posted so it doesn't retry
+                    await this.db.trackAnnouncement.update({ where: { id: ann.id }, data: { postedAt: new Date() } });
+                    this.logger.info(`[TrackAnnouncer] Skipped announcement ${ann.id} — track is private or deleted`);
+                    continue;
+                }
+
                 // Mark as posted immediately to avoid double-posting on slow runs
                 await this.db.trackAnnouncement.update({
                     where: { id: ann.id },
