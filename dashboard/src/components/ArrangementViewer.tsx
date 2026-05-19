@@ -712,55 +712,111 @@ export const PluginBadge: React.FC<{ name: string; registry: KnownPlugin[]; fall
     );
 };
 
-// ── PluginCard — the visual tile ──────────────────────────────────────────────
+// ── PluginCard — rich visual tile for known plugins ───────────────────────────
 
 const PluginCard: React.FC<{ rawName: string; known: KnownPlugin | undefined; label: string }> = ({ known, label }) => (
     <div style={{
-        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px',
-        padding: '16px 12px', borderRadius: '14px', cursor: 'pointer',
-        backgroundColor: 'rgba(255,255,255,0.04)',
-        border: `1px solid ${known ? colors.primary + '35' : 'rgba(255,255,255,0.08)'}`,
-        minWidth: '200px', width: '200px',
-        transition: 'border-color 0.15s, background-color 0.15s',
+        width: '160px', flexShrink: 0,
+        borderRadius: '14px', overflow: 'hidden', cursor: 'pointer',
+        backgroundColor: '#0d1117',
+        border: `1px solid ${known?.imageUrl ? colors.primary + '30' : 'rgba(255,255,255,0.08)'}`,
+        transition: 'transform 0.15s, box-shadow 0.15s, border-color 0.15s',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
     }}
-        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.backgroundColor = 'rgba(255,255,255,0.08)'; (e.currentTarget as HTMLElement).style.borderColor = known ? colors.primary + '70' : 'rgba(255,255,255,0.18)'; }}
-        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = 'rgba(255,255,255,0.04)'; (e.currentTarget as HTMLElement).style.borderColor = known ? colors.primary + '35' : 'rgba(255,255,255,0.08)'; }}
+        onMouseEnter={e => {
+            const el = e.currentTarget as HTMLElement;
+            el.style.transform = 'translateY(-3px)';
+            el.style.boxShadow = `0 8px 24px rgba(0,0,0,0.5)`;
+            el.style.borderColor = known ? colors.primary + '70' : 'rgba(255,255,255,0.2)';
+        }}
+        onMouseLeave={e => {
+            const el = e.currentTarget as HTMLElement;
+            el.style.transform = 'translateY(0)';
+            el.style.boxShadow = '0 2px 8px rgba(0,0,0,0.3)';
+            el.style.borderColor = known?.imageUrl ? colors.primary + '30' : 'rgba(255,255,255,0.08)';
+        }}
     >
-        {known?.imageUrl ? (
-            <img src={known.imageUrl} alt={label} style={{ width: '80px', height: '80px', borderRadius: '14px', objectFit: 'cover' }} />
-        ) : (
-            <div style={{ width: '80px', height: '80px', borderRadius: '14px', backgroundColor: 'rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px', fontWeight: 800, color: 'rgba(255,255,255,0.25)' }}>
-                {label.slice(0, 2).toUpperCase()}
+        {/* Image area */}
+        <div style={{ width: '160px', height: '140px', backgroundColor: '#0a0d14', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', position: 'relative' }}>
+            {known?.imageUrl ? (
+                <img src={known.imageUrl} alt={label}
+                    style={{ width: '100%', height: '100%', objectFit: 'contain', padding: '12px', boxSizing: 'border-box' }} />
+            ) : (
+                <>
+                    <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg, rgba(255,255,255,0.02) 0%, transparent 100%)' }} />
+                    <span style={{ fontSize: '32px', fontWeight: 900, color: 'rgba(255,255,255,0.12)', letterSpacing: '-0.05em', zIndex: 1 }}>
+                        {label.slice(0, 2).toUpperCase()}
+                    </span>
+                </>
+            )}
+        </div>
+
+        {/* Info */}
+        <div style={{ padding: '10px 12px 12px' }}>
+            <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#E2E8F0', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</div>
+            {known?.developer && (
+                <div style={{ fontSize: '0.7rem', color: colors.textTertiary, marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{known.developer}</div>
+            )}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '6px' }}>
+                {known?.category ? (
+                    <span style={{ fontSize: '0.62rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', padding: '2px 6px', borderRadius: '4px', backgroundColor: `${colors.primary}18`, color: colors.primary }}>
+                        {known.category}
+                    </span>
+                ) : <span />}
+                {known?.link && (
+                    <span style={{ fontSize: '0.68rem', color: colors.primary, fontWeight: 600 }}>View ↗</span>
+                )}
             </div>
-        )}
-        <div style={{ textAlign: 'center', width: '100%' }}>
-            <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#CBD5E1', lineHeight: 1.3, wordBreak: 'break-word' }}>{label}</div>
-            {known?.developer && <div style={{ fontSize: '0.7rem', color: colors.textSecondary, marginTop: '2px' }}>{known.developer}</div>}
-            {known?.category && <div style={{ fontSize: '0.65rem', color: colors.textTertiary, textTransform: 'capitalize', marginTop: '2px' }}>{known.category}</div>}
-            {known?.link && <div style={{ fontSize: '0.7rem', color: colors.primary, marginTop: '4px', fontWeight: 600 }}>View →</div>}
         </div>
     </div>
 );
 
-// ── PluginList — deduplicated, clickable plugin tiles ─────────────────────────
+// ── PluginList — deduplicated, known cards + unknown badges ───────────────────
 
 export const PluginList: React.FC<{ plugins: string[]; registry: KnownPlugin[] }> = ({ plugins, registry }) => {
     const [active, setActive] = useState<{ rawName: string; known: KnownPlugin | undefined } | null>(null);
     const deduped = useMemo(() => deduplicatePlugins(plugins, registry), [plugins, registry]);
 
+    const known = deduped.filter(p => p.known);
+    const unknown = deduped.filter(p => !p.known);
+
     return (
         <>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
-                {deduped.map(({ rawName, known }) => {
-                    const label = known?.displayName || rawName;
-                    return (
-                        <button key={known?.id ?? rawName} onClick={() => setActive({ rawName, known })}
+            {/* Known plugins — rich cards */}
+            {known.length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', marginBottom: unknown.length > 0 ? '16px' : 0 }}>
+                    {known.map(({ rawName, known: k }) => (
+                        <button key={k!.id} onClick={() => setActive({ rawName, known: k })}
                             style={{ cursor: 'pointer', background: 'none', border: 'none', padding: 0, textAlign: 'left' }}>
-                            <PluginCard rawName={rawName} known={known} label={label} />
+                            <PluginCard rawName={rawName} known={k} label={k!.displayName || rawName} />
                         </button>
-                    );
-                })}
-            </div>
+                    ))}
+                </div>
+            )}
+
+            {/* Unknown plugins — compact badges */}
+            {unknown.length > 0 && (
+                <div>
+                    {known.length > 0 && (
+                        <div style={{ fontSize: '0.7rem', color: colors.textTertiary, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>
+                            Other Plugins
+                        </div>
+                    )}
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                        {unknown.map(({ rawName }) => (
+                            <button key={rawName} onClick={() => setActive({ rawName, known: undefined })}
+                                style={{ cursor: 'pointer', background: 'none', border: 'none', padding: 0 }}>
+                                <span style={{ display: 'block', padding: '4px 10px', borderRadius: '6px', fontSize: '0.78rem', fontWeight: 500, backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#94A3B8', transition: 'background-color 0.15s' }}
+                                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.backgroundColor = 'rgba(255,255,255,0.09)'; }}
+                                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = 'rgba(255,255,255,0.05)'; }}>
+                                    {rawName}
+                                </span>
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
+
             {active && <PluginModal rawName={active.rawName} known={active.known} onClose={() => setActive(null)} />}
         </>
     );
@@ -777,9 +833,9 @@ export const ProjectInfoPanel: React.FC<{ projectInfo: ProjectInfo }> = ({ proje
                 <Layers size={20} color={colors.primary} />
                 <h2 style={{ margin: 0, fontSize: '1.25rem' }}>Project Details</h2>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: projectInfo.plugins.length > 0 && projectInfo.samples.length > 0 ? '1fr 1fr' : '1fr', gap: '16px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 {projectInfo.plugins.length > 0 && (
-                    <div style={{ backgroundColor: '#0d1117', borderRadius: borderRadius.md, border: '1px solid rgba(255,255,255,0.08)', padding: '16px' }}>
+                    <div style={{ backgroundColor: '#0d1117', borderRadius: borderRadius.md, border: '1px solid rgba(255,255,255,0.08)', padding: '20px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
                             <Zap size={16} color={colors.primary} />
                             <span style={{ fontSize: '0.85rem', fontWeight: 600, color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Plugins ({projectInfo.plugins.length})</span>
