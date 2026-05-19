@@ -8559,7 +8559,18 @@ app.post('/api/musician/profile/:userId', async (req: any, res) => {
         // Extract IDs if passed as objects from frontend
         const genreIds = data.genres.map((g: any) => typeof g === 'string' ? g : g.id).filter(Boolean);
 
-        const updated = await profileService.updateProfile(canonicalUserId, {
+        // Resolve the actual DB userId for the profile — handles the case where
+        // the profile was created with a Discord numeric ID but the session now
+        // carries a different cuid (_localId). Always update the profile that
+        // getProfile() would return, not a phantom one.
+        const existingProfile = await db.musicianProfile.findFirst({
+            where: { OR: [{ userId: canonicalUserId }, { userId }] },
+            orderBy: { totalPlays: 'desc' },
+            select: { userId: true },
+        });
+        const profileUserId = existingProfile?.userId ?? canonicalUserId;
+
+        const updated = await profileService.updateProfile(profileUserId, {
             ...data,
             socials,
             genreIds,
@@ -8568,10 +8579,12 @@ app.post('/api/musician/profile/:userId', async (req: any, res) => {
         });
 
         // Log profile creation/update
-        await logAction('GLOBAL', 'profile_updated', canonicalUserId, updated.id, { username: updated.username });
+        await logAction('GLOBAL', 'profile_updated', profileUserId, updated.id, { username: updated.username });
 
         // Invalidate profile cache for this user
+        apiResponseCache.delete(`profile-${profileUserId.toLowerCase()}`);
         apiResponseCache.delete(`profile-${canonicalUserId.toLowerCase()}`);
+        apiResponseCache.delete(`profile-${userId.toLowerCase()}`);
         if (updated.username) apiResponseCache.delete(`profile-${updated.username.toLowerCase()}`);
 
         res.json(updated);
