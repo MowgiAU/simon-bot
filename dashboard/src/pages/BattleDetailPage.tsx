@@ -744,14 +744,27 @@ export const BattleDetailPage: React.FC = () => {
                                         <span style={{ fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.2em', color: colors.primary }}>Official Sponsor</span>
                                     </div>
                                     {/* Logo + name */}
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                                        {battle.sponsor.logoUrl && (
-                                            <img src={battle.sponsor.logoUrl} alt={battle.sponsor.name} style={{ height: '40px', objectFit: 'contain' }} />
-                                        )}
-                                        <span style={{ fontWeight: 800, fontSize: isMobile ? '20px' : '24px', color: '#fff', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-                                            {battle.sponsor.name}
-                                        </span>
-                                    </div>
+                                    {battle.sponsor.websiteUrl ? (
+                                        <a href={battle.sponsor.websiteUrl} target="_blank" rel="noopener noreferrer"
+                                            onClick={() => fetch(`${API}/api/beat-battle/sponsors/${battle.sponsor!.id}/click`, { method: 'POST' }).catch(() => {})}
+                                            style={{ display: 'flex', alignItems: 'center', gap: '14px', textDecoration: 'none' }}>
+                                            {battle.sponsor.logoUrl && (
+                                                <img src={battle.sponsor.logoUrl} alt={battle.sponsor.name} style={{ height: '40px', objectFit: 'contain' }} />
+                                            )}
+                                            <span style={{ fontWeight: 800, fontSize: isMobile ? '20px' : '24px', color: '#fff', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                                                {battle.sponsor.name}
+                                            </span>
+                                        </a>
+                                    ) : (
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                                            {battle.sponsor.logoUrl && (
+                                                <img src={battle.sponsor.logoUrl} alt={battle.sponsor.name} style={{ height: '40px', objectFit: 'contain' }} />
+                                            )}
+                                            <span style={{ fontWeight: 800, fontSize: isMobile ? '20px' : '24px', color: '#fff', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                                                {battle.sponsor.name}
+                                            </span>
+                                        </div>
+                                    )}
                                     {/* Links */}
                                     {battle.sponsor.links.length > 0 && (
                                         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'center' }}>

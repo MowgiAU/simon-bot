@@ -474,6 +474,7 @@ export const BattlesPage: React.FC = () => {
                                         : <span style={{ fontWeight: 800, fontSize: '13px', color: '#fff', letterSpacing: '0.04em' }}>{s.name.toUpperCase()}</span>;
                                     return href ? (
                                         <a key={s.id} href={href} target="_blank" rel="noopener noreferrer"
+                                            onClick={() => fetch(`${API}/api/beat-battle/sponsors/${s.id}/click`, { method: 'POST' }).catch(() => {})}
                                             style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', padding: '8px 16px', borderRadius: '8px', backgroundColor: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.15)', transition: 'all 0.2s' }}
                                             onMouseEnter={e => { (e.currentTarget as HTMLElement).style.backgroundColor = 'rgba(255,255,255,0.12)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.3)'; }}
                                             onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = 'rgba(255,255,255,0.07)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.15)'; }}

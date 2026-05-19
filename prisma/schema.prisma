@@ -1445,9 +1445,10 @@ model BattleSponsor {
   logoUrl     String?
   websiteUrl  String?
   description String?  @db.Text
-  isActive    Boolean  @default(true)
-  showOnPage  Boolean  @default(true)
-  createdAt   DateTime @default(now())
+  isActive      Boolean  @default(true)
+  showOnPage    Boolean  @default(true)
+  websiteClicks Int      @default(0)
+  createdAt     DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   guild   Guild               @relation(fields: [guildId], references: [id], onDelete: Cascade)

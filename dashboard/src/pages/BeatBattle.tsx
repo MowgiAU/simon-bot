@@ -1315,7 +1315,7 @@ export const BeatBattlePage: React.FC = () => {
                                         {s.logoUrl && <img src={s.logoUrl} alt="" style={{ width: '36px', height: '36px', borderRadius: '6px', objectFit: 'cover' }} />}
                                         <div>
                                             <h3 style={{ margin: 0, color: colors.textPrimary }}>{s.name}</h3>
-                                            <p style={{ margin: '2px 0 0', fontSize: '12px', color: colors.textSecondary }}>{s._count?.battles || 0} battles · {s.links.reduce((sum: number, l: SponsorLink) => sum + l.clicks, 0)} total clicks</p>
+                                            <p style={{ margin: '2px 0 0', fontSize: '12px', color: colors.textSecondary }}>{s._count?.battles || 0} battles · {((s as any).websiteClicks || 0) + s.links.reduce((sum: number, l: SponsorLink) => sum + l.clicks, 0)} total clicks ({(s as any).websiteClicks || 0} site · {s.links.reduce((sum: number, l: SponsorLink) => sum + l.clicks, 0)} promo)</p>
                                         </div>
                                     </div>
                                     <div style={{ display: 'flex', gap: '6px' }}>

@@ -11637,7 +11637,20 @@ app.post('/api/beat-battle/admin/battles/:id/card-image', requireAdmin, upload.s
     }
 });
 
-// --- Sponsor Analytics: Track link clicks ---
+// --- Sponsor Analytics: Track website URL click ---
+app.post('/api/beat-battle/sponsors/:sponsorId/click', async (req: any, res) => {
+    try {
+        const sponsor = await db.battleSponsor.update({
+            where: { id: req.params.sponsorId },
+            data: { websiteClicks: { increment: 1 } },
+        });
+        res.json({ websiteClicks: sponsor.websiteClicks });
+    } catch {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// --- Sponsor Analytics: Track promo link clicks ---
 app.post('/api/beat-battle/sponsor-links/:linkId/click', async (req: any, res) => {
     try {
         const link = await db.battleSponsorLink.update({
