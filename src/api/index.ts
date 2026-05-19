@@ -9322,6 +9322,16 @@ app.delete('/api/musician/profile/:userId/banner', async (req: any, res) => {
     }
 });
 
+// Public: Count of active profiles (for social proof copy)
+app.get('/api/musician/profiles/count', publicCache(300), async (_req, res) => {
+    try {
+        const count = await db.musicianProfile.count({ where: { status: 'active', deletedAt: null } });
+        res.json({ count });
+    } catch {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 // Public: Search Profiles (for collaborator picker)
 app.get('/api/musician/profiles/search', async (req: any, res) => {
     try {

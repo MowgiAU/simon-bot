@@ -157,7 +157,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
     const { data: discoveryData, isLoading: loading } = useQuery({
         queryKey: ['discovery-home'],
         queryFn: async () => {
-            const [profilesRes, tracksRes, chartRes, featuredRes, playlistsRes, articleRes, h2hRes] = await Promise.all([
+            const [profilesRes, tracksRes, chartRes, featuredRes, playlistsRes, articleRes, h2hRes, profileCountRes] = await Promise.all([
                 axios.get('/api/musician/profiles'),
                 axios.get('/api/musician/leaderboards/tracks', { params: { limit: 12 } }),
                 axios.get('/api/charts/weekly', { params: { limit: 10 } }),
@@ -165,9 +165,11 @@ export const ArtistDiscoveryPage: React.FC = () => {
                 axios.get('/api/playlists/popular').catch(() => ({ data: [] })),
                 axios.get('/api/articles/featured/current').catch(() => ({ data: null })),
                 axios.get('/api/head-to-head/leaderboard?limit=1').catch(() => ({ data: [] })),
+                axios.get('/api/musician/profiles/count').catch(() => ({ data: { count: 0 } })),
             ]);
             return {
                 artists: ([...profilesRes.data] as ArtistProfile[]).sort((a, b) => (b.totalPlays || 0) - (a.totalPlays || 0)),
+                profileCount: (profileCountRes.data?.count || 0) as number,
                 topTracks: tracksRes.data as TrackInfo[],
                 weeklyChart: (chartRes.data?.entries || []) as { position: number; positionChange: number | null; prevPosition: number | null; playsInPeriod: number; track: TrackInfo }[],
                 featured: featuredRes.data as FeaturedData | null,
@@ -1089,10 +1091,10 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                         </div>
                                         <div style={{ fontSize: '12px', color: colors.textSecondary, lineHeight: 1.5, marginBottom: '20px' }}>
                                             {!isLoggedIn
-                                                ? `Join ${(artists.length || 0).toLocaleString()}+ producers already sharing their music.`
+                                                ? `Join ${Math.floor((discoveryData?.profileCount || artists.length || 0) / 25) * 25}+ producers already sharing their music.`
                                                 : !hasProfile
                                                 ? 'Your profile is your stage. Get discovered by listeners and other producers.'
-                                                : `${(artists.length || 0).toLocaleString()}+ tracks in the library — add yours to the mix.`}
+                                                : `${Math.floor((discoveryData?.profileCount || artists.length || 0) / 25) * 25}+ producers in the community — add your music to the mix.`}
                                         </div>
                                         <Link to={actionConfig.link} style={{
                                             display: 'inline-flex', alignItems: 'center', gap: '6px',
