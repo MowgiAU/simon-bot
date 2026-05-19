@@ -642,52 +642,58 @@ const PluginModal: React.FC<{ rawName: string; known: KnownPlugin | undefined; o
     return (
         <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.7)', padding: '24px' }}
             onClick={onClose}>
-            <div onClick={e => e.stopPropagation()} style={{ backgroundColor: '#1a1e2e', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.12)', width: '100%', maxWidth: '420px', overflow: 'hidden', boxShadow: '0 24px 64px rgba(0,0,0,0.7)' }}>
-                {/* Header — image banner or gradient */}
-                <div style={{ position: 'relative', height: known?.imageUrl ? '140px' : '80px', backgroundColor: '#0d1117', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+            <div onClick={e => e.stopPropagation()} style={{ backgroundColor: '#13172a', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.1)', width: '100%', maxWidth: '460px', overflow: 'hidden', boxShadow: '0 32px 80px rgba(0,0,0,0.8)', position: 'relative' }}>
+
+                {/* Close button */}
+                <button onClick={onClose} style={{ position: 'absolute', top: '16px', right: '16px', zIndex: 10, background: 'rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff', fontSize: '18px', lineHeight: 1, backdropFilter: 'blur(4px)' }}>×</button>
+
+                {/* Image area — full width, tall, contain with dark bg */}
+                <div style={{ width: '100%', height: '260px', backgroundColor: '#0a0d14', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', position: 'relative' }}>
                     {known?.imageUrl ? (
-                        <>
-                            <img src={known.imageUrl} alt={label} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', filter: 'blur(24px) brightness(0.4) saturate(1.4)', transform: 'scale(1.2)' }} />
-                            <img src={known.imageUrl} alt={label} style={{ position: 'relative', height: '90px', width: '90px', objectFit: 'cover', borderRadius: '14px', border: '2px solid rgba(255,255,255,0.15)', boxShadow: '0 8px 32px rgba(0,0,0,0.6)' }} />
-                        </>
+                        <img src={known.imageUrl} alt={label}
+                            style={{ width: '100%', height: '100%', objectFit: 'contain', padding: '28px', boxSizing: 'border-box' }} />
                     ) : (
-                        <div style={{ fontSize: '32px', fontWeight: 900, color: 'rgba(255,255,255,0.15)', letterSpacing: '-0.03em' }}>{label.slice(0, 2).toUpperCase()}</div>
+                        <>
+                            <div style={{ position: 'absolute', inset: 0, background: `radial-gradient(ellipse at center, ${colors.primary}08 0%, transparent 70%)` }} />
+                            <span style={{ fontSize: '56px', fontWeight: 900, color: 'rgba(255,255,255,0.08)', letterSpacing: '-0.04em', zIndex: 1 }}>
+                                {label.slice(0, 2).toUpperCase()}
+                            </span>
+                        </>
                     )}
-                    <button onClick={onClose} style={{ position: 'absolute', top: '12px', right: '12px', background: 'rgba(0,0,0,0.5)', border: 'none', borderRadius: '50%', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff', fontSize: '16px', lineHeight: 1 }}>×</button>
                 </div>
 
                 {/* Body */}
-                <div style={{ padding: '20px 24px 24px' }}>
-                    <div style={{ marginBottom: '16px' }}>
-                        <h3 style={{ margin: '0 0 4px', fontSize: '1.15rem', fontWeight: 800, color: '#F8FAFC' }}>{label}</h3>
-                        {known?.name && known.name !== label && (
-                            <div style={{ fontSize: '0.75rem', color: colors.textTertiary, marginBottom: '6px' }}>Detected as: <code style={{ color: colors.textSecondary }}>{rawName}</code></div>
-                        )}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginTop: '6px' }}>
+                <div style={{ padding: '22px 24px 26px' }}>
+                    {/* Name + meta row */}
+                    <div style={{ marginBottom: '14px' }}>
+                        <h3 style={{ margin: '0 0 4px', fontSize: '1.25rem', fontWeight: 800, color: '#F1F5F9', letterSpacing: '-0.01em' }}>{label}</h3>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                            {known?.developer && (
+                                <span style={{ fontSize: '0.8rem', color: colors.textSecondary }}>{known.developer}</span>
+                            )}
+                            {known?.developer && known?.category && <span style={{ color: 'rgba(255,255,255,0.2)', fontSize: '0.7rem' }}>·</span>}
                             {known?.category && (
-                                <span style={{ display: 'inline-block', fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', padding: '2px 8px', borderRadius: '4px', backgroundColor: `${colors.primary}20`, color: colors.primary, border: `1px solid ${colors.primary}40` }}>
+                                <span style={{ fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', padding: '2px 8px', borderRadius: '4px', backgroundColor: `${colors.primary}20`, color: colors.primary, border: `1px solid ${colors.primary}35` }}>
                                     {known.category}
                                 </span>
-                            )}
-                            {known?.developer && (
-                                <span style={{ fontSize: '0.75rem', color: colors.textSecondary, fontWeight: 500 }}>{known.developer}</span>
                             )}
                         </div>
                     </div>
 
                     {known?.description && (
-                        <p style={{ margin: '0 0 16px', fontSize: '0.85rem', color: colors.textSecondary, lineHeight: 1.65 }}>{known.description}</p>
+                        <p style={{ margin: '0 0 18px', fontSize: '0.875rem', color: colors.textSecondary, lineHeight: 1.7 }}>{known.description}</p>
                     )}
 
                     {known?.link ? (
                         <a href={known.link} target="_blank" rel="noopener noreferrer"
-                            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', width: '100%', padding: '11px', backgroundColor: colors.primary, color: '#fff', borderRadius: '10px', textDecoration: 'none', fontWeight: 700, fontSize: '0.9rem', boxSizing: 'border-box', boxShadow: `0 4px 16px ${colors.primary}50` }}>
-                            <span>Learn More & Get {label}</span>
-                            <span style={{ fontSize: '1rem' }}>↗</span>
+                            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', width: '100%', padding: '12px', backgroundColor: colors.primary, color: '#fff', borderRadius: '12px', textDecoration: 'none', fontWeight: 700, fontSize: '0.95rem', boxSizing: 'border-box', boxShadow: `0 4px 20px ${colors.primary}45`, letterSpacing: '0.01em' }}
+                            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = '0.88'; }}
+                            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = '1'; }}>
+                            Learn More &amp; Get {label} ↗
                         </a>
                     ) : !known ? (
-                        <div style={{ fontSize: '0.8rem', color: colors.textTertiary, textAlign: 'center', padding: '8px', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '8px', border: '1px dashed rgba(255,255,255,0.08)' }}>
-                            Not yet in the plugin registry.
+                        <div style={{ fontSize: '0.82rem', color: colors.textTertiary, textAlign: 'center', padding: '10px', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '10px', border: '1px dashed rgba(255,255,255,0.08)' }}>
+                            This plugin isn't in the registry yet.
                         </div>
                     ) : null}
                 </div>
