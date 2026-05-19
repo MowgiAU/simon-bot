@@ -2401,6 +2401,10 @@ app.get('/api/auth/status', async (req, res) => {
       loginMethod: req.session.user._loginMethod || 'discord',
       invited,
       role: req.session.user._role || 'user',
+      impersonating: !!req.session._impersonating,
+      impersonatingAs: req.session._impersonating
+        ? { id: req.session.user._localId || req.session.user.id, username: req.session.user.username, displayName: req.session.user.global_name || null }
+        : null,
     });
   } else {
     res.json({ authenticated: false });
@@ -9960,6 +9964,73 @@ app.patch('/api/admin/tracks/:trackId/status', requireAdmin, async (req: any, re
 });
 
 // Admin: List tracks for a profile (including suspended/deleted)
+// ─── Admin Impersonation ────────────────────────────────────────────────────
+
+app.post('/api/admin/impersonate', requireAdmin, async (req: any, res) => {
+    try {
+        const { userId } = req.body;
+        if (!userId) return res.status(400).json({ error: 'userId is required' });
+        if (req.session._impersonating) return res.status(400).json({ error: 'Already impersonating — exit first' });
+
+        const targetUser = await db.user.findFirst({
+            where: { OR: [{ id: userId }, { discordId: userId }] },
+        });
+        if (!targetUser) return res.status(404).json({ error: 'User not found' });
+
+        // Stash the full admin session so we can restore it on exit
+        req.session._impersonating = {
+            originalUser: { ...req.session.user },
+            originalGuilds: req.session.guilds || [],
+            originalMutualAdminGuilds: req.session.mutualAdminGuilds || [],
+            originalMutualStaffGuilds: req.session.mutualStaffGuilds || [],
+            originalIsGuildMember: req.session.isGuildMember ?? false,
+        };
+
+        // Replace session with target user — experience the site as them
+        req.session.user = {
+            id: targetUser.discordId || targetUser.id,
+            username: targetUser.username,
+            discriminator: '0',
+            avatar: targetUser.avatar || '',
+            global_name: targetUser.displayName || targetUser.username,
+            _localId: targetUser.id,
+            _loginMethod: targetUser.discordId ? 'discord' : 'email',
+            _email: targetUser.email || null,
+            _emailVerified: !!targetUser.emailVerified,
+            _invited: targetUser.invited,
+            _role: targetUser.role || 'user',
+            _hasPassword: !!targetUser.passwordHash,
+            _totpEnabled: targetUser.totpEnabled,
+        };
+        req.session.guilds = [];
+        req.session.mutualAdminGuilds = [];
+        req.session.mutualStaffGuilds = [];
+        req.session.isGuildMember = false;
+
+        await new Promise<void>((resolve, reject) => req.session.save((err: any) => err ? reject(err) : resolve()));
+        logger.info(`Admin impersonated user ${targetUser.username} (${targetUser.id})`);
+        res.json({ success: true });
+    } catch (e: any) {
+        logger.error('Impersonation failed', e);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+app.post('/api/admin/impersonate/exit', async (req: any, res) => {
+    if (!req.session._impersonating) return res.status(400).json({ error: 'Not impersonating' });
+
+    const { originalUser, originalGuilds, originalMutualAdminGuilds, originalMutualStaffGuilds, originalIsGuildMember } = req.session._impersonating;
+    req.session.user = originalUser;
+    req.session.guilds = originalGuilds;
+    req.session.mutualAdminGuilds = originalMutualAdminGuilds;
+    req.session.mutualStaffGuilds = originalMutualStaffGuilds;
+    req.session.isGuildMember = originalIsGuildMember;
+    delete req.session._impersonating;
+
+    await new Promise<void>((resolve, reject) => req.session.save((err: any) => err ? reject(err) : resolve()));
+    res.json({ success: true });
+});
+
 // ─── Admin Account Management ───────────────────────────────────────────────
 
 // GET /api/admin/accounts \u2014 list + search accounts

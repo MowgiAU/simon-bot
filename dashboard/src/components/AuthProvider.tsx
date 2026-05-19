@@ -49,11 +49,14 @@ interface AuthContextType {
   loginMethod: string | null;
   invited: boolean;
   role: string;
+  impersonating: boolean;
+  impersonatingAs: { id: string; username: string; displayName: string | null } | null;
   login: () => void;
   logout: () => void;
   emailLogin: (email: string, password: string, totpCode?: string) => Promise<{ success?: boolean; requiresTwoFactor?: boolean; error?: string; code?: string }>;
   register: (username: string, email: string, password: string) => Promise<{ success?: boolean; error?: string }>;
   refreshAccountStatus: () => void;
+  exitImpersonation: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -75,6 +78,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loginMethod, setLoginMethod] = useState<string | null>(null);
   const [invited, setInvited] = useState(false);
   const [role, setRole] = useState('user');
+  const [impersonating, setImpersonating] = useState(false);
+  const [impersonatingAs, setImpersonatingAs] = useState<{ id: string; username: string; displayName: string | null } | null>(null);
 
   // Fetch permissions when guild changes
   useEffect(() => {
@@ -115,6 +120,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setLoginMethod(data.loginMethod || null);
           setInvited(!!data.invited);
           setRole(data.role || 'user');
+          setImpersonating(!!data.impersonating);
+          setImpersonatingAs(data.impersonatingAs || null);
           const allGuilds = [...(data.mutualAdminGuilds || []), ...(data.mutualStaffGuilds || [])];
           if (allGuilds.length > 0) {
              setSelectedGuild(allGuilds[0]);
@@ -219,11 +226,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     window.location.href = '/api/auth/logout';
   };
 
+  const exitImpersonation = async () => {
+    await fetch('/api/admin/impersonate/exit', { method: 'POST', credentials: 'include' });
+    loadAuthStatus();
+  };
+
   // Combined guild list for guild selector (admin + staff)
   const dashboardGuilds = [...mutualAdminGuilds, ...mutualStaffGuilds];
 
   return (
-    <AuthContext.Provider value={{ user, mutualAdminGuilds, dashboardGuilds, selectedGuild, setSelectedGuild, permissions, isGuildMember, loading, hasLocalAccount, hasPassword, email, emailVerified, totpEnabled, loginMethod, invited, role, login, logout, emailLogin, register, refreshAccountStatus }}>
+    <AuthContext.Provider value={{ user, mutualAdminGuilds, dashboardGuilds, selectedGuild, setSelectedGuild, permissions, isGuildMember, loading, hasLocalAccount, hasPassword, email, emailVerified, totpEnabled, loginMethod, invited, role, impersonating, impersonatingAs, login, logout, emailLogin, register, refreshAccountStatus, exitImpersonation }}>
       {children}
     </AuthContext.Provider>
   );

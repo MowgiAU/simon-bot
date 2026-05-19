@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Users, Search, CheckCircle, XCircle, Shield, Link2, Trash2, KeyRound, RefreshCw, UserX, ShieldOff, Edit2, X, ChevronLeft, ChevronRight, AlertTriangle } from 'lucide-react';
+import { Users, Search, CheckCircle, XCircle, Shield, Link2, Trash2, KeyRound, RefreshCw, UserX, ShieldOff, Edit2, X, ChevronLeft, ChevronRight, AlertTriangle, UserCheck } from 'lucide-react';
 import { colors, spacing, borderRadius } from '../theme/theme';
 import { useAuth } from '../components/AuthProvider';
+import { useNavigate } from 'react-router-dom';
 
 interface AccountUser {
     id: string;
@@ -29,6 +30,7 @@ const LIMIT = 20;
 
 export const AccountManagementPage: React.FC = () => {
     const { selectedGuild } = useAuth();
+    const navigate = useNavigate();
 
     const [search, setSearch] = useState('');
     const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -175,6 +177,24 @@ export const AccountManagementPage: React.FC = () => {
             await selectUser(selected!);
         } catch { setPwErr('Request failed'); }
         finally { setPwLoading(false); }
+    };
+
+    const [impersonateLoading, setImpersonateLoading] = useState(false);
+    const handleImpersonate = async () => {
+        if (!selected) return;
+        setImpersonateLoading(true);
+        try {
+            const res = await fetch('/api/admin/impersonate', {
+                method: 'POST', credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: selected.id }),
+            });
+            const d = await res.json();
+            if (!res.ok) { setActionErr(d.error || 'Failed to impersonate'); return; }
+            // Reload the page so AuthProvider picks up the new session
+            window.location.href = '/';
+        } catch { setActionErr('Request failed'); }
+        finally { setImpersonateLoading(false); }
     };
 
     const panelStyle: React.CSSProperties = {
@@ -393,6 +413,17 @@ export const AccountManagementPage: React.FC = () => {
 
                                 {/* Action buttons */}
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
+                                    <button
+                                        onClick={handleImpersonate}
+                                        disabled={impersonateLoading}
+                                        style={{ ...actionBtnStyle(), background: 'rgba(99,102,241,0.12)', color: '#818cf8', border: '1px solid rgba(99,102,241,0.25)', opacity: impersonateLoading ? 0.7 : 1 }}
+                                    >
+                                        <UserCheck size={14} />
+                                        {impersonateLoading ? 'Starting…' : 'View Site as This User'}
+                                    </button>
+
+                                    <div style={{ height: '1px', background: colors.border, margin: `${spacing.xs} 0` }} />
+
                                     {!selected.emailVerified && (
                                         <button onClick={() => doAction('force-verify')} style={actionBtnStyle()}>
                                             <CheckCircle size={14} color={colors.success} /> Force Verify Email
