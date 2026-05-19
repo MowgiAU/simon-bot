@@ -3530,6 +3530,7 @@ app.get('/api/guilds/:guildId/stats', async (req, res) => {
       artistCount,
       trackCount,
       openReports,
+      openBugReports,
     ] = await Promise.all([
       // 1. Server Stats History — last 60 days, most recent first so take(60) never clips new data
       db.serverStats.findMany({
@@ -3578,6 +3579,8 @@ app.get('/api/guilds/:guildId/stats', async (req, res) => {
       db.track.count({ where: { status: 'active', isPublic: true, deletedAt: null } }),
       // 13. Open reports needing attention
       db.report.count({ where: { status: { in: ['open', 'reviewing'] } } }),
+      // 14. Open bug reports
+      db.bugReport.count({ where: { status: { not: 'resolved' } } }),
     ]);
 
     const topChannels = topChannelsRaw.map(c => ({
@@ -3624,6 +3627,7 @@ app.get('/api/guilds/:guildId/stats', async (req, res) => {
         welcome: { enabled: welcomeSettings?.enabled || false },
         filter: { enabled: filterSettings?.enabled || false },
         reports: { open: openReports },
+        bugReports: { open: openBugReports },
       }
     });
 
@@ -3962,7 +3966,7 @@ app.get('/api/guilds/:guildId/my-permissions', async (req, res) => {
         if (isAdmin) {
             return res.json({ 
                 canManagePlugins: true, 
-                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content', 'account-management', 'anti-piracy', 'leveling', 'fuji-radio', 'studio-guide', 'bot-identity', 'bot-messenger', 'booster-color', 'private-messages', 'auto-messages', 'auto-responder', 'server-boost', 'reports', 'articles', 'article-review', 'pause', 'voice-stats', 'spam-guard', 'track-announcer', 'profile-styles', 'academy', 'head-to-head', 'drum-kit']
+                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content', 'account-management', 'anti-piracy', 'leveling', 'fuji-radio', 'studio-guide', 'bot-identity', 'bot-messenger', 'booster-color', 'private-messages', 'auto-messages', 'auto-responder', 'server-boost', 'reports', 'articles', 'article-review', 'pause', 'voice-stats', 'spam-guard', 'track-announcer', 'profile-styles', 'academy', 'head-to-head', 'drum-kit', 'bug-reports', 'plugin-registry']
             });
         }
 
@@ -8162,8 +8166,11 @@ app.get('/api/musician/profiles', publicCache(120), async (req, res) => {
           if (cached) return res.json(cached);
       }
       
-      const where: any = {};
-      
+      const where: any = {
+          status: 'active',
+          deletedAt: null,
+      };
+
       if (search) {
           where.OR = [
               { username: { contains: search as string, mode: 'insensitive' } },
@@ -8172,11 +8179,11 @@ app.get('/api/musician/profiles', publicCache(120), async (req, res) => {
               { hardware: { hasSome: [search as string] } }
           ];
       }
-      
+
       if (genre) {
           where.genres = {
               some: {
-                  genre: { 
+                  genre: {
                       OR: [
                           { name: { equals: genre as string, mode: 'insensitive' } },
                           { slug: { equals: genre as string, mode: 'insensitive' } }
@@ -8225,8 +8232,7 @@ app.get('/api/musician/profiles', publicCache(120), async (req, res) => {
           });
       }
 
-      // Filter suspended/banned profiles application-side (safe before migration runs)
-      let activeProfiles = profiles.filter((p: any) => !p.status || p.status === 'active');
+      let activeProfiles = [...profiles];
 
       // Deduplicate by username — keep the profile with the most tracks when duplicates exist
       // (can occur after the duplicate-account bug where two MusicianProfile rows share a username)

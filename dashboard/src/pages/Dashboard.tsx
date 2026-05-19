@@ -4,7 +4,7 @@ import {
 } from 'recharts';
 import {
   MessageSquare, Shield, ShieldAlert, DollarSign, UserPlus, Settings,
-  Users, Mic, Bot, Globe, Music, Headphones, Flag, type LucideIcon
+  Users, Mic, Bot, Globe, Music, Headphones, Flag, Mail, Bug, ArrowRight, type LucideIcon
 } from 'lucide-react';
 import { colors } from '../theme/theme';
 import './Dashboard.css';
@@ -47,6 +47,7 @@ interface DashboardStats {
     welcome: { enabled: boolean };
     filter: { enabled: boolean };
     reports?: { open: number };
+    bugReports?: { open: number };
   };
   recentLogs?: Array<{
     id: string;
@@ -133,6 +134,94 @@ export const Dashboard: React.FC<DashboardProps> = ({ guildId, onNavigate, acces
               <StatCard icon={Headphones} iconColor="#f472b6" iconBg="rgba(244, 114, 182, 0.1)" label="Tracks" value={formatNumber(stats.trackCount)} />
             )}
           </div>
+
+          {/* Attention Cards — Emails + Bug Reports */}
+          {(accessiblePlugins.includes('email-client') || accessiblePlugins.includes('bug-reports')) && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+              {accessiblePlugins.includes('email-client') && (() => {
+                const unread = stats?.pluginsData?.email?.unread ?? 0;
+                const hasUnread = unread > 0;
+                return (
+                  <button
+                    onClick={() => onNavigate('email-client')}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: '16px',
+                      background: hasUnread ? 'linear-gradient(135deg, rgba(59,130,246,0.12) 0%, rgba(59,130,246,0.05) 100%)' : 'rgba(255,255,255,0.03)',
+                      border: hasUnread ? '1px solid rgba(59,130,246,0.35)' : '1px solid rgba(255,255,255,0.07)',
+                      borderRadius: '14px', padding: '18px 20px', cursor: 'pointer',
+                      textAlign: 'left', transition: 'all 0.2s', width: '100%',
+                    }}
+                  >
+                    <div style={{
+                      width: '48px', height: '48px', borderRadius: '12px', flexShrink: 0,
+                      background: hasUnread ? 'rgba(59,130,246,0.2)' : 'rgba(255,255,255,0.06)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      position: 'relative',
+                    }}>
+                      <Mail size={22} color={hasUnread ? '#60a5fa' : colors.textSecondary} />
+                      {hasUnread && (
+                        <div style={{
+                          position: 'absolute', top: '-4px', right: '-4px',
+                          width: '18px', height: '18px', borderRadius: '50%',
+                          background: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: '10px', fontWeight: 700, color: '#fff',
+                        }}>{unread > 9 ? '9+' : unread}</div>
+                      )}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: '13px', color: colors.textSecondary, marginBottom: '2px' }}>Inbox</div>
+                      <div style={{ fontSize: '22px', fontWeight: 700, color: hasUnread ? '#60a5fa' : colors.textPrimary, lineHeight: 1.1 }}>
+                        {unread === 0 ? 'All caught up' : `${unread} unread`}
+                      </div>
+                      {hasUnread && <div style={{ fontSize: '11px', color: '#93c5fd', marginTop: '2px' }}>Tap to open email client</div>}
+                    </div>
+                    <ArrowRight size={16} color={hasUnread ? '#60a5fa' : colors.textTertiary} style={{ flexShrink: 0 }} />
+                  </button>
+                );
+              })()}
+              {accessiblePlugins.includes('bug-reports') && (() => {
+                const open = stats?.pluginsData?.bugReports?.open ?? 0;
+                const hasOpen = open > 0;
+                return (
+                  <button
+                    onClick={() => onNavigate('bug-reports')}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: '16px',
+                      background: hasOpen ? 'linear-gradient(135deg, rgba(245,158,11,0.12) 0%, rgba(245,158,11,0.05) 100%)' : 'rgba(255,255,255,0.03)',
+                      border: hasOpen ? '1px solid rgba(245,158,11,0.35)' : '1px solid rgba(255,255,255,0.07)',
+                      borderRadius: '14px', padding: '18px 20px', cursor: 'pointer',
+                      textAlign: 'left', transition: 'all 0.2s', width: '100%',
+                    }}
+                  >
+                    <div style={{
+                      width: '48px', height: '48px', borderRadius: '12px', flexShrink: 0,
+                      background: hasOpen ? 'rgba(245,158,11,0.2)' : 'rgba(255,255,255,0.06)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      position: 'relative',
+                    }}>
+                      <Bug size={22} color={hasOpen ? '#fbbf24' : colors.textSecondary} />
+                      {hasOpen && (
+                        <div style={{
+                          position: 'absolute', top: '-4px', right: '-4px',
+                          width: '18px', height: '18px', borderRadius: '50%',
+                          background: '#f59e0b', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: '10px', fontWeight: 700, color: '#fff',
+                        }}>{open > 9 ? '9+' : open}</div>
+                      )}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: '13px', color: colors.textSecondary, marginBottom: '2px' }}>Bug Reports</div>
+                      <div style={{ fontSize: '22px', fontWeight: 700, color: hasOpen ? '#fbbf24' : colors.textPrimary, lineHeight: 1.1 }}>
+                        {open === 0 ? 'No open reports' : `${open} open`}
+                      </div>
+                      {hasOpen && <div style={{ fontSize: '11px', color: '#fde68a', marginTop: '2px' }}>Needs your attention</div>}
+                    </div>
+                    <ArrowRight size={16} color={hasOpen ? '#fbbf24' : colors.textTertiary} style={{ flexShrink: 0 }} />
+                  </button>
+                );
+              })()}
+            </div>
+          )}
 
           {/* Main Content: Chart + Recent Activity */}
           <div className="dashboard-grid-split">
@@ -272,12 +361,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ guildId, onNavigate, acces
                   <span className="info-value">{stats?.pluginsData?.tickets?.open || 0}</span>
                 </div>
                 )}
-                {accessiblePlugins.includes('email-client') && (
-                <div className="info-row" style={{ cursor: 'pointer' }} onClick={() => onNavigate('email-client')}>
-                  <span className="info-label">Unread Emails</span>
-                  <span className="info-value">{stats?.pluginsData?.email?.unread || 0}</span>
-                </div>
-                )}
                 {accessiblePlugins.includes('economy') && (
                 <div className="info-row" style={{ cursor: 'pointer' }} onClick={() => onNavigate('economy')}>
                   <span className="info-label">Economy Balance</span>
@@ -287,7 +370,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ guildId, onNavigate, acces
                 {(stats?.pluginsData?.reports?.open ?? 0) > 0 && (
                 <div className="info-row" style={{ cursor: 'pointer', borderTop: '1px solid rgba(239,68,68,0.2)', paddingTop: '10px', marginTop: '4px' }} onClick={() => onNavigate('reports')}>
                   <span className="info-label" style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#ef4444' }}>
-                    <Flag size={13} /> Pending Reports
+                    <Flag size={13} /> User Reports
                   </span>
                   <span className="info-value" style={{ color: '#ef4444', fontWeight: 700 }}>{stats.pluginsData!.reports!.open}</span>
                 </div>
