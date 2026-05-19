@@ -8639,9 +8639,11 @@ app.post('/api/musician/profile/:userId', async (req: any, res) => {
         const existingProfile = await db.musicianProfile.findFirst({
             where: { OR: [{ userId: canonicalUserId }, { userId }] },
             orderBy: { totalPlays: 'desc' },
-            select: { userId: true },
+            select: { userId: true, id: true, username: true },
         });
         const profileUserId = existingProfile?.userId ?? canonicalUserId;
+
+        logger.info(`[Profile save] urlUserId=${userId} canonicalId=${canonicalUserId} existingProfile.userId=${existingProfile?.userId ?? 'none'} → updating profileUserId=${profileUserId} displayName=${data.displayName} bio=${String(data.bio || '').slice(0, 40)}`);
 
         const updated = await profileService.updateProfile(profileUserId, {
             ...data,
