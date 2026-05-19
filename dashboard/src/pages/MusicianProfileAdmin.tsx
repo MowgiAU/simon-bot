@@ -1166,33 +1166,40 @@ export const MusicianProfileAdmin: React.FC = () => {
                         </div>
                     )}
 
-                    {/* Sponsor picker */}
+                    {/* Sponsor picker — shows all sponsors; already-added ones are marked */}
                     <div style={{ marginBottom: spacing.sm }}>
                         <input
                             value={sponsorPickSearch}
                             onChange={e => setSponsorPickSearch(e.target.value)}
-                            placeholder="Filter available sponsors..."
+                            placeholder="Search sponsors..."
                             style={{ width: '100%', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, padding: spacing.sm, color: colors.textPrimary, outline: 'none', fontSize: '0.85rem', boxSizing: 'border-box' }}
                         />
                     </div>
                     <div style={{ border: '1px solid rgba(255,255,255,0.08)', borderRadius: borderRadius.sm, maxHeight: '200px', overflowY: 'auto', marginBottom: spacing.md }}>
-                        {allSponsors.filter(s => !globalSponsorIds.includes(s.id) && (!sponsorPickSearch || s.name.toLowerCase().includes(sponsorPickSearch.toLowerCase()))).map(s => (
-                            <div key={s.id} onClick={() => setGlobalSponsorIds([...globalSponsorIds, s.id])}
-                                style={{ display: 'flex', alignItems: 'center', gap: spacing.sm, padding: '10px 12px', cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.04)' }}
-                                onMouseOver={e => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)'}
-                                onMouseOut={e => e.currentTarget.style.backgroundColor = 'transparent'}>
-                                {s.logoUrl ? (
-                                    <img src={s.logoUrl} alt={s.name} style={{ width: 28, height: 28, objectFit: 'contain', borderRadius: '4px', background: 'rgba(255,255,255,0.06)' }} />
-                                ) : (
-                                    <div style={{ width: 28, height: 28, borderRadius: '4px', backgroundColor: 'rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 700, color: colors.textSecondary }}>{s.name[0]}</div>
-                                )}
-                                <span style={{ fontSize: '0.85rem', fontWeight: 500 }}>{s.name}</span>
-                                <span style={{ marginLeft: 'auto', fontSize: '0.72rem', color: colors.primary }}>+ Add</span>
-                            </div>
-                        ))}
-                        {allSponsors.filter(s => !globalSponsorIds.includes(s.id)).length === 0 && (
-                            <div style={{ padding: '12px', textAlign: 'center', color: colors.textTertiary, fontSize: '0.8rem' }}>All sponsors added</div>
-                        )}
+                        {allSponsors.length === 0 ? (
+                            <div style={{ padding: '12px', textAlign: 'center', color: colors.textTertiary, fontSize: '0.8rem' }}>No sponsors found. Create sponsors in the Battles tab first.</div>
+                        ) : (() => {
+                            const filtered = allSponsors.filter(s => !sponsorPickSearch || s.name.toLowerCase().includes(sponsorPickSearch.toLowerCase()));
+                            if (filtered.length === 0) return <div style={{ padding: '12px', textAlign: 'center', color: colors.textTertiary, fontSize: '0.8rem' }}>No sponsors match "{sponsorPickSearch}"</div>;
+                            return filtered.map(s => {
+                                const already = globalSponsorIds.includes(s.id);
+                                return (
+                                    <div key={s.id}
+                                        onClick={() => { if (!already) setGlobalSponsorIds([...globalSponsorIds, s.id]); }}
+                                        style={{ display: 'flex', alignItems: 'center', gap: spacing.sm, padding: '10px 12px', cursor: already ? 'default' : 'pointer', borderBottom: '1px solid rgba(255,255,255,0.04)', opacity: already ? 0.45 : 1 }}
+                                        onMouseOver={e => { if (!already) e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)'; }}
+                                        onMouseOut={e => { e.currentTarget.style.backgroundColor = 'transparent'; }}>
+                                        {s.logoUrl ? (
+                                            <img src={s.logoUrl} alt={s.name} style={{ width: 28, height: 28, objectFit: 'contain', borderRadius: '4px', background: 'rgba(255,255,255,0.06)' }} />
+                                        ) : (
+                                            <div style={{ width: 28, height: 28, borderRadius: '4px', backgroundColor: 'rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 700, color: colors.textSecondary }}>{s.name[0]}</div>
+                                        )}
+                                        <span style={{ fontSize: '0.85rem', fontWeight: 500 }}>{s.name}</span>
+                                        <span style={{ marginLeft: 'auto', fontSize: '0.72rem', color: already ? colors.textTertiary : colors.primary }}>{already ? 'Added' : '+ Add'}</span>
+                                    </div>
+                                );
+                            });
+                        })()}
                     </div>
 
                     <button onClick={() => handleSaveGlobalSponsors(globalSponsorIds, globalSponsorTitle)} disabled={saving}
