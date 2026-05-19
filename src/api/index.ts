@@ -11424,9 +11424,9 @@ app.get('/api/beat-battle/sponsors', publicCache(300), async (req: any, res) => 
 
 app.get('/api/beat-battle/admin/sponsors', requireAdmin, async (req: any, res) => {
     try {
-        const guildId = (req.query.guildId as string) || 'default-guild';
+        const guildId = req.query.guildId as string | undefined;
         const sponsors = await db.battleSponsor.findMany({
-            where: { guildId },
+            where: guildId ? { guildId } : undefined,
             include: { links: true, _count: { select: { battles: true } } },
             orderBy: { createdAt: 'desc' },
         });

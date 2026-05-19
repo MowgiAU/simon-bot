@@ -150,7 +150,7 @@ export const MusicianProfileAdmin: React.FC = () => {
         fetchGenres();
         fetchDiscoverySettings();
         fetchBattles();
-        axios.get('/api/beat-battle/admin/sponsors?guildId=default-guild', { withCredentials: true })
+        axios.get('/api/beat-battle/admin/sponsors', { withCredentials: true })
             .then(r => setAllSponsors(r.data || []))
             .catch(() => {});
     }, []);
