@@ -9151,44 +9151,46 @@ app.post('/api/admin/reprocess-flps', requireAdmin, async (req, res) => {
             }
         }
 
-        // ── Pass 3: Full re-extraction for tracks with missing peaks ─────────
-        // Reads the ZIP, re-converts audio, re-extracts peaks, updates TrackSample + arrangement.
+        // ── Pass 3: Full re-extraction runs in the background (heavy — ZIP download + FFmpeg) ─────
         (results as any).reextractTotal = tracksNeedingReprocess.length;
-        (results as any).reextractSuccess = 0;
+        (results as any).reextractQueued = tracksNeedingReprocess.length;
 
-        for (const track of tracksNeedingReprocess) {
-            try {
-                const zipUrl: string = track.projectZipUrl;
-                let zipBuffer: Buffer;
+        // Respond NOW before Pass 3 starts — nginx would timeout otherwise
+        res.json({ ...results, message: tracksNeedingReprocess.length > 0 ? `${tracksNeedingReprocess.length} track(s) queued for background waveform re-extraction — check server logs for progress.` : undefined });
 
-                if (zipUrl.startsWith('http')) {
-                    // R2 / CDN — download via axios (works across all Node versions)
-                    const resp = await axios.get(zipUrl, { responseType: 'arraybuffer', timeout: 120_000 });
-                    zipBuffer = Buffer.from(resp.data);
-                } else {
-                    // Local uploads
-                    const localPath = path.resolve(PROJECT_ROOT, 'public', zipUrl.replace(/^\//, ''));
-                    if (!fs.existsSync(localPath)) throw new Error(`ZIP not found at ${localPath}`);
-                    zipBuffer = fs.readFileSync(localPath);
-                }
-
-                const tmpZipPath = path.join(os.tmpdir(), `reextract_${track.id}_${Date.now()}.zip`);
-                fs.writeFileSync(tmpZipPath, zipBuffer);
+        // Fire-and-forget: runs after response is sent
+        setImmediate(async () => {
+            let reextractSuccess = 0;
+            for (const track of tracksNeedingReprocess) {
                 try {
-                    const { arrangement: freshArr, sampleCount } = await ProjectZipProcessor.process(tmpZipPath, track.id, db);
-                    await db.track.update({ where: { id: track.id }, data: { arrangement: freshArr as any } });
-                    (results as any).reextractSuccess++;
-                    logger.info(`ZIP re-extract: "${track.title}" — ${sampleCount} samples re-processed`);
-                } finally {
-                    try { fs.unlinkSync(tmpZipPath); } catch {}
-                }
-            } catch (err: any) {
-                results.errors.push(`Re-extract failed for "${track.title}": ${err.message}`);
-                logger.warn(`ZIP re-extract failed for "${track.title}": ${err.message}`);
-            }
-        }
+                    const zipUrl: string = track.projectZipUrl;
+                    let zipBuffer: Buffer;
 
-        res.json(results);
+                    if (zipUrl.startsWith('http')) {
+                        const resp = await axios.get(zipUrl, { responseType: 'arraybuffer', timeout: 120_000 });
+                        zipBuffer = Buffer.from(resp.data);
+                    } else {
+                        const localPath = path.resolve(PROJECT_ROOT, 'public', zipUrl.replace(/^\//, ''));
+                        if (!fs.existsSync(localPath)) throw new Error(`ZIP not found at ${localPath}`);
+                        zipBuffer = fs.readFileSync(localPath);
+                    }
+
+                    const tmpZipPath = path.join(os.tmpdir(), `reextract_${track.id}_${Date.now()}.zip`);
+                    fs.writeFileSync(tmpZipPath, zipBuffer);
+                    try {
+                        const { arrangement: freshArr, sampleCount } = await ProjectZipProcessor.process(tmpZipPath, track.id, db);
+                        await db.track.update({ where: { id: track.id }, data: { arrangement: freshArr as any } });
+                        reextractSuccess++;
+                        logger.info(`ZIP re-extract: "${track.title}" — ${sampleCount} samples re-processed (${reextractSuccess}/${tracksNeedingReprocess.length})`);
+                    } finally {
+                        try { fs.unlinkSync(tmpZipPath); } catch {}
+                    }
+                } catch (err: any) {
+                    logger.warn(`ZIP re-extract failed for "${track.title}": ${err.message}`);
+                }
+            }
+            logger.info(`ZIP re-extract complete: ${reextractSuccess}/${tracksNeedingReprocess.length} tracks re-processed`);
+        });
     } catch (e: any) {
         logger.error('Reprocess FLPs error', e);
         res.status(500).json({ error: e?.message || 'Internal server error' });

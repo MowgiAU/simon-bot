@@ -629,7 +629,7 @@ export const MusicianProfileAdmin: React.FC = () => {
                     const d = res.data;
                     setMsg({ 
                         type: 'success', 
-                        text: `Done! FLP: ${d.flpSuccess}/${d.flpTotal} re-parsed. ZIP: ${d.zipSuccess}/${d.zipTotal} enriched. Re-extract: ${d.reextractSuccess ?? 0}/${d.reextractTotal ?? 0} samples rebuilt.${d.failed > 0 || d.errors?.length ? ` Errors: ${d.errors?.slice(0,3).join(' | ') || d.failed + ' failed'}` : ''}`
+                        text: `FLP: ${d.flpSuccess}/${d.flpTotal} re-parsed. ZIP: ${d.zipSuccess}/${d.zipTotal} enriched.${d.reextractQueued > 0 ? ` ${d.reextractQueued} track(s) queued for waveform re-extraction in background (check server logs).` : ' All waveforms up to date.'}${d.failed > 0 || d.errors?.length ? ` Errors: ${d.errors?.slice(0,2).join(' | ') || d.failed + ' failed'}` : ''}`
                     });
                 } catch (err: any) {
                     setMsg({ type: 'error', text: err.response?.data?.error || 'Failed to re-process FLPs' });
