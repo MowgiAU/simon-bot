@@ -8598,9 +8598,14 @@ app.post('/api/musician/profile/:userId', async (req: any, res) => {
         if (data.featuredTrackId) {
             const trackOk = await db.track.findFirst({
                 where: { id: data.featuredTrackId, deletedAt: null },
-                select: { id: true },
+                select: { id: true, title: true, isPublic: true, status: true },
             });
-            if (!trackOk) data.featuredTrackId = null;
+            if (!trackOk) {
+                logger.warn(`[Profile save] featuredTrackId ${data.featuredTrackId} not found or deleted — clearing`);
+                data.featuredTrackId = null;
+            } else {
+                logger.info(`[Profile save] featuredTrackId ${data.featuredTrackId} = "${trackOk.title}" isPublic=${trackOk.isPublic} status=${trackOk.status}`);
+            }
         }
 
         // Same normalization for featuredPlaylistId
