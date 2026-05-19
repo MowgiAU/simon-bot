@@ -10218,15 +10218,19 @@ app.post('/api/admin/consolidate-profile', requireAdmin, async (req: any, res) =
         if (!winner.contactEmail && (loser as any).contactEmail) mergeFields.contactEmail = (loser as any).contactEmail;
         if (!(winner as any).featuredTrackId && (loser as any).featuredTrackId) mergeFields.featuredTrackId = (loser as any).featuredTrackId;
 
-        // ── 7. Ensure winner userId is the canonical cuid ──────────────────────
-        if (winner.userId !== user.id) mergeFields.userId = user.id;
-
         if (Object.keys(mergeFields).length > 0) {
             await db.musicianProfile.update({ where: { id: winner.id }, data: mergeFields });
         }
 
-        // ── 8. Delete the loser profile (cascades genres + any remaining refs) ─
+        // ── 7. Delete the loser profile (cascades genres + any remaining refs) ─
+        // Must happen BEFORE updating winner's userId — if the loser holds the cuid
+        // userId, deleting it first frees the unique constraint for the winner to claim it.
         await db.musicianProfile.delete({ where: { id: loser.id } });
+
+        // ── 8. Canonicalise winner userId to internal cuid (now safe after delete) ─
+        if (winner.userId !== user.id) {
+            await db.musicianProfile.update({ where: { id: winner.id }, data: { userId: user.id } });
+        }
 
         // Invalidate caches
         apiResponseCache.delete(`profile-${user.id.toLowerCase()}`);
