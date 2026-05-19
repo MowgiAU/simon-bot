@@ -770,7 +770,7 @@ export const BattleDetailPage: React.FC = () => {
                                     {battle.sponsor.links.length > 0 && (
                                         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'center' }}>
                                             {battle.sponsor.links.map(l => (
-                                                <a key={l.id} href={l.url} target="_blank" rel="noopener noreferrer"
+                                                <a key={l.id} href={appendSponsorRef(l.url, `/battles/${battle.slug || battle.id}`)} target="_blank" rel="noopener noreferrer"
                                                     onClick={() => trackPromoLinkClick(l.id, `battles/${battle.slug || battle.id}`, API)}
                                                     style={{ fontSize: '13px', fontWeight: 700, color: '#fff', display: 'flex', alignItems: 'center', gap: '5px', textDecoration: 'none', backgroundColor: colors.primary, padding: '8px 16px', borderRadius: '8px', boxShadow: `0 4px 16px ${colors.primary}40`, transition: 'opacity 0.15s' }}
                                                     onMouseEnter={e => (e.currentTarget.style.opacity = '0.85')}
@@ -816,7 +816,7 @@ export const BattleDetailPage: React.FC = () => {
                                                     {rule.links && rule.links.filter(l => l.url && l.label).length > 0 && (
                                                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '7px' }}>
                                                             {rule.links.filter(l => l.url && l.label).map((lnk, li) => (
-                                                                <a key={li} href={lnk.url.startsWith('http') ? lnk.url : `https://${lnk.url}`} target="_blank" rel="noopener noreferrer"
+                                                                <a key={li} href={appendSponsorRef(lnk.url.startsWith('http') ? lnk.url : `https://${lnk.url}`, `/battles/${battle.slug || battle.id}`)} target="_blank" rel="noopener noreferrer"
                                                                     style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '12px', color: colors.primary, border: `1px solid ${colors.primary}30`, padding: '3px 9px', borderRadius: '6px', textDecoration: 'none', fontWeight: 600 }}>
                                                                     {lnk.label} <ExternalLink size={10} />
                                                                 </a>
@@ -879,7 +879,7 @@ export const BattleDetailPage: React.FC = () => {
                                                 {p.title && <p style={{ margin: '0 0 3px', fontSize: '15px', fontWeight: 700, color: colors.textPrimary }}>{p.title}</p>}
                                                 {p.description && <p style={{ margin: 0, fontSize: '13px', color: colors.primary, fontWeight: 600 }}>{p.description}</p>}
                                                 {p.link && (
-                                                    <a href={p.link} target="_blank" rel="noopener noreferrer"
+                                                    <a href={appendSponsorRef(p.link, `/battles/${battle.slug || battle.id}`)} target="_blank" rel="noopener noreferrer"
                                                         style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', marginTop: '8px', fontSize: '12px', color: colors.primary, border: `1px solid ${colors.primary}40`, padding: '4px 10px', borderRadius: '6px', textDecoration: 'none', fontWeight: 600 }}>
                                                         Learn More <ExternalLink size={10} />
                                                     </a>
