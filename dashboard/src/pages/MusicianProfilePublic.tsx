@@ -279,27 +279,33 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
 
             // Load all supplementary data in parallel (non-blocking — page already rendered)
             const allTrackIds = [...(data.tracks || []).map((t: any) => t.id), ...(data.reposts || []).map((t: any) => t.id), ...(data.collaborations || []).map((t: any) => t.id)];
+            // Fixed-index supplementary fetches — never use .push() here as it
+            // shifts indices and breaks destructuring.
             const supplementary: Promise<any>[] = [
-                axios.get(`/api/artists/${data.id}/follower-count`).catch(() => null),
-                axios.get(`/api/artists/${data.id}/follow`, { withCredentials: true }).catch(() => null),
-                axios.get(`/api/beat-battle/user/${data.userId}/entries`).catch(() => null),
-                axios.get(`/api/artists/${data.id}/followers?limit=12`).catch(() => null),
-                axios.get(`/api/artists/${data.id}/following-count`).catch(() => null),
+                axios.get(`/api/artists/${data.id}/follower-count`).catch(() => null),          // 0
+                axios.get(`/api/artists/${data.id}/follow`, { withCredentials: true }).catch(() => null), // 1
+                axios.get(`/api/beat-battle/user/${data.userId}/entries`).catch(() => null),   // 2
+                allTrackIds.length > 0
+                    ? axios.post('/api/tracks/favourites/check', { trackIds: allTrackIds }, { withCredentials: true }).catch(() => null)
+                    : Promise.resolve(null),                                                    // 3
+                allTrackIds.length > 0
+                    ? axios.post('/api/tracks/reposts/check', { trackIds: allTrackIds }, { withCredentials: true }).catch(() => null)
+                    : Promise.resolve(null),                                                    // 4
             ];
-            if (allTrackIds.length > 0) {
-                supplementary.push(
-                    axios.post('/api/tracks/favourites/check', { trackIds: allTrackIds }, { withCredentials: true }).catch(() => null),
-                    axios.post('/api/tracks/reposts/check', { trackIds: allTrackIds }, { withCredentials: true }).catch(() => null),
-                );
-            }
-            const [countRes, followRes, entriesRes, favRes, repRes, followersRes, followingRes] = await Promise.all(supplementary);
+            const [countRes, followRes, entriesRes, favRes, repRes] = await Promise.all(supplementary);
             if (countRes?.data) setFollowerCount(countRes.data.count);
             if (followRes?.data) setIsFollowing(followRes.data.following);
             if (entriesRes?.data) setBattleEntries(entriesRes.data);
-            if (followersRes?.data) setFollowerProfiles(followersRes.data);
-            if (followingRes?.data?.count != null) setFollowingCount(followingRes.data.count);
             if (favRes?.data) setFavourites(favRes.data);
             if (repRes?.data) setReposts(repRes.data);
+
+            // Fetch followers + following count independently so index drift can never affect them.
+            axios.get(`/api/artists/${data.id}/followers?limit=12`).then(r => {
+                if (Array.isArray(r.data)) setFollowerProfiles(r.data);
+            }).catch(() => {});
+            axios.get(`/api/artists/${data.id}/following-count`).then(r => {
+                if (r.data?.count != null) setFollowingCount(r.data.count);
+            }).catch(() => {});
             if (data.playlists) setProfilePlaylists(data.playlists);
         };
         fetchProfile();
