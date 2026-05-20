@@ -4,7 +4,7 @@ import { colors, spacing, borderRadius } from '../theme/theme';
 import { useAuth } from '../components/AuthProvider';
 import axios from 'axios';
 import { ConfirmModal } from '../components/ConfirmModal';
-import { Settings, Plus, X, List, Music, Database, Edit3, Trash2, Star, Search, Tag, ExternalLink, ShieldOff, UserX, UserCheck, ChevronDown, ChevronUp, AlertTriangle, Swords, Compass, MonitorPlay, Newspaper, BookOpen, FileText, TrendingUp, Building2 } from 'lucide-react';
+import { Settings, Plus, X, List, Music, Database, Edit3, Trash2, Star, Search, Tag, ExternalLink, ShieldOff, UserX, UserCheck, ChevronDown, ChevronUp, AlertTriangle, Swords, Compass, MonitorPlay, Newspaper, BookOpen, FileText, TrendingUp, Building2, UserPlus, Loader2, CheckCircle } from 'lucide-react';
 
 interface Genre {
     id: string;
@@ -57,7 +57,16 @@ export const MusicianProfileAdmin: React.FC = () => {
     const [msg, setMsg] = useState<{ type: 'success' | 'error', text: string } | null>(null);
     const [confirmDialog, setConfirmDialog] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
     const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
-    const [adminTab, setAdminTab] = useState<'discover' | 'profiles' | 'genres'>('discover');
+    const [adminTab, setAdminTab] = useState<'discover' | 'profiles' | 'genres' | 'settings'>('discover');
+
+    // Auto-follow settings state
+    const [autoFollowProfile, setAutoFollowProfile] = useState<{ id: string; username: string; displayName: string | null; avatar: string | null } | null>(null);
+    const [autoFollowSearch, setAutoFollowSearch] = useState('');
+    const [autoFollowResults, setAutoFollowResults] = useState<any[]>([]);
+    const [searchingAutoFollow, setSearchingAutoFollow] = useState(false);
+    const [savingAutoFollow, setSavingAutoFollow] = useState(false);
+    const [backfilling, setBackfilling] = useState(false);
+    const [backfillResult, setBackfillResult] = useState<{ followed: number; skipped: number } | null>(null);
 
     useEffect(() => {
         const onResize = () => setIsMobile(window.innerWidth < 1024);
@@ -153,6 +162,15 @@ export const MusicianProfileAdmin: React.FC = () => {
         axios.get('/api/beat-battle/admin/sponsors', { withCredentials: true })
             .then(r => setAllSponsors(r.data || []))
             .catch(() => {});
+        // Load auto-follow setting
+        axios.get('/api/admin/site-settings', { withCredentials: true }).then(r => {
+            const profileId = r.data?.auto_follow_profile_id;
+            if (profileId) {
+                axios.get(`/api/artists/${profileId}`, { withCredentials: true }).then(pr => {
+                    if (pr.data) setAutoFollowProfile({ id: pr.data.id, username: pr.data.username, displayName: pr.data.displayName, avatar: pr.data.avatar });
+                }).catch(() => {});
+            }
+        }).catch(() => {});
     }, []);
 
     const handleSearchProfiles = async (query: string) => {
@@ -181,6 +199,49 @@ export const MusicianProfileAdmin: React.FC = () => {
         } finally {
             setSaving(false);
         }
+    };
+
+    const searchAutoFollowProfiles = async (q: string) => {
+        setAutoFollowSearch(q);
+        if (q.length < 2) { setAutoFollowResults([]); return; }
+        setSearchingAutoFollow(true);
+        try {
+            const res = await axios.get('/api/admin/musician/profiles/search', { params: { search: q }, withCredentials: true });
+            setAutoFollowResults(res.data || []);
+        } catch { /* ignore */ } finally { setSearchingAutoFollow(false); }
+    };
+
+    const saveAutoFollowProfile = async (profile: { id: string; username: string; displayName: string | null; avatar: string | null }) => {
+        setSavingAutoFollow(true);
+        try {
+            await axios.put('/api/admin/site-settings', { key: 'auto_follow_profile_id', value: profile.id }, { withCredentials: true });
+            setAutoFollowProfile(profile);
+            setAutoFollowSearch('');
+            setAutoFollowResults([]);
+            setMsg({ type: 'success', text: `Auto-follow profile set to @${profile.username}` });
+        } catch { setMsg({ type: 'error', text: 'Failed to save setting' }); }
+        finally { setSavingAutoFollow(false); }
+    };
+
+    const clearAutoFollowProfile = async () => {
+        setSavingAutoFollow(true);
+        try {
+            await axios.put('/api/admin/site-settings', { key: 'auto_follow_profile_id', value: '' }, { withCredentials: true });
+            setAutoFollowProfile(null);
+            setMsg({ type: 'success', text: 'Auto-follow profile cleared' });
+        } catch { setMsg({ type: 'error', text: 'Failed to clear setting' }); }
+        finally { setSavingAutoFollow(false); }
+    };
+
+    const runBackfill = async () => {
+        setBackfilling(true);
+        setBackfillResult(null);
+        try {
+            const res = await axios.post('/api/admin/auto-follow/backfill', {}, { withCredentials: true });
+            setBackfillResult(res.data);
+        } catch (err: any) {
+            setMsg({ type: 'error', text: err.response?.data?.error || 'Backfill failed' });
+        } finally { setBackfilling(false); }
     };
 
     const handleDeleteFromMod = async (id: string) => {
@@ -788,6 +849,7 @@ export const MusicianProfileAdmin: React.FC = () => {
                     { key: 'discover' as const, label: 'Discovery', icon: <Compass size={16} /> },
                     { key: 'profiles' as const, label: 'Profiles & Tracks', icon: <ShieldOff size={16} /> },
                     { key: 'genres' as const, label: 'Genres & Admin', icon: <List size={16} /> },
+                    { key: 'settings' as const, label: 'Site Settings', icon: <Settings size={16} /> },
                 ]).map(t => (
                     <button
                         key={t.key}
@@ -1898,6 +1960,111 @@ export const MusicianProfileAdmin: React.FC = () => {
                 </div>
             </div>
             </>)}
+
+            {adminTab === 'settings' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.lg }}>
+                {/* Auto-follow Card */}
+                <div style={{ backgroundColor: colors.surface, padding: spacing.lg, borderRadius: borderRadius.lg, border: '1px solid rgba(255,255,255,0.06)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: spacing.md }}>
+                        <div style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: `${colors.primary}18`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <UserPlus size={18} color={colors.primary} />
+                        </div>
+                        <div>
+                            <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: colors.textPrimary }}>Auto-Follow Profile</h3>
+                            <p style={{ margin: '2px 0 0', fontSize: '12px', color: colors.textSecondary }}>This profile automatically follows every new musician that joins Fuji Studio.</p>
+                        </div>
+                    </div>
+
+                    {autoFollowProfile ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 14px', borderRadius: borderRadius.md, backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', marginBottom: spacing.md }}>
+                            {autoFollowProfile.avatar ? (
+                                <img src={autoFollowProfile.avatar.startsWith('http') || autoFollowProfile.avatar.startsWith('/') ? autoFollowProfile.avatar : `https://cdn.discordapp.com/avatars/${autoFollowProfile.id}/${autoFollowProfile.avatar}.png?size=64`}
+                                    alt="" style={{ width: 40, height: 40, borderRadius: 10, objectFit: 'cover' }} />
+                            ) : (
+                                <div style={{ width: 40, height: 40, borderRadius: 10, backgroundColor: colors.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontWeight: 700, color: '#fff' }}>
+                                    {(autoFollowProfile.displayName || autoFollowProfile.username)[0].toUpperCase()}
+                                </div>
+                            )}
+                            <div style={{ flex: 1 }}>
+                                <div style={{ fontWeight: 700, color: colors.textPrimary, fontSize: '14px' }}>{autoFollowProfile.displayName || autoFollowProfile.username}</div>
+                                <div style={{ fontSize: '12px', color: colors.textSecondary }}>@{autoFollowProfile.username}</div>
+                            </div>
+                            <button onClick={clearAutoFollowProfile} disabled={savingAutoFollow} style={{ background: 'none', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 8, padding: '6px 12px', color: '#f87171', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>
+                                Remove
+                            </button>
+                        </div>
+                    ) : (
+                        <p style={{ margin: '0 0 12px', fontSize: '13px', color: colors.textSecondary }}>No auto-follow profile set. Search for a profile below to configure one.</p>
+                    )}
+
+                    <div style={{ position: 'relative' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px', borderRadius: borderRadius.md, border: '1px solid rgba(255,255,255,0.1)', backgroundColor: 'rgba(255,255,255,0.03)' }}>
+                            {searchingAutoFollow ? <Loader2 size={14} color={colors.textSecondary} style={{ animation: 'spin 1s linear infinite' }} /> : <Search size={14} color={colors.textSecondary} />}
+                            <input
+                                value={autoFollowSearch}
+                                onChange={e => searchAutoFollowProfiles(e.target.value)}
+                                placeholder="Search profiles by username..."
+                                style={{ flex: 1, background: 'none', border: 'none', outline: 'none', color: colors.textPrimary, fontSize: '13px' }}
+                            />
+                        </div>
+                        {autoFollowResults.length > 0 && (
+                            <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, backgroundColor: '#1a1e2e', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.md, zIndex: 10, marginTop: 4, overflow: 'hidden' }}>
+                                {autoFollowResults.slice(0, 8).map(p => (
+                                    <button key={p.id} onClick={() => saveAutoFollowProfile(p)} style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '10px 14px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}
+                                        onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)'}
+                                        onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}>
+                                        {p.avatar ? (
+                                            <img src={p.avatar.startsWith('http') || p.avatar.startsWith('/') ? p.avatar : `https://cdn.discordapp.com/avatars/${p.userId}/${p.avatar}.png?size=64`}
+                                                alt="" style={{ width: 32, height: 32, borderRadius: 8, objectFit: 'cover' }} />
+                                        ) : (
+                                            <div style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: colors.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color: '#fff' }}>
+                                                {(p.displayName || p.username)[0].toUpperCase()}
+                                            </div>
+                                        )}
+                                        <div>
+                                            <div style={{ fontWeight: 600, color: colors.textPrimary, fontSize: '13px' }}>{p.displayName || p.username}</div>
+                                            <div style={{ fontSize: '11px', color: colors.textSecondary }}>@{p.username}</div>
+                                        </div>
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* Backfill Card */}
+                <div style={{ backgroundColor: colors.surface, padding: spacing.lg, borderRadius: borderRadius.lg, border: '1px solid rgba(255,255,255,0.06)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: spacing.md }}>
+                        <div style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: 'rgba(234,179,8,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <Database size={18} color="#eab308" />
+                        </div>
+                        <div>
+                            <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: colors.textPrimary }}>Backfill Follows</h3>
+                            <p style={{ margin: '2px 0 0', fontSize: '12px', color: colors.textSecondary }}>Follow all existing profiles that the auto-follow account hasn't followed yet.</p>
+                        </div>
+                    </div>
+
+                    {backfillResult && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', borderRadius: borderRadius.md, backgroundColor: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.2)', marginBottom: spacing.md }}>
+                            <CheckCircle size={16} color="#22c55e" />
+                            <span style={{ fontSize: '13px', color: '#22c55e', fontWeight: 600 }}>
+                                Followed {backfillResult.followed} new profiles — {backfillResult.skipped} already following.
+                            </span>
+                        </div>
+                    )}
+
+                    <button
+                        onClick={runBackfill}
+                        disabled={backfilling || !autoFollowProfile}
+                        style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px', borderRadius: borderRadius.md, backgroundColor: autoFollowProfile ? '#eab308' : 'rgba(255,255,255,0.05)', color: autoFollowProfile ? '#000' : colors.textSecondary, border: 'none', cursor: autoFollowProfile ? 'pointer' : 'not-allowed', fontWeight: 700, fontSize: '13px', opacity: backfilling ? 0.7 : 1 }}
+                    >
+                        {backfilling ? <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Running backfill…</> : <><UserPlus size={14} /> Run Backfill</>}
+                    </button>
+                    {!autoFollowProfile && <p style={{ margin: '8px 0 0', fontSize: '12px', color: colors.textSecondary }}>Set an auto-follow profile above first.</p>}
+                </div>
+            </div>
+            )}
+
         </div>
         <ConfirmModal
             open={!!confirmDialog}

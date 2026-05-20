@@ -8708,6 +8708,28 @@ app.post('/api/musician/profile/:userId', async (req: any, res) => {
         // Log profile creation/update
         await logAction('GLOBAL', 'profile_updated', profileUserId, updated.id, { username: updated.username });
 
+        // Auto-follow new profiles from the configured admin account (Tom from MySpace style)
+        if (!existingProfile) {
+            (async () => {
+                try {
+                    const setting = await (db as any).siteSetting.findUnique({ where: { key: 'auto_follow_profile_id' } });
+                    if (setting?.value) {
+                        const adminProfile = await db.musicianProfile.findUnique({
+                            where: { id: setting.value },
+                            select: { id: true, userId: true },
+                        });
+                        if (adminProfile && adminProfile.id !== updated.id) {
+                            await db.artistFollow.upsert({
+                                where: { followerId_artistId: { followerId: adminProfile.userId, artistId: updated.id } },
+                                create: { followerId: adminProfile.userId, artistId: updated.id },
+                                update: {},
+                            });
+                        }
+                    }
+                } catch { /* non-critical, never block the save */ }
+            })();
+        }
+
         // Invalidate profile cache for this user
         apiResponseCache.delete(`profile-${profileUserId.toLowerCase()}`);
         apiResponseCache.delete(`profile-${canonicalUserId.toLowerCase()}`);
@@ -10342,6 +10364,75 @@ app.get('/api/admin/activity-logs', requireAdmin, async (req: any, res) => {
         res.status(500).json({ error: 'Internal server error' });
     }
 });
+
+// ─── Admin: Site Settings ──────────────────────────────────────────────────────────────
+
+app.get('/api/admin/site-settings', requireAdmin, async (_req, res) => {
+    try {
+        const rows = await (db as any).siteSetting.findMany();
+        const settings: Record<string, string> = {};
+        for (const r of rows) settings[r.key] = r.value;
+        res.json(settings);
+    } catch (e: any) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+app.put('/api/admin/site-settings', requireAdmin, async (req: any, res) => {
+    try {
+        const { key, value } = req.body;
+        if (!key || typeof key !== 'string') return res.status(400).json({ error: 'key required' });
+        if (value === null || value === undefined || value === '') {
+            await (db as any).siteSetting.deleteMany({ where: { key } });
+        } else {
+            await (db as any).siteSetting.upsert({
+                where: { key },
+                create: { key, value: String(value) },
+                update: { value: String(value) },
+            });
+        }
+        res.json({ ok: true });
+    } catch (e: any) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// POST /api/admin/auto-follow/backfill
+app.post('/api/admin/auto-follow/backfill', requireAdmin, async (_req, res) => {
+    try {
+        const setting = await (db as any).siteSetting.findUnique({ where: { key: 'auto_follow_profile_id' } });
+        if (!setting?.value) return res.status(400).json({ error: 'No auto-follow profile configured' });
+
+        const adminProfile = await db.musicianProfile.findUnique({
+            where: { id: setting.value },
+            select: { id: true, userId: true },
+        });
+        if (!adminProfile) return res.status(404).json({ error: 'Auto-follow profile not found' });
+
+        const alreadyFollowing = await db.artistFollow.findMany({
+            where: { followerId: adminProfile.userId },
+            select: { artistId: true },
+        });
+        const alreadyIds = new Set(alreadyFollowing.map((f: any) => f.artistId));
+
+        const allProfiles = await db.musicianProfile.findMany({
+            where: { id: { not: adminProfile.id } },
+            select: { id: true },
+        });
+
+        const toFollow = allProfiles.filter((p: any) => !alreadyIds.has(p.id));
+        let created = 0;
+        for (const p of toFollow) {
+            await db.artistFollow.create({ data: { followerId: adminProfile.userId, artistId: p.id } }).catch(() => {});
+            created++;
+        }
+
+        res.json({ followed: created, skipped: alreadyIds.size });
+    } catch (e: any) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 
 // ─── Admin Account Management ───────────────────────────────────────────────
 
