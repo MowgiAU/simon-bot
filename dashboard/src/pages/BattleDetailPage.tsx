@@ -796,14 +796,21 @@ export const BattleDetailPage: React.FC = () => {
                 <section style={{ maxWidth: '1300px', margin: '0 auto', padding: isMobile ? '24px 16px 32px' : '32px 24px 48px' }}>
                     <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '24px' }}>
 
-                        {/* Rules card — hidden until battle is active */}
-                        {battle.status !== 'upcoming' && (
+                        {/* Rules card */}
                         <div style={{ backgroundColor: '#242C3D', padding: isMobile ? '20px' : '32px', borderRadius: borderRadius.lg, border: '1px solid rgba(255,255,255,0.05)', boxShadow: '0 20px 40px rgba(0,0,0,0.2)' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
                                 <Shield size={18} color={colors.primary} />
                                 <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: colors.textPrimary }}>Battle Rules</h3>
                             </div>
-                            {rulesItems.length > 0 ? (
+                            {battle.status === 'upcoming' ? (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '16px 20px', borderRadius: borderRadius.md, backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                                    <Lock size={18} color={colors.textTertiary} style={{ flexShrink: 0 }} />
+                                    <div>
+                                        <p style={{ margin: 0, fontSize: '14px', fontWeight: 600, color: colors.textSecondary }}>Rules revealed when the battle begins</p>
+                                        <p style={{ margin: '3px 0 0', fontSize: '12px', color: colors.textTertiary }}>Check back once submissions open to see the full rule set.</p>
+                                    </div>
+                                </div>
+                            ) : rulesItems.length > 0 ? (
                                 <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '16px' }}>
                                     {rulesItems.map((rule, i) => (
                                         <li key={i}>
@@ -858,7 +865,6 @@ export const BattleDetailPage: React.FC = () => {
                                 </p>
                             )}
                         </div>
-                        )}
 
                         {/* Prizes card */}
                         <div style={{ backgroundColor: '#242C3D', padding: isMobile ? '20px' : '32px', borderRadius: borderRadius.lg, border: '1px solid rgba(255,255,255,0.05)', boxShadow: '0 20px 40px rgba(0,0,0,0.2)' }}>
