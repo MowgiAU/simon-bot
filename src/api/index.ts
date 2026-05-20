@@ -2171,7 +2171,28 @@ app.post('/api/auth/change-username', requireAuth, async (req: any, res) => {
         const existing = await db.user.findFirst({ where: { username: { equals: newUsername, mode: 'insensitive' }, NOT: { id: dbUser.id } } });
         if (existing) return res.status(409).json({ error: 'That username is already taken' });
 
+        const oldUsername = dbUser.username;
         await db.user.update({ where: { id: dbUser.id }, data: { username: newUsername } });
+
+        // Also update the linked MusicianProfile username so the profile URL matches
+        const mp = await db.musicianProfile.findFirst({
+            where: { OR: [{ userId: dbUser.id }, ...(dbUser.discordId ? [{ userId: dbUser.discordId }] : [])] },
+            select: { id: true, username: true, userId: true },
+        });
+        if (mp && mp.username === oldUsername) {
+            // Check the new username isn't already taken by another profile
+            const usernameConflict = await db.musicianProfile.findFirst({
+                where: { username: { equals: newUsername, mode: 'insensitive' }, NOT: { id: mp.id } },
+            });
+            if (!usernameConflict) {
+                await db.musicianProfile.update({ where: { id: mp.id }, data: { username: newUsername } });
+                invalidateProfileCache(mp.userId);
+                if (oldUsername) invalidateProfileCache(oldUsername);
+                invalidateProfileCache(newUsername);
+            }
+        }
+
+        req.session.user.username = newUsername;
         res.json({ success: true, username: newUsername });
     } catch (e) {
         logger.error('[Auth] change-username error', e);
@@ -9467,6 +9488,9 @@ app.post('/api/musician/profile/:userId/avatar', generalUploadLimiter, upload.si
             data: { avatar: avatarUrl }
         });
 
+        invalidateProfileCache(profile.userId);
+        if (profile.username) invalidateProfileCache(profile.username);
+
         // Log avatar upload
         await logAction('GLOBAL', 'avatar_uploaded', userId, profile.id, { url: avatarUrl });
 
@@ -9523,6 +9547,9 @@ app.post('/api/musician/profile/:userId/banner', generalUploadLimiter, upload.si
             where: { id: profile.id },
             data: { bannerUrl }
         });
+
+        invalidateProfileCache(profile.userId);
+        if (profile.username) invalidateProfileCache(profile.username);
 
         await logAction('GLOBAL', 'banner_uploaded', userId, profile.id, { url: bannerUrl });
 
@@ -9967,6 +9994,9 @@ app.post('/api/admin/musician/profile/:userId/avatar', requireAdmin, upload.sing
             data: { avatar: avatarUrl }
         });
 
+        invalidateProfileCache(profile.userId);
+        if (profile.username) invalidateProfileCache(profile.username);
+
         await logAction('GLOBAL', 'avatar_admin_uploaded', adminId, profile.id, {
             url: avatarUrl,
             targetUserId: userId
@@ -10012,6 +10042,9 @@ app.post('/api/admin/musician/profile/:userId/banner', requireAdmin, upload.sing
             where: { id: profile.id },
             data: { bannerUrl }
         });
+
+        invalidateProfileCache(profile.userId);
+        if (profile.username) invalidateProfileCache(profile.username);
 
         await logAction('GLOBAL', 'banner_admin_uploaded', adminId, profile.id, {
             url: bannerUrl,

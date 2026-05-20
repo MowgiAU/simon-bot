@@ -286,14 +286,14 @@ export const ProfileEditPage: React.FC = () => {
                 ? `/api/admin/musician/profile/${effectiveUserId}`
                 : `/api/musician/profile/${user.id}`;
             const { data: saved } = await axios.post(endpoint, payload, { withCredentials: true });
-            // Sync local state from what was actually saved — featuredTrackId may have been
-            // silently cleared server-side if it was pointing to a deleted track.
+            // Sync local state from what was actually saved
             if (saved) {
                 setProfile(prev => prev ? {
                     ...prev,
+                    displayName: saved.displayName ?? prev.displayName,
+                    username: saved.username ?? prev.username,
                     featuredTrackId: saved.featuredTrackId ?? prev.featuredTrackId,
                     featuredTrack: saved.featuredTrack ?? (saved.featuredTrackId ? prev.featuredTrack : null),
-                    username: saved.username ?? prev.username,
                 } : prev);
             }
             setMessage({ type: 'success', text: isAdminMode ? 'Profile updated by admin.' : 'Profile saved!' });
