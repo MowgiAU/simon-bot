@@ -364,7 +364,7 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
         { label: 'Followers', value: followerCount.toLocaleString() },
         { label: 'Following', value: followingCount.toLocaleString() },
         { label: 'Total Streams', value: profile.totalPlays?.toLocaleString() || '0' },
-        { label: 'Releases', value: (profile._count?.tracks ?? profile.tracks?.length ?? 0).toLocaleString() },
+        { label: 'Releases', value: ((profile as any)._count?.tracks ?? profile.tracks?.length ?? 0).toLocaleString() },
     ];
 
     const socials = [
