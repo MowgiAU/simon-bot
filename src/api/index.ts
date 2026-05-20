@@ -14957,21 +14957,13 @@ function validateGifUrl(url: unknown): string | null {
     try {
         const parsed = new URL(url);
         if (parsed.protocol !== 'https:') return null;
-        const ALLOWED_GIF_HOSTS = [
-            'media.tenor.com',
-            'media1.tenor.com',
-            'c.tenor.com',
-            'media.klipy.com',
-            'media1.klipy.com',
-            'i.giphy.com',
-            'media.giphy.com',
-            'media0.giphy.com',
-            'media1.giphy.com',
-            'media2.giphy.com',
-            'media3.giphy.com',
-            'media4.giphy.com',
-        ];
-        if (!ALLOWED_GIF_HOSTS.includes(parsed.hostname)) return null;
+        const h = parsed.hostname;
+        const allowed =
+            h === 'media.tenor.com' || h === 'media1.tenor.com' || h === 'c.tenor.com' ||
+            h === 'klipy.com' || h.endsWith('.klipy.com') ||
+            h === 'i.giphy.com' || h === 'media.giphy.com' ||
+            /^media\d+\.giphy\.com$/.test(h);
+        if (!allowed) return null;
         // Must look like an actual media file path
         if (!/\.(gif|mp4|webp|webm)(\?|$)/i.test(parsed.pathname + parsed.search)) return null;
         return url;

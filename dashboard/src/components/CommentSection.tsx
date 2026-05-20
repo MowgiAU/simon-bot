@@ -269,6 +269,17 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ trackId, profile
     const [replySending, setReplySending] = useState(false);
     const [expandedReplies, setExpandedReplies] = useState<Set<string>>(new Set());
     const [showReplyEmoji, setShowReplyEmoji] = useState(false);
+    const [guildEmojiIds, setGuildEmojiIds] = useState<Set<string>>(new Set());
+
+    useEffect(() => {
+        axios.get(`${API}/api/discord/emojis`, { withCredentials: true })
+            .then(res => {
+                if (Array.isArray(res.data)) {
+                    setGuildEmojiIds(new Set(res.data.map((e: any) => String(e.id))));
+                }
+            })
+            .catch(() => {});
+    }, []);
 
     const fetchComments = useCallback(async (cursor?: string) => {
         try {
@@ -448,13 +459,16 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ trackId, profile
         return d.toLocaleDateString();
     };
 
-    // Render Discord custom emoji in text
+    // Render Discord custom emoji in text — only emojis from the linked guild
     const renderContent = (text: string) => {
         const parts = text.split(/(<a?:\w+:\d+>)/g);
         return parts.map((part, i) => {
             const match = part.match(/^<(a?):(\w+):(\d+)>$/);
             if (match) {
                 const [, animated, name, id] = match;
+                if (guildEmojiIds.size > 0 && !guildEmojiIds.has(id)) {
+                    return <span key={i}>:{name}:</span>;
+                }
                 return <img key={i} src={`https://cdn.discordapp.com/emojis/${id}.${animated ? 'gif' : 'png'}?size=28`} alt={`:${name}:`} title={`:${name}:`} style={{ width: '20px', height: '20px', verticalAlign: 'middle', margin: '0 1px' }} />;
             }
             return <span key={i}>{part}</span>;
