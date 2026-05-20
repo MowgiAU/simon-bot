@@ -1159,25 +1159,67 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                         </div>
                         )}
 
-                        {/* ── Stats Card ── */}
-                        <div style={{ backgroundColor: cardBg, borderRadius: '16px', border: `1px solid ${cardBorder}`, overflow: 'hidden', boxShadow: cardShadow }}>
-                            <div style={{ padding: '20px' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-                                    <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: `${accent}18`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                        <Zap size={13} color={accent} />
-                                    </div>
-                                    <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: cardTextSec }}>Stats</span>
-                                </div>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                                    {stats.map(s => (
-                                        <div key={s.label} style={{ padding: '12px 14px', borderRadius: '12px', backgroundColor: cardInner, border: `1px solid ${cardBorder}` }}>
-                                            <div style={{ fontSize: '20px', fontWeight: 800, color: cardText, lineHeight: 1, letterSpacing: '-0.02em' }}>{s.value}</div>
-                                            <div style={{ fontSize: '10px', fontWeight: 600, color: cardTextTer, textTransform: 'uppercase', letterSpacing: '0.08em', marginTop: '4px' }}>{s.label}</div>
+                        {/* ── Playlists & Releases Card ── */}
+                        {profilePlaylists.length > 0 && (() => {
+                            const isOwner = user?.id === profile.userId;
+                            const movePlaylist = async (from: number, to: number) => {
+                                const next = [...profilePlaylists];
+                                const [item] = next.splice(from, 1);
+                                next.splice(to, 0, item);
+                                setProfilePlaylists(next);
+                                try {
+                                    await axios.put('/api/playlists/profile-positions', { playlistIds: next.map((p: any) => p.id) }, { withCredentials: true });
+                                } catch { /* non-fatal */ }
+                            };
+                            return (
+                                <div style={{ backgroundColor: cardBg, borderRadius: '16px', border: `1px solid ${cardBorder}`, overflow: 'hidden', boxShadow: cardShadow }}>
+                                    <div style={{ padding: '20px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: `${accent}18`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                    <ListMusic size={13} color={accent} />
+                                                </div>
+                                                <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: cardTextSec }}>Playlists & Releases</span>
+                                            </div>
+                                            {isOwner && (
+                                                <button onClick={() => setReorderingPlaylists(r => !r)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: reorderingPlaylists ? accent : cardTextSec, fontSize: '11px', fontWeight: 600, padding: '2px 6px', flexShrink: 0 }}>
+                                                    {reorderingPlaylists ? 'Done' : 'Reorder'}
+                                                </button>
+                                            )}
                                         </div>
-                                    ))}
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                            {profilePlaylists.map((pl: any, i: number) => (
+                                                <div key={pl.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                                                    {reorderingPlaylists && (
+                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', flexShrink: 0 }}>
+                                                            <button disabled={i === 0} onClick={() => movePlaylist(i, i - 1)} style={{ background: 'none', border: 'none', cursor: i === 0 ? 'default' : 'pointer', color: i === 0 ? 'transparent' : cardTextSec, padding: 0 }}><ChevronUp size={12} /></button>
+                                                            <button disabled={i === profilePlaylists.length - 1} onClick={() => movePlaylist(i, i + 1)} style={{ background: 'none', border: 'none', cursor: i === profilePlaylists.length - 1 ? 'default' : 'pointer', color: i === profilePlaylists.length - 1 ? 'transparent' : cardTextSec, padding: 0 }}><ChevronDown size={12} /></button>
+                                                        </div>
+                                                    )}
+                                                    <a href={`/playlists/${pl.id}`} style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: '10px', textDecoration: 'none', padding: '8px 10px', borderRadius: '10px', backgroundColor: cardInner, border: `1px solid ${cardBorder}`, transition: 'opacity 0.15s', overflow: 'hidden' }}
+                                                        onMouseEnter={e => (e.currentTarget as HTMLAnchorElement).style.opacity = '0.8'}
+                                                        onMouseLeave={e => (e.currentTarget as HTMLAnchorElement).style.opacity = '1'}>
+                                                        {pl.coverUrl
+                                                            ? <img src={pl.coverUrl} alt="" style={{ width: 34, height: 34, borderRadius: '6px', objectFit: 'cover', flexShrink: 0 }} />
+                                                            : <div style={{ width: 34, height: 34, borderRadius: '6px', backgroundColor: 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                                                {pl.releaseType ? <Disc size={15} color={accent} /> : <ListMusic size={15} color={cardTextSec} />}
+                                                              </div>
+                                                        }
+                                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                                            <div style={{ fontSize: '12px', fontWeight: 600, color: cardText, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pl.name}</div>
+                                                            <div style={{ fontSize: '10px', color: cardTextSec, marginTop: '1px' }}>
+                                                                {pl.releaseType ? <span style={{ color: accent, fontWeight: 700, textTransform: 'capitalize' }}>{pl.releaseType}</span> : 'Playlist'}
+                                                                {' · '}{pl.trackCount} track{pl.trackCount !== 1 ? 's' : ''}
+                                                            </div>
+                                                        </div>
+                                                    </a>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
-                        </div>
+                            );
+                        })()}
 
                         {/* ── Followers Card ── */}
                         {followerCount > 0 && (
@@ -1253,62 +1295,25 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                         </div>
                         )}
 
-                        {/* Playlists & Releases Card */}
-                        {profilePlaylists.length > 0 && (() => {
-                            const isOwner = user?.id === profile.userId;
-                            const movePlaylist = async (from: number, to: number) => {
-                                const next = [...profilePlaylists];
-                                const [item] = next.splice(from, 1);
-                                next.splice(to, 0, item);
-                                setProfilePlaylists(next);
-                                try {
-                                    await axios.put('/api/playlists/profile-positions', { playlistIds: next.map((p: any) => p.id) }, { withCredentials: true });
-                                } catch { /* non-fatal */ }
-                            };
-                            return (
-                                <div style={{ backgroundColor: cardBg, borderRadius: '12px', border: `1px solid ${cardBorder}`, padding: '24px', color: cardText, boxShadow: cardShadow }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-                                        <h4 style={{ margin: 0, fontSize: '13px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: cardTextSec, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                            <ListMusic size={14} /> Playlists & Releases
-                                        </h4>
-                                        {isOwner && (
-                                            <button onClick={() => setReorderingPlaylists(r => !r)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: reorderingPlaylists ? accent : cardTextSec, fontSize: '11px', fontWeight: 600, padding: '2px 6px' }}>
-                                                {reorderingPlaylists ? 'Done' : 'Reorder'}
-                                            </button>
-                                        )}
+                        {/* ── Stats Card ── */}
+                        <div style={{ backgroundColor: cardBg, borderRadius: '16px', border: `1px solid ${cardBorder}`, overflow: 'hidden', boxShadow: cardShadow }}>
+                            <div style={{ padding: '20px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+                                    <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: `${accent}18`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <Zap size={13} color={accent} />
                                     </div>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                        {profilePlaylists.map((pl: any, i: number) => (
-                                            <div key={pl.id} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                                {reorderingPlaylists && (
-                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                                                        <button disabled={i === 0} onClick={() => movePlaylist(i, i - 1)} style={{ background: 'none', border: 'none', cursor: i === 0 ? 'default' : 'pointer', color: i === 0 ? 'transparent' : cardTextSec, padding: 0 }}><ChevronUp size={12} /></button>
-                                                        <button disabled={i === profilePlaylists.length - 1} onClick={() => movePlaylist(i, i + 1)} style={{ background: 'none', border: 'none', cursor: i === profilePlaylists.length - 1 ? 'default' : 'pointer', color: i === profilePlaylists.length - 1 ? 'transparent' : cardTextSec, padding: 0 }}><ChevronDown size={12} /></button>
-                                                    </div>
-                                                )}
-                                                <a href={`/playlists/${pl.id}`} style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '10px', textDecoration: 'none', padding: '8px 10px', borderRadius: '8px', backgroundColor: cardInner, border: `1px solid ${cardBorder}`, transition: 'opacity 0.15s' }}
-                                                    onMouseEnter={e => (e.currentTarget as HTMLAnchorElement).style.opacity = '0.8'}
-                                                    onMouseLeave={e => (e.currentTarget as HTMLAnchorElement).style.opacity = '1'}>
-                                                    {pl.coverUrl
-                                                        ? <img src={pl.coverUrl} alt="" style={{ width: 36, height: 36, borderRadius: '6px', objectFit: 'cover', flexShrink: 0 }} />
-                                                        : <div style={{ width: 36, height: 36, borderRadius: '6px', backgroundColor: 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                                            {pl.releaseType ? <Disc size={16} color={accent} /> : <ListMusic size={16} color={cardTextSec} />}
-                                                          </div>
-                                                    }
-                                                    <div style={{ flex: 1, minWidth: 0 }}>
-                                                        <div style={{ fontSize: '13px', fontWeight: 600, color: cardText, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pl.name}</div>
-                                                        <div style={{ fontSize: '11px', color: cardTextSec }}>
-                                                            {pl.releaseType ? <span style={{ color: accent, fontWeight: 700, textTransform: 'capitalize' }}>{pl.releaseType}</span> : 'Playlist'}
-                                                            {' · '}{pl.trackCount} track{pl.trackCount !== 1 ? 's' : ''}
-                                                        </div>
-                                                    </div>
-                                                </a>
-                                            </div>
-                                        ))}
-                                    </div>
+                                    <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: cardTextSec }}>Stats</span>
                                 </div>
-                            );
-                        })()}
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                                    {stats.map(s => (
+                                        <div key={s.label} style={{ padding: '12px 14px', borderRadius: '12px', backgroundColor: cardInner, border: `1px solid ${cardBorder}` }}>
+                                            <div style={{ fontSize: '20px', fontWeight: 800, color: cardText, lineHeight: 1, letterSpacing: '-0.02em' }}>{s.value}</div>
+                                            <div style={{ fontSize: '10px', fontWeight: 600, color: cardTextTer, textTransform: 'uppercase', letterSpacing: '0.08em', marginTop: '4px' }}>{s.label}</div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
