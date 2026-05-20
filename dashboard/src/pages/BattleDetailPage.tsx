@@ -625,11 +625,11 @@ export const BattleDetailPage: React.FC = () => {
                             </div>
                         </div>
 
-                        {/* Right: visual card */}
-                        {!isMobile && (
+                        {/* Right: visual card — shown on all screen sizes */}
+                        {(battle.bannerUrl || true) && (
                             <div style={{ position: 'relative' }}>
                                 <div style={{ position: 'absolute', inset: '-4px', background: `linear-gradient(135deg, ${colors.primary}, ${ACCENT})`, borderRadius: borderRadius.lg, opacity: 0.18, filter: 'blur(20px)', pointerEvents: 'none' }} />
-                                <div style={{ position: 'relative', backgroundColor: '#242C3D', borderRadius: borderRadius.lg, overflow: 'hidden', aspectRatio: '16/9', border: '1px solid rgba(255,255,255,0.06)', boxShadow: '0 24px 64px rgba(0,0,0,0.5)' }}>
+                                <div style={{ position: 'relative', backgroundColor: '#242C3D', borderRadius: borderRadius.lg, overflow: 'hidden', aspectRatio: isMobile ? '16/7' : '16/9', border: '1px solid rgba(255,255,255,0.06)', boxShadow: '0 24px 64px rgba(0,0,0,0.5)' }}>
                                     {battle.bannerUrl ? (
                                         <div style={{ width: '100%', height: '100%', position: 'relative' }}>
                                             <img src={`${API}${battle.bannerUrl}`} alt={battle.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
