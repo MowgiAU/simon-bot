@@ -8912,27 +8912,25 @@ app.get('/api/discovery/settings', publicCache(120), async (req, res) => {
 
         // Global brand partners (front page + battles page)
         const globalSponsorIds = ((settings as any).globalSponsorIds as string[] | null) || [];
+        result.globalSponsorTitle = (settings as any).globalSponsorTitle || 'Our Partners';
         if (globalSponsorIds.length > 0) {
-            queries.push(db.battleSponsor.findMany({
+            const sponsors = await db.battleSponsor.findMany({
                 where: { id: { in: globalSponsorIds } },
                 include: { links: true },
-            }).then(sponsors => {
-                const map = new Map(sponsors.map((s: any) => [s.id, s]));
-                result.globalSponsors = globalSponsorIds.map((id: string) => map.get(id)).filter(Boolean);
-                result.globalSponsorTitle = (settings as any).globalSponsorTitle || 'Our Partners';
-            }));
+            });
+            const map = new Map(sponsors.map((s: any) => [s.id, s]));
+            result.globalSponsors = globalSponsorIds.map((id: string) => map.get(id)).filter(Boolean);
         } else {
             result.globalSponsors = [];
-            result.globalSponsorTitle = (settings as any).globalSponsorTitle || 'Our Partners';
         }
 
         // Trending artist override (admin-set, invisible to public)
         const trendingOverrideId = (settings as any).trendingArtistOverrideId;
         if (trendingOverrideId) {
-            queries.push(db.musicianProfile.findUnique({
+            result.trendingArtistOverride = await db.musicianProfile.findUnique({
                 where: { userId: trendingOverrideId },
                 include: { genres: { include: { genre: true } } },
-            }).then(profile => { result.trendingArtistOverride = profile || null; }));
+            }) || null;
         } else {
             result.trendingArtistOverride = null;
         }
