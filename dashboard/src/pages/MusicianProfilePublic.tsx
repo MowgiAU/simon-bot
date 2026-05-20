@@ -104,7 +104,7 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
     const [isFollowing, setIsFollowing] = useState(false);
     const [followerCount, setFollowerCount] = useState(0);
     const [followingCount, setFollowingCount] = useState(0);
-    const [followerProfiles, setFollowerProfiles] = useState<{ userId: string; username: string; displayName: string | null; avatar: string | null }[]>([]);
+    const [followerProfiles, setFollowerProfiles] = useState<{ userId: string; discordId: string | null; username: string; displayName: string | null; avatar: string | null }[]>([]);
     const [startingChat, setStartingChat] = useState(false);
     const [discographyFilter, setDiscographyFilter] = useState<'all' | 'tracks' | 'reposts' | 'collabs'>('all');
     const [favourites, setFavourites] = useState<Record<string, boolean>>({});
@@ -361,7 +361,6 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
         ? isLightCard ? `color-mix(in srgb, ${profile.cardBgColor} 45%, #E2E8F0)` : `color-mix(in srgb, ${profile.cardBgColor} 60%, #0E121A)`
         : '#0E121A';
     const stats = [
-        { label: 'Followers', value: (followerCount || 0).toLocaleString() },
         { label: 'Following', value: (followingCount || 0).toLocaleString() },
         { label: 'Total Streams', value: (profile.totalPlays || 0).toLocaleString() },
         { label: 'Releases', value: ((profile as any)._count?.tracks ?? profile.tracks?.length ?? 0).toLocaleString() },
@@ -1194,7 +1193,10 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                                                 <a key={f.userId} href={`/profile/${f.username}`} title={f.displayName || f.username} style={{ textDecoration: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
                                                     <div style={{ width: '44px', height: '44px', borderRadius: '12px', overflow: 'hidden', border: `1px solid ${cardBorder}`, flexShrink: 0 }}>
                                                         {f.avatar ? (
-                                                            <img src={f.avatar.startsWith('http') ? f.avatar : `https://cdn.discordapp.com/avatars/${f.userId}/${f.avatar}.png?size=64`}
+                                                            <img
+                                                                src={f.avatar.startsWith('http') || f.avatar.includes('/')
+                                                                    ? f.avatar
+                                                                    : `https://cdn.discordapp.com/avatars/${f.discordId || f.userId}/${f.avatar}.png?size=64`}
                                                                 alt={f.username} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                                         ) : (
                                                             <div style={{ width: '100%', height: '100%', background: `${accent}25`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: 700, color: accent }}>
@@ -1235,7 +1237,7 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                                         <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '9px 12px', borderRadius: '10px', backgroundColor: cardInner, border: `1px solid ${cardBorder}` }}>
                                             <div style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#7A8C37', flexShrink: 0 }} />
                                             <div style={{ flex: 1, minWidth: 0 }}>
-                                                <div style={{ fontSize: '12px', fontWeight: 600, color: cardText, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name || item}</div>
+                                                <div style={{ fontSize: '12px', fontWeight: 600, color: cardText, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name || String(item)}</div>
                                                 {item.category && <div style={{ fontSize: '10px', color: cardTextTer, textTransform: 'uppercase', letterSpacing: '0.06em', marginTop: '1px' }}>{item.category}</div>}
                                             </div>
                                         </div>

@@ -15730,12 +15730,37 @@ app.get('/api/artists/:artistId/followers', publicCache(60), async (req: any, re
             take: limit,
             select: { followerId: true },
         });
-        // Resolve follower profiles by Discord ID or cuid
+        if (!follows.length) return res.json([]);
+
+        const followerDiscordIds = follows.map(f => f.followerId);
+
+        // followerId is always the Discord snowflake. After account consolidation
+        // the matching MusicianProfile may have userId = internal cuid, not the
+        // Discord ID. Resolve via the User table so we find profiles either way.
+        const linkedUsers = await db.user.findMany({
+            where: { discordId: { in: followerDiscordIds } },
+            select: { id: true, discordId: true },
+        });
+        const allIds = [...new Set([
+            ...followerDiscordIds,
+            ...linkedUsers.map(u => u.id),
+        ])];
+
         const profiles = await db.musicianProfile.findMany({
-            where: { userId: { in: follows.map(f => f.followerId) } },
+            where: { userId: { in: allIds } },
             select: { userId: true, username: true, displayName: true, avatar: true },
         });
-        res.json(profiles);
+
+        // Build a map from cuid → discordId so the frontend can construct
+        // Discord CDN avatar URLs even after account consolidation.
+        const cuidToDiscord = new Map(linkedUsers.map(u => [u.id, u.discordId]));
+
+        const result = profiles.map(p => ({
+            ...p,
+            discordId: cuidToDiscord.get(p.userId) ?? (/^\d{17,19}$/.test(p.userId) ? p.userId : null),
+        }));
+
+        res.json(result);
     } catch (e: any) {
         res.status(500).json({ error: 'Internal server error' });
     }
