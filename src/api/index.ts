@@ -2174,22 +2174,25 @@ app.post('/api/auth/change-username', requireAuth, async (req: any, res) => {
         const oldUsername = dbUser.username;
         await db.user.update({ where: { id: dbUser.id }, data: { username: newUsername } });
 
-        // Also update the linked MusicianProfile username so the profile URL matches
+        // Propagate to MusicianProfile so the profile URL/@ handle stays in sync
+        const userIds = [dbUser.id, ...(dbUser.discordId ? [dbUser.discordId] : [])];
         const mp = await db.musicianProfile.findFirst({
-            where: { OR: [{ userId: dbUser.id }, ...(dbUser.discordId ? [{ userId: dbUser.discordId }] : [])] },
+            where: { userId: { in: userIds } },
             select: { id: true, username: true, userId: true },
+            orderBy: { totalPlays: 'desc' },
         });
-        if (mp && mp.username === oldUsername) {
-            // Check the new username isn't already taken by another profile
+        if (mp) {
             const usernameConflict = await db.musicianProfile.findFirst({
                 where: { username: { equals: newUsername, mode: 'insensitive' }, NOT: { id: mp.id } },
             });
             if (!usernameConflict) {
                 await db.musicianProfile.update({ where: { id: mp.id }, data: { username: newUsername } });
-                invalidateProfileCache(mp.userId);
-                if (oldUsername) invalidateProfileCache(oldUsername);
-                invalidateProfileCache(newUsername);
             }
+            // Always bust the old and new cache keys regardless
+            invalidateProfileCache(mp.userId);
+            if (mp.username) invalidateProfileCache(mp.username);
+            if (oldUsername) invalidateProfileCache(oldUsername);
+            invalidateProfileCache(newUsername);
         }
 
         req.session.user.username = newUsername;
