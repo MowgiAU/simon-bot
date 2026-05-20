@@ -835,7 +835,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                                             </span>
                                                         )}
                                                         {featuredArticle.authorName && featuredArticle.publishedAt && (
-                                                            <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.2)' }}>·</span>
+                                                            <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.2)' }}>{'·'}</span>
                                                         )}
                                                         {featuredArticle.publishedAt && (
                                                             <span style={{ fontSize: '11px', color: colors.textSecondary }}>
