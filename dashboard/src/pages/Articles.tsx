@@ -18,6 +18,7 @@ interface Article {
     content: string;
     excerpt: string | null;
     coverImageUrl: string | null;
+    squareThumbnailUrl: string | null;
     authorUserId: string;
     authorName: string;
     authorAvatar: string | null;
@@ -94,11 +95,13 @@ export const ArticleEditor: React.FC<{
     const [content, setContent] = useState(article?.content || '');
     const [excerpt, setExcerpt] = useState(article?.excerpt || '');
     const [coverImageUrl, setCoverImageUrl] = useState(article?.coverImageUrl || '');
+    const [squareThumbnailUrl, setSquareThumbnailUrl] = useState(article?.squareThumbnailUrl || '');
     const [category, setCategory] = useState(article?.category || 'news');
     const [tagsInput, setTagsInput] = useState((article?.tags || []).join(', '));
     const [metaTitle, setMetaTitle] = useState(article?.metaTitle || '');
     const [metaDescription, setMetaDescription] = useState(article?.metaDescription || '');
     const [uploadingCover, setUploadingCover] = useState(false);
+    const [uploadingThumbnail, setUploadingThumbnail] = useState(false);
     const [showSeo, setShowSeo] = useState(false);
 
     const uploadPrefix = isAdmin ? '/api/admin' : '/api/my';
@@ -114,6 +117,20 @@ export const ArticleEditor: React.FC<{
             setCoverImageUrl(res.data.url);
         } catch { /* silent */ }
         setUploadingCover(false);
+        e.target.value = '';
+    };
+
+    const handleThumbnailUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        setUploadingThumbnail(true);
+        try {
+            const formData = new FormData();
+            formData.append('articleThumbnail', file);
+            const res = await axios.post(`${uploadPrefix}/articles/upload-thumbnail`, formData, { withCredentials: true });
+            setSquareThumbnailUrl(res.data.url);
+        } catch { /* silent */ }
+        setUploadingThumbnail(false);
         e.target.value = '';
     };
 
@@ -134,7 +151,8 @@ export const ArticleEditor: React.FC<{
 
     const buildPayload = (status: string) => ({
         title, subtitle: subtitle || null, content, excerpt: excerpt || null,
-        coverImageUrl: coverImageUrl || null, category,
+        coverImageUrl: coverImageUrl || null,
+        squareThumbnailUrl: squareThumbnailUrl || null, category,
         tags: tagsInput.split(',').map(t => t.trim()).filter(Boolean),
         metaTitle: metaTitle || null, metaDescription: metaDescription || null,
         status,
@@ -204,6 +222,31 @@ export const ArticleEditor: React.FC<{
                     }}>
                         <ImageIcon size={18} /> {uploadingCover ? 'Uploading...' : 'Click to upload cover image'}
                         <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleCoverUpload} />
+                    </label>
+                )}
+            </div>
+
+            {/* Square Thumbnail */}
+            <div style={{ marginBottom: '20px' }}>
+                <label style={labelStyle}>Square Thumbnail <span style={{ color: colors.textTertiary, fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>— frontpage feature card (1:1)</span></label>
+                {squareThumbnailUrl ? (
+                    <div style={{ position: 'relative', width: '120px' }}>
+                        <img src={squareThumbnailUrl} alt="Thumbnail" style={{ width: '120px', height: '120px', objectFit: 'cover', borderRadius: borderRadius.md, display: 'block' }} />
+                        <button onClick={() => setSquareThumbnailUrl('')} style={{
+                            position: 'absolute', top: '4px', right: '4px', background: 'rgba(0,0,0,0.7)',
+                            border: 'none', borderRadius: '50%', width: '24px', height: '24px',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'white',
+                        }}><X size={12} /></button>
+                    </div>
+                ) : (
+                    <label style={{
+                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                        width: '120px', height: '120px', border: '2px dashed rgba(255,255,255,0.1)', borderRadius: borderRadius.md,
+                        color: colors.textTertiary, cursor: 'pointer', fontSize: '12px', textAlign: 'center', flexDirection: 'column',
+                    }}>
+                        <ImageIcon size={18} />
+                        {uploadingThumbnail ? 'Uploading...' : 'Upload thumbnail'}
+                        <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleThumbnailUpload} />
                     </label>
                 )}
             </div>

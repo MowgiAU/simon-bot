@@ -8966,7 +8966,7 @@ app.get('/api/discovery/settings', publicCache(120), async (req, res) => {
                 where: { id: featuredArticleId },
                 select: {
                     id: true, slug: true, title: true, subtitle: true, excerpt: true,
-                    coverImageUrl: true, authorName: true, authorAvatar: true,
+                    coverImageUrl: true, squareThumbnailUrl: true, authorName: true, authorAvatar: true,
                     category: true, publishedAt: true, viewCount: true, status: true,
                 },
             });
@@ -18362,7 +18362,7 @@ app.get('/api/my/articles/:id', requireAuth, async (req: any, res) => {
 app.post('/api/my/articles', requireAuth, async (req: any, res) => {
     try {
         const user = req.session.user;
-        const { title, subtitle, content, excerpt, coverImageUrl, category, tags, metaTitle, metaDescription, status } = req.body;
+        const { title, subtitle, content, excerpt, coverImageUrl, squareThumbnailUrl, category, tags, metaTitle, metaDescription, status } = req.body;
         if (!title || !content) return res.status(400).json({ error: 'Title and content are required' });
 
         let baseSlug = slugify(title);
@@ -18394,6 +18394,7 @@ app.post('/api/my/articles', requireAuth, async (req: any, res) => {
                 content,
                 excerpt: excerpt?.slice(0, 500) || null,
                 coverImageUrl: coverImageUrl || null,
+                squareThumbnailUrl: squareThumbnailUrl || null,
                 authorUserId: user.id,
                 authorName: user.global_name || user.username || 'Writer',
                 authorAvatar: user.avatar ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png` : null,
@@ -18424,7 +18425,7 @@ app.patch('/api/my/articles/:id', requireAuth, async (req: any, res) => {
             return res.status(403).json({ error: 'You can only edit articles in draft or rejected status' });
         }
 
-        const { title, subtitle, content, excerpt, coverImageUrl, category, tags, metaTitle, metaDescription, status } = req.body;
+        const { title, subtitle, content, excerpt, coverImageUrl, squareThumbnailUrl, category, tags, metaTitle, metaDescription, status } = req.body;
         const data: any = { updatedAt: new Date() };
 
         if (title !== undefined) data.title = title.slice(0, 200);
@@ -18432,6 +18433,7 @@ app.patch('/api/my/articles/:id', requireAuth, async (req: any, res) => {
         if (content !== undefined) data.content = content;
         if (excerpt !== undefined) data.excerpt = excerpt?.slice(0, 500) || null;
         if (coverImageUrl !== undefined) data.coverImageUrl = coverImageUrl || null;
+        if (squareThumbnailUrl !== undefined) data.squareThumbnailUrl = squareThumbnailUrl || null;
         if (category && ['news', 'guide', 'announcement', 'tutorial'].includes(category)) data.category = category;
         if (tags !== undefined) data.tags = Array.isArray(tags) ? tags.slice(0, 10) : existing.tags;
         if (metaTitle !== undefined) data.metaTitle = metaTitle?.slice(0, 120) || null;
@@ -18493,6 +18495,18 @@ app.post('/api/my/articles/upload-cover', requireAuth, upload.single('articleCov
     } catch (e: any) {
         logger.error('POST /api/my/articles/upload-cover error', e);
         res.status(500).json({ error: 'Failed to upload cover image' });
+    }
+});
+
+// -- Writer: Upload article square thumbnail (frontpage featured card) ---------
+app.post('/api/my/articles/upload-thumbnail', requireAuth, upload.single('articleThumbnail'), async (req: any, res) => {
+    try {
+        if (!req.file) return res.status(400).json({ error: 'No image file provided' });
+        const imageUrl = `/uploads/articles/${req.file.filename}`;
+        res.json({ url: imageUrl });
+    } catch (e: any) {
+        logger.error('POST /api/my/articles/upload-thumbnail error', e);
+        res.status(500).json({ error: 'Failed to upload thumbnail' });
     }
 });
 
@@ -18584,7 +18598,7 @@ app.post('/api/admin/articles', requireAdmin, async (req: any, res) => {
         const user = req.session?.user;
         if (!user) return res.status(401).json({ error: 'Not authenticated' });
 
-        const { title, subtitle, content, excerpt, coverImageUrl, category, tags, metaTitle, metaDescription, status } = req.body;
+        const { title, subtitle, content, excerpt, coverImageUrl, squareThumbnailUrl, category, tags, metaTitle, metaDescription, status } = req.body;
         if (!title || !content) return res.status(400).json({ error: 'Title and content are required' });
 
         // Generate unique slug
@@ -18615,6 +18629,7 @@ app.post('/api/admin/articles', requireAdmin, async (req: any, res) => {
                 content,
                 excerpt: excerpt?.slice(0, 500) || null,
                 coverImageUrl: coverImageUrl || null,
+                squareThumbnailUrl: squareThumbnailUrl || null,
                 authorUserId: user.id,
                 authorName: user.global_name || user.username || 'Staff',
                 authorAvatar: user.avatar ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png` : null,
@@ -18646,7 +18661,7 @@ app.patch('/api/admin/articles/:id', requireAdmin, async (req: any, res) => {
         const existing = await db.article.findUnique({ where: { id: req.params.id } });
         if (!existing) return res.status(404).json({ error: 'Article not found' });
 
-        const { title, subtitle, content, excerpt, coverImageUrl, category, tags, metaTitle, metaDescription, status, slug: newSlug, reviewNote } = req.body;
+        const { title, subtitle, content, excerpt, coverImageUrl, squareThumbnailUrl, category, tags, metaTitle, metaDescription, status, slug: newSlug, reviewNote } = req.body;
 
         const data: any = { updatedAt: new Date() };
         if (title !== undefined) data.title = title.slice(0, 200);
@@ -18654,6 +18669,7 @@ app.patch('/api/admin/articles/:id', requireAdmin, async (req: any, res) => {
         if (content !== undefined) data.content = content;
         if (excerpt !== undefined) data.excerpt = excerpt?.slice(0, 500) || null;
         if (coverImageUrl !== undefined) data.coverImageUrl = coverImageUrl || null;
+        if (squareThumbnailUrl !== undefined) data.squareThumbnailUrl = squareThumbnailUrl || null;
         if (category && ['news', 'guide', 'announcement', 'tutorial'].includes(category)) data.category = category;
         if (tags !== undefined) data.tags = Array.isArray(tags) ? tags.slice(0, 10) : existing.tags;
         if (metaTitle !== undefined) data.metaTitle = metaTitle?.slice(0, 120) || null;
@@ -18751,6 +18767,18 @@ app.post('/api/admin/articles/upload-cover', requireAdmin, upload.single('articl
     } catch (e: any) {
         logger.error('POST /api/admin/articles/upload-cover error', e);
         res.status(500).json({ error: 'Failed to upload cover image' });
+    }
+});
+
+// -- Admin: Upload article square thumbnail ------------------------------------
+app.post('/api/admin/articles/upload-thumbnail', requireAdmin, upload.single('articleThumbnail'), async (req: any, res) => {
+    try {
+        if (!req.file) return res.status(400).json({ error: 'No image file provided' });
+        const imageUrl = `/uploads/articles/${req.file.filename}`;
+        res.json({ url: imageUrl });
+    } catch (e: any) {
+        logger.error('POST /api/admin/articles/upload-thumbnail error', e);
+        res.status(500).json({ error: 'Failed to upload thumbnail' });
     }
 });
 

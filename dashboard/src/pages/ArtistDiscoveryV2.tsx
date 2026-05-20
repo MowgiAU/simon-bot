@@ -679,10 +679,10 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                         pointerEvents: 'none',
                                     }} />
                                 )}
-                                {contentType !== 'video' && featuredArticle?.coverImageUrl && (
+                                {contentType !== 'video' && (featuredArticle?.squareThumbnailUrl || featuredArticle?.coverImageUrl) && (
                                     <div style={{
                                         position: 'absolute', inset: 0,
-                                        backgroundImage: `url(${featuredArticle.coverImageUrl})`,
+                                        backgroundImage: `url(${featuredArticle.squareThumbnailUrl || featuredArticle.coverImageUrl})`,
                                         backgroundSize: 'cover', backgroundPosition: 'center',
                                         filter: 'blur(40px) brightness(0.18) saturate(1.4)',
                                         transform: 'scale(1.3)',
@@ -799,12 +799,12 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                         /* News / Guide / Article — show featured article or fallback */
                                         featuredArticle ? (
                                             <a href={`/article/${featuredArticle.slug}`} style={{ flex: 1, display: 'flex', alignItems: 'center', gap: isMobile ? '16px' : '24px', textDecoration: 'none', color: 'inherit', overflow: 'hidden' }}>
-                                                {featuredArticle.coverImageUrl ? (
+                                                {(featuredArticle.squareThumbnailUrl || featuredArticle.coverImageUrl) ? (
                                                     <div style={{
                                                         width: isMobile ? '100px' : '160px', height: isMobile ? '100px' : '160px', flexShrink: 0, borderRadius: '14px',
                                                         overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 12px 40px rgba(0,0,0,0.5)',
                                                     }}>
-                                                        <img src={featuredArticle.coverImageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                        <img src={featuredArticle.squareThumbnailUrl || featuredArticle.coverImageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                                     </div>
                                                 ) : (
                                                     <div style={{

@@ -2369,7 +2369,8 @@ model Article {
   subtitle      String?
   content       String  @db.Text // Rich HTML from WYSIWYG editor
   excerpt       String? @db.Text // Short summary for cards / previews
-  coverImageUrl String? // Hero / cover image
+  coverImageUrl      String? // Hero / cover image (wide)
+  squareThumbnailUrl String? // Square thumbnail for frontpage feature card
 
   // Author
   authorUserId String
