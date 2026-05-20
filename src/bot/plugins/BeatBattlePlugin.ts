@@ -337,36 +337,62 @@ export class BeatBattlePlugin implements IPlugin {
         if (!annChannelId) return null;
 
         const apiUrl = process.env.API_URL || 'https://fujistud.io';
+        const battleUrl = `${apiUrl}/battles/${battle.slug || battle.id}`;
 
         try {
             const channel = await this.client.channels.fetch(annChannelId) as TextChannel | null;
             if (!channel) return null;
 
+            const description = battle.miniDescription
+                || (battle.description ? battle.description.replace(/<[^>]+>/g, '').slice(0, 300) : null)
+                || 'A new beat battle has been announced on Fuji Studio. Submit your track and compete!';
+
             const embed = new EmbedBuilder()
-                .setTitle(`?? New Beat Battle: ${battle.title}`)
-                .setDescription(battle.description || 'A new beat battle has been announced!')
+                .setTitle(`🎵 ${battle.title}`)
+                .setDescription(description)
                 .setColor(0x2B8C71)
-                .addFields({ name: '?? Submit & Vote', value: `[Enter on Fuji Studio](${apiUrl}/battles/${battle.id})` })
-                .setFooter({ text: 'Fuji Studio Beat Battle' })
+                .setFooter({ text: 'Fuji Studio Beat Battles' })
                 .setTimestamp();
 
-            if (battle.submissionStart) {
-                embed.addFields({ name: '??? Submissions Open', value: `<t:${Math.floor(new Date(battle.submissionStart).getTime() / 1000)}:F>`, inline: true });
+            if (battle.bannerUrl) embed.setImage(battle.bannerUrl);
+            else if (battle.cardImageUrl) embed.setImage(battle.cardImageUrl);
+
+            if (battle.submissionStart && battle.submissionEnd) {
+                embed.addFields(
+                    { name: '📅 Submissions Open', value: `<t:${Math.floor(new Date(battle.submissionStart).getTime() / 1000)}:F>`, inline: true },
+                    { name: '⏰ Submissions Close', value: `<t:${Math.floor(new Date(battle.submissionEnd).getTime() / 1000)}:R>`, inline: true },
+                );
+            } else if (battle.submissionEnd) {
+                embed.addFields({ name: '⏰ Submissions Close', value: `<t:${Math.floor(new Date(battle.submissionEnd).getTime() / 1000)}:R>`, inline: true });
             }
-            if (battle.submissionEnd) {
-                embed.addFields({ name: '?? Submissions Close', value: `<t:${Math.floor(new Date(battle.submissionEnd).getTime() / 1000)}:F>`, inline: true });
-            }
-            if (battle.rules) {
-                embed.addFields({ name: '?? Rules', value: battle.rules });
-            }
-            if (battle.sponsor) {
-                let sponsorText = `**${battle.sponsor.name}**`;
-                if (battle.sponsor.websiteUrl) sponsorText += ` � [Visit Website](${battle.sponsor.websiteUrl})`;
-                embed.addFields({ name: '?? Sponsored by', value: sponsorText });
-                if (battle.sponsor.logoUrl) embed.setThumbnail(battle.sponsor.logoUrl);
+            if (battle.votingEnd) {
+                embed.addFields({ name: '🗳️ Voting Ends', value: `<t:${Math.floor(new Date(battle.votingEnd).getTime() / 1000)}:R>`, inline: true });
             }
 
-            const msg = await channel.send({ embeds: [embed] });
+            const prizes = battle.prizes as { place: string; title?: string; description: string }[] | null;
+            if (prizes && prizes.length > 0) {
+                const prizeText = prizes.map((p: any) => `**${p.place}** — ${p.title ? `${p.title}: ` : ''}${p.description}`).join('\n');
+                embed.addFields({ name: '🏆 Prizes', value: prizeText });
+            } else if (battle.prizePoolEnabled && (battle.prizeFirst || battle.prizeSecond || battle.prizeThird)) {
+                const lines = [
+                    battle.prizeFirst  ? `🥇 1st — ${battle.prizeFirst} coins`  : null,
+                    battle.prizeSecond ? `🥈 2nd — ${battle.prizeSecond} coins` : null,
+                    battle.prizeThird  ? `🥉 3rd — ${battle.prizeThird} coins`  : null,
+                ].filter(Boolean) as string[];
+                embed.addFields({ name: '🏆 Prizes', value: lines.join('\n') });
+            }
+
+            if (battle.sponsor) {
+                let sponsorText = `**${battle.sponsor.name}**`;
+                if (battle.sponsor.websiteUrl) sponsorText += ` — [Visit Website](${battle.sponsor.websiteUrl})`;
+                embed.addFields({ name: '🤝 Sponsored by', value: sponsorText });
+                if (battle.sponsor.logoUrl && !battle.bannerUrl) embed.setThumbnail(battle.sponsor.logoUrl);
+            }
+
+            embed.addFields({ name: '\u200b', value: `[**Submit Your Track →**](${battleUrl})` });
+
+            const ping = battle.pingOnSubmissions ? '@everyone' : undefined;
+            const msg = await channel.send({ content: ping, embeds: [embed], allowedMentions: ping ? { parse: ['everyone'] } : { parse: [] } });
             return msg.id;
         } catch (err) {
             this.logger.error('Beat Battle: Failed to post announcement', err);
@@ -380,21 +406,39 @@ export class BeatBattlePlugin implements IPlugin {
         if (!annChannelId) return;
 
         const apiUrl = process.env.API_URL || 'https://fujistud.io';
+        const battleUrl = `${apiUrl}/battles/${battle.slug || battle.id}`;
 
         try {
             const channel = await this.client.channels.fetch(annChannelId) as TextChannel | null;
             if (!channel) return;
 
+            const entryCount = await this.db.battleEntry.count({ where: { battleId: battle.id } });
+
             const embed = new EmbedBuilder()
-                .setTitle(`??? ${battle.title} � Voting is Now Open!`)
-                .setDescription('Submissions are closed. Head to the website to listen and vote for your favourite beat!')
-                .setColor(0xFFA500)
-                .addFields({ name: '?? Vote Now', value: `[Vote on Fuji Studio](${apiUrl}/battles/${battle.id})` })
+                .setTitle(`🗳️ Voting is Open — ${battle.title}`)
+                .setDescription(`Submissions are locked in. **${entryCount} beat${entryCount !== 1 ? 's' : ''}** are competing — listen and vote for your favourite on Fuji Studio!`)
+                .setColor(0xF59E0B)
+                .setFooter({ text: 'Fuji Studio Beat Battles' })
                 .setTimestamp();
+
+            if (battle.bannerUrl) embed.setImage(battle.bannerUrl);
+            else if (battle.cardImageUrl) embed.setImage(battle.cardImageUrl);
+
             if (battle.votingEnd) {
-                embed.addFields({ name: 'Voting Ends', value: `<t:${Math.floor(battle.votingEnd.getTime() / 1000)}:R>` });
+                embed.addFields({ name: '⏰ Voting Closes', value: `<t:${Math.floor(new Date(battle.votingEnd).getTime() / 1000)}:R>`, inline: true });
             }
-            await channel.send({ embeds: [embed] });
+
+            if (battle.sponsor) {
+                let sponsorText = `**${battle.sponsor.name}**`;
+                if (battle.sponsor.websiteUrl) sponsorText += ` — [Visit Website](${battle.sponsor.websiteUrl})`;
+                embed.addFields({ name: '🤝 Sponsored by', value: sponsorText });
+                if (battle.sponsor.logoUrl && !battle.bannerUrl) embed.setThumbnail(battle.sponsor.logoUrl);
+            }
+
+            embed.addFields({ name: '\u200b', value: `[**Listen & Vote →**](${battleUrl})` });
+
+            const ping = battle.pingOnVoting ? '@everyone' : undefined;
+            await channel.send({ content: ping, embeds: [embed], allowedMentions: ping ? { parse: ['everyone'] } : { parse: [] } });
         } catch (err) {
             this.logger.error('Beat Battle: Failed to post voting announcement', err);
         }
@@ -406,26 +450,51 @@ export class BeatBattlePlugin implements IPlugin {
         if (!annChannelId || !winners || winners.length === 0) return;
 
         const apiUrl = process.env.API_URL || 'https://fujistud.io';
+        const battleUrl = `${apiUrl}/battles/${battle.slug || battle.id}`;
 
         try {
             const channel = await this.client.channels.fetch(annChannelId) as TextChannel | null;
             if (!channel) return;
 
             const medals = ['🥇', '🥈', '🥉'];
+            const prizes = battle.prizes as { place: string; title?: string; description: string }[] | null;
+            const coinPrizes = [battle.prizeFirst, battle.prizeSecond, battle.prizeThird];
+            const totalEntries = await this.db.battleEntry.count({ where: { battleId: battle.id } });
+
             const podiumLines = winners.slice(0, 3).map((w, i) => {
-                return `${medals[i] || '•'} <@${w.userId}> — **"${w.trackTitle}"** • **${w.points}** ${w.points === 1 ? 'pt' : 'pts'}`;
+                let line = `${medals[i] || '•'} **"${w.trackTitle}"** — ${w.points} ${w.points === 1 ? 'vote' : 'votes'}`;
+                const prize = prizes?.[i]?.description || (battle.prizePoolEnabled && coinPrizes[i] ? `${coinPrizes[i]} coins` : null);
+                if (prize) line += ` · *${prize}*`;
+                return line;
             });
-            const winnerMentions = winners.slice(0, 3).map(w => `<@${w.userId}>`).join(' ');
+
+            const winnerMentions = winners.slice(0, 3).map((w: any) => `<@${w.userId}>`).join(' ');
 
             const embed = new EmbedBuilder()
-                .setTitle(`${battle.title} — Winners!`)
-                .setDescription(`Congratulations ${winnerMentions}!\n\n${podiumLines.join('\n')}`)
+                .setTitle(`🏆 ${battle.title} — Results`)
+                .setDescription(`The battle is over! Out of **${totalEntries}** submission${totalEntries !== 1 ? 's' : ''}, here are your top producers:\n\n${podiumLines.join('\n')}`)
                 .setColor(0xFFD700)
-                .addFields({ name: 'Listen', value: `[Play on Fuji Studio](${apiUrl}/battles/${battle.id})` })
-                .setFooter({ text: 'Fuji Studio Beat Battle' })
+                .setFooter({ text: 'Fuji Studio Beat Battles' })
                 .setTimestamp();
-            // Tag all top-3 producers in the message body so they get a notification.
-            await channel.send({ content: winnerMentions, embeds: [embed], allowedMentions: { users: winners.slice(0, 3).map(w => w.userId) } });
+
+            if (battle.bannerUrl) embed.setImage(battle.bannerUrl);
+            else if (battle.cardImageUrl) embed.setImage(battle.cardImageUrl);
+
+            if (battle.sponsor) {
+                let sponsorText = `**${battle.sponsor.name}**`;
+                if (battle.sponsor.websiteUrl) sponsorText += ` — [Visit Website](${battle.sponsor.websiteUrl})`;
+                embed.addFields({ name: '🤝 Sponsored by', value: sponsorText });
+                if (battle.sponsor.logoUrl && !battle.bannerUrl) embed.setThumbnail(battle.sponsor.logoUrl);
+            }
+
+            embed.addFields({ name: '\u200b', value: `[**View Full Results →**](${battleUrl})` });
+
+            const ping = battle.pingOnWinners ? '@everyone' : undefined;
+            await channel.send({
+                content: ping ? `${ping} ${winnerMentions}` : winnerMentions,
+                embeds: [embed],
+                allowedMentions: { parse: ping ? ['everyone'] : [], users: winners.slice(0, 3).map((w: any) => w.userId) },
+            });
         } catch (err) {
             this.logger.error('Beat Battle: Failed to post winner spotlight', err);
         }
