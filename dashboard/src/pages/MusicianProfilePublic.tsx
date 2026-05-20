@@ -297,7 +297,7 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
             if (followRes?.data) setIsFollowing(followRes.data.following);
             if (entriesRes?.data) setBattleEntries(entriesRes.data);
             if (followersRes?.data) setFollowerProfiles(followersRes.data);
-            if (followingRes?.data) setFollowingCount(followingRes.data.count);
+            if (followingRes?.data?.count != null) setFollowingCount(followingRes.data.count);
             if (favRes?.data) setFavourites(favRes.data);
             if (repRes?.data) setReposts(repRes.data);
             if (data.playlists) setProfilePlaylists(data.playlists);
@@ -361,9 +361,9 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
         ? isLightCard ? `color-mix(in srgb, ${profile.cardBgColor} 45%, #E2E8F0)` : `color-mix(in srgb, ${profile.cardBgColor} 60%, #0E121A)`
         : '#0E121A';
     const stats = [
-        { label: 'Followers', value: followerCount.toLocaleString() },
-        { label: 'Following', value: followingCount.toLocaleString() },
-        { label: 'Total Streams', value: profile.totalPlays?.toLocaleString() || '0' },
+        { label: 'Followers', value: (followerCount || 0).toLocaleString() },
+        { label: 'Following', value: (followingCount || 0).toLocaleString() },
+        { label: 'Total Streams', value: (profile.totalPlays || 0).toLocaleString() },
         { label: 'Releases', value: ((profile as any)._count?.tracks ?? profile.tracks?.length ?? 0).toLocaleString() },
     ];
 
