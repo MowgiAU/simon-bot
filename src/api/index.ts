@@ -11390,7 +11390,7 @@ app.post('/api/beat-battle/battles/:battleId/submit', requireAuth, async (req: a
 // --- Admin: Create battle ---
 app.post('/api/beat-battle/admin/battles', requireAdmin, async (req: any, res) => {
     try {
-        const { title, description, subtitle, rules, rulesData, prizes, guildId, submissionStart, submissionEnd, votingStart, votingEnd, sponsorId, announcementChannelId, maxVotesPerUser, requireProjectFile, pingOnSubmissions, pingOnVoting, pingOnWinners, entryFeeEnabled, entryFee, prizePoolEnabled, prizeFirst, prizeSecond, prizeThird, voterReward, suddenDeathDurationMinutes } = req.body;
+        const { title, miniDescription, description, subtitle, rules, rulesData, prizes, guildId, submissionStart, submissionEnd, votingStart, votingEnd, sponsorId, announcementChannelId, maxVotesPerUser, requireProjectFile, pingOnSubmissions, pingOnVoting, pingOnWinners, entryFeeEnabled, entryFee, prizePoolEnabled, prizeFirst, prizeSecond, prizeThird, voterReward, suddenDeathDurationMinutes } = req.body;
 
         if (!title) return res.status(400).json({ error: 'Title is required' });
 
@@ -11412,6 +11412,7 @@ app.post('/api/beat-battle/admin/battles', requireAdmin, async (req: any, res) =
                 title,
                 slug,
                 description,
+                miniDescription: miniDescription || null,
                 subtitle: subtitle || null,
                 rules: rules || (Array.isArray(rulesData) ? rulesData.map((r: any) => r.text || '').filter(Boolean).join('\n') : null),
                 rulesData: rulesData || null,
@@ -11464,7 +11465,7 @@ app.post('/api/beat-battle/admin/battles', requireAdmin, async (req: any, res) =
 // --- Admin: Update battle ---
 app.patch('/api/beat-battle/admin/battles/:id', requireAdmin, async (req: any, res) => {
     try {
-        const { title, description, subtitle, rules, rulesData, prizes, status, submissionStart, submissionEnd, votingStart, votingEnd, sponsorId, announcementChannelId, maxVotesPerUser, requireProjectFile, pingOnSubmissions, pingOnVoting, pingOnWinners, entryFeeEnabled, entryFee, prizePoolEnabled, prizeFirst, prizeSecond, prizeThird, voterReward, suddenDeathDurationMinutes } = req.body;
+        const { title, miniDescription, description, subtitle, rules, rulesData, prizes, status, submissionStart, submissionEnd, votingStart, votingEnd, sponsorId, announcementChannelId, maxVotesPerUser, requireProjectFile, pingOnSubmissions, pingOnVoting, pingOnWinners, entryFeeEnabled, entryFee, prizePoolEnabled, prizeFirst, prizeSecond, prizeThird, voterReward, suddenDeathDurationMinutes } = req.body;
 
         // Fetch old battle to detect status change
         const oldBattle = await db.beatBattle.findUnique({ where: { id: req.params.id } });
@@ -11482,6 +11483,7 @@ app.patch('/api/beat-battle/admin/battles/:id', requireAdmin, async (req: any, r
             }
             data.slug = slug;
         }
+        if (miniDescription !== undefined) data.miniDescription = miniDescription || null;
         if (description !== undefined) data.description = description;
         if (subtitle !== undefined) data.subtitle = subtitle || null;
         if (rules !== undefined) data.rules = rules;

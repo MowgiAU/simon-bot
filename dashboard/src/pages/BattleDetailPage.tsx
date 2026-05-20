@@ -664,7 +664,7 @@ export const BattleDetailPage: React.FC = () => {
 
                 {/* ── DESCRIPTION ── */}
                 {battle.description && (
-                    <section style={{ maxWidth: '1300px', margin: '0 auto', padding: isMobile ? '0 16px 32px' : '0 24px 48px' }}>
+                    <section style={{ maxWidth: '1300px', margin: '0 auto', padding: isMobile ? '24px 16px 32px' : '40px 24px 48px' }}>
                         <div style={{
                             backgroundColor: 'rgba(255,255,255,0.025)',
                             border: '1px solid rgba(255,255,255,0.07)',

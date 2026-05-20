@@ -1326,6 +1326,7 @@ model BeatBattle {
   slug        String? @unique
   guildId     String
   title            String
+  miniDescription  String? @db.VarChar(300) // Short summary for embeds, cards, and previews
   description String? @db.Text
   subtitle    String? @db.VarChar(200)
   status           String  @default("upcoming") // upcoming | active | voting | completed

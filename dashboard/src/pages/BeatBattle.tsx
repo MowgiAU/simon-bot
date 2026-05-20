@@ -151,6 +151,7 @@ export const BeatBattlePage: React.FC = () => {
     // Form state
     const [form, setForm] = useState({
         title: '', subtitle: '', description: '',
+        miniDescription: '',
         rulesData: [{ text: '', links: [] as { label: string; url: string }[], samples: [] as { name: string; url: string }[] }],
         submissionStart: '', submissionEnd: '', votingStart: '', votingEnd: '',
         sponsorId: '', announcementChannelId: '',
@@ -268,7 +269,7 @@ export const BeatBattlePage: React.FC = () => {
         return () => clearTimeout(timer);
     }, [backfillTrackSearch]);
 
-    const resetForm = () => setForm({ title: '', subtitle: '', description: '', rulesData: [{ text: '', links: [], samples: [] }], submissionStart: '', submissionEnd: '', votingStart: '', votingEnd: '', sponsorId: '', announcementChannelId: '', prizes: [{ place: '1st Place', title: '', description: '', imageUrl: '', link: '' }], maxVotesPerUser: 0, requireProjectFile: false, pingOnSubmissions: false, pingOnVoting: false, pingOnWinners: false, entryFeeEnabled: false, entryFee: 0, prizePoolEnabled: false, prizeFirst: 0, prizeSecond: 0, prizeThird: 0, voterReward: 0, suddenDeathDurationMinutes: 60 });
+    const resetForm = () => setForm({ title: '', subtitle: '', miniDescription: '', description: '', rulesData: [{ text: '', links: [], samples: [] }], submissionStart: '', submissionEnd: '', votingStart: '', votingEnd: '', sponsorId: '', announcementChannelId: '', prizes: [{ place: '1st Place', title: '', description: '', imageUrl: '', link: '' }], maxVotesPerUser: 0, requireProjectFile: false, pingOnSubmissions: false, pingOnVoting: false, pingOnWinners: false, entryFeeEnabled: false, entryFee: 0, prizePoolEnabled: false, prizeFirst: 0, prizeSecond: 0, prizeThird: 0, voterReward: 0, suddenDeathDurationMinutes: 60 });
 
     const handleCreateBattle = async () => {
         try {
@@ -279,6 +280,7 @@ export const BeatBattlePage: React.FC = () => {
                 body: JSON.stringify({
                     title: form.title,
                     subtitle: form.subtitle,
+                    miniDescription: form.miniDescription,
                     description: form.description,
                     rules: form.rulesData.map(r => r.text).filter(Boolean).join('\n'),
                     rulesData: form.rulesData,
@@ -352,6 +354,7 @@ export const BeatBattlePage: React.FC = () => {
                 body: JSON.stringify({
                     title: form.title,
                     subtitle: form.subtitle,
+                    miniDescription: form.miniDescription,
                     description: form.description,
                     rules: form.rulesData.map(r => r.text).filter(Boolean).join('\n'),
                     rulesData: form.rulesData,
@@ -669,6 +672,7 @@ export const BeatBattlePage: React.FC = () => {
         setForm({
             title: b.title,
             subtitle: (b as any).subtitle || '',
+            miniDescription: (b as any).miniDescription || '',
             description: b.description || '',
             rulesData: (b.rulesData && (b.rulesData as any[]).length > 0)
                 ? (b.rulesData as any[]).map(r => ({ text: r.text || '', links: r.links || [], samples: r.samples || [] }))
@@ -840,11 +844,21 @@ export const BeatBattlePage: React.FC = () => {
                                     <div style={{ fontSize: '10px', color: colors.textTertiary, textAlign: 'right', marginTop: '2px' }}>{form.subtitle.length}/200</div>
                                 </div>
                                 <div style={{ gridColumn: 'span 2' }}>
-                                    <label style={labelStyle}>Full Description <span style={{ color: colors.textTertiary, fontWeight: 400 }}>(shown on the individual battle page — supports rich text)</span></label>
+                                    <label style={labelStyle}>Mini Description <span style={{ color: colors.textTertiary, fontWeight: 400 }}>(for embeds, cards, and previews — max 300 chars)</span></label>
+                                    <textarea
+                                        style={{ ...inputStyle, minHeight: '60px', resize: 'vertical' }}
+                                        value={form.miniDescription}
+                                        onChange={e => setForm({ ...form, miniDescription: e.target.value.slice(0, 300) })}
+                                        placeholder="A short one or two sentence summary of this battle..."
+                                    />
+                                    <div style={{ fontSize: '10px', color: colors.textTertiary, textAlign: 'right', marginTop: '2px' }}>{(form.miniDescription || '').length}/300</div>
+                                </div>
+                                <div style={{ gridColumn: 'span 2' }}>
+                                    <label style={labelStyle}>Full Description <span style={{ color: colors.textTertiary, fontWeight: 400 }}>(shown on the individual battle page — supports rich text, images, and video embeds)</span></label>
                                     <RichTextEditor
                                         value={form.description}
                                         onChange={desc => setForm({ ...form, description: desc })}
-                                        placeholder="Describe the battle in detail — supports headings, lists, links, images..."
+                                        placeholder="Describe the battle in detail — supports headings, lists, links, images, YouTube embeds..."
                                     />
                                 </div>
                                 <div style={{ gridColumn: 'span 2' }}>
