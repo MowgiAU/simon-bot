@@ -9,7 +9,7 @@ import { StyledUsername } from '../components/StyledUsername';
 import {
     ArrowLeft, Swords, Play, Pause, Vote, Medal, LogIn, ExternalLink,
     Flame, MessageSquare, Trophy, Calendar, Users, Shield, Check, Upload,
-    Download, Music, AlertCircle,
+    Download, Music, AlertCircle, Lock,
 } from 'lucide-react';
 import { BattleSubmitModal } from '../components/BattleSubmitModal';
 import { flattenBattleEntry } from '../hooks/useBattleEntry';
