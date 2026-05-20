@@ -335,6 +335,22 @@ function invalidateProfileCache(userId: string): void {
     apiResponseCache.delete('musician-profiles');
 }
 
+// Sync article authorName + authorAvatar whenever a user's display name or avatar changes.
+// Fire-and-forget: never throws, never blocks the calling request.
+async function syncArticleAuthor(userIds: string[], name: string, avatarUrl: string | null): Promise<void> {
+    try {
+        const ids = [...new Set(userIds.filter(Boolean))];
+        if (!ids.length || !name) return;
+        await db.article.updateMany({
+            where: { authorUserId: { in: ids } },
+            data: {
+                authorName: name,
+                ...(avatarUrl !== undefined ? { authorAvatar: avatarUrl } : {}),
+            },
+        });
+    } catch { /* non-critical */ }
+}
+
 // --- Cloudflare Edge Cache Middleware ---
 // Adds Cache-Control headers to public GET endpoints so Cloudflare caches them at edge.
 // Only applied to unauthenticated, read-only routes.
@@ -8732,6 +8748,11 @@ app.post('/api/musician/profile/:userId', async (req: any, res) => {
         // Log profile creation/update
         await logAction('GLOBAL', 'profile_updated', profileUserId, updated.id, { username: updated.username });
 
+        // Keep article author metadata in sync (fire-and-forget)
+        const authorName = updated.displayName || updated.username || '';
+        const authorAvatar = updated.avatar || null;
+        syncArticleAuthor([profileUserId, userId, canonicalUserId], authorName, authorAvatar);
+
         // Auto-follow new profiles from the configured admin account (Tom from MySpace style)
         if (!existingProfile) {
             (async () => {
@@ -9494,6 +9515,10 @@ app.post('/api/musician/profile/:userId/avatar', generalUploadLimiter, upload.si
         invalidateProfileCache(profile.userId);
         if (profile.username) invalidateProfileCache(profile.username);
 
+        // Sync article author avatar (fire-and-forget)
+        const canonicalId = (req as any).session?.user?._localId || userId;
+        syncArticleAuthor([profile.userId, userId, canonicalId], profile.displayName || profile.username || '', avatarUrl);
+
         // Log avatar upload
         await logAction('GLOBAL', 'avatar_uploaded', userId, profile.id, { url: avatarUrl });
 
@@ -10000,6 +10025,8 @@ app.post('/api/admin/musician/profile/:userId/avatar', requireAdmin, upload.sing
         invalidateProfileCache(profile.userId);
         if (profile.username) invalidateProfileCache(profile.username);
 
+        syncArticleAuthor([profile.userId, userId], profile.displayName || profile.username || '', avatarUrl);
+
         await logAction('GLOBAL', 'avatar_admin_uploaded', adminId, profile.id, {
             url: avatarUrl,
             targetUserId: userId
@@ -10466,6 +10493,31 @@ app.post('/api/admin/auto-follow/backfill', requireAdmin, async (_req, res) => {
         res.status(500).json({ error: 'Internal server error' });
     }
 });
+
+// POST /api/admin/articles/sync-authors — backfill authorName/authorAvatar from current profiles
+app.post('/api/admin/articles/sync-authors', requireAdmin, async (_req, res) => {
+    try {
+        const profiles = await db.musicianProfile.findMany({
+            select: { userId: true, displayName: true, username: true, avatar: true },
+        });
+
+        let updated = 0;
+        for (const p of profiles) {
+            const name = p.displayName || p.username || '';
+            if (!name) continue;
+            const result = await db.article.updateMany({
+                where: { authorUserId: p.userId },
+                data: { authorName: name, authorAvatar: p.avatar || null },
+            });
+            updated += result.count;
+        }
+
+        res.json({ updated });
+    } catch (e: any) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 
 
 // ─── Admin Account Management ───────────────────────────────────────────────
