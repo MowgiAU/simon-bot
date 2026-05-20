@@ -783,6 +783,13 @@ app.use(helmet({
                 'https://cloudflareinsights.com', // Cloudflare analytics beacon
             ],
             fontSrc: ["'self'", 'https:', 'data:'],
+            frameSrc: [
+                "'self'",
+                'https://www.youtube.com',
+                'https://youtube.com',
+                'https://player.vimeo.com',
+                'https://vimeo.com',
+            ],
         },
     },
     // Disabled: breaks SharedArrayBuffer used by audio worklets
