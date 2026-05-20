@@ -15711,9 +15711,26 @@ app.post('/api/artists/:artistId/follow', requireAuth, async (req: any, res) => 
 });
 
 // Get follower count for an artist
+// Resolve all profile IDs for an artist (handles un-consolidated duplicate profiles)
+async function getAllProfileIds(profileId: string): Promise<string[]> {
+    const profile = await db.musicianProfile.findUnique({ where: { id: profileId }, select: { userId: true } });
+    if (!profile) return [profileId];
+    const user = await db.user.findFirst({
+        where: { OR: [{ id: profile.userId }, { discordId: profile.userId }] },
+        select: { id: true, discordId: true },
+    });
+    const userIds = [...new Set([profile.userId, user?.id, user?.discordId].filter(Boolean))] as string[];
+    const allProfiles = await db.musicianProfile.findMany({
+        where: { userId: { in: userIds } },
+        select: { id: true },
+    });
+    return allProfiles.map(p => p.id);
+}
+
 app.get('/api/artists/:artistId/follower-count', async (req: any, res) => {
     try {
-        const count = await db.artistFollow.count({ where: { artistId: req.params.artistId } });
+        const artistIds = await getAllProfileIds(req.params.artistId);
+        const count = await db.artistFollow.count({ where: { artistId: { in: artistIds } } });
         res.json({ count });
     } catch (e: any) {
         res.status(500).json({ error: 'Internal server error' });
@@ -15724,8 +15741,9 @@ app.get('/api/artists/:artistId/follower-count', async (req: any, res) => {
 app.get('/api/artists/:artistId/followers', publicCache(60), async (req: any, res) => {
     try {
         const limit = Math.min(Number(req.query.limit) || 12, 50);
+        const artistIds = await getAllProfileIds(req.params.artistId);
         const follows = await db.artistFollow.findMany({
-            where: { artistId: req.params.artistId },
+            where: { artistId: { in: artistIds } },
             orderBy: { createdAt: 'desc' },
             take: limit,
             select: { followerId: true },
