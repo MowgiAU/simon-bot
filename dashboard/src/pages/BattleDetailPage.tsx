@@ -673,7 +673,14 @@ export const BattleDetailPage: React.FC = () => {
                         }}>
                             <div
                                 className="battle-description-prose"
-                                dangerouslySetInnerHTML={{ __html: battle.description }}
+                                dangerouslySetInnerHTML={{ __html:
+                                    // Ensure all iframes have the allow attribute YouTube needs.
+                                    // Handles descriptions saved before the editor was fixed.
+                                    (battle.description || '').replace(
+                                        /<iframe(?![^>]*\ballow\b)([^>]*?)>/gi,
+                                        '<iframe$1 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share">'
+                                    )
+                                }}
                                 style={{
                                     color: colors.textSecondary,
                                     fontSize: isMobile ? '14px' : '16px',

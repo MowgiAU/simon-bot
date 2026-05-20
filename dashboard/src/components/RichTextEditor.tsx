@@ -335,7 +335,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ value, onChange,
             // Extract YouTube embed URL
             const ytMatch = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=))([^?&]+)/);
             if (ytMatch) {
-                html = `<div class="article-embed article-video" style="position:relative;padding-bottom:56.25%;height:0;margin:16px 0;border-radius:12px;overflow:hidden;"><iframe src="https://www.youtube.com/embed/${ytMatch[1]}" style="position:absolute;top:0;left:0;width:100%;height:100%;border:none;" allowfullscreen></iframe></div>`;
+                html = `<div class="article-embed article-video" style="position:relative;padding-bottom:56.25%;height:0;margin:16px 0;border-radius:12px;overflow:hidden;"><iframe src="https://www.youtube.com/embed/${ytMatch[1]}" style="position:absolute;top:0;left:0;width:100%;height:100%;border:none;" allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"></iframe></div>`;
             } else {
                 html = `<div class="article-embed article-video" style="margin:16px 0;"><a href="${url}" target="_blank" rel="noopener noreferrer" style="color:${colors.primary};">${url}</a></div>`;
             }
