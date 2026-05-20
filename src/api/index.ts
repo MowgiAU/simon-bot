@@ -794,6 +794,22 @@ app.use(helmet({
     },
     // Disabled: breaks SharedArrayBuffer used by audio worklets
     crossOriginEmbedderPolicy: false,
+    // Allow YouTube/Vimeo embeds to use fullscreen and autoplay.
+    // Helmet 8 defaults block fullscreen=() which prevents the YouTube player from initialising.
+    permissionsPolicy: {
+        features: {
+            fullscreen:       ['*'],
+            autoplay:         ['*'],
+            'picture-in-picture': ['*'],
+            'encrypted-media':    ['*'],
+            accelerometer:    ['*'],
+            gyroscope:        ['*'],
+            'clipboard-write':    ['*'],
+        },
+    },
+    // Use the browser default referrer policy so YouTube can validate the embedding origin.
+    // Helmet's default no-referrer strips the referrer, which can cause player config errors.
+    referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
 }));
 // Compress all responses >1KB (gzip) \u2014 critical for large JSON payloads (waveforms, track listings)
 app.use(compression());
