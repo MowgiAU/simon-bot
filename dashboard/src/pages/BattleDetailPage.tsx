@@ -796,7 +796,8 @@ export const BattleDetailPage: React.FC = () => {
                 <section style={{ maxWidth: '1300px', margin: '0 auto', padding: isMobile ? '24px 16px 32px' : '32px 24px 48px' }}>
                     <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '24px' }}>
 
-                        {/* Rules card */}
+                        {/* Rules card — hidden until battle is active */}
+                        {battle.status !== 'upcoming' && (
                         <div style={{ backgroundColor: '#242C3D', padding: isMobile ? '20px' : '32px', borderRadius: borderRadius.lg, border: '1px solid rgba(255,255,255,0.05)', boxShadow: '0 20px 40px rgba(0,0,0,0.2)' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
                                 <Shield size={18} color={colors.primary} />
@@ -857,6 +858,7 @@ export const BattleDetailPage: React.FC = () => {
                                 </p>
                             )}
                         </div>
+                        )}
 
                         {/* Prizes card */}
                         <div style={{ backgroundColor: '#242C3D', padding: isMobile ? '20px' : '32px', borderRadius: borderRadius.lg, border: '1px solid rgba(255,255,255,0.05)', boxShadow: '0 20px 40px rgba(0,0,0,0.2)' }}>
