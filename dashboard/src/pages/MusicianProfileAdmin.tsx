@@ -67,6 +67,8 @@ export const MusicianProfileAdmin: React.FC = () => {
     const [savingAutoFollow, setSavingAutoFollow] = useState(false);
     const [backfilling, setBackfilling] = useState(false);
     const [backfillResult, setBackfillResult] = useState<{ followed: number; skipped: number } | null>(null);
+    const [syncingAuthors, setSyncingAuthors] = useState(false);
+    const [syncAuthorsResult, setSyncAuthorsResult] = useState<{ updated: number } | null>(null);
 
     useEffect(() => {
         const onResize = () => setIsMobile(window.innerWidth < 1024);
@@ -231,6 +233,17 @@ export const MusicianProfileAdmin: React.FC = () => {
             setMsg({ type: 'success', text: 'Auto-follow profile cleared' });
         } catch { setMsg({ type: 'error', text: 'Failed to clear setting' }); }
         finally { setSavingAutoFollow(false); }
+    };
+
+    const runSyncAuthors = async () => {
+        setSyncingAuthors(true);
+        setSyncAuthorsResult(null);
+        try {
+            const res = await axios.post('/api/admin/articles/sync-authors', {}, { withCredentials: true });
+            setSyncAuthorsResult(res.data);
+        } catch (err: any) {
+            setMsg({ type: 'error', text: err.response?.data?.error || 'Sync failed' });
+        } finally { setSyncingAuthors(false); }
     };
 
     const runBackfill = async () => {
@@ -2061,6 +2074,34 @@ export const MusicianProfileAdmin: React.FC = () => {
                         {backfilling ? <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Running backfill…</> : <><UserPlus size={14} /> Run Backfill</>}
                     </button>
                     {!autoFollowProfile && <p style={{ margin: '8px 0 0', fontSize: '12px', color: colors.textSecondary }}>Set an auto-follow profile above first.</p>}
+                </div>
+
+                {/* Sync Article Authors Card */}
+                <div style={{ backgroundColor: colors.surface, padding: spacing.lg, borderRadius: borderRadius.lg, border: '1px solid rgba(255,255,255,0.06)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: spacing.md }}>
+                        <div style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: 'rgba(99,102,241,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <FileText size={18} color="#6366f1" />
+                        </div>
+                        <div>
+                            <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: colors.textPrimary }}>Sync Article Authors</h3>
+                            <p style={{ margin: '2px 0 0', fontSize: '12px', color: colors.textSecondary }}>Update all articles to reflect current profile names and avatars.</p>
+                        </div>
+                    </div>
+
+                    {syncAuthorsResult && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', borderRadius: borderRadius.md, backgroundColor: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.2)', marginBottom: spacing.md }}>
+                            <CheckCircle size={16} color="#22c55e" />
+                            <span style={{ fontSize: '13px', color: '#22c55e', fontWeight: 600 }}>Updated {syncAuthorsResult.updated} articles.</span>
+                        </div>
+                    )}
+
+                    <button
+                        onClick={runSyncAuthors}
+                        disabled={syncingAuthors}
+                        style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px', borderRadius: borderRadius.md, backgroundColor: '#6366f1', color: '#fff', border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: '13px', opacity: syncingAuthors ? 0.7 : 1 }}
+                    >
+                        {syncingAuthors ? <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Syncing…</> : <><FileText size={14} /> Sync Now</>}
+                    </button>
                 </div>
             </div>
             )}

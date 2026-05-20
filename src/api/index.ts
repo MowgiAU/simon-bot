@@ -10497,16 +10497,36 @@ app.post('/api/admin/auto-follow/backfill', requireAdmin, async (_req, res) => {
 // POST /api/admin/articles/sync-authors — backfill authorName/authorAvatar from current profiles
 app.post('/api/admin/articles/sync-authors', requireAdmin, async (_req, res) => {
     try {
+        // For each user, pick the profile with the most tracks (same logic as getProfile)
         const profiles = await db.musicianProfile.findMany({
-            select: { userId: true, displayName: true, username: true, avatar: true },
+            select: {
+                id: true, userId: true, displayName: true, username: true, avatar: true,
+                _count: { select: { tracks: { where: { deletedAt: null } } } },
+            },
         });
 
-        let updated = 0;
+        // Group by userId, keep the one with the most tracks
+        const best = new Map<string, typeof profiles[0]>();
         for (const p of profiles) {
+            const existing = best.get(p.userId);
+            if (!existing || p._count.tracks > existing._count.tracks) best.set(p.userId, p);
+        }
+
+        // Build a map of all IDs (cuid + discordId) per user
+        const users = await db.user.findMany({ select: { id: true, discordId: true } });
+        const allIds = new Map<string, string[]>();
+        for (const u of users) {
+            const ids = [u.id, u.discordId].filter(Boolean) as string[];
+            for (const id of ids) allIds.set(id, ids);
+        }
+
+        let updated = 0;
+        for (const [userId, p] of best) {
             const name = p.displayName || p.username || '';
             if (!name) continue;
+            const ids = allIds.get(userId) || [userId];
             const result = await db.article.updateMany({
-                where: { authorUserId: p.userId },
+                where: { authorUserId: { in: ids } },
                 data: { authorName: name, authorAvatar: p.avatar || null },
             });
             updated += result.count;
