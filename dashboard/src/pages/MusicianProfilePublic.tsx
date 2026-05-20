@@ -10,7 +10,7 @@ import {
     Music, Hammer, Instagram, Youtube, MessageCircle, Radio,
     Edit3, Pause, ExternalLink, Award, Zap, Play, Copy, Check,
     Swords, Trophy, Flame, UserPlus, UserCheck, Repeat2, Heart, Share2, ListMusic, Clock, Star,
-    GripVertical, ChevronUp, ChevronDown, Disc, EyeOff
+    GripVertical, ChevronUp, ChevronDown, Disc, EyeOff, Users
 } from 'lucide-react';
 import { CommentSection } from '../components/CommentSection';
 import { FujiLogo } from '../components/FujiLogo';
@@ -103,6 +103,8 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
     const [copied, setCopied] = useState(false);
     const [isFollowing, setIsFollowing] = useState(false);
     const [followerCount, setFollowerCount] = useState(0);
+    const [followingCount, setFollowingCount] = useState(0);
+    const [followerProfiles, setFollowerProfiles] = useState<{ userId: string; username: string; displayName: string | null; avatar: string | null }[]>([]);
     const [startingChat, setStartingChat] = useState(false);
     const [discographyFilter, setDiscographyFilter] = useState<'all' | 'tracks' | 'reposts' | 'collabs'>('all');
     const [favourites, setFavourites] = useState<Record<string, boolean>>({});
@@ -281,6 +283,8 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                 axios.get(`/api/artists/${data.id}/follower-count`).catch(() => null),
                 axios.get(`/api/artists/${data.id}/follow`, { withCredentials: true }).catch(() => null),
                 axios.get(`/api/beat-battle/user/${data.userId}/entries`).catch(() => null),
+                axios.get(`/api/artists/${data.id}/followers?limit=12`).catch(() => null),
+                axios.get(`/api/artists/${data.id}/following-count`).catch(() => null),
             ];
             if (allTrackIds.length > 0) {
                 supplementary.push(
@@ -288,10 +292,12 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                     axios.post('/api/tracks/reposts/check', { trackIds: allTrackIds }, { withCredentials: true }).catch(() => null),
                 );
             }
-            const [countRes, followRes, entriesRes, favRes, repRes] = await Promise.all(supplementary);
+            const [countRes, followRes, entriesRes, favRes, repRes, followersRes, followingRes] = await Promise.all(supplementary);
             if (countRes?.data) setFollowerCount(countRes.data.count);
             if (followRes?.data) setIsFollowing(followRes.data.following);
             if (entriesRes?.data) setBattleEntries(entriesRes.data);
+            if (followersRes?.data) setFollowerProfiles(followersRes.data);
+            if (followingRes?.data) setFollowingCount(followingRes.data.count);
             if (favRes?.data) setFavourites(favRes.data);
             if (repRes?.data) setReposts(repRes.data);
             if (data.playlists) setProfilePlaylists(data.playlists);
@@ -356,8 +362,9 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
         : '#0E121A';
     const stats = [
         { label: 'Followers', value: followerCount.toLocaleString() },
+        { label: 'Following', value: followingCount.toLocaleString() },
         { label: 'Total Streams', value: profile.totalPlays?.toLocaleString() || '0' },
-        { label: 'Releases', value: profile.tracks?.length.toString() || '0' }
+        { label: 'Releases', value: (profile._count?.tracks ?? profile.tracks?.length ?? 0).toLocaleString() },
     ];
 
     const socials = [
@@ -1109,60 +1116,134 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                     {/* RIGHT: Sidebar */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
-                        {/* About Card */}
+                        {/* ── About Card ── */}
                         {(profile.bio || socials.some(s => !!(profile as any)[s.key])) && (
-                        <div style={{ backgroundColor: cardBg, borderRadius: '12px', border: `1px solid ${cardBorder}`, padding: '24px', color: cardText, boxShadow: cardShadow }}>
-                            <h4 style={{ margin: '0 0 16px', fontSize: '13px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: cardTextSec }}>About</h4>
-                            {profile.bio && <p style={{ fontSize: '13px', color: cardTextSec, margin: '0 0 16px', lineHeight: 1.6 }}>{profile.bio}</p>}
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                {socials.map(s => {
-                                    const url = (profile as any)[s.key];
-                                    if (!url) return null;
-                                    const inner = (
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px', borderRadius: '8px', backgroundColor: cardInner, border: `1px solid ${cardBorder}` }}>
-                                            <div style={{ width: '28px', height: '28px', borderRadius: '6px', backgroundColor: `${s.color}15`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                {React.cloneElement(s.icon as React.ReactElement, { color: s.color, size: 14 })}
-                                            </div>
-                                            <span style={{ fontSize: '12px', fontWeight: 500, color: cardText, flex: 1 }}>{s.label}</span>
-                                            {!s.isHandle && <ExternalLink size={12} color={cardTextSec} />}
-                                            {s.isHandle && <span style={{ fontSize: '10px', color: '#94a3b8' }}>{url}</span>}
+                        <div style={{ backgroundColor: cardBg, borderRadius: '16px', border: `1px solid ${cardBorder}`, overflow: 'hidden', boxShadow: cardShadow }}>
+                            <div style={{ borderLeft: `3px solid ${accent}`, padding: '20px 20px 20px 17px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
+                                    <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: `${accent}18`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <Star size={13} color={accent} />
+                                    </div>
+                                    <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: cardTextSec }}>About</span>
+                                </div>
+                                {profile.bio && (
+                                    <p style={{ fontSize: '13px', color: cardTextSec, margin: '0 0 16px', lineHeight: 1.65 }}>{profile.bio}</p>
+                                )}
+                                {socials.some(s => !!(profile as any)[s.key]) && (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                        {socials.map(s => {
+                                            const url = (profile as any)[s.key];
+                                            if (!url) return null;
+                                            const inner = (
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '9px 12px', borderRadius: '10px', backgroundColor: cardInner, border: `1px solid ${cardBorder}`, transition: 'opacity 0.15s' }}
+                                                    onMouseEnter={e => (e.currentTarget as HTMLElement).style.opacity = '0.75'}
+                                                    onMouseLeave={e => (e.currentTarget as HTMLElement).style.opacity = '1'}>
+                                                    <div style={{ width: '26px', height: '26px', borderRadius: '7px', backgroundColor: `${s.color}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                                        {React.cloneElement(s.icon as React.ReactElement, { color: s.color, size: 13 })}
+                                                    </div>
+                                                    <span style={{ fontSize: '12px', fontWeight: 600, color: cardText, flex: 1 }}>{s.label}</span>
+                                                    {!s.isHandle && <ExternalLink size={11} color={cardTextTer} />}
+                                                    {s.isHandle && <span style={{ fontSize: '10px', color: cardTextTer }}>{url}</span>}
+                                                </div>
+                                            );
+                                            return s.isHandle ? <div key={s.key}>{inner}</div> : <a key={s.key} href={url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>{inner}</a>;
+                                        })}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                        )}
+
+                        {/* ── Stats Card ── */}
+                        <div style={{ backgroundColor: cardBg, borderRadius: '16px', border: `1px solid ${cardBorder}`, overflow: 'hidden', boxShadow: cardShadow }}>
+                            <div style={{ padding: '20px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+                                    <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: `${accent}18`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <Zap size={13} color={accent} />
+                                    </div>
+                                    <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: cardTextSec }}>Stats</span>
+                                </div>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                                    {stats.map(s => (
+                                        <div key={s.label} style={{ padding: '12px 14px', borderRadius: '12px', backgroundColor: cardInner, border: `1px solid ${cardBorder}` }}>
+                                            <div style={{ fontSize: '20px', fontWeight: 800, color: cardText, lineHeight: 1, letterSpacing: '-0.02em' }}>{s.value}</div>
+                                            <div style={{ fontSize: '10px', fontWeight: 600, color: cardTextTer, textTransform: 'uppercase', letterSpacing: '0.08em', marginTop: '4px' }}>{s.label}</div>
                                         </div>
-                                    );
-                                    return s.isHandle ? <div key={s.key}>{inner}</div> : <a key={s.key} href={url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>{inner}</a>;
-                                })}
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* ── Followers Card ── */}
+                        {followerCount > 0 && (
+                        <div style={{ backgroundColor: cardBg, borderRadius: '16px', border: `1px solid ${cardBorder}`, overflow: 'hidden', boxShadow: cardShadow }}>
+                            <div style={{ padding: '20px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: `${accent}18`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                            <Users size={13} color={accent} />
+                                        </div>
+                                        <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: cardTextSec }}>Followers</span>
+                                    </div>
+                                    <span style={{ fontSize: '12px', fontWeight: 700, color: accent }}>{followerCount.toLocaleString()}</span>
+                                </div>
+                                {followerProfiles.length > 0 && (
+                                    <>
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', marginBottom: followerCount > 12 ? '12px' : '0' }}>
+                                            {followerProfiles.slice(0, 12).map(f => (
+                                                <a key={f.userId} href={`/profile/${f.username}`} title={f.displayName || f.username} style={{ textDecoration: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                                                    <div style={{ width: '44px', height: '44px', borderRadius: '12px', overflow: 'hidden', border: `1px solid ${cardBorder}`, flexShrink: 0 }}>
+                                                        {f.avatar ? (
+                                                            <img src={f.avatar.startsWith('http') ? f.avatar : `https://cdn.discordapp.com/avatars/${f.userId}/${f.avatar}.png?size=64`}
+                                                                alt={f.username} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                        ) : (
+                                                            <div style={{ width: '100%', height: '100%', background: `${accent}25`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: 700, color: accent }}>
+                                                                {(f.displayName || f.username)[0].toUpperCase()}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    <span style={{ fontSize: '9px', color: cardTextTer, textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%', maxWidth: '44px' }}>
+                                                        {f.displayName || f.username}
+                                                    </span>
+                                                </a>
+                                            ))}
+                                        </div>
+                                        {followerCount > 12 && (
+                                            <a href={`/profile/${profile.username}#followers`}
+                                                style={{ display: 'block', textAlign: 'center', fontSize: '12px', fontWeight: 600, color: accent, textDecoration: 'none', padding: '8px', borderRadius: '8px', backgroundColor: `${accent}10`, border: `1px solid ${accent}25` }}>
+                                                View all {followerCount.toLocaleString()} followers →
+                                            </a>
+                                        )}
+                                    </>
+                                )}
                             </div>
                         </div>
                         )}
 
-                        {/* Gear Rack */}
+                        {/* ── Gear Rack ── */}
                         {gear.length > 0 && (
-                        <div style={{ backgroundColor: cardBg, borderRadius: '12px', border: `1px solid ${cardBorder}`, padding: '24px', color: cardText, boxShadow: cardShadow }}>
-                            <h4 style={{ margin: '0 0 16px', fontSize: '13px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: cardTextSec, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <Hammer size={16} color="#7A8C37" /> Gear & Tools
-                            </h4>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                {gear.map((item: any, i: number) => (
-                                    <div key={i} style={{ padding: '10px 12px', borderRadius: '8px', backgroundColor: cardInner, border: `1px solid ${cardBorder}` }}>
-                                        <p style={{ fontSize: '9px', fontWeight: 700, color: '#7A8C37', textTransform: 'uppercase', letterSpacing: '0.08em', margin: 0 }}>{item.category || 'Other'}</p>
-                                        <p style={{ fontSize: '12px', fontWeight: 600, color: cardText, margin: '3px 0 0' }}>{item.name || item}</p>
+                        <div style={{ backgroundColor: cardBg, borderRadius: '16px', border: `1px solid ${cardBorder}`, overflow: 'hidden', boxShadow: cardShadow }}>
+                            <div style={{ padding: '20px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+                                    <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: 'rgba(122,140,55,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <Hammer size={13} color="#7A8C37" />
                                     </div>
-                                ))}
+                                    <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: cardTextSec }}>Gear & Tools</span>
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                    {gear.map((item: any, i: number) => (
+                                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '9px 12px', borderRadius: '10px', backgroundColor: cardInner, border: `1px solid ${cardBorder}` }}>
+                                            <div style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#7A8C37', flexShrink: 0 }} />
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                <div style={{ fontSize: '12px', fontWeight: 600, color: cardText, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name || item}</div>
+                                                {item.category && <div style={{ fontSize: '10px', color: cardTextTer, textTransform: 'uppercase', letterSpacing: '0.06em', marginTop: '1px' }}>{item.category}</div>}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                         </div>
                         )}
-
-                        {/* Quick Stats Card */}
-                        <div style={{ backgroundColor: cardBg, borderRadius: '12px', border: `1px solid ${cardBorder}`, padding: '24px', color: cardText, boxShadow: cardShadow }}>
-                            <h4 style={{ margin: '0 0 16px', fontSize: '13px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: cardTextSec }}>Stats</h4>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                {stats.map(s => (
-                                    <div key={s.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <span style={{ fontSize: '12px', color: cardTextSec }}>{s.label}</span>
-                                        <span style={{ fontSize: '16px', fontWeight: 700, color: cardText }}>{s.value}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
 
                         {/* Playlists & Releases Card */}
                         {profilePlaylists.length > 0 && (() => {

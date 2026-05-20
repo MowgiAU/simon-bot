@@ -15720,6 +15720,48 @@ app.get('/api/artists/:artistId/follower-count', async (req: any, res) => {
     }
 });
 
+// Get follower profiles for a grid display (limited)
+app.get('/api/artists/:artistId/followers', publicCache(60), async (req: any, res) => {
+    try {
+        const limit = Math.min(Number(req.query.limit) || 12, 50);
+        const follows = await db.artistFollow.findMany({
+            where: { artistId: req.params.artistId },
+            orderBy: { createdAt: 'desc' },
+            take: limit,
+            select: { followerId: true },
+        });
+        // Resolve follower profiles by Discord ID or cuid
+        const profiles = await db.musicianProfile.findMany({
+            where: { userId: { in: follows.map(f => f.followerId) } },
+            select: { userId: true, username: true, displayName: true, avatar: true },
+        });
+        res.json(profiles);
+    } catch (e: any) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Get how many artists a profile is following
+app.get('/api/artists/:artistId/following-count', publicCache(60), async (req: any, res) => {
+    try {
+        const profile = await db.musicianProfile.findUnique({
+            where: { id: req.params.artistId },
+            select: { userId: true },
+        });
+        if (!profile) return res.json({ count: 0 });
+        // Check both userId formats
+        const user = await db.user.findFirst({
+            where: { OR: [{ id: profile.userId }, { discordId: profile.userId }] },
+            select: { id: true, discordId: true },
+        });
+        const ids = [...new Set([profile.userId, user?.id, user?.discordId].filter(Boolean))] as string[];
+        const count = await db.artistFollow.count({ where: { followerId: { in: ids } } });
+        res.json({ count });
+    } catch (e: any) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 // Get current user's followed artists
 app.get('/api/my-follows', requireAuth, async (req: any, res) => {
     try {
