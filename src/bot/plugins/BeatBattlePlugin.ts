@@ -338,6 +338,7 @@ export class BeatBattlePlugin implements IPlugin {
 
         const apiUrl = process.env.API_URL || 'https://fujistud.io';
         const battleUrl = `${apiUrl}/battles/${battle.slug || battle.id}`;
+        const toAbs = (u?: string | null) => u ? (u.startsWith('http') ? u : `${apiUrl}${u}`) : null;
 
         try {
             const channel = await this.client.channels.fetch(annChannelId) as TextChannel | null;
@@ -354,8 +355,8 @@ export class BeatBattlePlugin implements IPlugin {
                 .setFooter({ text: 'Fuji Studio Beat Battles' })
                 .setTimestamp();
 
-            if (battle.bannerUrl) embed.setImage(battle.bannerUrl);
-            else if (battle.cardImageUrl) embed.setImage(battle.cardImageUrl);
+            const heroImage = toAbs(battle.bannerUrl) || toAbs(battle.cardImageUrl);
+            if (heroImage) embed.setImage(heroImage);
 
             if (battle.submissionStart && battle.submissionEnd) {
                 embed.addFields(
@@ -386,7 +387,7 @@ export class BeatBattlePlugin implements IPlugin {
                 let sponsorText = `**${battle.sponsor.name}**`;
                 if (battle.sponsor.websiteUrl) sponsorText += ` — [Visit Website](${battle.sponsor.websiteUrl})`;
                 embed.addFields({ name: '🤝 Sponsored by', value: sponsorText });
-                if (battle.sponsor.logoUrl && !battle.bannerUrl) embed.setThumbnail(battle.sponsor.logoUrl);
+                if (battle.sponsor.logoUrl && !battle.bannerUrl) embed.setThumbnail(toAbs(battle.sponsor.logoUrl)!);
             }
 
             embed.addFields({ name: '\u200b', value: `[**Submit Your Track →**](${battleUrl})` });
@@ -407,6 +408,7 @@ export class BeatBattlePlugin implements IPlugin {
 
         const apiUrl = process.env.API_URL || 'https://fujistud.io';
         const battleUrl = `${apiUrl}/battles/${battle.slug || battle.id}`;
+        const toAbs = (u?: string | null) => u ? (u.startsWith('http') ? u : `${apiUrl}${u}`) : null;
 
         try {
             const channel = await this.client.channels.fetch(annChannelId) as TextChannel | null;
@@ -421,8 +423,8 @@ export class BeatBattlePlugin implements IPlugin {
                 .setFooter({ text: 'Fuji Studio Beat Battles' })
                 .setTimestamp();
 
-            if (battle.bannerUrl) embed.setImage(battle.bannerUrl);
-            else if (battle.cardImageUrl) embed.setImage(battle.cardImageUrl);
+            const heroImage = toAbs(battle.bannerUrl) || toAbs(battle.cardImageUrl);
+            if (heroImage) embed.setImage(heroImage);
 
             if (battle.votingEnd) {
                 embed.addFields({ name: '⏰ Voting Closes', value: `<t:${Math.floor(new Date(battle.votingEnd).getTime() / 1000)}:R>`, inline: true });
@@ -432,7 +434,7 @@ export class BeatBattlePlugin implements IPlugin {
                 let sponsorText = `**${battle.sponsor.name}**`;
                 if (battle.sponsor.websiteUrl) sponsorText += ` — [Visit Website](${battle.sponsor.websiteUrl})`;
                 embed.addFields({ name: '🤝 Sponsored by', value: sponsorText });
-                if (battle.sponsor.logoUrl && !battle.bannerUrl) embed.setThumbnail(battle.sponsor.logoUrl);
+                if (battle.sponsor.logoUrl && !battle.bannerUrl) embed.setThumbnail(toAbs(battle.sponsor.logoUrl)!);
             }
 
             embed.addFields({ name: '\u200b', value: `[**Listen & Vote →**](${battleUrl})` });
@@ -451,6 +453,7 @@ export class BeatBattlePlugin implements IPlugin {
 
         const apiUrl = process.env.API_URL || 'https://fujistud.io';
         const battleUrl = `${apiUrl}/battles/${battle.slug || battle.id}`;
+        const toAbs = (u?: string | null) => u ? (u.startsWith('http') ? u : `${apiUrl}${u}`) : null;
 
         try {
             const channel = await this.client.channels.fetch(annChannelId) as TextChannel | null;
@@ -477,14 +480,14 @@ export class BeatBattlePlugin implements IPlugin {
                 .setFooter({ text: 'Fuji Studio Beat Battles' })
                 .setTimestamp();
 
-            if (battle.bannerUrl) embed.setImage(battle.bannerUrl);
-            else if (battle.cardImageUrl) embed.setImage(battle.cardImageUrl);
+            const heroImage = toAbs(battle.bannerUrl) || toAbs(battle.cardImageUrl);
+            if (heroImage) embed.setImage(heroImage);
 
             if (battle.sponsor) {
                 let sponsorText = `**${battle.sponsor.name}**`;
                 if (battle.sponsor.websiteUrl) sponsorText += ` — [Visit Website](${battle.sponsor.websiteUrl})`;
                 embed.addFields({ name: '🤝 Sponsored by', value: sponsorText });
-                if (battle.sponsor.logoUrl && !battle.bannerUrl) embed.setThumbnail(battle.sponsor.logoUrl);
+                if (battle.sponsor.logoUrl && !battle.bannerUrl) embed.setThumbnail(toAbs(battle.sponsor.logoUrl)!);
             }
 
             embed.addFields({ name: '\u200b', value: `[**View Full Results →**](${battleUrl})` });
