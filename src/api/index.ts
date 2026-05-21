@@ -6913,7 +6913,12 @@ app.post('/api/musician/tracks', uploadLimiter, upload.fields([
         }
 
         // --- Per-user track cap ---
-        const uploaderProfile = await db.musicianProfile.findUnique({ where: { userId } });
+        // Resolve profile handling both Discord snowflake and cuid userId formats
+        const canonicalUploaderId = req.session?.user?._localId || userId;
+        let uploaderProfile = await db.musicianProfile.findFirst({
+            where: { userId: { in: [...new Set([userId, canonicalUploaderId])] } },
+            orderBy: { totalPlays: 'desc' },
+        });
         if (uploaderProfile) {
             const trackCount = await db.track.count({
                 where: { profileId: uploaderProfile.id, status: { not: 'deleted' } },
