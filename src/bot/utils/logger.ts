@@ -46,6 +46,22 @@ export class Logger {
   }
 
   error(msg: string, error?: any) {
-    this.logger.error(error, msg);
+    if (error && typeof error === 'object') {
+      // Axios errors include the full request object which produces enormous log entries.
+      // Reduce to just the useful parts before handing to Pino.
+      const sanitized: any = {
+        type: error.constructor?.name || 'Error',
+        message: error.message,
+        stack: error.stack,
+      };
+      if (error.response) {
+        sanitized.status = error.response.status;
+        sanitized.data = error.response.data;
+      }
+      if (error.code) sanitized.code = error.code;
+      this.logger.error({ err: sanitized }, msg);
+    } else {
+      this.logger.error(error, msg);
+    }
   }
 }
