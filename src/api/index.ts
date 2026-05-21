@@ -11145,12 +11145,12 @@ app.get('/api/beat-battle/battles', async (req: any, res) => {
         const status = req.query.status as string | undefined;
 
         // 'default-guild' is the public-page sentinel meaning "all guilds"
-        const where: any = {};
+        const where: any = { isTest: { not: true } };
         if (guildId && guildId !== 'default-guild') where.guildId = guildId;
         if (status) where.status = status;
 
         const battles = await db.beatBattle.findMany({
-            where,
+            where: (where as any),
             include: {
                 sponsor: { include: { links: true } },
                 _count: { select: { entries: { where: { deletedAt: null } } } },
@@ -11182,7 +11182,7 @@ app.get('/api/beat-battle/battles/:id', async (req: any, res) => {
         res.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
         const idOrSlug = req.params.id;
         const battle = await db.beatBattle.findFirst({
-            where: { OR: [{ id: idOrSlug }, { slug: idOrSlug }] },
+            where: { OR: [{ id: idOrSlug }, { slug: idOrSlug }], isTest: { not: true } } as any,
             include: {
                 sponsor: { include: { links: true } },
                 entries: {
@@ -11308,7 +11308,7 @@ app.get('/api/beat-battle/tracks/:trackId/battles', requireAuth, async (req: any
 app.get('/api/beat-battle/archive', publicCache(120), async (req: any, res) => {
     try {
         const guildId = req.query.guildId as string | undefined;
-        const archiveWhere: any = { status: 'completed' };
+        const archiveWhere: any = { status: 'completed', isTest: { not: true } };
         if (guildId && guildId !== 'default-guild') archiveWhere.guildId = guildId;
         const battles = await db.beatBattle.findMany({
             where: archiveWhere,
@@ -12874,6 +12874,187 @@ app.get('/api/guilds/:guildId/beat-battle/settings', async (req: any, res) => {
         res.status(500).json({ error: 'Internal server error' });
     }
 });
+
+// ============================================================
+// BATTLE TEST LAB (admin-only, fully sandboxed)
+// ============================================================
+
+// GET  /api/beat-battle/admin/test                    - list test battles
+// POST /api/beat-battle/admin/test/create             - create a test battle
+// POST /api/beat-battle/admin/test/:id/entries/generate - add fake submissions
+// POST /api/beat-battle/admin/test/:id/advance        - advance to next stage
+// POST /api/beat-battle/admin/test/:id/votes/simulate - cast random votes
+// GET  /api/beat-battle/admin/test/:id/results        - ranked results preview
+// DELETE /api/beat-battle/admin/test/:id              - clean up everything
+
+app.get('/api/beat-battle/admin/test', requireAdmin, async (_req, res) => {
+    try {
+        const battles = await (db.beatBattle as any).findMany({
+            where: { isTest: true },
+            include: { _count: { select: { entries: true } } },
+            orderBy: { createdAt: 'desc' },
+        });
+        res.json(battles);
+    } catch (e: any) { res.status(500).json({ error: 'Internal server error' }); }
+});
+
+app.post('/api/beat-battle/admin/test/create', requireAdmin, async (req: any, res) => {
+    try {
+        const { title, guildId: bodyGuild } = req.body;
+        if (!title) return res.status(400).json({ error: 'Title is required' });
+        const guildId = bodyGuild || process.env.GUILD_ID || 'test-guild';
+        const now = new Date();
+        const battle = await (db.beatBattle as any).create({
+            data: {
+                guildId,
+                title: `[TEST] ${title}`,
+                status: 'active',
+                isTest: true,
+                createdBy: req.session.user.id,
+                submissionStart: now,
+                submissionEnd: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000),
+                votingEnd: new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000),
+                maxVotesPerUser: 0,
+            },
+        });
+        res.json(battle);
+    } catch (e: any) { res.status(500).json({ error: 'Internal server error' }); }
+});
+
+app.post('/api/beat-battle/admin/test/:id/entries/generate', requireAdmin, async (req: any, res) => {
+    try {
+        const { id } = req.params;
+        const count = Math.min(Number(req.body.count) || 5, 20);
+
+        const battle = await (db.beatBattle as any).findUnique({ where: { id, isTest: true } });
+        if (!battle) return res.status(404).json({ error: 'Test battle not found' });
+
+        // Grab random public tracks that aren't already submitted
+        const existing = await db.battleEntry.findMany({ where: { battleId: id }, select: { trackId: true } });
+        const existingTrackIds = new Set(existing.map((e: any) => e.trackId));
+        const tracks = await db.track.findMany({
+            where: { isPublic: true, deletedAt: null, id: { notIn: [...existingTrackIds] } },
+            select: { id: true, profileId: true, profile: { select: { userId: true } } },
+            take: count * 5, // oversample so we have variety
+            orderBy: { createdAt: 'desc' },
+        });
+
+        if (tracks.length === 0) return res.status(400).json({ error: 'No public tracks available to use as fake submissions' });
+
+        // Deduplicate by userId (one submission per user)
+        const seen = new Set<string>();
+        const pool: typeof tracks = [];
+        for (const t of tracks) {
+            const uid = (t as any).profile?.userId;
+            if (uid && !seen.has(uid)) { seen.add(uid); pool.push(t); }
+            if (pool.length >= count) break;
+        }
+
+        const created = [];
+        for (const t of pool) {
+            const userId = (t as any).profile?.userId;
+            if (!userId) continue;
+            try {
+                const entry = await db.battleEntry.create({
+                    data: { battleId: id, userId, trackId: t.id, source: 'test' },
+                });
+                created.push(entry);
+            } catch { /* skip duplicate */ }
+        }
+        res.json({ created: created.length, entries: created });
+    } catch (e: any) { res.status(500).json({ error: 'Internal server error' }); }
+});
+
+app.post('/api/beat-battle/admin/test/:id/advance', requireAdmin, async (req: any, res) => {
+    try {
+        const { id } = req.params;
+        const battle = await (db.beatBattle as any).findUnique({ where: { id, isTest: true } });
+        if (!battle) return res.status(404).json({ error: 'Test battle not found' });
+
+        const transitions: Record<string, string> = { active: 'voting', voting: 'completed', upcoming: 'active' };
+        const next = transitions[battle.status];
+        if (!next) return res.status(400).json({ error: `Cannot advance from status: ${battle.status}` });
+
+        let extraData: any = {};
+        if (next === 'completed') {
+            const winners = await rankedBattleEntries(id, 1);
+            extraData.winnerEntryId = winners[0]?.id || null;
+        }
+
+        const updated = await db.beatBattle.update({
+            where: { id },
+            data: { status: next, ...extraData },
+        });
+        res.json({ status: updated.status, winnerEntryId: (updated as any).winnerEntryId || null });
+    } catch (e: any) { res.status(500).json({ error: 'Internal server error' }); }
+});
+
+app.post('/api/beat-battle/admin/test/:id/votes/simulate', requireAdmin, async (req: any, res) => {
+    try {
+        const { id } = req.params;
+        const battle = await (db.beatBattle as any).findUnique({ where: { id, isTest: true } });
+        if (!battle) return res.status(404).json({ error: 'Test battle not found' });
+        if (battle.status !== 'voting') return res.status(400).json({ error: 'Battle must be in voting stage' });
+
+        const entries = await db.battleEntry.findMany({ where: { battleId: id, deletedAt: null } });
+        if (entries.length < 2) return res.status(400).json({ error: 'Need at least 2 entries to simulate voting' });
+
+        // Generate fake voter IDs and distribute votes randomly
+        const numVoters = Math.max(entries.length * 3, 10);
+        let totalVotes = 0;
+
+        for (let v = 0; v < numVoters; v++) {
+            const fakeVoterId = `test-voter-${id.slice(-6)}-${v}`;
+            const shuffled = [...entries].sort(() => Math.random() - 0.5);
+            const ranks = [1, 2, 3].slice(0, Math.min(3, shuffled.length));
+            for (let r = 0; r < ranks.length; r++) {
+                const entry = shuffled[r];
+                try {
+                    await db.battleVote.create({
+                        data: { battleId: id, entryId: entry.id, userId: fakeVoterId, rank: ranks[r] },
+                    });
+                    await db.battleEntry.update({
+                        where: { id: entry.id },
+                        data: { voteCount: { increment: 1 } },
+                    });
+                    totalVotes++;
+                } catch { /* ignore unique constraint violations */ }
+            }
+        }
+        res.json({ totalVotes, voters: numVoters });
+    } catch (e: any) { res.status(500).json({ error: 'Internal server error' }); }
+});
+
+app.get('/api/beat-battle/admin/test/:id/results', requireAdmin, async (req: any, res) => {
+    try {
+        const { id } = req.params;
+        const battle = await (db.beatBattle as any).findUnique({ where: { id, isTest: true } });
+        if (!battle) return res.status(404).json({ error: 'Test battle not found' });
+        const results = await rankedBattleEntries(id, 10);
+        res.json({ battle, results });
+    } catch (e: any) { res.status(500).json({ error: 'Internal server error' }); }
+});
+
+app.delete('/api/beat-battle/admin/test/:id', requireAdmin, async (req: any, res) => {
+    try {
+        const { id } = req.params;
+        const battle = await (db.beatBattle as any).findUnique({ where: { id, isTest: true } });
+        if (!battle) return res.status(404).json({ error: 'Test battle not found' });
+
+        // Delete in dependency order
+        const entries = await db.battleEntry.findMany({ where: { battleId: id }, select: { id: true } });
+        const entryIds = entries.map((e: any) => e.id);
+        if (entryIds.length) {
+            await db.battleVote.deleteMany({ where: { entryId: { in: entryIds } } });
+        }
+        await db.battleEntry.deleteMany({ where: { battleId: id } });
+        await db.battleVote.deleteMany({ where: { battleId: id } });
+        await (db.beatBattle as any).delete({ where: { id } });
+
+        res.json({ ok: true });
+    } catch (e: any) { res.status(500).json({ error: 'Internal server error' }); }
+});
+
 
 app.put('/api/guilds/:guildId/beat-battle/settings', async (req: any, res) => {
     try {

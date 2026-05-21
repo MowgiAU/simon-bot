@@ -223,9 +223,9 @@ export class BeatBattlePlugin implements IPlugin {
     private async checkLifecycles(): Promise<void> {
         const now = new Date();
         try {
-            // Pending manual announcements (set via dashboard button)
-            const pendingAnn = await this.db.beatBattle.findMany({
-                where: { pendingAnnouncement: true, deletedAt: null },
+            // Pending manual announcements (set via dashboard button) — skip test battles
+            const pendingAnn = await (this.db.beatBattle as any).findMany({
+                where: { pendingAnnouncement: true, deletedAt: null, isTest: { not: true } },
                 include: { sponsor: { include: { links: true } } },
             });
             for (const battle of pendingAnn) {
@@ -233,9 +233,9 @@ export class BeatBattlePlugin implements IPlugin {
                 await this.db.beatBattle.update({ where: { id: battle.id }, data: { pendingAnnouncement: false } });
             }
 
-            // Upcoming -> Active (submission period started)
-            const toActivate = await this.db.beatBattle.findMany({
-                where: { status: 'upcoming', submissionStart: { lte: now }, deletedAt: null },
+            // Upcoming -> Active (submission period started) — skip test battles
+            const toActivate = await (this.db.beatBattle as any).findMany({
+                where: { status: 'upcoming', submissionStart: { lte: now }, deletedAt: null, isTest: { not: true } },
                 include: { sponsor: { include: { links: true } } },
             });
             for (const battle of toActivate) {
@@ -244,9 +244,9 @@ export class BeatBattlePlugin implements IPlugin {
                 this.logger.info(`Beat Battle: Activated "${battle.title}"`);
             }
 
-            // Active -> Voting (submission period ended)
-            const toVoting = await this.db.beatBattle.findMany({
-                where: { status: 'active', submissionEnd: { lte: now }, deletedAt: null },
+            // Active -> Voting (submission period ended) — skip test battles
+            const toVoting = await (this.db.beatBattle as any).findMany({
+                where: { status: 'active', submissionEnd: { lte: now }, deletedAt: null, isTest: { not: true } },
             });
             for (const battle of toVoting) {
                 await this.db.beatBattle.update({ where: { id: battle.id }, data: { status: 'voting' } });
@@ -254,9 +254,9 @@ export class BeatBattlePlugin implements IPlugin {
                 this.logger.info(`Beat Battle: Transitioned "${battle.title}" to voting`);
             }
 
-            // Voting -> Completed (voting period ended)
-            const toComplete = await this.db.beatBattle.findMany({
-                where: { status: 'voting', votingEnd: { lte: now }, deletedAt: null },
+            // Voting -> Completed (voting period ended) — skip test battles
+            const toComplete = await (this.db.beatBattle as any).findMany({
+                where: { status: 'voting', votingEnd: { lte: now }, deletedAt: null, isTest: { not: true } },
             });
             for (const battle of toComplete) {
                 const winners = await this.computeRankedEntries(battle.id, 3);

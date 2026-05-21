@@ -1389,6 +1389,9 @@ model BeatBattle {
   // Soft delete
   deletedAt DateTime?
 
+  // Test mode — never shown publicly, bot skips it, used for QA
+  isTest Boolean @default(false)
+
   guild     Guild             @relation(fields: [guildId], references: [id], onDelete: Cascade)
   sponsor   BattleSponsor?    @relation(fields: [sponsorId], references: [id])
   entries   BattleEntry[]

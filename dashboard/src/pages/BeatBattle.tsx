@@ -11,7 +11,8 @@ import {
     ChevronDown, ChevronUp, Trash2, Edit, Play, Vote,
     ExternalLink, Award, Archive, Upload, Clock, X, Save,
     Building2, Link2, FileDown, Settings, Gift, Megaphone,
-    Image, Loader2, Music, Pause, Download, Search, Crown
+    Image, Loader2, Music, Pause, Download, Search, Crown,
+    FlaskConical, CheckCircle2, ChevronRight, RefreshCw
 } from 'lucide-react';
 
 const API = import.meta.env.VITE_API_URL || '';
@@ -124,7 +125,7 @@ interface BackfillEntry {
     place: number; // 1=1st, 2=2nd, etc., 0=no placement
 }
 
-type Tab = 'battles' | 'sponsors' | 'backfill' | 'settings';
+type Tab = 'battles' | 'sponsors' | 'backfill' | 'settings' | 'testlab';
 
 export const BeatBattlePage: React.FC = () => {
     const { selectedGuild } = useAuth();
@@ -789,16 +790,16 @@ export const BeatBattlePage: React.FC = () => {
 
             {/* Tabs */}
             <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
-                {(['battles', 'sponsors', 'backfill', 'settings'] as Tab[]).map(t => (
+                {(['battles', 'sponsors', 'backfill', 'settings', 'testlab'] as Tab[]).map(t => (
                     <button
                         key={t}
                         onClick={() => setTab(t)}
                         style={{
                             padding: '8px 16px',
                             borderRadius: borderRadius.md,
-                            border: 'none',
-                            backgroundColor: tab === t ? colors.primary : 'rgba(255,255,255,0.06)',
-                            color: tab === t ? '#fff' : colors.textSecondary,
+                            border: t === 'testlab' ? '1px solid rgba(168,85,247,0.4)' : 'none',
+                            backgroundColor: tab === t ? (t === 'testlab' ? 'rgba(168,85,247,0.2)' : colors.primary) : 'rgba(255,255,255,0.06)',
+                            color: tab === t ? (t === 'testlab' ? '#c084fc' : '#fff') : (t === 'testlab' ? '#a855f7' : colors.textSecondary),
                             cursor: 'pointer',
                             fontWeight: 600,
                             fontSize: '13px',
@@ -809,7 +810,8 @@ export const BeatBattlePage: React.FC = () => {
                         {t === 'sponsors' && <Building2 size={14} style={{ marginRight: '6px', verticalAlign: '-2px' }} />}
                         {t === 'backfill' && <Archive size={14} style={{ marginRight: '6px', verticalAlign: '-2px' }} />}
                         {t === 'settings' && <Settings size={14} style={{ marginRight: '6px', verticalAlign: '-2px' }} />}
-                        {t}
+                        {t === 'testlab' && <FlaskConical size={14} style={{ marginRight: '6px', verticalAlign: '-2px' }} />}
+                        {t === 'testlab' ? 'Test Lab' : t}
                     </button>
                 ))}
             </div>
@@ -1902,6 +1904,10 @@ export const BeatBattlePage: React.FC = () => {
                     </div>
                 </>
             )}
+
+            {/* ─── TEST LAB TAB ─── */}
+            {tab === 'testlab' && <BattleTestLab />}
+
         </div>
         <ConfirmModal
             open={!!deleteConfirm}
@@ -1986,6 +1992,289 @@ const BattleEntries: React.FC<{ battleId: string }> = ({ battleId }) => {
                     </div>
                 </div>
             ))}
+        </div>
+    );
+};
+
+// ─── Battle Test Lab Component ───────────────────────────────────────────────
+
+type TestStep = 'idle' | 'created' | 'entries' | 'voting' | 'voted' | 'completed';
+
+interface TestBattle {
+    id: string; title: string; status: string;
+    _count?: { entries: number };
+}
+
+interface TestResult {
+    id: string; trackTitle: string; points: number;
+    firstVotes: number; secondVotes: number; thirdVotes: number;
+}
+
+const STEP_ORDER: TestStep[] = ['idle', 'created', 'entries', 'voting', 'voted', 'completed'];
+
+const BattleTestLab: React.FC = () => {
+    const [step, setStep] = useState<TestStep>('idle');
+    const [battle, setBattle] = useState<TestBattle | null>(null);
+    const [results, setResults] = useState<TestResult[]>([]);
+    const [title, setTitle] = useState('Test Battle ' + new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
+    const [entryCount, setEntryCount] = useState(8);
+    const [loading, setLoading] = useState(false);
+    const [log, setLog] = useState<{ ok: boolean; msg: string }[]>([]);
+    const [existingTests, setExistingTests] = useState<TestBattle[]>([]);
+
+    const addLog = (ok: boolean, msg: string) => setLog(prev => [...prev, { ok, msg }]);
+
+    useEffect(() => {
+        axios.get(`${API}/api/beat-battle/admin/test`, { withCredentials: true })
+            .then(r => setExistingTests(r.data || []))
+            .catch(() => {});
+    }, [step]);
+
+    const run = async (label: string, fn: () => Promise<void>) => {
+        setLoading(true);
+        try { await fn(); addLog(true, label); }
+        catch (e: any) { addLog(false, `${label}: ${e.response?.data?.error || e.message}`); }
+        finally { setLoading(false); }
+    };
+
+    const doCreate = () => run('Battle created', async () => {
+        const res = await axios.post(`${API}/api/beat-battle/admin/test/create`, { title }, { withCredentials: true });
+        setBattle(res.data);
+        setStep('created');
+    });
+
+    const doEntries = () => run(`${entryCount} fake submissions added`, async () => {
+        const res = await axios.post(`${API}/api/beat-battle/admin/test/${battle!.id}/entries/generate`, { count: entryCount }, { withCredentials: true });
+        setBattle(b => b ? { ...b, _count: { entries: res.data.created } } : b);
+        setStep('entries');
+    });
+
+    const doAdvanceToVoting = () => run('Advanced to voting stage', async () => {
+        await axios.post(`${API}/api/beat-battle/admin/test/${battle!.id}/advance`, {}, { withCredentials: true });
+        setBattle(b => b ? { ...b, status: 'voting' } : b);
+        setStep('voting');
+    });
+
+    const doSimulateVotes = () => run('Votes simulated', async () => {
+        const res = await axios.post(`${API}/api/beat-battle/admin/test/${battle!.id}/votes/simulate`, {}, { withCredentials: true });
+        addLog(true, `  → ${res.data.totalVotes} votes cast across ${res.data.voters} fake voters`);
+        setStep('voted');
+    });
+
+    const doEndBattle = () => run('Battle ended — results computed', async () => {
+        await axios.post(`${API}/api/beat-battle/admin/test/${battle!.id}/advance`, {}, { withCredentials: true });
+        const res = await axios.get(`${API}/api/beat-battle/admin/test/${battle!.id}/results`, { withCredentials: true });
+        setBattle(b => b ? { ...b, status: 'completed' } : b);
+        setResults(res.data.results || []);
+        setStep('completed');
+    });
+
+    const doCleanup = () => run('Test battle cleaned up', async () => {
+        await axios.delete(`${API}/api/beat-battle/admin/test/${battle!.id}`, { withCredentials: true });
+        setBattle(null); setResults([]); setLog([]); setStep('idle');
+    });
+
+    const resumeBattle = (b: TestBattle) => {
+        setBattle(b);
+        setLog([{ ok: true, msg: `Resumed test battle: ${b.title}` }]);
+        const s: TestStep = b.status === 'active' ? 'entries' : b.status === 'voting' ? 'voting' : b.status === 'completed' ? 'completed' : 'created';
+        setStep(s);
+    };
+
+    const cleanupOther = async (id: string) => {
+        try {
+            await axios.delete(`${API}/api/beat-battle/admin/test/${id}`, { withCredentials: true });
+            setExistingTests(prev => prev.filter(b => b.id !== id));
+        } catch { /* ignore */ }
+    };
+
+    const purple = '#a855f7';
+    const purpleBg = 'rgba(168,85,247,0.08)';
+    const purpleBorder = 'rgba(168,85,247,0.25)';
+
+    const StepDot: React.FC<{ s: TestStep; label: string }> = ({ s, label }) => {
+        const idx = STEP_ORDER.indexOf(s);
+        const cur = STEP_ORDER.indexOf(step);
+        const done = cur > idx;
+        const active = cur === idx;
+        return (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <div style={{ width: 22, height: 22, borderRadius: '50%', background: done ? '#22c55e' : active ? purple : 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    {done ? <CheckCircle2 size={13} color="#fff" /> : <span style={{ fontSize: 10, fontWeight: 700, color: active ? '#fff' : 'rgba(255,255,255,0.3)' }}>{idx}</span>}
+                </div>
+                <span style={{ fontSize: 12, fontWeight: active ? 700 : 400, color: done ? '#22c55e' : active ? '#c084fc' : 'rgba(255,255,255,0.35)' }}>{label}</span>
+                {idx < STEP_ORDER.length - 1 && <ChevronRight size={12} color="rgba(255,255,255,0.15)" />}
+            </div>
+        );
+    };
+
+    return (
+        <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+                <div style={{ width: 40, height: 40, borderRadius: 12, background: purpleBg, border: `1px solid ${purpleBorder}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <FlaskConical size={20} color={purple} />
+                </div>
+                <div>
+                    <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: colors.textPrimary }}>Battle Test Lab</h2>
+                    <p style={{ margin: '2px 0 0', fontSize: 13, color: colors.textSecondary }}>Simulate a full battle cycle privately — never visible to the public.</p>
+                </div>
+            </div>
+
+            <div style={{ backgroundColor: colors.surface, padding: spacing.md, borderRadius: borderRadius.md, marginBottom: spacing.lg, borderLeft: `4px solid ${purple}` }}>
+                <p style={{ margin: 0, color: colors.textPrimary, fontSize: 13 }}>Test battles are completely invisible to members. The bot skips them, Discord announcements are suppressed, and all fake submissions use real tracks already on the platform. Clean up when done.</p>
+            </div>
+
+            {/* Progress bar */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 24, padding: '12px 16px', background: purpleBg, borderRadius: borderRadius.md, border: `1px solid ${purpleBorder}` }}>
+                <StepDot s="idle" label="Start" />
+                <StepDot s="created" label="Created" />
+                <StepDot s="entries" label="Submissions" />
+                <StepDot s="voting" label="Voting" />
+                <StepDot s="voted" label="Voted" />
+                <StepDot s="completed" label="Results" />
+            </div>
+
+            {/* Existing tests */}
+            {existingTests.filter(b => !battle || b.id !== battle.id).length > 0 && (
+                <div style={{ marginBottom: 20, padding: '12px 16px', background: 'rgba(234,179,8,0.06)', border: '1px solid rgba(234,179,8,0.2)', borderRadius: borderRadius.md }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: '#eab308', marginBottom: 8 }}>Existing test battles</div>
+                    {existingTests.filter(b => !battle || b.id !== battle.id).map(b => (
+                        <div key={b.id} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                            <span style={{ fontSize: 12, color: colors.textSecondary, flex: 1 }}>{b.title} <span style={{ color: colors.textTertiary }}>({b.status})</span></span>
+                            <button onClick={() => resumeBattle(b)} style={{ fontSize: 11, padding: '3px 10px', borderRadius: 6, border: '1px solid rgba(168,85,247,0.25)', background: 'rgba(168,85,247,0.08)', color: '#a855f7', cursor: 'pointer', fontWeight: 600 }}>Resume</button>
+                            <button onClick={() => cleanupOther(b.id)} style={{ fontSize: 11, padding: '3px 10px', borderRadius: 6, border: '1px solid rgba(239,68,68,0.3)', background: 'transparent', color: '#f87171', cursor: 'pointer', fontWeight: 600 }}>Delete</button>
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
+                {/* Steps panel */}
+                <div style={{ flex: '1 1 auto', display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+                    {/* Step 1 */}
+                    <div style={{ padding: 16, background: step === 'idle' ? purpleBg : 'rgba(255,255,255,0.02)', borderRadius: borderRadius.md, border: '1px solid ' + (step === 'idle' ? purpleBorder : 'rgba(255,255,255,0.06)') }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: step === 'idle' ? 12 : 0 }}>
+                            <div style={{ width: 20, height: 20, borderRadius: '50%', background: step === 'idle' ? purple : '#22c55e', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                {step === 'idle' ? <span style={{ fontSize: 10, fontWeight: 700, color: '#fff' }}>1</span> : <CheckCircle2 size={12} color="#fff" />}
+                            </div>
+                            <span style={{ fontWeight: 700, fontSize: 13, color: step === 'idle' ? '#c084fc' : '#22c55e' }}>Create Test Battle</span>
+                            {battle && step !== 'idle' && <span style={{ fontSize: 11, color: colors.textTertiary, marginLeft: 4 }}>{battle.title}</span>}
+                        </div>
+                        {step === 'idle' && (
+                            <div style={{ display: 'flex', gap: 8 }}>
+                                <input value={title} onChange={e => setTitle(e.target.value)} style={{ flex: 1, padding: '8px 12px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, color: colors.textPrimary, fontSize: 13, outline: 'none' }} />
+                                <button onClick={doCreate} disabled={loading || !title.trim()} style={{ padding: '8px 18px', borderRadius: borderRadius.sm, border: 'none', background: purple, color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', opacity: loading ? 0.6 : 1 }}>
+                                    {loading ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : 'Create'}
+                                </button>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Step 2 */}
+                    <div style={{ padding: 16, background: step === 'created' ? purpleBg : 'rgba(255,255,255,0.02)', borderRadius: borderRadius.md, border: '1px solid ' + (step === 'created' ? purpleBorder : 'rgba(255,255,255,0.06)'), opacity: STEP_ORDER.indexOf(step) < 1 ? 0.4 : 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: step === 'created' ? 12 : 0 }}>
+                            <div style={{ width: 20, height: 20, borderRadius: '50%', background: STEP_ORDER.indexOf(step) > 1 ? '#22c55e' : step === 'created' ? purple : 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                {STEP_ORDER.indexOf(step) > 1 ? <CheckCircle2 size={12} color="#fff" /> : <span style={{ fontSize: 10, fontWeight: 700, color: step === 'created' ? '#fff' : 'rgba(255,255,255,0.3)' }}>2</span>}
+                            </div>
+                            <span style={{ fontWeight: 700, fontSize: 13, color: STEP_ORDER.indexOf(step) > 1 ? '#22c55e' : step === 'created' ? '#c084fc' : colors.textTertiary }}>Generate Fake Submissions</span>
+                            {STEP_ORDER.indexOf(step) > 1 && battle && battle._count && <span style={{ fontSize: 11, color: colors.textTertiary, marginLeft: 4 }}>{battle._count.entries} entries</span>}
+                        </div>
+                        {step === 'created' && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                <span style={{ fontSize: 12, color: colors.textSecondary }}>Count:</span>
+                                <input type="number" min={2} max={20} value={entryCount} onChange={e => setEntryCount(Number(e.target.value))} style={{ width: 60, padding: '6px 8px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, color: colors.textPrimary, fontSize: 13, outline: 'none' }} />
+                                <button onClick={doEntries} disabled={loading} style={{ padding: '8px 18px', borderRadius: borderRadius.sm, border: 'none', background: purple, color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', opacity: loading ? 0.6 : 1 }}>
+                                    {loading ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : 'Add Submissions'}
+                                </button>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Step 3 */}
+                    <div style={{ padding: 16, background: step === 'entries' ? purpleBg : 'rgba(255,255,255,0.02)', borderRadius: borderRadius.md, border: '1px solid ' + (step === 'entries' ? purpleBorder : 'rgba(255,255,255,0.06)'), opacity: STEP_ORDER.indexOf(step) < 2 ? 0.4 : 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: step === 'entries' ? 12 : 0 }}>
+                            <div style={{ width: 20, height: 20, borderRadius: '50%', background: STEP_ORDER.indexOf(step) > 2 ? '#22c55e' : step === 'entries' ? purple : 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                {STEP_ORDER.indexOf(step) > 2 ? <CheckCircle2 size={12} color="#fff" /> : <span style={{ fontSize: 10, fontWeight: 700, color: step === 'entries' ? '#fff' : 'rgba(255,255,255,0.3)' }}>3</span>}
+                            </div>
+                            <span style={{ fontWeight: 700, fontSize: 13, color: STEP_ORDER.indexOf(step) > 2 ? '#22c55e' : step === 'entries' ? '#c084fc' : colors.textTertiary }}>Open Voting</span>
+                        </div>
+                        {step === 'entries' && (
+                            <button onClick={doAdvanceToVoting} disabled={loading} style={{ padding: '8px 18px', borderRadius: borderRadius.sm, border: 'none', background: purple, color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', opacity: loading ? 0.6 : 1 }}>
+                                {loading ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : 'Advance to Voting'}
+                            </button>
+                        )}
+                    </div>
+
+                    {/* Step 4 */}
+                    <div style={{ padding: 16, background: step === 'voting' ? purpleBg : 'rgba(255,255,255,0.02)', borderRadius: borderRadius.md, border: '1px solid ' + (step === 'voting' ? purpleBorder : 'rgba(255,255,255,0.06)'), opacity: STEP_ORDER.indexOf(step) < 3 ? 0.4 : 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: step === 'voting' ? 12 : 0 }}>
+                            <div style={{ width: 20, height: 20, borderRadius: '50%', background: STEP_ORDER.indexOf(step) > 3 ? '#22c55e' : step === 'voting' ? purple : 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                {STEP_ORDER.indexOf(step) > 3 ? <CheckCircle2 size={12} color="#fff" /> : <span style={{ fontSize: 10, fontWeight: 700, color: step === 'voting' ? '#fff' : 'rgba(255,255,255,0.3)' }}>4</span>}
+                            </div>
+                            <span style={{ fontWeight: 700, fontSize: 13, color: STEP_ORDER.indexOf(step) > 3 ? '#22c55e' : step === 'voting' ? '#c084fc' : colors.textTertiary }}>Simulate Votes</span>
+                        </div>
+                        {step === 'voting' && (
+                            <>
+                                <p style={{ margin: '0 0 10px', fontSize: 12, color: colors.textSecondary }}>Randomly distributes 1st/2nd/3rd place votes across all entries using fake voter IDs.</p>
+                                <button onClick={doSimulateVotes} disabled={loading} style={{ padding: '8px 18px', borderRadius: borderRadius.sm, border: 'none', background: purple, color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', opacity: loading ? 0.6 : 1 }}>
+                                    {loading ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : 'Simulate Votes'}
+                                </button>
+                            </>
+                        )}
+                    </div>
+
+                    {/* Step 5 */}
+                    <div style={{ padding: 16, background: step === 'voted' ? purpleBg : 'rgba(255,255,255,0.02)', borderRadius: borderRadius.md, border: '1px solid ' + (step === 'voted' ? purpleBorder : 'rgba(255,255,255,0.06)'), opacity: STEP_ORDER.indexOf(step) < 4 ? 0.4 : 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: step === 'voted' ? 12 : 0 }}>
+                            <div style={{ width: 20, height: 20, borderRadius: '50%', background: step === 'completed' ? '#22c55e' : step === 'voted' ? purple : 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                {step === 'completed' ? <CheckCircle2 size={12} color="#fff" /> : <span style={{ fontSize: 10, fontWeight: 700, color: step === 'voted' ? '#fff' : 'rgba(255,255,255,0.3)' }}>5</span>}
+                            </div>
+                            <span style={{ fontWeight: 700, fontSize: 13, color: step === 'completed' ? '#22c55e' : step === 'voted' ? '#c084fc' : colors.textTertiary }}>End Battle and View Results</span>
+                        </div>
+                        {step === 'voted' && (
+                            <button onClick={doEndBattle} disabled={loading} style={{ padding: '8px 18px', borderRadius: borderRadius.sm, border: 'none', background: purple, color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', opacity: loading ? 0.6 : 1 }}>
+                                {loading ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : 'End Battle'}
+                            </button>
+                        )}
+                    </div>
+
+                    {battle && (
+                        <button onClick={doCleanup} disabled={loading} style={{ alignSelf: 'flex-start', padding: '8px 16px', borderRadius: borderRadius.sm, border: '1px solid rgba(239,68,68,0.3)', background: 'transparent', color: '#f87171', fontWeight: 600, fontSize: 12, cursor: 'pointer', opacity: loading ? 0.6 : 1, display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <Trash2 size={12} />Clean Up Test Data
+                        </button>
+                    )}
+                </div>
+
+                {/* Right: log + results */}
+                <div style={{ width: 280, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    {log.length > 0 && (
+                        <div style={{ background: 'rgba(0,0,0,0.3)', borderRadius: borderRadius.md, border: '1px solid rgba(255,255,255,0.06)', padding: 12 }}>
+                            <div style={{ fontSize: 10, fontWeight: 700, color: colors.textTertiary, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>Activity Log</div>
+                            {log.map((l, i) => (
+                                <div key={i} style={{ fontSize: 12, color: l.ok ? '#22c55e' : '#f87171', marginBottom: 4, display: 'flex', gap: 6 }}>
+                                    <span style={{ flexShrink: 0 }}>{l.ok ? '✓' : '✗'}</span><span>{l.msg}</span>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                    {results.length > 0 && (
+                        <div style={{ background: 'rgba(0,0,0,0.3)', borderRadius: borderRadius.md, border: '1px solid rgba(255,255,255,0.06)', padding: 12 }}>
+                            <div style={{ fontSize: 10, fontWeight: 700, color: colors.textTertiary, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>Results</div>
+                            {results.slice(0, 10).map((r, i) => (
+                                <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                                    <span style={{ fontSize: 13 }}>{['🥇','🥈','🥉'][i] || (i+1) + '.'}</span>
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                        <div style={{ fontSize: 12, fontWeight: 600, color: colors.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.trackTitle}</div>
+                                        <div style={{ fontSize: 10, color: colors.textTertiary }}>{r.points} pts &middot; {r.firstVotes}x1st {r.secondVotes}x2nd {r.thirdVotes}x3rd</div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </div>
+            <style>{'@keyframes spin { 100% { transform: rotate(360deg); } }'}</style>
         </div>
     );
 };
