@@ -1320,20 +1320,20 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
 
             </div>
 
-            {/* Back to Edit Button (Owner only) */}
+            {/* Back to Edit Button (Owner only) — left side to avoid upload/bug-report cluster on right */}
             {isOwnProfile && (
-                <button 
+                <button
                     onClick={onEdit}
-                    style={{ 
+                    style={{
                         position: 'fixed',
                         bottom: isMobile
                             ? (player.currentTrack ? '176px' : '76px')
                             : (player.currentTrack ? '104px' : '24px'),
-                        right: '24px', 
+                        left: '24px',
                         backgroundColor: '#111827',
                         color: accent,
                         border: `2px solid ${accent}`,
-                        padding: isMobile ? '10px 16px' : '12px 24px', 
+                        padding: isMobile ? '10px 16px' : '12px 24px',
                         borderRadius: '999px',
                         boxShadow: `0 0 0 4px rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.5)`,
                         display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', zIndex: 200,
