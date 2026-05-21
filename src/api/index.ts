@@ -11978,23 +11978,39 @@ async function postBattleAnnouncement(battle: any, settings: any): Promise<strin
     const apiUrl = process.env.API_URL || 'https://fujistud.io';
     let embed: any;
 
+    const toAbs = (u?: string | null) => u ? (u.startsWith('http') ? u : `${apiUrl}${u}`) : undefined;
+    const stripHtml = (s?: string | null) => s ? s.replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').trim() : null;
+    const battleLink = `${apiUrl}/battles/${battle.slug || battle.id}`;
+
     if (battle.status === 'upcoming' || battle.status === 'active') {
+        const description = battle.miniDescription || stripHtml(battle.description) || 'A new battle has begun! Submit your beats on the website.';
         const fields: any[] = [];
-        if (battle.submissionStart) {
-            fields.push({ name: 'Submissions Open', value: `<t:${Math.floor(new Date(battle.submissionStart).getTime() / 1000)}:R>`, inline: true });
+        if (battle.submissionStart && battle.submissionEnd) {
+            fields.push({ name: '📅 Submissions Open', value: `<t:${Math.floor(new Date(battle.submissionStart).getTime() / 1000)}:F>`, inline: true });
+            fields.push({ name: '⏰ Submissions Close', value: `<t:${Math.floor(new Date(battle.submissionEnd).getTime() / 1000)}:R>`, inline: true });
+        } else if (battle.submissionEnd) {
+            fields.push({ name: '⏰ Submissions Close', value: `<t:${Math.floor(new Date(battle.submissionEnd).getTime() / 1000)}:R>`, inline: true });
         }
-        if (battle.submissionEnd) {
-            fields.push({ name: 'Submissions Close', value: `<t:${Math.floor(new Date(battle.submissionEnd).getTime() / 1000)}:R>`, inline: true });
+        if (battle.votingEnd) fields.push({ name: '🗳️ Voting Ends', value: `<t:${Math.floor(new Date(battle.votingEnd).getTime() / 1000)}:R>`, inline: true });
+        const prizes = battle.prizes as { place: string; title?: string; description: string }[] | null;
+        if (prizes && prizes.length > 0) {
+            fields.push({ name: '🏆 Prizes', value: prizes.map((p: any) => `**${p.place}** — ${p.description}`).join('\n') });
         }
-        if (battle.rules) fields.push({ name: 'Rules', value: battle.rules });
-        fields.push({ name: 'Submit & Vote', value: `[Enter on Fuji Studio](${apiUrl}/battles/${battle.id})` });
+        if (battle.sponsor) {
+            let st = `**${battle.sponsor.name}**`;
+            if (battle.sponsor.websiteUrl) st += ` — [Visit Website](${battle.sponsor.websiteUrl})`;
+            fields.push({ name: '🤝 Sponsored by', value: st });
+        }
+        fields.push({ name: '​', value: `[**Submit Your Track →**](${battleLink})` });
         embed = {
-            title: `New Beat Battle: ${battle.title}`,
-            description: battle.description || 'A new battle has begun! Submit your beats on the website.',
+            title: `🎵 ${battle.title}`,
+            description: description.slice(0, 4096),
             color: 0x2B8C71,
             fields,
-            footer: { text: 'Fuji Studio Beat Battle' },
+            footer: { text: 'Fuji Studio Beat Battles' },
             timestamp: new Date().toISOString(),
+            ...(toAbs(battle.bannerUrl || battle.cardImageUrl) ? { image: { url: toAbs(battle.bannerUrl || battle.cardImageUrl) } } : {}),
+            ...(battle.sponsor?.logoUrl && !battle.bannerUrl ? { thumbnail: { url: toAbs(battle.sponsor.logoUrl) } } : {}),
         };
         if (battle.pingOnSubmissions) {
             try {
@@ -12013,18 +12029,26 @@ async function postBattleAnnouncement(battle: any, settings: any): Promise<strin
             }
         }
     } else if (battle.status === 'voting') {
+        const entryCount = await db.battleEntry.count({ where: { battleId: battle.id } });
         const fields: any[] = [];
         if (battle.votingEnd) {
-            fields.push({ name: 'Voting Ends', value: `<t:${Math.floor(new Date(battle.votingEnd).getTime() / 1000)}:R>` });
+            fields.push({ name: '⏰ Voting Closes', value: `<t:${Math.floor(new Date(battle.votingEnd).getTime() / 1000)}:R>`, inline: true });
         }
-        fields.push({ name: 'Vote Now', value: `[Vote on Fuji Studio](${apiUrl}/battles/${battle.id})` });
+        if (battle.sponsor) {
+            let st = `**${battle.sponsor.name}**`;
+            if (battle.sponsor.websiteUrl) st += ` — [Visit Website](${battle.sponsor.websiteUrl})`;
+            fields.push({ name: '🤝 Sponsored by', value: st });
+        }
+        fields.push({ name: '​', value: `[**Listen & Vote →**](${battleLink})` });
         embed = {
-            title: `${battle.title} - Voting is Now Open!`,
-            description: 'Submissions are closed. Head to the website to listen and vote for your favourite beat!',
-            color: 0xFFA500,
+            title: `🗳️ Voting is Open — ${battle.title}`,
+            description: `Submissions are locked in. **${entryCount} beat${entryCount !== 1 ? 's' : ''}** are competing — listen and vote for your favourite on Fuji Studio!`,
+            color: 0xF59E0B,
             fields,
-            footer: { text: 'Fuji Studio Beat Battle' },
+            footer: { text: 'Fuji Studio Beat Battles' },
             timestamp: new Date().toISOString(),
+            ...(toAbs(battle.bannerUrl || battle.cardImageUrl) ? { image: { url: toAbs(battle.bannerUrl || battle.cardImageUrl) } } : {}),
+            ...(battle.sponsor?.logoUrl && !battle.bannerUrl ? { thumbnail: { url: toAbs(battle.sponsor.logoUrl) } } : {}),
         };
         if (battle.pingOnVoting) {
             try {
@@ -12046,17 +12070,32 @@ async function postBattleAnnouncement(battle: any, settings: any): Promise<strin
         const winners = await rankedBattleEntries(battle.id, 3);
         if (!winners.length) return null;
         const medals = ['🥇', '🥈', '🥉'];
-        const podiumLines = winners.map((w, i) =>
-            `${medals[i] || '•'} <@${w.userId}> — **"${w.trackTitle}"** • **${w.points}** ${w.points === 1 ? 'pt' : 'pts'}`
-        );
-        const winnerMentions = winners.map(w => `<@${w.userId}>`).join(' ');
+        const prizes = battle.prizes as { place: string; title?: string; description: string }[] | null;
+        const coinPrizes = [battle.prizeFirst, battle.prizeSecond, battle.prizeThird];
+        const totalEntries = await db.battleEntry.count({ where: { battleId: battle.id } });
+        const podiumLines = winners.map((w: any, i: number) => {
+            let line = `${medals[i] || '•'} **"${w.trackTitle}"** — ${w.points} ${w.points === 1 ? 'vote' : 'votes'}`;
+            const prize = prizes?.[i]?.description || (battle.prizePoolEnabled && coinPrizes[i] ? `${coinPrizes[i]} coins` : null);
+            if (prize) line += ` · *${prize}*`;
+            return line;
+        });
+        const winnerMentions = winners.map((w: any) => `<@${w.userId}>`).join(' ');
+        const winnerFields: any[] = [];
+        if (battle.sponsor) {
+            let st = `**${battle.sponsor.name}**`;
+            if (battle.sponsor.websiteUrl) st += ` — [Visit Website](${battle.sponsor.websiteUrl})`;
+            winnerFields.push({ name: '🤝 Sponsored by', value: st });
+        }
+        winnerFields.push({ name: '​', value: `[**View Full Results →**](${battleLink})` });
         embed = {
-            title: `${battle.title} — Winners!`,
-            description: `Congratulations ${winnerMentions}!\n\n${podiumLines.join('\n')}`,
+            title: `🏆 ${battle.title} — Results`,
+            description: `The battle is over! Out of **${totalEntries}** submission${totalEntries !== 1 ? 's' : ''}, here are your top producers:\n\n${podiumLines.join('\n')}`,
             color: 0xFFD700,
-            fields: [{ name: 'Listen', value: `[Play on Fuji Studio](${apiUrl}/battles/${battle.id})` }],
-            footer: { text: 'Fuji Studio Beat Battle' },
+            fields: winnerFields,
+            footer: { text: 'Fuji Studio Beat Battles' },
             timestamp: new Date().toISOString(),
+            ...(toAbs(battle.bannerUrl || battle.cardImageUrl) ? { image: { url: toAbs(battle.bannerUrl || battle.cardImageUrl) } } : {}),
+            ...(battle.sponsor?.logoUrl && !battle.bannerUrl ? { thumbnail: { url: toAbs(battle.sponsor.logoUrl) } } : {}),
         };
         // Tag winners (and optionally @everyone) in the message body.
         const content = battle.pingOnWinners ? `@everyone ${winnerMentions}` : winnerMentions;
