@@ -114,7 +114,22 @@ export class AudioService {
         waveformPeaks?: number[], projectFileSizeBytes?: number, isPublic?: boolean,
         license?: string, trackType?: string,
     }) {
-        const profile = await this.prisma.musicianProfile.findUnique({ where: { userId } });
+        // Try exact match first, then fall back to resolving via User table
+        // (handles Discord snowflake vs cuid mismatch after profile consolidation)
+        let profile = await this.prisma.musicianProfile.findUnique({ where: { userId } });
+        if (!profile) {
+            const linked = await this.prisma.user.findFirst({
+                where: { OR: [{ id: userId }, { discordId: userId }] },
+                select: { id: true, discordId: true },
+            });
+            if (linked) {
+                const ids = [linked.id, linked.discordId].filter(Boolean) as string[];
+                profile = await this.prisma.musicianProfile.findFirst({
+                    where: { userId: { in: ids } },
+                    orderBy: { totalPlays: 'desc' },
+                });
+            }
+        }
         if (!profile) throw new Error('Profile not found');
 
         return await this.prisma.track.create({
