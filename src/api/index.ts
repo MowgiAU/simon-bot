@@ -12406,16 +12406,16 @@ app.post('/api/beat-battle/admin/rule-sample', requireAdmin, upload.single('rule
             try { fs.unlinkSync(req.file.path); } catch {}
             return res.status(400).json({ error: validationErr.message });
         }
-        // Convert to OGG Opus for efficient web delivery
-        const finalAudioPath = await MediaConverter.convertToOgg(req.file.path);
-        const filename = path.basename(finalAudioPath);
+        // Keep original format — samples are used in production and must be
+        // compatible across all DAWs and platforms, not just web playback.
+        const origExt = path.extname(req.file.originalname).toLowerCase() || path.extname(req.file.path);
+        const filename = `${path.basename(req.file.path, path.extname(req.file.path))}${origExt}`;
+        const destPath = path.join(path.dirname(req.file.path), filename);
+        fs.renameSync(req.file.path, destPath);
+        const mimeMap: Record<string, string> = { '.wav': 'audio/wav', '.mp3': 'audio/mpeg', '.aif': 'audio/aiff', '.aiff': 'audio/aiff', '.flac': 'audio/flac', '.ogg': 'audio/ogg' };
+        const mime = mimeMap[origExt] || 'audio/wav';
         const localUrl = `/uploads/battle-rule-samples/${filename}`;
-        const finalUrl = await uploadToR2OrLocal(
-            finalAudioPath,
-            `battle-rule-samples/${filename}`,
-            'audio/ogg',
-            localUrl
-        );
+        const finalUrl = await uploadToR2OrLocal(destPath, `battle-rule-samples/${filename}`, mime, localUrl);
         res.json({ url: finalUrl, name: req.file.originalname });
     } catch (e: any) {
         res.status(500).json({ error: 'Internal server error' });
