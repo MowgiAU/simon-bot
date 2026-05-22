@@ -242,9 +242,9 @@ export const PluginRegistry: React.FC = () => {
                             <div>
                                 <label style={labelStyle}>Category</label>
                                 <select value={form.category || ''} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
-                                    style={{ ...inputStyle, cursor: 'pointer' }}>
-                                    <option value="">— Select category —</option>
-                                    {CATEGORIES.map(c => <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>)}
+                                    style={{ ...inputStyle, cursor: 'pointer', backgroundColor: '#1a1e2e' }}>
+                                    <option value="" style={{ background: '#1a1e2e', color: colors.textPrimary }}>— Select category —</option>
+                                    {CATEGORIES.map(c => <option key={c} value={c} style={{ background: '#1a1e2e', color: colors.textPrimary }}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>)}
                                 </select>
                             </div>
 
