@@ -62,9 +62,10 @@ interface SidebarProps {
   guild: Guild;
   permissions: { canManagePlugins: boolean; accessiblePlugins: string[] };
   logout: () => void;
+  topOffset?: number;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, user, guild, permissions, logout }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, user, guild, permissions, logout, topOffset = 0 }) => {
   const [collapsed, setCollapsed] = useState(false);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -101,7 +102,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
   }, []);
 
   return (
-    <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`}>
+    <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`} style={topOffset ? { top: topOffset } : {}}>
       <div className="sidebar-header">
         <div className="logo" onClick={() => !collapsed && onNavigate('dashboard')}>
           <div style={{ 

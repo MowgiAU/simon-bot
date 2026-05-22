@@ -536,8 +536,10 @@ const AdminDashboard: React.FC = () => {
     );
   };
 
+  const bannerOffset = impersonating ? IMPERSONATION_BANNER_HEIGHT : 0;
+
   return (
-    <div className={`app ${sidebarOpen ? "sidebar-open" : ""}`}>
+    <div className={`app ${sidebarOpen ? "sidebar-open" : ""}`} style={impersonating ? { paddingTop: bannerOffset } : {}}>
       <Sidebar
           activeSection={activeSection}
           onNavigate={handleNavigate}
@@ -545,6 +547,7 @@ const AdminDashboard: React.FC = () => {
           guild={selectedGuild}
           permissions={permissions}
           logout={logout}
+          topOffset={bannerOffset}
       />
       {sidebarOpen && (
         <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} />
@@ -709,6 +712,8 @@ const AdminDashboard: React.FC = () => {
  * AppInternal: Pure path-based routing. All providers are already wrapped above,
  * so every hook (useAuth, usePlayer, useResources) is always available.
  */
+export const IMPERSONATION_BANNER_HEIGHT = 36;
+
 const ImpersonationBanner: React.FC = () => {
   const { impersonating, impersonatingAs, exitImpersonation } = useAuth();
   if (!impersonating || !impersonatingAs) return null;
@@ -716,12 +721,13 @@ const ImpersonationBanner: React.FC = () => {
     <div style={{
       position: 'fixed', top: 0, left: 0, right: 0, zIndex: 99999,
       background: 'linear-gradient(90deg, #b45309, #d97706)',
-      color: '#fff', padding: '8px 16px',
+      color: '#fff', padding: '8px 16px', height: IMPERSONATION_BANNER_HEIGHT,
       display: 'flex', alignItems: 'center', gap: '12px',
       fontSize: '13px', fontWeight: 600, boxShadow: '0 2px 12px rgba(0,0,0,0.4)',
+      boxSizing: 'border-box',
     }}>
       <ShieldAlert size={16} style={{ flexShrink: 0 }} />
-      <span>Impersonating <strong>{impersonatingAs.displayName || impersonatingAs.username}</strong> (@{impersonatingAs.username}) — you are seeing the site as this user</span>
+      <span>Impersonating <strong>{impersonatingAs.displayName || impersonatingAs.username}</strong> (@{impersonatingAs.username})</span>
       <div style={{ flex: 1 }} />
       <button
         onClick={exitImpersonation}

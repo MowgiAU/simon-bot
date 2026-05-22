@@ -511,7 +511,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                             </div>
                                         ) : <div />}
                                         <Link
-                                            to={`/battles/${battle.id}`}
+                                            to={`/battles/${(battle as any).slug || battle.id}`}
                                             style={{
                                                 display: 'inline-flex', alignItems: 'center', gap: '6px',
                                                 fontSize: '12px', fontWeight: 700, textDecoration: 'none',

@@ -1,6 +1,6 @@
 ﻿import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { colors, borderRadius, spacing } from '../theme/theme';
 import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
 import { useAuth } from '../components/AuthProvider';
@@ -150,6 +150,7 @@ interface Entry {
 
 export const BattleDetailPage: React.FC = () => {
     const { pathname } = useLocation();
+    const navigate = useNavigate();
     const { user } = useAuth();
     const { player, setTrack, togglePlay } = usePlayer();
 
@@ -284,6 +285,10 @@ export const BattleDetailPage: React.FC = () => {
                     data.entries = data.entries.map(flattenBattleEntry);
                 }
                 setBattle(data);
+                // Redirect to slug URL if accessed via cuid and a slug exists
+                if (data.slug && data.slug !== battleId) {
+                    navigate(`/battles/${data.slug}`, { replace: true });
+                }
             })
             .catch(() => {})
             .finally(() => setLoading(false));
