@@ -11920,7 +11920,11 @@ app.get('/api/beat-battle/user/:userId/entries', publicCache(60), async (req: an
 app.get('/api/beat-battle/my-tracks', requireAuth, async (req: any, res) => {
     try {
         const userId = req.session.user.id;
-        const profile = await db.musicianProfile.findFirst({ where: { userId } });
+        const canonicalId = req.session.user._localId || userId;
+        const profile = await db.musicianProfile.findFirst({
+            where: { userId: { in: [...new Set([userId, canonicalId])] } },
+            orderBy: { totalPlays: 'desc' },
+        });
         if (!profile) return res.json([]);
         const tracks = await db.track.findMany({
             where: { profileId: profile.id, status: 'active' },
