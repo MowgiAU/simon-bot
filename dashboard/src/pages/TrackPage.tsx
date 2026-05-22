@@ -9,11 +9,11 @@ import { FujiLogo } from '../components/FujiLogo';
 import { showToast } from '../components/Toast';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { 
-    Music, Play, Pause, Zap, Clock, Info, Tag, Calendar, 
+    Music, Play, Pause, Zap, Clock, Info, Tag, Calendar,
     ArrowLeft, Share2, ExternalLink, Layers, FileAudio,
     Edit3, X, Save, Upload, Download, Heart, ListPlus, Repeat2,
     Activity, Package, ChevronDown, ChevronUp, Trash2, AlignLeft, CheckCircle,
-    SkipBack, SkipForward, Scale, Swords
+    SkipBack, SkipForward, Scale, Swords, Users, User, UserPlus
 } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { CommentSection } from '../components/CommentSection';
@@ -156,6 +156,16 @@ export const TrackPage: React.FC = () => {
     const [editAudioFile, setEditAudioFile] = useState<File | null>(null);
     const [editArtworkFile, setEditArtworkFile] = useState<File | null>(null);
     const [editProjectFile, setEditProjectFile] = useState<File | null>(null);
+    // Extra edit fields
+    const [editTrackType, setEditTrackType] = useState('');
+    const [editSlug, setEditSlug] = useState('');
+    const [editLyrics, setEditLyrics] = useState('');
+    // Collaborators
+    const [collaborators, setCollaborators] = useState<any[]>([]);
+    const [collabSearch, setCollabSearch] = useState('');
+    const [collabSearchResults, setCollabSearchResults] = useState<any[]>([]);
+    const [newCollabContribution, setNewCollabContribution] = useState('');
+    const [newCollabCategory, setNewCollabCategory] = useState('collaboration');
     const [flpConfirmOpen, setFlpConfirmOpen] = useState(false);
     const [isFavourited, setIsFavourited] = useState(false);
     const [favouriteCount, setFavouriteCount] = useState(0);
@@ -292,12 +302,54 @@ export const TrackPage: React.FC = () => {
             allowProjectDownload: track.allowProjectDownload ?? true,
             license: track.license || 'all-rights-reserved',
         });
+        setEditTrackType((track as any).trackType || '');
+        setEditSlug((track as any).slug || '');
+        setEditLyrics((track as any).lyrics || '');
         setSelectedTrackGenres(track.genres?.map(g => g.genre.id) || []);
         setEditAudioFile(null);
         setEditArtworkFile(null);
         setEditProjectFile(null);
         setEditMsg(null);
+        setCollabSearch('');
+        setCollabSearchResults([]);
+        setNewCollabContribution('');
+        setNewCollabCategory('collaboration');
+        // Load existing collaborators
+        axios.get(`/api/musician/tracks/${track.id}/collaborators`, { withCredentials: true })
+            .then(r => setCollaborators(r.data || []))
+            .catch(() => setCollaborators([]));
         setEditing(true);
+    };
+
+    // Collaborator search
+    useEffect(() => {
+        if (collabSearch.trim().length < 2) { setCollabSearchResults([]); return; }
+        const t = setTimeout(async () => {
+            try {
+                const r = await axios.get(`/api/musician/profiles/search?q=${encodeURIComponent(collabSearch)}`, { withCredentials: true });
+                setCollabSearchResults(r.data || []);
+            } catch { setCollabSearchResults([]); }
+        }, 300);
+        return () => clearTimeout(t);
+    }, [collabSearch]);
+
+    const handleAddCollaborator = async (profile: any) => {
+        if (!track || !newCollabContribution.trim()) return;
+        try {
+            const r = await axios.post(`/api/musician/tracks/${track.id}/collaborators`, {
+                profileId: profile.id, contribution: newCollabContribution.trim(), category: newCollabCategory,
+            }, { withCredentials: true });
+            setCollaborators(prev => [...prev, r.data]);
+            setCollabSearch(''); setCollabSearchResults([]); setNewCollabContribution('');
+        } catch (e: any) { setEditMsg({ type: 'error', text: e.response?.data?.error || 'Failed to add collaborator' }); }
+    };
+
+    const handleRemoveCollaborator = async (collaboratorId: string) => {
+        if (!track) return;
+        try {
+            await axios.delete(`/api/musician/tracks/${track.id}/collaborators/${collaboratorId}`, { withCredentials: true });
+            setCollaborators(prev => prev.filter(c => c.id !== collaboratorId));
+        } catch { setEditMsg({ type: 'error', text: 'Failed to remove collaborator' }); }
     };
 
     const toggleFavourite = async () => {
@@ -359,6 +411,9 @@ export const TrackPage: React.FC = () => {
             formData.append('allowProjectDownload', String(editForm.allowProjectDownload));
             formData.append('license', editForm.license);
             formData.append('genreIds', JSON.stringify(selectedTrackGenres));
+            if (editTrackType) formData.append('trackType', editTrackType);
+            if (editSlug) formData.append('slug', editSlug);
+            formData.append('lyrics', editLyrics);
             if (editAudioFile) formData.append('audio', editAudioFile);
             if (editArtworkFile) formData.append('artwork', editArtworkFile);
             if (editProjectFile) formData.append('project', editProjectFile);
@@ -1531,6 +1586,104 @@ export const TrackPage: React.FC = () => {
                                         <option value="cc-by-nd">CC BY-ND — Attribution NoDerivs</option>
                                         <option value="cc-by-nc-nd">CC BY-NC-ND — Attribution NonCommercial NoDerivs</option>
                                     </select>
+                                </div>
+
+                                {/* Track Type + Slug row */}
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                                    <div>
+                                        <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.85rem', color: colors.textSecondary, fontWeight: 600 }}>Track Type</label>
+                                        <select value={editTrackType} onChange={e => setEditTrackType(e.target.value)}
+                                            style={{ width: '100%', padding: '10px 14px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.md, color: 'white', fontSize: '0.95rem', outline: 'none', cursor: 'pointer' }}>
+                                            <option value="">Original</option>
+                                            <option value="remix">Remix</option>
+                                            <option value="cover">Cover</option>
+                                            <option value="loop">Loop / Sample</option>
+                                            <option value="stem">Stem</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.85rem', color: colors.textSecondary, fontWeight: 600 }}>Custom URL Slug</label>
+                                        <input type="text" value={editSlug} onChange={e => setEditSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-'))}
+                                            placeholder="my-track-name"
+                                            style={{ width: '100%', padding: '10px 14px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.md, color: 'white', fontSize: '0.95rem', outline: 'none', boxSizing: 'border-box', fontFamily: 'monospace' }} />
+                                    </div>
+                                </div>
+
+                                {/* Lyrics */}
+                                <div>
+                                    <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.85rem', color: colors.textSecondary, fontWeight: 600 }}>Lyrics <span style={{ fontWeight: 400, color: colors.textTertiary }}>(optional, publicly visible)</span></label>
+                                    <textarea value={editLyrics} onChange={e => setEditLyrics(e.target.value)} rows={4}
+                                        placeholder="Paste lyrics here..."
+                                        style={{ width: '100%', padding: '10px 14px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.md, color: 'white', fontSize: '0.95rem', outline: 'none', resize: 'vertical', fontFamily: 'inherit', boxSizing: 'border-box' }} />
+                                </div>
+
+                                {/* Collaborators */}
+                                <div style={{ padding: '14px 16px', borderRadius: borderRadius.md, backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '12px' }}>
+                                        <Users size={14} color={colors.textSecondary} />
+                                        <span style={{ fontSize: '12px', fontWeight: 600, color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Collaborators</span>
+                                    </div>
+                                    {collaborators.length > 0 && (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '12px' }}>
+                                            {collaborators.map((c: any) => (
+                                                <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 12px', borderRadius: borderRadius.md, backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                                                    {c.profile?.avatar
+                                                        ? <img src={c.profile.avatar.startsWith('http') || c.profile.avatar.startsWith('/') ? c.profile.avatar : `https://cdn.discordapp.com/avatars/${c.profile.userId}/${c.profile.avatar}.png`} alt="" style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0 }} />
+                                                        : <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><User size={14} color={colors.textTertiary} /></div>
+                                                    }
+                                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                                        <div style={{ fontSize: '13px', fontWeight: 600, color: colors.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.profile?.displayName || c.profile?.username}</div>
+                                                        <div style={{ fontSize: '11px', color: colors.textTertiary }}>{c.contribution} · {c.category?.replace(/-/g, ' ')}</div>
+                                                    </div>
+                                                    <span style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', padding: '2px 8px', borderRadius: '20px', flexShrink: 0, backgroundColor: c.status === 'accepted' ? 'rgba(16,185,129,0.15)' : c.status === 'rejected' ? 'rgba(239,68,68,0.15)' : 'rgba(255,255,255,0.08)', color: c.status === 'accepted' ? '#10b981' : c.status === 'rejected' ? '#f87171' : colors.textTertiary }}>{c.status}</span>
+                                                    <button onClick={() => handleRemoveCollaborator(c.id)} style={{ background: 'none', border: 'none', color: colors.textTertiary, cursor: 'pointer', padding: '2px', flexShrink: 0 }}><X size={14} /></button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                                            <div>
+                                                <div style={{ fontSize: '11px', color: colors.textTertiary, marginBottom: '4px' }}>Contribution</div>
+                                                <input value={newCollabContribution} onChange={e => setNewCollabContribution(e.target.value)} placeholder="e.g. vocals, guitar…"
+                                                    style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, padding: '8px 10px', color: colors.textPrimary, fontSize: '13px', boxSizing: 'border-box' }} />
+                                            </div>
+                                            <div>
+                                                <div style={{ fontSize: '11px', color: colors.textTertiary, marginBottom: '4px' }}>Category</div>
+                                                <select value={newCollabCategory} onChange={e => setNewCollabCategory(e.target.value)}
+                                                    style={{ width: '100%', background: colors.surface, border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, padding: '8px 10px', color: colors.textPrimary, fontSize: '13px', cursor: 'pointer' }}>
+                                                    <option value="collaboration">Collaboration</option>
+                                                    <option value="1v1-battle">1v1 Battle</option>
+                                                    <option value="feature">Feature</option>
+                                                    <option value="remix">Remix</option>
+                                                    <option value="split">Split</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div style={{ position: 'relative' }}>
+                                            <div style={{ fontSize: '11px', color: colors.textTertiary, marginBottom: '4px' }}>Search Artist</div>
+                                            <input value={collabSearch} onChange={e => setCollabSearch(e.target.value)} placeholder="Search by username…"
+                                                style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, padding: '8px 10px', color: colors.textPrimary, fontSize: '13px', boxSizing: 'border-box' }} />
+                                            {collabSearchResults.length > 0 && (
+                                                <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50, background: colors.surface, border: `1px solid rgba(255,255,255,0.1)`, borderRadius: borderRadius.md, marginTop: '4px', overflow: 'hidden' }}>
+                                                    {collabSearchResults.filter(p => !collaborators.some((c: any) => c.profile?.id === p.id)).map(p => (
+                                                        <button key={p.id} onClick={() => handleAddCollaborator(p)} disabled={!newCollabContribution.trim()} title={!newCollabContribution.trim() ? 'Enter a contribution first' : ''}
+                                                            style={{ width: '100%', background: 'none', border: 'none', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: '10px', cursor: newCollabContribution.trim() ? 'pointer' : 'not-allowed', opacity: newCollabContribution.trim() ? 1 : 0.5, textAlign: 'left' }}>
+                                                            {p.avatar
+                                                                ? <img src={p.avatar.startsWith('http') || p.avatar.startsWith('/') ? p.avatar : `https://cdn.discordapp.com/avatars/${p.userId}/${p.avatar}.png`} alt="" style={{ width: 28, height: 28, borderRadius: '50%' }} />
+                                                                : <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><User size={14} color={colors.textTertiary} /></div>
+                                                            }
+                                                            <div>
+                                                                <div style={{ fontSize: '13px', fontWeight: 600, color: colors.textPrimary }}>{p.displayName || p.username}</div>
+                                                                <div style={{ fontSize: '11px', color: colors.textTertiary }}>@{p.username}</div>
+                                                            </div>
+                                                            <UserPlus size={14} color={colors.primary} style={{ marginLeft: 'auto', flexShrink: 0 }} />
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
                                 </div>
 
                                 {/* File Uploads */}
