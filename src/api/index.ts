@@ -7405,7 +7405,7 @@ app.patch('/api/musician/tracks/:trackId', async (req: any, res) => {
                 ...(title !== undefined && { title: sanitizeDisplayName(title), slug: safeTrackSlug(title) }),
                 ...(resolvedSlug !== undefined && { slug: resolvedSlug }),
                 ...(description !== undefined && { description }),
-                ...(isPublic !== undefined && { isPublic }),
+                ...(isPublic !== undefined && { isPublic: isPublic === 'true' || isPublic === true }),
                 ...(artist !== undefined && { artist: sanitizeDisplayName(artist) }),
                 ...(album !== undefined && { album }),
                 ...(year !== undefined && { year: year ? parseInt(year) : null }),
