@@ -11533,7 +11533,10 @@ app.post('/api/beat-battle/battles/:battleId/submit', requireAuth, async (req: a
             include: { profile: true },
         });
         if (!track) return res.status(404).json({ error: 'Track not found' });
-        if (track.profile.userId !== userId) {
+        // Resolve both Discord snowflake and cuid to handle consolidated accounts
+        const canonicalSubmitId = req.session.user._localId || userId;
+        const ownedByUser = track.profile.userId === userId || track.profile.userId === canonicalSubmitId;
+        if (!ownedByUser) {
             return res.status(403).json({ error: 'You can only submit your own tracks' });
         }
         if (track.status !== 'active' || track.deletedAt) {
