@@ -331,7 +331,11 @@ function setCachedResponse(key: string, data: any): void {
 // Must be called after any track create / update / delete.
 function invalidateProfileCache(userId: string): void {
     apiResponseCache.delete(`profile-${userId.toLowerCase()}`);
-    // Also bust the all-profiles list (discovery/leaderboard pages)
+    apiResponseCache.delete('musician-profiles');
+}
+
+function invalidateDiscoveryCache(): void {
+    apiResponseCache.delete('discovery-tracks');
     apiResponseCache.delete('musician-profiles');
 }
 
@@ -7431,6 +7435,7 @@ app.patch('/api/musician/tracks/:trackId', async (req: any, res) => {
         });
         await logAction('GLOBAL', 'track_edited', userId, trackId, { title: fullTrack?.title }).catch(() => {});
         invalidateProfileCache(userId);
+        invalidateDiscoveryCache();
         logActivity(req, 'track.edit', trackId, 'track', { title: fullTrack?.title });
         res.json(fullTrack);
     } catch (e: any) {
@@ -7483,6 +7488,7 @@ app.delete('/api/musician/tracks/:trackId', async (req: any, res) => {
         await db.track.delete({ where: { id: trackId } });
         await logAction('GLOBAL', 'track_deleted', userId, trackId, { title: track.title }).catch(() => {});
         invalidateProfileCache(userId);
+        invalidateDiscoveryCache();
         logActivity(req, 'track.delete', trackId, 'track', { title: track.title });
         res.json({ success: true });
     } catch (e: any) {
@@ -7921,8 +7927,8 @@ app.get('/api/discovery/tracks', publicCache(120), async (req, res) => {
             if (cached) return res.json(cached);
         }
         
-        const where: any = { isPublic: true };
-        
+        const where: any = { isPublic: true, deletedAt: null, status: 'active' };
+
         if (genre) {
             // Get all sub-genres of this parent genre to include them in results
             const parentGenre = await db.genre.findFirst({

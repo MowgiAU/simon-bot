@@ -130,6 +130,7 @@ export class FLPParser {
 
         // Channel tracking: keyed by channel IID
         let currentChannelIID = 0;
+        let afterPlaylist = false; // true once the playlist event fires; mixer effects follow
         const channelNames = new Map<number, string>();
         const channelSamplePaths = new Map<number, string>();
         const channelTypes = new Map<number, number>();  // IID → type (5 = automation)
@@ -243,20 +244,32 @@ export class FLPParser {
             }
 
             // ── Plugin internal name (201 = TEXT+9): "Fruity Wrapper" for VSTs, native plugin name, or empty ──
-            if (code === 201 && buf && currentChannelIID > 0) {
+            if (code === 201 && buf) {
                 const internalName = FLPParser.readStringBuf(buf);
                 if (internalName) {
-                    channelInternalNames.set(currentChannelIID, internalName);
+                    if (afterPlaylist) {
+                        // Mixer effect slot — native FL effects (not Fruity Wrapper) are the real name
+                        if (internalName !== 'Fruity Wrapper' && internalName.length > 0) {
+                            mixerPluginNames.add(internalName);
+                        }
+                    } else if (currentChannelIID > 0) {
+                        channelInternalNames.set(currentChannelIID, internalName);
+                    }
                 }
             }
 
             // ── VST plugin data (213 = DATA+5): contains actual VST product name and vendor ──
             // Structure: type(u32) + series of {id(u32) + length(u64) + data}
             // Sub-event ID 54 = Name (factory plugin name e.g. "Serum 2", "Vital")
-            if (code === 213 && buf && currentChannelIID > 0) {
+            if (code === 213 && buf) {
                 const vstName = FLPParser.extractVSTName(buf);
                 if (vstName) {
-                    vstPluginNames.set(currentChannelIID, vstName);
+                    if (afterPlaylist) {
+                        // Mixer effect VST — add directly to mixer plugin names
+                        mixerPluginNames.add(vstName);
+                    } else if (currentChannelIID > 0) {
+                        vstPluginNames.set(currentChannelIID, vstName);
+                    }
                 }
             }
 
@@ -337,11 +350,13 @@ export class FLPParser {
             }
 
             // ── Playlist items: event 233 (DATA+25) ──
-            // After the playlist event, subsequent TEXT+11 (203) events belong to mixer effect slots,
-            // not channel names. Reset currentChannelIID so they route to mixerPluginNames.
+            // After the playlist event, mixer effect data follows. Reset currentChannelIID so
+            // event 203 routes to mixerPluginNames, and set afterPlaylist so we also capture
+            // event 201 (internal name) and event 213 (VST product name) for mixer effects.
             if (code === 233 && buf) {
                 playlistBuf = buf;
                 currentChannelIID = 0;
+                afterPlaylist = true;
             }
 
             // ── Track data: event 238 (DATA+30) — enabled flag + group ID ──
