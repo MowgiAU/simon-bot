@@ -7332,7 +7332,8 @@ app.put('/api/musician/tracks/positions', requireAuth, async (req: any, res) => 
             return res.status(400).json({ error: 'trackIds array required' });
         }
         // Verify all tracks belong to this user
-        const profile = await db.musicianProfile.findUnique({ where: { userId } });
+        const canonicalPosId = req.session?.user?._localId || userId;
+        const profile = await db.musicianProfile.findFirst({ where: { userId: { in: [...new Set([userId, canonicalPosId])] } }, orderBy: { totalPlays: 'desc' } });
         if (!profile) return res.status(404).json({ error: 'Profile not found' });
         const owned = await db.track.count({ where: { id: { in: trackIds }, profileId: profile.id } });
         if (owned !== trackIds.length) return res.status(403).json({ error: 'Forbidden' });
@@ -9878,7 +9879,8 @@ app.delete('/api/musician/tracks/:trackId/collaborators/:collaboratorId', requir
 app.get('/api/musician/my-collaborations', requireAuth, async (req: any, res) => {
     try {
         const userId = req.session.user.id;
-        const profile = await db.musicianProfile.findUnique({ where: { userId } });
+        const canonicalCollabId = req.session?.user?._localId || userId;
+        const profile = await db.musicianProfile.findFirst({ where: { userId: { in: [...new Set([userId, canonicalCollabId])] } }, orderBy: { totalPlays: 'desc' } });
         if (!profile) return res.json([]);
 
         const collabs = await db.trackCollaborator.findMany({
@@ -15934,8 +15936,9 @@ app.post('/api/tracks/:trackId/favourite', requireAuth, async (req: any, res) =>
             await logAction('GLOBAL', 'track_favourited', userId, trackId, { title: track.title }).catch(() => {});
             logActivity(req, 'track.favourite', trackId, 'track', { title: track.title });
             // Notify track owner
-            if (track.profile.userId !== userId) {
-                const actorProfile = await db.musicianProfile.findUnique({ where: { userId }, select: { avatar: true, displayName: true, username: true } });
+            const canonicalActorId = req.session?.user?._localId || userId;
+            if (track.profile.userId !== userId && track.profile.userId !== canonicalActorId) {
+                const actorProfile = await db.musicianProfile.findFirst({ where: { userId: { in: [...new Set([userId, canonicalActorId])] } }, select: { avatar: true, displayName: true, username: true } });
                 const username = actorProfile?.displayName || actorProfile?.username || req.session.user.username || 'Someone';
                 const actorAvatar = actorProfile?.avatar || null;
                 db.musicNotification.create({
@@ -16045,8 +16048,9 @@ app.post('/api/tracks/:trackId/repost', requireAuth, async (req: any, res) => {
             await logAction('GLOBAL', 'track_reposted', userId, trackId, { title: track.title, owner: track.profile?.username }).catch(() => {});
             logActivity(req, 'track.repost', trackId, 'track', { title: track.title });
             // Notify track owner
-            if (track.profile.userId !== userId) {
-                const actorProfile = await db.musicianProfile.findUnique({ where: { userId }, select: { avatar: true, displayName: true, username: true } });
+            const canonicalRepostId = req.session?.user?._localId || userId;
+            if (track.profile.userId !== userId && track.profile.userId !== canonicalRepostId) {
+                const actorProfile = await db.musicianProfile.findFirst({ where: { userId: { in: [...new Set([userId, canonicalRepostId])] } }, select: { avatar: true, displayName: true, username: true } });
                 const username = actorProfile?.displayName || actorProfile?.username || req.session.user.username || 'Someone';
                 const actorAvatar = actorProfile?.avatar || null;
                 db.musicNotification.create({
@@ -16132,7 +16136,8 @@ app.post('/api/artists/:artistId/follow', requireAuth, async (req: any, res) => 
             await db.artistFollow.create({ data: { followerId, artistId } });
             await logAction('GLOBAL', 'artist_followed', followerId, artistId, { artist: artist.username }).catch(() => {});
             // Notify the artist
-            const actorProfile = await db.musicianProfile.findUnique({ where: { userId: followerId }, select: { avatar: true, displayName: true, username: true } });
+            const canonicalFollowerId = req.session?.user?._localId || followerId;
+            const actorProfile = await db.musicianProfile.findFirst({ where: { userId: { in: [...new Set([followerId, canonicalFollowerId])] } }, select: { avatar: true, displayName: true, username: true } });
             const username = actorProfile?.displayName || actorProfile?.username || req.session.user.username || 'Someone';
             const actorAvatar = actorProfile?.avatar || null;
             db.musicNotification.create({
@@ -16423,7 +16428,8 @@ app.post('/api/playlists', requireAuth, async (req: any, res) => {
         if (!name?.trim()) return res.status(400).json({ error: 'Name is required' });
 
         // Link to profile if exists
-        const profile = await db.musicianProfile.findUnique({ where: { userId }, select: { id: true } });
+        const canonicalPlaylistId = req.session?.user?._localId || userId;
+        const profile = await db.musicianProfile.findFirst({ where: { userId: { in: [...new Set([userId, canonicalPlaylistId])] } }, select: { id: true }, orderBy: { totalPlays: 'desc' } });
 
         let slug = generatePlaylistSlug(name.trim());
         let suffix = 2;
