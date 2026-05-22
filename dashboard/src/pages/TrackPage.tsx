@@ -202,7 +202,10 @@ export const TrackPage: React.FC = () => {
     const [timedComments, setTimedComments] = useState<TimedComment[]>([]);
     const [hoveredComment, setHoveredComment] = useState<string | null>(null);
 
-    const isOwner = user && track?.profile?.userId === user.id;
+    const isOwner = user && (
+        track?.profile?.userId === user.id ||
+        track?.profile?.userId === (user as any)._localId
+    );
     const isAdmin = mutualAdminGuilds && mutualAdminGuilds.length > 0;
     const canEdit = isOwner || isAdmin;
 
