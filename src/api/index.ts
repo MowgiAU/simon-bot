@@ -7280,7 +7280,8 @@ app.put('/api/musician/tracks/:trackId/lyrics', async (req: any, res) => {
         const track = await db.track.findUnique({ where: { id: trackId }, include: { profile: true } });
         if (!track) return res.status(404).json({ error: 'Track not found' });
         const isAdmin = !!(req.session?.mutualAdminGuilds as any)?.length;
-        if (track.profile.userId !== userId && !isAdmin) {
+        const _canonicalId1 = req.session?.user?._localId || userId;
+        if (track.profile.userId !== userId && track.profile.userId !== _canonicalId1 && !isAdmin) {
             return res.status(403).json({ error: 'Forbidden' });
         }
 
@@ -7357,7 +7358,8 @@ app.patch('/api/musician/tracks/:trackId', async (req: any, res) => {
 
         // Ownership check
         const track = await db.track.findUnique({ where: { id: trackId }, include: { profile: true } });
-        if (!track || track.profile.userId !== userId) {
+        const _cId = req.session?.user?._localId || userId;
+        if (!track || (track.profile.userId !== userId && track.profile.userId !== _cId)) {
             return res.status(403).json({ error: 'Forbidden' });
         }
 
@@ -7445,7 +7447,8 @@ app.delete('/api/musician/tracks/:trackId', async (req: any, res) => {
         
         // Ensure user owns the track
         const track = await db.track.findUnique({ where: { id: trackId }, include: { profile: true } });
-        if (!track || track.profile.userId !== userId) {
+        const _cId2 = req.session?.user?._localId || userId;
+        if (!track || (track.profile.userId !== userId && track.profile.userId !== _cId2)) {
             return res.status(403).json({ error: 'Forbidden' });
         }
 
@@ -7504,7 +7507,8 @@ app.put('/api/musician/tracks/:trackId', generalUploadLimiter, upload.fields([
 
         // Ownership check
         const track = await db.track.findUnique({ where: { id: trackId }, include: { profile: true } });
-        if (!track || track.profile.userId !== userId) {
+        const _cId = req.session?.user?._localId || userId;
+        if (!track || (track.profile.userId !== userId && track.profile.userId !== _cId)) {
             return res.status(403).json({ error: 'Forbidden' });
         }
 
@@ -9758,7 +9762,8 @@ app.post('/api/musician/tracks/:trackId/collaborators', requireAuth, async (req:
 
         const track = await db.track.findUnique({ where: { id: trackId }, include: { profile: true } });
         if (!track) return res.status(404).json({ error: 'Track not found' });
-        if (track.profile.userId !== userId) return res.status(403).json({ error: 'Forbidden' });
+        const _cIdCollab = req.session?.user?._localId || userId;
+        if (track.profile.userId !== userId && track.profile.userId !== _cIdCollab) return res.status(403).json({ error: 'Forbidden' });
 
         // Can't add yourself
         if (track.profile.id === profileId) {
@@ -9866,7 +9871,8 @@ app.delete('/api/musician/tracks/:trackId/collaborators/:collaboratorId', requir
         const { trackId, collaboratorId } = req.params;
 
         const track = await db.track.findUnique({ where: { id: trackId }, include: { profile: true } });
-        if (!track || track.profile.userId !== userId) return res.status(403).json({ error: 'Forbidden' });
+        const _cIdCollabDel = req.session?.user?._localId || userId;
+        if (!track || (track.profile.userId !== userId && track.profile.userId !== _cIdCollabDel)) return res.status(403).json({ error: 'Forbidden' });
 
         await db.trackCollaborator.deleteMany({ where: { id: collaboratorId, trackId } });
         res.json({ success: true });
