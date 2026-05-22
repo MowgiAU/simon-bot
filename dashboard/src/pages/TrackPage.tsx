@@ -19,7 +19,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { CommentSection } from '../components/CommentSection';
 import { AddToPlaylistModal } from '../components/AddToPlaylistModal';
 import { ReportButton } from '../components/ReportButton';
-import { ArrangementViewer, ArrangementData, ProjectInfo, ArrangementClip, NoteData, AutomationPoint, PluginList, usePluginRegistry, matchPlugin } from '../components/ArrangementViewer';
+import { ArrangementViewer, ArrangementData, ProjectInfo, ArrangementClip, NoteData, AutomationPoint, PluginList, usePluginRegistry, matchPlugin, PluginModal } from '../components/ArrangementViewer';
 
 interface TrackSample {
     id: string;
@@ -160,6 +160,8 @@ export const TrackPage: React.FC = () => {
     const [editTrackType, setEditTrackType] = useState('');
     const [editSlug, setEditSlug] = useState('');
     const [editLyrics, setEditLyrics] = useState('');
+    // Featured plugin modal
+    const [activePlugin, setActivePlugin] = useState<{ rawName: string; known: ReturnType<typeof matchPlugin> } | null>(null);
     // Collaborators
     const [collaborators, setCollaborators] = useState<any[]>([]);
     const [collabSearch, setCollabSearch] = useState('');
@@ -948,32 +950,32 @@ export const TrackPage: React.FC = () => {
                                         {matched.map(({ rawName, known }) => {
                                             const label = known.displayName || rawName;
                                             return (
-                                                <a key={known.id} href={known.link || undefined} target={known.link ? '_blank' : undefined} rel="noopener noreferrer"
-                                                    style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 14px 8px 8px', borderRadius: '12px', background: 'rgba(255,255,255,0.03)', border: `1px solid ${colors.primary}25`, transition: 'border-color 0.15s, background 0.15s', cursor: known.link ? 'pointer' : 'default' }}
+                                                <button key={known.id} onClick={() => setActivePlugin({ rawName, known })}
+                                                    style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 14px 8px 8px', borderRadius: '12px', background: 'rgba(255,255,255,0.03)', border: `1px solid ${colors.primary}25`, transition: 'border-color 0.15s, background 0.15s', cursor: 'pointer', textAlign: 'left' }}
                                                     onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = colors.primary + '60'; (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.05)'; }}
                                                     onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = colors.primary + '25'; (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.03)'; }}
                                                 >
-                                                    {/* Logo or initial */}
                                                     <div style={{ width: 36, height: 36, borderRadius: '8px', overflow: 'hidden', background: '#0a0d14', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(255,255,255,0.08)' }}>
                                                         {known.imageUrl
                                                             ? <img src={known.imageUrl} alt={label} style={{ width: '100%', height: '100%', objectFit: 'contain', padding: '4px', boxSizing: 'border-box' }} />
                                                             : <span style={{ fontSize: '13px', fontWeight: 800, color: 'rgba(255,255,255,0.2)' }}>{label.slice(0, 2).toUpperCase()}</span>
                                                         }
                                                     </div>
-                                                    {/* Info */}
                                                     <div style={{ minWidth: 0 }}>
                                                         <div style={{ fontSize: '13px', fontWeight: 700, color: colors.textPrimary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: isMobile ? '120px' : '160px' }}>{label}</div>
                                                         {known.developer && <div style={{ fontSize: '11px', color: colors.textTertiary, whiteSpace: 'nowrap' }}>{known.developer}</div>}
                                                         {known.category && <div style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: colors.primary, marginTop: '2px' }}>{known.category}</div>}
                                                     </div>
                                                     {known.link && <ExternalLink size={12} color={colors.primary} style={{ marginLeft: 2, flexShrink: 0, opacity: 0.7 }} />}
-                                                </a>
+                                                </button>
                                             );
                                         })}
                                     </div>
                                 </div>
                             );
                         })()}
+
+                        {activePlugin && <PluginModal rawName={activePlugin.rawName} known={activePlugin.known} onClose={() => setActivePlugin(null)} />}
 
                         {/* Plugins & Samples (collapsible) — shows unmatched plugins + all samples */}
                         {track.arrangement.projectInfo && (() => {
