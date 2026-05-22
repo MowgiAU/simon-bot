@@ -16,7 +16,23 @@ interface KnownPlugin {
     isActive: boolean;
 }
 
-const CATEGORIES = ['synth', 'effect', 'sampler', 'utility', 'other'];
+const CATEGORIES = [
+    'synth',
+    'instrument',
+    'sampler',
+    'drums',
+    'bass',
+    'effect',
+    'reverb',
+    'delay',
+    'eq',
+    'compressor',
+    'distortion',
+    'modulation',
+    'utility',
+    'midi',
+    'other',
+];
 
 const empty = (): Partial<KnownPlugin> => ({
     name: '', aliases: [], displayName: '', link: '', category: '', developer: '', description: '', isActive: true,
