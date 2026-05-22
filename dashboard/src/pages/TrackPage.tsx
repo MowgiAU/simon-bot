@@ -19,7 +19,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { CommentSection } from '../components/CommentSection';
 import { AddToPlaylistModal } from '../components/AddToPlaylistModal';
 import { ReportButton } from '../components/ReportButton';
-import { ArrangementViewer, ArrangementData, ProjectInfo, ArrangementClip, NoteData, AutomationPoint, PluginList, usePluginRegistry } from '../components/ArrangementViewer';
+import { ArrangementViewer, ArrangementData, ProjectInfo, ArrangementClip, NoteData, AutomationPoint, PluginList, usePluginRegistry, matchPlugin } from '../components/ArrangementViewer';
 
 interface TrackSample {
     id: string;
@@ -925,8 +925,64 @@ export const TrackPage: React.FC = () => {
                             </div>
                         )}
 
-                        {/* Plugins & Samples (collapsible) */}
-                        {track.arrangement.projectInfo && (track.arrangement.projectInfo.plugins.length > 0 || track.arrangement.projectInfo.samples.length > 0) && (
+                        {/* ── Featured Plugins (registry-matched, always visible) ── */}
+                        {(() => {
+                            if (!track.arrangement.projectInfo || pluginRegistry.length === 0) return null;
+                            const seen = new Set<string>();
+                            const matched = track.arrangement.projectInfo.plugins.reduce<Array<{ rawName: string; known: NonNullable<ReturnType<typeof matchPlugin>> }>>((acc, name) => {
+                                const known = matchPlugin(name, pluginRegistry);
+                                if (known && !seen.has(known.id)) { seen.add(known.id); acc.push({ rawName: name, known }); }
+                                return acc;
+                            }, []);
+                            if (matched.length === 0) return null;
+                            return (
+                                <div style={{ padding: isMobile ? '16px 20px 20px' : '20px 28px 24px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
+                                        <Zap size={14} color={colors.primary} />
+                                        <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: colors.primary }}>
+                                            Plugins Used
+                                        </span>
+                                        <span style={{ fontSize: '11px', color: colors.textTertiary }}>({matched.length})</span>
+                                    </div>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+                                        {matched.map(({ rawName, known }) => {
+                                            const label = known.displayName || rawName;
+                                            return (
+                                                <a key={known.id} href={known.link || undefined} target={known.link ? '_blank' : undefined} rel="noopener noreferrer"
+                                                    style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 14px 8px 8px', borderRadius: '12px', background: 'rgba(255,255,255,0.03)', border: `1px solid ${colors.primary}25`, transition: 'border-color 0.15s, background 0.15s', cursor: known.link ? 'pointer' : 'default' }}
+                                                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = colors.primary + '60'; (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.05)'; }}
+                                                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = colors.primary + '25'; (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.03)'; }}
+                                                >
+                                                    {/* Logo or initial */}
+                                                    <div style={{ width: 36, height: 36, borderRadius: '8px', overflow: 'hidden', background: '#0a0d14', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(255,255,255,0.08)' }}>
+                                                        {known.imageUrl
+                                                            ? <img src={known.imageUrl} alt={label} style={{ width: '100%', height: '100%', objectFit: 'contain', padding: '4px', boxSizing: 'border-box' }} />
+                                                            : <span style={{ fontSize: '13px', fontWeight: 800, color: 'rgba(255,255,255,0.2)' }}>{label.slice(0, 2).toUpperCase()}</span>
+                                                        }
+                                                    </div>
+                                                    {/* Info */}
+                                                    <div style={{ minWidth: 0 }}>
+                                                        <div style={{ fontSize: '13px', fontWeight: 700, color: colors.textPrimary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: isMobile ? '120px' : '160px' }}>{label}</div>
+                                                        {known.developer && <div style={{ fontSize: '11px', color: colors.textTertiary, whiteSpace: 'nowrap' }}>{known.developer}</div>}
+                                                        {known.category && <div style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: colors.primary, marginTop: '2px' }}>{known.category}</div>}
+                                                    </div>
+                                                    {known.link && <ExternalLink size={12} color={colors.primary} style={{ marginLeft: 2, flexShrink: 0, opacity: 0.7 }} />}
+                                                </a>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            );
+                        })()}
+
+                        {/* Plugins & Samples (collapsible) — shows unmatched plugins + all samples */}
+                        {track.arrangement.projectInfo && (() => {
+                            const unmatchedPlugins = pluginRegistry.length > 0
+                                ? track.arrangement.projectInfo.plugins.filter(name => !matchPlugin(name, pluginRegistry))
+                                : track.arrangement.projectInfo.plugins;
+                            const hasSamples = track.arrangement.projectInfo.samples.length > 0;
+                            if (unmatchedPlugins.length === 0 && !hasSamples) return null;
+                            return (
                             <div style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
                                 <button
                                     onClick={() => setPluginsSamplesOpen(!pluginsSamplesOpen)}
@@ -941,11 +997,11 @@ export const TrackPage: React.FC = () => {
                                         <span style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
                                             {pluginsSamplesOpen ? 'Plugins & Samples' : <>
                                             Plugins & Samples
-                                            {track.arrangement.projectInfo.plugins.length > 0 && ` (${track.arrangement.projectInfo.plugins.length} plugins`}
-                                            {track.arrangement.projectInfo.plugins.length > 0 && track.arrangement.projectInfo.samples.length > 0 && ', '}
-                                            {track.arrangement.projectInfo.plugins.length === 0 && track.arrangement.projectInfo.samples.length > 0 && ' ('}
-                                            {track.arrangement.projectInfo.samples.length > 0 && `${track.arrangement.projectInfo.samples.length} samples)`}
-                                            {track.arrangement.projectInfo.plugins.length > 0 && track.arrangement.projectInfo.samples.length === 0 && ')'}
+                                            {unmatchedPlugins.length > 0 && ` (${unmatchedPlugins.length} plugins`}
+                                            {unmatchedPlugins.length > 0 && hasSamples && ', '}
+                                            {unmatchedPlugins.length === 0 && hasSamples && ' ('}
+                                            {hasSamples && `${track.arrangement.projectInfo.samples.length} samples)`}
+                                            {unmatchedPlugins.length > 0 && !hasSamples && ')'}
                                             </>}
                                         </span>
                                     </div>
@@ -953,17 +1009,17 @@ export const TrackPage: React.FC = () => {
                                 </button>
                                 {pluginsSamplesOpen && (
                                     <div style={{ padding: isMobile ? '0 20px 16px' : '0 28px 20px' }}>
-                                        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : (track.arrangement.projectInfo.plugins.length > 0 && track.arrangement.projectInfo.samples.length > 0 ? '1fr 1fr' : '1fr'), gap: '20px' }}>
-                                            {/* Plugins */}
-                                            {track.arrangement.projectInfo.plugins.length > 0 && (
+                                        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : (unmatchedPlugins.length > 0 && hasSamples ? '1fr 1fr' : '1fr'), gap: '20px' }}>
+                                            {/* Unmatched Plugins */}
+                                            {unmatchedPlugins.length > 0 && (
                                                 <div>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
                                                         <Zap size={15} color={colors.primary} />
                                                         <span style={{ fontSize: '12px', fontWeight: 700, color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                                                            Plugins ({track.arrangement.projectInfo.plugins.length})
+                                                            Other Plugins ({unmatchedPlugins.length})
                                                         </span>
                                                     </div>
-                                                    <PluginList plugins={track.arrangement.projectInfo.plugins} registry={pluginRegistry} />
+                                                    <PluginList plugins={unmatchedPlugins} registry={[]} />
                                                 </div>
                                             )}
                                             {/* Samples */}
@@ -996,8 +1052,9 @@ export const TrackPage: React.FC = () => {
                                     </div>
                                 )}
                             </div>
-                        )}
-                    </div>
+                        );
+                    })()}
+                </div>
                 )}
 
                 {/* ═══ TRACK DETAILS (no FLP) ═══ */}
