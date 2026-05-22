@@ -7436,6 +7436,13 @@ app.patch('/api/musician/tracks/:trackId', async (req: any, res) => {
         await logAction('GLOBAL', 'track_edited', userId, trackId, { title: fullTrack?.title }).catch(() => {});
         invalidateProfileCache(userId);
         invalidateDiscoveryCache();
+        // Cancel any pending Discord announcements if the track is now private
+        if (isPublic === 'false' || isPublic === false) {
+            await db.trackAnnouncement.updateMany({
+                where: { trackId, postedAt: null },
+                data: { postedAt: new Date() }, // mark as posted so the announcer skips it
+            }).catch(() => {});
+        }
         logActivity(req, 'track.edit', trackId, 'track', { title: fullTrack?.title });
         res.json(fullTrack);
     } catch (e: any) {
@@ -8584,6 +8591,20 @@ app.get('/api/musician/tracks/:username/:trackSlug', publicCache(15), async (req
                 where: { username: { equals: username, mode: 'insensitive' } }
             });
             return res.status(404).json({ error: artistExists ? 'Track not found' : 'Artist not found' });
+        }
+
+        // Private tracks are only visible to the owner and admins — return 404 to everyone else
+        if (!track.isPublic) {
+            const requestingUserId = (req as any).session?.user?.id;
+            const requestingLocalId = (req as any).session?.user?._localId;
+            const isOwner = requestingUserId && (
+                track.profile.userId === requestingUserId ||
+                track.profile.userId === requestingLocalId
+            );
+            const isAdmin = !!((req as any).session?.mutualAdminGuilds as any)?.length;
+            if (!isOwner && !isAdmin) {
+                return res.status(404).json({ error: 'Track not found' });
+            }
         }
 
         if (track.allowAudioDownload === undefined) track.allowAudioDownload = true;
