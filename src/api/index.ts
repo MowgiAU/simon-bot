@@ -7560,7 +7560,7 @@ app.put('/api/musician/tracks/:trackId', generalUploadLimiter, upload.fields([
 
         // Text field updates
         const { title, description, isPublic: isPublicEdit, artist, album, year, bpm, key: musicKey, genreIds, allowAudioDownload, allowProjectDownload, license } = req.body;
-        logger.info(`[PUT track ${trackId}] allowAudioDownload=${JSON.stringify(allowAudioDownload)} allowProjectDownload=${JSON.stringify(allowProjectDownload)}`);
+        logger.info(`[PUT track ${trackId}] isPublic=${JSON.stringify(isPublicEdit)} allowAudioDownload=${JSON.stringify(allowAudioDownload)} allowProjectDownload=${JSON.stringify(allowProjectDownload)}`);
         if (title !== undefined) {
             const cleanTitle = sanitizeDisplayName(title);
             updateData.title = cleanTitle;
@@ -7580,7 +7580,7 @@ app.put('/api/musician/tracks/:trackId', generalUploadLimiter, upload.fields([
         if (updateData.isPublic === false) {
             db.musicianProfile.updateMany({ where: { featuredTrackId: trackId }, data: { featuredTrackId: null } }).catch(() => {});
         }
-        logger.info(`[PUT track ${trackId}] updateData.allowAudioDownload=${updateData.allowAudioDownload}`);
+        logger.info(`[PUT track ${trackId}] updateData.isPublic=${updateData.isPublic} updateData.allowAudioDownload=${updateData.allowAudioDownload}`);
 
         // Audio file replacement
         if (audioFile) {
@@ -7704,6 +7704,14 @@ app.put('/api/musician/tracks/:trackId', generalUploadLimiter, upload.fields([
         });
         await logAction('GLOBAL', 'track_edited', userId, trackId, { title: fullTrack?.title }).catch(() => {});
         invalidateProfileCache(userId);
+        invalidateDiscoveryCache();
+        // Cancel pending Discord announcements if the track is now private
+        if (updateData.isPublic === false) {
+            await db.trackAnnouncement.updateMany({
+                where: { trackId, postedAt: null },
+                data: { postedAt: new Date() },
+            }).catch(() => {});
+        }
         res.json(fullTrack);
     } catch (e: any) {
         logger.error('Failed to update track', e);
@@ -8597,11 +8605,24 @@ app.get('/api/musician/tracks/:username/:trackSlug', publicCache(15), async (req
         if (!track.isPublic) {
             const requestingUserId = (req as any).session?.user?.id;
             const requestingLocalId = (req as any).session?.user?._localId;
-            const isOwner = requestingUserId && (
-                track.profile.userId === requestingUserId ||
-                track.profile.userId === requestingLocalId
-            );
             const isAdmin = !!((req as any).session?.mutualAdminGuilds as any)?.length;
+            let isOwner = false;
+            if (requestingUserId) {
+                // Direct match (Discord ID or cuid)
+                if (track.profile.userId === requestingUserId || track.profile.userId === requestingLocalId) {
+                    isOwner = true;
+                } else {
+                    // Resolve through User table to handle consolidated accounts
+                    const linkedUser = await db.user.findFirst({
+                        where: { OR: [{ id: requestingUserId }, { discordId: requestingUserId }, ...(requestingLocalId ? [{ id: requestingLocalId }] : [])] },
+                        select: { id: true, discordId: true },
+                    });
+                    if (linkedUser) {
+                        const ids = [linkedUser.id, linkedUser.discordId].filter(Boolean);
+                        isOwner = ids.includes(track.profile.userId);
+                    }
+                }
+            }
             if (!isOwner && !isAdmin) {
                 return res.status(404).json({ error: 'Track not found' });
             }
