@@ -291,26 +291,34 @@ export const TrackPage: React.FC = () => {
         }
     }, [track]);
 
-    const openEditMode = () => {
+    const openEditMode = async () => {
         if (!track) return;
 
+        // Re-fetch fresh track data so the form always reflects current DB state
+        // (e.g. if privacy was changed from My Tracks since this page loaded)
+        let freshTrack = track;
+        try {
+            const res = await axios.get(`/api/musician/tracks/${track.profile?.username || ''}/${track.slug || track.id}`, { withCredentials: true });
+            if (res.data) { freshTrack = res.data; setTrackData(res.data); }
+        } catch { /* use cached track if refetch fails */ }
+
         setEditForm({
-            title: track.title || '',
-            description: track.description || '',
-            artist: track.artist || '',
-            album: track.album || '',
-            year: track.year?.toString() || '',
-            bpm: track.bpm?.toString() || '',
-            key: track.key || '',
-            isPublic: track.isPublic ?? true,
-            allowAudioDownload: track.allowAudioDownload ?? true,
-            allowProjectDownload: track.allowProjectDownload ?? true,
-            license: track.license || 'all-rights-reserved',
+            title: freshTrack.title || '',
+            description: freshTrack.description || '',
+            artist: freshTrack.artist || '',
+            album: freshTrack.album || '',
+            year: freshTrack.year?.toString() || '',
+            bpm: freshTrack.bpm?.toString() || '',
+            key: freshTrack.key || '',
+            isPublic: freshTrack.isPublic ?? true,
+            allowAudioDownload: freshTrack.allowAudioDownload ?? true,
+            allowProjectDownload: freshTrack.allowProjectDownload ?? true,
+            license: freshTrack.license || 'all-rights-reserved',
         });
-        setEditTrackType((track as any).trackType || '');
-        setEditSlug((track as any).slug || '');
-        setEditLyrics((track as any).lyrics || '');
-        setSelectedTrackGenres(track.genres?.map(g => g.genre.id) || []);
+        setEditTrackType((freshTrack as any).trackType || '');
+        setEditSlug((freshTrack as any).slug || '');
+        setEditLyrics((freshTrack as any).lyrics || '');
+        setSelectedTrackGenres(freshTrack.genres?.map((g: any) => g.genre?.id || g.genreId || g.id) || []);
         setEditAudioFile(null);
         setEditArtworkFile(null);
         setEditProjectFile(null);

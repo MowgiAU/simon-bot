@@ -8555,7 +8555,8 @@ app.get('/api/musician/profile/:userId', async (req, res) => {
     }
 });
 
-app.get('/api/musician/tracks/:username/:trackSlug', publicCache(15), async (req, res) => {
+app.get('/api/musician/tracks/:username/:trackSlug', async (req, res) => {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
     try {
         const { username, trackSlug } = req.params;
 
