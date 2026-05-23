@@ -443,7 +443,7 @@ export const EmailClientPage: React.FC<EmailPageProps> = ({ searchParam }) => {
                                     )}
                                     <EditorToolbar />
                                     <div contentEditable suppressContentEditableWarning
-                                        onInput={e => setComposeData(prev => ({...prev, body: (e.currentTarget as HTMLElement).innerHTML}))}
+                                        onInput={e => { const html = (e.currentTarget as HTMLElement).innerHTML; setComposeData(prev => ({...prev, body: html})); }}
                                         style={{ padding: '10px 14px', outline: 'none', minHeight: 80, maxHeight: 200, overflowY: 'auto', fontSize: 13, color: colors.textPrimary }} />
                                     <div style={{ padding: '8px 14px', borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', gap: 8, alignItems: 'center' }}>
                                         <button onClick={handleSend} style={{ background: colors.primary, color: '#fff', border: 'none', padding: '7px 18px', borderRadius: 999, fontWeight: 600, cursor: 'pointer', fontSize: 13 }}>Send</button>
@@ -484,7 +484,7 @@ export const EmailClientPage: React.FC<EmailPageProps> = ({ searchParam }) => {
                 )}
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
                     <EditorToolbar />
-                    <div contentEditable suppressContentEditableWarning onInput={e => setComposeData(p => ({...p, body: (e.currentTarget as HTMLElement).innerHTML}))} style={{ flex: 1, padding: '14px 18px', outline: 'none', overflowY: 'auto', fontSize: 14, color: colors.textPrimary, minHeight: 80 }} />
+                    <div contentEditable suppressContentEditableWarning onInput={e => { const html = (e.currentTarget as HTMLElement).innerHTML; setComposeData(p => ({...p, body: html})); }} style={{ flex: 1, padding: '14px 18px', outline: 'none', overflowY: 'auto', fontSize: 14, color: colors.textPrimary, minHeight: 80 }} />
                 </div>
                 <div style={{ padding: '10px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
                     <div style={{ display: 'flex', gap: 8 }}>
