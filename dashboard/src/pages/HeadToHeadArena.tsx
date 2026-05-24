@@ -7,7 +7,6 @@ import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
 
 const API = '';
 
-interface Genre { id: string; name: string; sampleCount: number }
 interface Settings {
     enabled: boolean;
     defaultProductionMinutes: number;
@@ -386,8 +385,6 @@ export const HeadToHeadArenaPage: React.FC = () => {
 
 const ArenaTab: React.FC<{ settings: Settings | null }> = ({ settings }) => {
     const [me, setMe] = useState<MeData | null>(null);
-    const [genres, setGenres] = useState<Genre[]>([]);
-    const [genreId, setGenreId] = useState<string>('');
     const [prodMin, setProdMin] = useState<number>(60);
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -395,16 +392,9 @@ const ArenaTab: React.FC<{ settings: Settings | null }> = ({ settings }) => {
     const [isLoggedIn, setIsLoggedIn] = useState(true);
 
     const reload = useCallback(async () => {
-        const [mRes, gRes] = await Promise.all([
-            fetch(`${API}/api/head-to-head/me`, { credentials: 'include' }),
-            fetch(`${API}/api/head-to-head/genres`),
-        ]);
+        const mRes = await fetch(`${API}/api/head-to-head/me`, { credentials: 'include' });
         if (mRes.status === 401 || mRes.status === 403) setIsLoggedIn(false);
         if (mRes.ok) setMe(await mRes.json());
-        if (gRes.ok) {
-            const data = await gRes.json();
-            setGenres(data.genres || []);
-        }
         setLoaded(true);
     }, []);
 
@@ -422,7 +412,7 @@ const ArenaTab: React.FC<{ settings: Settings | null }> = ({ settings }) => {
         const res = await fetch(`${API}/api/head-to-head/queue`, {
             method: 'POST', credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ genreId: genreId || null, productionMinutes: prodMin }),
+            body: JSON.stringify({ productionMinutes: prodMin }),
         });
         if (!res.ok) {
             const j = await res.json().catch(() => ({}));
@@ -475,7 +465,7 @@ const ArenaTab: React.FC<{ settings: Settings | null }> = ({ settings }) => {
         <div>
             {/* ─── PLAYER STATS PANEL ─── */}
             <Panel glowColor={tier.color}>
-                <div style={{ display: 'flex', gap: 20, alignItems: 'center', marginBottom: me.genreRatings.length > 0 ? 14 : 0, flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', gap: 20, alignItems: 'center', flexWrap: 'wrap' }}>
                     <div style={{
                         width: 84, height: 84, borderRadius: 16,
                         background: `linear-gradient(135deg, ${tier.color}cc, ${tier.color}66)`,
@@ -515,28 +505,6 @@ const ArenaTab: React.FC<{ settings: Settings | null }> = ({ settings }) => {
                     </div>
                 </div>
 
-                {me.genreRatings.length > 0 && (
-                    <div style={{ borderTop: `1px solid ${NEON.border}`, paddingTop: 12 }}>
-                        <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.15em', fontWeight: 700, marginBottom: 8 }}>GENRE RATINGS</div>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                            {me.genreRatings.map(g => {
-                                const gt = tierFor(g.elo);
-                                return (
-                                    <span key={g.genreId} style={{
-                                        display: 'inline-flex', alignItems: 'center', gap: 8,
-                                        padding: '6px 12px', borderRadius: 8,
-                                        background: 'rgba(255,255,255,0.04)',
-                                        border: `1px solid ${gt.color}44`, fontSize: 12,
-                                    }}>
-                                        <span style={{ color: 'rgba(255,255,255,0.7)' }}>{g.genreName}</span>
-                                        <strong style={{ color: gt.color, fontVariantNumeric: 'tabular-nums', textShadow: `0 0 8px ${gt.glow}` }}>{g.elo}</strong>
-                                        <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10 }}>{g.wins}W·{g.losses}L</span>
-                                    </span>
-                                );
-                            })}
-                        </div>
-                    </div>
-                )}
             </Panel>
 
             {/* ─── ACTIVE MATCH or QUEUE ─── */}
@@ -554,12 +522,6 @@ const ArenaTab: React.FC<{ settings: Settings | null }> = ({ settings }) => {
                         </div>
                     )}
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12, marginBottom: 16 }}>
-                        <FieldGroup label="GENRE" icon={<Headphones size={14} color={NEON.purple} />}>
-                            <select value={genreId} onChange={e => setGenreId(e.target.value)} style={selectStyle}>
-                                <option value="">⚡ Any genre (global pool)</option>
-                                {genres.map(g => <option key={g.id} value={g.id}>{g.name} · {g.sampleCount} samples</option>)}
-                            </select>
-                        </FieldGroup>
                         <FieldGroup label="PRODUCTION TIME" icon={<Clock size={14} color={NEON.yellow} />}>
                             <select value={prodMin} onChange={e => setProdMin(Number(e.target.value))} style={selectStyle}>
                                 {[15, 30, 45, 60, 90, 120, 180, 240, 360, 720].map(n => (
@@ -621,7 +583,7 @@ const ArenaTab: React.FC<{ settings: Settings | null }> = ({ settings }) => {
                                             vs {profileName(oppProf, oppId)}
                                         </div>
                                         <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)' }}>
-                                            {m.genre?.name || 'Global'}{isForfeit ? ' · forfeit' : ''}
+                                            {isForfeit ? 'forfeit' : ''}
                                         </div>
                                     </div>
                                     {delta != null && (
@@ -874,7 +836,7 @@ const ActiveMatchPanel: React.FC<{ match: MatchInfo; myUserId: string; onChange:
             </div>
 
             <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', textAlign: 'center', letterSpacing: '0.1em', marginBottom: 16 }}>
-                {match.genre?.name || 'GLOBAL'} · {match.productionMinutes} MIN PRODUCTION
+                {match.productionMinutes} MIN PRODUCTION
             </div>
 
             {/* Status-specific content */}
@@ -1688,12 +1650,7 @@ const VoteTab: React.FC = () => {
                 const tl = timeLeft(m.votingEnd);
                 return (
                     <Panel key={m.id} glowColor={NEON.cyan}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 14, flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 999, background: `${NEON.purple}22`, border: `1px solid ${NEON.purple}66`, color: NEON.purple, fontSize: 11, fontWeight: 800, letterSpacing: '0.1em' }}>
-                                    <Headphones size={12} /> {m.genre?.name || 'GLOBAL'}
-                                </span>
-                            </div>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 14, flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                                 <Clock size={12} color={tl.urgent ? NEON.red : 'rgba(255,255,255,0.5)'} />
                                 <span style={{ fontFamily: 'monospace', fontSize: 13, fontWeight: 700, color: tl.urgent ? NEON.red : 'rgba(255,255,255,0.7)' }}>{tl.txt}</span>
@@ -1819,7 +1776,7 @@ const RulesTab: React.FC<{ settings: Settings | null }> = ({ settings }) => {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                     {phase(1, NEON.cyan, Target, 'Queue Up',
                         'Instant',
-                        <>Pick a genre (or Global) and how long you want to produce. You'll be matched with the next producer who picks the same combo. The wait is usually seconds.</>)}
+                        <>Choose how long you want to produce and join the global queue. You'll be matched with the next available producer at the same production length. The wait is usually seconds.</>)}
 
                     {phase(2, NEON.yellow, CheckCircle, 'Ready Up',
                         `${ready} min`,
@@ -1857,7 +1814,7 @@ const RulesTab: React.FC<{ settings: Settings | null }> = ({ settings }) => {
                     {ruleCard(Upload, NEON.pink, 'One Submission',
                         <>You can re-upload to replace your file as many times as you want before the production timer ends. Once it ends, what's on the server is final.</>)}
                     {ruleCard(TrendingUp, NEON.green, 'Elo & Ranks',
-                        <>Wins push your Elo up, losses pull it down. The further apart your ratings, the bigger the swing for the underdog. Genre Elos are tracked separately from your Global rating.</>)}
+                        <>Wins push your Elo up, losses pull it down. The further apart your ratings, the bigger the swing for the underdog.</>)}
                 </div>
             </Panel>
 
@@ -1887,25 +1844,17 @@ const RulesTab: React.FC<{ settings: Settings | null }> = ({ settings }) => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const LeaderboardTab: React.FC = () => {
-    const [genres, setGenres] = useState<Genre[]>([]);
-    const [genreId, setGenreId] = useState<string>('');
     const [rows, setRows] = useState<LeaderRow[]>([]);
     const [loading, setLoading] = useState(true);
 
-    const load = async (g: string) => {
+    const load = async () => {
         setLoading(true);
-        const url = g ? `${API}/api/head-to-head/leaderboard?genreId=${g}` : `${API}/api/head-to-head/leaderboard`;
-        const res = await fetch(url);
+        const res = await fetch(`${API}/api/head-to-head/leaderboard`);
         if (res.ok) setRows(await res.json());
         setLoading(false);
     };
 
-    useEffect(() => {
-        fetch(`${API}/api/head-to-head/genres`).then(r => r.json()).then(d => setGenres(d.genres || []));
-        load('');
-    }, []);
-
-    useEffect(() => { load(genreId); }, [genreId]);
+    useEffect(() => { load(); }, []);
 
     const MEDAL = ['🥇', '🥈', '🥉'];
     const MEDAL_COLOR = [NEON.yellow, '#C0C0C0', '#CD7F32'];
@@ -1913,16 +1862,9 @@ const LeaderboardTab: React.FC = () => {
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {/* Header */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <Trophy size={20} color={NEON.yellow} style={{ filter: `drop-shadow(0 0 6px ${NEON.yellow})` }} />
-                    <span style={{ fontWeight: 900, fontSize: 16, letterSpacing: '0.1em', color: NEON.yellow }}>HALL OF CHAMPIONS</span>
-                </div>
-                <select value={genreId} onChange={e => setGenreId(e.target.value)}
-                    style={{ ...selectStyle, width: 'auto', minWidth: 180, fontSize: 12 }}>
-                    <option value="">⚡ Global</option>
-                    {genres.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
-                </select>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <Trophy size={20} color={NEON.yellow} style={{ filter: `drop-shadow(0 0 6px ${NEON.yellow})` }} />
+                <span style={{ fontWeight: 900, fontSize: 16, letterSpacing: '0.1em', color: NEON.yellow }}>HALL OF CHAMPIONS</span>
             </div>
 
             {loading ? (

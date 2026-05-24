@@ -168,7 +168,11 @@ export const BattlesPage: React.FC = () => {
                                data.find(b => b.status === 'upcoming');
                 if (active) {
                     const detail = await fetch(`${API}/api/beat-battle/battles/${active.id}`, { credentials: 'include' });
-                    if (detail.ok) setCurrentBattle(await detail.json());
+                    if (detail.ok) {
+                        const d = await detail.json();
+                        if (Array.isArray(d.entries)) d.entries = d.entries.map(flattenBattleEntry);
+                        setCurrentBattle(d);
+                    }
                 }
             } else {
                 const active = data.find(b => b.status === 'voting') ||
@@ -176,7 +180,11 @@ export const BattlesPage: React.FC = () => {
                                data.find(b => b.status === 'upcoming');
                 if (active) {
                     const detail = await fetch(`${API}/api/beat-battle/battles/${active.id}`, { credentials: 'include' });
-                    if (detail.ok) setCurrentBattle(await detail.json());
+                    if (detail.ok) {
+                        const d = await detail.json();
+                        if (Array.isArray(d.entries)) d.entries = d.entries.map(flattenBattleEntry);
+                        setCurrentBattle(d);
+                    }
                 }
             }
         } catch {} finally { setLoading(false); }
@@ -305,7 +313,11 @@ export const BattlesPage: React.FC = () => {
                 if (currentBattle) {
                     fetch(`${API}/api/beat-battle/battles/${currentBattle.id}`, { credentials: 'include' })
                         .then(r => r.ok ? r.json() : null)
-                        .then(b => { if (b) setCurrentBattle(b); })
+                        .then(b => {
+                            if (!b) return;
+                            if (Array.isArray(b.entries)) b.entries = b.entries.map(flattenBattleEntry);
+                            setCurrentBattle(b);
+                        })
                         .catch(() => {});
                 }
             } else {

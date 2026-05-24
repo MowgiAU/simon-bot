@@ -90,8 +90,8 @@ export class HeadToHeadBattlePlugin implements IPlugin {
             .setDescription([
                 'Queue up for a real-time 1v1 producer battle:',
                 '',
-                '**1.** Pick a genre and production length, then join the queue.',
-                '**2.** Get matched with a similarly-skilled producer.',
+                '**1.** Pick a production length and join the global queue.',
+                '**2.** Get matched with the next available producer.',
                 '**3.** Both players hit *Ready Up* — the timer starts.',
                 '**4.** Curated samples are auto-distributed from the pool.',
                 '**5.** Submit your track before the deadline.',

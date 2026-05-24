@@ -15040,7 +15040,6 @@ async function runHeadToHeadLifecycle(): Promise<void> {
                 !consumed.has(b.id) &&
                 b.id !== a.id &&
                 b.challengerId !== a.challengerId &&
-                (b.genreId ?? null) === (a.genreId ?? null) &&
                 b.productionMinutes === a.productionMinutes
             );
             if (!candidate) continue;
