@@ -345,7 +345,11 @@ export const MyTracksPage: React.FC = () => {
             setSelectedTrackGenres([]); setTosAgreed(false); setNewTrackLyrics(''); setStagedCollabs([]);
             setMessage({ type: 'success', text: 'Track uploaded successfully! It may take a minute to appear on your profile.' });
         } catch (e: any) {
-            setMessage({ type: 'error', text: e.response?.data?.error || e.message || 'Failed to upload track.' });
+            const errText = e.response?.data?.error
+                || (e.code === 'ERR_NETWORK' || e.message === 'Network Error' ? 'Upload failed — connection lost. This can happen during large WAV uploads on slow connections. Please try again.' : null)
+                || e.message
+                || 'Failed to upload track.';
+            setMessage({ type: 'error', text: errText });
         } finally {
             if (scanTimer) clearTimeout(scanTimer);
             setSaving(false);
