@@ -16330,14 +16330,21 @@ app.get('/api/artists/:artistId/following-count', publicCache(60), async (req: a
 app.get('/api/artists/:artistId/friends', async (req: any, res) => {
     try {
         const artistId = req.params.artistId;
-        // Accept both profile id and userId (the edit page passes userId, public profile passes profile id)
+        // Accept profile id, cuid userId, or Discord snowflake userId.
+        // Resolve all aliases through the User table so consolidated accounts work.
         let profile = await db.musicianProfile.findUnique({
             where: { id: artistId },
             select: { id: true, userId: true, featuredFriendIds: true },
         });
         if (!profile) {
+            // Resolve the identifier to all known userId aliases for this account
+            const resolvedUser = await db.user.findFirst({
+                where: { OR: [{ id: artistId }, { discordId: artistId }] },
+                select: { id: true, discordId: true },
+            });
+            const userIdAliases = [...new Set([artistId, resolvedUser?.id, resolvedUser?.discordId].filter(Boolean))] as string[];
             profile = await db.musicianProfile.findFirst({
-                where: { userId: artistId },
+                where: { userId: { in: userIdAliases } },
                 select: { id: true, userId: true, featuredFriendIds: true },
             }) as any;
         }
