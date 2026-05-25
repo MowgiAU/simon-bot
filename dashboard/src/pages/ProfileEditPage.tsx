@@ -314,7 +314,7 @@ export const ProfileEditPage: React.FC = () => {
                     featuredTrack: saved.featuredTrack ?? (saved.featuredTrackId ? prev.featuredTrack : null),
                 } : prev);
             }
-            setMessage({ type: 'success', text: isAdminMode ? 'Profile updated by admin.' : 'Profile saved!' });
+            setMessage({ type: 'success', text: isAdminMode ? 'Profile updated by admin.' : 'Profile saved! Changes may take a few minutes to reflect on your profile.' });
             setIsDirty(false);
         } catch (err: any) {
             setMessage({ type: 'error', text: err.response?.data?.error || 'Failed to save profile' });
