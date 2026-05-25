@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { HardDrive, Trash2, RefreshCw, AlertCircle, Check } from 'lucide-react';
+import { HardDrive, Trash2, RefreshCw, AlertCircle, Check, ShieldAlert } from 'lucide-react';
 import { colors, spacing, borderRadius } from '../theme/theme';
 import axios from 'axios';
 
@@ -7,6 +7,8 @@ interface OrphanedFile {
     filename: string;
     sizeMB: number;
     modifiedAt: string;
+    risky: boolean;
+    riskyReason: string | null;
 }
 
 const fmt = (iso: string) =>
@@ -71,9 +73,11 @@ export const OrphanedUploads: React.FC = () => {
 
             {/* Info box */}
             <div style={{ backgroundColor: colors.surface, padding: spacing.md, borderRadius: borderRadius.md, marginBottom: spacing.lg, borderLeft: `4px solid ${colors.primary}` }}>
-                <p style={{ margin: 0, color: colors.textPrimary, fontSize: '13px' }}>
-                    These files were written to disk during an upload that failed before the database record was saved — typically due to a server restart or connection drop mid-upload.
-                    Deleting them frees disk space and lets the user re-upload their track successfully.
+                <p style={{ margin: 0, color: colors.textPrimary, fontSize: '13px', marginBottom: '8px' }}>
+                    Files written to disk during an upload that failed before the database record was saved — typically a server restart or connection drop mid-upload.
+                </p>
+                <p style={{ margin: 0, color: colors.textSecondary, fontSize: '12px' }}>
+                    <strong style={{ color: '#F59E0B' }}>⚠ Risky</strong> files share a filename stem with an existing track — they may be conversion artefacts from a background job that was interrupted after the file was converted but before the DB was updated. These are almost certainly safe to delete (the track's URL would be broken anyway), but inspect them first.
                 </p>
             </div>
 
@@ -102,9 +106,11 @@ export const OrphanedUploads: React.FC = () => {
                 </div>
             ) : (
                 <div style={{ backgroundColor: colors.surface, borderRadius: borderRadius.lg, border: `1px solid ${colors.glassBorder}`, overflow: 'hidden' }}>
-                    <div style={{ padding: '12px 20px', borderBottom: `1px solid ${colors.glassBorder}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <div style={{ padding: '12px 20px', borderBottom: `1px solid ${colors.glassBorder}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
                         <span style={{ fontSize: '13px', color: colors.textSecondary }}>
-                            <strong style={{ color: colors.textPrimary }}>{files.length}</strong> orphaned file{files.length !== 1 ? 's' : ''} · <strong style={{ color: colors.textPrimary }}>{totalMB} MB</strong> on disk
+                            <strong style={{ color: colors.textPrimary }}>{files.length}</strong> file{files.length !== 1 ? 's' : ''} · <strong style={{ color: colors.textPrimary }}>{totalMB} MB</strong>
+                            {files.some(f => f.risky) && <span style={{ marginLeft: '10px', color: '#F59E0B', fontWeight: 600 }}>· {files.filter(f => f.risky).length} risky</span>}
+                            <span style={{ marginLeft: '10px', color: colors.success, fontWeight: 600 }}>· {files.filter(f => !f.risky).length} safe</span>
                         </span>
                         <span style={{ fontSize: '11px', color: colors.textTertiary }}>Newest first</span>
                     </div>
@@ -113,13 +119,22 @@ export const OrphanedUploads: React.FC = () => {
                             display: 'flex', alignItems: 'center', gap: '14px',
                             padding: '14px 20px',
                             borderBottom: i < files.length - 1 ? `1px solid ${colors.glassBorder}` : 'none',
+                            backgroundColor: file.risky ? 'rgba(245,158,11,0.04)' : 'transparent',
                         }}>
                             <div style={{ flex: 1, minWidth: 0 }}>
-                                <div style={{ fontSize: '13px', fontWeight: 600, color: colors.textPrimary, fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                    {file.filename}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '3px' }}>
+                                    <span style={{ fontSize: '13px', fontWeight: 600, color: colors.textPrimary, fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                        {file.filename}
+                                    </span>
+                                    {file.risky && (
+                                        <span style={{ display: 'flex', alignItems: 'center', gap: '3px', fontSize: '10px', fontWeight: 700, color: '#F59E0B', backgroundColor: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: '4px', padding: '1px 6px', flexShrink: 0 }}>
+                                            <ShieldAlert size={10} /> RISKY
+                                        </span>
+                                    )}
                                 </div>
-                                <div style={{ fontSize: '11px', color: colors.textTertiary, marginTop: '3px' }}>
-                                    {file.sizeMB} MB · uploaded {fmt(file.modifiedAt)}
+                                <div style={{ fontSize: '11px', color: colors.textTertiary }}>
+                                    {file.sizeMB} MB · {fmt(file.modifiedAt)}
+                                    {file.risky && <span style={{ color: '#F59E0B', marginLeft: '6px' }}>· {file.riskyReason}</span>}
                                 </div>
                             </div>
                             <button
@@ -128,8 +143,10 @@ export const OrphanedUploads: React.FC = () => {
                                 style={{
                                     display: 'flex', alignItems: 'center', gap: '5px',
                                     padding: '7px 14px', borderRadius: borderRadius.sm,
-                                    background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)',
-                                    color: colors.error, cursor: deleting === file.filename ? 'not-allowed' : 'pointer',
+                                    background: file.risky ? 'rgba(245,158,11,0.1)' : 'rgba(239,68,68,0.1)',
+                                    border: `1px solid ${file.risky ? 'rgba(245,158,11,0.3)' : 'rgba(239,68,68,0.3)'}`,
+                                    color: file.risky ? '#F59E0B' : colors.error,
+                                    cursor: deleting === file.filename ? 'not-allowed' : 'pointer',
                                     fontSize: '12px', fontWeight: 600, opacity: deleting === file.filename ? 0.5 : 1,
                                     flexShrink: 0,
                                 }}

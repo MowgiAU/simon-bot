@@ -18632,22 +18632,41 @@ app.get('/api/admin/orphaned-uploads', requireAdmin, async (_req: any, res) => {
         const audioExts = new Set(['.mp3', '.wav', '.flac', '.ogg', '.aac', '.m4a', '.opus', '.webm', '.aiff', '.aif']);
         const allFiles = fs.readdirSync(trackDir).filter(f => audioExts.has(path.extname(f).toLowerCase()));
 
-        // Batch DB lookup — get all urls currently referenced
-        const dbUrls = await db.track.findMany({
-            where: { url: { contains: '/uploads/tracks/' } },
-            select: { url: true, mp3Url: true },
+        // All DB-referenced filenames (url + mp3Url)
+        const dbTracks = await db.track.findMany({
+            select: { id: true, title: true, url: true, mp3Url: true },
         });
         const referencedFilenames = new Set<string>();
-        for (const t of dbUrls) {
+        for (const t of dbTracks) {
             if (t.url) referencedFilenames.add(path.basename(t.url));
             if (t.mp3Url) referencedFilenames.add(path.basename(t.mp3Url));
+        }
+
+        // Build a stem→track map for cross-referencing.
+        // The converter keeps the same base name but changes the extension
+        // (e.g. audio-1234567890.wav → audio-1234567890.ogg), so a file whose
+        // stem matches a DB track's stem is LIKELY a conversion artefact from a
+        // broken background job — flag it as "risky" rather than safe to delete.
+        const dbStems = new Set<string>();
+        for (const t of dbTracks) {
+            if (t.url) dbStems.add(path.basename(t.url).replace(/\.[^.]+$/, ''));
+            if (t.mp3Url) dbStems.add(path.basename(t.mp3Url).replace(/\.[^.]+$/, ''));
         }
 
         const orphaned = allFiles
             .filter(f => !referencedFilenames.has(f))
             .map(f => {
                 const stat = fs.statSync(path.join(trackDir, f));
-                return { filename: f, sizeMB: +(stat.size / 1024 / 1024).toFixed(2), modifiedAt: stat.mtime.toISOString() };
+                const stem = f.replace(/\.[^.]+$/, '');
+                // Risky = stem matches an existing DB track (different extension = conversion race condition)
+                const risky = dbStems.has(stem);
+                return {
+                    filename: f,
+                    sizeMB: +(stat.size / 1024 / 1024).toFixed(2),
+                    modifiedAt: stat.mtime.toISOString(),
+                    risky,
+                    riskyReason: risky ? 'Stem matches an existing track — may be a conversion artefact. Check before deleting.' : null,
+                };
             })
             .sort((a, b) => new Date(b.modifiedAt).getTime() - new Date(a.modifiedAt).getTime());
 
