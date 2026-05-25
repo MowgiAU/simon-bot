@@ -23,6 +23,7 @@ interface MusicianProfile {
     avatar: string | null;
     bannerUrl: string | null;
     bio: string | null;
+    location?: string | null;
     spotifyUrl: string | null;
     soundcloudUrl: string | null;
     youtubeUrl: string | null;
@@ -443,7 +444,97 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
             minHeight: '100vh',
         }}>
             {/* ── HERO BANNER ── */}
-            <div style={{ position: 'relative', minHeight: isMobile ? '240px' : (profile.headerLayout === 'minimal' ? '160px' : '380px'), display: 'flex', alignItems: 'flex-end', overflow: 'hidden' }}>
+            {profile.headerLayout === 'minimal' ? (
+                /* ── MINIMAL: slim header bar, no banner ── */
+                <div style={{ borderBottom: `1px solid ${isLightCard ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.06)'}`, backgroundColor: pageBg }}>
+                    <div style={{ maxWidth: '1300px', margin: '0 auto', padding: isMobile ? '16px' : '20px 24px', display: 'flex', alignItems: 'center', gap: '16px', flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
+                        {/* Small avatar */}
+                        <div style={{
+                            width: '56px', height: '56px', borderRadius: '50%', overflow: 'hidden', flexShrink: 0,
+                            border: profileStyle?.glowColor ? `2px solid ${profileStyle.glowColor}88` : `2px solid ${accent}44`,
+                            boxShadow: profileStyle?.glowColor ? `0 0 ${profileStyle.glowIntensity * 3}px ${profileStyle.glowColor}77` : 'none',
+                        }}>
+                            {avatarUrl ? (
+                                <img src={avatarUrl} alt={profile.displayName || profile.username} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            ) : (
+                                <div style={{ width: '100%', height: '100%', backgroundColor: accent, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', fontWeight: 800 }}>
+                                    {profile.username.charAt(0).toUpperCase()}
+                                </div>
+                            )}
+                        </div>
+                        {/* Name + username + genre chips */}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                <span
+                                    className={profileStyle?.animation && profileStyle.animation !== 'none' ? `ps-anim-${profileStyle.animation}` : undefined}
+                                    style={{
+                                        fontSize: '18px', fontWeight: 800, letterSpacing: '-0.02em', lineHeight: 1.2,
+                                        ...(profileStyle?.gradient ? { background: profileStyle.gradient, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' } : { color: isLightCard ? '#0F172A' : '#F8FAFC' }),
+                                    }}>
+                                    {profile.displayName || profile.username}
+                                </span>
+                                {profileStyle?.badgeLabel && (
+                                    <span style={{ fontSize: '10px', fontWeight: 700, padding: '2px 8px', borderRadius: '9999px', backgroundColor: `${profileStyle.badgeColor || '#FFD700'}22`, border: `1px solid ${profileStyle.badgeColor || '#FFD700'}55`, color: profileStyle.badgeColor || '#FFD700', textTransform: 'uppercase', letterSpacing: '0.07em', whiteSpace: 'nowrap' }}>
+                                        {profileStyle.badgeLabel}
+                                    </span>
+                                )}
+                                {profile.primaryGenre && (
+                                    <span onClick={() => navigate(`/category/${profile.primaryGenre!.slug}`)} style={{ backgroundColor: `${accent}18`, border: `1px solid ${accent}44`, color: accent, padding: '2px 8px', borderRadius: '999px', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', cursor: 'pointer' }}>
+                                        {profile.primaryGenre.name}
+                                    </span>
+                                )}
+                                {profile.showStatsBar !== false && stats.map((s, i) => (
+                                    <span key={i} style={{ fontSize: '11px', color: isLightCard ? '#4A5568' : '#B9C3CE' }}>
+                                        <strong style={{ color: isLightCard ? '#1A202C' : 'white', fontWeight: 700 }}>{s.value}</strong> {s.label}
+                                    </span>
+                                ))}
+                            </div>
+                            {profile.location && (
+                                <p style={{ margin: '2px 0 0', fontSize: '12px', color: isLightCard ? 'rgba(0,0,0,0.4)' : 'rgba(255,255,255,0.35)' }}>
+                                    {profile.location}
+                                </p>
+                            )}
+                        </div>
+                        {/* Action buttons */}
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0, flexWrap: 'wrap' }}>
+                            {!isOwnProfile && (
+                                <button onClick={toggleFollow} style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '6px 16px', borderRadius: '999px', fontWeight: 700, fontSize: '12px', cursor: 'pointer', border: isFollowing ? `1px solid ${accent}4D` : 'none', backgroundColor: isFollowing ? 'transparent' : accent, color: isFollowing ? accent : 'white', transition: 'all 0.2s' }}>
+                                    {isFollowing ? <><UserCheck size={13} /> Following</> : <><UserPlus size={13} /> Follow</>}
+                                </button>
+                            )}
+                            {!isOwnProfile && user && (
+                                <button onClick={startMessage} disabled={startingChat} style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '6px 14px', borderRadius: '999px', fontWeight: 600, fontSize: '12px', cursor: startingChat ? 'default' : 'pointer', border: `1px solid ${accent}4D`, backgroundColor: `${accent}1A`, color: accent, transition: 'all 0.2s', opacity: startingChat ? 0.6 : 1 }}>
+                                    <MessageCircle size={12} /> {startingChat ? 'Opening…' : 'Message'}
+                                </button>
+                            )}
+                            {(isOwnProfile || isAdmin) && (
+                                <button onClick={() => isOwnProfile ? (onEdit ? onEdit() : navigate('/profile/edit')) : navigate(`/profile/edit?adminTarget=${profile.userId}`)} style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '6px 14px', borderRadius: '999px', fontWeight: 600, fontSize: '12px', cursor: 'pointer', border: `1px solid ${isAdmin && !isOwnProfile ? 'rgba(255,152,0,0.5)' : `${accent}4D`}`, backgroundColor: isAdmin && !isOwnProfile ? 'rgba(255,152,0,0.1)' : `${accent}1A`, color: isAdmin && !isOwnProfile ? '#ff9800' : accent }}>
+                                    <Edit3 size={12} /> {isAdmin && !isOwnProfile ? 'Edit (Admin)' : 'Edit'}
+                                </button>
+                            )}
+                            {isOwnProfile && (
+                                <button onClick={() => navigate('/my-tracks')} style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '6px 14px', borderRadius: '999px', fontWeight: 600, fontSize: '12px', cursor: 'pointer', border: `1px solid ${accent}4D`, backgroundColor: `${accent}1A`, color: accent }}>
+                                    <ListMusic size={12} /> Tracks
+                                </button>
+                            )}
+                            <button onClick={handleCopyProfileLink} style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '6px 14px', borderRadius: '999px', fontWeight: 600, fontSize: '12px', cursor: 'pointer', border: `1px solid ${isLightCard ? 'rgba(0,0,0,0.18)' : 'rgba(255,255,255,0.15)'}`, backgroundColor: copied ? 'rgba(76,175,80,0.15)' : (isLightCard ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.06)'), color: copied ? '#4caf50' : (isLightCard ? '#4A5568' : '#B9C3CE') }}>
+                                {copied ? <><Check size={12} /> Copied!</> : <><Copy size={12} /> Share</>}
+                            </button>
+                            {profile.showSocialLinks !== false && socials.map(s => {
+                                const url = (profile as any)[s.key];
+                                if (!url) return null;
+                                const inner = (
+                                    <div style={{ width: '30px', height: '30px', borderRadius: '999px', backgroundColor: isLightCard ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.06)', border: `1px solid ${isLightCard ? 'rgba(0,0,0,0.12)' : 'rgba(255,255,255,0.1)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                                        {React.cloneElement(s.icon as React.ReactElement, { size: 13, color: s.color })}
+                                    </div>
+                                );
+                                return s.isHandle ? <div key={s.key} title={`${s.label}: ${url}`}>{inner}</div> : <a key={s.key} href={url} target="_blank" rel="noopener noreferrer" title={s.label}>{inner}</a>;
+                            })}
+                        </div>
+                    </div>
+                </div>
+            ) : (
+            <div style={{ position: 'relative', minHeight: isMobile ? '240px' : '380px', display: 'flex', alignItems: 'flex-end', overflow: 'hidden' }}>
                 {/* Background — user banner, or featured art/avatar as blurred backdrop */}
                 {profile.bannerUrl ? (
                     <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${profile.bannerUrl})`, backgroundSize: 'cover', backgroundPosition: 'center', pointerEvents: 'none' }} />
@@ -459,7 +550,7 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                         : `linear-gradient(to top, ${pageBg} 0%, rgba(14,18,26,0.85) 40%, rgba(14,18,26,0.4) 100%)`), pointerEvents: 'none' }} />
 
                 {/* Hero Content */}
-                <div style={{ position: 'relative', width: '100%', maxWidth: '1300px', margin: '0 auto', padding: isMobile ? '24px 16px' : (profile.headerLayout === 'minimal' ? '24px 24px' : '48px 24px') }}>
+                <div style={{ position: 'relative', width: '100%', maxWidth: '1300px', margin: '0 auto', padding: isMobile ? '24px 16px' : '48px 24px' }}>
                     <div style={{ display: 'flex', flexDirection: (isMobile || profile.headerLayout === 'centered') ? 'column' : 'row', alignItems: (isMobile || profile.headerLayout === 'centered') ? 'center' : 'flex-end', gap: isMobile ? '20px' : '32px', textAlign: profile.headerLayout === 'centered' ? 'center' : undefined }}>
                         {/* Avatar */}
                         <div style={{
@@ -593,6 +684,7 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                     </div>
                 </div>
             </div>
+            )}
 
             {/* ── CONTENT ── */}
             <div style={{ maxWidth: '1300px', margin: '0 auto', padding: isMobile ? '16px' : '24px' }}>
