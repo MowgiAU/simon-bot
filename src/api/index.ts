@@ -11602,10 +11602,6 @@ app.post('/api/beat-battle/battles/:battleId/submit', requireAuth, async (req: a
             return res.status(400).json({ error: 'trackId is required' });
         }
 
-        if (process.env.GUILD_ID && !req.session.isGuildMember) {
-            return res.status(403).json({ error: 'You must be a member of the Discord server to submit battle entries.' });
-        }
-
         const battle = await db.beatBattle.findUnique({ where: { id: battleId } });
         if (!battle) return res.status(404).json({ error: 'Battle not found' });
         if (battle.status !== 'active') return res.status(400).json({ error: 'This battle is not accepting submissions' });
