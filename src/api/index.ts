@@ -7120,6 +7120,8 @@ app.post('/api/musician/tracks', uploadLimiter, upload.fields([
         });
 
         invalidateProfileCache(userId);
+        if (uploaderProfile?.username) invalidateProfileCache(uploaderProfile.username);
+        if (uploaderProfile?.userId && uploaderProfile.userId !== userId) invalidateProfileCache(uploaderProfile.userId);
         res.json(fullTrack);
         logActivity(req, 'track.upload', fullTrack?.id, 'track', { title: fullTrack?.title, isPublic: _isPublic });
 
@@ -7346,6 +7348,8 @@ app.put('/api/musician/tracks/positions', requireAuth, async (req: any, res) => 
             trackIds.map((id: string, idx: number) => db.track.update({ where: { id }, data: { position: idx } }))
         );
         invalidateProfileCache(userId);
+        if (profile.username) invalidateProfileCache(profile.username);
+        if (profile.userId && profile.userId !== userId) invalidateProfileCache(profile.userId);
         res.json({ success: true });
     } catch (e: any) {
         res.status(500).json({ error: 'Internal server error' });
@@ -7435,6 +7439,8 @@ app.patch('/api/musician/tracks/:trackId', async (req: any, res) => {
         });
         await logAction('GLOBAL', 'track_edited', userId, trackId, { title: fullTrack?.title }).catch(() => {});
         invalidateProfileCache(userId);
+        if (track.profile.username) invalidateProfileCache(track.profile.username);
+        if (track.profile.userId && track.profile.userId !== userId) invalidateProfileCache(track.profile.userId);
         invalidateDiscoveryCache();
         // Cancel any pending Discord announcements if the track is now private
         if (isPublic === 'false' || isPublic === false) {
@@ -7495,6 +7501,8 @@ app.delete('/api/musician/tracks/:trackId', async (req: any, res) => {
         await db.track.delete({ where: { id: trackId } });
         await logAction('GLOBAL', 'track_deleted', userId, trackId, { title: track.title }).catch(() => {});
         invalidateProfileCache(userId);
+        if (track.profile.username) invalidateProfileCache(track.profile.username);
+        if (track.profile.userId && track.profile.userId !== userId) invalidateProfileCache(track.profile.userId);
         invalidateDiscoveryCache();
         logActivity(req, 'track.delete', trackId, 'track', { title: track.title });
         res.json({ success: true });
@@ -7704,6 +7712,8 @@ app.put('/api/musician/tracks/:trackId', generalUploadLimiter, upload.fields([
         });
         await logAction('GLOBAL', 'track_edited', userId, trackId, { title: fullTrack?.title }).catch(() => {});
         invalidateProfileCache(userId);
+        if (fullTrack?.profile?.username) invalidateProfileCache(fullTrack.profile.username);
+        if (fullTrack?.profile?.userId && fullTrack.profile.userId !== userId) invalidateProfileCache(fullTrack.profile.userId);
         invalidateDiscoveryCache();
         // Cancel pending Discord announcements if the track is now private
         if (updateData.isPublic === false) {
