@@ -6,7 +6,7 @@ import {
     User, Music, Share2, Hammer, Save, Plus, X, Instagram, Youtube,
     MessageCircle, Radio, ExternalLink, Copy, Check, ArrowLeft, Play, AlertCircle,
     Camera, Link as LinkIcon, Disc3, Star, Link2, Unlink, CheckCircle, Image, Trash2,
-    Paintbrush, Swords, Users, Shield
+    Paintbrush, Swords, Users, Shield, GripVertical
 } from 'lucide-react';
 import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
@@ -127,6 +127,7 @@ export const ProfileEditPage: React.FC = () => {
     // Mutual friends (for featured friends picker)
     const [mutualFriends, setMutualFriends] = useState<Array<{ id: string; username: string; displayName: string | null; avatar: string | null; userId: string }>>([]);
     const [savingFriends, setSavingFriends] = useState(false);
+    const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
     // Discord linking
     const [discordLinked, setDiscordLinked] = useState(!!user?.id && !user.id.startsWith('local_'));
@@ -321,6 +322,28 @@ export const ProfileEditPage: React.FC = () => {
             ? current.filter(id => id !== userId)
             : current.length < 8 ? [...current, userId] : current;
         updateProfile(p => ({ ...p, featuredFriendIds: next }));
+    };
+
+    const handleFriendDragStart = (e: React.DragEvent, index: number) => {
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', String(index));
+    };
+
+    const handleFriendDragOver = (e: React.DragEvent, index: number) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        setDragOverIndex(index);
+    };
+
+    const handleFriendDrop = (e: React.DragEvent, toIndex: number) => {
+        e.preventDefault();
+        const fromIndex = Number(e.dataTransfer.getData('text/plain'));
+        if (fromIndex === toIndex) { setDragOverIndex(null); return; }
+        const ids = [...(profile?.featuredFriendIds || [])];
+        const [moved] = ids.splice(fromIndex, 1);
+        ids.splice(toIndex, 0, moved);
+        updateProfile(p => ({ ...p, featuredFriendIds: ids }));
+        setDragOverIndex(null);
     };
 
     const validateArtistName = async (name: string) => {
@@ -1213,75 +1236,121 @@ export const ProfileEditPage: React.FC = () => {
                     {/* ── Featured Friends (Top 8) ── */}
                     {!isAdminMode && (
                         <div style={card}>
-                            <div style={sectionHeader('#EC4899')}><Users size={15} color="#EC4899" /> Featured Friends</div>
+                            <div style={sectionHeader('#EC4899')}><Users size={15} color="#EC4899" /> Top 8 Friends</div>
                             <p style={{ fontSize: '12px', color: colors.textTertiary, marginBottom: '16px', lineHeight: 1.5 }}>
-                                Choose up to 8 mutual follows to feature on your profile. If none are selected, your most recent mutual follows are shown automatically.
+                                Choose up to 8 mutual follows to feature on your profile. Drag to reorder. If none are selected, your most recent mutual follows show automatically.
                             </p>
                             {mutualFriends.length === 0 ? (
                                 <p style={{ fontSize: '12px', color: colors.textTertiary, fontStyle: 'italic', margin: 0 }}>
-                                    You have no mutual follows yet. When someone you follow follows you back, they'll appear here.
+                                    No mutual follows yet — when someone you follow follows you back, they'll appear here.
                                 </p>
-                            ) : (
-                                <>
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '10px' }}>
-                                        {mutualFriends.map(friend => {
-                                            const isFeatured = (profile?.featuredFriendIds || []).includes(friend.userId);
-                                            const avatarUrl = friend.avatar
-                                                ? (friend.avatar.startsWith('http') || friend.avatar.startsWith('/') ? friend.avatar : `https://cdn.discordapp.com/avatars/${friend.userId}/${friend.avatar}.png?size=64`)
-                                                : null;
-                                            const canAdd = (profile?.featuredFriendIds || []).length < 8;
-                                            return (
-                                                <button
-                                                    key={friend.id}
-                                                    onClick={() => toggleFeaturedFriend(friend.userId)}
-                                                    disabled={!isFeatured && !canAdd}
-                                                    title={!isFeatured && !canAdd ? 'Maximum 8 friends selected' : undefined}
-                                                    style={{
-                                                        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px',
-                                                        padding: '10px 8px', borderRadius: borderRadius.md,
-                                                        cursor: (!isFeatured && !canAdd) ? 'not-allowed' : 'pointer',
-                                                        border: `2px solid ${isFeatured ? '#EC4899' : 'rgba(255,255,255,0.08)'}`,
-                                                        backgroundColor: isFeatured ? 'rgba(236,72,153,0.1)' : 'rgba(255,255,255,0.02)',
-                                                        opacity: (!isFeatured && !canAdd) ? 0.4 : 1,
-                                                        transition: 'border-color 0.15s, background 0.15s',
-                                                        position: 'relative',
-                                                    }}
-                                                >
-                                                    {avatarUrl ? (
-                                                        <img src={avatarUrl} alt={friend.displayName || friend.username}
-                                                            style={{ width: '44px', height: '44px', borderRadius: '50%', objectFit: 'cover', border: `2px solid ${isFeatured ? '#EC4899' : 'rgba(255,255,255,0.1)'}` }} />
-                                                    ) : (
-                                                        <div style={{ width: '44px', height: '44px', borderRadius: '50%', backgroundColor: 'rgba(236,72,153,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                            <User size={20} color="#EC4899" />
-                                                        </div>
-                                                    )}
-                                                    <span style={{ fontSize: '11px', fontWeight: 600, color: colors.textPrimary, textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>
-                                                        {friend.displayName || friend.username}
+                            ) : (() => {
+                                const featuredIds = profile?.featuredFriendIds || [];
+                                const selectedFriends = featuredIds.map(id => mutualFriends.find(f => f.userId === id)).filter(Boolean) as typeof mutualFriends;
+                                const unselectedFriends = mutualFriends.filter(f => !featuredIds.includes(f.userId));
+                                const canAdd = featuredIds.length < 8;
+
+                                const FriendAvatar = ({ friend, size = 44 }: { friend: typeof mutualFriends[0]; size?: number }) => {
+                                    const avatarUrl = friend.avatar
+                                        ? (friend.avatar.startsWith('http') || friend.avatar.startsWith('/') ? friend.avatar : `https://cdn.discordapp.com/avatars/${friend.userId}/${friend.avatar}.png?size=64`)
+                                        : null;
+                                    return avatarUrl
+                                        ? <img src={avatarUrl} alt={friend.displayName || friend.username} style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover' }} />
+                                        : <div style={{ width: size, height: size, borderRadius: '50%', backgroundColor: 'rgba(236,72,153,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: size * 0.36, fontWeight: 700, color: '#EC4899' }}>
+                                            {(friend.displayName || friend.username)[0].toUpperCase()}
+                                        </div>;
+                                };
+
+                                return (
+                                    <>
+                                        {/* ─ Selected (ordered, draggable) ─ */}
+                                        {selectedFriends.length > 0 && (
+                                            <div style={{ marginBottom: '20px' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                                                    <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#EC4899' }}>
+                                                        Featured · {selectedFriends.length} / 8
                                                     </span>
-                                                    {isFeatured && (
-                                                        <div style={{ position: 'absolute', top: '4px', right: '4px', width: '16px', height: '16px', borderRadius: '50%', backgroundColor: '#EC4899', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                            <Check size={10} color="white" />
+                                                    <button
+                                                        onClick={() => updateProfile(p => ({ ...p, featuredFriendIds: [] }))}
+                                                        style={{ fontSize: '11px', color: colors.textTertiary, background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}
+                                                    >
+                                                        Clear all
+                                                    </button>
+                                                </div>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                                    {selectedFriends.map((friend, i) => (
+                                                        <div
+                                                            key={friend.userId}
+                                                            draggable
+                                                            onDragStart={e => handleFriendDragStart(e, i)}
+                                                            onDragOver={e => handleFriendDragOver(e, i)}
+                                                            onDrop={e => handleFriendDrop(e, i)}
+                                                            onDragLeave={() => setDragOverIndex(null)}
+                                                            style={{
+                                                                display: 'flex', alignItems: 'center', gap: '10px',
+                                                                padding: '8px 12px', borderRadius: borderRadius.md,
+                                                                border: `1px solid ${dragOverIndex === i ? '#EC4899' : 'rgba(255,255,255,0.08)'}`,
+                                                                backgroundColor: dragOverIndex === i ? 'rgba(236,72,153,0.1)' : 'rgba(255,255,255,0.03)',
+                                                                cursor: 'grab', transition: 'border-color 0.1s, background 0.1s',
+                                                            }}
+                                                        >
+                                                            <GripVertical size={14} color={colors.textTertiary} style={{ flexShrink: 0 }} />
+                                                            <span style={{ fontSize: '11px', fontWeight: 700, color: colors.textTertiary, width: '16px', textAlign: 'center', flexShrink: 0 }}>{i + 1}</span>
+                                                            <FriendAvatar friend={friend} size={36} />
+                                                            <span style={{ fontSize: '13px', fontWeight: 600, color: colors.textPrimary, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                                {friend.displayName || friend.username}
+                                                            </span>
+                                                            <button
+                                                                onClick={() => toggleFeaturedFriend(friend.userId)}
+                                                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.textTertiary, display: 'flex', alignItems: 'center', padding: '2px', borderRadius: '4px', flexShrink: 0 }}
+                                                                title="Remove"
+                                                            >
+                                                                <X size={14} />
+                                                            </button>
                                                         </div>
-                                                    )}
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
-                                    <div style={{ marginTop: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                        <span style={{ fontSize: '12px', color: '#EC4899', fontWeight: 600 }}>
-                                            {(profile?.featuredFriendIds || []).length} / 8 selected
-                                        </span>
-                                        {(profile?.featuredFriendIds || []).length > 0 && (
-                                            <button
-                                                onClick={() => updateProfile(p => ({ ...p, featuredFriendIds: [] }))}
-                                                style={{ fontSize: '11px', color: colors.textTertiary, background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}
-                                            >
-                                                Clear selection
-                                            </button>
+                                                    ))}
+                                                </div>
+                                            </div>
                                         )}
-                                    </div>
-                                </>
-                            )}
+
+                                        {/* ─ Unselected pool ─ */}
+                                        {unselectedFriends.length > 0 && (
+                                            <div>
+                                                <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: colors.textTertiary, display: 'block', marginBottom: '10px' }}>
+                                                    Add Friend{unselectedFriends.length !== 1 ? 's' : ''}
+                                                </span>
+                                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))', gap: '8px' }}>
+                                                    {unselectedFriends.map(friend => (
+                                                        <button
+                                                            key={friend.userId}
+                                                            onClick={() => toggleFeaturedFriend(friend.userId)}
+                                                            disabled={!canAdd}
+                                                            title={!canAdd ? 'Maximum 8 friends selected' : `Add ${friend.displayName || friend.username}`}
+                                                            style={{
+                                                                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px',
+                                                                padding: '10px 6px', borderRadius: borderRadius.md,
+                                                                cursor: !canAdd ? 'not-allowed' : 'pointer',
+                                                                border: '1px solid rgba(255,255,255,0.08)',
+                                                                backgroundColor: 'rgba(255,255,255,0.02)',
+                                                                opacity: !canAdd ? 0.4 : 1,
+                                                                transition: 'border-color 0.15s, background 0.15s',
+                                                            }}
+                                                            onMouseEnter={e => { if (canAdd) { e.currentTarget.style.borderColor = '#EC489960'; e.currentTarget.style.backgroundColor = 'rgba(236,72,153,0.06)'; } }}
+                                                            onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.02)'; }}
+                                                        >
+                                                            <FriendAvatar friend={friend} size={40} />
+                                                            <span style={{ fontSize: '11px', fontWeight: 600, color: colors.textSecondary, textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>
+                                                                {friend.displayName || friend.username}
+                                                            </span>
+                                                            <span style={{ fontSize: '10px', color: '#EC4899', fontWeight: 700 }}>+ Add</span>
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </>
+                                );
+                            })()}
                         </div>
                     )}
                 </div>

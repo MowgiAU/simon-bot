@@ -1273,54 +1273,55 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                             );
                         })()}
 
-                        {/* ── Followers Card ── */}
-                        {followerCount > 0 && (
-                        <div style={{ backgroundColor: cardBg, borderRadius: '16px', border: `1px solid ${cardBorder}`, overflow: 'hidden', boxShadow: cardShadow }}>
-                            <div style={{ padding: '20px' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: `${accent}18`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                            <Users size={13} color={accent} />
+                        {/* ── Top 8 / Friends Card (replaces Followers card) ── */}
+                        {(() => {
+                            const orderedFeatured = featuredFriendIds.length > 0
+                                ? featuredFriendIds.map(id => friends.find(f => f.userId === id || f.profileId === id)).filter(Boolean) as typeof friends
+                                : friends.slice(0, 8);
+                            if (orderedFeatured.length === 0 && followerCount === 0) return null;
+                            return (
+                                <div style={{ backgroundColor: cardBg, borderRadius: '16px', border: `1px solid ${cardBorder}`, overflow: 'hidden', boxShadow: cardShadow }}>
+                                    <div style={{ padding: '20px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: `${accent}18`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                    <Users size={13} color={accent} />
+                                                </div>
+                                                <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: cardTextSec }}>Top 8</span>
+                                            </div>
+                                            {followerCount > 0 && (
+                                                <span style={{ fontSize: '11px', color: cardTextTer }}>
+                                                    <span style={{ fontWeight: 700, color: cardTextSec }}>{followerCount.toLocaleString()}</span> followers
+                                                </span>
+                                            )}
                                         </div>
-                                        <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: cardTextSec }}>Followers</span>
-                                    </div>
-                                    <span style={{ fontSize: '12px', fontWeight: 700, color: accent }}>{followerCount.toLocaleString()}</span>
-                                </div>
-                                {followerProfiles.length > 0 && (
-                                    <>
-                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', marginBottom: followerCount > 12 ? '12px' : '0' }}>
-                                            {followerProfiles.slice(0, 12).map(f => (
-                                                <a key={f.userId} href={`/profile/${f.username}`} title={f.displayName || f.username} style={{ textDecoration: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-                                                    <div style={{ width: '44px', height: '44px', borderRadius: '12px', overflow: 'hidden', border: `1px solid ${cardBorder}`, flexShrink: 0 }}>
-                                                        {f.avatar ? (
-                                                            <img
-                                                                src={f.avatar.startsWith('http') || f.avatar.includes('/')
-                                                                    ? f.avatar
-                                                                    : `https://cdn.discordapp.com/avatars/${f.discordId || f.userId}/${f.avatar}.png?size=64`}
-                                                                alt={f.username} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                                        ) : (
-                                                            <div style={{ width: '100%', height: '100%', background: `${accent}25`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: 700, color: accent }}>
-                                                                {(f.displayName || f.username)[0].toUpperCase()}
+                                        {orderedFeatured.length > 0 ? (
+                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
+                                                {orderedFeatured.slice(0, 8).map(f => {
+                                                    const avatarSrc = f.avatar
+                                                        ? (f.avatar.startsWith('http') || f.avatar.includes('/') ? f.avatar : `https://cdn.discordapp.com/avatars/${f.discordId || f.userId}/${f.avatar}.png?size=64`)
+                                                        : null;
+                                                    return (
+                                                        <a key={f.profileId} href={`/profile/${f.username}`} title={f.displayName || f.username} style={{ textDecoration: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px' }}>
+                                                            <div style={{ width: '52px', height: '52px', borderRadius: '13px', overflow: 'hidden', border: `2px solid ${accent}44`, flexShrink: 0, backgroundColor: cardInner }}>
+                                                                {avatarSrc
+                                                                    ? <img src={avatarSrc} alt={f.username} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                                    : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', fontWeight: 800, color: accent, background: `${accent}20` }}>{(f.displayName || f.username)[0].toUpperCase()}</div>}
                                                             </div>
-                                                        )}
-                                                    </div>
-                                                    <span style={{ fontSize: '9px', color: cardTextTer, textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%', maxWidth: '44px' }}>
-                                                        {f.displayName || f.username}
-                                                    </span>
-                                                </a>
-                                            ))}
-                                        </div>
-                                        {followerCount > 12 && (
-                                            <a href={`/profile/${profile.username}#followers`}
-                                                style={{ display: 'block', textAlign: 'center', fontSize: '12px', fontWeight: 600, color: accent, textDecoration: 'none', padding: '8px', borderRadius: '8px', backgroundColor: `${accent}10`, border: `1px solid ${accent}25` }}>
-                                                View all {followerCount.toLocaleString()} followers →
-                                            </a>
+                                                            <span style={{ fontSize: '9px', color: cardTextSec, textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '52px' }}>
+                                                                {f.displayName || f.username}
+                                                            </span>
+                                                        </a>
+                                                    );
+                                                })}
+                                            </div>
+                                        ) : (
+                                            <p style={{ fontSize: '12px', color: cardTextTer, margin: 0, fontStyle: 'italic' }}>No mutual follows yet.</p>
                                         )}
-                                    </>
-                                )}
-                            </div>
-                        </div>
-                        )}
+                                    </div>
+                                </div>
+                            );
+                        })()}
 
                         {/* ── Gear Rack ── */}
                         {gear.length > 0 && (
@@ -1417,44 +1418,6 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                             );
                         })()}
 
-                        {/* ── Friends / Top 8 Card ── */}
-                        {(() => {
-                            const featured = featuredFriendIds.length > 0
-                                ? friends.filter(f => featuredFriendIds.includes(f.userId) || featuredFriendIds.includes(f.profileId))
-                                : friends.slice(0, 8);
-                            if (featured.length === 0) return null;
-                            return (
-                                <div style={{ backgroundColor: cardBg, borderRadius: '16px', border: `1px solid ${cardBorder}`, overflow: 'hidden', boxShadow: cardShadow }}>
-                                    <div style={{ padding: '20px' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-                                            <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: `${accent}18`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                <Users size={13} color={accent} />
-                                            </div>
-                                            <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: cardTextSec }}>Top {Math.min(featured.length, 8)}</span>
-                                        </div>
-                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
-                                            {featured.slice(0, 8).map(f => {
-                                                const avatarSrc = f.avatar
-                                                    ? (f.avatar.startsWith('http') || f.avatar.includes('/') ? f.avatar : `https://cdn.discordapp.com/avatars/${f.discordId || f.userId}/${f.avatar}.png?size=64`)
-                                                    : null;
-                                                return (
-                                                    <a key={f.profileId} href={`/profile/${f.username}`} title={f.displayName || f.username} style={{ textDecoration: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px' }}>
-                                                        <div style={{ width: '52px', height: '52px', borderRadius: '13px', overflow: 'hidden', border: `2px solid ${accent}44`, flexShrink: 0, backgroundColor: cardInner }}>
-                                                            {avatarSrc
-                                                                ? <img src={avatarSrc} alt={f.username} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                                                : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', fontWeight: 800, color: accent, background: `${accent}20` }}>{(f.displayName || f.username)[0].toUpperCase()}</div>}
-                                                        </div>
-                                                        <span style={{ fontSize: '9px', color: cardTextSec, textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '52px' }}>
-                                                            {f.displayName || f.username}
-                                                        </span>
-                                                    </a>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
-                                </div>
-                            );
-                        })()}
                     </div>
                 </div>
 
