@@ -5,6 +5,7 @@ import { Activity, Search, RefreshCw, ChevronLeft, ChevronRight, X } from 'lucid
 interface ActivityLog {
     id: string;
     userId: string | null;
+    username: string | null;
     ip: string | null;
     userAgent: string | null;
     action: string;
@@ -132,7 +133,7 @@ export const ActivityLogsPage: React.FC = () => {
                             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                                 <thead>
                                     <tr style={{ borderBottom: `1px solid ${colors.border}` }}>
-                                        {['Time', 'Action', 'User ID', 'IP', 'Target'].map(h => (
+                                        {['Time', 'Action', 'User', 'IP', 'Target'].map(h => (
                                             <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: '11px', fontWeight: 700, color: colors.textTertiary, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>
                                         ))}
                                     </tr>
@@ -150,7 +151,13 @@ export const ActivityLogsPage: React.FC = () => {
                                                     {log.action}
                                                 </span>
                                             </td>
-                                            <td style={{ padding: '10px 14px', fontSize: '12px', color: colors.textSecondary, fontFamily: 'monospace', maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{log.userId ?? '—'}</td>
+                                            <td style={{ padding: '10px 14px', maxWidth: '160px' }}>
+                                                {log.username
+                                                    ? <><div style={{ fontSize: '13px', color: colors.textPrimary, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{log.username}</div>
+                                                       <div style={{ fontSize: '10px', color: colors.textTertiary, fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{log.userId}</div></>
+                                                    : <span style={{ fontSize: '12px', color: colors.textTertiary, fontFamily: 'monospace' }}>{log.userId ?? '—'}</span>
+                                                }
+                                            </td>
                                             <td style={{ padding: '10px 14px', fontSize: '12px', color: colors.textSecondary, fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{log.ip ?? '—'}</td>
                                             <td style={{ padding: '10px 14px', fontSize: '12px', color: colors.textTertiary, maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                                 {log.targetType ? `${log.targetType}:${log.targetId?.slice(0, 8)}…` : '—'}
@@ -189,7 +196,6 @@ export const ActivityLogsPage: React.FC = () => {
                         {[
                             { label: 'Log ID',      value: selected.id },
                             { label: 'Timestamp',   value: new Date(selected.createdAt).toLocaleString() },
-                            { label: 'User ID',     value: selected.userId ?? '—' },
                             { label: 'IP Address',  value: selected.ip ?? '—' },
                             { label: 'Target Type', value: selected.targetType ?? '—' },
                             { label: 'Target ID',   value: selected.targetId ?? '—' },
@@ -199,6 +205,11 @@ export const ActivityLogsPage: React.FC = () => {
                                 <span style={{ fontSize: '13px', color: colors.textPrimary, fontFamily: 'monospace', wordBreak: 'break-all' }}>{value}</span>
                             </div>
                         ))}
+                        <div style={{ display: 'flex', flexDirection: 'column', marginBottom: '10px' }}>
+                            <span style={{ fontSize: '11px', color: colors.textTertiary, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '2px' }}>User</span>
+                            {selected.username && <span style={{ fontSize: '14px', color: colors.textPrimary, fontWeight: 600, marginBottom: '2px' }}>{selected.username}</span>}
+                            <span style={{ fontSize: '12px', color: colors.textSecondary, fontFamily: 'monospace', wordBreak: 'break-all' }}>{selected.userId ?? '—'}</span>
+                        </div>
 
                         {selected.userAgent && (
                             <div style={{ marginBottom: '10px' }}>

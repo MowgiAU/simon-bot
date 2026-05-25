@@ -7,8 +7,12 @@ import {
     Colors,
     PermissionFlagsBits,
     PermissionResolvable,
+    ButtonBuilder,
+    ButtonStyle,
+    ActionRowBuilder,
+    ButtonInteraction,
 } from 'discord.js';
-import { IPlugin, IPluginContext } from '../types/plugin';
+import { IPlugin, IPluginContext, IPluginRegistry } from '../types/plugin';
 import { z } from 'zod';
 import { PrismaClient } from '@prisma/client';
 import axios from 'axios';
@@ -84,7 +88,7 @@ export class SpamGuardPlugin implements IPlugin {
     ];
 
     readonly commands: string[] = [];
-    readonly events = ['messageCreate'];
+    readonly events = ['messageCreate', 'interactionCreate'];
     readonly dashboardSections = ['spam-guard'];
 
     readonly configSchema = z.object({
@@ -94,6 +98,7 @@ export class SpamGuardPlugin implements IPlugin {
     private client!: Client;
     private db!: PrismaClient;
     private logger: any;
+    private plugins!: IPluginRegistry;
 
     // Per-guild, per-user activity tracker (cleared every hour to prevent memory leak)
     private activity: Map<string, Map<string, UserActivity>> = new Map();
@@ -114,6 +119,7 @@ export class SpamGuardPlugin implements IPlugin {
         this.client = context.client;
         this.db = context.db;
         this.logger = context.logger;
+        this.plugins = context.plugins;
 
         // Clean stale activity entries hourly
         this.cleanupInterval = setInterval(() => {
@@ -174,6 +180,51 @@ export class SpamGuardPlugin implements IPlugin {
         // ── Layer 2: Perceptual hash check ────────────────────────────────────
         if (message.attachments.size > 0) {
             await this.checkImageHashes(message, member, settings);
+        }
+    }
+
+    // ─── Button Interaction Handler ───────────────────────────────────────────
+
+    async onInteractionCreate(interaction: ButtonInteraction | any): Promise<void> {
+        if (!interaction.isButton()) return;
+        if (!interaction.customId.startsWith('SPAMGUARD_KICK_')) return;
+
+        const parts = interaction.customId.split('_'); // ['SPAMGUARD', 'KICK', userId, guildId]
+        const userId = parts[2];
+        const guildId = parts[3];
+
+        if (!userId || !guildId) return;
+
+        await interaction.deferReply({ ephemeral: true });
+
+        const REASON = 'Compromised Account - Spam Detected';
+
+        try {
+            const moderationPlugin = this.plugins.get('moderation') as any;
+            if (moderationPlugin?.kickAndLog) {
+                await moderationPlugin.kickAndLog(guildId, userId, interaction.user.id, REASON);
+            } else {
+                // Fallback: kick directly without full modlog if ModerationPlugin unavailable
+                const guild = this.client.guilds.cache.get(guildId);
+                const member = guild ? await guild.members.fetch(userId).catch(() => null) : null;
+                if (member?.kickable) {
+                    await member.kick(`[SpamGuard] ${REASON}`);
+                }
+            }
+
+            // Disable the button on the original message
+            const disabledBtn = new ButtonBuilder()
+                .setCustomId(interaction.customId)
+                .setLabel(`Kicked by ${interaction.user.username}`)
+                .setStyle(ButtonStyle.Secondary)
+                .setDisabled(true);
+            const row = new ActionRowBuilder<ButtonBuilder>().addComponents(disabledBtn);
+            await interaction.message.edit({ components: [row] }).catch(() => {});
+
+            await interaction.editReply({ content: `✅ <@${userId}> has been kicked. Reason: **${REASON}**\nA moderation case has been opened.` });
+        } catch (err) {
+            this.logger.error('[SpamGuard] Failed to kick via button', err);
+            await interaction.editReply({ content: '❌ Failed to kick the user. They may have already left, or the bot lacks permission.' });
         }
     }
 
@@ -401,7 +452,14 @@ export class SpamGuardPlugin implements IPlugin {
                         .setTimestamp()
                         .setFooter({ text: 'SpamGuard' });
 
-                    await alertChannel.send({ embeds: [embed] });
+                    const kickBtn = new ButtonBuilder()
+                        .setCustomId(`SPAMGUARD_KICK_${member.id}_${guildId}`)
+                        .setLabel('Kick — Compromised Account')
+                        .setStyle(ButtonStyle.Danger)
+                        .setEmoji('🔴');
+
+                    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(kickBtn);
+                    await alertChannel.send({ embeds: [embed], components: [row] });
                 }
             } catch { /* ignore alert failures */ }
         }

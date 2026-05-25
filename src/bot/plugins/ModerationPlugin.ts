@@ -619,6 +619,21 @@ export class ModerationPlugin implements IPlugin {
         }
     }
 
+    /**
+     * Called by external plugins (e.g. SpamGuard) to kick a user and create a full
+     * moderation log entry + case file, as if the kick came from this plugin.
+     */
+    public async kickAndLog(guildId: string, targetId: string, executorId: string, reason: string): Promise<void> {
+        const guild = this.client.guilds.cache.get(guildId);
+        if (guild) {
+            const member = await guild.members.fetch(targetId).catch(() => null);
+            if (member?.kickable) {
+                await member.kick(`[SpamGuard] ${reason}`).catch(() => {});
+            }
+        }
+        await this.logAction(guildId, 'kick', executorId, targetId, { reason });
+    }
+
     private async logAction(guildId: string, action: string, executorId: string, targetId: string, details: any) {
         // 1. DB Log (fetch recent messages first so they're stored with the entry)
         try {

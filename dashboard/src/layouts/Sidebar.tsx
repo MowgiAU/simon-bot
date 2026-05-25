@@ -48,7 +48,6 @@ import {
   Database,
   Puzzle,
   Activity,
-  GitMerge,
   HardDrive,
 } from 'lucide-react';
 import { AnimatedWrapper } from '../components/AnimatedWrapper';
@@ -462,12 +461,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
 
           {permissions.canManagePlugins && (
             <button
-                className={`nav-item ${activeSection === 'orphaned-uploads' ? 'active' : ''}`}
-                onClick={() => onNavigate('orphaned-uploads')}
-                title={collapsed ? "Orphaned Uploads" : ""}
+                className={`nav-item ${activeSection === 'admin-tools' ? 'active' : ''}`}
+                onClick={() => onNavigate('admin-tools')}
+                title={collapsed ? "Admin Tools" : ""}
             >
                 <span className="nav-icon"><AnimatedWrapper icon={HardDrive} size={20} /></span>
-                <span className="nav-label">Orphaned Uploads</span>
+                <span className="nav-label">Admin Tools</span>
             </button>
           )}
 
@@ -479,17 +478,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             >
                 <span className="nav-icon"><AnimatedWrapper icon={Activity} size={20} /></span>
                 <span className="nav-label">Activity Logs</span>
-            </button>
-          )}
-
-          {permissions.canManagePlugins && (
-            <button
-                className={`nav-item ${activeSection === 'duplicate-profiles' ? 'active' : ''}`}
-                onClick={() => onNavigate('duplicate-profiles')}
-                title={collapsed ? "Duplicate Profiles" : ""}
-            >
-                <span className="nav-icon"><AnimatedWrapper icon={GitMerge} size={20} /></span>
-                <span className="nav-label">Duplicate Profiles</span>
             </button>
           )}
 

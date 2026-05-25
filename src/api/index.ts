@@ -10507,7 +10507,14 @@ app.get('/api/admin/activity-logs', requireAdmin, async (req: any, res) => {
             db.activityLog.count({ where }),
         ]);
 
-        res.json({ logs, total, page: Number(page), pages: Math.ceil(total / take) });
+        const userIds = [...new Set(logs.map(l => l.userId).filter(Boolean))] as string[];
+        const users = userIds.length > 0
+            ? await db.user.findMany({ where: { id: { in: userIds } }, select: { id: true, username: true } })
+            : [];
+        const userMap = Object.fromEntries(users.map(u => [u.id, u.username]));
+        const enriched = logs.map(l => ({ ...l, username: l.userId ? (userMap[l.userId] ?? null) : null }));
+
+        res.json({ logs: enriched, total, page: Number(page), pages: Math.ceil(total / take) });
     } catch (e: any) {
         res.status(500).json({ error: 'Internal server error' });
     }

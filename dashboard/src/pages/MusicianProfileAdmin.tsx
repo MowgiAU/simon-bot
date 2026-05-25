@@ -65,10 +65,6 @@ export const MusicianProfileAdmin: React.FC = () => {
     const [autoFollowResults, setAutoFollowResults] = useState<any[]>([]);
     const [searchingAutoFollow, setSearchingAutoFollow] = useState(false);
     const [savingAutoFollow, setSavingAutoFollow] = useState(false);
-    const [backfilling, setBackfilling] = useState(false);
-    const [backfillResult, setBackfillResult] = useState<{ followed: number; skipped: number } | null>(null);
-    const [syncingAuthors, setSyncingAuthors] = useState(false);
-    const [syncAuthorsResult, setSyncAuthorsResult] = useState<{ updated: number } | null>(null);
 
     useEffect(() => {
         const onResize = () => setIsMobile(window.innerWidth < 1024);
@@ -149,8 +145,6 @@ export const MusicianProfileAdmin: React.FC = () => {
     const [statusReason, setStatusReason] = useState<Record<string, string>>({});
 
     // FLP reprocessing state
-    const [reprocessing, setReprocessing] = useState(false);
-    const [migratingR2, setMigratingR2] = useState(false);
 
     // Admin track management state
     const [adminTrackSearch, setAdminTrackSearch] = useState('');
@@ -233,28 +227,6 @@ export const MusicianProfileAdmin: React.FC = () => {
             setMsg({ type: 'success', text: 'Auto-follow profile cleared' });
         } catch { setMsg({ type: 'error', text: 'Failed to clear setting' }); }
         finally { setSavingAutoFollow(false); }
-    };
-
-    const runSyncAuthors = async () => {
-        setSyncingAuthors(true);
-        setSyncAuthorsResult(null);
-        try {
-            const res = await axios.post('/api/admin/articles/sync-authors', {}, { withCredentials: true });
-            setSyncAuthorsResult(res.data);
-        } catch (err: any) {
-            setMsg({ type: 'error', text: err.response?.data?.error || 'Sync failed' });
-        } finally { setSyncingAuthors(false); }
-    };
-
-    const runBackfill = async () => {
-        setBackfilling(true);
-        setBackfillResult(null);
-        try {
-            const res = await axios.post('/api/admin/auto-follow/backfill', {}, { withCredentials: true });
-            setBackfillResult(res.data);
-        } catch (err: any) {
-            setMsg({ type: 'error', text: err.response?.data?.error || 'Backfill failed' });
-        } finally { setBackfilling(false); }
     };
 
     const handleDeleteFromMod = async (id: string) => {
@@ -667,51 +639,6 @@ export const MusicianProfileAdmin: React.FC = () => {
         } finally {
             setSaving(false);
         }
-    };
-
-    const handleMigrateToR2 = () => {
-        setConfirmDialog({
-            title: 'Migrate Files to R2 CDN',
-            message: 'This will upload all existing local track files (audio, artwork, project files) to Cloudflare R2 and update the database URLs. This may take several minutes. Proceed?',
-            onConfirm: async () => {
-                setConfirmDialog(null);
-                setMigratingR2(true);
-                setMsg({ type: 'success', text: 'Migration started... This may take a minute.' });
-                try {
-                    const res = await axios.post('/api/admin/migrate-uploads-to-r2', {}, { withCredentials: true });
-                    const d = res.data.tracks;
-                    setMsg({ type: 'success', text: `Migration complete! Audio: ${d.audio}, Artwork: ${d.artwork}, Projects: ${d.projectFile + d.projectZip}${d.errors.length ? ` (${d.errors.length} errors — check logs)` : ''}` });
-                } catch (err: any) {
-                    setMsg({ type: 'error', text: err.response?.data?.error || 'Migration failed' });
-                } finally {
-                    setMigratingR2(false);
-                }
-            }
-        });
-    };
-
-    const handleReprocessFlps = () => {
-        setConfirmDialog({
-            title: 'Re-process All Project Files',
-            message: 'This will go through all project files on the server and re-run the arrangement parser. It may take a minute and overwrite existing arrangement data. Proceed?',
-            onConfirm: async () => {
-                setConfirmDialog(null);
-                setReprocessing(true);
-                setMsg({ type: 'success', text: 'Reprocessing started... Please wait.' });
-                try {
-                    const res = await axios.post('/api/admin/reprocess-flps', {}, { withCredentials: true });
-                    const d = res.data;
-                    setMsg({ 
-                        type: 'success', 
-                        text: `FLP: ${d.flpSuccess}/${d.flpTotal} re-parsed. ZIP: ${d.zipSuccess}/${d.zipTotal} enriched.${d.reextractQueued > 0 ? ` ${d.reextractQueued} track(s) queued for waveform re-extraction in background (check server logs).` : ' All waveforms up to date.'}${d.failed > 0 || d.errors?.length ? ` Errors: ${d.errors?.slice(0,2).join(' | ') || d.failed + ' failed'}` : ''}`
-                    });
-                } catch (err: any) {
-                    setMsg({ type: 'error', text: err.response?.data?.error || 'Failed to re-process FLPs' });
-                } finally {
-                    setReprocessing(false);
-                }
-            }
-        });
     };
 
     const trackSearchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1550,43 +1477,6 @@ export const MusicianProfileAdmin: React.FC = () => {
                     </div>
                 </div>
 
-                {/* System Maintenance */}
-                <div style={{ marginTop: spacing.xl, paddingTop: spacing.xl, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-                    <h3 style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: '8px', marginBottom: spacing.md, fontSize: '1rem', color: colors.textSecondary }}>
-                        <Settings size={18} /> System Maintenance
-                    </h3>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.md }}>
-                        {/* Re-process FLPs */}
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: spacing.md, backgroundColor: 'rgba(255,152,0,0.04)', borderRadius: borderRadius.sm, border: '1px solid rgba(255,152,0,0.15)' }}>
-                            <div>
-                                <div style={{ fontWeight: 600, fontSize: '0.9rem', marginBottom: '2px' }}>Re-parse / Re-enrich project files</div>
-                                <div style={{ fontSize: '0.8rem', color: colors.textSecondary }}>Re-run the arrangement parser on all .flp files, and re-inject waveform peaks from the database into all ZIP bundle tracks.</div>
-                            </div>
-                            <button
-                                onClick={handleReprocessFlps}
-                                disabled={reprocessing}
-                                style={{ backgroundColor: 'transparent', color: reprocessing ? colors.textSecondary : '#ff9800', border: `1px solid ${reprocessing ? colors.textSecondary : '#ff9800'}`, borderRadius: borderRadius.sm, padding: `${spacing.sm} ${spacing.md}`, cursor: reprocessing ? 'default' : 'pointer', fontWeight: 'bold', fontSize: '0.82rem', whiteSpace: 'nowrap', flexShrink: 0, marginLeft: spacing.md }}
-                            >
-                                {reprocessing ? 'Processing...' : 'Run'}
-                            </button>
-                        </div>
-
-                        {/* Migrate to R2 */}
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: spacing.md, backgroundColor: 'rgba(99,102,241,0.04)', borderRadius: borderRadius.sm, border: '1px solid rgba(99,102,241,0.2)' }}>
-                            <div>
-                                <div style={{ fontWeight: 600, fontSize: '0.9rem', marginBottom: '2px' }}>Migrate files to R2 CDN</div>
-                                <div style={{ fontSize: '0.8rem', color: colors.textSecondary }}>Upload existing local track files to Cloudflare R2 and update database URLs.</div>
-                            </div>
-                            <button
-                                onClick={handleMigrateToR2}
-                                disabled={migratingR2}
-                                style={{ backgroundColor: 'transparent', color: migratingR2 ? colors.textSecondary : '#6366f1', border: `1px solid ${migratingR2 ? colors.textSecondary : '#6366f1'}`, borderRadius: borderRadius.sm, padding: `${spacing.sm} ${spacing.md}`, cursor: migratingR2 ? 'default' : 'pointer', fontWeight: 'bold', fontSize: '0.82rem', whiteSpace: 'nowrap', flexShrink: 0, marginLeft: spacing.md }}
-                            >
-                                {migratingR2 ? 'Migrating...' : 'Run'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
             </div>
             </>)}
 
@@ -2045,64 +1935,6 @@ export const MusicianProfileAdmin: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Backfill Card */}
-                <div style={{ backgroundColor: colors.surface, padding: spacing.lg, borderRadius: borderRadius.lg, border: '1px solid rgba(255,255,255,0.06)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: spacing.md }}>
-                        <div style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: 'rgba(234,179,8,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <Database size={18} color="#eab308" />
-                        </div>
-                        <div>
-                            <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: colors.textPrimary }}>Backfill Follows</h3>
-                            <p style={{ margin: '2px 0 0', fontSize: '12px', color: colors.textSecondary }}>Follow all existing profiles that the auto-follow account hasn't followed yet.</p>
-                        </div>
-                    </div>
-
-                    {backfillResult && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', borderRadius: borderRadius.md, backgroundColor: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.2)', marginBottom: spacing.md }}>
-                            <CheckCircle size={16} color="#22c55e" />
-                            <span style={{ fontSize: '13px', color: '#22c55e', fontWeight: 600 }}>
-                                Followed {backfillResult.followed} new profiles — {backfillResult.skipped} already following.
-                            </span>
-                        </div>
-                    )}
-
-                    <button
-                        onClick={runBackfill}
-                        disabled={backfilling || !autoFollowProfile}
-                        style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px', borderRadius: borderRadius.md, backgroundColor: autoFollowProfile ? '#eab308' : 'rgba(255,255,255,0.05)', color: autoFollowProfile ? '#000' : colors.textSecondary, border: 'none', cursor: autoFollowProfile ? 'pointer' : 'not-allowed', fontWeight: 700, fontSize: '13px', opacity: backfilling ? 0.7 : 1 }}
-                    >
-                        {backfilling ? <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Running backfill…</> : <><UserPlus size={14} /> Run Backfill</>}
-                    </button>
-                    {!autoFollowProfile && <p style={{ margin: '8px 0 0', fontSize: '12px', color: colors.textSecondary }}>Set an auto-follow profile above first.</p>}
-                </div>
-
-                {/* Sync Article Authors Card */}
-                <div style={{ backgroundColor: colors.surface, padding: spacing.lg, borderRadius: borderRadius.lg, border: '1px solid rgba(255,255,255,0.06)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: spacing.md }}>
-                        <div style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: 'rgba(99,102,241,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <FileText size={18} color="#6366f1" />
-                        </div>
-                        <div>
-                            <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: colors.textPrimary }}>Sync Article Authors</h3>
-                            <p style={{ margin: '2px 0 0', fontSize: '12px', color: colors.textSecondary }}>Update all articles to reflect current profile names and avatars.</p>
-                        </div>
-                    </div>
-
-                    {syncAuthorsResult && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', borderRadius: borderRadius.md, backgroundColor: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.2)', marginBottom: spacing.md }}>
-                            <CheckCircle size={16} color="#22c55e" />
-                            <span style={{ fontSize: '13px', color: '#22c55e', fontWeight: 600 }}>Updated {syncAuthorsResult.updated} articles.</span>
-                        </div>
-                    )}
-
-                    <button
-                        onClick={runSyncAuthors}
-                        disabled={syncingAuthors}
-                        style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px', borderRadius: borderRadius.md, backgroundColor: '#6366f1', color: '#fff', border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: '13px', opacity: syncingAuthors ? 0.7 : 1 }}
-                    >
-                        {syncingAuthors ? <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Syncing…</> : <><FileText size={14} /> Sync Now</>}
-                    </button>
-                </div>
             </div>
             )}
 
