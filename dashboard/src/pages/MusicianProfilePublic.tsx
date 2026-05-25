@@ -214,19 +214,28 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
         document.head.appendChild(style);
     }, []);
 
-    // Inject animation keyframes for enhanced profile styles
+    // Inject animation keyframes for enhanced profile styles (keep in sync with ProfileStyles.tsx ANIM_CSS)
     useEffect(() => {
         if (document.getElementById('ps-anim-css')) return;
         const el = document.createElement('style');
         el.id = 'ps-anim-css';
-        el.textContent = [
-            '@keyframes ps-shimmer { 0% { background-position: -200% center; } 100% { background-position: 200% center; } }',
-            '@keyframes ps-pulse   { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }',
-            '@keyframes ps-rainbow { 0% { filter: hue-rotate(0deg); } 100% { filter: hue-rotate(360deg); } }',
-            '.ps-anim-shimmer { background-size: 200% auto !important; animation: ps-shimmer 2.4s linear infinite !important; }',
-            '.ps-anim-pulse   { animation: ps-pulse 2s ease-in-out infinite !important; }',
-            '.ps-anim-rainbow { animation: ps-rainbow 4s linear infinite !important; }',
-        ].join('\n');
+        el.textContent = `
+@keyframes ps-shimmer-move { 0% { left: -70%; } 100% { left: 120%; } }
+@keyframes ps-pulse        { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+@keyframes ps-rainbow      { 0% { filter: hue-rotate(0deg); } 100% { filter: hue-rotate(360deg); } }
+@keyframes ps-float        { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-6px); } }
+@keyframes ps-glow-pulse   { 0%, 100% { filter: brightness(1) drop-shadow(0 0 0px rgba(255,255,255,0)); } 50% { filter: brightness(1.3) drop-shadow(0 0 10px rgba(255,255,255,0.6)); } }
+@keyframes ps-neon-flash   { 0%, 18%, 20%, 50%, 52%, 100% { filter: brightness(1) drop-shadow(0 0 5px rgba(255,255,255,0.8)); } 19%, 51% { filter: brightness(0.75) drop-shadow(0 0 1px rgba(255,255,255,0.15)); } }
+@keyframes ps-glitch       { 0%, 85%, 100% { transform: translate(0); filter: none; } 86% { transform: translate(-4px, 1px) skewX(-2deg); filter: brightness(1.4); } 87% { transform: translate(4px, -1px) skewX(2deg); } 89% { transform: translate(-2px, 1px); filter: brightness(1); } 90% { transform: translate(0); } }
+.ps-anim-shimmer { position: relative !important; overflow: hidden !important; display: inline-block !important; }
+.ps-anim-shimmer::after { content: ''; position: absolute; top: -20%; left: -70%; width: 45%; height: 140%; background: linear-gradient(105deg, transparent 0%, rgba(255,255,255,0.55) 50%, transparent 100%); animation: ps-shimmer-move 2.2s ease-in-out infinite; pointer-events: none; }
+.ps-anim-pulse      { animation: ps-pulse 2s ease-in-out infinite !important; }
+.ps-anim-rainbow    { animation: ps-rainbow 4s linear infinite !important; }
+.ps-anim-float      { animation: ps-float 3s ease-in-out infinite !important; display: inline-block !important; }
+.ps-anim-glow-pulse { animation: ps-glow-pulse 2.5s ease-in-out infinite !important; display: inline-block !important; }
+.ps-anim-neon       { animation: ps-neon-flash 4s linear infinite !important; display: inline-block !important; }
+.ps-anim-glitch     { animation: ps-glitch 5s linear infinite !important; display: inline-block !important; }
+`;
         document.head.appendChild(el);
     }, []);
 
@@ -469,16 +478,15 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                         <div style={{ flex: 1, textAlign: isMobile ? 'center' : 'left', minWidth: 0 }}>
                             <p style={{ fontSize: '11px', fontWeight: 700, color: accent, textTransform: 'uppercase', letterSpacing: '0.15em', margin: '0 0 6px' }}>Artist Profile</p>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', justifyContent: isMobile ? 'center' : 'flex-start', marginBottom: '8px' }}>
-                                <h1
-                                    className={profileStyle?.animation && profileStyle.animation !== 'none' ? `ps-anim-${profileStyle.animation}` : undefined}
-                                    style={{
-                                        fontSize: isMobile ? '32px' : '52px', fontWeight: 900, margin: 0,
-                                        letterSpacing: '-0.03em', lineHeight: 1.05, wordWrap: 'break-word',
-                                        ...(profileStyle?.gradient
+                                <h1 style={{ fontSize: isMobile ? '32px' : '52px', fontWeight: 900, margin: 0, letterSpacing: '-0.03em', lineHeight: 1.05, wordWrap: 'break-word' }}>
+                                    <span
+                                        className={profileStyle?.animation && profileStyle.animation !== 'none' ? `ps-anim-${profileStyle.animation}` : undefined}
+                                        style={profileStyle?.gradient
                                             ? { background: profileStyle.gradient, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }
-                                            : {}),
-                                    }}>
-                                    {profile.displayName || profile.username}
+                                            : undefined
+                                        }>
+                                        {profile.displayName || profile.username}
+                                    </span>
                                 </h1>
                                 {profileStyle?.badgeLabel && (
                                     <span style={{

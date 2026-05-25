@@ -11,7 +11,7 @@ interface ProfileStyle {
     id: string;
     userId: string;
     gradient: string | null;
-    animation: 'none' | 'shimmer' | 'pulse' | 'rainbow';
+    animation: 'none' | 'shimmer' | 'pulse' | 'rainbow' | 'float' | 'glow-pulse' | 'neon' | 'glitch';
     glowColor: string | null;
     glowIntensity: number;
     badgeLabel: string | null;
@@ -31,37 +31,69 @@ interface SearchResult {
 // ── Preset catalogue ─────────────────────────────────────────────────────────
 
 const GRADIENT_PRESETS = [
-    { label: 'None',   value: '' },
-    { label: 'Sunset', value: 'linear-gradient(90deg,#FF6B6B,#FFD93D)' },
-    { label: 'Ocean',  value: 'linear-gradient(90deg,#4facfe,#00f2fe)' },
-    { label: 'Forest', value: 'linear-gradient(90deg,#11998e,#38ef7d)' },
-    { label: 'Gold',   value: 'linear-gradient(90deg,#f7971e,#ffd200)' },
-    { label: 'Nebula', value: 'linear-gradient(90deg,#a18cd1,#fbc2eb)' },
-    { label: 'Neon',   value: 'linear-gradient(90deg,#08f7fe,#09fa6e)' },
-    { label: 'Rose',   value: 'linear-gradient(90deg,#f953c6,#b91d73)' },
-    { label: 'Fuji',   value: `linear-gradient(90deg,${colors.primary},${colors.accent})` },
-    { label: 'Custom…', value: '__custom__' },
+    { label: 'None',         value: '' },
+    // ── Warm ────────────────────────────────────────────────────────────────
+    { label: 'Sunset',       value: 'linear-gradient(90deg,#FF6B6B,#FFD93D)' },
+    { label: 'Fire',         value: 'linear-gradient(90deg,#f12711,#f5af19)' },
+    { label: 'Rose',         value: 'linear-gradient(90deg,#f953c6,#b91d73)' },
+    { label: 'Candy',        value: 'linear-gradient(90deg,#FF9A8B,#FF6A88,#FF99AC)' },
+    { label: 'Peach',        value: 'linear-gradient(90deg,#FEAC5E,#C779D0,#4BC0C8)' },
+    // ── Cool ────────────────────────────────────────────────────────────────
+    { label: 'Ocean',        value: 'linear-gradient(90deg,#4facfe,#00f2fe)' },
+    { label: 'Arctic',       value: 'linear-gradient(90deg,#43b89c,#b0f0ea)' },
+    { label: 'Sapphire',     value: 'linear-gradient(90deg,#1a6fe0,#06c9f7)' },
+    // ── Nature ──────────────────────────────────────────────────────────────
+    { label: 'Forest',       value: 'linear-gradient(90deg,#11998e,#38ef7d)' },
+    { label: 'Aurora',       value: 'linear-gradient(90deg,#00c9ff,#92fe9d)' },
+    { label: 'Lime',         value: 'linear-gradient(90deg,#56ab2f,#a8e063)' },
+    // ── Space/Cosmic ─────────────────────────────────────────────────────────
+    { label: 'Gold',         value: 'linear-gradient(90deg,#f7971e,#ffd200)' },
+    { label: 'Nebula',       value: 'linear-gradient(90deg,#a18cd1,#fbc2eb)' },
+    { label: 'Galaxy',       value: 'linear-gradient(90deg,#654ea3,#eaafc8)' },
+    { label: 'Midnight',     value: 'linear-gradient(90deg,#8360c3,#2ebf91)' },
+    { label: 'Cosmic',       value: 'linear-gradient(90deg,#4568dc,#b06ab3)' },
+    // ── Neon / Tech ──────────────────────────────────────────────────────────
+    { label: 'Neon',         value: 'linear-gradient(90deg,#08f7fe,#09fa6e)' },
+    { label: 'Cyberpunk',    value: 'linear-gradient(90deg,#f7ff00,#db36a4)' },
+    { label: 'Electric',     value: 'linear-gradient(90deg,#4776e6,#8e54e9)' },
+    { label: 'Hacker',       value: 'linear-gradient(90deg,#00b09b,#96c93d)' },
+    // ── Multi-stop ───────────────────────────────────────────────────────────
+    { label: 'Holographic',  value: 'linear-gradient(90deg,#fc466b,#3f5efb,#43c6ac,#fc466b)' },
+    { label: 'Rainbow',      value: 'linear-gradient(90deg,#ff0000,#ff7700,#ffff00,#00ff00,#0000ff,#8b00ff)' },
+    { label: 'Sunset Strip', value: 'linear-gradient(90deg,#f7971e,#f953c6,#a18cd1)' },
+    // ── Brand ────────────────────────────────────────────────────────────────
+    { label: 'Fuji',         value: `linear-gradient(90deg,${colors.primary},${colors.accent})` },
+    { label: 'Custom…',      value: '__custom__' },
 ];
 
 const ANIMATION_OPTIONS = [
-    { value: 'none',     label: 'None' },
-    { value: 'shimmer',  label: 'Shimmer sweep' },
-    { value: 'pulse',    label: 'Pulse glow' },
-    { value: 'rainbow',  label: 'Rainbow cycle' },
+    { value: 'none',       label: 'None' },
+    { value: 'shimmer',    label: 'Shimmer sweep' },
+    { value: 'pulse',      label: 'Pulse opacity' },
+    { value: 'rainbow',    label: 'Rainbow cycle' },
+    { value: 'float',      label: 'Float' },
+    { value: 'glow-pulse', label: 'Text glow' },
+    { value: 'neon',       label: 'Neon flicker' },
+    { value: 'glitch',     label: 'Glitch' },
 ];
 
 const GLOW_PRESETS = [
-    { label: 'None',   value: '' },
-    { label: 'Teal',   value: colors.primary },
-    { label: 'Cyan',   value: colors.accent },
-    { label: 'Gold',   value: '#FFD700' },
-    { label: 'Rose',   value: '#f953c6' },
-    { label: 'Orange', value: '#f7971e' },
-    { label: 'Purple', value: '#a18cd1' },
+    { label: 'None',     value: '' },
+    { label: 'Teal',     value: colors.primary },
+    { label: 'Cyan',     value: colors.accent },
+    { label: 'Gold',     value: '#FFD700' },
+    { label: 'Rose',     value: '#f953c6' },
+    { label: 'Orange',   value: '#f7971e' },
+    { label: 'Purple',   value: '#a18cd1' },
+    { label: 'Red',      value: '#ef4444' },
+    { label: 'Green',    value: '#22c55e' },
+    { label: 'White',    value: '#ffffff' },
+    { label: 'Electric', value: '#4776e6' },
 ];
 
 // ── Blank form state ─────────────────────────────────────────────────────────
 
+type AnimationType = ProfileStyle['animation'];
 type FormState = Omit<ProfileStyle, 'id' | 'grantedAt' | 'profile'> & { _displayName: string; _avatar: string | null };
 
 const blank = (): FormState => ({
@@ -191,9 +223,10 @@ function StylePreview({ form }: { form: FormState }) {
                     flexShrink: 0,
                 }}>U</div>
                 <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                        <span className={animClass} style={{ fontSize: '20px', fontWeight: 900, letterSpacing: '-0.02em', ...textStyle }}>
-                            Username
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px', flexWrap: 'wrap' }}>
+                        {/* span keeps display:inline so shimmer/float/glitch classes fit to text width */}
+                        <span style={{ fontSize: '20px', fontWeight: 900, letterSpacing: '-0.02em' }}>
+                            <span className={animClass} style={textStyle}>Username</span>
                         </span>
                         {form.badgeLabel && (
                             <span style={{ fontSize: '10px', fontWeight: 700, padding: '2px 8px', borderRadius: '9999px', backgroundColor: `${form.badgeColor || '#FFD700'}22`, border: `1px solid ${form.badgeColor || '#FFD700'}55`, color: form.badgeColor || '#FFD700', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
@@ -314,7 +347,7 @@ function StyleEditor({
                     <span style={labelStyle}>Text Animation</span>
                     <div style={{ display: 'flex', gap: '8px', marginTop: '6px', flexWrap: 'wrap' }}>
                         {ANIMATION_OPTIONS.map(opt => (
-                            <button key={opt.value} onClick={() => set('animation', opt.value as any)}
+                            <button key={opt.value} onClick={() => set('animation', opt.value as AnimationType)}
                                 style={{ ...chipStyle, backgroundColor: form.animation === opt.value ? `${colors.primary}22` : 'rgba(255,255,255,0.05)', color: form.animation === opt.value ? colors.primary : colors.textSecondary, border: form.animation === opt.value ? `1px solid ${colors.primary}44` : '1px solid rgba(255,255,255,0.07)' }}>
                                 {opt.label}
                             </button>
@@ -400,24 +433,34 @@ const btnSecondary: React.CSSProperties = { display: 'inline-flex', alignItems: 
 
 // ── Animation keyframes injected once ────────────────────────────────────────
 
+// Shared animation CSS — injected once per page load (id="ps-anim-css").
+// MusicianProfilePublic.tsx injects the same content; keep both in sync.
 const ANIM_CSS = `
 @keyframes ps-shimmer-move { 0% { left: -70%; } 100% { left: 120%; } }
-@keyframes ps-pulse   { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
-@keyframes ps-rainbow { 0% { filter: hue-rotate(0deg); } 100% { filter: hue-rotate(360deg); } }
+@keyframes ps-pulse        { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+@keyframes ps-rainbow      { 0% { filter: hue-rotate(0deg); } 100% { filter: hue-rotate(360deg); } }
+@keyframes ps-float        { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-6px); } }
+@keyframes ps-glow-pulse   { 0%, 100% { filter: brightness(1) drop-shadow(0 0 0px rgba(255,255,255,0)); } 50% { filter: brightness(1.3) drop-shadow(0 0 10px rgba(255,255,255,0.6)); } }
+@keyframes ps-neon-flash   { 0%, 18%, 20%, 50%, 52%, 100% { filter: brightness(1) drop-shadow(0 0 5px rgba(255,255,255,0.8)); } 19%, 51% { filter: brightness(0.75) drop-shadow(0 0 1px rgba(255,255,255,0.15)); } }
+@keyframes ps-glitch       { 0%, 85%, 100% { transform: translate(0); filter: none; } 86% { transform: translate(-4px, 1px) skewX(-2deg); filter: brightness(1.4); } 87% { transform: translate(4px, -1px) skewX(2deg); } 89% { transform: translate(-2px, 1px); filter: brightness(1); } 90% { transform: translate(0); } }
+
+/* Shimmer: inline-block so the sweep is clipped to the text bounding box only */
 .ps-anim-shimmer { position: relative !important; overflow: hidden !important; display: inline-block !important; }
 .ps-anim-shimmer::after {
   content: '';
   position: absolute;
-  top: -20%;
-  left: -70%;
-  width: 45%;
-  height: 140%;
+  top: -20%; left: -70%;
+  width: 45%; height: 140%;
   background: linear-gradient(105deg, transparent 0%, rgba(255,255,255,0.55) 50%, transparent 100%);
   animation: ps-shimmer-move 2.2s ease-in-out infinite;
   pointer-events: none;
 }
-.ps-anim-pulse   { animation: ps-pulse 2s ease-in-out infinite !important; }
-.ps-anim-rainbow { animation: ps-rainbow 4s linear infinite !important; }
+.ps-anim-pulse      { animation: ps-pulse 2s ease-in-out infinite !important; }
+.ps-anim-rainbow    { animation: ps-rainbow 4s linear infinite !important; }
+.ps-anim-float      { animation: ps-float 3s ease-in-out infinite !important; display: inline-block !important; }
+.ps-anim-glow-pulse { animation: ps-glow-pulse 2.5s ease-in-out infinite !important; display: inline-block !important; }
+.ps-anim-neon       { animation: ps-neon-flash 4s linear infinite !important; display: inline-block !important; }
+.ps-anim-glitch     { animation: ps-glitch 5s linear infinite !important; display: inline-block !important; }
 `;
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
