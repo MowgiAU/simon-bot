@@ -13434,10 +13434,17 @@ if (fs.existsSync(distPath)) {
         },
     }));
 
-    // 2. Everything else (index.html, logo.svg, etc.) \u2014 no cache so the app shell always refreshes
-    app.use((req, res, next) => {
-        next();
-    }, express.static(distPath, { index: false }));
+    // 2. Everything else (index.html, logo.svg, etc.) \u2014 no cache so browsers always get latest build
+    app.use(express.static(distPath, {
+        index: false,
+        setHeaders: (res, filePath) => {
+            if (filePath.endsWith('.html')) {
+                res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+                res.setHeader('Pragma', 'no-cache');
+                res.setHeader('Expires', '0');
+            }
+        },
+    }));
 
     // 2. SPA Catch-all
     const BOT_UA = /discordbot|twitterbot|facebookexternalhit|slackbot|linkedinbot|whatsapp|telegrambot|redditbot|pinterest|googlebot|bingbot/i;

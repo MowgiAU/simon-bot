@@ -34,7 +34,12 @@ async function hardReload(): Promise<void> {
       await Promise.all(regs.map(r => r.unregister()));
     }
   } catch {}
-  window.location.reload();
+  try { sessionStorage.removeItem('__chunk_recover_attempted'); } catch {}
+  // Navigate with a cache-busting query param so the browser fetches index.html
+  // fresh from the server rather than serving from disk/CDN cache.
+  const url = new URL(window.location.href);
+  url.searchParams.set('_reload', Date.now().toString());
+  window.location.replace(url.toString());
 }
 
 export class ErrorBoundary extends Component<Props, State> {

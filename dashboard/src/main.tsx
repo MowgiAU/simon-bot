@@ -30,6 +30,16 @@ axios.interceptors.response.use(
   }
 );
 
+// Strip the cache-busting param injected by ErrorBoundary's hardReload so it
+// doesn't persist in the address bar after a successful chunk-error recovery.
+try {
+  const url = new URL(window.location.href);
+  if (url.searchParams.has('_reload')) {
+    url.searchParams.delete('_reload');
+    window.history.replaceState(null, '', url.pathname + (url.search || '') + url.hash);
+  }
+} catch {}
+
 const rootElement = document.getElementById('root');
 
 if (!rootElement) {
