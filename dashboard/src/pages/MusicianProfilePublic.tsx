@@ -10,7 +10,7 @@ import {
     Music, Hammer, Instagram, Youtube, MessageCircle, Radio,
     Edit3, Pause, ExternalLink, Award, Zap, Play, Copy, Check,
     Swords, Trophy, Flame, UserPlus, UserCheck, Repeat2, Heart, Share2, ListMusic, Clock, Star,
-    GripVertical, ChevronUp, ChevronDown, Disc, EyeOff, Users
+    GripVertical, ChevronUp, ChevronDown, Disc, EyeOff, Users, Crown, Medal, TrendingUp
 } from 'lucide-react';
 import { CommentSection } from '../components/CommentSection';
 import { FujiLogo } from '../components/FujiLogo';
@@ -61,6 +61,9 @@ interface MusicianProfile {
             track: { id: string; title: string; url: string; coverUrl: string | null; profile: { username: string; displayName: string | null } };
         }>;
     } | null;
+    showH2HRank?: boolean;
+    h2hRating?: { elo: number; wins: number; losses: number; matchesPlayed: number } | null;
+    featuredFriendIds?: string[];
     tracks?: Array<{
         id: string;
         title: string;
@@ -73,6 +76,7 @@ interface MusicianProfile {
         waveformPeaks?: number[] | null;
         genres?: { genre: { name: string; slug: string } }[];
         _count?: { favourites: number; reposts: number; comments: number };
+        _battleEntry?: { battleId: string; battleTitle: string | null; battleSlug: string | null } | null;
     }>;
     reposts?: Array<{
         id: string;
@@ -112,6 +116,10 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
 
     // Battle submissions
     const [battleEntries, setBattleEntries] = useState<any[]>([]);
+
+    // Friends (mutual follows)
+    const [friends, setFriends] = useState<{ profileId: string; userId: string; username: string; displayName: string | null; avatar: string | null; discordId: string | null }[]>([]);
+    const [featuredFriendIds, setFeaturedFriendIds] = useState<string[]>([]);
 
     // Profile playlists (sidebar)
     const [profilePlaylists, setProfilePlaylists] = useState<any[]>([]);
@@ -291,13 +299,18 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                 allTrackIds.length > 0
                     ? axios.post('/api/tracks/reposts/check', { trackIds: allTrackIds }, { withCredentials: true }).catch(() => null)
                     : Promise.resolve(null),                                                    // 4
+                axios.get(`/api/artists/${data.id}/friends`).catch(() => null),                // 5
             ];
-            const [countRes, followRes, entriesRes, favRes, repRes] = await Promise.all(supplementary);
+            const [countRes, followRes, entriesRes, favRes, repRes, friendsRes] = await Promise.all(supplementary);
             if (countRes?.data) setFollowerCount(countRes.data.count);
             if (followRes?.data) setIsFollowing(followRes.data.following);
             if (entriesRes?.data) setBattleEntries(entriesRes.data);
             if (favRes?.data) setFavourites(favRes.data);
             if (repRes?.data) setReposts(repRes.data);
+            if (friendsRes?.data) {
+                setFriends(friendsRes.data.friends || []);
+                setFeaturedFriendIds(friendsRes.data.featuredFriendIds || []);
+            }
 
             // Fetch followers + following count independently so index drift can never affect them.
             axios.get(`/api/artists/${data.id}/followers?limit=12`).then(r => {
@@ -366,6 +379,18 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
     const pageBg = profile.cardBgColor
         ? isLightCard ? `color-mix(in srgb, ${profile.cardBgColor} 45%, #E2E8F0)` : `color-mix(in srgb, ${profile.cardBgColor} 60%, #0E121A)`
         : '#0E121A';
+    const H2H_TIERS = [
+        { name: 'UNRANKED', min: 0,    color: '#7A8190', icon: <Medal size={13} /> },
+        { name: 'BRONZE',   min: 1200, color: '#CD7F32', icon: <Medal size={13} /> },
+        { name: 'SILVER',   min: 1300, color: '#C0C0C0', icon: <Medal size={13} /> },
+        { name: 'GOLD',     min: 1450, color: '#FFD700', icon: <Trophy size={13} /> },
+        { name: 'PLATINUM', min: 1600, color: '#E5E4E2', icon: <Trophy size={13} /> },
+        { name: 'DIAMOND',  min: 1750, color: '#5DD4FF', icon: <Crown size={13} /> },
+        { name: 'MASTER',   min: 1900, color: '#A855F7', icon: <Crown size={13} /> },
+        { name: 'LEGEND',   min: 2100, color: '#FF3D7F', icon: <Flame size={13} /> },
+    ];
+    const h2hTier = (elo: number) => [...H2H_TIERS].reverse().find(t => elo >= t.min) || H2H_TIERS[0];
+
     const stats = [
         { label: 'Following', value: (followingCount || 0).toLocaleString() },
         { label: 'Total Streams', value: (profile.totalPlays || 0).toLocaleString() },
@@ -833,6 +858,33 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                                                         }}>
                                                             <Repeat2 size={13} />
                                                             <span style={{ color: cardTextSec }}>{profile.displayName || profile.username} reposted</span>
+                                                        </div>
+                                                    )}
+
+                                                    {/* Battle submission banner */}
+                                                    {!track._repost && track._battleEntry && (
+                                                        <div style={{
+                                                            padding: '7px 16px', fontSize: '12px',
+                                                            display: 'flex', alignItems: 'center', gap: '6px',
+                                                            borderBottom: `1px solid rgba(99,102,241,0.15)`,
+                                                            backgroundColor: 'rgba(99,102,241,0.08)',
+                                                            color: '#818CF8',
+                                                        }}>
+                                                            <Swords size={12} />
+                                                            <span>Battle Submission</span>
+                                                            {track._battleEntry.battleTitle && (
+                                                                <>
+                                                                    <span style={{ opacity: 0.5 }}>·</span>
+                                                                    <a
+                                                                        href={`/battles/${track._battleEntry.battleSlug || track._battleEntry.battleId}`}
+                                                                        style={{ color: '#818CF8', textDecoration: 'none', fontWeight: 600 }}
+                                                                        onMouseEnter={e => (e.currentTarget.style.textDecoration = 'underline')}
+                                                                        onMouseLeave={e => (e.currentTarget.style.textDecoration = 'none')}
+                                                                    >
+                                                                        {track._battleEntry.battleTitle}
+                                                                    </a>
+                                                                </>
+                                                            )}
                                                         </div>
                                                     )}
 
@@ -1314,6 +1366,95 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                                 </div>
                             </div>
                         </div>
+
+                        {/* ── Arena Rank Card ── */}
+                        {profile.showH2HRank && profile.h2hRating && profile.h2hRating.matchesPlayed > 0 && (() => {
+                            const rating = profile.h2hRating!;
+                            const tier = h2hTier(rating.elo);
+                            const winRate = Math.round((rating.wins / rating.matchesPlayed) * 100);
+                            return (
+                                <div style={{ backgroundColor: cardBg, borderRadius: '16px', border: `1px solid ${tier.color}44`, overflow: 'hidden', boxShadow: `0 0 18px ${tier.color}22` }}>
+                                    <div style={{ padding: '20px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+                                            <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: `${tier.color}22`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                <Swords size={13} color={tier.color} />
+                                            </div>
+                                            <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: cardTextSec }}>Arena Rank</span>
+                                            <a href="/arena" style={{ marginLeft: 'auto', fontSize: '10px', color: tier.color, textDecoration: 'none', opacity: 0.8 }}>View Arena →</a>
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '14px' }}>
+                                            <div style={{
+                                                width: 56, height: 56, borderRadius: '14px', flexShrink: 0,
+                                                background: `linear-gradient(135deg, ${tier.color}44, ${tier.color}22)`,
+                                                border: `1px solid ${tier.color}66`,
+                                                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                                                boxShadow: `0 0 14px ${tier.color}33`,
+                                            }}>
+                                                {React.cloneElement(tier.icon as React.ReactElement, { size: 20, color: tier.color })}
+                                                <div style={{ fontSize: '8px', fontWeight: 800, letterSpacing: '0.08em', color: tier.color, marginTop: '2px' }}>{tier.name}</div>
+                                            </div>
+                                            <div>
+                                                <div style={{ fontSize: '36px', fontWeight: 900, color: tier.color, lineHeight: 1, letterSpacing: '-0.02em', textShadow: `0 0 16px ${tier.color}66` }}>
+                                                    {rating.elo}
+                                                </div>
+                                                <div style={{ fontSize: '10px', color: cardTextSec, marginTop: '2px' }}>Elo Rating</div>
+                                            </div>
+                                        </div>
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+                                            {[
+                                                { label: 'Wins', value: rating.wins, color: '#34D399' },
+                                                { label: 'Losses', value: rating.losses, color: '#F87171' },
+                                                { label: 'Win%', value: `${winRate}%`, color: cardText },
+                                            ].map(s => (
+                                                <div key={s.label} style={{ padding: '10px 10px', borderRadius: '10px', backgroundColor: cardInner, border: `1px solid ${cardBorder}`, textAlign: 'center' }}>
+                                                    <div style={{ fontSize: '18px', fontWeight: 800, color: s.color, lineHeight: 1 }}>{s.value}</div>
+                                                    <div style={{ fontSize: '9px', fontWeight: 600, color: cardTextTer, textTransform: 'uppercase', letterSpacing: '0.08em', marginTop: '3px' }}>{s.label}</div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })()}
+
+                        {/* ── Friends / Top 8 Card ── */}
+                        {(() => {
+                            const featured = featuredFriendIds.length > 0
+                                ? friends.filter(f => featuredFriendIds.includes(f.userId) || featuredFriendIds.includes(f.profileId))
+                                : friends.slice(0, 8);
+                            if (featured.length === 0) return null;
+                            return (
+                                <div style={{ backgroundColor: cardBg, borderRadius: '16px', border: `1px solid ${cardBorder}`, overflow: 'hidden', boxShadow: cardShadow }}>
+                                    <div style={{ padding: '20px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+                                            <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: `${accent}18`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                <Users size={13} color={accent} />
+                                            </div>
+                                            <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: cardTextSec }}>Top {Math.min(featured.length, 8)}</span>
+                                        </div>
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
+                                            {featured.slice(0, 8).map(f => {
+                                                const avatarSrc = f.avatar
+                                                    ? (f.avatar.startsWith('http') || f.avatar.includes('/') ? f.avatar : `https://cdn.discordapp.com/avatars/${f.discordId || f.userId}/${f.avatar}.png?size=64`)
+                                                    : null;
+                                                return (
+                                                    <a key={f.profileId} href={`/profile/${f.username}`} title={f.displayName || f.username} style={{ textDecoration: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px' }}>
+                                                        <div style={{ width: '52px', height: '52px', borderRadius: '13px', overflow: 'hidden', border: `2px solid ${accent}44`, flexShrink: 0, backgroundColor: cardInner }}>
+                                                            {avatarSrc
+                                                                ? <img src={avatarSrc} alt={f.username} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                                : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', fontWeight: 800, color: accent, background: `${accent}20` }}>{(f.displayName || f.username)[0].toUpperCase()}</div>}
+                                                        </div>
+                                                        <span style={{ fontSize: '9px', color: cardTextSec, textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '52px' }}>
+                                                            {f.displayName || f.username}
+                                                        </span>
+                                                    </a>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })()}
                     </div>
                 </div>
 

@@ -2,11 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { colors, spacing, borderRadius, shadows } from '../theme/theme';
 import { useAuth } from '../components/AuthProvider';
 import axios from 'axios';
-import { 
-    User, Music, Share2, Hammer, Save, Plus, X, Instagram, Youtube, 
+import {
+    User, Music, Share2, Hammer, Save, Plus, X, Instagram, Youtube,
     MessageCircle, Radio, ExternalLink, Copy, Check, ArrowLeft, Play, AlertCircle,
     Camera, Link as LinkIcon, Disc3, Star, Link2, Unlink, CheckCircle, Image, Trash2,
-    Paintbrush
+    Paintbrush, Swords, Users, Shield
 } from 'lucide-react';
 import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
@@ -36,6 +36,8 @@ interface MusicianProfile {
     featuredPlaylistId?: string | null;
     accentColor?: string | null;
     cardBgColor?: string | null;
+    showH2HRank?: boolean;
+    featuredFriendIds?: string[];
 }
 
 interface Genre {
@@ -121,6 +123,10 @@ export const ProfileEditPage: React.FC = () => {
     const [uploadingBanner, setUploadingBanner] = useState(false);
     const [nameError, setNameError] = useState<string | null>(null);
     const [validatingName, setValidatingName] = useState(false);
+
+    // Mutual friends (for featured friends picker)
+    const [mutualFriends, setMutualFriends] = useState<Array<{ id: string; username: string; displayName: string | null; avatar: string | null; userId: string }>>([]);
+    const [savingFriends, setSavingFriends] = useState(false);
 
     // Discord linking
     const [discordLinked, setDiscordLinked] = useState(!!user?.id && !user.id.startsWith('local_'));
@@ -218,6 +224,10 @@ export const ProfileEditPage: React.FC = () => {
                         const playlistsRes = await axios.get('/api/my-playlists', { withCredentials: true });
                         setPlaylists(playlistsRes.data || []);
                     } catch { /* playlists unavailable */ }
+                    try {
+                        const friendsRes = await axios.get(`/api/artists/${effectiveUserId}/friends`, { withCredentials: true });
+                        setMutualFriends(friendsRes.data?.friends || []);
+                    } catch { /* friends unavailable */ }
                 }
                 if (data && data.socials && Array.isArray(data.socials)) {
                     data.socials.forEach((s: any) => {
@@ -303,6 +313,14 @@ export const ProfileEditPage: React.FC = () => {
         } finally {
             setSaving(false);
         }
+    };
+
+    const toggleFeaturedFriend = (userId: string) => {
+        const current = profile?.featuredFriendIds || [];
+        const next = current.includes(userId)
+            ? current.filter(id => id !== userId)
+            : current.length < 8 ? [...current, userId] : current;
+        updateProfile(p => ({ ...p, featuredFriendIds: next }));
     };
 
     const validateArtistName = async (name: string) => {
@@ -1156,6 +1174,116 @@ export const ProfileEditPage: React.FC = () => {
                             )}
                         </div>
                     </div>
+
+                    {/* ── H2H Arena Rank ── */}
+                    <div style={card}>
+                        <div style={sectionHeader('#6366F1')}><Swords size={15} color="#6366F1" /> Arena Rank Display</div>
+                        <p style={{ fontSize: '12px', color: colors.textTertiary, marginBottom: '16px', lineHeight: 1.5 }}>
+                            Show your Head-to-Head Arena Elo rating and tier on your public profile. Your rank updates after each match.
+                        </p>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
+                            <div
+                                onClick={() => updateProfile(p => ({ ...p, showH2HRank: !p.showH2HRank }))}
+                                style={{
+                                    width: '42px', height: '24px', borderRadius: '12px', flexShrink: 0,
+                                    backgroundColor: profile?.showH2HRank ? '#6366F1' : 'rgba(255,255,255,0.1)',
+                                    position: 'relative', cursor: 'pointer', transition: 'background 0.2s',
+                                    border: `1px solid ${profile?.showH2HRank ? '#6366F1' : 'rgba(255,255,255,0.15)'}`,
+                                }}
+                            >
+                                <div style={{
+                                    position: 'absolute', top: '3px',
+                                    left: profile?.showH2HRank ? '21px' : '3px',
+                                    width: '16px', height: '16px', borderRadius: '50%',
+                                    backgroundColor: 'white', transition: 'left 0.2s',
+                                    boxShadow: '0 1px 3px rgba(0,0,0,0.4)',
+                                }} />
+                            </div>
+                            <div>
+                                <span style={{ fontSize: '13px', fontWeight: 600, color: colors.textPrimary }}>
+                                    {profile?.showH2HRank ? 'Arena rank is visible on your profile' : 'Arena rank is hidden'}
+                                </span>
+                                <p style={{ margin: '2px 0 0', fontSize: '11px', color: colors.textTertiary }}>
+                                    Only shows if you have played at least one H2H match.
+                                </p>
+                            </div>
+                        </label>
+                    </div>
+
+                    {/* ── Featured Friends (Top 8) ── */}
+                    {!isAdminMode && (
+                        <div style={card}>
+                            <div style={sectionHeader('#EC4899')}><Users size={15} color="#EC4899" /> Featured Friends</div>
+                            <p style={{ fontSize: '12px', color: colors.textTertiary, marginBottom: '16px', lineHeight: 1.5 }}>
+                                Choose up to 8 mutual follows to feature on your profile. If none are selected, your most recent mutual follows are shown automatically.
+                            </p>
+                            {mutualFriends.length === 0 ? (
+                                <p style={{ fontSize: '12px', color: colors.textTertiary, fontStyle: 'italic', margin: 0 }}>
+                                    You have no mutual follows yet. When someone you follow follows you back, they'll appear here.
+                                </p>
+                            ) : (
+                                <>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '10px' }}>
+                                        {mutualFriends.map(friend => {
+                                            const isFeatured = (profile?.featuredFriendIds || []).includes(friend.userId);
+                                            const avatarUrl = friend.avatar
+                                                ? (friend.avatar.startsWith('http') || friend.avatar.startsWith('/') ? friend.avatar : `https://cdn.discordapp.com/avatars/${friend.userId}/${friend.avatar}.png?size=64`)
+                                                : null;
+                                            const canAdd = (profile?.featuredFriendIds || []).length < 8;
+                                            return (
+                                                <button
+                                                    key={friend.id}
+                                                    onClick={() => toggleFeaturedFriend(friend.userId)}
+                                                    disabled={!isFeatured && !canAdd}
+                                                    title={!isFeatured && !canAdd ? 'Maximum 8 friends selected' : undefined}
+                                                    style={{
+                                                        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px',
+                                                        padding: '10px 8px', borderRadius: borderRadius.md,
+                                                        cursor: (!isFeatured && !canAdd) ? 'not-allowed' : 'pointer',
+                                                        border: `2px solid ${isFeatured ? '#EC4899' : 'rgba(255,255,255,0.08)'}`,
+                                                        backgroundColor: isFeatured ? 'rgba(236,72,153,0.1)' : 'rgba(255,255,255,0.02)',
+                                                        opacity: (!isFeatured && !canAdd) ? 0.4 : 1,
+                                                        transition: 'border-color 0.15s, background 0.15s',
+                                                        position: 'relative',
+                                                    }}
+                                                >
+                                                    {avatarUrl ? (
+                                                        <img src={avatarUrl} alt={friend.displayName || friend.username}
+                                                            style={{ width: '44px', height: '44px', borderRadius: '50%', objectFit: 'cover', border: `2px solid ${isFeatured ? '#EC4899' : 'rgba(255,255,255,0.1)'}` }} />
+                                                    ) : (
+                                                        <div style={{ width: '44px', height: '44px', borderRadius: '50%', backgroundColor: 'rgba(236,72,153,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                            <User size={20} color="#EC4899" />
+                                                        </div>
+                                                    )}
+                                                    <span style={{ fontSize: '11px', fontWeight: 600, color: colors.textPrimary, textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>
+                                                        {friend.displayName || friend.username}
+                                                    </span>
+                                                    {isFeatured && (
+                                                        <div style={{ position: 'absolute', top: '4px', right: '4px', width: '16px', height: '16px', borderRadius: '50%', backgroundColor: '#EC4899', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                            <Check size={10} color="white" />
+                                                        </div>
+                                                    )}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                    <div style={{ marginTop: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                        <span style={{ fontSize: '12px', color: '#EC4899', fontWeight: 600 }}>
+                                            {(profile?.featuredFriendIds || []).length} / 8 selected
+                                        </span>
+                                        {(profile?.featuredFriendIds || []).length > 0 && (
+                                            <button
+                                                onClick={() => updateProfile(p => ({ ...p, featuredFriendIds: [] }))}
+                                                style={{ fontSize: '11px', color: colors.textTertiary, background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}
+                                            >
+                                                Clear selection
+                                            </button>
+                                        )}
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    )}
                 </div>
 
                 {/* ── Save Button ── */}

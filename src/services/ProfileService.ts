@@ -40,6 +40,8 @@ export class ProfileService {
         featuredPlaylistId?: string | null;
         accentColor?: string | null;
         cardBgColor?: string | null;
+        showH2HRank?: boolean;
+        featuredFriendIds?: string[];
     }) {
         // 1. Validate Social URLs (Security / Data Integrity)
         // Discord handles are not URLs so they bypass URL validation
@@ -73,7 +75,9 @@ export class ProfileService {
                     primaryGenreId: data.primaryGenreId || null,
                     featuredPlaylistId: data.featuredPlaylistId,
                     accentColor: data.accentColor ?? null,
-                    cardBgColor: data.cardBgColor ?? null
+                    cardBgColor: data.cardBgColor ?? null,
+                    showH2HRank: data.showH2HRank ?? false,
+                    featuredFriendIds: data.featuredFriendIds ?? [],
                 },
                 update: {
                     username: data.username,
@@ -90,7 +94,9 @@ export class ProfileService {
                     primaryGenreId: data.primaryGenreId !== undefined ? (data.primaryGenreId || null) : undefined,
                     featuredPlaylistId: data.featuredPlaylistId,
                     accentColor: data.accentColor !== undefined ? (data.accentColor || null) : undefined,
-                    cardBgColor: data.cardBgColor !== undefined ? (data.cardBgColor || null) : undefined
+                    cardBgColor: data.cardBgColor !== undefined ? (data.cardBgColor || null) : undefined,
+                    showH2HRank: data.showH2HRank !== undefined ? data.showH2HRank : undefined,
+                    featuredFriendIds: data.featuredFriendIds !== undefined ? data.featuredFriendIds : undefined,
                 }
             });
 

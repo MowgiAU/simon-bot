@@ -931,6 +931,10 @@ model MusicianProfile {
   featuredPlaylistId String?
   featuredPlaylist   Playlist? @relation("ProfileFeaturedPlaylist", fields: [featuredPlaylistId], references: [id], onDelete: SetNull)
 
+  // Social / Competitive Display
+  showH2HRank       Boolean  @default(false)       // Opt-in: show Arena Elo in profile sidebar
+  featuredFriendIds String[] @default([])           // Up to 8 mutual-follow userIds to feature (MySpace Top 8)
+
   comments       Comment[]
   followers      ArtistFollow[]
   playlists      Playlist[]

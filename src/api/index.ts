@@ -8528,6 +8528,31 @@ app.get('/api/musician/profile/:userId', async (req, res) => {
                 _originalArtist: c.track.profile,
             }));
 
+        // Tag tracks that were submitted to a beat battle
+        if (profileData.tracks?.length) {
+            const trackIds = profileData.tracks.map((t: any) => t.id);
+            const entries = await db.beatBattleEntry.findMany({
+                where: { trackId: { in: trackIds } },
+                select: { trackId: true, battleId: true, battle: { select: { title: true, slug: true } } },
+            });
+            const entryByTrack = new Map(entries.map((e: any) => [e.trackId, e]));
+            profileData.tracks = profileData.tracks.map((t: any) => {
+                const entry = entryByTrack.get(t.id);
+                return entry ? { ...t, _battleEntry: { battleId: entry.battleId, battleTitle: entry.battle?.title || null, battleSlug: entry.battle?.slug || null } } : t;
+            });
+        }
+
+        // Fetch global H2H rating if user opted in to display it
+        if (profileData.showH2HRank) {
+            try {
+                const h2hRating = await db.h2HRating.findFirst({
+                    where: { userId: profileData.userId, genreId: null },
+                    select: { elo: true, wins: true, losses: true, matchesPlayed: true },
+                });
+                profileData.h2hRating = h2hRating || null;
+            } catch { profileData.h2hRating = null; }
+        }
+
         // Fetch public playlists for this profile — releases first, then by profilePosition
         const profilePlaylists = await db.playlist.findMany({
             where: { userId: profileData.userId, isPublic: true, deletedAt: null },
@@ -16301,6 +16326,89 @@ app.get('/api/artists/:artistId/following-count', publicCache(60), async (req: a
         const count = await db.artistFollow.count({ where: { followerId: { in: ids } } });
         res.json({ count });
     } catch (e: any) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Get mutual follows (friends) for a profile
+app.get('/api/artists/:artistId/friends', async (req: any, res) => {
+    try {
+        const profile = await db.musicianProfile.findUnique({
+            where: { id: req.params.artistId },
+            select: { userId: true, featuredFriendIds: true },
+        });
+        if (!profile) return res.json({ friends: [], featuredFriendIds: [] });
+
+        // Resolve all userId aliases for this profile
+        const user = await db.user.findFirst({
+            where: { OR: [{ id: profile.userId }, { discordId: profile.userId }] },
+            select: { id: true, discordId: true },
+        });
+        const ownIds = [...new Set([profile.userId, user?.id, user?.discordId].filter(Boolean))] as string[];
+
+        // People this profile follows
+        const following = await db.artistFollow.findMany({
+            where: { followerId: { in: ownIds } },
+            select: { artistId: true },
+        });
+        const followingProfileIds = following.map(f => f.artistId);
+
+        // Of those, who also follows back?
+        const followedProfiles = await db.musicianProfile.findMany({
+            where: { id: { in: followingProfileIds } },
+            select: { id: true, userId: true, username: true, displayName: true, avatar: true },
+        });
+        const mutualFriends: any[] = [];
+        for (const fp of followedProfiles) {
+            const fpUser = await db.user.findFirst({
+                where: { OR: [{ id: fp.userId }, { discordId: fp.userId }] },
+                select: { id: true, discordId: true },
+            });
+            const fpIds = [...new Set([fp.userId, fpUser?.id, fpUser?.discordId].filter(Boolean))] as string[];
+            const followsBack = await db.artistFollow.findFirst({
+                where: { followerId: { in: fpIds }, artistId: req.params.artistId },
+            });
+            if (followsBack) {
+                mutualFriends.push({
+                    profileId: fp.id,
+                    userId: fp.userId,
+                    username: fp.username,
+                    displayName: fp.displayName,
+                    avatar: fp.avatar,
+                    discordId: fpUser?.discordId ?? (/^\d{17,19}$/.test(fp.userId) ? fp.userId : null),
+                });
+            }
+        }
+        res.json({ friends: mutualFriends, featuredFriendIds: profile.featuredFriendIds || [] });
+    } catch (e: any) {
+        logger.error('Friends fetch failed', e);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Save featured friends (owner only, max 8)
+app.post('/api/artists/:artistId/featured-friends', requireAuth, async (req: any, res) => {
+    try {
+        const profile = await db.musicianProfile.findUnique({
+            where: { id: req.params.artistId },
+            select: { id: true, userId: true, username: true },
+        });
+        if (!profile) return res.status(404).json({ error: 'Not found' });
+        const sessionId = req.session.user.id;
+        const localId = req.session.user._localId;
+        if (profile.userId !== sessionId && profile.userId !== localId) {
+            return res.status(403).json({ error: 'Forbidden' });
+        }
+        const ids: string[] = Array.isArray(req.body.featuredFriendIds) ? req.body.featuredFriendIds.slice(0, 8) : [];
+        await db.musicianProfile.update({
+            where: { id: profile.id },
+            data: { featuredFriendIds: ids },
+        });
+        apiResponseCache.delete(`profile-${profile.userId.toLowerCase()}`);
+        if (profile.username) apiResponseCache.delete(`profile-${profile.username.toLowerCase()}`);
+        res.json({ ok: true, featuredFriendIds: ids });
+    } catch (e: any) {
+        logger.error('Featured friends save failed', e);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
