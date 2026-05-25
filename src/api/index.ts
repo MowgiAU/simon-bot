@@ -18623,6 +18623,68 @@ app.post('/api/bug-reports', requireAuth, bugReportLimiter, bugReportUpload.sing
     }
 });
 
+// Admin: list orphaned track upload files (on disk but no DB record)
+app.get('/api/admin/orphaned-uploads', requireAdmin, async (_req: any, res) => {
+    try {
+        const trackDir = path.join(PROJECT_ROOT, 'public/uploads/tracks');
+        if (!fs.existsSync(trackDir)) return res.json({ files: [] });
+
+        const audioExts = new Set(['.mp3', '.wav', '.flac', '.ogg', '.aac', '.m4a', '.opus', '.webm', '.aiff', '.aif']);
+        const allFiles = fs.readdirSync(trackDir).filter(f => audioExts.has(path.extname(f).toLowerCase()));
+
+        // Batch DB lookup — get all urls currently referenced
+        const dbUrls = await db.track.findMany({
+            where: { url: { contains: '/uploads/tracks/' } },
+            select: { url: true, mp3Url: true },
+        });
+        const referencedFilenames = new Set<string>();
+        for (const t of dbUrls) {
+            if (t.url) referencedFilenames.add(path.basename(t.url));
+            if (t.mp3Url) referencedFilenames.add(path.basename(t.mp3Url));
+        }
+
+        const orphaned = allFiles
+            .filter(f => !referencedFilenames.has(f))
+            .map(f => {
+                const stat = fs.statSync(path.join(trackDir, f));
+                return { filename: f, sizeMB: +(stat.size / 1024 / 1024).toFixed(2), modifiedAt: stat.mtime.toISOString() };
+            })
+            .sort((a, b) => new Date(b.modifiedAt).getTime() - new Date(a.modifiedAt).getTime());
+
+        res.json({ files: orphaned });
+    } catch (e: any) {
+        logger.error('orphaned-uploads list failed', e);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Admin: delete a specific orphaned track file
+app.delete('/api/admin/orphaned-uploads/:filename', requireAdmin, async (req: any, res) => {
+    try {
+        const filename = path.basename(req.params.filename); // strip any path traversal
+        const audioExts = new Set(['.mp3', '.wav', '.flac', '.ogg', '.aac', '.m4a', '.opus', '.webm', '.aiff', '.aif']);
+        if (!audioExts.has(path.extname(filename).toLowerCase())) {
+            return res.status(400).json({ error: 'Not a recognised audio file extension' });
+        }
+        const filePath = path.join(PROJECT_ROOT, 'public/uploads/tracks', filename);
+        if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'File not found' });
+
+        // Safety check: must not be referenced by any track in DB
+        const inUse = await db.track.findFirst({
+            where: { OR: [{ url: { contains: filename } }, { mp3Url: { contains: filename } }] },
+            select: { id: true, title: true },
+        });
+        if (inUse) return res.status(409).json({ error: `File is still referenced by track "${inUse.title}" — cannot delete` });
+
+        fs.unlinkSync(filePath);
+        logger.info(`[Admin] Orphaned upload deleted: ${filename} by ${req.session?.user?.id}`);
+        res.json({ ok: true, deleted: filename });
+    } catch (e: any) {
+        logger.error('orphaned-uploads delete failed', e);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 // Admin: list bug reports
 app.get('/api/admin/bug-reports', requireAdmin, async (req: any, res) => {
     try {

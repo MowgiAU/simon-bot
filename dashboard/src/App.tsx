@@ -89,6 +89,7 @@ const BoostPage              = lazy(() => import("./pages/Boost").then(m => ({ d
 const AutomationPage         = lazy(() => import("./pages/Automation").then(m => ({ default: m.AutomationPage })));
 const ReportsPage            = lazy(() => import("./pages/Reports").then(m => ({ default: m.ReportsPage })));
 const BugReportsAdminPage    = lazy(() => import("./pages/BugReportsAdmin").then(m => ({ default: m.BugReportsAdmin })));
+const OrphanedUploadsPage    = lazy(() => import("./pages/OrphanedUploads").then(m => ({ default: m.OrphanedUploads })));
 const ActivityLogsPage       = lazy(() => import("./pages/ActivityLogs").then(m => ({ default: m.ActivityLogsPage })));
 const DuplicateProfilesPage  = lazy(() => import("./pages/DuplicateProfiles").then(m => ({ default: m.DuplicateProfilesPage })));
 const ArticlesPage           = lazy(() => import("./pages/Articles").then(m => ({ default: m.ArticlesPage })));
@@ -167,6 +168,7 @@ type Section =
   | "page-embeds"
   | "plugin-registry"
   | "bug-reports"
+  | "orphaned-uploads"
   | "activity-logs"
   | "duplicate-profiles";
 
@@ -510,6 +512,8 @@ const AdminDashboard: React.FC = () => {
           return <ReportsPage />;
         case "bug-reports":
           return <BugReportsAdminPage />;
+        case "orphaned-uploads":
+          return <OrphanedUploadsPage />;
         case "activity-logs":
           return <ActivityLogsPage />;
         case "duplicate-profiles":

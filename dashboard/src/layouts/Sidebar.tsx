@@ -49,6 +49,7 @@ import {
   Puzzle,
   Activity,
   GitMerge,
+  HardDrive,
 } from 'lucide-react';
 import { AnimatedWrapper } from '../components/AnimatedWrapper';
 import logoUrl from '../assets/logo.svg'; 
@@ -456,6 +457,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             >
                 <span className="nav-icon"><AnimatedWrapper icon={Bug} size={20} /></span>
                 <span className="nav-label">Bug Reports</span>
+            </button>
+          )}
+
+          {permissions.canManagePlugins && (
+            <button
+                className={`nav-item ${activeSection === 'orphaned-uploads' ? 'active' : ''}`}
+                onClick={() => onNavigate('orphaned-uploads')}
+                title={collapsed ? "Orphaned Uploads" : ""}
+            >
+                <span className="nav-icon"><AnimatedWrapper icon={HardDrive} size={20} /></span>
+                <span className="nav-label">Orphaned Uploads</span>
             </button>
           )}
 
