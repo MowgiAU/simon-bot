@@ -8531,11 +8531,11 @@ app.get('/api/musician/profile/:userId', async (req, res) => {
         // Tag tracks that were submitted to a beat battle
         if (profileData.tracks?.length) {
             const trackIds = profileData.tracks.map((t: any) => t.id);
-            const entries = await db.beatBattleEntry.findMany({
+            const entries = await db.battleEntry.findMany({
                 where: { trackId: { in: trackIds } },
                 select: { trackId: true, battleId: true, battle: { select: { title: true, slug: true } } },
             });
-            const entryByTrack = new Map(entries.map((e: any) => [e.trackId, e]));
+            const entryByTrack = new Map(entries.map((e) => [e.trackId, e]));
             profileData.tracks = profileData.tracks.map((t: any) => {
                 const entry = entryByTrack.get(t.id);
                 return entry ? { ...t, _battleEntry: { battleId: entry.battleId, battleTitle: entry.battle?.title || null, battleSlug: entry.battle?.slug || null } } : t;
