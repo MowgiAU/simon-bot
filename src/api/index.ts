@@ -16333,10 +16333,18 @@ app.get('/api/artists/:artistId/following-count', publicCache(60), async (req: a
 // Get mutual follows (friends) for a profile
 app.get('/api/artists/:artistId/friends', async (req: any, res) => {
     try {
-        const profile = await db.musicianProfile.findUnique({
-            where: { id: req.params.artistId },
-            select: { userId: true, featuredFriendIds: true },
+        const artistId = req.params.artistId;
+        // Accept both profile id and userId (the edit page passes userId, public profile passes profile id)
+        let profile = await db.musicianProfile.findUnique({
+            where: { id: artistId },
+            select: { id: true, userId: true, featuredFriendIds: true },
         });
+        if (!profile) {
+            profile = await db.musicianProfile.findFirst({
+                where: { userId: artistId },
+                select: { id: true, userId: true, featuredFriendIds: true },
+            }) as any;
+        }
         if (!profile) return res.json({ friends: [], featuredFriendIds: [] });
 
         // Resolve all userId aliases for this profile
@@ -16366,7 +16374,7 @@ app.get('/api/artists/:artistId/friends', async (req: any, res) => {
             });
             const fpIds = [...new Set([fp.userId, fpUser?.id, fpUser?.discordId].filter(Boolean))] as string[];
             const followsBack = await db.artistFollow.findFirst({
-                where: { followerId: { in: fpIds }, artistId: req.params.artistId },
+                where: { followerId: { in: fpIds }, artistId: profile!.id },
             });
             if (followsBack) {
                 mutualFriends.push({
