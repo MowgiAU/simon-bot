@@ -50,6 +50,7 @@ interface MusicianProfile {
     };
     featuredPlaylistId?: string | null;
     accentColor?: string | null;
+    cardBgColor?: string | null;
     featuredPlaylist?: {
         id: string;
         name: string;
@@ -64,6 +65,12 @@ interface MusicianProfile {
     showH2HRank?: boolean;
     h2hRating?: { elo: number; wins: number; losses: number; matchesPlayed: number } | null;
     featuredFriendIds?: string[];
+    headerLayout?: string;
+    trackDisplayStyle?: string;
+    showGearSection?: boolean;
+    showSocialLinks?: boolean;
+    showStatsBar?: boolean;
+    showFeaturedFriends?: boolean;
     tracks?: Array<{
         id: string;
         title: string;
@@ -436,7 +443,7 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
             minHeight: '100vh',
         }}>
             {/* ── HERO BANNER ── */}
-            <div style={{ position: 'relative', minHeight: isMobile ? '320px' : '380px', display: 'flex', alignItems: 'flex-end', overflow: 'hidden' }}>
+            <div style={{ position: 'relative', minHeight: isMobile ? '240px' : (profile.headerLayout === 'minimal' ? '160px' : '380px'), display: 'flex', alignItems: 'flex-end', overflow: 'hidden' }}>
                 {/* Background — user banner, or featured art/avatar as blurred backdrop */}
                 {profile.bannerUrl ? (
                     <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${profile.bannerUrl})`, backgroundSize: 'cover', backgroundPosition: 'center', pointerEvents: 'none' }} />
@@ -452,8 +459,8 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                         : `linear-gradient(to top, ${pageBg} 0%, rgba(14,18,26,0.85) 40%, rgba(14,18,26,0.4) 100%)`), pointerEvents: 'none' }} />
 
                 {/* Hero Content */}
-                <div style={{ position: 'relative', width: '100%', maxWidth: '1300px', margin: '0 auto', padding: isMobile ? '24px 16px' : '48px 24px' }}>
-                    <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'center' : 'flex-end', gap: isMobile ? '20px' : '32px' }}>
+                <div style={{ position: 'relative', width: '100%', maxWidth: '1300px', margin: '0 auto', padding: isMobile ? '24px 16px' : (profile.headerLayout === 'minimal' ? '24px 24px' : '48px 24px') }}>
+                    <div style={{ display: 'flex', flexDirection: (isMobile || profile.headerLayout === 'centered') ? 'column' : 'row', alignItems: (isMobile || profile.headerLayout === 'centered') ? 'center' : 'flex-end', gap: isMobile ? '20px' : '32px', textAlign: profile.headerLayout === 'centered' ? 'center' : undefined }}>
                         {/* Avatar */}
                         <div style={{
                             width: isMobile ? '140px' : '180px', height: isMobile ? '140px' : '180px',
@@ -475,9 +482,9 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                         </div>
 
                         {/* Info */}
-                        <div style={{ flex: 1, textAlign: isMobile ? 'center' : 'left', minWidth: 0 }}>
+                        <div style={{ flex: 1, textAlign: (isMobile || profile.headerLayout === 'centered') ? 'center' : 'left', minWidth: 0 }}>
                             <p style={{ fontSize: '11px', fontWeight: 700, color: accent, textTransform: 'uppercase', letterSpacing: '0.15em', margin: '0 0 6px' }}>Artist Profile</p>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', justifyContent: isMobile ? 'center' : 'flex-start', marginBottom: '8px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', justifyContent: (isMobile || profile.headerLayout === 'centered') ? 'center' : 'flex-start', marginBottom: '8px' }}>
                                 <h1 style={{ fontSize: isMobile ? '32px' : '52px', fontWeight: 900, margin: 0, letterSpacing: '-0.03em', lineHeight: 1.05, wordWrap: 'break-word' }}>
                                     <span
                                         className={profileStyle?.animation && profileStyle.animation !== 'none' ? `ps-anim-${profileStyle.animation}` : undefined}
@@ -506,7 +513,7 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                                 </p>
                             )}
                             {/* Genre Chips + Stats inline */}
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center', justifyContent: isMobile ? 'center' : 'flex-start', marginBottom: '16px' }}>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center', justifyContent: (isMobile || profile.headerLayout === 'centered') ? 'center' : 'flex-start', marginBottom: '16px' }}>
                                 {/* Primary genre — larger, full color */}
                                 {profile.primaryGenre && (
                                     <span onClick={() => navigate(`/category/${profile.primaryGenre!.slug}`)} style={{ backgroundColor: `${accent}22`, border: `1px solid ${accent}66`, color: accent, padding: '4px 12px', borderRadius: '999px', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', cursor: 'pointer' }}>
@@ -521,12 +528,14 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                                 {!profile.primaryGenre && profile.genres.filter((g: any) => g.genre).map((g: any, i: number) => (
                                     <span key={i} onClick={() => navigate(`/category/${g.genre.slug}`)} style={{ backgroundColor: `${accent}1A`, border: `1px solid ${accent}4D`, color: accent, padding: '3px 10px', borderRadius: '999px', fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer' }}>{g.genre.name}</span>
                                 ))}
-                                <span style={{ color: isLightCard ? 'rgba(0,0,0,0.25)' : 'rgba(255,255,255,0.3)', fontSize: '10px' }}>|</span>
-                                {stats.map((s, i) => (
-                                    <span key={i} style={{ fontSize: '12px', color: isLightCard ? '#4A5568' : '#B9C3CE' }}>
-                                        <strong style={{ color: isLightCard ? '#1A202C' : 'white', fontWeight: 700 }}>{s.value}</strong> {s.label}
-                                    </span>
-                                ))}
+                                {profile.showStatsBar !== false && <>
+                                    <span style={{ color: isLightCard ? 'rgba(0,0,0,0.25)' : 'rgba(255,255,255,0.3)', fontSize: '10px' }}>|</span>
+                                    {stats.map((s, i) => (
+                                        <span key={i} style={{ fontSize: '12px', color: isLightCard ? '#4A5568' : '#B9C3CE' }}>
+                                            <strong style={{ color: isLightCard ? '#1A202C' : 'white', fontWeight: 700 }}>{s.value}</strong> {s.label}
+                                        </span>
+                                    ))}
+                                </>}
                             </div>
                             {/* Action Buttons */}
                             <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', justifyContent: isMobile ? 'center' : 'flex-start' }}>
@@ -563,7 +572,7 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                                     <ReportButton targetType="profile" targetId={profile.id} style={{ padding: '8px 16px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, border: `1px solid ${isLightCard ? 'rgba(0,0,0,0.18)' : 'rgba(255,255,255,0.15)'}`, backgroundColor: isLightCard ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.06)', color: isLightCard ? '#4A5568' : '#B9C3CE' }} />
                                 )}
                                 {/* Social Icons inline */}
-                                {socials.map(s => {
+                                {profile.showSocialLinks !== false && socials.map(s => {
                                     const url = (profile as any)[s.key];
                                     if (!url) return null;
                                     const inner = (
@@ -817,6 +826,66 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                                     });
                                 };
 
+                                const trackDisplayStyle = profile.trackDisplayStyle || 'list';
+
+                                // ── Cards grid view ──
+                                if (trackDisplayStyle === 'cards') return (
+                                    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)', gap: '12px' }}>
+                                        {filtered.map((track: any) => {
+                                            const isCurrentTrack = player.currentTrack?.id === track.id;
+                                            const isPlaying = isCurrentTrack && player.isPlaying;
+                                            return (
+                                                <div key={track.id + (track._repost ? '-r' : '')}
+                                                    onClick={() => isCurrentTrack ? togglePlay() : setTrack(track, filtered)}
+                                                    style={{ borderRadius: '10px', overflow: 'hidden', border: `1px solid ${cardBorder}`, backgroundColor: cardBg, cursor: 'pointer', position: 'relative', aspectRatio: '1/1' }}>
+                                                    {track.coverUrl
+                                                        ? <img src={track.coverUrl} alt={track.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                        : <div style={{ width: '100%', height: '100%', backgroundColor: `${accent}18`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Music size={32} color={accent} /></div>
+                                                    }
+                                                    <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.75) 0%, transparent 55%)', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', padding: '10px' }}>
+                                                        <div style={{ fontSize: '12px', fontWeight: 700, color: '#fff', lineHeight: 1.2, textShadow: '0 1px 4px rgba(0,0,0,0.6)', marginBottom: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{track.title}</div>
+                                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                            <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.65)' }}>{track._repost ? '↺ Repost' : track.playCount >= 1000 ? `${(track.playCount/1000).toFixed(1)}K plays` : `${track.playCount} plays`}</span>
+                                                            <div style={{ width: '26px', height: '26px', borderRadius: '50%', backgroundColor: isPlaying ? accent : 'rgba(255,255,255,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                                                {isPlaying ? <Pause size={12} fill={isLightCard ? '#1a1a1a' : '#fff'} color={isLightCard ? '#1a1a1a' : '#fff'} /> : <Play size={12} fill="#1a1a1a" color="#1a1a1a" style={{ marginLeft: '1px' }} />}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                );
+
+                                // ── Compact list view ──
+                                if (trackDisplayStyle === 'compact') return (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', backgroundColor: cardBg, borderRadius: '10px', border: `1px solid ${cardBorder}`, overflow: 'hidden' }}>
+                                        {filtered.map((track: any, idx: number) => {
+                                            const isCurrentTrack = player.currentTrack?.id === track.id;
+                                            const isPlaying = isCurrentTrack && player.isPlaying;
+                                            const dur = track.duration ? `${Math.floor(track.duration / 60)}:${String(track.duration % 60).padStart(2, '0')}` : '';
+                                            return (
+                                                <div key={track.id + (track._repost ? '-r' : '')}
+                                                    style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 14px', borderTop: idx > 0 ? `1px solid ${cardBorder}` : 'none', backgroundColor: isCurrentTrack ? `${accent}12` : 'transparent', transition: 'background 0.15s', cursor: 'pointer' }}
+                                                    onClick={() => isCurrentTrack ? togglePlay() : setTrack(track, filtered)}
+                                                    onMouseEnter={e => { if (!isCurrentTrack) e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.03)'; }}
+                                                    onMouseLeave={e => { if (!isCurrentTrack) e.currentTarget.style.backgroundColor = 'transparent'; }}>
+                                                    <div style={{ width: '22px', height: '22px', borderRadius: '50%', backgroundColor: isCurrentTrack ? accent : 'rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                                        {isPlaying ? <Pause size={10} fill="white" color="white" /> : <Play size={10} fill={isCurrentTrack ? 'white' : cardTextTer} color={isCurrentTrack ? 'white' : cardTextTer} style={{ marginLeft: '1px' }} />}
+                                                    </div>
+                                                    {track.coverUrl && <img src={track.coverUrl} alt="" style={{ width: '32px', height: '32px', borderRadius: '4px', objectFit: 'cover', flexShrink: 0 }} />}
+                                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                                        <div style={{ fontSize: '13px', fontWeight: 600, color: isCurrentTrack ? accent : cardText, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{track.title}</div>
+                                                        {track._repost && <div style={{ fontSize: '10px', color: '#DAA520' }}>↺ Repost</div>}
+                                                    </div>
+                                                    {dur && <span style={{ fontSize: '11px', color: cardTextTer, flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>{dur}</span>}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                );
+
+                                // ── Default: full list ──
                                 return (
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                         {filtered.map((track: any) => {
@@ -1182,7 +1251,7 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
                         {/* ── About Card ── */}
-                        {(profile.bio || socials.some(s => !!(profile as any)[s.key])) && (
+                        {(profile.bio || (profile.showSocialLinks !== false && socials.some(s => !!(profile as any)[s.key]))) && (
                         <div style={{ backgroundColor: cardBg, borderRadius: '16px', border: `1px solid ${cardBorder}`, overflow: 'hidden', boxShadow: cardShadow }}>
                             <div style={{ borderLeft: `3px solid ${accent}`, padding: '20px 20px 20px 17px' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
@@ -1194,7 +1263,7 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                                 {profile.bio && (
                                     <p style={{ fontSize: '13px', color: cardTextSec, margin: '0 0 16px', lineHeight: 1.65 }}>{profile.bio}</p>
                                 )}
-                                {socials.some(s => !!(profile as any)[s.key]) && (
+                                {profile.showSocialLinks !== false && socials.some(s => !!(profile as any)[s.key]) && (
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                                         {socials.map(s => {
                                             const url = (profile as any)[s.key];
@@ -1282,7 +1351,7 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                         })()}
 
                         {/* ── Top 8 / Friends Card (replaces Followers card) ── */}
-                        {(() => {
+                        {profile.showFeaturedFriends !== false && (() => {
                             const orderedFeatured = featuredFriendIds.length > 0
                                 ? featuredFriendIds.map(id => friends.find(f => f.userId === id || f.profileId === id)).filter(Boolean) as typeof friends
                                 : friends.slice(0, 8);
@@ -1332,7 +1401,7 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                         })()}
 
                         {/* ── Gear Rack ── */}
-                        {gear.length > 0 && (
+                        {profile.showGearSection !== false && gear.length > 0 && (
                         <div style={{ backgroundColor: cardBg, borderRadius: '16px', border: `1px solid ${cardBorder}`, overflow: 'hidden', boxShadow: cardShadow }}>
                             <div style={{ padding: '20px' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
@@ -1357,7 +1426,7 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                         )}
 
                         {/* ── Stats Card ── */}
-                        <div style={{ backgroundColor: cardBg, borderRadius: '16px', border: `1px solid ${cardBorder}`, overflow: 'hidden', boxShadow: cardShadow }}>
+                        {profile.showStatsBar !== false && <div style={{ backgroundColor: cardBg, borderRadius: '16px', border: `1px solid ${cardBorder}`, overflow: 'hidden', boxShadow: cardShadow }}>
                             <div style={{ padding: '20px' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
                                     <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: `${accent}18`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -1374,7 +1443,7 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                                     ))}
                                 </div>
                             </div>
-                        </div>
+                        </div>}
 
                         {/* ── Arena Rank Card ── */}
                         {profile.showH2HRank && profile.h2hRating && profile.h2hRating.matchesPlayed > 0 && (() => {

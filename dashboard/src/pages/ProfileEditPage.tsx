@@ -33,11 +33,18 @@ interface MusicianProfile {
     genres: { id: string; name: string }[];
     primaryGenreId?: string | null;
     featuredTrackId?: string | null;
+    featuredTrack?: { id: string; title: string; url: string; coverUrl?: string | null } | null;
     featuredPlaylistId?: string | null;
     accentColor?: string | null;
     cardBgColor?: string | null;
     showH2HRank?: boolean;
     featuredFriendIds?: string[];
+    headerLayout?: string;
+    trackDisplayStyle?: string;
+    showGearSection?: boolean;
+    showSocialLinks?: boolean;
+    showStatsBar?: boolean;
+    showFeaturedFriends?: boolean;
 }
 
 interface Genre {
@@ -1100,101 +1107,218 @@ export const ProfileEditPage: React.FC = () => {
 
                     {/* ── Profile Appearance ── */}
                     <div style={card}>
-                            <div style={sectionHeader(colors.primary)}><Paintbrush size={15} color={colors.primary} /> Profile Appearance</div>
-                            <p style={{ fontSize: '12px', color: colors.textTertiary, marginBottom: '16px', lineHeight: 1.5 }}>
-                                Personalise your public profile with custom colours. Accent tints links and highlights; Card changes section backgrounds; Background changes the page backdrop.
-                                Username gradient and animation effects are separate and granted by admins.
-                            </p>
+                        <div style={sectionHeader(colors.primary)}><Paintbrush size={15} color={colors.primary} /> Profile Appearance</div>
+                        <p style={{ fontSize: '12px', color: colors.textTertiary, marginBottom: '20px', lineHeight: 1.5 }}>
+                            Personalise your public profile with colours, layout, and section visibility. Username gradient and animation effects are granted by admins separately.
+                        </p>
 
-                            {/* ── Accent Colour ── */}
-                            <div style={{ marginBottom: '24px' }}>
-                                <p style={{ fontSize: '12px', fontWeight: 600, color: colors.textSecondary, marginBottom: '10px' }}>Accent Colour</p>
-                                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '12px' }}>
-                                    {['#10B981', '#3B82F6', '#8B5CF6', '#F59E0B', '#EF4444', '#EC4899', '#06B6D4', '#F97316', '#84CC16', '#6366F1'].map(preset => (
-                                        <button
-                                            key={preset}
-                                            onClick={() => updateProfile(p => ({ ...p, accentColor: preset }))}
-                                            title={preset}
+                        {/* ── Theme Presets ── */}
+                        <div style={{ marginBottom: '24px' }}>
+                            <p style={{ fontSize: '12px', fontWeight: 600, color: colors.textSecondary, marginBottom: '10px' }}>Quick Themes</p>
+                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                {[
+                                    { label: 'Default',       accent: null,      card: null,      bg: 'rgba(255,255,255,0.08)' },
+                                    { label: 'Midnight Blue', accent: '#3B82F6', card: '#0D1B2A', bg: 'linear-gradient(135deg,#0D1B2A,#162B44)' },
+                                    { label: 'Deep Purple',   accent: '#8B5CF6', card: '#1E1B4B', bg: 'linear-gradient(135deg,#1E1B4B,#2D2470)' },
+                                    { label: 'Ember',         accent: '#F97316', card: '#1C0F0A', bg: 'linear-gradient(135deg,#1C0F0A,#2E1800)' },
+                                    { label: 'Emerald',       accent: '#10B981', card: '#0A1F17', bg: 'linear-gradient(135deg,#0A1F17,#0D2B1E)' },
+                                    { label: 'Rose',          accent: '#EC4899', card: '#1F0A15', bg: 'linear-gradient(135deg,#1F0A15,#2D0D1E)' },
+                                    { label: 'Gold',          accent: '#F59E0B', card: '#1A1000', bg: 'linear-gradient(135deg,#1A1000,#241800)' },
+                                    { label: 'Arctic',        accent: '#06B6D4', card: '#0C1A1F', bg: 'linear-gradient(135deg,#0C1A1F,#0E2230)' },
+                                    { label: 'Clean White',   accent: '#6366F1', card: '#F8FAFC', bg: 'linear-gradient(135deg,#F0F4FF,#F8FAFC)' },
+                                    { label: 'Fuji',          accent: colors.primary, card: '#0E121A', bg: `linear-gradient(135deg,#0E121A,${colors.primary}18)` },
+                                ].map(t => {
+                                    const isActive = profile?.accentColor === t.accent && profile?.cardBgColor === t.card;
+                                    return (
+                                        <button key={t.label}
+                                            onClick={() => updateProfile(p => ({ ...p, accentColor: t.accent, cardBgColor: t.card }))}
                                             style={{
-                                                width: '28px', height: '28px', borderRadius: '50%',
-                                                backgroundColor: preset, border: 'none', cursor: 'pointer',
-                                                boxShadow: profile?.accentColor === preset ? `0 0 0 3px ${colors.background}, 0 0 0 5px ${preset}` : 'none',
-                                                flexShrink: 0, transition: 'box-shadow 0.15s',
-                                            }}
-                                        />
-                                    ))}
+                                                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px',
+                                                padding: '8px 10px', borderRadius: '10px', cursor: 'pointer', border: 'none',
+                                                background: t.bg, outline: isActive ? `2px solid ${t.accent || colors.primary}` : '2px solid transparent',
+                                                outlineOffset: '2px', transition: 'outline 0.15s',
+                                            }}>
+                                            <div style={{ display: 'flex', gap: '4px' }}>
+                                                <div style={{ width: '14px', height: '14px', borderRadius: '50%', backgroundColor: t.accent || colors.textTertiary, flexShrink: 0 }} />
+                                                <div style={{ width: '14px', height: '14px', borderRadius: '4px', backgroundColor: t.card || '#242C3D', border: '1px solid rgba(255,255,255,0.1)', flexShrink: 0 }} />
+                                            </div>
+                                            <span style={{ fontSize: '10px', fontWeight: 600, color: colors.textSecondary, whiteSpace: 'nowrap' }}>{t.label}</span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        {/* ── Accent Colour ── */}
+                        <div style={{ marginBottom: '24px' }}>
+                            <p style={{ fontSize: '12px', fontWeight: 600, color: colors.textSecondary, marginBottom: '10px' }}>Accent Colour</p>
+                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '12px' }}>
+                                {['#10B981', '#3B82F6', '#8B5CF6', '#F59E0B', '#EF4444', '#EC4899', '#06B6D4', '#F97316', '#84CC16', '#6366F1'].map(preset => (
                                     <button
-                                        onClick={() => updateProfile(p => ({ ...p, accentColor: null }))}
-                                        title="Default colour"
+                                        key={preset}
+                                        onClick={() => updateProfile(p => ({ ...p, accentColor: preset }))}
+                                        title={preset}
                                         style={{
                                             width: '28px', height: '28px', borderRadius: '50%',
-                                            background: `conic-gradient(${colors.textTertiary} 0deg 180deg, transparent 180deg)`,
-                                            border: `2px solid ${colors.glassBorder}`, cursor: 'pointer', flexShrink: 0,
-                                            boxShadow: !profile?.accentColor ? `0 0 0 3px ${colors.background}, 0 0 0 5px ${colors.textTertiary}` : 'none',
+                                            backgroundColor: preset, border: 'none', cursor: 'pointer',
+                                            boxShadow: profile?.accentColor === preset ? `0 0 0 3px ${colors.background}, 0 0 0 5px ${preset}` : 'none',
+                                            flexShrink: 0, transition: 'box-shadow 0.15s',
                                         }}
                                     />
-                                </div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                    <input
-                                        type="color"
-                                        value={profile?.accentColor || '#10B981'}
-                                        onChange={e => updateProfile(p => ({ ...p, accentColor: e.target.value }))}
-                                        style={{ width: '38px', height: '38px', padding: '2px', borderRadius: borderRadius.sm, border: `1px solid ${colors.glassBorder}`, backgroundColor: colors.surface, cursor: 'pointer' }}
-                                    />
-                                    <input
-                                        type="text"
-                                        value={profile?.accentColor || ''}
-                                        onChange={e => {
-                                            const v = e.target.value;
-                                            if (/^#[0-9A-Fa-f]{0,6}$/.test(v)) updateProfile(p => ({ ...p, accentColor: v }));
-                                        }}
-                                        placeholder="#10B981"
-                                        maxLength={7}
-                                        style={{ flex: 1, padding: '8px 12px', borderRadius: borderRadius.sm, border: `1px solid ${colors.glassBorder}`, background: colors.surface, color: colors.textPrimary, fontFamily: 'monospace', fontSize: '13px', outline: 'none' }}
-                                    />
-                                    {profile?.accentColor && (
-                                        <div style={{ width: '20px', height: '20px', borderRadius: '50%', backgroundColor: profile.accentColor, border: `1px solid ${colors.glassBorder}`, flexShrink: 0 }} />
-                                    )}
-                                </div>
+                                ))}
+                                <button
+                                    onClick={() => updateProfile(p => ({ ...p, accentColor: null }))}
+                                    title="Default colour"
+                                    style={{
+                                        width: '28px', height: '28px', borderRadius: '50%',
+                                        background: `conic-gradient(${colors.textTertiary} 0deg 180deg, transparent 180deg)`,
+                                        border: `2px solid ${colors.glassBorder}`, cursor: 'pointer', flexShrink: 0,
+                                        boxShadow: !profile?.accentColor ? `0 0 0 3px ${colors.background}, 0 0 0 5px ${colors.textTertiary}` : 'none',
+                                    }}
+                                />
                             </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <input
+                                    type="color"
+                                    value={profile?.accentColor || '#10B981'}
+                                    onChange={e => updateProfile(p => ({ ...p, accentColor: e.target.value }))}
+                                    style={{ width: '38px', height: '38px', padding: '2px', borderRadius: borderRadius.sm, border: `1px solid ${colors.glassBorder}`, backgroundColor: colors.surface, cursor: 'pointer' }}
+                                />
+                                <input
+                                    type="text"
+                                    value={profile?.accentColor || ''}
+                                    onChange={e => {
+                                        const v = e.target.value;
+                                        if (/^#[0-9A-Fa-f]{0,6}$/.test(v)) updateProfile(p => ({ ...p, accentColor: v }));
+                                    }}
+                                    placeholder="#10B981"
+                                    maxLength={7}
+                                    style={{ flex: 1, padding: '8px 12px', borderRadius: borderRadius.sm, border: `1px solid ${colors.glassBorder}`, background: colors.surface, color: colors.textPrimary, fontFamily: 'monospace', fontSize: '13px', outline: 'none' }}
+                                />
+                                {profile?.accentColor && (
+                                    <div style={{ width: '20px', height: '20px', borderRadius: '50%', backgroundColor: profile.accentColor, border: `1px solid ${colors.glassBorder}`, flexShrink: 0 }} />
+                                )}
+                            </div>
+                        </div>
 
-                            {/* ── Card Colour ── */}
-                            <div style={{ marginBottom: '24px' }}>
-                                <p style={{ fontSize: '12px', fontWeight: 600, color: colors.textSecondary, marginBottom: '10px' }}>Card Background</p>
-                                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '12px' }}>
-                                    {['#1E293B', '#1A1A2E', '#0F2027', '#1C1917', '#1A1A1A', '#0D1117', '#1E1B4B', '#14213D', '#1B1F3A', '#0F172A', '#F8FAFC', '#FAF5FF', '#FFFBEB', '#F0FDF4', '#FFF1F2', '#EFF6FF', '#FEF3C7', '#ECFDF5', '#FDF2F8', '#F0F9FF'].map(preset => (
-                                        <button
-                                            key={preset}
-                                            onClick={() => updateProfile(p => ({ ...p, cardBgColor: preset }))}
-                                            title={preset}
-                                            style={{
-                                                width: '28px', height: '28px', borderRadius: '50%',
-                                                backgroundColor: preset, border: `2px solid ${preset.startsWith('#F') || preset.startsWith('#E') ? 'rgba(0,0,0,0.12)' : 'rgba(255,255,255,0.15)'}`, cursor: 'pointer',
-                                                boxShadow: profile?.cardBgColor === preset ? `0 0 0 2px ${colors.background}, 0 0 0 4px ${preset.startsWith('#F') || preset.startsWith('#E') ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.5)'}` : 'none',
-                                                flexShrink: 0, transition: 'box-shadow 0.15s',
-                                            }}
-                                        />
-                                    ))}
+                        {/* ── Card Colour ── */}
+                        <div style={{ marginBottom: '24px' }}>
+                            <p style={{ fontSize: '12px', fontWeight: 600, color: colors.textSecondary, marginBottom: '10px' }}>Card Background</p>
+                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '12px' }}>
+                                {['#1E293B', '#1A1A2E', '#0F2027', '#1C1917', '#1A1A1A', '#0D1117', '#1E1B4B', '#14213D', '#1B1F3A', '#0F172A', '#F8FAFC', '#FAF5FF', '#FFFBEB', '#F0FDF4', '#FFF1F2', '#EFF6FF', '#FEF3C7', '#ECFDF5', '#FDF2F8', '#F0F9FF'].map(preset => (
                                     <button
-                                        onClick={() => updateProfile(p => ({ ...p, cardBgColor: null }))}
-                                        title="Default colour"
+                                        key={preset}
+                                        onClick={() => updateProfile(p => ({ ...p, cardBgColor: preset }))}
+                                        title={preset}
                                         style={{
                                             width: '28px', height: '28px', borderRadius: '50%',
-                                            background: `conic-gradient(${colors.textTertiary} 0deg 180deg, transparent 180deg)`,
-                                            border: `2px solid ${colors.glassBorder}`, cursor: 'pointer', flexShrink: 0,
-                                            boxShadow: !profile?.cardBgColor ? `0 0 0 3px ${colors.background}, 0 0 0 5px ${colors.textTertiary}` : 'none',
+                                            backgroundColor: preset, border: `2px solid ${preset.startsWith('#F') || preset.startsWith('#E') ? 'rgba(0,0,0,0.12)' : 'rgba(255,255,255,0.15)'}`, cursor: 'pointer',
+                                            boxShadow: profile?.cardBgColor === preset ? `0 0 0 2px ${colors.background}, 0 0 0 4px ${preset.startsWith('#F') || preset.startsWith('#E') ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.5)'}` : 'none',
+                                            flexShrink: 0, transition: 'box-shadow 0.15s',
                                         }}
                                     />
-                                </div>
+                                ))}
+                                <button
+                                    onClick={() => updateProfile(p => ({ ...p, cardBgColor: null }))}
+                                    title="Default colour"
+                                    style={{
+                                        width: '28px', height: '28px', borderRadius: '50%',
+                                        background: `conic-gradient(${colors.textTertiary} 0deg 180deg, transparent 180deg)`,
+                                        border: `2px solid ${colors.glassBorder}`, cursor: 'pointer', flexShrink: 0,
+                                        boxShadow: !profile?.cardBgColor ? `0 0 0 3px ${colors.background}, 0 0 0 5px ${colors.textTertiary}` : 'none',
+                                    }}
+                                />
                             </div>
+                        </div>
 
-                            {/* Preview strip */}
-                            {(profile?.accentColor || profile?.cardBgColor) && (
-                                <div style={{ padding: '12px 14px', borderRadius: borderRadius.sm, border: `1px solid ${(profile.accentColor || '#10B981')}44`, backgroundColor: profile.cardBgColor || '#242C3D', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                    <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: profile.accentColor || '#10B981', flexShrink: 0 }} />
-                                    <span style={{ fontSize: '12px', color: profile.accentColor || '#10B981', fontWeight: 600 }}>Preview — your card background and accent colour on your profile.</span>
-                                </div>
-                            )}
+                        {/* Preview strip */}
+                        {(profile?.accentColor || profile?.cardBgColor) && (
+                            <div style={{ padding: '12px 14px', borderRadius: borderRadius.sm, border: `1px solid ${(profile.accentColor || '#10B981')}44`, backgroundColor: profile.cardBgColor || '#242C3D', display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '24px' }}>
+                                <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: profile.accentColor || '#10B981', flexShrink: 0 }} />
+                                <span style={{ fontSize: '12px', color: profile.accentColor || '#10B981', fontWeight: 600 }}>Preview — your card background and accent colour on your profile.</span>
+                            </div>
+                        )}
+
+                        {/* ── Header Layout ── */}
+                        <div style={{ marginBottom: '24px' }}>
+                            <p style={{ fontSize: '12px', fontWeight: 600, color: colors.textSecondary, marginBottom: '10px' }}>Header Layout</p>
+                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                {([
+                                    { value: 'left',     label: 'Left-aligned',  desc: 'Avatar left, info right (default)' },
+                                    { value: 'centered', label: 'Centered',      desc: 'Avatar and info stacked centrally' },
+                                    { value: 'minimal',  label: 'Minimal',       desc: 'Compact header, no large banner area' },
+                                ] as const).map(opt => (
+                                    <button key={opt.value}
+                                        onClick={() => updateProfile(p => ({ ...p, headerLayout: opt.value }))}
+                                        title={opt.desc}
+                                        style={{
+                                            padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', border: 'none',
+                                            fontSize: '12px', fontWeight: 600,
+                                            backgroundColor: (profile?.headerLayout || 'left') === opt.value ? `${colors.primary}22` : 'rgba(255,255,255,0.05)',
+                                            color: (profile?.headerLayout || 'left') === opt.value ? colors.primary : colors.textSecondary,
+                                            outline: (profile?.headerLayout || 'left') === opt.value ? `1px solid ${colors.primary}44` : '1px solid rgba(255,255,255,0.08)',
+                                        }}>
+                                        {opt.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* ── Track Display Style ── */}
+                        <div style={{ marginBottom: '24px' }}>
+                            <p style={{ fontSize: '12px', fontWeight: 600, color: colors.textSecondary, marginBottom: '10px' }}>Track Display Style</p>
+                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                {([
+                                    { value: 'list',    label: 'List',    desc: 'Full cards with waveform and metadata (default)' },
+                                    { value: 'cards',   label: 'Cards',   desc: 'Album art grid — visual and compact' },
+                                    { value: 'compact', label: 'Compact', desc: 'Single-line rows, title and duration only' },
+                                ] as const).map(opt => (
+                                    <button key={opt.value}
+                                        onClick={() => updateProfile(p => ({ ...p, trackDisplayStyle: opt.value }))}
+                                        title={opt.desc}
+                                        style={{
+                                            padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', border: 'none',
+                                            fontSize: '12px', fontWeight: 600,
+                                            backgroundColor: (profile?.trackDisplayStyle || 'list') === opt.value ? `${colors.primary}22` : 'rgba(255,255,255,0.05)',
+                                            color: (profile?.trackDisplayStyle || 'list') === opt.value ? colors.primary : colors.textSecondary,
+                                            outline: (profile?.trackDisplayStyle || 'list') === opt.value ? `1px solid ${colors.primary}44` : '1px solid rgba(255,255,255,0.08)',
+                                        }}>
+                                        {opt.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* ── Section Visibility ── */}
+                        <div>
+                            <p style={{ fontSize: '12px', fontWeight: 600, color: colors.textSecondary, marginBottom: '12px' }}>Section Visibility</p>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                {([
+                                    { key: 'showStatsBar',        label: 'Stats bar',     desc: 'Followers · Streams · Releases in the header' },
+                                    { key: 'showSocialLinks',     label: 'Social links',  desc: 'Spotify, SoundCloud, YouTube, Instagram icons' },
+                                    { key: 'showFeaturedFriends', label: 'Top 8 friends', desc: 'Mutual follows panel in the sidebar' },
+                                    { key: 'showGearSection',     label: 'Gear & tools',  desc: 'Hardware and plugin list in the sidebar' },
+                                ] as const).map(row => {
+                                    const val = (profile as any)?.[row.key] !== false;
+                                    return (
+                                        <label key={row.key} style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
+                                            <div onClick={() => updateProfile(p => ({ ...p, [row.key]: !val }))}
+                                                style={{
+                                                    width: '38px', height: '22px', borderRadius: '11px', flexShrink: 0,
+                                                    backgroundColor: val ? colors.primary : 'rgba(255,255,255,0.1)',
+                                                    position: 'relative', cursor: 'pointer', transition: 'background 0.2s',
+                                                    border: `1px solid ${val ? colors.primary : 'rgba(255,255,255,0.15)'}`,
+                                                }}>
+                                                <div style={{ position: 'absolute', top: '3px', left: val ? '19px' : '3px', width: '14px', height: '14px', borderRadius: '50%', backgroundColor: 'white', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.4)' }} />
+                                            </div>
+                                            <div>
+                                                <span style={{ fontSize: '13px', fontWeight: 600, color: colors.textPrimary }}>{row.label}</span>
+                                                <p style={{ margin: '1px 0 0', fontSize: '11px', color: colors.textTertiary }}>{row.desc}</p>
+                                            </div>
+                                        </label>
+                                    );
+                                })}
+                            </div>
                         </div>
                     </div>
 
@@ -1374,6 +1498,7 @@ export const ProfileEditPage: React.FC = () => {
                     </button>
                 </div>
             </div>
+        </div>
         </DiscoveryLayout>
     );
 };

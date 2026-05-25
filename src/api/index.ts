@@ -15626,12 +15626,16 @@ app.post('/api/comments', requireAuth, async (req: any, res) => {
             if (targetCount > 1) return res.status(400).json({ error: 'Specify only one of trackId, profileId, or battleEntryId' });
         }
 
-        // Resolve username and avatar � prefer MusicianProfile over Discord
+        // Resolve username and avatar � prefer MusicianProfile over Discord.
+        // Use _localId (email account cuid) when present so consolidated accounts
+        // resolve to the correct MusicianProfile.
+        const canonicalCommenterId = req.session.user._localId || userId;
         let username = req.session.user.username || 'Unknown';
         let avatarUrl: string | null = null;
-        const profile = await db.musicianProfile.findUnique({
-            where: { userId },
+        const profile = await db.musicianProfile.findFirst({
+            where: { OR: [{ userId: canonicalCommenterId }, { userId }] },
             select: { avatar: true, displayName: true, username: true },
+            orderBy: { totalPlays: 'desc' },
         });
         if (profile) {
             username = profile.displayName || profile.username || username;

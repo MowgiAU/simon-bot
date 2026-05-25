@@ -935,6 +935,14 @@ model MusicianProfile {
   showH2HRank       Boolean  @default(false)       // Opt-in: show Arena Elo in profile sidebar
   featuredFriendIds String[] @default([])           // Up to 8 mutual-follow userIds to feature (MySpace Top 8)
 
+  // Profile Layout & Section Visibility
+  headerLayout        String  @default("left")      // "left" | "centered" | "minimal"
+  trackDisplayStyle   String  @default("list")      // "list" | "cards" | "compact"
+  showGearSection     Boolean @default(true)
+  showSocialLinks     Boolean @default(true)
+  showStatsBar        Boolean @default(true)
+  showFeaturedFriends Boolean @default(true)
+
   comments       Comment[]
   followers      ArtistFollow[]
   playlists      Playlist[]

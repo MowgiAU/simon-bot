@@ -42,6 +42,12 @@ export class ProfileService {
         cardBgColor?: string | null;
         showH2HRank?: boolean;
         featuredFriendIds?: string[];
+        headerLayout?: string;
+        trackDisplayStyle?: string;
+        showGearSection?: boolean;
+        showSocialLinks?: boolean;
+        showStatsBar?: boolean;
+        showFeaturedFriends?: boolean;
     }) {
         // 1. Validate Social URLs (Security / Data Integrity)
         // Discord handles are not URLs so they bypass URL validation
@@ -78,6 +84,12 @@ export class ProfileService {
                     cardBgColor: data.cardBgColor ?? null,
                     showH2HRank: data.showH2HRank ?? false,
                     featuredFriendIds: data.featuredFriendIds ?? [],
+                    headerLayout: data.headerLayout ?? 'left',
+                    trackDisplayStyle: data.trackDisplayStyle ?? 'list',
+                    showGearSection: data.showGearSection ?? true,
+                    showSocialLinks: data.showSocialLinks ?? true,
+                    showStatsBar: data.showStatsBar ?? true,
+                    showFeaturedFriends: data.showFeaturedFriends ?? true,
                 },
                 update: {
                     username: data.username,
@@ -97,6 +109,12 @@ export class ProfileService {
                     cardBgColor: data.cardBgColor !== undefined ? (data.cardBgColor || null) : undefined,
                     showH2HRank: data.showH2HRank !== undefined ? data.showH2HRank : undefined,
                     featuredFriendIds: data.featuredFriendIds !== undefined ? data.featuredFriendIds : undefined,
+                    headerLayout: data.headerLayout !== undefined ? data.headerLayout : undefined,
+                    trackDisplayStyle: data.trackDisplayStyle !== undefined ? data.trackDisplayStyle : undefined,
+                    showGearSection: data.showGearSection !== undefined ? data.showGearSection : undefined,
+                    showSocialLinks: data.showSocialLinks !== undefined ? data.showSocialLinks : undefined,
+                    showStatsBar: data.showStatsBar !== undefined ? data.showStatsBar : undefined,
+                    showFeaturedFriends: data.showFeaturedFriends !== undefined ? data.showFeaturedFriends : undefined,
                 }
             });
 
