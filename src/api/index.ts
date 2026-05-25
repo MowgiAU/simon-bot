@@ -2391,8 +2391,10 @@ app.post('/api/auth/refresh-guilds', requireAuth, async (req: any, res) => {
 
 app.get('/api/auth/status', async (req, res) => {
   if (req.session.user) {
-    // Refresh guild access on every status check (uses cached Discord roles + fresh DB data)
-    await refreshSessionGuilds(req);
+    // Refresh guild access in the background — don't await so Discord API latency
+    // never blocks the auth status response. Session already has guild data from the
+    // last successful refresh; this just keeps it up to date asynchronously.
+    refreshSessionGuilds(req).catch(() => {});
 
     // Re-read invited from DB (catches manual invites + previous auto-invites)
     let invited = !!req.session.user._invited;
@@ -2476,7 +2478,7 @@ app.get('/api/auth/status', async (req, res) => {
             select: { id: true, avatar: true, displayName: true, username: true, userId: true },
             orderBy: { totalPlays: 'desc' },
         });
-        logger.info(`[auth/status] user=${req.session.user.id} idsToCheck=${JSON.stringify(idsToCheck)} mp=${mp ? `id=${mp.id} userId=${mp.userId} username="${mp.username}" avatar=${mp.avatar ? 'set' : 'null'}` : 'NOT FOUND'}`);
+        logger.debug(`[auth/status] user=${req.session.user.id} mp=${mp ? mp.username : 'NOT FOUND'}`);
         if (mp) {
             profileAvatar = mp.avatar || null;
             profileDisplayName = mp.displayName || mp.username || null;

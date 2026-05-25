@@ -99,8 +99,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [selectedGuild]);
 
   const loadAuthStatus = () => {
-    fetch('/api/auth/status', { credentials: 'include' })
-      .then(res => res.json())
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+    fetch('/api/auth/status', { credentials: 'include', signal: controller.signal })
+      .then(res => { clearTimeout(timeoutId); return res.json(); })
       .then(data => {
         if (data.authenticated) {
           const userData = { ...data.user };
@@ -135,7 +137,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setLoading(false);
       })
       .catch(err => {
-        console.error('[AuthProvider] Failed to fetch auth status:', err);
+        clearTimeout(timeoutId);
+        if (err?.name !== 'AbortError') {
+          console.error('[AuthProvider] Failed to fetch auth status:', err);
+        }
         setLoading(false);
       });
   };
