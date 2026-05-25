@@ -9,6 +9,8 @@ interface OrphanedFile {
     modifiedAt: string;
     risky: boolean;
     riskyReason: string | null;
+    uploaderUserId: string | null;
+    uploaderUsername: string | null;
 }
 
 const fmt = (iso: string) =>
@@ -134,6 +136,17 @@ export const OrphanedUploads: React.FC = () => {
                                 </div>
                                 <div style={{ fontSize: '11px', color: colors.textTertiary }}>
                                     {file.sizeMB} MB · {fmt(file.modifiedAt)}
+                                    {file.uploaderUsername && (
+                                        <span style={{ marginLeft: '6px' }}>
+                                            · uploaded by{' '}
+                                            <a href={`/profile/${file.uploaderUsername}`} target="_blank" rel="noopener noreferrer"
+                                                style={{ color: colors.primary, textDecoration: 'none', fontWeight: 600 }}>
+                                                {file.uploaderUsername}
+                                            </a>
+                                            <span style={{ color: colors.textTertiary, fontSize: '10px', marginLeft: '4px' }}>(~5 min window)</span>
+                                        </span>
+                                    )}
+                                    {!file.uploaderUsername && <span style={{ marginLeft: '6px', fontStyle: 'italic' }}>· uploader unknown</span>}
                                     {file.risky && <span style={{ color: '#F59E0B', marginLeft: '6px' }}>· {file.riskyReason}</span>}
                                 </div>
                             </div>

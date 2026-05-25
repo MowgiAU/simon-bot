@@ -18653,23 +18653,57 @@ app.get('/api/admin/orphaned-uploads', requireAdmin, async (_req: any, res) => {
             if (t.mp3Url) dbStems.add(path.basename(t.mp3Url).replace(/\.[^.]+$/, ''));
         }
 
-        const orphaned = allFiles
+        const unresolved = allFiles
             .filter(f => !referencedFilenames.has(f))
             .map(f => {
                 const stat = fs.statSync(path.join(trackDir, f));
                 const stem = f.replace(/\.[^.]+$/, '');
-                // Risky = stem matches an existing DB track (different extension = conversion race condition)
                 const risky = dbStems.has(stem);
-                return {
-                    filename: f,
-                    sizeMB: +(stat.size / 1024 / 1024).toFixed(2),
-                    modifiedAt: stat.mtime.toISOString(),
-                    risky,
-                    riskyReason: risky ? 'Stem matches an existing track — may be a conversion artefact. Check before deleting.' : null,
-                };
-            })
-            .sort((a, b) => new Date(b.modifiedAt).getTime() - new Date(a.modifiedAt).getTime());
+                // Extract the ms timestamp embedded in multer filenames: audio-{ts}-{random}.ext
+                const tsMatch = f.match(/^[^-]+-(\d{13})-/);
+                const fileTs = tsMatch ? parseInt(tsMatch[1]) : stat.mtimeMs;
+                return { f, stat, stem, risky, fileTs };
+            });
 
+        // Batch-resolve uploaders: for each orphaned file, find who called track.upload
+        // in activity_logs within ±5 minutes of the filename timestamp.
+        const orphaned = await Promise.all(unresolved.map(async ({ f, stat, risky, fileTs }) => {
+            const windowMs = 5 * 60 * 1000;
+            const from = new Date(fileTs - windowMs);
+            const to   = new Date(fileTs + windowMs);
+
+            const activityHit = await db.activityLog.findFirst({
+                where: {
+                    action: 'track.upload',
+                    createdAt: { gte: from, lte: to },
+                },
+                orderBy: { createdAt: 'desc' },
+                select: { userId: true, createdAt: true },
+            });
+
+            let uploaderUsername: string | null = null;
+            let uploaderUserId: string | null = null;
+            if (activityHit?.userId) {
+                uploaderUserId = activityHit.userId;
+                const profile = await db.musicianProfile.findFirst({
+                    where: { userId: activityHit.userId },
+                    select: { username: true, displayName: true },
+                });
+                uploaderUsername = profile?.displayName || profile?.username || activityHit.userId;
+            }
+
+            return {
+                filename: f,
+                sizeMB: +(stat.size / 1024 / 1024).toFixed(2),
+                modifiedAt: stat.mtime.toISOString(),
+                risky,
+                riskyReason: risky ? 'Stem matches an existing track — may be a conversion artefact. Check before deleting.' : null,
+                uploaderUserId,
+                uploaderUsername,
+            };
+        }));
+
+        orphaned.sort((a, b) => new Date(b.modifiedAt).getTime() - new Date(a.modifiedAt).getTime());
         res.json({ files: orphaned });
     } catch (e: any) {
         logger.error('orphaned-uploads list failed', e);
