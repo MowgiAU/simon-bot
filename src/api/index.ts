@@ -7920,7 +7920,7 @@ app.delete('/api/admin/tracks/:trackId', requireAdmin, async (req: any, res) => 
         await logAction('GLOBAL', 'track_deleted', adminId, trackId, { title: track.title, adminDelete: true, reason }).catch(() => {});
         logger.info(`Admin deleted track: ${track.title} (ID: ${trackId}) by admin ${adminId}`);
 
-        if (shouldEmail && reason && track.profile) {
+        if (shouldEmail && track.profile) {
             const profileUserId = track.profile.userId;
             const ownerUser = await db.user.findFirst({
                 where: { OR: [{ id: profileUserId }, { discordId: profileUserId }] },
@@ -7932,10 +7932,12 @@ app.delete('/api/admin/tracks/:trackId', requireAdmin, async (req: any, res) => 
                     `Your track "${track.title}" has been removed`,
                     `<p>Hi ${track.profile.displayName || track.profile.username || 'there'},</p>
                     <p>Your track <strong>"${track.title}"</strong> has been removed from Fuji Studio by our moderation team.</p>
-                    <p><strong>Reason:</strong> ${reason}</p>
+                    ${reason ? `<p><strong>Reason:</strong> ${reason}</p>` : ''}
                     <p>If you believe this was a mistake, please reach out via <a href="https://fujistud.io/support">our support page</a> or in the Discord server.</p>
                     <p>— The Fuji Studio Team</p>`
                 );
+            } else {
+                logger.warn(`Admin track delete: sendEmail=true but no email found for profile userId=${profileUserId}`);
             }
         }
 
@@ -10281,7 +10283,7 @@ app.post('/api/admin/musician/profile/:id/wipe', requireAdmin, async (req: any, 
         }
 
         // 2. Send notification email before deleting (while we still have the user's info)
-        if (shouldEmail && reason) {
+        if (shouldEmail) {
             const ownerUser = await db.user.findFirst({
                 where: { OR: [{ id: profile.userId }, { discordId: profile.userId }] },
                 select: { email: true }
@@ -10292,10 +10294,12 @@ app.post('/api/admin/musician/profile/:id/wipe', requireAdmin, async (req: any, 
                     'Your Fuji Studio account has been terminated',
                     `<p>Hi ${profile.displayName || profile.username || 'there'},</p>
                     <p>Your Fuji Studio account and all associated content have been permanently removed by our moderation team.</p>
-                    <p><strong>Reason:</strong> ${reason}</p>
+                    ${reason ? `<p><strong>Reason:</strong> ${reason}</p>` : ''}
                     <p>This action is final. If you believe this was made in error, you may contact us at <a href="mailto:legal@fujistud.io">legal@fujistud.io</a>.</p>
                     <p>— The Fuji Studio Team</p>`
                 );
+            } else {
+                logger.warn(`Admin profile wipe: sendEmail=true but no email found for profile userId=${profile.userId}`);
             }
         }
 
@@ -10872,16 +10876,20 @@ app.delete('/api/admin/accounts/:id', requireAdmin, async (req: any, res) => {
         });
         if (!targetUser) return res.status(404).json({ error: 'User not found' });
 
-        if (shouldEmail && reason && targetUser.email) {
-            await sendAdminNotificationEmail(
-                targetUser.email,
-                'Your Fuji Studio account has been terminated',
-                `<p>Hi ${targetUser.displayName || targetUser.username || 'there'},</p>
-                <p>Your Fuji Studio account has been permanently deleted by our moderation team.</p>
-                <p><strong>Reason:</strong> ${reason}</p>
-                <p>This action is final. If you believe this was made in error, you may contact us at <a href="mailto:legal@fujistud.io">legal@fujistud.io</a>.</p>
-                <p>— The Fuji Studio Team</p>`
-            );
+        if (shouldEmail) {
+            if (targetUser.email) {
+                await sendAdminNotificationEmail(
+                    targetUser.email,
+                    'Your Fuji Studio account has been terminated',
+                    `<p>Hi ${targetUser.displayName || targetUser.username || 'there'},</p>
+                    <p>Your Fuji Studio account has been permanently deleted by our moderation team.</p>
+                    ${reason ? `<p><strong>Reason:</strong> ${reason}</p>` : ''}
+                    <p>This action is final. If you believe this was made in error, you may contact us at <a href="mailto:legal@fujistud.io">legal@fujistud.io</a>.</p>
+                    <p>— The Fuji Studio Team</p>`
+                );
+            } else {
+                logger.warn(`Admin account delete: sendEmail=true but no email on account id=${targetId}`);
+            }
         }
 
         await db.user.delete({ where: { id: targetId } });
