@@ -69,25 +69,33 @@ export const PlayerProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
   const [audio] = useState(new Audio());
   const hasRecordedPlay = useRef<string | null>(null);
+  // Ref mirrors currentTrack.id so the timeupdate closure always reads a live
+  // value without needing to be in the effect dependency array.
+  const currentTrackIdRef = useRef<string | undefined>(undefined);
+
+  React.useEffect(() => {
+    currentTrackIdRef.current = player.currentTrack?.id;
+  }, [player.currentTrack?.id]);
 
   React.useEffect(() => {
     const updateTime = () => {
       setPlayer(prev => ({ ...prev, currentTime: audio.currentTime }));
-      
-      // Auto-record play after 10 seconds or 25% of the track, whichever is shorter
-      if (player.currentTrack?.id && hasRecordedPlay.current !== player.currentTrack.id) {
+
+      // Auto-record play after 10 seconds or 25% of the track, whichever is shorter.
+      // Read from ref (not closure) to avoid stale track ID between effect re-runs.
+      const trackId = currentTrackIdRef.current;
+      if (trackId && hasRecordedPlay.current !== trackId) {
         const threshold = Math.min(10, audio.duration * 0.25);
         if (audio.currentTime >= threshold && threshold > 0) {
-          hasRecordedPlay.current = player.currentTrack.id;
-          axios.post(`/api/musician/tracks/${player.currentTrack.id}/play`, { 
-            duration: Math.floor(audio.duration) 
+          hasRecordedPlay.current = trackId;
+          axios.post(`/api/musician/tracks/${trackId}/play`, {
+            duration: Math.floor(audio.duration)
           }, { withCredentials: true }).catch(() => {});
         }
       }
     };
     const updateDuration = () => setPlayer(prev => ({ ...prev, duration: audio.duration }));
     const onEnded = () => {
-      // Logic handled by next() which respects repeat settings
       nextTrack();
     };
 
@@ -100,7 +108,7 @@ export const PlayerProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       audio.removeEventListener('loadedmetadata', updateDuration);
       audio.removeEventListener('ended', onEnded);
     };
-  }, [audio, player.currentTrack?.id, player.currentIndex, player.queue.length, player.repeatMode]);
+  }, [audio]);
 
   React.useEffect(() => {
     audio.volume = player.volume;

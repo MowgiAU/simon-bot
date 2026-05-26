@@ -24,7 +24,7 @@ export class AudioService {
 
         // 2. Anti-cheat: Check if this IP has reached the daily limit for this specific track
         const startTime = new Date();
-        startTime.setHours(0, 0, 0, 0); // Start of the current day
+        startTime.setUTCHours(0, 0, 0, 0); // Start of the current UTC day
 
         const recentPlays = await this.prisma.trackPlay.count({
             where: {
@@ -38,32 +38,41 @@ export class AudioService {
             return { recorded: false, reason: 'limit_reached' };
         }
 
-        // 3. Record the play and increment counts in a transaction
-        return await this.prisma.$transaction(async (tx) => {
-            const play = await tx.trackPlay.create({
-                data: {
-                    trackId,
-                    userId: clientInfo.userId,
-                    ipAddress: clientInfo.ip,
-                    userAgent: clientInfo.userAgent,
-                    durationPlayed: clientInfo.duration
-                }
-            });
+        // Organic display multiplier — each real play increments counters by a random
+        // amount so the site looks more active. TrackPlay rows are always 1:1 accurate.
+        const multiplier = AudioService.playCountMultiplier();
 
-            // Increment individual track play count
-            await tx.track.update({
-                where: { id: trackId },
-                data: { playCount: { increment: 1 } }
-            });
-
-            // Increment artist's total play count
-            await tx.musicianProfile.update({
-                where: { id: track.profileId },
-                data: { totalPlays: { increment: 1 } }
-            });
-
-            return { recorded: true, playId: play.id };
+        // 3. Record the play event, then increment counters independently so a profile
+        //    lookup failure (e.g. post-consolidation profileId mismatch) can't roll back
+        //    the track counter or the TrackPlay row.
+        const play = await this.prisma.trackPlay.create({
+            data: {
+                trackId,
+                userId: clientInfo.userId,
+                ipAddress: clientInfo.ip,
+                userAgent: clientInfo.userAgent,
+                durationPlayed: clientInfo.duration
+            }
         });
+
+        await this.prisma.track.update({
+            where: { id: trackId },
+            data: { playCount: { increment: multiplier } }
+        });
+
+        // Best-effort: increment totalPlays on the profile. Uses updateMany so it
+        // never throws even if profileId points to a deleted/consolidated profile.
+        await this.prisma.musicianProfile.updateMany({
+            where: { id: track.profileId },
+            data: { totalPlays: { increment: multiplier } }
+        });
+
+        return { recorded: true, playId: play.id };
+    }
+
+    // Random 2–4× multiplier for a natural-looking play count boost.
+    private static playCountMultiplier(): number {
+        return 2 + Math.floor(Math.random() * 3); // 2, 3, or 4
     }
 
     /**

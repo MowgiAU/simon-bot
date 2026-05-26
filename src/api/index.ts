@@ -218,11 +218,15 @@ async function _getClamScanner() {
     }
 }
 
-async function scanFileForViruses(filePath: string, fieldName?: string): Promise<void> {
+async function scanFileForViruses(filePath: string, fieldName?: string, timeoutMs = 30_000): Promise<void> {
     const scanner = await _getClamScanner();
     if (!scanner) return; // gracefully skip if ClamAV not installed
     try {
-        const { isInfected, viruses } = await scanner.scanFile(filePath);
+        const scanPromise = scanner.scanFile(filePath);
+        const timeoutPromise = new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error('SCAN_TIMEOUT')), timeoutMs)
+        );
+        const { isInfected, viruses } = await Promise.race([scanPromise, timeoutPromise]);
         if (isInfected) {
             try { fs.unlinkSync(filePath); } catch {}
             const detected = Array.isArray(viruses) ? viruses.join(', ') : String(viruses);
@@ -231,7 +235,36 @@ async function scanFileForViruses(filePath: string, fieldName?: string): Promise
         }
     } catch (e: any) {
         if (e.message?.startsWith('Uploaded file was rejected')) throw e;
+        if (e.message === 'SCAN_TIMEOUT') {
+            logger.warn(`Virus scan timed out for ${path.basename(filePath)} (${fieldName ?? 'unknown'}) — proceeding without scan result`);
+            return;
+        }
         logger.warn(`Virus scan error for ${path.basename(filePath)}: ${e.message}`);
+    }
+}
+// ────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Sends an admin notification email to a user (e.g. on track/account deletion).
+ * Silently no-ops if no email address is available or Resend isn't configured.
+ */
+async function sendAdminNotificationEmail(toEmail: string, subject: string, bodyHtml: string): Promise<void> {
+    let resendKey = process.env.RESEND_API_KEY;
+    if (!resendKey) {
+        try { const s = await emailService.getSettings(); resendKey = s.resendApiKey; } catch {}
+    }
+    if (!resendKey) return;
+    try {
+        const resendClient = new Resend(resendKey);
+        await resendClient.emails.send({
+            from: 'Fuji Studio <noreply@fujistud.io>',
+            to: [toEmail],
+            subject,
+            html: bodyHtml,
+        });
+        logger.info(`Admin notification email sent to ${toEmail}: ${subject}`);
+    } catch (e: any) {
+        logger.warn(`Failed to send admin notification email to ${toEmail}: ${e.message}`);
     }
 }
 // ────────────────────────────────────────────────────────────────────────────
@@ -7033,7 +7066,10 @@ app.post('/api/musician/tracks', uploadLimiter, upload.fields([
         };
 
         try {
-            const parsed = await mm.parseFile(audioFile.path);
+            const metaTimeout = new Promise<never>((_, reject) =>
+                setTimeout(() => reject(new Error('META_TIMEOUT')), 20_000)
+            );
+            const parsed = await Promise.race([mm.parseFile(audioFile.path), metaTimeout]);
             metadata.duration = Math.round(parsed.format.duration || 0);
             if (!req.body.title && parsed.common.title) metadata.title = sanitizeDisplayName(parsed.common.title);
             // Auto-fill from ID3 if user didn't supply
@@ -7041,8 +7077,12 @@ app.post('/api/musician/tracks', uploadLimiter, upload.fields([
             if (!metadata.album && parsed.common.album) metadata.album = parsed.common.album;
             if (!metadata.year && parsed.common.year) metadata.year = parsed.common.year;
             if (parsed.common.bpm) metadata.bpm = Math.round(parsed.common.bpm);
-        } catch (err) {
-            logger.warn(`Failed to parse metadata for ${audioFile.path}: ${err}`);
+        } catch (err: any) {
+            if (err?.message === 'META_TIMEOUT') {
+                logger.warn(`Metadata parse timed out for ${path.basename(audioFile.path)} — duration will be 0`);
+            } else {
+                logger.warn(`Failed to parse metadata for ${audioFile.path}: ${err}`);
+            }
         }
 
         // Override BPM if user provided it
@@ -7859,8 +7899,12 @@ app.delete('/api/admin/tracks/:trackId', requireAdmin, async (req: any, res) => 
     try {
         const adminId = req.session.user.id;
         const { trackId } = req.params;
+        const { reason, sendEmail: shouldEmail } = req.body || {};
         // Bypass soft-delete middleware so admin can find+delete soft-deleted tracks too
-        const track = await db.track.findFirst({ where: { id: trackId, OR: [{ deletedAt: null }, { deletedAt: { not: null } }] }, include: { profile: true } });
+        const track = await db.track.findFirst({
+            where: { id: trackId, OR: [{ deletedAt: null }, { deletedAt: { not: null } }] },
+            include: { profile: true }
+        });
         if (!track) return res.status(404).json({ error: 'Track not found' });
 
         await deleteFromStorage(track.url);
@@ -7873,8 +7917,28 @@ app.delete('/api/admin/tracks/:trackId', requireAdmin, async (req: any, res) => 
             data: { featuredTrackId: null }
         });
         await db.track.delete({ where: { id: trackId } });
-        await logAction('GLOBAL', 'track_deleted', adminId, trackId, { title: track.title, adminDelete: true }).catch(() => {});
+        await logAction('GLOBAL', 'track_deleted', adminId, trackId, { title: track.title, adminDelete: true, reason }).catch(() => {});
         logger.info(`Admin deleted track: ${track.title} (ID: ${trackId}) by admin ${adminId}`);
+
+        if (shouldEmail && reason && track.profile) {
+            const profileUserId = track.profile.userId;
+            const ownerUser = await db.user.findFirst({
+                where: { OR: [{ id: profileUserId }, { discordId: profileUserId }] },
+                select: { email: true }
+            });
+            if (ownerUser?.email) {
+                await sendAdminNotificationEmail(
+                    ownerUser.email,
+                    `Your track "${track.title}" has been removed`,
+                    `<p>Hi ${track.profile.displayName || track.profile.username || 'there'},</p>
+                    <p>Your track <strong>"${track.title}"</strong> has been removed from Fuji Studio by our moderation team.</p>
+                    <p><strong>Reason:</strong> ${reason}</p>
+                    <p>If you believe this was a mistake, please reach out via <a href="https://fujistud.io/support">our support page</a> or in the Discord server.</p>
+                    <p>— The Fuji Studio Team</p>`
+                );
+            }
+        }
+
         res.json({ success: true });
     } catch (e: any) {
         res.status(500).json({ error: 'Internal server error' });
@@ -10191,6 +10255,7 @@ app.post('/api/admin/musician/profile/:id/wipe', requireAdmin, async (req: any, 
     try {
         const { id } = req.params;
         const executorId = req.session.user.id;
+        const { reason, sendEmail: shouldEmail } = req.body || {};
 
         const profile = await db.musicianProfile.findUnique({
             where: { id },
@@ -10215,13 +10280,33 @@ app.post('/api/admin/musician/profile/:id/wipe', requireAdmin, async (req: any, 
                 logger.error(`Failed to delete track ZIP during profile wipe`, err));
         }
 
-        // 2. Delete from DB (Tracks cascade delete, but we need to stay safe)
+        // 2. Send notification email before deleting (while we still have the user's info)
+        if (shouldEmail && reason) {
+            const ownerUser = await db.user.findFirst({
+                where: { OR: [{ id: profile.userId }, { discordId: profile.userId }] },
+                select: { email: true }
+            });
+            if (ownerUser?.email) {
+                await sendAdminNotificationEmail(
+                    ownerUser.email,
+                    'Your Fuji Studio account has been terminated',
+                    `<p>Hi ${profile.displayName || profile.username || 'there'},</p>
+                    <p>Your Fuji Studio account and all associated content have been permanently removed by our moderation team.</p>
+                    <p><strong>Reason:</strong> ${reason}</p>
+                    <p>This action is final. If you believe this was made in error, you may contact us at <a href="mailto:legal@fujistud.io">legal@fujistud.io</a>.</p>
+                    <p>— The Fuji Studio Team</p>`
+                );
+            }
+        }
+
+        // 3. Delete from DB (Tracks cascade delete, but we need to stay safe)
         await db.musicianProfile.delete({ where: { id } });
 
         // 4. Log the wipe
-        await logAction('GLOBAL', 'profile_wiped', executorId, profile.userId, { 
+        await logAction('GLOBAL', 'profile_wiped', executorId, profile.userId, {
             profileName: profile.username,
-            trackCount: profile.tracks.length 
+            trackCount: profile.tracks.length,
+            reason,
         });
 
         res.json({ success: true, message: `Profile and ${profile.tracks.length} tracks deleted.` });

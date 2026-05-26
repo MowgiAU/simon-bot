@@ -131,9 +131,13 @@ export const MusicianProfileAdmin: React.FC = () => {
     const [adminProfiles, setAdminProfiles] = useState<any[]>([]);
     const [searchingProfiles, setSearchingProfiles] = useState(false);
     const [confirmWipe, setConfirmWipe] = useState<string | null>(null);
+    const [wipeReason, setWipeReason] = useState('');
+    const [wipeSendEmail, setWipeSendEmail] = useState(false);
 
     // Moderation section delete state
     const [confirmDeleteMod, setConfirmDeleteMod] = useState<{ id: string; name: string } | null>(null);
+    const [deleteModReason, setDeleteModReason] = useState('');
+    const [deleteModSendEmail, setDeleteModSendEmail] = useState(false);
 
     // Moderation state
     const [modSearch, setModSearch] = useState('');
@@ -186,9 +190,11 @@ export const MusicianProfileAdmin: React.FC = () => {
     const handleWipeProfile = async (id: string) => {
         setSaving(true);
         try {
-            await axios.post(`/api/admin/musician/profile/${id}/wipe`, {}, { withCredentials: true });
+            await axios.post(`/api/admin/musician/profile/${id}/wipe`, { reason: wipeReason || undefined, sendEmail: wipeSendEmail }, { withCredentials: true });
             setMsg({ type: 'success', text: 'Profile and all associated content wiped successfully.' });
             setConfirmWipe(null);
+            setWipeReason('');
+            setWipeSendEmail(false);
             setAdminProfiles(adminProfiles.filter(p => p.id !== id));
         } catch (err: any) {
             setMsg({ type: 'error', text: err.response?.data?.error || 'Failed to wipe profile' });
@@ -232,9 +238,11 @@ export const MusicianProfileAdmin: React.FC = () => {
     const handleDeleteFromMod = async (id: string) => {
         setSaving(true);
         try {
-            await axios.post(`/api/admin/musician/profile/${id}/wipe`, {}, { withCredentials: true });
+            await axios.post(`/api/admin/musician/profile/${id}/wipe`, { reason: deleteModReason || undefined, sendEmail: deleteModSendEmail }, { withCredentials: true });
             setMsg({ type: 'success', text: 'Profile and all associated content deleted successfully.' });
             setConfirmDeleteMod(null);
+            setDeleteModReason('');
+            setDeleteModSendEmail(false);
             setModProfiles(prev => prev.filter(p => p.id !== id));
         } catch (err: any) {
             setMsg({ type: 'error', text: err.response?.data?.error || 'Failed to delete profile' });
@@ -1831,17 +1839,30 @@ export const MusicianProfileAdmin: React.FC = () => {
                                 </div>
                                 
                                 {confirmWipe === p.id ? (
-                                    <div style={{ display: 'flex', gap: '8px' }}>
-                                        <button 
-                                            onClick={() => handleWipeProfile(p.id)}
-                                            style={{ backgroundColor: '#ff4444', color: 'white', border: 'none', padding: '4px 12px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer' }}>
-                                            CONFIRM DELETE
-                                        </button>
-                                        <button 
-                                            onClick={() => setConfirmWipe(null)}
-                                            style={{ backgroundColor: 'rgba(255,255,255,0.1)', color: 'white', border: 'none', padding: '4px 12px', borderRadius: '4px', fontSize: '11px', cursor: 'pointer' }}>
-                                            CANCEL
-                                        </button>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', minWidth: '260px' }}>
+                                        <input
+                                            type="text"
+                                            placeholder="Reason (optional)"
+                                            value={wipeReason}
+                                            onChange={e => setWipeReason(e.target.value)}
+                                            style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.05)', color: colors.textPrimary, fontSize: '12px' }}
+                                        />
+                                        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: colors.textSecondary, cursor: 'pointer' }}>
+                                            <input type="checkbox" checked={wipeSendEmail} onChange={e => setWipeSendEmail(e.target.checked)} style={{ accentColor: colors.error }} />
+                                            Send termination email
+                                        </label>
+                                        <div style={{ display: 'flex', gap: '8px' }}>
+                                            <button
+                                                onClick={() => handleWipeProfile(p.id)}
+                                                style={{ backgroundColor: '#ff4444', color: 'white', border: 'none', padding: '4px 12px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer' }}>
+                                                CONFIRM DELETE
+                                            </button>
+                                            <button
+                                                onClick={() => { setConfirmWipe(null); setWipeReason(''); setWipeSendEmail(false); }}
+                                                style={{ backgroundColor: 'rgba(255,255,255,0.1)', color: 'white', border: 'none', padding: '4px 12px', borderRadius: '4px', fontSize: '11px', cursor: 'pointer' }}>
+                                                CANCEL
+                                            </button>
+                                        </div>
                                     </div>
                                 ) : (
                                     <div style={{ display: 'flex', gap: '8px' }}>
@@ -1952,9 +1973,27 @@ export const MusicianProfileAdmin: React.FC = () => {
             title="Delete Profile"
             message={`Permanently delete ${confirmDeleteMod?.name}'s profile, all their tracks, artwork, and files? This cannot be undone.`}
             confirmLabel="Delete"
+            danger
             onConfirm={() => confirmDeleteMod && handleDeleteFromMod(confirmDeleteMod.id)}
-            onCancel={() => setConfirmDeleteMod(null)}
-        />
+            onCancel={() => { setConfirmDeleteMod(null); setDeleteModReason(''); setDeleteModSendEmail(false); }}
+        >
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <div>
+                    <label style={{ display: 'block', fontSize: '12px', color: '#B9C3CE', marginBottom: '4px' }}>Reason (optional)</label>
+                    <textarea
+                        rows={2}
+                        placeholder="e.g. AI-generated music, TOS violation..."
+                        value={deleteModReason}
+                        onChange={e => setDeleteModReason(e.target.value)}
+                        style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.05)', color: '#F8FAFC', fontSize: '13px', resize: 'none', boxSizing: 'border-box' }}
+                    />
+                </div>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#B9C3CE', cursor: 'pointer' }}>
+                    <input type="checkbox" checked={deleteModSendEmail} onChange={e => setDeleteModSendEmail(e.target.checked)} style={{ accentColor: '#EF4444', width: '15px', height: '15px' }} />
+                    Send termination email to user
+                </label>
+            </div>
+        </ConfirmModal>
         </>
     );
 };

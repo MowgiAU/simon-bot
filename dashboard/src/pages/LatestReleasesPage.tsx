@@ -39,7 +39,8 @@ export const LatestReleasesPage: React.FC = () => {
     const [tracks, setTracks] = useState<TrackInfo[]>([]);
     const [loading, setLoading] = useState(true);
     const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-    const { setTrack, currentTrack, isPlaying, togglePlay } = usePlayer();
+    const { setTrack, player, togglePlay } = usePlayer();
+    const { currentTrack, isPlaying } = player;
 
     useEffect(() => {
         const onResize = () => setIsMobile(window.innerWidth < 768);

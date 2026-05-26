@@ -8,6 +8,7 @@ interface ConfirmModalProps {
     message: string;
     confirmLabel?: string;
     danger?: boolean;
+    children?: React.ReactNode;
     onConfirm: () => void;
     onCancel: () => void;
 }
@@ -18,6 +19,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
     message,
     confirmLabel = 'Confirm',
     danger = false,
+    children,
     onConfirm,
     onCancel,
 }) => {
@@ -43,7 +45,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
                     border: `1px solid rgba(255,255,255,0.1)`,
                     borderRadius: borderRadius.lg,
                     padding: '28px 32px',
-                    maxWidth: '440px',
+                    maxWidth: '480px',
                     width: '100%',
                     boxShadow: '0 24px 64px rgba(0,0,0,0.6)',
                 }}
@@ -54,9 +56,10 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
                         {title}
                     </h2>
                 </div>
-                <p style={{ margin: '0 0 24px', color: '#B9C3CE', fontSize: '14px', lineHeight: '1.6', whiteSpace: 'pre-line' }}>
+                <p style={{ margin: '0 0 16px', color: '#B9C3CE', fontSize: '14px', lineHeight: '1.6', whiteSpace: 'pre-line' }}>
                     {message}
                 </p>
+                {children && <div style={{ marginBottom: '20px' }}>{children}</div>}
                 <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
                     <button
                         onClick={onCancel}
