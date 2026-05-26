@@ -44,7 +44,7 @@ const statusConfig: Record<string, { label: string; color: string }> = {
 
 function formatDate(d: string | null) {
     if (!d) return '—';
-    return new Date(d).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+    return new Date(d).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' });
 }
 
 const MEDAL_GOLD   = '\u{1F947}';
@@ -628,7 +628,7 @@ export const BattlesPage: React.FC = () => {
                                                 ⚡ Sudden Death is live
                                             </p>
                                             <p style={{ margin: 0, color: colors.textSecondary, fontSize: '12px', lineHeight: 1.5 }}>
-                                                The top entries finished with an identical 1st/2nd/3rd vote distribution. Cast a single vote for the entry you want to win. Voting closes {currentBattle.suddenDeath?.end ? new Date(currentBattle.suddenDeath.end).toLocaleString() : 'shortly'}.
+                                                The top entries finished with an identical 1st/2nd/3rd vote distribution. Cast a single vote for the entry you want to win. Voting closes {currentBattle.suddenDeath?.end ? new Date(currentBattle.suddenDeath.end).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' }) : 'shortly'}.
                                             </p>
                                         </>
                                     ) : (
