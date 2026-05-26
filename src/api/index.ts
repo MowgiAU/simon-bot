@@ -10858,6 +10858,7 @@ app.put('/api/admin/accounts/:id', requireAdmin, async (req: any, res) => {
 app.delete('/api/admin/accounts/:id', requireAdmin, async (req: any, res) => {
     try {
         const targetId = req.params.id;
+        const { reason, sendEmail: shouldEmail } = req.body || {};
         const adminDiscordId = req.session.user?.id;
         if (adminDiscordId) {
             const adminUser = await db.user.findUnique({ where: { discordId: adminDiscordId } });
@@ -10865,6 +10866,24 @@ app.delete('/api/admin/accounts/:id', requireAdmin, async (req: any, res) => {
                 return res.status(400).json({ error: 'You cannot delete your own account via admin panel' });
             }
         }
+        const targetUser = await db.user.findUnique({
+            where: { id: targetId },
+            select: { email: true, username: true, displayName: true }
+        });
+        if (!targetUser) return res.status(404).json({ error: 'User not found' });
+
+        if (shouldEmail && reason && targetUser.email) {
+            await sendAdminNotificationEmail(
+                targetUser.email,
+                'Your Fuji Studio account has been terminated',
+                `<p>Hi ${targetUser.displayName || targetUser.username || 'there'},</p>
+                <p>Your Fuji Studio account has been permanently deleted by our moderation team.</p>
+                <p><strong>Reason:</strong> ${reason}</p>
+                <p>This action is final. If you believe this was made in error, you may contact us at <a href="mailto:legal@fujistud.io">legal@fujistud.io</a>.</p>
+                <p>— The Fuji Studio Team</p>`
+            );
+        }
+
         await db.user.delete({ where: { id: targetId } });
         res.json({ success: true });
     } catch (e: any) {

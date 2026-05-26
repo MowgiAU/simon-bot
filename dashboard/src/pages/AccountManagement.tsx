@@ -45,6 +45,8 @@ export const AccountManagementPage: React.FC = () => {
     const [actionErr, setActionErr] = useState('');
     const [confirmDelete, setConfirmDelete] = useState(false);
     const [deleteLoading, setDeleteLoading] = useState(false);
+    const [deleteReason, setDeleteReason] = useState('');
+    const [deleteSendEmail, setDeleteSendEmail] = useState(false);
 
     // Edit fields
     const [editMode, setEditMode] = useState(false);
@@ -151,11 +153,14 @@ export const AccountManagementPage: React.FC = () => {
         setDeleteLoading(true);
         try {
             const res = await fetch(`/api/admin/accounts/${selected.id}`, {
-                method: 'DELETE', credentials: 'include'
+                method: 'DELETE',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ reason: deleteReason || undefined, sendEmail: deleteSendEmail }),
             });
             const d = await res.json();
             if (!res.ok) { setActionErr(d.error || 'Failed'); setDeleteLoading(false); return; }
-            setSelected(null); setConfirmDelete(false);
+            setSelected(null); setConfirmDelete(false); setDeleteReason(''); setDeleteSendEmail(false);
             loadAccounts();
         } catch { setActionErr('Request failed'); }
         finally { setDeleteLoading(false); }
@@ -453,17 +458,28 @@ export const AccountManagementPage: React.FC = () => {
                                             <Trash2 size={14} /> Delete Account
                                         </button>
                                     ) : (
-                                        <div style={{ background: `${colors.error}10`, padding: spacing.md, borderRadius: borderRadius.lg, border: `1px solid ${colors.error}30` }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm }}>
+                                        <div style={{ background: `${colors.error}10`, padding: spacing.md, borderRadius: borderRadius.lg, border: `1px solid ${colors.error}30`, display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm }}>
                                                 <AlertTriangle size={14} color={colors.error} />
                                                 <span style={{ color: colors.error, fontSize: '13px', fontWeight: 600 }}>This cannot be undone.</span>
                                             </div>
+                                            <textarea
+                                                rows={2}
+                                                placeholder="Reason (optional)"
+                                                value={deleteReason}
+                                                onChange={e => setDeleteReason(e.target.value)}
+                                                style={{ width: '100%', padding: '8px 10px', borderRadius: borderRadius.md, border: `1px solid rgba(255,255,255,0.12)`, background: 'rgba(255,255,255,0.05)', color: colors.textPrimary, fontSize: '12px', resize: 'none', boxSizing: 'border-box' }}
+                                            />
+                                            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: colors.textSecondary, cursor: selected?.email ? 'pointer' : 'not-allowed', opacity: selected?.email ? 1 : 0.5 }}>
+                                                <input type="checkbox" checked={deleteSendEmail} disabled={!selected?.email} onChange={e => setDeleteSendEmail(e.target.checked)} style={{ accentColor: colors.error }} />
+                                                {selected?.email ? 'Send termination email to user' : 'Send termination email (no email on account)'}
+                                            </label>
                                             <div style={{ display: 'flex', gap: spacing.sm }}>
                                                 <button onClick={handleDelete} disabled={deleteLoading}
                                                     style={{ flex: 1, padding: '8px', background: colors.error, color: '#fff', border: 'none', borderRadius: borderRadius.md, fontWeight: 700, fontSize: '13px', cursor: deleteLoading ? 'wait' : 'pointer' }}>
                                                     {deleteLoading ? 'Deleting…' : 'Confirm Delete'}
                                                 </button>
-                                                <button onClick={() => setConfirmDelete(false)}
+                                                <button onClick={() => { setConfirmDelete(false); setDeleteReason(''); setDeleteSendEmail(false); }}
                                                     style={{ padding: '8px 14px', background: colors.surfaceLight, color: colors.textSecondary, border: 'none', borderRadius: borderRadius.md, cursor: 'pointer' }}>
                                                     Cancel
                                                 </button>
