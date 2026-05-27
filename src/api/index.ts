@@ -7535,16 +7535,9 @@ app.delete('/api/musician/tracks/:trackId', async (req: any, res) => {
             return res.status(403).json({ error: 'Forbidden' });
         }
 
-        // Block deletion if the track has been submitted to any beat battle.
-        // Battle entries are part of the public competition record and must remain
-        // intact for the integrity of past/ongoing battles.
-        const battleEntryCount = await db.battleEntry.count({ where: { trackId } });
-        if (battleEntryCount > 0) {
-            return res.status(409).json({
-                error: 'This track is submitted to a Beat Battle and cannot be deleted. Withdraw the entry from the battle first, or contact a moderator.',
-                code: 'TRACK_IN_BATTLE',
-            });
-        }
+        // If the track is in a battle, remove the entry — deleting the track
+        // implicitly withdraws the submission.
+        await db.battleEntry.deleteMany({ where: { trackId } });
 
         // Delete physical files (from R2 or local storage)
         await deleteFromStorage(track.url);
