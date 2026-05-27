@@ -296,53 +296,38 @@ export const ArtistDiscoveryPage: React.FC = () => {
                         const statusBg = battle?.status === 'voting' ? 'rgba(251,191,36,0.22)' : battle?.status === 'active' ? 'rgba(52,211,153,0.22)' : battle?.status === 'completed' ? 'rgba(100,116,139,0.22)' : 'rgba(96,165,250,0.22)';
                         const statusLabel = battle?.status === 'voting' ? 'VOTING' : battle?.status === 'active' ? 'LIVE' : battle?.status === 'completed' ? 'ENDED' : 'UPCOMING';
                         return (
-                    <div style={{ ...panel, height: isMobile ? 'auto' : '400px', minHeight: isMobile ? '300px' : undefined, overflow: 'hidden', gridColumn: isMobile ? undefined : 'span 3', padding: 0, display: 'flex', flexDirection: 'column' }}>
+                    <div style={{ ...panel, height: isMobile ? 'auto' : '400px', minHeight: isMobile ? '300px' : undefined, overflow: 'hidden', gridColumn: isMobile ? undefined : 'span 3', padding: 0, position: 'relative' }}>
 
-                        {/* Banner image — full width, above title */}
+                        {/* Banner image — top of card, fades into content */}
                         {bgImg && (
-                            <div style={{ width: '100%', height: isMobile ? '180px' : '220px', flexShrink: 0, position: 'relative', overflow: 'hidden' }}>
-                                <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${bgImg})`, backgroundSize: 'cover', backgroundPosition: 'center top' }} />
-                                <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '130px', background: 'linear-gradient(to bottom, transparent, rgba(10,13,24,1))' }} />
-                                {/* Status badges overlay */}
-                                <div style={{ position: 'absolute', top: '12px', left: isMobile ? '16px' : '24px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.12em', color: colors.primary, background: `${colors.primary}25`, padding: '4px 10px', borderRadius: '4px', backdropFilter: 'blur(8px)' }}>
-                                        <Swords size={10} />Beat Battle
-                                    </span>
-                                    {battle && (
-                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '4px 10px', backgroundColor: statusBg, color: statusColor, fontSize: '10px', fontWeight: 700, borderRadius: '999px', letterSpacing: '0.07em', backdropFilter: 'blur(8px)' }}>
-                                            <span className={battle.status === 'active' ? 'new-drops-pulse' : undefined} style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: 'currentColor', flexShrink: 0 }} />
-                                            {statusLabel}
-                                        </span>
-                                    )}
-                                </div>
-                            </div>
+                            <>
+                                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: isMobile ? '200px' : '240px', backgroundImage: `url(${bgImg})`, backgroundSize: 'cover', backgroundPosition: 'center top' }} />
+                                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: isMobile ? '200px' : '240px', background: 'linear-gradient(to bottom, rgba(10,13,24,0.15) 0%, rgba(10,13,24,0.6) 55%, rgba(10,13,24,1) 100%)' }} />
+                            </>
                         )}
+                        {!bgImg && <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(135deg, rgba(10,13,24,0.98) 0%, ${colors.primary}18 100%)` }} />}
+                        <div style={{ position: 'absolute', top: isMobile ? '200px' : '240px', bottom: 0, left: 0, right: 0, background: 'rgba(10,13,24,0.98)' }} />
 
-                        {/* Content section */}
+                        {/* Content */}
                         <div style={{
-                            flex: 1,
-                            background: bgImg
-                                ? 'linear-gradient(to bottom, transparent 0%, rgba(10,13,24,0.92) 40px, rgba(10,13,24,0.98) 90px)'
-                                : `linear-gradient(135deg, rgba(10,13,24,0.98) 0%, ${colors.primary}18 100%)`,
+                            position: 'relative',
+                            height: '100%',
                             padding: isMobile ? '16px 20px 20px' : '18px 28px 22px',
                             display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
                             boxSizing: 'border-box' as const,
-                            marginTop: bgImg ? (isMobile ? '-50px' : '-70px') : 0,
                         }}>
                             {/* Status badges when no banner image */}
-                            {!bgImg && (
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
-                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.12em', color: colors.primary, background: `${colors.primary}25`, padding: '4px 10px', borderRadius: '4px' }}>
-                                        <Swords size={10} />Beat Battle
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.12em', color: colors.primary, background: `${colors.primary}25`, padding: '4px 10px', borderRadius: '4px', backdropFilter: 'blur(8px)' }}>
+                                    <Swords size={10} />Beat Battle
+                                </span>
+                                {battle && (
+                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '4px 10px', backgroundColor: statusBg, color: statusColor, fontSize: '10px', fontWeight: 700, borderRadius: '999px', letterSpacing: '0.07em', backdropFilter: 'blur(8px)' }}>
+                                        <span className={battle.status === 'active' ? 'new-drops-pulse' : undefined} style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: 'currentColor', flexShrink: 0 }} />
+                                        {statusLabel}
                                     </span>
-                                    {battle && (
-                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '4px 10px', backgroundColor: statusBg, color: statusColor, fontSize: '10px', fontWeight: 700, borderRadius: '999px', letterSpacing: '0.07em' }}>
-                                            <span className={battle.status === 'active' ? 'new-drops-pulse' : undefined} style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: 'currentColor', flexShrink: 0 }} />
-                                            {statusLabel}
-                                        </span>
-                                    )}
-                                </div>
-                            )}
+                                )}
+                            </div>
 
                             {battle ? (
                                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '8px' }}>
