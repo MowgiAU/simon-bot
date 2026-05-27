@@ -8,7 +8,7 @@ import { usePlayer } from '../components/PlayerProvider';
 import { StyledUsername } from '../components/StyledUsername';
 import {
     Swords, Trophy, Users, Play, Pause, Vote,
-    LogIn, ExternalLink, Flame, MessageSquare, Zap, History, Upload, Music, Clock, ChevronRight, AlertCircle
+    LogIn, ExternalLink, Flame, MessageSquare, Zap, History, Upload, Music, Clock, ChevronRight, AlertCircle, Settings, X, Send
 } from 'lucide-react';
 import { BattleSubmitModal } from '../components/BattleSubmitModal';
 import { flattenBattleEntry } from '../hooks/useBattleEntry';
@@ -117,6 +117,11 @@ export const BattlesPage: React.FC = () => {
     const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
     const [showSubmitModal, setShowSubmitModal] = useState(false);
     const [submitToast, setSubmitToast] = useState(false);
+    const [showManageEntryModal, setShowManageEntryModal] = useState(false);
+    const [manageAction, setManageAction] = useState<'withdraw' | 'change'>('change');
+    const [manageMessage, setManageMessage] = useState('');
+    const [manageSending, setManageSending] = useState(false);
+    const [manageSent, setManageSent] = useState(false);
     const [countdown, setCountdown] = useState<{ days: number; hours: number; minutes: number } | null>(null);
     const [hallOfFame, setHallOfFame] = useState<Array<{ battle: Battle; winner: Entry | null }>>([]);
     const [globalSponsors, setGlobalSponsors] = useState<PublicSponsor[]>([]);
@@ -433,13 +438,21 @@ export const BattlesPage: React.FC = () => {
                                                 ))}
                                             </div>
                                         )}
-                                        <div style={{ display: 'flex', gap: '8px' }}>
-                                            {currentBattle.status === 'active' && user && (
-                                                <button onClick={() => setShowSubmitModal(true)}
-                                                    style={{ backgroundColor: colors.primary, color: '#fff', padding: '10px 24px', borderRadius: '8px', fontWeight: 700, fontSize: '13px', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', boxShadow: `0 8px 24px ${colors.primary}40` }}>
-                                                    <Upload size={14} /> Submit Entry
-                                                </button>
-                                            )}
+                                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                            {currentBattle.status === 'active' && user && (() => {
+                                                const myEntry = currentBattle.entries?.find(e => e.userId === (user as any).id || e.userId === (user as any)._localId);
+                                                return myEntry ? (
+                                                    <button onClick={() => { setManageSent(false); setManageMessage(''); setShowManageEntryModal(true); }}
+                                                        style={{ backgroundColor: 'rgba(255,255,255,0.1)', color: '#fff', padding: '10px 24px', borderRadius: '8px', fontWeight: 700, fontSize: '13px', border: '1px solid rgba(255,255,255,0.2)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                                                        <Settings size={14} /> Manage My Entry
+                                                    </button>
+                                                ) : (
+                                                    <button onClick={() => setShowSubmitModal(true)}
+                                                        style={{ backgroundColor: colors.primary, color: '#fff', padding: '10px 24px', borderRadius: '8px', fontWeight: 700, fontSize: '13px', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', boxShadow: `0 8px 24px ${colors.primary}40` }}>
+                                                        <Upload size={14} /> Submit Entry
+                                                    </button>
+                                                );
+                                            })()}
                                             {currentBattle.status === 'active' && !user && (
                                                 <a href="/api/auth/discord/login"
                                                     style={{ backgroundColor: colors.primary, color: '#fff', padding: '10px 24px', borderRadius: '8px', fontWeight: 700, fontSize: '13px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px', boxShadow: `0 8px 24px ${colors.primary}40` }}>
@@ -832,6 +845,79 @@ export const BattlesPage: React.FC = () => {
                 </div>
             </div>
             {currentBattle && <BattleSubmitModal battleId={currentBattle.id} requireProjectFile={currentBattle.requireProjectFile} open={showSubmitModal} onClose={() => setShowSubmitModal(false)} onSubmitted={() => { setSubmitToast(true); setTimeout(() => setSubmitToast(false), 6000); load(); }} />}
+
+            {/* Manage entry modal */}
+            {showManageEntryModal && currentBattle && createPortal(
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}
+                    onClick={e => { if (e.target === e.currentTarget) setShowManageEntryModal(false); }}>
+                    <div style={{ background: colors.surface, borderRadius: borderRadius.lg, padding: '32px', width: '100%', maxWidth: '480px', position: 'relative' }}>
+                        <button onClick={() => setShowManageEntryModal(false)} style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', color: colors.textSecondary, cursor: 'pointer', padding: '4px' }}>
+                            <X size={20} />
+                        </button>
+                        <h2 style={{ margin: '0 0 8px', fontSize: '20px', fontWeight: 700, color: colors.textPrimary }}>Manage My Entry</h2>
+                        <p style={{ margin: '0 0 24px', fontSize: '14px', color: colors.textSecondary }}>
+                            Entry changes require admin approval. Fill out the form below and a moderator will action it as soon as possible.
+                        </p>
+
+                        {manageSent ? (
+                            <div style={{ textAlign: 'center', padding: '24px 0' }}>
+                                <div style={{ color: colors.primary, fontSize: '40px', marginBottom: '12px' }}>✓</div>
+                                <p style={{ margin: 0, color: colors.textPrimary, fontWeight: 600 }}>Request sent!</p>
+                                <p style={{ margin: '8px 0 0', color: colors.textSecondary, fontSize: '13px' }}>A moderator will review your request shortly.</p>
+                            </div>
+                        ) : (
+                            <>
+                                <div style={{ marginBottom: '20px' }}>
+                                    <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: colors.textSecondary, marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Request type</label>
+                                    <div style={{ display: 'flex', gap: '8px' }}>
+                                        {(['change', 'withdraw'] as const).map(action => (
+                                            <button key={action} onClick={() => setManageAction(action)}
+                                                style={{ flex: 1, padding: '10px', borderRadius: borderRadius.md, border: `2px solid ${manageAction === action ? colors.primary : colors.border}`, background: manageAction === action ? `${colors.primary}18` : 'transparent', color: manageAction === action ? colors.primary : colors.textSecondary, fontWeight: 600, fontSize: '13px', cursor: 'pointer', textTransform: 'capitalize' }}>
+                                                {action === 'change' ? 'Change submission' : 'Withdraw entry'}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div style={{ marginBottom: '24px' }}>
+                                    <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: colors.textSecondary, marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                        {manageAction === 'change' ? 'What track would you like to submit instead?' : 'Reason for withdrawing (optional)'}
+                                    </label>
+                                    <textarea
+                                        value={manageMessage}
+                                        onChange={e => setManageMessage(e.target.value)}
+                                        rows={4}
+                                        placeholder={manageAction === 'change' ? 'e.g. I accidentally submitted the wrong track. The correct one is called "My Track Name" on my profile.' : 'e.g. I want to withdraw my entry.'}
+                                        style={{ width: '100%', background: colors.background, border: `1px solid ${colors.border}`, borderRadius: borderRadius.md, padding: '12px', color: colors.textPrimary, fontSize: '14px', resize: 'vertical', fontFamily: 'inherit', boxSizing: 'border-box' }}
+                                    />
+                                </div>
+
+                                <button
+                                    onClick={async () => {
+                                        if (manageAction === 'change' && !manageMessage.trim()) return;
+                                        setManageSending(true);
+                                        try {
+                                            await fetch(`${API}/api/beat-battle/${currentBattle.id}/entry-request`, {
+                                                method: 'POST',
+                                                headers: { 'Content-Type': 'application/json' },
+                                                credentials: 'include',
+                                                body: JSON.stringify({ action: manageAction, message: manageMessage.trim() }),
+                                            });
+                                            setManageSent(true);
+                                        } finally {
+                                            setManageSending(false);
+                                        }
+                                    }}
+                                    disabled={manageSending || (manageAction === 'change' && !manageMessage.trim())}
+                                    style={{ width: '100%', padding: '12px', background: colors.primary, color: '#fff', border: 'none', borderRadius: borderRadius.md, fontWeight: 700, fontSize: '14px', cursor: manageSending ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', opacity: (manageSending || (manageAction === 'change' && !manageMessage.trim())) ? 0.6 : 1 }}>
+                                    <Send size={15} /> {manageSending ? 'Sending…' : 'Send Request'}
+                                </button>
+                            </>
+                        )}
+                    </div>
+                </div>,
+                document.body
+            )}
         </DiscoveryLayout>
     );
 };

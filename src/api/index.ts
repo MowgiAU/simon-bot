@@ -11800,6 +11800,61 @@ app.delete('/api/beat-battle/entries/:entryId', requireAdmin, async (req: any, r
     }
 });
 
+// --- Auth: Entry change/withdrawal request — sends email to admins ---
+app.post('/api/beat-battle/:battleId/entry-request', requireAuth, async (req: any, res) => {
+    try {
+        const userId = req.session.user.id;
+        const { battleId } = req.params;
+        const { action, message } = req.body || {};
+        if (!['withdraw', 'change'].includes(action)) return res.status(400).json({ error: 'Invalid action' });
+
+        const [battle, entry, user] = await Promise.all([
+            db.beatBattle.findUnique({ where: { id: battleId }, select: { title: true } }),
+            db.battleEntry.findFirst({ where: { battleId, userId } }),
+            db.user.findFirst({ where: { OR: [{ id: userId }, { discordId: userId }] }, select: { email: true, username: true, displayName: true } }),
+        ]);
+        if (!battle) return res.status(404).json({ error: 'Battle not found' });
+        if (!entry) return res.status(404).json({ error: 'No entry found for this user' });
+
+        const displayName = user?.displayName || user?.username || userId;
+        const actionLabel = action === 'withdraw' ? 'Withdraw entry' : 'Change submission';
+        const subject = `[Battle Entry Request] ${actionLabel} — ${battle.title}`;
+        const bodyHtml = `
+            <h2 style="margin:0 0 16px">Battle Entry Request</h2>
+            <table style="border-collapse:collapse;width:100%;font-family:sans-serif;font-size:14px">
+                <tr><td style="padding:8px 12px;background:#f5f5f5;font-weight:600;width:140px">Battle</td><td style="padding:8px 12px;border-bottom:1px solid #eee">${battle.title}</td></tr>
+                <tr><td style="padding:8px 12px;background:#f5f5f5;font-weight:600">User</td><td style="padding:8px 12px;border-bottom:1px solid #eee">${displayName} (ID: ${userId})</td></tr>
+                <tr><td style="padding:8px 12px;background:#f5f5f5;font-weight:600">Entry ID</td><td style="padding:8px 12px;border-bottom:1px solid #eee">${entry.id}</td></tr>
+                <tr><td style="padding:8px 12px;background:#f5f5f5;font-weight:600">Request</td><td style="padding:8px 12px;border-bottom:1px solid #eee">${actionLabel}</td></tr>
+                ${message ? `<tr><td style="padding:8px 12px;background:#f5f5f5;font-weight:600;vertical-align:top">Message</td><td style="padding:8px 12px;border-bottom:1px solid #eee;white-space:pre-wrap">${message}</td></tr>` : ''}
+            </table>
+            <p style="margin:20px 0 0;font-size:13px;color:#666">Action this request in the admin panel.</p>
+        `;
+
+        // Drop the request into the admin email inbox (visible in the Email Client section)
+        await emailService.addEmail({
+            threadId: `battle_request_${entry.id}_${Date.now()}`,
+            from: `${displayName} <noreply@fujistud.io>`,
+            fromEmail: user?.email || 'noreply@fujistud.io',
+            toEmail: 'admin@fujistud.io',
+            subject,
+            body: bodyHtml,
+            date: new Date().toISOString(),
+            category: 'inbox',
+            read: false,
+        });
+        // Also send a confirmation to the user so they have a record
+        if (user?.email) {
+            await sendAdminNotificationEmail(user.email, `Your request has been received — ${battle.title}`, `<p>Hi ${displayName},</p><p>Your request (<strong>${actionLabel}</strong>) has been received and will be reviewed by a moderator shortly.</p>${bodyHtml}`);
+        }
+        logActivity(req, 'battle.entry_request', entry.id, 'battle_entry', { action, battleId, battleTitle: battle.title });
+        res.json({ success: true });
+    } catch (e: any) {
+        logger.error('Beat Battle API: entry request failed', e);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 // --- Auth: Submit entry via web (upload or library track) ---
 // Battle submission is now a thin "link a Track to a Battle" operation.
 // Clients upload new tracks via /api/musician/tracks first, then POST the trackId here.
