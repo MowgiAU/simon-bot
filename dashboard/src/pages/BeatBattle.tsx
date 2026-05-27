@@ -46,6 +46,7 @@ interface Battle {
     votingStart: string | null;
     votingEnd: string | null;
     announcementChannelId: string | null;
+    submissionsChannelId: string | null;
     sponsorId: string | null;
     winnerEntryId: string | null;
     bannerUrl: string | null;
@@ -157,7 +158,7 @@ export const BeatBattlePage: React.FC = () => {
         miniDescription: '',
         rulesData: [{ text: '', links: [] as { label: string; url: string }[], samples: [] as { name: string; url: string }[] }],
         submissionStart: '', submissionEnd: '', votingStart: '', votingEnd: '',
-        sponsorId: '', announcementChannelId: '',
+        sponsorId: '', announcementChannelId: '', submissionsChannelId: '',
         prizes: [{ place: '1st Place', title: '', description: '', imageUrl: '', link: '' }] as { place: string; title: string; description: string; imageUrl: string; link: string }[],
         maxVotesPerUser: 0,
         requireProjectFile: false,
@@ -272,7 +273,7 @@ export const BeatBattlePage: React.FC = () => {
         return () => clearTimeout(timer);
     }, [backfillTrackSearch]);
 
-    const resetForm = () => setForm({ title: '', subtitle: '', miniDescription: '', description: '', rulesData: [{ text: '', links: [], samples: [] }], submissionStart: '', submissionEnd: '', votingStart: '', votingEnd: '', sponsorId: '', announcementChannelId: '', prizes: [{ place: '1st Place', title: '', description: '', imageUrl: '', link: '' }], maxVotesPerUser: 0, requireProjectFile: false, pingOnSubmissions: false, pingOnVoting: false, pingOnWinners: false, entryFeeEnabled: false, entryFee: 0, prizePoolEnabled: false, prizeFirst: 0, prizeSecond: 0, prizeThird: 0, voterReward: 0, suddenDeathDurationMinutes: 60 });
+    const resetForm = () => setForm({ title: '', subtitle: '', miniDescription: '', description: '', rulesData: [{ text: '', links: [], samples: [] }], submissionStart: '', submissionEnd: '', votingStart: '', votingEnd: '', sponsorId: '', announcementChannelId: '', submissionsChannelId: '', prizes: [{ place: '1st Place', title: '', description: '', imageUrl: '', link: '' }], maxVotesPerUser: 0, requireProjectFile: false, pingOnSubmissions: false, pingOnVoting: false, pingOnWinners: false, entryFeeEnabled: false, entryFee: 0, prizePoolEnabled: false, prizeFirst: 0, prizeSecond: 0, prizeThird: 0, voterReward: 0, suddenDeathDurationMinutes: 60 });
 
     const handleCreateBattle = async () => {
         try {
@@ -295,6 +296,7 @@ export const BeatBattlePage: React.FC = () => {
                     votingEnd: localDTToISO(form.votingEnd),
                     sponsorId: form.sponsorId,
                     announcementChannelId: form.announcementChannelId,
+                    submissionsChannelId: form.submissionsChannelId,
                     maxVotesPerUser: form.maxVotesPerUser,
                     requireProjectFile: form.requireProjectFile,
                     pingOnSubmissions: form.pingOnSubmissions,
@@ -368,6 +370,7 @@ export const BeatBattlePage: React.FC = () => {
                     votingEnd: localDTToISO(form.votingEnd),
                     sponsorId: form.sponsorId,
                     announcementChannelId: form.announcementChannelId,
+                    submissionsChannelId: form.submissionsChannelId,
                     maxVotesPerUser: form.maxVotesPerUser,
                     requireProjectFile: form.requireProjectFile,
                     pingOnSubmissions: form.pingOnSubmissions,
@@ -686,6 +689,7 @@ export const BeatBattlePage: React.FC = () => {
             votingEnd: toLocalDTInput(b.votingEnd),
             sponsorId: b.sponsorId || '',
             announcementChannelId: b.announcementChannelId || '',
+            submissionsChannelId: (b as any).submissionsChannelId || '',
             prizes: (b.prizes && (b.prizes as any[]).length > 0)
                 ? (b.prizes as any[]).map(p => ({ place: p.place || '', title: p.title || '', description: p.description || '', imageUrl: p.imageUrl || '', link: p.link || '' }))
                 : [{ place: '1st Place', title: '', description: '', imageUrl: '', link: '' }],
@@ -1034,6 +1038,11 @@ export const BeatBattlePage: React.FC = () => {
                                 <div>
                                     <label style={labelStyle}>Announcement Channel ID</label>
                                     <input style={inputStyle} value={form.announcementChannelId} onChange={(e) => setForm({ ...form, announcementChannelId: e.target.value })} placeholder="Channel ID" />
+                                </div>
+                                <div>
+                                    <label style={labelStyle}>Submissions Channel</label>
+                                    <ChannelSelect guildId={guildId} value={form.submissionsChannelId} onChange={(v) => setForm({ ...form, submissionsChannelId: v as string || '' })} channelTypes={[0]} placeholder="Select channel (bot-only announcements)" />
+                                    <p style={{ margin: '4px 0 0', fontSize: '11px', color: colors.textSecondary }}>Bot posts an embed here for each new entry. @everyone will be locked out from posting or creating threads.</p>
                                 </div>
                                 <div>
                                     <label style={labelStyle}>Sudden Death Duration (minutes)</label>

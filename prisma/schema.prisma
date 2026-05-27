@@ -1352,7 +1352,8 @@ model BeatBattle {
   votingEnd       DateTime?
 
   // Discord integration
-  announcementChannelId String? // Where announcements go
+  announcementChannelId  String? // Where announcements go
+  submissionsChannelId   String? // Where submission announcements are posted (bot-only, users cannot post)
 
   // Winner
   winnerEntryId String? // Winning BattleEntry ID
@@ -1441,6 +1442,8 @@ model BattleEntry {
   artist        String?
   arrangement   Json?
   waveformPeaks Json?
+
+  submissionAnnouncedAt DateTime? // null = pending post to submissionsChannelId
 
   // Soft delete
   deletedAt DateTime?

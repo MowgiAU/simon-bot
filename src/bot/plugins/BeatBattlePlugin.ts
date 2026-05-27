@@ -5,6 +5,8 @@ import {
     EmbedBuilder,
     TextChannel,
     MessageFlags,
+    ChannelType,
+    PermissionFlagsBits,
 } from 'discord.js';
 import { IPlugin, IPluginContext } from '../types/plugin';
 import { z } from 'zod';
@@ -37,6 +39,9 @@ export class BeatBattlePlugin implements IPlugin {
         return this.db.beatBattleSettings.findUnique({ where: { guildId } });
     }
     private lifecycleInterval: ReturnType<typeof setInterval> | null = null;
+    private submissionPollInterval: ReturnType<typeof setInterval> | null = null;
+    private lockedChannels = new Set<string>();
+    private siteBase = process.env.DASHBOARD_ORIGIN?.replace(/\/$/, '') || 'https://fujistud.io';
 
     async initialize(context: IPluginContext): Promise<void> {
         this.db = context.db;
@@ -47,10 +52,14 @@ export class BeatBattlePlugin implements IPlugin {
 
         // Start lifecycle check every 60 seconds
         this.lifecycleInterval = setInterval(() => this.checkLifecycles(), 60_000);
+        // Poll for pending submission announcements every 30 seconds
+        this.submissionPollInterval = setInterval(() => this.postSubmissionAnnouncements(), 30_000);
+        setTimeout(() => this.postSubmissionAnnouncements(), 15_000);
     }
 
     async shutdown(): Promise<void> {
         if (this.lifecycleInterval) clearInterval(this.lifecycleInterval);
+        if (this.submissionPollInterval) clearInterval(this.submissionPollInterval);
         this.logger.info('Beat Battle Plugin shutting down');
     }
 
@@ -219,6 +228,103 @@ export class BeatBattlePlugin implements IPlugin {
     }
 
     // ----- Lifecycle Checks (Auto-transition) -----
+
+    // ── Submission announcements ───────────────────────────────────────────────
+
+    private async postSubmissionAnnouncements(): Promise<void> {
+        try {
+            const pending = await (this.db.battleEntry as any).findMany({
+                where: {
+                    submissionAnnouncedAt: null,
+                    deletedAt: null,
+                    battle: { submissionsChannelId: { not: null }, deletedAt: null },
+                },
+                include: {
+                    battle: true,
+                    track: { include: { profile: true } },
+                },
+                take: 20,
+                orderBy: { createdAt: 'asc' },
+            });
+
+            for (const entry of pending) {
+                // Mark first to avoid double-posting
+                await (this.db.battleEntry as any).update({
+                    where: { id: entry.id },
+                    data: { submissionAnnouncedAt: new Date() },
+                });
+
+                await this.postSubmissionEmbed(entry).catch((err: any) =>
+                    this.logger.warn(`[BeatBattle] Failed to post submission embed for entry ${entry.id}: ${err.message}`)
+                );
+            }
+        } catch (err: any) {
+            this.logger.warn(`[BeatBattle] postSubmissionAnnouncements error: ${err.message}`);
+        }
+    }
+
+    private async postSubmissionEmbed(entry: any): Promise<void> {
+        const channelId: string = entry.battle.submissionsChannelId;
+        const channel = this.client.channels.cache.get(channelId) as TextChannel | undefined
+            ?? await this.client.channels.fetch(channelId).catch(() => null) as TextChannel | null ?? undefined;
+
+        if (!channel || !channel.isTextBased()) {
+            this.logger.warn(`[BeatBattle] Submissions channel ${channelId} not found`);
+            return;
+        }
+
+        await this.lockSubmissionsChannel(channel);
+
+        const track = entry.track;
+        const profile = track?.profile;
+        const displayName = profile?.displayName || profile?.username || entry.userId;
+        const slug = track?.slug || track?.id;
+        const trackUrl = profile?.username && slug
+            ? `${this.siteBase}/track/${profile.username}/${slug}`
+            : `${this.siteBase}/battles/${entry.battleId}`;
+        const battleUrl = `${this.siteBase}/battles/${entry.battleId}`;
+
+        let coverUrl: string | null = track?.coverUrl ?? null;
+        if (coverUrl && !coverUrl.startsWith('http')) coverUrl = `${this.siteBase}${coverUrl}`;
+
+        const embed = new EmbedBuilder()
+            .setColor(0x2b8c71)
+            .setAuthor({ name: `${entry.battle.title} — New Entry` })
+            .setTitle(track?.title || 'Untitled Track')
+            .setURL(trackUrl)
+            .setDescription(
+                `🎵 **[${displayName}](${this.siteBase}/profile/${profile?.username || entry.userId})** just submitted to the battle!\n\n` +
+                (track?.description ? `_${track.description.slice(0, 120)}${track.description.length > 120 ? '…' : ''}_\n\n` : '') +
+                `**[▶ Listen on Fuji Studio](${trackUrl})** · [View Battle](${battleUrl})`
+            )
+            .setFooter({ text: `Fuji Studio Beat Battle` })
+            .setTimestamp();
+
+        if (coverUrl) embed.setImage(coverUrl);
+
+        await channel.send({ embeds: [embed] });
+        this.logger.info(`[BeatBattle] Posted submission embed for "${track?.title}" by ${displayName} to channel ${channelId}`);
+    }
+
+    private async lockSubmissionsChannel(channel: TextChannel): Promise<void> {
+        if (this.lockedChannels.has(channel.id)) return;
+        if (channel.type !== ChannelType.GuildText) return;
+        try {
+            const everyone = channel.guild.roles.everyone;
+            await channel.permissionOverwrites.edit(everyone, {
+                SendMessages: false,
+                CreatePublicThreads: false,
+                CreatePrivateThreads: false,
+                SendMessagesInThreads: false,
+            });
+            this.lockedChannels.add(channel.id);
+            this.logger.info(`[BeatBattle] Locked submissions channel #${channel.name} (${channel.id})`);
+        } catch (err: any) {
+            this.logger.warn(`[BeatBattle] Failed to lock submissions channel ${channel.id}: ${err.message}`);
+        }
+    }
+
+    // ── Lifecycle ─────────────────────────────────────────────────────────────
 
     private async checkLifecycles(): Promise<void> {
         const now = new Date();

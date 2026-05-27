@@ -11957,7 +11957,7 @@ app.post('/api/beat-battle/battles/:battleId/submit', requireAuth, async (req: a
 // --- Admin: Create battle ---
 app.post('/api/beat-battle/admin/battles', requireAdmin, async (req: any, res) => {
     try {
-        const { title, miniDescription, description, subtitle, rules, rulesData, prizes, guildId, submissionStart, submissionEnd, votingStart, votingEnd, sponsorId, announcementChannelId, maxVotesPerUser, requireProjectFile, pingOnSubmissions, pingOnVoting, pingOnWinners, entryFeeEnabled, entryFee, prizePoolEnabled, prizeFirst, prizeSecond, prizeThird, voterReward, suddenDeathDurationMinutes } = req.body;
+        const { title, miniDescription, description, subtitle, rules, rulesData, prizes, guildId, submissionStart, submissionEnd, votingStart, votingEnd, sponsorId, announcementChannelId, submissionsChannelId, maxVotesPerUser, requireProjectFile, pingOnSubmissions, pingOnVoting, pingOnWinners, entryFeeEnabled, entryFee, prizePoolEnabled, prizeFirst, prizeSecond, prizeThird, voterReward, suddenDeathDurationMinutes } = req.body;
 
         if (!title) return res.status(400).json({ error: 'Title is required' });
 
@@ -11991,6 +11991,7 @@ app.post('/api/beat-battle/admin/battles', requireAdmin, async (req: any, res) =
                 votingEnd: votingEnd ? new Date(votingEnd) : null,
                 sponsorId: sponsorId || null,
                 announcementChannelId: announcementChannelId || null,
+                submissionsChannelId: submissionsChannelId || null,
                 maxVotesPerUser: maxVotesPerUser != null ? Number(maxVotesPerUser) : 0,
                 requireProjectFile: requireProjectFile === true || requireProjectFile === 'true',
                 pingOnSubmissions: pingOnSubmissions === true,
@@ -12032,7 +12033,7 @@ app.post('/api/beat-battle/admin/battles', requireAdmin, async (req: any, res) =
 // --- Admin: Update battle ---
 app.patch('/api/beat-battle/admin/battles/:id', requireAdmin, async (req: any, res) => {
     try {
-        const { title, miniDescription, description, subtitle, rules, rulesData, prizes, status, submissionStart, submissionEnd, votingStart, votingEnd, sponsorId, announcementChannelId, maxVotesPerUser, requireProjectFile, pingOnSubmissions, pingOnVoting, pingOnWinners, entryFeeEnabled, entryFee, prizePoolEnabled, prizeFirst, prizeSecond, prizeThird, voterReward, suddenDeathDurationMinutes } = req.body;
+        const { title, miniDescription, description, subtitle, rules, rulesData, prizes, status, submissionStart, submissionEnd, votingStart, votingEnd, sponsorId, announcementChannelId, submissionsChannelId, maxVotesPerUser, requireProjectFile, pingOnSubmissions, pingOnVoting, pingOnWinners, entryFeeEnabled, entryFee, prizePoolEnabled, prizeFirst, prizeSecond, prizeThird, voterReward, suddenDeathDurationMinutes } = req.body;
 
         // Fetch old battle to detect status change
         const oldBattle = await db.beatBattle.findUnique({ where: { id: req.params.id } });
@@ -12067,6 +12068,7 @@ app.patch('/api/beat-battle/admin/battles/:id', requireAdmin, async (req: any, r
         if (votingEnd !== undefined) data.votingEnd = votingEnd ? new Date(votingEnd) : null;
         if (sponsorId !== undefined) data.sponsorId = sponsorId || null;
         if (announcementChannelId !== undefined) data.announcementChannelId = announcementChannelId;
+        if (submissionsChannelId !== undefined) data.submissionsChannelId = submissionsChannelId || null;
         if (maxVotesPerUser !== undefined) data.maxVotesPerUser = Number(maxVotesPerUser);
         if (requireProjectFile !== undefined) data.requireProjectFile = requireProjectFile === true || requireProjectFile === 'true';
         if (pingOnSubmissions !== undefined) data.pingOnSubmissions = pingOnSubmissions === true;
