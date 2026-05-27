@@ -7535,9 +7535,10 @@ app.delete('/api/musician/tracks/:trackId', async (req: any, res) => {
             return res.status(403).json({ error: 'Forbidden' });
         }
 
-        // If the track is in a battle, remove the entry — deleting the track
-        // implicitly withdraws the submission.
-        await db.battleEntry.deleteMany({ where: { trackId } });
+        // Hard-delete any battle entries for this track — soft-delete would leave
+        // a row with deletedAt set which blocks the unique(battleId,userId) constraint
+        // if the user tries to resubmit after re-uploading the track.
+        await db.$executeRaw`DELETE FROM battle_entries WHERE "trackId" = ${trackId}`;
 
         // Delete physical files (from R2 or local storage)
         await deleteFromStorage(track.url);
@@ -11906,6 +11907,10 @@ app.post('/api/beat-battle/battles/:battleId/submit', requireAuth, async (req: a
             where: { battleId, userId, deletedAt: null },
         });
         if (existing) return res.status(400).json({ error: 'You already submitted to this battle' });
+
+        // Clear any stale soft-deleted entries for this user/battle so the unique
+        // constraint doesn't block re-submission after a track was deleted.
+        await db.$executeRaw`DELETE FROM battle_entries WHERE "battleId" = ${battleId} AND "userId" = ${userId} AND "deletedAt" IS NOT NULL`;
 
         if (battle.entryFeeEnabled && battle.entryFee > 0) {
             const account = await db.economyAccount.findUnique({
