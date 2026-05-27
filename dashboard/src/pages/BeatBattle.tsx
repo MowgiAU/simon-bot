@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
+import { flattenBattleEntry } from '../hooks/useBattleEntry';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { useAuth } from '../components/AuthProvider';
 import { RichTextEditor } from '../components/RichTextEditor';
@@ -1933,7 +1934,7 @@ const BattleEntries: React.FC<{ battleId: string }> = ({ battleId }) => {
             const res = await fetch(`${API}/api/beat-battle/battles/${battleId}`, { credentials: 'include' });
             if (res.ok) {
                 const data = await res.json();
-                setEntries(data.entries || []);
+                setEntries((data.entries || []).map(flattenBattleEntry));
             }
         } catch {} finally { setLoading(false); }
     };
