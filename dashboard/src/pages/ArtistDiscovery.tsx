@@ -311,9 +311,11 @@ export const ArtistDiscoveryPage: React.FC = () => {
                         {/* Content */}
                         <div style={{
                             position: 'relative',
-                            height: '100%',
+                            height: isMobile ? 'auto' : '100%',
                             padding: isMobile ? '16px 20px 20px' : '18px 28px 22px',
-                            display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+                            paddingTop: isMobile && bgImg ? '170px' : undefined,
+                            display: 'flex', flexDirection: 'column', justifyContent: isMobile ? 'flex-start' : 'space-between',
+                            gap: isMobile ? '12px' : undefined,
                             boxSizing: 'border-box' as const,
                         }}>
                             {/* Status badges when no banner image */}
@@ -330,7 +332,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
                             </div>
 
                             {battle ? (
-                                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', gap: '8px', paddingBottom: '8px' }}>
+                                <div style={{ flex: isMobile ? undefined : 1, display: 'flex', flexDirection: 'column', justifyContent: isMobile ? 'flex-start' : 'flex-end', gap: '8px', paddingBottom: isMobile ? '0' : '8px' }}>
                                     <Link to={`/battles/${battle.id}`} style={{ textDecoration: 'none' }}>
                                         <h2
                                             style={{ fontSize: isMobile ? '22px' : '30px', fontWeight: 900, margin: '0 0 6px', lineHeight: 1.1, color: '#fff', textShadow: '0 2px 12px rgba(0,0,0,0.5)' }}
