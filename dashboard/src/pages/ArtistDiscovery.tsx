@@ -300,7 +300,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
 
                         {/* Banner image — full width, above title */}
                         {bgImg && (
-                            <div style={{ width: '100%', height: isMobile ? '160px' : '200px', flexShrink: 0, position: 'relative', overflow: 'hidden' }}>
+                            <div style={{ width: '100%', height: isMobile ? '140px' : '155px', flexShrink: 0, position: 'relative', overflow: 'hidden' }}>
                                 <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${bgImg})`, backgroundSize: 'cover', backgroundPosition: 'center top' }} />
                                 <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '90px', background: 'linear-gradient(to bottom, transparent, rgba(10,13,24,1))' }} />
                                 {/* Status badges overlay */}
