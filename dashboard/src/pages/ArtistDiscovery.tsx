@@ -313,6 +313,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
                             position: 'relative',
                             height: '100%',
                             padding: isMobile ? '16px 20px 20px' : '18px 28px 22px',
+                            paddingTop: isMobile ? '16px' : '60px',
                             display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
                             boxSizing: 'border-box' as const,
                         }}>
