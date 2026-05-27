@@ -10897,7 +10897,24 @@ app.put('/api/admin/accounts/:id', requireAdmin, async (req: any, res) => {
             return res.status(400).json({ error: 'No valid fields to update' });
         }
 
+        // Fetch old username before overwriting so we can invalidate the old cache key
+        const oldUser = updates.username
+            ? await db.user.findUnique({ where: { id: targetId }, select: { username: true } })
+            : null;
+
         const updated = await db.user.update({ where: { id: targetId }, data: updates });
+
+        // Keep MusicianProfile in sync — profile URL is based on MusicianProfile.username
+        if (updates.username) {
+            await db.musicianProfile.updateMany({
+                where: { userId: targetId },
+                data: { username: updates.username },
+            });
+            if (oldUser?.username) invalidateProfileCache(oldUser.username);
+            invalidateProfileCache(updates.username);
+            invalidateProfileCache(targetId);
+        }
+
         res.json({ success: true, user: { id: updated.id, username: updated.username, email: updated.email, displayName: updated.displayName } });
     } catch (e: any) {
         res.status(500).json({ error: 'Internal server error' });
