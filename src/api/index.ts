@@ -7211,17 +7211,24 @@ app.post('/api/musician/tracks', uploadLimiter, upload.fields([
         const _bgTrackId = track.id;
         const _bgProjectPath = (projectFile && !isZipUpload) ? projectFile.path : null;
         const _bgProjectFileUrl = projectFileUrl;
+        const _bgMeta = {
+            title:   metadata.title || undefined,
+            artist:  metadata.artist || uploaderProfile?.displayName || uploaderProfile?.username || undefined,
+            album:   metadata.album || undefined,
+            year:    metadata.year || undefined,
+            comment: 'fujistud.io',
+        };
         setImmediate(async () => {
             try {
                 const bgUpdates: Record<string, any> = {};
 
-                // Convert audio to OGG Opus (primary stream)
-                const finalAudioPath = await MediaConverter.convertToOgg(_bgRawAudioPath);
+                // Convert audio to OGG Opus (primary stream) with embedded metadata tags
+                const finalAudioPath = await MediaConverter.convertToOgg(_bgRawAudioPath, _bgMeta);
                 bgUpdates.url = `/uploads/tracks/${path.basename(finalAudioPath)}`;
 
-                // Also generate MP3 fallback for iOS Safari (doesn't delete the OGG source)
+                // Also generate MP3 fallback for iOS Safari with same metadata tags
                 try {
-                    const mp3AudioPath = await MediaConverter.convertToMp3(finalAudioPath);
+                    const mp3AudioPath = await MediaConverter.convertToMp3(finalAudioPath, _bgMeta);
                     bgUpdates.mp3Url = `/uploads/tracks/${path.basename(mp3AudioPath)}`;
                 } catch (mp3Err: any) {
                     logger.warn(`[Upload BG] MP3 fallback conversion failed for ${_bgTrackId}: ${mp3Err.message}`);
@@ -8278,23 +8285,34 @@ app.get('/api/downloads/audio/:trackId', requireAuth, async (req: any, res) => {
         const { trackId } = req.params;
         const track = await db.track.findUnique({
             where: { id: trackId },
-            select: { url: true, title: true, allowAudioDownload: true, isPublic: true }
+            select: { url: true, title: true, artist: true, allowAudioDownload: true, isPublic: true, profile: { select: { displayName: true, username: true } } }
         });
         if (!track) return res.status(404).json({ error: 'Track not found' });
         if (!track.allowAudioDownload) return res.status(403).json({ error: 'Audio downloads are disabled for this track' });
 
-        const safeName = (track.title || 'audio').replace(/[^a-z0-9_\- ]/gi, '_');
-        const ext = path.extname(track.url) || '.mp3';
-        await logDownload(req, 'audio', trackId, `${safeName}${ext}`);
+        const artistName = (track as any).artist || (track as any).profile?.displayName || (track as any).profile?.username || '';
+        const titlePart = (track.title || 'audio').replace(/[^a-z0-9_\-. ]/gi, '_').trim();
+        const artistPart = artistName.replace(/[^a-z0-9_\-. ]/gi, '_').trim();
+        const baseName = artistPart ? `${titlePart} - ${artistPart}` : titlePart;
+        const ext = path.extname(track.url) || '.ogg';
+        const filename = `${baseName}${ext}`;
+
+        await logDownload(req, 'audio', trackId, filename);
         logActivity(req, 'track.download', trackId, 'track', { title: track.title, type: 'audio' });
 
+        res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`);
+
         if (track.url.startsWith('http')) {
-            return res.redirect(302, track.url);
+            // Proxy CDN file so the browser sees our filename, not the random CDN object key
+            const upstream = await axios.get(track.url, { responseType: 'stream' });
+            res.setHeader('Content-Type', upstream.headers['content-type'] || 'audio/ogg');
+            if (upstream.headers['content-length']) res.setHeader('Content-Length', upstream.headers['content-length']);
+            upstream.data.pipe(res);
+            return;
         }
 
         const localPath = path.join(PROJECT_ROOT, 'public', track.url);
         if (!fs.existsSync(localPath)) return res.status(404).json({ error: 'File not found on server' });
-        res.setHeader('Content-Disposition', `attachment; filename="${safeName}${ext}"`);
         fs.createReadStream(localPath).pipe(res);
     } catch (e: any) {
         if (!res.headersSent) res.status(500).json({ error: 'Internal server error' });
@@ -8307,22 +8325,34 @@ app.get('/api/downloads/project/:trackId', requireAuth, async (req: any, res) =>
         const { trackId } = req.params;
         const track = await db.track.findUnique({
             where: { id: trackId },
-            select: { projectFileUrl: true, title: true, allowProjectDownload: true, isPublic: true }
+            select: { projectFileUrl: true, title: true, artist: true, allowProjectDownload: true, isPublic: true, profile: { select: { displayName: true, username: true } } }
         });
         if (!track) return res.status(404).json({ error: 'Track not found' });
-        if (!track.projectFileUrl) return res.status(404).json({ error: 'No project file available for this track' });
+        if (!(track as any).projectFileUrl) return res.status(404).json({ error: 'No project file available for this track' });
         if (!track.allowProjectDownload) return res.status(403).json({ error: 'Project downloads are disabled for this track' });
 
-        const safeName = (track.title || 'project').replace(/[^a-z0-9_\- ]/gi, '_');
-        await logDownload(req, 'project_flp', trackId, `${safeName}.flp`);
+        const artistName = (track as any).artist || (track as any).profile?.displayName || (track as any).profile?.username || '';
+        const titlePart = (track.title || 'project').replace(/[^a-z0-9_\-. ]/gi, '_').trim();
+        const artistPart = artistName.replace(/[^a-z0-9_\-. ]/gi, '_').trim();
+        const baseName = artistPart ? `${titlePart} - ${artistPart}` : titlePart;
+        const projUrl = (track as any).projectFileUrl as string;
+        const ext = path.extname(projUrl) || '.flp';
+        const filename = `${baseName}${ext}`;
 
-        if (track.projectFileUrl.startsWith('http')) {
-            return res.redirect(302, track.projectFileUrl);
+        await logDownload(req, 'project_flp', trackId, filename);
+
+        res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`);
+
+        if (projUrl.startsWith('http')) {
+            const upstream = await axios.get(projUrl, { responseType: 'stream' });
+            res.setHeader('Content-Type', upstream.headers['content-type'] || 'application/octet-stream');
+            if (upstream.headers['content-length']) res.setHeader('Content-Length', upstream.headers['content-length']);
+            upstream.data.pipe(res);
+            return;
         }
 
-        const localPath = path.join(PROJECT_ROOT, 'public', track.projectFileUrl);
+        const localPath = path.join(PROJECT_ROOT, 'public', projUrl);
         if (!fs.existsSync(localPath)) return res.status(404).json({ error: 'File not found on server' });
-        res.setHeader('Content-Disposition', `attachment; filename="${safeName}.flp"`);
         fs.createReadStream(localPath).pipe(res);
     } catch (e: any) {
         if (!res.headersSent) res.status(500).json({ error: 'Internal server error' });

@@ -11,6 +11,33 @@ ffmpeg.setFfmpegPath(process.env.FFMPEG_PATH || ffmpegInstaller.path);
 
 const logger = new Logger('MediaConverter');
 
+export interface AudioMetaTags {
+    title?: string;
+    artist?: string;
+    album?: string;
+    year?: number;
+    genre?: string;
+    comment?: string;
+}
+
+/** Build ffmpeg outputOptions array for embedding metadata tags. */
+function buildMetaArgs(meta: AudioMetaTags): string[] {
+    const args: string[] = [];
+    const add = (key: string, val: string | number | undefined) => {
+        if (val === undefined || val === null || val === '') return;
+        // Strip characters that would break the ffmpeg -metadata key=value syntax
+        const safe = String(val).replace(/[\x00-\x1F\x7F]/g, '').replace(/=/g, '-');
+        args.push('-metadata', `${key}=${safe}`);
+    };
+    add('title',   meta.title);
+    add('artist',  meta.artist);
+    add('album',   meta.album);
+    add('date',    meta.year);
+    add('genre',   meta.genre);
+    add('comment', meta.comment);
+    return args;
+}
+
 export class MediaConverter {
     /**
      * Converts any audio file to 320kbps MP3.
@@ -75,16 +102,23 @@ export class MediaConverter {
      * Returns the path of the converted .ogg file.
      * On failure, returns the original path unchanged.
      */
-    static async convertToOgg(inputPath: string): Promise<string> {
+    static async convertToOgg(inputPath: string, meta?: AudioMetaTags): Promise<string> {
         const base = inputPath.replace(/\.[^.]+$/, '');
         const outputPath = base + '.ogg';
         const tempOutputPath = base + '._converting.ogg';
 
         return new Promise((resolve) => {
-            ffmpeg(inputPath)
+            const cmd = ffmpeg(inputPath)
                 .audioCodec('libopus')
                 .audioBitrate('128k')
-                .noVideo()
+                .noVideo();
+
+            if (meta) {
+                const metaArgs = buildMetaArgs(meta);
+                if (metaArgs.length) cmd.outputOptions(metaArgs);
+            }
+
+            cmd
                 .output(tempOutputPath)
                 .on('end', () => {
                     try {
@@ -117,7 +151,7 @@ export class MediaConverter {
      * Used to generate an iOS-compatible fallback alongside the OGG primary.
      * Output path replaces the source extension with `.mp3`.
      */
-    static async convertToMp3(inputPath: string): Promise<string> {
+    static async convertToMp3(inputPath: string, meta?: AudioMetaTags): Promise<string> {
         const base = inputPath.replace(/\.[^.]+$/, '');
         const outputPath = base + '.mp3';
         const tempOutputPath = base + '._converting_mp3.mp3';
@@ -126,10 +160,17 @@ export class MediaConverter {
         if (inputPath === outputPath) return outputPath;
 
         return new Promise((resolve) => {
-            ffmpeg(inputPath)
+            const cmd = ffmpeg(inputPath)
                 .audioCodec('libmp3lame')
                 .audioBitrate('192k')
-                .noVideo()
+                .noVideo();
+
+            if (meta) {
+                const metaArgs = buildMetaArgs(meta);
+                if (metaArgs.length) cmd.outputOptions(metaArgs);
+            }
+
+            cmd
                 .output(tempOutputPath)
                 .on('end', () => {
                     try {
@@ -144,7 +185,7 @@ export class MediaConverter {
                 .on('error', (err) => {
                     logger.warn(`MP3 fallback conversion failed for ${path.basename(inputPath)}: ${err.message}`);
                     if (fs.existsSync(tempOutputPath)) { try { fs.unlinkSync(tempOutputPath); } catch {} }
-                    resolve(inputPath); // return whatever we have on failure
+                    resolve(inputPath);
                 })
                 .run();
         });
