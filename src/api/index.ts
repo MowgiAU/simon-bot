@@ -8743,6 +8743,26 @@ app.get('/api/musician/tracks/:username/:trackSlug', async (req, res) => {
             })) as any;
         }
 
+        // Third fallback: track was uploaded before slugs existed (slug = null).
+        // Derive the expected slug from each candidate's title and compare.
+        if (!track) {
+            const profiles = await db.musicianProfile.findMany({
+                where: { username: { equals: username, mode: 'insensitive' } },
+                select: { id: true },
+            });
+            if (profiles.length > 0) {
+                const candidates = await db.track.findMany({
+                    where: { profileId: { in: profiles.map(p => p.id) }, slug: null },
+                    include: includeShape,
+                }) as any[];
+                track = candidates.find((t: any) => safeTrackSlug(t.title) === trackSlug.toLowerCase()) || null;
+                // Backfill the slug so future lookups hit the DB index
+                if (track) {
+                    db.track.update({ where: { id: track.id }, data: { slug: trackSlug } }).catch(() => {});
+                }
+            }
+        }
+
         if (!track) {
             // Verify whether the artist exists at all for a better error message
             const artistExists = await db.musicianProfile.findFirst({
@@ -10899,15 +10919,19 @@ app.put('/api/admin/accounts/:id', requireAdmin, async (req: any, res) => {
 
         // Fetch old username before overwriting so we can invalidate the old cache key
         const oldUser = updates.username
-            ? await db.user.findUnique({ where: { id: targetId }, select: { username: true } })
+            ? await db.user.findUnique({ where: { id: targetId }, select: { username: true, discordId: true } })
             : null;
 
         const updated = await db.user.update({ where: { id: targetId }, data: updates });
 
-        // Keep MusicianProfile in sync — profile URL is based on MusicianProfile.username
+        // Keep MusicianProfile in sync — profile URL is based on MusicianProfile.username.
+        // Legacy profiles may store userId = discordId (snowflake) instead of User.id (cuid),
+        // so we match both to ensure the old username no longer resolves.
         if (updates.username) {
+            const profileWhere: any[] = [{ userId: targetId }];
+            if (oldUser?.discordId) profileWhere.push({ userId: oldUser.discordId });
             await db.musicianProfile.updateMany({
-                where: { userId: targetId },
+                where: { OR: profileWhere },
                 data: { username: updates.username },
             });
             if (oldUser?.username) invalidateProfileCache(oldUser.username);

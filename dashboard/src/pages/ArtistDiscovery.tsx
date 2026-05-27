@@ -335,7 +335,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
                             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '16px 0' }}>
                                 <h2 style={{ fontSize: isMobile ? '24px' : '34px', fontWeight: 900, margin: '0 0 6px', lineHeight: 1.1, color: '#fff' }}>
                                     {heroType === 'track' && heroTrack ? (
-                                        <Link to={`/tracks/${heroTrack.slug || heroTrack.id}`} style={{ color: 'inherit', textDecoration: 'none' }}
+                                        <Link to={`/track/${heroTrack.profile.username}/${heroTrack.slug || heroTrack.id}`} style={{ color: 'inherit', textDecoration: 'none' }}
                                             onMouseEnter={e => (e.currentTarget.style.textDecoration = 'underline')}
                                             onMouseLeave={e => (e.currentTarget.style.textDecoration = 'none')}
                                         >{heroTitle}</Link>
