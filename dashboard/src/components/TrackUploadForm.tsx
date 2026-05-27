@@ -288,7 +288,6 @@ export const TrackUploadForm: React.FC<TrackUploadFormProps> = ({
         let scanTimer: ReturnType<typeof setTimeout> | null = null;
         try {
             const res = await axios.post(`${API}/api/musician/tracks`, formData, {
-                headers: { 'Content-Type': 'multipart/form-data' },
                 withCredentials: true,
                 onUploadProgress: evt => {
                     if (evt.total) {

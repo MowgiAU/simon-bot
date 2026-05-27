@@ -338,7 +338,7 @@ export const BattleEntryPage: React.FC = () => {
             if (editArtworkFile) formData.append('artwork', editArtworkFile);
             if (editProjectFile) formData.append('project', editProjectFile);
             const endpoint = isOwner ? `/api/musician/tracks/${track.id}` : `/api/admin/tracks/${track.id}`;
-            const res = await axios.put(endpoint, formData, { headers: { 'Content-Type': 'multipart/form-data' }, withCredentials: true });
+            const res = await axios.put(endpoint, formData, { withCredentials: true });
             setEntry(prev => prev ? { ...prev, track: res.data } : prev);
             setEditing(false);
             setEditMsg({ type: 'success', text: 'Track updated successfully!' });

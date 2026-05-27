@@ -437,7 +437,6 @@ export const TrackPage: React.FC = () => {
                 : `/api/admin/tracks/${track.id}`;
 
             const res = await axios.put(endpoint, formData, {
-                headers: { 'Content-Type': 'multipart/form-data' },
                 withCredentials: true
             });
             

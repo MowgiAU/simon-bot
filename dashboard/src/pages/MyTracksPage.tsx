@@ -312,7 +312,6 @@ export const MyTracksPage: React.FC = () => {
         let scanTimer: ReturnType<typeof setTimeout> | null = null;
         try {
             const res = await axios.post('/api/musician/tracks', formData, {
-                headers: { 'Content-Type': 'multipart/form-data' },
                 withCredentials: true,
                 onUploadProgress: (evt) => {
                     if (evt.total) {
@@ -407,7 +406,6 @@ export const MyTracksPage: React.FC = () => {
             formData.append('genreIds', JSON.stringify(selectedTrackGenres));
 
             const res = await axios.put(`/api/musician/tracks/${editingTrack.id}`, formData, {
-                headers: { 'Content-Type': 'multipart/form-data' },
                 withCredentials: true,
                 onUploadProgress: audioFile ? (evt) => {
                     if (evt.total) {

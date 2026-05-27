@@ -120,46 +120,60 @@ const upload = multer({
     fileSize: 500 * 1024 * 1024 // 500MB — accommodates large ZIP loop/sample packs
   },
   fileFilter: (req, file, cb) => {
+    // Safe extension extraction: returns '' when filename has no dot (avoids slice(-1) returning last char)
+    const dotIdx = file.originalname.lastIndexOf('.');
+    const ext = dotIdx !== -1 ? file.originalname.toLowerCase().slice(dotIdx) : '';
+
     if (file.fieldname === 'audio') {
       const audioExtensions = ['.mp3', '.wav', '.flac', '.ogg', '.aac', '.m4a', '.wma', '.aiff', '.aif', '.opus', '.webm'];
-      const ext = file.originalname.toLowerCase().slice(file.originalname.lastIndexOf('.'));
-      if (file.mimetype.startsWith('audio/') || audioExtensions.includes(ext)) {
+      // Accept: any audio/* MIME, video/webm (Chrome records webm with video/* type),
+      // application/ogg, or application/octet-stream when extension is recognised.
+      // Some browsers (Firefox, Safari, Android) send application/octet-stream for audio files.
+      const mimeOk = file.mimetype.startsWith('audio/')
+        || file.mimetype === 'video/webm'
+        || file.mimetype === 'application/ogg'
+        || (file.mimetype === 'application/octet-stream' && audioExtensions.includes(ext));
+      if (mimeOk || audioExtensions.includes(ext)) {
         cb(null, true);
       } else {
-        cb(new Error('Only audio files are allowed for the track!'));
+        console.warn(`[Upload] Audio filter rejected: field=${file.fieldname} mime=${file.mimetype} ext="${ext}" name="${file.originalname}"`);
+        cb(new Error('Only audio files are allowed for the track! Supported formats: MP3, WAV, FLAC, OGG, AAC, M4A, AIFF, OPUS.'));
       }
     } else if (file.fieldname === 'artwork' || file.fieldname === 'cover' || file.fieldname === 'avatar' || file.fieldname === 'sponsorLogo' || file.fieldname === 'battleBanner' || file.fieldname === 'embedImage' || file.fieldname === 'articleImage' || file.fieldname === 'articleCover') {
-      if (file.mimetype.startsWith('image/')) {
+      const imageExts = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.avif'];
+      if (file.mimetype.startsWith('image/') || imageExts.includes(ext)) {
         cb(null, true);
       } else {
         cb(new Error(`Only image files are allowed for ${file.fieldname}!`));
       }
     } else if (file.fieldname === 'project') {
-      // Accept .flp, .als, or .zip (project + samples bundle)
-      const projExt = file.originalname.toLowerCase().slice(file.originalname.lastIndexOf('.'));
-      if (['.flp', '.als', '.zip'].includes(projExt) ||
-          file.mimetype === 'application/zip' || file.mimetype === 'application/x-zip-compressed') {
+      // Accept .flp, .als, or .zip (project + samples bundle).
+      // ZIP MIME types vary widely across browsers/OS: application/zip, application/x-zip-compressed,
+      // application/x-zip, multipart/x-zip, application/octet-stream — check extension as primary signal.
+      const zipMimes = ['application/zip', 'application/x-zip-compressed', 'application/x-zip', 'multipart/x-zip'];
+      const projExts = ['.flp', '.als', '.zip'];
+      if (projExts.includes(ext) || zipMimes.includes(file.mimetype) || file.mimetype === 'application/octet-stream') {
         cb(null, true);
       } else {
+        console.warn(`[Upload] Project filter rejected: mime=${file.mimetype} ext="${ext}" name="${file.originalname}"`);
         cb(new Error('Only project files (.flp, .als) or .zip bundles are allowed!'));
       }
     } else if (file.fieldname === 'articleAudio') {
       const audioExtensions = ['.mp3', '.wav', '.flac', '.ogg', '.aac', '.m4a', '.aiff', '.aif'];
-      const ext = file.originalname.toLowerCase().slice(file.originalname.lastIndexOf('.'));
-      if (file.mimetype.startsWith('audio/') || audioExtensions.includes(ext)) {
+      const mimeOk = file.mimetype.startsWith('audio/') || (file.mimetype === 'application/octet-stream' && audioExtensions.includes(ext));
+      if (mimeOk || audioExtensions.includes(ext)) {
         cb(null, true);
       } else {
         cb(new Error('Only audio files are allowed!'));
       }
     } else if (file.fieldname === 'articleProject') {
-      const ext = file.originalname.toLowerCase().slice(file.originalname.lastIndexOf('.'));
-      if (['.flp', '.zip', '.als', '.logicx'].includes(ext) || file.mimetype === 'application/zip' || file.mimetype === 'application/x-zip-compressed') {
+      const zipMimes = ['application/zip', 'application/x-zip-compressed', 'application/x-zip', 'multipart/x-zip'];
+      if (['.flp', '.zip', '.als', '.logicx'].includes(ext) || zipMimes.includes(file.mimetype) || file.mimetype === 'application/octet-stream') {
         cb(null, true);
       } else {
         cb(new Error('Only project files (.flp, .zip, .als) are allowed!'));
       }
     } else if (file.fieldname === 'articlePreset') {
-      const ext = file.originalname.toLowerCase().slice(file.originalname.lastIndexOf('.'));
       const presetExts = ['.fst', '.fxp', '.fxb', '.nmsv', '.vstpreset', '.adv', '.adg', '.aupreset', '.wav', '.zip', '.rar', '.7z'];
       if (presetExts.includes(ext) || file.mimetype === 'application/zip' || file.mimetype === 'application/x-zip-compressed' || file.mimetype === 'application/octet-stream') {
         cb(null, true);
@@ -7007,10 +7021,12 @@ app.post('/api/musician/tracks', uploadLimiter, upload.fields([
             return res.status(400).json({ error: validationErr.message });
         }
 
-        // Virus scan all uploaded files before processing
-        await scanFileForViruses(audioFile.path, 'audio');
-        if (artworkFile) await scanFileForViruses(artworkFile.path, 'artwork');
-        if (projectFile) await scanFileForViruses(projectFile.path, 'project');
+        // Virus scan all uploaded files before processing (run in parallel to halve wait time)
+        await Promise.all([
+            scanFileForViruses(audioFile.path, 'audio'),
+            artworkFile ? scanFileForViruses(artworkFile.path, 'artwork') : Promise.resolve(),
+            projectFile ? scanFileForViruses(projectFile.path, 'project') : Promise.resolve(),
+        ]);
 
         // Parse project file (.flp) or process ZIP bundle if provided
         let arrangement: object | null = null;
