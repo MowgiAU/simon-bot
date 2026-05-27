@@ -409,7 +409,8 @@ export const ArtistDiscoveryPage: React.FC = () => {
 
                         <div style={{ position: 'relative', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '18px', boxSizing: 'border-box' as const }}>
                             <div>
-                                <span style={{ display: 'inline-block', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.12em', color: colors.primary, background: `${colors.primary}25`, padding: '4px 10px', borderRadius: '4px' }}>
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.12em', color: colors.primary, background: `${colors.primary}25`, padding: '4px 10px', borderRadius: '4px', backdropFilter: 'blur(8px)' }}>
+                                    {heroType === 'artist' ? <Mic2 size={10} /> : heroType === 'playlist' ? <ListMusic size={10} /> : <Sparkles size={10} />}
                                     {heroLabel}
                                 </span>
                             </div>
