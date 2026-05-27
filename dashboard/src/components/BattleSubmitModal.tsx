@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { colors, borderRadius } from '../theme/theme';
-import { X, Upload, Music, Check, Loader2, Library, AlertCircle } from 'lucide-react';
-import { useAuth } from './AuthProvider';
+import { X, Upload, Music, Check, Loader2, Library } from 'lucide-react';
 import { TrackUploadForm } from './TrackUploadForm';
 
 const API = import.meta.env.VITE_API_URL || '';
@@ -29,7 +28,6 @@ interface BattleSubmitModalProps {
 type Tab = 'upload' | 'library';
 
 export const BattleSubmitModal: React.FC<BattleSubmitModalProps> = ({ battleId, requireProjectFile, open, onClose, onSubmitted }) => {
-    const { isGuildMember } = useAuth();
     const [tab, setTab] = useState<Tab>('upload');
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState('');
@@ -98,18 +96,7 @@ export const BattleSubmitModal: React.FC<BattleSubmitModalProps> = ({ battleId, 
                     <button onClick={onClose} style={{ background: 'none', border: 'none', color: colors.textSecondary, cursor: 'pointer', padding: '4px' }}><X size={20} /></button>
                 </div>
 
-                {!isGuildMember ? (
-                    <div style={{ padding: '32px 24px', textAlign: 'center' }}>
-                        <AlertCircle size={40} color="#FBBF24" style={{ marginBottom: '16px' }} />
-                        <h3 style={{ margin: '0 0 8px', color: colors.textPrimary, fontSize: '16px' }}>Discord Server Membership Required</h3>
-                        <p style={{ margin: '0 0 20px', color: colors.textSecondary, fontSize: '14px', lineHeight: 1.6 }}>You must be a member of our Discord server to submit battle entries.</p>
-                        <a href="https://discord.gg/flstudio" target="_blank" rel="noopener noreferrer"
-                            style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 24px', backgroundColor: '#5865F2', color: 'white', borderRadius: borderRadius.md, textDecoration: 'none', fontWeight: 600, fontSize: '14px' }}>
-                            Join Discord Server
-                        </a>
-                        <p style={{ margin: '16px 0 0', color: colors.textSecondary, fontSize: '12px' }}>After joining, log out and back in to refresh your session.</p>
-                    </div>
-                ) : (<>
+                <>
 
                 <div style={{ display: 'flex', padding: '12px 24px 0', gap: '8px' }}>
                     {([['upload', Upload, 'Upload New'] as const, ['library', Library, 'My Library'] as const]).map(([k, Icon, lbl]) => (
@@ -243,7 +230,7 @@ export const BattleSubmitModal: React.FC<BattleSubmitModalProps> = ({ battleId, 
                         </div>
                     )}
                 </div>
-                </>)}
+                </>
             </div>
         </div>
     );
