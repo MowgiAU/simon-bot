@@ -296,91 +296,99 @@ export const ArtistDiscoveryPage: React.FC = () => {
                         const statusBg = battle?.status === 'voting' ? 'rgba(251,191,36,0.22)' : battle?.status === 'active' ? 'rgba(52,211,153,0.22)' : battle?.status === 'completed' ? 'rgba(100,116,139,0.22)' : 'rgba(96,165,250,0.22)';
                         const statusLabel = battle?.status === 'voting' ? 'VOTING' : battle?.status === 'active' ? 'LIVE' : battle?.status === 'completed' ? 'ENDED' : 'UPCOMING';
                         return (
-                    <div style={{ ...panel, height: isMobile ? 'auto' : '400px', minHeight: isMobile ? '300px' : undefined, position: 'relative', overflow: 'hidden', gridColumn: isMobile ? undefined : 'span 3', padding: 0 }}>
-                        {bgImg && <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${bgImg})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />}
-                        <div style={{ position: 'absolute', inset: 0, background: bgImg
-                            ? 'linear-gradient(to right, rgba(10,13,24,0.97) 30%, rgba(10,13,24,0.72) 60%, rgba(10,13,24,0.3) 100%), linear-gradient(to top, rgba(10,13,24,0.5) 0%, transparent 50%)'
-                            : `linear-gradient(135deg, rgba(10,13,24,0.98) 0%, ${colors.primary}18 100%)`
-                        }} />
+                    <div style={{ ...panel, height: isMobile ? 'auto' : '400px', minHeight: isMobile ? '300px' : undefined, overflow: 'hidden', gridColumn: isMobile ? undefined : 'span 3', padding: 0, display: 'flex', flexDirection: 'column' }}>
 
-                        {battle?.cardImageUrl && battle?.bannerUrl && !isMobile && (
-                            <div style={{
-                                position: 'absolute', right: '32px', top: '50%', transform: 'translateY(-50%)',
-                                width: '190px', height: '190px', borderRadius: '16px', overflow: 'hidden',
-                                boxShadow: '0 20px 60px rgba(0,0,0,0.7)', border: '1px solid rgba(255,255,255,0.12)',
-                            }}>
-                                <img src={battle.cardImageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        {/* Banner image — full width, above title */}
+                        {bgImg && (
+                            <div style={{ width: '100%', height: isMobile ? '160px' : '200px', flexShrink: 0, position: 'relative', overflow: 'hidden' }}>
+                                <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${bgImg})`, backgroundSize: 'cover', backgroundPosition: 'center top' }} />
+                                <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '90px', background: 'linear-gradient(to bottom, transparent, rgba(10,13,24,1))' }} />
+                                {/* Status badges overlay */}
+                                <div style={{ position: 'absolute', top: '12px', left: isMobile ? '16px' : '24px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.12em', color: colors.primary, background: `${colors.primary}25`, padding: '4px 10px', borderRadius: '4px', backdropFilter: 'blur(8px)' }}>
+                                        <Swords size={10} />Beat Battle
+                                    </span>
+                                    {battle && (
+                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '4px 10px', backgroundColor: statusBg, color: statusColor, fontSize: '10px', fontWeight: 700, borderRadius: '999px', letterSpacing: '0.07em', backdropFilter: 'blur(8px)' }}>
+                                            <span className={battle.status === 'active' ? 'new-drops-pulse' : undefined} style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: 'currentColor', flexShrink: 0 }} />
+                                            {statusLabel}
+                                        </span>
+                                    )}
+                                </div>
                             </div>
                         )}
 
+                        {/* Content section */}
                         <div style={{
-                            position: 'relative', display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
-                            height: '100%', boxSizing: 'border-box',
-                            padding: isMobile ? '24px 20px' : '28px 32px',
-                            paddingRight: (battle?.cardImageUrl && battle?.bannerUrl && !isMobile) ? '248px' : (isMobile ? '20px' : '32px'),
+                            flex: 1,
+                            background: bgImg ? 'rgba(10,13,24,0.98)' : `linear-gradient(135deg, rgba(10,13,24,0.98) 0%, ${colors.primary}18 100%)`,
+                            padding: isMobile ? '16px 20px 20px' : '18px 28px 22px',
+                            display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+                            boxSizing: 'border-box' as const,
                         }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.12em', color: colors.primary, background: `${colors.primary}25`, padding: '4px 10px', borderRadius: '4px' }}>
-                                    <Swords size={10} />Beat Battle
-                                </span>
-                                {battle && (
-                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '4px 10px', backgroundColor: statusBg, color: statusColor, fontSize: '10px', fontWeight: 700, borderRadius: '999px', letterSpacing: '0.07em' }}>
-                                        <span className={battle.status === 'active' ? 'new-drops-pulse' : undefined} style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: 'currentColor', flexShrink: 0 }} />
-                                        {statusLabel}
+                            {/* Status badges when no banner image */}
+                            {!bgImg && (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.12em', color: colors.primary, background: `${colors.primary}25`, padding: '4px 10px', borderRadius: '4px' }}>
+                                        <Swords size={10} />Beat Battle
                                     </span>
-                                )}
-                            </div>
+                                    {battle && (
+                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '4px 10px', backgroundColor: statusBg, color: statusColor, fontSize: '10px', fontWeight: 700, borderRadius: '999px', letterSpacing: '0.07em' }}>
+                                            <span className={battle.status === 'active' ? 'new-drops-pulse' : undefined} style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: 'currentColor', flexShrink: 0 }} />
+                                            {statusLabel}
+                                        </span>
+                                    )}
+                                </div>
+                            )}
 
-                            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '16px 0' }}>
-                                {battle ? (
-                                    <>
-                                        <Link to={`/battles/${battle.id}`} style={{ textDecoration: 'none' }}>
-                                            <h2
-                                                style={{ fontSize: isMobile ? '26px' : '36px', fontWeight: 900, margin: '0 0 10px', lineHeight: 1.1, color: '#fff', textShadow: '0 2px 12px rgba(0,0,0,0.5)' }}
-                                                onMouseEnter={e => ((e.currentTarget as HTMLElement).style.textDecoration = 'underline')}
-                                                onMouseLeave={e => ((e.currentTarget as HTMLElement).style.textDecoration = 'none')}
-                                            >{battle.title}</h2>
-                                        </Link>
-                                        {battleDesc && (
-                                            <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.55)', lineHeight: 1.6, margin: '0 0 14px', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' as any }}>{battleDesc}</p>
-                                        )}
-                                        <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' as const, marginBottom: '10px' }}>
-                                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: 'rgba(255,255,255,0.6)' }}>
-                                                <Users size={12} />{battle._count?.entries ?? 0} {(battle._count?.entries ?? 0) === 1 ? 'entry' : 'entries'}
+                            {battle ? (
+                                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '8px' }}>
+                                    <Link to={`/battles/${battle.id}`} style={{ textDecoration: 'none' }}>
+                                        <h2
+                                            style={{ fontSize: isMobile ? '22px' : '30px', fontWeight: 900, margin: '0 0 6px', lineHeight: 1.1, color: '#fff', textShadow: '0 2px 12px rgba(0,0,0,0.5)' }}
+                                            onMouseEnter={e => ((e.currentTarget as HTMLElement).style.textDecoration = 'underline')}
+                                            onMouseLeave={e => ((e.currentTarget as HTMLElement).style.textDecoration = 'none')}
+                                        >{battle.title}</h2>
+                                    </Link>
+                                    {battleDesc && (
+                                        <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.55)', lineHeight: 1.6, margin: '0 0 8px', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any }}>{battleDesc}</p>
+                                    )}
+                                    <div style={{ display: 'flex', gap: '14px', flexWrap: 'wrap' as const }}>
+                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: 'rgba(255,255,255,0.6)' }}>
+                                            <Users size={12} />{battle._count?.entries ?? 0} {(battle._count?.entries ?? 0) === 1 ? 'entry' : 'entries'}
+                                        </span>
+                                        {battle.status === 'voting' && battle.votingEnd && (
+                                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: '#FBBF24' }}>
+                                                <Timer size={12} />Voting closes {new Date(battle.votingEnd).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                                             </span>
-                                            {battle.status === 'voting' && battle.votingEnd && (
-                                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: '#FBBF24' }}>
-                                                    <Timer size={12} />Voting closes {new Date(battle.votingEnd).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                                                </span>
-                                            )}
-                                            {battle.status === 'active' && battle.submissionEnd && (
-                                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: '#34D399' }}>
-                                                    <Timer size={12} />Submissions close {new Date(battle.submissionEnd).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                                                </span>
-                                            )}
-                                        </div>
-                                        {battle.prizes && battle.prizes.length > 0 && (
-                                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' as const }}>
-                                                {battle.prizes.slice(0, 3).map((p, i) => (
-                                                    <div key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: 'rgba(255,255,255,0.75)', background: 'rgba(255,255,255,0.07)', borderRadius: '6px', padding: '4px 10px', border: '1px solid rgba(255,255,255,0.08)' }}>
-                                                        <span>{i === 0 ? '\u{1F947}' : i === 1 ? '\u{1F948}' : '\u{1F949}'}</span>
-                                                        {p.title ? <span style={{ color: colors.primary, fontWeight: 700 }}>{p.title}</span> : <span>{p.description}</span>}
-                                                    </div>
-                                                ))}
-                                            </div>
                                         )}
-                                    </>
-                                ) : (
-                                    <div style={{ textAlign: 'center' as const }}>
-                                        <Swords size={40} color={colors.textSecondary} style={{ opacity: 0.15, marginBottom: '12px', display: 'block', margin: '0 auto 12px' }} />
-                                        <p style={{ fontSize: '16px', color: colors.textSecondary, margin: '0 0 6px' }}>No battle running right now</p>
-                                        <Link to="/battles" style={{ fontSize: '13px', color: colors.primary, textDecoration: 'none', fontWeight: 600 }}>View past battles →</Link>
+                                        {battle.status === 'active' && battle.submissionEnd && (
+                                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: '#34D399' }}>
+                                                <Timer size={12} />Submissions close {new Date(battle.submissionEnd).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                            </span>
+                                        )}
                                     </div>
-                                )}
-                            </div>
+                                    {battle.prizes && battle.prizes.length > 0 && (
+                                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' as const }}>
+                                            {battle.prizes.slice(0, 3).map((p, i) => (
+                                                <div key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: 'rgba(255,255,255,0.75)', background: 'rgba(255,255,255,0.07)', borderRadius: '6px', padding: '4px 10px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                                                    <span>{i === 0 ? '\u{1F947}' : i === 1 ? '\u{1F948}' : '\u{1F949}'}</span>
+                                                    {p.title ? <span style={{ color: colors.primary, fontWeight: 700 }}>{p.title}</span> : <span>{p.description}</span>}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            ) : (
+                                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                                    <Swords size={40} color={colors.textSecondary} style={{ opacity: 0.15, marginBottom: '12px' }} />
+                                    <p style={{ fontSize: '16px', color: colors.textSecondary, margin: '0 0 6px' }}>No battle running right now</p>
+                                    <Link to="/battles" style={{ fontSize: '13px', color: colors.primary, textDecoration: 'none', fontWeight: 600 }}>View past battles →</Link>
+                                </div>
+                            )}
 
                             {battle && (
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' as const, gap: '10px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' as const, gap: '10px', marginTop: '10px' }}>
                                     {battle.sponsor ? (
                                         <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '6px 12px', backgroundColor: 'rgba(0,0,0,0.45)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', backdropFilter: 'blur(8px)' }}>
                                             {battle.sponsor.logoUrl && <img src={battle.sponsor.logoUrl} alt="" style={{ width: '18px', height: '18px', borderRadius: '3px', objectFit: 'contain' }} />}
@@ -448,7 +456,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                     ) : heroTitle}
                                 </h3>
                                 {heroSubtitle && (
-                                    <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', marginBottom: '14px', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>
+                                    <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', marginBottom: '8px', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>
                                         {heroType === 'track' && heroTrack ? (
                                             <Link to={`/profile/${heroTrack.profile.username}`} style={{ color: 'inherit', textDecoration: 'none' }}
                                                 onMouseEnter={e => (e.currentTarget.style.textDecoration = 'underline')}
@@ -462,6 +470,17 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                         ) : heroSubtitle}
                                     </div>
                                 )}
+                                {(() => {
+                                    const desc = featured?.featuredDescription
+                                        || (heroType === 'artist' ? (heroArtist as any)?.bio : null)
+                                        || (heroType === 'track' ? heroTrack?.description : null)
+                                        || (heroType === 'playlist' ? heroPlaylist?.description : null);
+                                    return desc ? (
+                                        <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', lineHeight: 1.55, margin: '0 0 12px', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' as any }}>
+                                            {desc}
+                                        </p>
+                                    ) : null;
+                                })()}
                                 <div style={{ display: 'flex', gap: '8px' }}>
                                     {heroType === 'artist' && heroArtist && (
                                         <Link to={`/profile/${heroArtist.username}`} style={{
@@ -489,6 +508,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
                             </div>
                         </div>
                     </div>
+
 
                     {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• ROW 2: TRENDING ARTISTS / PLAYLISTS / TUTORIAL â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
 
