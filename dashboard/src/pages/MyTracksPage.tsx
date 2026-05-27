@@ -1342,16 +1342,30 @@ export const MyTracksPage: React.FC = () => {
                             title="View page">
                             <ExternalLink size={15} />
                         </a>
-                        <button onClick={() => { setEditingTrack(track); setIsAddingTrack(false); setSelectedTrackGenres(track.genres?.map((g: any) => g.genreId) || []); setEditingTrackLyrics(track.lyrics || ''); }}
-                            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', borderRadius: borderRadius.sm, background: 'none', border: `1px solid ${colors.glassBorder}`, color: colors.primary, cursor: 'pointer' }}
-                            title="Edit track">
-                            <Edit3 size={15} />
-                        </button>
-                        <button onClick={() => handleToggleStream(track)}
-                            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', borderRadius: borderRadius.sm, background: 'none', border: `1px solid ${colors.glassBorder}`, color: track.isPublic ? colors.primary : colors.textTertiary, cursor: 'pointer' }}
-                            title={track.isPublic ? 'Make private' : 'Make public'}>
-                            {track.isPublic ? <Eye size={15} /> : <EyeOff size={15} />}
-                        </button>
+                        {!(track as any)._battleEntry ? (
+                            <button onClick={() => { setEditingTrack(track); setIsAddingTrack(false); setSelectedTrackGenres(track.genres?.map((g: any) => g.genreId) || []); setEditingTrackLyrics(track.lyrics || ''); }}
+                                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', borderRadius: borderRadius.sm, background: 'none', border: `1px solid ${colors.glassBorder}`, color: colors.primary, cursor: 'pointer' }}
+                                title="Edit track">
+                                <Edit3 size={15} />
+                            </button>
+                        ) : (
+                            <div title={`Submitted to ${(track as any)._battleEntry.battleTitle || 'a battle'} — cannot edit`}
+                                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', borderRadius: borderRadius.sm, border: `1px solid rgba(255,255,255,0.06)`, color: 'rgba(255,255,255,0.2)', cursor: 'not-allowed' }}>
+                                <Edit3 size={15} />
+                            </div>
+                        )}
+                        {!(track as any)._battleEntry ? (
+                            <button onClick={() => handleToggleStream(track)}
+                                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', borderRadius: borderRadius.sm, background: 'none', border: `1px solid ${colors.glassBorder}`, color: track.isPublic ? colors.primary : colors.textTertiary, cursor: 'pointer' }}
+                                title={track.isPublic ? 'Make private' : 'Make public'}>
+                                {track.isPublic ? <Eye size={15} /> : <EyeOff size={15} />}
+                            </button>
+                        ) : (
+                            <div title={`Submitted to ${(track as any)._battleEntry.battleTitle || 'a battle'} — cannot change visibility`}
+                                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', borderRadius: borderRadius.sm, border: `1px solid rgba(255,255,255,0.06)`, color: 'rgba(255,255,255,0.2)', cursor: 'not-allowed' }}>
+                                {track.isPublic ? <Eye size={15} /> : <EyeOff size={15} />}
+                            </div>
+                        )}
                         {!(track as any)._battleEntry ? (
                             <button onClick={() => handleDeleteTrack(track.id)} aria-label={`Delete track: ${track.title}`}
                                 style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', borderRadius: borderRadius.sm, background: 'none', border: `1px solid rgba(239,68,68,0.2)`, color: colors.error, cursor: 'pointer' }}>

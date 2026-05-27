@@ -746,18 +746,23 @@ export const TrackPage: React.FC = () => {
                                     {user && !isOwner && (
                                         <ReportButton targetType="track" targetId={track.id} style={{ padding: '10px 16px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.15)', backgroundColor: 'rgba(255,255,255,0.05)', color: 'white', fontWeight: 600, fontSize: '13px' }} />
                                     )}
-                                    {canEdit && (
-                                        <button onClick={openEditMode}
-                                            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 16px', borderRadius: '8px', border: `1px solid ${colors.primary}44`, backgroundColor: `${colors.primary}11`, color: colors.primary, cursor: 'pointer', fontWeight: 600, fontSize: '13px' }}>
-                                            <Edit3 size={15} /> Edit
-                                        </button>
-                                    )}
-                                    {canEdit && (
-                                        <button onClick={() => setDeleteConfirmOpen(true)}
-                                            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 16px', borderRadius: '8px', border: '1px solid rgba(239,68,68,0.4)', backgroundColor: 'rgba(239,68,68,0.1)', color: '#EF4444', cursor: 'pointer', fontWeight: 600, fontSize: '13px' }}>
-                                            <Trash2 size={15} /> Delete
-                                        </button>
-                                    )}
+                                    {canEdit && (() => {
+                                        const inBattle = Array.isArray((track as any).battles) && (track as any).battles.length > 0;
+                                        const battleName = inBattle ? ((track as any).battles[0]?.battleTitle || 'a battle') : '';
+                                        const lockedStyle = { opacity: 0.35, cursor: 'not-allowed' as const };
+                                        return (<>
+                                            <button onClick={inBattle ? undefined : openEditMode}
+                                                title={inBattle ? `Submitted to ${battleName} — cannot edit` : undefined}
+                                                style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 16px', borderRadius: '8px', border: `1px solid ${colors.primary}44`, backgroundColor: `${colors.primary}11`, color: colors.primary, fontWeight: 600, fontSize: '13px', ...(inBattle ? lockedStyle : { cursor: 'pointer' }) }}>
+                                                <Edit3 size={15} /> Edit
+                                            </button>
+                                            <button onClick={inBattle ? undefined : () => setDeleteConfirmOpen(true)}
+                                                title={inBattle ? `Submitted to ${battleName} — cannot delete` : undefined}
+                                                style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 16px', borderRadius: '8px', border: '1px solid rgba(239,68,68,0.4)', backgroundColor: 'rgba(239,68,68,0.1)', color: '#EF4444', fontWeight: 600, fontSize: '13px', ...(inBattle ? lockedStyle : { cursor: 'pointer' }) }}>
+                                                <Trash2 size={15} /> Delete
+                                            </button>
+                                        </>);
+                                    })()}
                                 </div>
                                 </div>
                             </div>
