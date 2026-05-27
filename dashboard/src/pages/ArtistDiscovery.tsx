@@ -300,9 +300,9 @@ export const ArtistDiscoveryPage: React.FC = () => {
 
                         {/* Banner image — full width, above title */}
                         {bgImg && (
-                            <div style={{ width: '100%', height: isMobile ? '140px' : '155px', flexShrink: 0, position: 'relative', overflow: 'hidden' }}>
+                            <div style={{ width: '100%', height: isMobile ? '180px' : '220px', flexShrink: 0, position: 'relative', overflow: 'hidden' }}>
                                 <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${bgImg})`, backgroundSize: 'cover', backgroundPosition: 'center top' }} />
-                                <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '90px', background: 'linear-gradient(to bottom, transparent, rgba(10,13,24,1))' }} />
+                                <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '130px', background: 'linear-gradient(to bottom, transparent, rgba(10,13,24,1))' }} />
                                 {/* Status badges overlay */}
                                 <div style={{ position: 'absolute', top: '12px', left: isMobile ? '16px' : '24px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.12em', color: colors.primary, background: `${colors.primary}25`, padding: '4px 10px', borderRadius: '4px', backdropFilter: 'blur(8px)' }}>
@@ -321,10 +321,13 @@ export const ArtistDiscoveryPage: React.FC = () => {
                         {/* Content section */}
                         <div style={{
                             flex: 1,
-                            background: bgImg ? 'rgba(10,13,24,0.98)' : `linear-gradient(135deg, rgba(10,13,24,0.98) 0%, ${colors.primary}18 100%)`,
+                            background: bgImg
+                                ? 'linear-gradient(to bottom, transparent 0%, rgba(10,13,24,0.92) 40px, rgba(10,13,24,0.98) 90px)'
+                                : `linear-gradient(135deg, rgba(10,13,24,0.98) 0%, ${colors.primary}18 100%)`,
                             padding: isMobile ? '16px 20px 20px' : '18px 28px 22px',
                             display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
                             boxSizing: 'border-box' as const,
+                            marginTop: bgImg ? (isMobile ? '-50px' : '-70px') : 0,
                         }}>
                             {/* Status badges when no banner image */}
                             {!bgImg && (
