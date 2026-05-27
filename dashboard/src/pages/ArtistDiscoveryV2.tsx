@@ -328,9 +328,38 @@ export const ArtistDiscoveryPage: React.FC = () => {
 
                             {/* Middle: title + subtitle + description */}
                             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '16px 0' }}>
-                                <h2 style={{ fontSize: isMobile ? '24px' : '34px', fontWeight: 900, margin: '0 0 6px', lineHeight: 1.1, color: '#fff' }}>{heroTitle}</h2>
+                                <h2 style={{ fontSize: isMobile ? '24px' : '34px', fontWeight: 900, margin: '0 0 6px', lineHeight: 1.1, color: '#fff' }}>
+                                    {heroType === 'track' && heroTrack ? (
+                                        <Link to={`/tracks/${heroTrack.slug || heroTrack.id}`} style={{ color: 'inherit', textDecoration: 'none' }}
+                                            onMouseEnter={e => (e.currentTarget.style.textDecoration = 'underline')}
+                                            onMouseLeave={e => (e.currentTarget.style.textDecoration = 'none')}
+                                        >{heroTitle}</Link>
+                                    ) : heroType === 'artist' && heroArtist ? (
+                                        <Link to={`/profile/${heroArtist.username}`} style={{ color: 'inherit', textDecoration: 'none' }}
+                                            onMouseEnter={e => (e.currentTarget.style.textDecoration = 'underline')}
+                                            onMouseLeave={e => (e.currentTarget.style.textDecoration = 'none')}
+                                        >{heroTitle}</Link>
+                                    ) : heroType === 'playlist' && heroPlaylist ? (
+                                        <Link to={`/playlists/${heroPlaylist.id}`} style={{ color: 'inherit', textDecoration: 'none' }}
+                                            onMouseEnter={e => (e.currentTarget.style.textDecoration = 'underline')}
+                                            onMouseLeave={e => (e.currentTarget.style.textDecoration = 'none')}
+                                        >{heroTitle}</Link>
+                                    ) : heroTitle}
+                                </h2>
                                 {heroSubtitle && (
-                                    <div style={{ fontSize: '14px', color: 'rgba(255,255,255,0.55)', marginBottom: '10px', fontWeight: 500 }}>{heroSubtitle}</div>
+                                    <div style={{ fontSize: '14px', color: 'rgba(255,255,255,0.55)', marginBottom: '10px', fontWeight: 500 }}>
+                                        {heroType === 'track' && heroTrack ? (
+                                            <Link to={`/profile/${heroTrack.profile.username}`} style={{ color: 'inherit', textDecoration: 'none' }}
+                                                onMouseEnter={e => (e.currentTarget.style.textDecoration = 'underline')}
+                                                onMouseLeave={e => (e.currentTarget.style.textDecoration = 'none')}
+                                            >{heroSubtitle}</Link>
+                                        ) : heroType === 'playlist' && heroPlaylist?.profile ? (
+                                            <Link to={`/profile/${heroPlaylist.profile.username}`} style={{ color: 'inherit', textDecoration: 'none' }}
+                                                onMouseEnter={e => (e.currentTarget.style.textDecoration = 'underline')}
+                                                onMouseLeave={e => (e.currentTarget.style.textDecoration = 'none')}
+                                            >{heroSubtitle}</Link>
+                                        ) : heroSubtitle}
+                                    </div>
                                 )}
                                 {heroType === 'artist' && heroArtist?.bio && !featured?.featuredDescription && (
                                     <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.45)', lineHeight: 1.65, margin: 0, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' as any }}>{heroArtist.bio}</p>
@@ -342,8 +371,8 @@ export const ArtistDiscoveryPage: React.FC = () => {
 
                             {/* Bottom: track strip + action buttons */}
                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'nowrap' }}>
-                                {/* Track pills — infinite marquee */}
-                                {heroTrackList.length > 0 && (
+                                {/* Track pills — infinite marquee (playlists and artists only, not single tracks) */}
+                                {heroTrackList.length > 0 && heroType !== 'track' && (
                                 <div style={{ flex: 1, overflow: 'hidden', minWidth: 0, maskImage: 'linear-gradient(to right, transparent 0%, black 6%, black 94%, transparent 100%)' } as React.CSSProperties}>
                                     <div className="hero-marquee-track">
                                         {[...heroTrackList, ...heroTrackList].map((t, i) => (
