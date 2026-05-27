@@ -313,7 +313,6 @@ export const ArtistDiscoveryPage: React.FC = () => {
                             position: 'relative',
                             height: '100%',
                             padding: isMobile ? '16px 20px 20px' : '18px 28px 22px',
-                            paddingTop: isMobile ? '16px' : '60px',
                             display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
                             boxSizing: 'border-box' as const,
                         }}>
@@ -331,7 +330,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
                             </div>
 
                             {battle ? (
-                                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '8px' }}>
+                                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', gap: '8px', paddingBottom: '8px' }}>
                                     <Link to={`/battles/${battle.id}`} style={{ textDecoration: 'none' }}>
                                         <h2
                                             style={{ fontSize: isMobile ? '22px' : '30px', fontWeight: 900, margin: '0 0 6px', lineHeight: 1.1, color: '#fff', textShadow: '0 2px 12px rgba(0,0,0,0.5)' }}
