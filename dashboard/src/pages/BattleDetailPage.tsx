@@ -397,6 +397,7 @@ export const BattleDetailPage: React.FC = () => {
     const entries = battle.entries || [];
     const isLive = battle.status === 'active' || battle.status === 'voting';
     const isCompleted = battle.status === 'completed';
+    const isVotingPhase = battle.status === 'voting' || battle.status === 'sudden_death';
 
     // ── Points-based ranking (rank 1 = 3pts, rank 2 = 2pts, rank 3 = 1pt) ──
     // Tiebreakers: more 1st-place votes, then more 2nd-place votes, then earliest submission.
@@ -416,22 +417,16 @@ export const BattleDetailPage: React.FC = () => {
         if (sortOrder === 'top' && isCompleted) {
             return [...entries].sort(cmpByPoints);
         }
-        // During voting (or sudden death), shuffle entries with a per-mount
-        // seed so position bias doesn't influence votes. Order stays stable
-        // across re-renders within the same page visit.
-        if (battle.status === 'voting' || battle.status === 'sudden_death') {
-            // Seeded shuffle: deterministic from shuffleSeed but appears random.
-            const seeded = entries.map((e, i) => {
-                let h = Math.floor(shuffleSeed * 2_147_483_647) ^ i;
-                h = (h * 16807) % 2_147_483_647;
-                // Mix in entry id chars for extra spread
-                for (let c = 0; c < e.id.length; c++) h = ((h * 31) + e.id.charCodeAt(c)) | 0;
-                return { e, k: h };
-            });
-            seeded.sort((a, b) => a.k - b.k);
-            return seeded.map(s => s.e);
-        }
-        return [...entries].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        // Seeded per-mount shuffle so entries appear in a fresh random order on
+        // every page visit across all phases. Prevents position bias.
+        const seeded = entries.map((e, i) => {
+            let h = Math.floor(shuffleSeed * 2_147_483_647) ^ i;
+            h = (h * 16807) % 2_147_483_647;
+            for (let c = 0; c < e.id.length; c++) h = ((h * 31) + e.id.charCodeAt(c)) | 0;
+            return { e, k: h };
+        });
+        seeded.sort((a, b) => a.k - b.k);
+        return seeded.map(s => s.e);
     })();
 
     const rules = battle.rules
@@ -804,6 +799,8 @@ export const BattleDetailPage: React.FC = () => {
                     </section>
                 )}
 
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <div style={{ order: isVotingPhase ? 2 : 1 }}>
                 {/* ── RULES + PRIZES ── */}
                 <section style={{ maxWidth: '1300px', margin: '0 auto', padding: isMobile ? '24px 16px 32px' : '32px 24px 48px' }}>
                     <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '24px' }}>
@@ -1006,6 +1003,8 @@ export const BattleDetailPage: React.FC = () => {
                     </section>
                 )}
 
+                </div>
+                <div style={{ order: isVotingPhase ? 1 : 2 }}>
                 {/* ── COMMUNITY SUBMISSIONS ── */}
                 <section id="submissions" style={{ maxWidth: '1300px', margin: '0 auto', padding: isMobile ? '32px 16px 56px' : '48px 24px 72px' }}>
 
@@ -1266,6 +1265,8 @@ export const BattleDetailPage: React.FC = () => {
                         </div>
                     )}
                 </section>
+                </div>
+                </div>
             </div>
             {voteNotification && createPortal(
                 <div style={{ position: 'fixed', bottom: '80px', left: '50%', transform: 'translateX(-50%)', zIndex: 99999, backgroundColor: '#1A1E2E', border: '1px solid rgba(249,115,22,0.35)', borderLeft: '4px solid #F97316', color: '#fff', padding: '14px 18px', borderRadius: '10px', fontSize: '13px', fontWeight: 500, boxShadow: '0 8px 32px rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', gap: '12px', maxWidth: '400px', width: 'calc(100vw - 48px)' }}>
