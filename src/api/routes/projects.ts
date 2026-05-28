@@ -750,4 +750,72 @@ export function registerProjectRoutes(
       }
     }
   });
+
+  // ─── Desktop app update manifest ──────────────────────────────────────
+
+  const DESKTOP_MANIFEST_PATH = path.join(PROJECT_ROOT, 'data', 'desktop-latest.json');
+
+  // Public endpoint — Tauri updater polls this on startup
+  app.get('/api/desktop/update', (req: any, res) => {
+    try {
+      if (!fs.existsSync(DESKTOP_MANIFEST_PATH)) {
+        return res.status(204).end(); // no release yet
+      }
+      const manifest = JSON.parse(fs.readFileSync(DESKTOP_MANIFEST_PATH, 'utf-8'));
+      res.json(manifest);
+    } catch {
+      res.status(204).end();
+    }
+  });
+
+  // Admin endpoint — called by the release script to publish a new version
+  const releaseUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 200 * 1024 * 1024 } });
+
+  app.post(
+    '/api/desktop/publish-release',
+    requireAdmin,
+    releaseUpload.fields([
+      { name: 'installer', maxCount: 1 },
+      { name: 'signature', maxCount: 1 },
+    ]),
+    async (req: any, res) => {
+      try {
+        const { version, notes } = req.body;
+        if (!version) return res.status(400).json({ error: 'version is required' });
+
+        const files = req.files as Record<string, Express.Multer.File[]>;
+        const installer = files?.installer?.[0];
+        const sigFile = files?.signature?.[0];
+        if (!installer || !sigFile) {
+          return res.status(400).json({ error: 'installer and signature files are required' });
+        }
+
+        const { R2Storage } = await import('../../services/R2Storage.js');
+        const r2Key = `desktop-releases/${version}/Fuji-Studio_${version}_x64-setup.exe`;
+        const installerUrl = await R2Storage.uploadBuffer(r2Key, installer.buffer, 'application/octet-stream');
+        const sig = sigFile.buffer.toString('utf-8').trim();
+
+        const manifest = {
+          version,
+          notes: notes || '',
+          pub_date: new Date().toISOString(),
+          platforms: {
+            'windows-x86_64': {
+              signature: sig,
+              url: installerUrl,
+            },
+          },
+        };
+
+        fs.mkdirSync(path.join(PROJECT_ROOT, 'data'), { recursive: true });
+        fs.writeFileSync(DESKTOP_MANIFEST_PATH, JSON.stringify(manifest, null, 2), 'utf-8');
+
+        logger.info(`Desktop release v${version} published`);
+        res.json({ success: true, manifest });
+      } catch (e: any) {
+        logger.error('Failed to publish desktop release', e);
+        res.status(500).json({ error: 'Internal server error' });
+      }
+    },
+  );
 }

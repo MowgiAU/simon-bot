@@ -46,6 +46,7 @@ const GenresPage             = lazy(() => import("./pages/GenresPage").then(m =>
 const AntiPiracySettingsPage = lazy(() => import("./pages/AntiPiracySettings").then(m => ({ default: m.AntiPiracySettings })));
 const LevelingSettingsPage   = lazy(() => import("./pages/LevelingSettings").then(m => ({ default: m.LevelingSettings })));
 const TermsPage              = lazy(() => import("./pages/TermsPage").then(m => ({ default: m.TermsPage })));
+const DownloadPage           = lazy(() => import("./pages/DownloadPage").then(m => ({ default: m.DownloadPage })));
 const CategoryResultsPage    = lazy(() => import("./pages/CategoryResultsPage").then(m => ({ default: m.CategoryResultsPage })));
 const FujiStudio             = lazy(() => import("./pages/FujiStudio").then(m => ({ default: m.FujiStudio })));
 const LibrarySettings        = lazy(() => import("./pages/LibrarySettings").then(m => ({ default: m.LibrarySettings })));
@@ -865,6 +866,11 @@ const AppInternal: React.FC = () => {
   if (currentPath.startsWith('/category/')) {
     const slug = currentPath.split('/category/')[1];
     return <Suspense fallback={<PageSpinner />}><CategoryResultsPage slug={slug} /></Suspense>;
+  }
+
+  // /download → Desktop app download page
+  if (currentPath === '/download') {
+    return <Suspense fallback={<PageSpinner />}><DownloadPage /></Suspense>;
   }
 
   // /terms → Terms of Service & Privacy Policy
