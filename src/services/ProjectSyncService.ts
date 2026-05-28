@@ -119,8 +119,32 @@ export class ProjectSyncService {
     const lastVersion = await db.projectVersion.findFirst({
       where: { projectId },
       orderBy: { versionNumber: 'desc' },
-      select: { versionNumber: true },
+      select: { versionNumber: true, id: true },
     });
+
+    // Skip creating a new version if the file set is identical to the last version
+    if (lastVersion) {
+      const lastEntries = await db.projectFileEntry.findMany({
+        where: { versionId: lastVersion.id },
+        select: { filePath: true, fileHash: true },
+      });
+      const incomingKey = files
+        .map(f => `${f.path}:${f.hash}`)
+        .sort()
+        .join('|');
+      const lastKey = lastEntries
+        .map(e => `${e.filePath}:${e.fileHash}`)
+        .sort()
+        .join('|');
+      if (incomingKey === lastKey) {
+        logger.info(`[ProjectSync] No changes detected for project ${projectId}, skipping version creation`);
+        return db.projectVersion.findUnique({
+          where: { id: lastVersion.id },
+          include: { fileEntries: true },
+        });
+      }
+    }
+
     const versionNumber = (lastVersion?.versionNumber ?? 0) + 1;
 
     const totalSize = files.reduce((sum, f) => sum + f.size, 0);
