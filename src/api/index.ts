@@ -11272,8 +11272,8 @@ app.post('/api/fuji/samples/:id/like', async (req: any, res) => {
     }
 });
 
-// Get detailed project data
-app.get('/api/projects/:sampleId', async (req, res) => {
+// Get detailed sample/project data (Fuji library viewer)
+app.get('/api/samples/:sampleId', async (req, res) => {
     try {
         const { sampleId } = req.params;
         const sample = await db.sampleMetadata.findUnique({

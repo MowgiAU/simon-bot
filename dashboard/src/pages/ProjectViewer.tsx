@@ -101,7 +101,7 @@ export const ProjectViewer: React.FC = () => {
     const handleSelectProject = async (sampleId: string) => {
         setLoading(true);
         try {
-            const res = await axios.get(`/api/projects/${sampleId}`);
+            const res = await axios.get(`/api/samples/${sampleId}`);
             setSelectedProject(res.data);
             setViewMode('timeline');
             
