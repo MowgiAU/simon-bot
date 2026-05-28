@@ -55,33 +55,28 @@ function cleanupExpiredAuths(): void {
 
 setInterval(cleanupExpiredAuths, 60_000);
 
-// ─── Desktop bearer tokens ──────────────────────────────────────────────────
-const activeTokens = new Map<string, { userId: string; expiresAt: Date }>();
-
-setInterval(() => {
-  const now = new Date();
-  for (const [token, data] of activeTokens) {
-    if (data.expiresAt <= now) activeTokens.delete(token);
-  }
-}, 60_000);
-
 /**
  * Express middleware that accepts either a session cookie (browser users)
  * or an `Authorization: Bearer <token>` header (desktop app OAuth).
- * All project routes use this instead of bare `requireAuth`.
+ * Tokens are persisted in the `desktop_tokens` DB table so they survive restarts.
  */
-function makeRequireProjectAuth(requireAuth: RequestHandler): RequestHandler {
-  return (req: any, res: any, next: any) => {
+function makeRequireProjectAuth(requireAuth: RequestHandler, db: PrismaClient): RequestHandler {
+  return async (req: any, res: any, next: any) => {
     const authHeader = req.headers?.authorization as string | undefined;
     if (authHeader?.startsWith('Bearer ')) {
       const token = authHeader.slice(7);
-      const data = activeTokens.get(token);
-      if (!data || data.expiresAt <= new Date()) {
-        return res.status(401).json({ error: 'Token invalid or expired. Please sign in again via the desktop app.' });
+      try {
+        const row = await db.desktopToken.findUnique({ where: { token } });
+        if (!row || row.expiresAt <= new Date()) {
+          return res.status(401).json({ error: 'Token invalid or expired. Please sign in again via the desktop app.' });
+        }
+        if (!req.session) req.session = {} as any;
+        req.session.user = { id: row.userId };
+        return next();
+      } catch (e) {
+        logger.error('Failed to validate desktop token', e);
+        return res.status(500).json({ error: 'Internal server error' });
       }
-      if (!req.session) req.session = {} as any;
-      req.session.user = { id: data.userId };
-      return next();
     }
     return requireAuth(req, res, next);
   };
@@ -96,7 +91,12 @@ export function registerProjectRoutes(
   requireAdmin: RequestHandler,
 ): void {
 
-  const requireProjectAuth = makeRequireProjectAuth(requireAuth);
+  const requireProjectAuth = makeRequireProjectAuth(requireAuth, db);
+
+  // Periodically prune expired desktop tokens from the DB
+  setInterval(async () => {
+    await db.desktopToken.deleteMany({ where: { expiresAt: { lte: new Date() } } }).catch(() => {});
+  }, 60 * 60 * 1000);
 
   const syncLimiter = rateLimit({
     windowMs: 60 * 1000,
@@ -151,7 +151,7 @@ export function registerProjectRoutes(
     });
   });
 
-  app.post('/api/oauth/device/poll', (req: any, res) => {
+  app.post('/api/oauth/device/poll', async (req: any, res) => {
     const { device_code } = req.body;
     if (!device_code) {
       return res.status(400).json({ error: 'device_code is required' });
@@ -175,7 +175,8 @@ export function registerProjectRoutes(
 
     const token = crypto.randomBytes(32).toString('hex');
     const TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
-    activeTokens.set(token, { userId: auth.userId!, expiresAt: new Date(Date.now() + TOKEN_TTL_MS) });
+    const expiresAt = new Date(Date.now() + TOKEN_TTL_MS);
+    await db.desktopToken.create({ data: { token, userId: auth.userId!, expiresAt } });
 
     res.json({
       access_token: token,
@@ -185,10 +186,12 @@ export function registerProjectRoutes(
     });
   });
 
-  app.post('/api/oauth/device/revoke', (req: any, res) => {
+  app.post('/api/oauth/device/revoke', async (req: any, res) => {
     const authHeader = req.headers?.authorization as string | undefined;
     const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : req.body?.token;
-    if (token) activeTokens.delete(token);
+    if (token) {
+      await db.desktopToken.deleteMany({ where: { token } }).catch(() => {});
+    }
     res.json({ success: true });
   });
 

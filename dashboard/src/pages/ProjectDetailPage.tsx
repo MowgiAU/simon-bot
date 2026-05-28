@@ -67,7 +67,8 @@ export const ProjectDetailPage: React.FC = () => {
   const [publishing, setPublishing] = useState(false);
 
   const fetchProject = useCallback(async () => {
-    if (!projectId || !user) return;
+    if (!projectId) return;
+    if (!user) { setLoading(false); return; }
     try {
       const r = await axios.get(`/api/projects/${projectId}`, { withCredentials: true });
       setProject(r.data);

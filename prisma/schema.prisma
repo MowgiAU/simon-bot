@@ -61,7 +61,8 @@ model User {
   // Soft delete
   deletedAt DateTime?
 
-  projects Project[]
+  projects       Project[]
+  desktopTokens  DesktopToken[]
 
   @@map("users")
 }
@@ -3041,5 +3042,17 @@ model ProjectTrackLink {
   @@index([projectId])
   @@index([trackId])
   @@map("project_track_links")
+}
+
+model DesktopToken {
+  token     String   @id
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("desktop_tokens")
 }
 
