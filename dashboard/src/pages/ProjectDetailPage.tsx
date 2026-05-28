@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { colors, spacing, borderRadius } from '../theme/theme';
 import { useAuth } from '../components/AuthProvider';
 import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import {
   FolderOpen, Clock, HardDrive, FileAudio, ChevronLeft,
@@ -47,8 +47,9 @@ const formatDate = (d: string) => {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 };
 
-export const ProjectDetailPage: React.FC = () => {
-  const { projectId } = useParams<{ projectId: string }>();
+interface Props { projectId?: string; }
+
+export const ProjectDetailPage: React.FC<Props> = ({ projectId }) => {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
 

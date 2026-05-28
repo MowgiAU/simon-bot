@@ -946,7 +946,8 @@ const AppInternal: React.FC = () => {
 
   // /projects/:projectId → Project detail with version history
   if (currentPath.startsWith('/projects/')) {
-    return <Suspense fallback={<PageSpinner />}><ProjectDetailPage /></Suspense>;
+    const projectId = currentPath.split('/projects/')[1]?.split('/')[0];
+    return <Suspense fallback={<PageSpinner />}><ProjectDetailPage projectId={projectId} /></Suspense>;
   }
 
   // /my-playlists → User's playlists
