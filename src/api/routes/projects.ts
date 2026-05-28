@@ -211,6 +211,28 @@ export function registerProjectRoutes(
     res.status(404).json({ error: 'Invalid or already used verification code' });
   });
 
+  // ─── Desktop track picker ──────────────────────────────────────────────
+
+  app.get('/api/projects/my-tracks', requireProjectAuth, async (req: any, res) => {
+    try {
+      const userId = req.session.user.id;
+      const profile = await db.musicianProfile.findFirst({
+        where: { userId },
+        orderBy: { totalPlays: 'desc' },
+      });
+      if (!profile) return res.json([]);
+      const tracks = await db.track.findMany({
+        where: { profileId: profile.id, status: 'active' },
+        select: { id: true, title: true, coverUrl: true, duration: true, isPublic: true },
+        orderBy: { createdAt: 'desc' },
+      });
+      res.json(tracks);
+    } catch (e: any) {
+      logger.error('Failed to fetch my tracks', e);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
   // ─── Project CRUD ──────────────────────────────────────────────────────
 
   app.get('/api/projects', requireProjectAuth, async (req: any, res) => {
