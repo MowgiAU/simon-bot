@@ -1051,7 +1051,7 @@ export const BattleDetailPage: React.FC = () => {
                                         🏆 How voting works
                                     </p>
                                     <p style={{ margin: 0, color: colors.textSecondary, fontSize: '13px', lineHeight: 1.5 }}>
-                                        Assign <strong>+3 pts</strong> to your favourite beat, <strong>+2 pts</strong> to your second pick, and <strong>+1 pt</strong> to your third. The entry with the most total points wins. Ties are broken by who has more +3 pt votes, then +2 pt votes. If it's still a deadlock, the battle enters <strong>Sudden Death</strong> — a short runoff between only the tied entries.
+                                        Assign <strong>+3 pts</strong> to your favourite beat, <strong>+2 pts</strong> to your second pick, and <strong>+1 pt</strong> to your third. The entry with the most total points wins. Ties are broken by who has more +3 pt votes, then +2 pt votes. If it's still a deadlock, the battle enters <strong>Sudden Death</strong>, a short runoff between only the tied entries.
                                     </p>
                                 </>
                             )}
