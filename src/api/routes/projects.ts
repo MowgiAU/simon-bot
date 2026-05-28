@@ -196,9 +196,9 @@ export function registerProjectRoutes(
       return res.status(400).json({ error: 'Missing verification code' });
     }
 
-    const normalized = code.replace(/\s+/g, '').toUpperCase();
+    const normalized = code.replace(/[\s-]/g, '').toUpperCase();
     for (const [, auth] of pendingDeviceAuths) {
-      if (auth.userCode.replace(/-/g, '').toUpperCase() === normalized && !auth.verified) {
+      if (auth.userCode.replace(/[\s-]/g, '').toUpperCase() === normalized && !auth.verified) {
         auth.verified = true;
         auth.userId = req.session?.user?.id || null;
         if (!auth.userId) {

@@ -28,7 +28,7 @@ export const OAuthDevicePage: React.FC = () => {
   }, [code]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const submit = async (codeToSubmit: string) => {
-    const normalized = codeToSubmit.replace(/\s+-/g, '').trim();
+    const normalized = codeToSubmit.replace(/[\s-]/g, '').trim();
     if (!normalized) return;
     setStage('loading');
     try {
