@@ -101,18 +101,20 @@ export function registerProjectRoutes(
   const syncLimiter = rateLimit({
     windowMs: 60 * 1000,
     max: 120,
-    keyGenerator: (req: any) => req.session?.user?.id || req.ip || '',
+    keyGenerator: (req: any) => req.session?.user?.id ?? 'unknown',
     standardHeaders: true,
     legacyHeaders: false,
+    validate: { trustProxy: false },
     message: { error: 'Too many sync requests. Please slow down.' },
   });
 
   const uploadLimiter = rateLimit({
     windowMs: 10 * 60 * 1000,
     max: 500,
-    keyGenerator: (req: any) => req.session?.user?.id || req.ip || '',
+    keyGenerator: (req: any) => req.session?.user?.id ?? 'unknown',
     standardHeaders: true,
     legacyHeaders: false,
+    validate: { trustProxy: false },
     message: { error: 'Too many file uploads. Please wait before continuing.' },
   });
 
