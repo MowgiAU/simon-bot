@@ -49,6 +49,7 @@ import {
   Puzzle,
   Activity,
   HardDrive,
+  Layers,
 } from 'lucide-react';
 import { AnimatedWrapper } from '../components/AnimatedWrapper';
 import logoUrl from '../assets/logo.svg'; 
@@ -489,6 +490,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             >
                 <span className="nav-icon"><AnimatedWrapper icon={Music} size={20} /></span>
                 <span className="nav-label">Music Library</span>
+            </button>
+          )}
+
+          {permissions.accessiblePlugins.includes('projects') && (
+            <button
+                className="nav-item"
+                onClick={() => navigate('/projects')}
+                title={collapsed ? "Projects" : ""}
+            >
+                <span className="nav-icon"><AnimatedWrapper icon={Layers} size={20} /></span>
+                <span className="nav-label">Projects</span>
             </button>
           )}
 

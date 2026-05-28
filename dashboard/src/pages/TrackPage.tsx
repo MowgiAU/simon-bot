@@ -937,7 +937,7 @@ export const TrackPage: React.FC = () => {
                                 {track.projectLink && user && user.id === track.profile.userId && (
                                     <a href={`/projects/${track.projectLink.projectId}`}
                                         style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', borderRadius: '8px', border: `1px solid ${colors.primary}55`, backgroundColor: `${colors.primary}15`, color: colors.primary, fontWeight: 600, fontSize: '12px', textDecoration: 'none' }}
-                                        title={`Source project: ${track.projectLink.project.name} v${track.projectLink.version.versionNumber}`}>
+                                        title={`Source project: ${track.projectLink.project?.name ?? 'Unknown'} v${track.projectLink.version?.versionNumber ?? '?'}`}>
                                         <Layers size={14} /> Source project
                                     </a>
                                 )}

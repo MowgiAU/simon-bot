@@ -323,7 +323,11 @@ export class ProjectSyncService {
       if (!blob) continue;
 
       if (blob.refCount <= 1) {
-        await R2Storage.deleteObject(blob.storageKey);
+        try {
+          await R2Storage.deleteObject(blob.storageKey);
+        } catch (err) {
+          logger.warn(`R2 delete failed for blob ${blob.storageKey}: ${err}`);
+        }
         await db.projectFileBlob.delete({ where: { hash: entry.fileHash } });
       } else {
         await db.projectFileBlob.update({
