@@ -1037,6 +1037,12 @@ const requireAuth: RequestHandler = (req, res, next) => {
     next();
 };
 const requireAdmin: RequestHandler = (req, res, next) => {
+    // Allow release scripts / CI to authenticate via ADMIN_API_KEY Bearer token
+    const adminKey = process.env.ADMIN_API_KEY;
+    if (adminKey) {
+        const auth = req.headers.authorization;
+        if (auth === `Bearer ${adminKey}`) return next();
+    }
     if (!req.session.user) {
         res.status(401).json({ error: 'Unauthorized' });
         return;
