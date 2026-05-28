@@ -54,6 +54,38 @@ function cleanupExpiredAuths(): void {
 
 setInterval(cleanupExpiredAuths, 60_000);
 
+// ─── Desktop bearer tokens ──────────────────────────────────────────────────
+const activeTokens = new Map<string, { userId: string; expiresAt: Date }>();
+
+setInterval(() => {
+  const now = new Date();
+  for (const [token, data] of activeTokens) {
+    if (data.expiresAt <= now) activeTokens.delete(token);
+  }
+}, 60_000);
+
+/**
+ * Express middleware that accepts either a session cookie (browser users)
+ * or an `Authorization: Bearer <token>` header (desktop app OAuth).
+ * All project routes use this instead of bare `requireAuth`.
+ */
+function makeRequireProjectAuth(requireAuth: RequestHandler): RequestHandler {
+  return (req: any, res: any, next: any) => {
+    const authHeader = req.headers?.authorization as string | undefined;
+    if (authHeader?.startsWith('Bearer ')) {
+      const token = authHeader.slice(7);
+      const data = activeTokens.get(token);
+      if (!data || data.expiresAt <= new Date()) {
+        return res.status(401).json({ error: 'Token invalid or expired. Please sign in again via the desktop app.' });
+      }
+      if (!req.session) req.session = {} as any;
+      req.session.user = { id: data.userId };
+      return next();
+    }
+    return requireAuth(req, res, next);
+  };
+}
+
 const TEMP_UPLOAD_DIR = path.join(process.cwd(), 'public', 'uploads', 'project-tmp');
 
 export function registerProjectRoutes(
@@ -62,6 +94,8 @@ export function registerProjectRoutes(
   requireAuth: RequestHandler,
   requireAdmin: RequestHandler,
 ): void {
+
+  const requireProjectAuth = makeRequireProjectAuth(requireAuth);
 
   // ─── OAuth Device Flow ──────────────────────────────────────────────────
 
@@ -118,10 +152,15 @@ export function registerProjectRoutes(
 
     pendingDeviceAuths.delete(device_code);
 
+    const token = crypto.randomBytes(32).toString('hex');
+    const TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+    activeTokens.set(token, { userId: auth.userId!, expiresAt: new Date(Date.now() + TOKEN_TTL_MS) });
+
     res.json({
-      access_token: auth.userId,
+      access_token: token,
       token_type: 'Bearer',
       scope: auth.scopes.join(' '),
+      expires_in: TOKEN_TTL_MS / 1000,
     });
   });
 
@@ -148,7 +187,7 @@ export function registerProjectRoutes(
 
   // ─── Project CRUD ──────────────────────────────────────────────────────
 
-  app.get('/api/projects', requireAuth, async (req: any, res) => {
+  app.get('/api/projects', requireProjectAuth, async (req: any, res) => {
     try {
       const userId = req.session.user.id;
       const projects = await db.project.findMany({
@@ -172,7 +211,7 @@ export function registerProjectRoutes(
     }
   });
 
-  app.post('/api/projects', requireAuth, async (req: any, res) => {
+  app.post('/api/projects', requireProjectAuth, async (req: any, res) => {
     try {
       const userId = req.session.user.id;
       const { name, description } = req.body;
@@ -202,7 +241,7 @@ export function registerProjectRoutes(
     }
   });
 
-  app.get('/api/projects/:projectId', requireAuth, async (req: any, res) => {
+  app.get('/api/projects/:projectId', requireProjectAuth, async (req: any, res) => {
     try {
       const userId = req.session.user.id;
       const project = await db.project.findFirst({
@@ -236,7 +275,7 @@ export function registerProjectRoutes(
     }
   });
 
-  app.put('/api/projects/:projectId', requireAuth, async (req: any, res) => {
+  app.put('/api/projects/:projectId', requireProjectAuth, async (req: any, res) => {
     try {
       const userId = req.session.user.id;
       const { name, description } = req.body;
@@ -267,7 +306,7 @@ export function registerProjectRoutes(
     }
   });
 
-  app.delete('/api/projects/:projectId', requireAuth, async (req: any, res) => {
+  app.delete('/api/projects/:projectId', requireProjectAuth, async (req: any, res) => {
     try {
       const userId = req.session.user.id;
       const existing = await db.project.findFirst({
@@ -289,7 +328,7 @@ export function registerProjectRoutes(
 
   // ─── Sync Protocol ─────────────────────────────────────────────────────
 
-  app.post('/api/projects/:projectId/versions/check', requireAuth, async (req: any, res) => {
+  app.post('/api/projects/:projectId/versions/check', requireProjectAuth, async (req: any, res) => {
     try {
       const userId = req.session.user.id;
       const project = await db.project.findFirst({
@@ -325,7 +364,7 @@ export function registerProjectRoutes(
 
   app.post(
     '/api/projects/:projectId/versions/upload-file',
-    requireAuth,
+    requireProjectAuth,
     blobUpload.single('file'),
     async (req: any, res) => {
       try {
@@ -365,7 +404,7 @@ export function registerProjectRoutes(
     },
   );
 
-  app.post('/api/projects/:projectId/versions/complete', requireAuth, async (req: any, res) => {
+  app.post('/api/projects/:projectId/versions/complete', requireProjectAuth, async (req: any, res) => {
     try {
       const userId = req.session.user.id;
       const project = await db.project.findFirst({
@@ -394,7 +433,7 @@ export function registerProjectRoutes(
 
   // ─── Version History ───────────────────────────────────────────────────
 
-  app.get('/api/projects/:projectId/versions', requireAuth, async (req: any, res) => {
+  app.get('/api/projects/:projectId/versions', requireProjectAuth, async (req: any, res) => {
     try {
       const userId = req.session.user.id;
       const project = await db.project.findFirst({
@@ -419,7 +458,7 @@ export function registerProjectRoutes(
     }
   });
 
-  app.get('/api/projects/:projectId/versions/:versionId/diff', requireAuth, async (req: any, res) => {
+  app.get('/api/projects/:projectId/versions/:versionId/diff', requireProjectAuth, async (req: any, res) => {
     try {
       const userId = req.session.user.id;
       const project = await db.project.findFirst({
@@ -488,7 +527,7 @@ export function registerProjectRoutes(
 
   // ─── Publishing ────────────────────────────────────────────────────────
 
-  app.post('/api/projects/:projectId/publish', requireAuth, async (req: any, res) => {
+  app.post('/api/projects/:projectId/publish', requireProjectAuth, async (req: any, res) => {
     try {
       const userId = req.session.user.id;
       const project = await db.project.findFirst({
@@ -572,7 +611,7 @@ export function registerProjectRoutes(
     }
   });
 
-  app.post('/api/projects/:projectId/unpublish', requireAuth, async (req: any, res) => {
+  app.post('/api/projects/:projectId/unpublish', requireProjectAuth, async (req: any, res) => {
     try {
       const userId = req.session.user.id;
       const project = await db.project.findFirst({
@@ -609,7 +648,7 @@ export function registerProjectRoutes(
 
   // ─── Downloads ─────────────────────────────────────────────────────────
 
-  app.get('/api/projects/:projectId/download/:versionId', requireAuth, async (req: any, res) => {
+  app.get('/api/projects/:projectId/download/:versionId', requireProjectAuth, async (req: any, res) => {
     try {
       const userId = req.session.user.id;
       const project = await db.project.findFirst({
