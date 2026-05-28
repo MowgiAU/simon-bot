@@ -47,6 +47,7 @@ const AntiPiracySettingsPage = lazy(() => import("./pages/AntiPiracySettings").t
 const LevelingSettingsPage   = lazy(() => import("./pages/LevelingSettings").then(m => ({ default: m.LevelingSettings })));
 const TermsPage              = lazy(() => import("./pages/TermsPage").then(m => ({ default: m.TermsPage })));
 const DownloadPage           = lazy(() => import("./pages/DownloadPage").then(m => ({ default: m.DownloadPage })));
+const OAuthDevicePage        = lazy(() => import("./pages/OAuthDevicePage").then(m => ({ default: m.OAuthDevicePage })));
 const CategoryResultsPage    = lazy(() => import("./pages/CategoryResultsPage").then(m => ({ default: m.CategoryResultsPage })));
 const FujiStudio             = lazy(() => import("./pages/FujiStudio").then(m => ({ default: m.FujiStudio })));
 const LibrarySettings        = lazy(() => import("./pages/LibrarySettings").then(m => ({ default: m.LibrarySettings })));
@@ -783,6 +784,11 @@ const AppInternal: React.FC = () => {
     }
   }, [currentPath]);
 
+  // Public pages that render without waiting for auth
+  if (currentPath === '/oauth/device') {
+    return <Suspense fallback={<PageSpinner />}><OAuthDevicePage /></Suspense>;
+  }
+
   // Wait for auth to resolve before rendering (beta check is instant now)
   if (loading) {
     return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: colors.background, color: colors.textSecondary }}>Loading...</div>;
@@ -868,7 +874,7 @@ const AppInternal: React.FC = () => {
     return <Suspense fallback={<PageSpinner />}><CategoryResultsPage slug={slug} /></Suspense>;
   }
 
-  // /download → Desktop app download page
+  // /download → Desktop app download page (public)
   if (currentPath === '/download') {
     return <Suspense fallback={<PageSpinner />}><DownloadPage /></Suspense>;
   }
