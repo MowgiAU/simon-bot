@@ -55,6 +55,7 @@ export const ProjectDetailPage: React.FC<Props> = ({ projectId }) => {
 
   const [project, setProject] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<number | null>(null);
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState('');
   const [editDesc, setEditDesc] = useState('');
@@ -73,8 +74,9 @@ export const ProjectDetailPage: React.FC<Props> = ({ projectId }) => {
     try {
       const r = await axios.get(`/api/projects/${projectId}`, { withCredentials: true });
       setProject(r.data);
-    } catch (e) {
-      console.error('Failed to fetch project', e);
+      setFetchError(null);
+    } catch (e: any) {
+      setFetchError(e?.response?.status ?? 0);
     } finally {
       setLoading(false);
     }
@@ -178,14 +180,27 @@ export const ProjectDetailPage: React.FC<Props> = ({ projectId }) => {
   }
 
   if (!project) {
+    const notLoggedIn = !user;
+    const isUnauthorized = fetchError === 401 || fetchError === 403;
     return (
       <DiscoveryLayout activeTab="profile">
         <div style={{ textAlign: 'center', padding: '80px 0' }}>
           <AlertCircle size={48} color={colors.textTertiary} style={{ marginBottom: '16px' }} />
-          <p style={{ color: colors.textSecondary }}>Project not found</p>
-          <button onClick={() => navigate('/projects')} style={{ ...btn, background: colors.primary, color: '#fff', marginTop: '12px' }}>
-            <ChevronLeft size={16} /> Back to Projects
-          </button>
+          {notLoggedIn || isUnauthorized ? (
+            <>
+              <p style={{ color: colors.textSecondary }}>You need to be signed in to view this project.</p>
+              <button onClick={() => navigate('/login')} style={{ ...btn, background: colors.primary, color: '#fff', marginTop: '12px' }}>
+                Sign in
+              </button>
+            </>
+          ) : (
+            <>
+              <p style={{ color: colors.textSecondary }}>Project not found</p>
+              <button onClick={() => navigate('/projects')} style={{ ...btn, background: colors.primary, color: '#fff', marginTop: '12px' }}>
+                <ChevronLeft size={16} /> Back to Projects
+              </button>
+            </>
+          )}
         </div>
       </DiscoveryLayout>
     );

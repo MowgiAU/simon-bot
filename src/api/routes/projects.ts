@@ -299,6 +299,7 @@ export function registerProjectRoutes(
   app.get('/api/projects/:projectId', requireProjectAuth, async (req: any, res) => {
     try {
       const userId = req.session.user._localId || req.session.user.id;
+      logger.info(`[ProjectDetail] Fetching ${req.params.projectId} for userId=${userId} (_localId=${req.session.user._localId} id=${req.session.user.id})`);
       const project = await db.project.findFirst({
         where: { id: req.params.projectId, userId, deletedAt: null },
         include: {
