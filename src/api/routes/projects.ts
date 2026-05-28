@@ -4,6 +4,7 @@ import path from 'path';
 import fs from 'fs';
 import crypto from 'crypto';
 import multer from 'multer';
+import { rateLimit } from 'express-rate-limit';
 import { ProjectSyncService } from '../../services/ProjectSyncService.js';
 import { Logger } from '../../bot/utils/logger.js';
 
@@ -97,6 +98,24 @@ export function registerProjectRoutes(
 
   const requireProjectAuth = makeRequireProjectAuth(requireAuth);
 
+  const syncLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 120,
+    keyGenerator: (req: any) => req.session?.user?.id || req.ip || '',
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many sync requests. Please slow down.' },
+  });
+
+  const uploadLimiter = rateLimit({
+    windowMs: 10 * 60 * 1000,
+    max: 500,
+    keyGenerator: (req: any) => req.session?.user?.id || req.ip || '',
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many file uploads. Please wait before continuing.' },
+  });
+
   // ─── OAuth Device Flow ──────────────────────────────────────────────────
 
   app.post('/api/oauth/device/start', (req: any, res) => {
@@ -162,6 +181,13 @@ export function registerProjectRoutes(
       scope: auth.scopes.join(' '),
       expires_in: TOKEN_TTL_MS / 1000,
     });
+  });
+
+  app.post('/api/oauth/device/revoke', (req: any, res) => {
+    const authHeader = req.headers?.authorization as string | undefined;
+    const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : req.body?.token;
+    if (token) activeTokens.delete(token);
+    res.json({ success: true });
   });
 
   app.get('/api/oauth/device/verify', (req: any, res) => {
@@ -328,7 +354,7 @@ export function registerProjectRoutes(
 
   // ─── Sync Protocol ─────────────────────────────────────────────────────
 
-  app.post('/api/projects/:projectId/versions/check', requireProjectAuth, async (req: any, res) => {
+  app.post('/api/projects/:projectId/versions/check', requireProjectAuth, syncLimiter, async (req: any, res) => {
     try {
       const userId = req.session.user.id;
       const project = await db.project.findFirst({
@@ -365,6 +391,7 @@ export function registerProjectRoutes(
   app.post(
     '/api/projects/:projectId/versions/upload-file',
     requireProjectAuth,
+    uploadLimiter,
     blobUpload.single('file'),
     async (req: any, res) => {
       try {
@@ -394,6 +421,17 @@ export function registerProjectRoutes(
         const mimeType = file.mimetype || 'application/octet-stream';
         const url = await ProjectSyncService.storeBlob(actualHash, buffer, mimeType);
 
+        await db.projectFileBlob.upsert({
+          where: { hash: actualHash },
+          update: { mimeType },
+          create: {
+            hash: actualHash,
+            storageKey: `project-blobs/${actualHash.slice(0, 2)}/${actualHash.slice(2)}`,
+            fileSize: buffer.length,
+            mimeType,
+          },
+        });
+
         fs.unlinkSync(file.path);
 
         res.json({ hash: actualHash, storageUrl: url });
@@ -404,7 +442,7 @@ export function registerProjectRoutes(
     },
   );
 
-  app.post('/api/projects/:projectId/versions/complete', requireProjectAuth, async (req: any, res) => {
+  app.post('/api/projects/:projectId/versions/complete', requireProjectAuth, syncLimiter, async (req: any, res) => {
     try {
       const userId = req.session.user.id;
       const project = await db.project.findFirst({
