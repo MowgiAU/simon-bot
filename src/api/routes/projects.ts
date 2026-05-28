@@ -499,6 +499,93 @@ export function registerProjectRoutes(
     }
   });
 
+  // ─── Version Audio Attachment ──────────────────────────────────────────
+
+  const AUDIO_DIR = path.join(PROJECT_ROOT, 'public', 'uploads', 'project-audio');
+
+  const audioUpload = multer({
+    storage: multer.diskStorage({
+      destination: (_req, _file, cb) => {
+        fs.mkdirSync(AUDIO_DIR, { recursive: true });
+        cb(null, AUDIO_DIR);
+      },
+      filename: (_req, file, cb) => {
+        const ext = path.extname(file.originalname) || '.mp3';
+        cb(null, `${Date.now()}-${crypto.randomBytes(6).toString('hex')}${ext}`);
+      },
+    }),
+    limits: { fileSize: 100 * 1024 * 1024 },
+    fileFilter: (_req, file, cb) => {
+      if (file.mimetype.startsWith('audio/')) return cb(null, true);
+      cb(new Error('Only audio files are accepted'));
+    },
+  });
+
+  app.post(
+    '/api/projects/:projectId/versions/:versionId/audio',
+    requireProjectAuth,
+    audioUpload.single('audio'),
+    async (req: any, res) => {
+      try {
+        const userId = req.session.user._localId || req.session.user.id;
+        const project = await db.project.findFirst({
+          where: { id: req.params.projectId, userId, deletedAt: null },
+        });
+        if (!project) return res.status(404).json({ error: 'Project not found' });
+
+        const version = await db.projectVersion.findUnique({ where: { id: req.params.versionId } });
+        if (!version || version.projectId !== req.params.projectId) {
+          return res.status(404).json({ error: 'Version not found' });
+        }
+
+        if (!req.file) return res.status(400).json({ error: 'No audio file provided' });
+
+        // Delete old audio file if present
+        if (version.audioUrl?.startsWith('/uploads/project-audio/')) {
+          const oldPath = path.join(PROJECT_ROOT, 'public', version.audioUrl);
+          fs.unlink(oldPath, () => {});
+        }
+
+        const audioUrl = `/uploads/project-audio/${req.file.filename}`;
+        const updated = await db.projectVersion.update({
+          where: { id: version.id },
+          data: { audioUrl },
+        });
+        res.json({ audioUrl: updated.audioUrl });
+      } catch (e: any) {
+        if (req.file) fs.unlink(req.file.path, () => {});
+        logger.error('Failed to upload audio', e);
+        res.status(500).json({ error: e.message || 'Internal server error' });
+      }
+    },
+  );
+
+  app.delete('/api/projects/:projectId/versions/:versionId/audio', requireProjectAuth, async (req: any, res) => {
+    try {
+      const userId = req.session.user._localId || req.session.user.id;
+      const project = await db.project.findFirst({
+        where: { id: req.params.projectId, userId, deletedAt: null },
+      });
+      if (!project) return res.status(404).json({ error: 'Project not found' });
+
+      const version = await db.projectVersion.findUnique({ where: { id: req.params.versionId } });
+      if (!version || version.projectId !== req.params.projectId) {
+        return res.status(404).json({ error: 'Version not found' });
+      }
+
+      if (version.audioUrl?.startsWith('/uploads/project-audio/')) {
+        const filePath = path.join(PROJECT_ROOT, 'public', version.audioUrl);
+        fs.unlink(filePath, () => {});
+      }
+
+      await db.projectVersion.update({ where: { id: version.id }, data: { audioUrl: null } });
+      res.json({ success: true });
+    } catch (e: any) {
+      logger.error('Failed to delete audio', e);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
   // ─── Version History ───────────────────────────────────────────────────
 
   app.get('/api/projects/:projectId/versions', requireProjectAuth, async (req: any, res) => {
