@@ -83,18 +83,26 @@ export class ProjectSyncService {
   static async readBlob(
     storageKey: string,
   ): Promise<Buffer> {
+    const { default: axios } = await import('axios');
+
     if (storageKey.startsWith('http')) {
-      const { default: axios } = await import('axios');
       const resp = await axios.get(storageKey, { responseType: 'arraybuffer' });
       return Buffer.from(resp.data);
     }
 
-    // Resolve local path: handles both "/uploads/project-blobs/..." and "project-blobs/..."
+    // Try local disk first
     const relativePath = storageKey.startsWith('/uploads/')
       ? storageKey.slice('/uploads/'.length)
       : storageKey;
     const localPath = path.join(process.cwd(), 'public', 'uploads', relativePath);
-    return fs.readFileSync(localPath);
+    if (fs.existsSync(localPath)) {
+      return fs.readFileSync(localPath);
+    }
+
+    // Not on local disk — fetch from CDN/R2
+    const cdnUrl = `${CDN_BASE}/${storageKey}`;
+    const resp = await axios.get(cdnUrl, { responseType: 'arraybuffer' });
+    return Buffer.from(resp.data);
   }
 
   /**
