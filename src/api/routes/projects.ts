@@ -199,11 +199,12 @@ export function registerProjectRoutes(
     const normalized = code.replace(/[\s-]/g, '').toUpperCase();
     for (const [, auth] of pendingDeviceAuths) {
       if (auth.userCode.replace(/[\s-]/g, '').toUpperCase() === normalized && !auth.verified) {
-        auth.verified = true;
-        auth.userId = req.session?.user?.id || null;
-        if (!auth.userId) {
+        const userId = req.session?.user?.id || null;
+        if (!userId) {
           return res.status(401).json({ error: 'You must be logged in to authorize this device' });
         }
+        auth.verified = true;
+        auth.userId = userId;
         return res.json({ success: true, message: 'Device authorized' });
       }
     }
