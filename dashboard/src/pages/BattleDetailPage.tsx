@@ -331,7 +331,7 @@ export const BattleDetailPage: React.FC = () => {
     };
 
     const castVote = async (entryId: string, rank: 1 | 2 | 3 | null) => {
-        if (!user) { window.location.href = '/api/auth/discord/login'; return; }
+        if (!user) { window.location.href = '/login'; return; }
         setVotingId(entryId);
         try {
             const res = await fetch(`${API}/api/beat-battle/entries/${entryId}/vote`, {
@@ -596,7 +596,7 @@ export const BattleDetailPage: React.FC = () => {
                                     </button>
                                 )}
                                 {battle.status === 'active' && !user && (
-                                    <a href="/api/auth/discord/login"
+                                    <a href="/login"
                                         style={{ backgroundColor: ACCENT, color: '#fff', padding: '12px 32px', borderRadius: borderRadius.lg, fontWeight: 700, fontSize: '15px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '8px', boxShadow: '0 8px 24px rgba(249,115,22,0.3)' }}>
                                         <LogIn size={16} /> Log in to Submit
                                     </a>
@@ -1071,7 +1071,7 @@ export const BattleDetailPage: React.FC = () => {
                                 </button>
                             )}
                             {battle.status === 'active' && !user && (
-                                <a href="/api/auth/discord/login"
+                                <a href="/login"
                                     style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginTop: '20px', backgroundColor: `${colors.primary}15`, color: colors.primary, textDecoration: 'none', fontSize: '13px', fontWeight: 600, padding: '9px 20px', borderRadius: '8px', border: `1px solid ${colors.primary}25` }}>
                                     <LogIn size={14} /> Log in to Submit
                                 </a>
@@ -1251,7 +1251,7 @@ export const BattleDetailPage: React.FC = () => {
                                                         </span>
                                                     )}
                                                     {!user && (battle.status === 'voting' || sdActive) && (
-                                                        <a href="/api/auth/discord/login"
+                                                        <a href="/login"
                                                             style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '8px 14px', color: colors.textSecondary, border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', textDecoration: 'none', fontSize: '12px' }}>
                                                             <LogIn size={12} /> Log in to vote
                                                         </a>
