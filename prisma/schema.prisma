@@ -61,6 +61,8 @@ model User {
   // Soft delete
   deletedAt DateTime?
 
+  projects Project[]
+
   @@map("users")
 }
 
@@ -1019,6 +1021,7 @@ model Track {
   radioQueues    RadioQueue[]
   radioHistories RadioHistory[]
   collaborators  TrackCollaborator[]
+  projectLink    ProjectTrackLink?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -2950,5 +2953,93 @@ model SiteSetting {
   updatedAt DateTime @updatedAt
 
   @@map("site_settings")
+}
+
+// ──────────────────────────────────────────────
+// Project Versioning System (Fuji Studio Desktop Sync)
+// ──────────────────────────────────────────────
+
+model Project {
+  id          String   @id @default(cuid())
+  userId      String
+  name        String
+  slug        String
+  description String?  @db.Text
+  arrangement  Json?   // Latest parsed FLP arrangement data
+  deletedAt   DateTime?
+
+  user       User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  versions   ProjectVersion[]
+  trackLinks ProjectTrackLink[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, slug])
+  @@index([userId])
+  @@map("projects")
+}
+
+model ProjectVersion {
+  id            String   @id @default(cuid())
+  projectId     String
+  versionNumber Int
+  message       String?  @db.Text
+  totalFiles    Int      @default(0)
+  totalSize     BigInt   @default(0)
+  arrangement   Json?    // FLP parsed data specific to this version
+  isParsed      Boolean  @default(false)
+
+  project     Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  fileEntries ProjectFileEntry[]
+  trackLinks  ProjectTrackLink[]
+
+  createdAt DateTime @default(now())
+
+  @@unique([projectId, versionNumber])
+  @@index([projectId])
+  @@map("project_versions")
+}
+
+model ProjectFileEntry {
+  id          String  @id @default(cuid())
+  versionId   String
+  filePath    String  // Relative path within project (e.g. "Samples/kick.wav")
+  fileHash    String  // SHA-256 hex, references ProjectFileBlob
+  fileSize    Int
+  isDirectory Boolean @default(false)
+
+  version ProjectVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
+
+  @@unique([versionId, filePath])
+  @@index([fileHash])
+  @@map("project_file_entries")
+}
+
+model ProjectFileBlob {
+  hash       String   @id // SHA-256 hex string
+  storageKey String   // R2 key: "project-blobs/{hash[0:2]}/{hash[2:]}"
+  fileSize   Int
+  mimeType   String?
+  refCount   Int      @default(1)
+  createdAt  DateTime @default(now())
+
+  @@map("project_file_blobs")
+}
+
+model ProjectTrackLink {
+  id        String   @id @default(cuid())
+  projectId String
+  versionId String
+  trackId   String   @unique
+  createdAt DateTime @default(now())
+
+  project Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  version ProjectVersion @relation(fields: [versionId], references: [id])
+  track   Track          @relation(fields: [trackId], references: [id])
+
+  @@index([projectId])
+  @@index([trackId])
+  @@map("project_track_links")
 }
 

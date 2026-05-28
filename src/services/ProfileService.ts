@@ -213,10 +213,19 @@ export class ProfileService {
                         album: true,
                         year: true,
                         projectFileUrl: true,
+                        projectZipUrl: true,
                         waveformPeaks: true, // included but downsampled to 60pts in API before sending
                         createdAt: true,
                         updatedAt: true,
                         genres: { include: { genre: true } },
+                        projectLink: {
+                            select: {
+                                id: true,
+                                projectId: true,
+                                versionId: true,
+                                version: { select: { versionNumber: true } },
+                            },
+                        },
                         _count: { select: { favourites: true, reposts: true, comments: true } },
                     },
                 },

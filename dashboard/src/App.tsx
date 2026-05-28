@@ -102,6 +102,8 @@ const UniversalSearch        = lazy(() => import("./components/UniversalSearch")
 const NotificationMenu       = lazy(() => import("./components/NotificationMenu").then(m => ({ default: m.NotificationMenu })));
 const LearnPage              = lazy(() => import("./pages/LearnPage").then(m => ({ default: m.LearnPage })));
 const DrumKitGeneratorPage   = lazy(() => import("./pages/DrumKitGenerator").then(m => ({ default: m.DrumKitGeneratorPage })));
+const ProjectListPage        = lazy(() => import("./pages/ProjectListPage").then(m => ({ default: m.ProjectListPage })));
+const ProjectDetailPage      = lazy(() => import("./pages/ProjectDetailPage").then(m => ({ default: m.ProjectDetailPage })));
 const ServerStatsPage        = lazy(() => import("./pages/ServerStats").then(m => ({ default: m.ServerStats })));
 const SupportPage            = lazy(() => import("./pages/SupportPage").then(m => ({ default: m.SupportPage })));
 const PageEmbedsPage         = lazy(() => import("./pages/PageEmbeds").then(m => ({ default: m.PageEmbedsPage })));
@@ -923,6 +925,16 @@ const AppInternal: React.FC = () => {
   // /messages → Private messaging
   if (currentPath === '/messages') {
     return <Suspense fallback={<PageSpinner />}><MessagesPage /></Suspense>;
+  }
+
+  // /projects → Project sync management
+  if (currentPath === '/projects') {
+    return <Suspense fallback={<PageSpinner />}><ProjectListPage /></Suspense>;
+  }
+
+  // /projects/:projectId → Project detail with version history
+  if (currentPath.startsWith('/projects/')) {
+    return <Suspense fallback={<PageSpinner />}><ProjectDetailPage /></Suspense>;
   }
 
   // /my-playlists → User's playlists

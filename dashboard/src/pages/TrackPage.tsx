@@ -69,6 +69,20 @@ interface Track {
             slug: string;
         }
     }>;
+    projectLink?: {
+        id: string;
+        projectId: string;
+        versionId: string;
+        createdAt: string;
+        project: { id: string; name: string; slug: string };
+        version: {
+            id: string;
+            versionNumber: number;
+            createdAt: string;
+            totalFiles: number;
+            totalSize: number;
+        };
+    } | null;
 }
 
 // Wrapper that creates refs for playback state so ArrangementViewer never re-renders during playback
@@ -920,6 +934,13 @@ export const TrackPage: React.FC = () => {
                                         <Package size={14} /> Download Project
                                     </a>
                                 )}
+                                {track.projectLink && user && user.id === track.profile.userId && (
+                                    <a href={`/projects/${track.projectLink.projectId}`}
+                                        style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', borderRadius: '8px', border: `1px solid ${colors.primary}55`, backgroundColor: `${colors.primary}15`, color: colors.primary, fontWeight: 600, fontSize: '12px', textDecoration: 'none' }}
+                                        title={`Source project: ${track.projectLink.project.name} v${track.projectLink.version.versionNumber}`}>
+                                        <Layers size={14} /> Source project
+                                    </a>
+                                )}
                                 {track.allowAudioDownload && (
                                     <button onClick={() => user ? window.open(`/api/downloads/audio/${track.id}`, '_blank') : (window.location.href = '/login')}
                                         style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.15)', backgroundColor: 'rgba(255,255,255,0.05)', color: 'white', fontWeight: 600, fontSize: '12px', cursor: 'pointer' }}>
@@ -928,6 +949,39 @@ export const TrackPage: React.FC = () => {
                                 )}
                             </div>
                         </div>
+
+                        {/* Project version banner — shown when the track was attached to a synced project */}
+                        {track.projectLink && (
+                            <div style={{
+                                padding: isMobile ? '10px 20px' : '10px 28px',
+                                background: 'rgba(16,185,129,0.05)',
+                                borderBottom: '1px solid rgba(255,255,255,0.06)',
+                                fontSize: '12px',
+                                color: colors.textSecondary,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                flexWrap: 'wrap',
+                            }}>
+                                <span style={{
+                                    display: 'inline-flex', alignItems: 'center', gap: '4px',
+                                    background: 'rgba(16,185,129,0.12)',
+                                    color: colors.primary,
+                                    padding: '2px 8px', borderRadius: '999px',
+                                    fontSize: '10px', fontWeight: 700,
+                                    textTransform: 'uppercase', letterSpacing: '0.06em',
+                                }}>
+                                    <Layers size={11} /> Synced
+                                </span>
+                                <span>
+                                    Version <strong style={{ color: colors.textPrimary }}>{track.projectLink.version.versionNumber}</strong>
+                                    {' · '}
+                                    {track.projectLink.version.totalFiles} files
+                                    {' · '}
+                                    Uploaded via Fuji Studio Desktop on {new Date(track.projectLink.version.createdAt).toLocaleDateString()}
+                                </span>
+                            </div>
+                        )}
 
                         {/* Arrangement timeline */}
                         {track.arrangement.tracks.some(t => t.clips.length > 0) && (

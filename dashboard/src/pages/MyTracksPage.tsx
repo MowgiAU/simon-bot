@@ -1316,6 +1316,14 @@ export const MyTracksPage: React.FC = () => {
                                     {trackTypeLabel}
                                 </span>
                             )}
+                            {(track as any).projectLink && (
+                                <span
+                                    title={`Synced from project (v${(track as any).projectLink.version?.versionNumber ?? '?'})`}
+                                    style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', padding: '1px 6px', borderRadius: '4px', flexShrink: 0, backgroundColor: 'rgba(16,185,129,0.15)', color: colors.primary, letterSpacing: '0.04em', display: 'inline-flex', alignItems: 'center', gap: '3px' }}
+                                >
+                                    <Disc size={10} /> Project
+                                </span>
+                            )}
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
                             <span style={{ fontSize: '12px', color: colors.textTertiary, display: 'flex', alignItems: 'center', gap: '4px' }}>

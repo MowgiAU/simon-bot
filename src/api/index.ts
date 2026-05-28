@@ -38,6 +38,7 @@ import { FileValidator, sanitizeFilename, sanitizeDisplayName } from '../service
 import { MessageEncryption } from '../services/MessageEncryption.js';
 import AdmZip from 'adm-zip';
 import * as otplibAll from 'otplib';
+import { registerProjectRoutes } from './routes/projects.js';
 const generateSecret = otplibAll.generateSecret;
 const verifySync = otplibAll.verifySync;
 const generateURI = otplibAll.generateURI;
@@ -65,6 +66,12 @@ declare module 'express-session' {
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// JSON.stringify can't serialize BigInt natively (throws TypeError).
+// Coerce BigInt -> Number when serializing API responses. Prisma uses BigInt
+// for `ProjectVersion.totalSize`; we never expect values >2^53 (8 PiB) in
+// practice for project sizes, so a Number is safe.
+(BigInt.prototype as any).toJSON = function () { return Number(this); };
 
 const escapeHtml = (s: string) => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 // Resolve to project root regardless of where PM2/node was started from.
@@ -8716,6 +8723,17 @@ app.get('/api/musician/tracks/:username/:trackSlug', async (req, res) => {
                 where: { status: 'accepted' },
                 include: { profile: { select: { id: true, userId: true, username: true, displayName: true, avatar: true } } },
                 orderBy: { invitedAt: 'asc' as const },
+            },
+            projectLink: {
+                include: {
+                    project: { select: { id: true, name: true, slug: true } },
+                    version: {
+                        select: {
+                            id: true, versionNumber: true, createdAt: true,
+                            totalFiles: true, totalSize: true,
+                        },
+                    },
+                },
             },
         };
         let track = (await db.track.findFirst({
@@ -20563,6 +20581,9 @@ app.patch('/api/web-tickets/block/:userId', requireAdmin, async (req: any, res) 
         res.status(500).json({ error: 'Failed to update user' });
     }
 });
+
+// ─── Project Sync Routes ────────────────────────────────────────────────
+registerProjectRoutes(app, db, requireAuth, requireAdmin);
 
 const server = app.listen(PORT, async () => {
   logger.info(`API server running on port ${PORT}`);
