@@ -942,7 +942,7 @@ export const BattleDetailPage: React.FC = () => {
                                 and a 3rd-place vote is worth <strong>1 pt</strong>. Final standings are sorted by total points,
                                 with ties broken by most 1st-place votes, then most 2nd-place votes.
                                 If two or more entries tie for 1st place after voting ends, a <strong>sudden-death runoff</strong> is
-                                triggered &mdash; voters pick a single winner from the tied entries.
+                                triggered, voters pick a single winner from the tied entries.
                             </p>
                         </div>
 
