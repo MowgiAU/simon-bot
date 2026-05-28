@@ -201,7 +201,8 @@ export function registerProjectRoutes(
     const normalized = code.replace(/[\s-]/g, '').toUpperCase();
     for (const [, auth] of pendingDeviceAuths) {
       if (auth.userCode.replace(/[\s-]/g, '').toUpperCase() === normalized && !auth.verified) {
-        const userId = req.session?.user?.id || null;
+        // Use _localId (DB UUID) — session.user.id is the Discord snowflake for Discord-linked accounts
+        const userId = req.session?.user?._localId || req.session?.user?.id || null;
         if (!userId) {
           return res.status(401).json({ error: 'You must be logged in to authorize this device' });
         }
@@ -218,7 +219,7 @@ export function registerProjectRoutes(
 
   app.get('/api/projects/my-tracks', requireProjectAuth, async (req: any, res) => {
     try {
-      const userId = req.session.user.id;
+      const userId = req.session.user._localId || req.session.user.id;
       const profile = await db.musicianProfile.findFirst({
         where: { userId },
         orderBy: { totalPlays: 'desc' },
@@ -240,7 +241,7 @@ export function registerProjectRoutes(
 
   app.get('/api/projects', requireProjectAuth, async (req: any, res) => {
     try {
-      const userId = req.session.user.id;
+      const userId = req.session.user._localId || req.session.user.id;
       const projects = await db.project.findMany({
         where: { userId, deletedAt: null },
         orderBy: { updatedAt: 'desc' },
@@ -264,7 +265,7 @@ export function registerProjectRoutes(
 
   app.post('/api/projects', requireProjectAuth, async (req: any, res) => {
     try {
-      const userId = req.session.user.id;
+      const userId = req.session.user._localId || req.session.user.id;
       const { name, description } = req.body;
       if (!name || !name.trim()) {
         return res.status(400).json({ error: 'Project name is required' });
@@ -294,7 +295,7 @@ export function registerProjectRoutes(
 
   app.get('/api/projects/:projectId', requireProjectAuth, async (req: any, res) => {
     try {
-      const userId = req.session.user.id;
+      const userId = req.session.user._localId || req.session.user.id;
       const project = await db.project.findFirst({
         where: { id: req.params.projectId, userId, deletedAt: null },
         include: {
@@ -328,7 +329,7 @@ export function registerProjectRoutes(
 
   app.put('/api/projects/:projectId', requireProjectAuth, async (req: any, res) => {
     try {
-      const userId = req.session.user.id;
+      const userId = req.session.user._localId || req.session.user.id;
       const { name, description } = req.body;
 
       const existing = await db.project.findFirst({
@@ -359,7 +360,7 @@ export function registerProjectRoutes(
 
   app.delete('/api/projects/:projectId', requireProjectAuth, async (req: any, res) => {
     try {
-      const userId = req.session.user.id;
+      const userId = req.session.user._localId || req.session.user.id;
       const existing = await db.project.findFirst({
         where: { id: req.params.projectId, userId, deletedAt: null },
       });
@@ -381,7 +382,7 @@ export function registerProjectRoutes(
 
   app.post('/api/projects/:projectId/versions/check', requireProjectAuth, syncLimiter, async (req: any, res) => {
     try {
-      const userId = req.session.user.id;
+      const userId = req.session.user._localId || req.session.user.id;
       const project = await db.project.findFirst({
         where: { id: req.params.projectId, userId, deletedAt: null },
       });
@@ -420,7 +421,7 @@ export function registerProjectRoutes(
     blobUpload.single('file'),
     async (req: any, res) => {
       try {
-        const userId = req.session.user.id;
+        const userId = req.session.user._localId || req.session.user.id;
         const project = await db.project.findFirst({
           where: { id: req.params.projectId, userId, deletedAt: null },
         });
@@ -469,7 +470,7 @@ export function registerProjectRoutes(
 
   app.post('/api/projects/:projectId/versions/complete', requireProjectAuth, syncLimiter, async (req: any, res) => {
     try {
-      const userId = req.session.user.id;
+      const userId = req.session.user._localId || req.session.user.id;
       const project = await db.project.findFirst({
         where: { id: req.params.projectId, userId, deletedAt: null },
       });
@@ -498,7 +499,7 @@ export function registerProjectRoutes(
 
   app.get('/api/projects/:projectId/versions', requireProjectAuth, async (req: any, res) => {
     try {
-      const userId = req.session.user.id;
+      const userId = req.session.user._localId || req.session.user.id;
       const project = await db.project.findFirst({
         where: { id: req.params.projectId, userId, deletedAt: null },
       });
@@ -523,7 +524,7 @@ export function registerProjectRoutes(
 
   app.get('/api/projects/:projectId/versions/:versionId/diff', requireProjectAuth, async (req: any, res) => {
     try {
-      const userId = req.session.user.id;
+      const userId = req.session.user._localId || req.session.user.id;
       const project = await db.project.findFirst({
         where: { id: req.params.projectId, userId, deletedAt: null },
       });
@@ -592,7 +593,7 @@ export function registerProjectRoutes(
 
   app.post('/api/projects/:projectId/publish', requireProjectAuth, async (req: any, res) => {
     try {
-      const userId = req.session.user.id;
+      const userId = req.session.user._localId || req.session.user.id;
       const project = await db.project.findFirst({
         where: { id: req.params.projectId, userId, deletedAt: null },
       });
@@ -676,7 +677,7 @@ export function registerProjectRoutes(
 
   app.post('/api/projects/:projectId/unpublish', requireProjectAuth, async (req: any, res) => {
     try {
-      const userId = req.session.user.id;
+      const userId = req.session.user._localId || req.session.user.id;
       const project = await db.project.findFirst({
         where: { id: req.params.projectId, userId, deletedAt: null },
       });
@@ -713,7 +714,7 @@ export function registerProjectRoutes(
 
   app.get('/api/projects/:projectId/download/:versionId', requireProjectAuth, async (req: any, res) => {
     try {
-      const userId = req.session.user.id;
+      const userId = req.session.user._localId || req.session.user.id;
       const project = await db.project.findFirst({
         where: { id: req.params.projectId, userId, deletedAt: null },
       });
