@@ -1243,7 +1243,7 @@ export const BattleDetailPage: React.FC = () => {
                                                             Your pick · {myRank === 1 ? 3 : myRank === 2 ? 2 : 1} pts
                                                         </span>
                                                     )}
-                                                    {(entry.firstPlaceVotes !== undefined || entry.secondPlaceVotes !== undefined || entry.thirdPlaceVotes !== undefined) && (
+                                                    {!isVotingPhase && (entry.firstPlaceVotes !== undefined || entry.secondPlaceVotes !== undefined || entry.thirdPlaceVotes !== undefined) && (
                                                         <span style={{ marginLeft: 'auto', fontSize: '11px', color: colors.textSecondary, fontWeight: 600, display: 'flex', gap: '8px' }}>
                                                             <span title="1st place votes">🥇 {entry.firstPlaceVotes || 0}</span>
                                                             <span title="2nd place votes">🥈 {entry.secondPlaceVotes || 0}</span>
