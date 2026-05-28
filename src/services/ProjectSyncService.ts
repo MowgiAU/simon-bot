@@ -83,14 +83,18 @@ export class ProjectSyncService {
   static async readBlob(
     storageKey: string,
   ): Promise<Buffer> {
-    if (!storageKey.startsWith('http') && storageKey.startsWith('/uploads/')) {
-      const localPath = path.join(process.cwd(), 'public', storageKey);
-      return fs.readFileSync(localPath);
+    if (storageKey.startsWith('http')) {
+      const { default: axios } = await import('axios');
+      const resp = await axios.get(storageKey, { responseType: 'arraybuffer' });
+      return Buffer.from(resp.data);
     }
 
-    const { default: axios } = await import('axios');
-    const resp = await axios.get(storageKey, { responseType: 'arraybuffer' });
-    return Buffer.from(resp.data);
+    // Resolve local path: handles both "/uploads/project-blobs/..." and "project-blobs/..."
+    const relativePath = storageKey.startsWith('/uploads/')
+      ? storageKey.slice('/uploads/'.length)
+      : storageKey;
+    const localPath = path.join(process.cwd(), 'public', 'uploads', relativePath);
+    return fs.readFileSync(localPath);
   }
 
   /**
