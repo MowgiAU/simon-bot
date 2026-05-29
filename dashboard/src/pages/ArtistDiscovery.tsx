@@ -1071,7 +1071,64 @@ export const ArtistDiscoveryPage: React.FC = () => {
                     })()}
 
                     {/* â•â•â•â•â•â¬â•â¬â•â¬â•â¬â•â¬â•â¬â•â¬â•â¬â•â¬ FULL-WIDTH: WEEKLY CHART â•â¬â•â¬â•â¬â•â¬â•â¬â•â¬â•â¬â•â¬â•â¬â•â¬â•â¬â•â¬â•â¬ */}
-                    {/* ── Brand Partners Strip ── */}
+     
+                    {/* Discord Community CTA — full-width strip */}
+                    <div style={{
+                        gridColumn: isMobile ? undefined : '1 / -1',
+                        position: 'relative',
+                        overflow: 'hidden',
+                        borderRadius: '16px',
+                        border: '1px solid rgba(88,101,242,0.3)',
+                    }}>
+                        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg, #1e1f3a 0%, #2a1a4a 50%, #1a1f3a 100%)', pointerEvents: 'none' }} />
+                        <div style={{ position: 'absolute', top: '-40%', left: '-5%', width: '40%', height: '180%', background: 'radial-gradient(ellipse, rgba(88,101,242,0.2) 0%, transparent 65%)', pointerEvents: 'none' }} />
+                        <div style={{ position: 'absolute', bottom: '-40%', right: '5%', width: '30%', height: '160%', background: 'radial-gradient(ellipse, rgba(114,137,218,0.15) 0%, transparent 65%)', pointerEvents: 'none' }} />
+                        <div style={{ position: 'absolute', right: isMobile ? '-10px' : '20px', top: '50%', transform: 'translateY(-50%)', opacity: 0.05, pointerEvents: 'none' }}>
+                            <svg width="160" height="120" viewBox="0 0 71 55" fill="white">
+                                <path d="M60.1 4.9A58.5 58.5 0 0 0 45.3.7a40.5 40.5 0 0 0-1.8 3.7 54.2 54.2 0 0 0-16.3 0A39.1 39.1 0 0 0 25.4.7 58.4 58.4 0 0 0 10.5 4.9C1.5 18.7-1 32.2.3 45.5a58.9 58.9 0 0 0 17.9 9.1 42.5 42.5 0 0 0 3.7-6 38.3 38.3 0 0 1-5.8-2.8c.5-.4 1-.7 1.4-1.1a41.9 41.9 0 0 0 35.8 0c.5.4 1 .8 1.4 1.1a38.4 38.4 0 0 1-5.8 2.8 42.3 42.3 0 0 0 3.7 6 58.7 58.7 0 0 0 17.9-9.1C72 30.2 68.1 16.8 60.1 4.9ZM23.7 37.3c-3.5 0-6.4-3.2-6.4-7.2s2.8-7.2 6.4-7.2c3.5 0 6.4 3.2 6.4 7.2s-2.9 7.2-6.4 7.2Zm23.6 0c-3.5 0-6.4-3.2-6.4-7.2s2.8-7.2 6.4-7.2c3.5 0 6.4 3.2 6.4 7.2s-2.9 7.2-6.4 7.2Z"/>
+                            </svg>
+                        </div>
+                        <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'flex-start' : 'center', padding: isMobile ? '22px 20px' : '22px 32px', gap: isMobile ? '16px' : '24px', boxSizing: 'border-box' as const }}>
+                            <div style={{ flexShrink: 0, width: '52px', height: '52px', borderRadius: '14px', background: 'rgba(88,101,242,0.2)', border: '1px solid rgba(88,101,242,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 6px 22px rgba(88,101,242,0.25)' }}>
+                                <svg width="26" height="20" viewBox="0 0 71 55" fill="#5865F2">
+                                    <path d="M60.1 4.9A58.5 58.5 0 0 0 45.3.7a40.5 40.5 0 0 0-1.8 3.7 54.2 54.2 0 0 0-16.3 0A39.1 39.1 0 0 0 25.4.7 58.4 58.4 0 0 0 10.5 4.9C1.5 18.7-1 32.2.3 45.5a58.9 58.9 0 0 0 17.9 9.1 42.5 42.5 0 0 0 3.7-6 38.3 38.3 0 0 1-5.8-2.8c.5-.4 1-.7 1.4-1.1a41.9 41.9 0 0 0 35.8 0c.5.4 1 .8 1.4 1.1a38.4 38.4 0 0 1-5.8 2.8 42.3 42.3 0 0 0 3.7 6 58.7 58.7 0 0 0 17.9-9.1C72 30.2 68.1 16.8 60.1 4.9ZM23.7 37.3c-3.5 0-6.4-3.2-6.4-7.2s2.8-7.2 6.4-7.2c3.5 0 6.4 3.2 6.4 7.2s-2.9 7.2-6.4 7.2Zm23.6 0c-3.5 0-6.4-3.2-6.4-7.2s2.8-7.2 6.4-7.2c3.5 0 6.4 3.2 6.4 7.2s-2.9 7.2-6.4 7.2Z"/>
+                                </svg>
+                            </div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontSize: '10px', fontWeight: 800, color: '#7289DA', letterSpacing: '0.14em', textTransform: 'uppercase' as const, marginBottom: '4px' }}>Community</div>
+                                <div style={{ fontSize: isMobile ? '17px' : '20px', fontWeight: 900, color: colors.textPrimary, letterSpacing: '-0.02em', lineHeight: 1.2, marginBottom: '4px' }}>
+                                    Join 50,000+ FL Studio producers on Discord
+                                </div>
+                                <div style={{ fontSize: '12px', color: 'rgba(185,195,210,0.65)', lineHeight: 1.5 }}>
+                                    Share beats, get feedback, enter battles, and connect with the community.
+                                </div>
+                            </div>
+                            <a
+                                href="https://discord.gg/fujistudio"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                style={{
+                                    flexShrink: 0,
+                                    display: 'inline-flex', alignItems: 'center', gap: '8px',
+                                    padding: '11px 24px', borderRadius: '999px', textDecoration: 'none',
+                                    background: '#5865F2', color: 'white',
+                                    fontSize: '13px', fontWeight: 700, letterSpacing: '0.02em',
+                                    boxShadow: '0 4px 18px rgba(88,101,242,0.45)',
+                                    transition: 'transform 0.15s, box-shadow 0.15s',
+                                    whiteSpace: 'nowrap' as const,
+                                }}
+                                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 6px 24px rgba(88,101,242,0.65)'; }}
+                                onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 18px rgba(88,101,242,0.45)'; }}
+                            >
+                                <svg width="16" height="12" viewBox="0 0 71 55" fill="white">
+                                    <path d="M60.1 4.9A58.5 58.5 0 0 0 45.3.7a40.5 40.5 0 0 0-1.8 3.7 54.2 54.2 0 0 0-16.3 0A39.1 39.1 0 0 0 25.4.7 58.4 58.4 0 0 0 10.5 4.9C1.5 18.7-1 32.2.3 45.5a58.9 58.9 0 0 0 17.9 9.1 42.5 42.5 0 0 0 3.7-6 38.3 38.3 0 0 1-5.8-2.8c.5-.4 1-.7 1.4-1.1a41.9 41.9 0 0 0 35.8 0c.5.4 1 .8 1.4 1.1a38.4 38.4 0 0 1-5.8 2.8 42.3 42.3 0 0 0 3.7 6 58.7 58.7 0 0 0 17.9-9.1C72 30.2 68.1 16.8 60.1 4.9ZM23.7 37.3c-3.5 0-6.4-3.2-6.4-7.2s2.8-7.2 6.4-7.2c3.5 0 6.4 3.2 6.4 7.2s-2.9 7.2-6.4 7.2Zm23.6 0c-3.5 0-6.4-3.2-6.4-7.2s2.8-7.2 6.4-7.2c3.5 0 6.4 3.2 6.4 7.2s-2.9 7.2-6.4 7.2Z"/>
+                                </svg>
+                                Join Discord
+                            </a>
+                        </div>
+                    </div>
+
+               {/* ── Brand Partners Strip ── */}
                     {featured?.globalSponsors && featured.globalSponsors.length > 0 && (
                         <div style={{ gridColumn: isMobile ? undefined : '1 / -1', position: 'relative', overflow: 'hidden', borderRadius: '16px' }}>
                             <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(90deg, ${colors.primary}06 0%, ${colors.primary}10 50%, ${colors.primary}06 100%)`, pointerEvents: 'none' }} />
