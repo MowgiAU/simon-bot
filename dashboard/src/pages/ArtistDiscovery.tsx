@@ -301,7 +301,9 @@ export const ArtistDiscoveryPage: React.FC = () => {
                         {/* Banner — full background with strong overlay so label is readable at top */}
                         {bgImg && <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${bgImg})`, backgroundSize: 'cover', backgroundPosition: 'center top' }} />}
                         <div style={{ position: 'absolute', inset: 0, background: bgImg
-                            ? 'linear-gradient(to bottom, rgba(10,13,24,0.6) 0%, rgba(10,13,24,0.55) 35%, rgba(10,13,24,0.88) 65%, rgba(10,13,24,1) 100%)'
+                            ? isMobile
+                                ? 'linear-gradient(to bottom, rgba(10,13,24,0.88) 0%, rgba(10,13,24,0.82) 40%, rgba(10,13,24,0.96) 75%, rgba(10,13,24,1) 100%)'
+                                : 'linear-gradient(to bottom, rgba(10,13,24,0.6) 0%, rgba(10,13,24,0.55) 35%, rgba(10,13,24,0.88) 65%, rgba(10,13,24,1) 100%)'
                             : `linear-gradient(135deg, rgba(10,13,24,0.98) 0%, ${colors.primary}18 100%)`
                         }} />
 
