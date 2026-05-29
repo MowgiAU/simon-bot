@@ -312,7 +312,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
                         <div style={{
                             position: 'relative',
                             height: isMobile ? 'auto' : '100%',
-                            padding: isMobile ? '16px 20px 20px' : '18px 28px 22px',
+                            padding: isMobile ? '16px 20px 20px' : '32px 28px 22px',
                             paddingTop: isMobile && bgImg ? '170px' : undefined,
                             display: 'flex', flexDirection: 'column', justifyContent: isMobile ? 'flex-start' : 'space-between',
                             gap: isMobile ? '12px' : undefined,
@@ -540,19 +540,20 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                             {/* Rainbow top edge */}
                                             <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '2px', background: `conic-gradient(from 90deg at 50% 50%, ${colors.primary}, #a78bfa, #FBBF24, #F472B6, ${colors.primary})`, opacity: 0.85, pointerEvents: 'none' }} />
 
-                                            {/* #1 badge — top-left */}
-                                            <div style={{ position: 'absolute', top: '12px', left: '12px', zIndex: 2, display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '5px 10px', borderRadius: '8px', background: 'linear-gradient(135deg, #92650a, #FFD700)', boxShadow: '0 4px 14px rgba(255,215,0,0.45)', backdropFilter: 'blur(4px)' }}>
-                                                <Crown size={10} color="white" fill="white" />
-                                                <span style={{ fontSize: '9px', fontWeight: 900, color: 'white', letterSpacing: '0.1em' }}>#1</span>
+                                            {/* Label + #1 badge row — top-left */}
+                                            <div style={{ position: 'absolute', top: '12px', left: '12px', zIndex: 2, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '3px 8px', borderRadius: '4px', background: 'rgba(251,191,36,0.18)', backdropFilter: 'blur(8px)', border: '1px solid rgba(251,191,36,0.25)' }}>
+                                                    <TrendingUp size={10} color="#FBBF24" />
+                                                    <span style={{ fontSize: '9px', fontWeight: 800, color: '#FBBF24', letterSpacing: '0.13em', textTransform: 'uppercase' as const }}>Trending Artist</span>
+                                                </div>
+                                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 8px', borderRadius: '4px', background: 'linear-gradient(135deg, #92650a, #c8a000)', boxShadow: '0 2px 8px rgba(255,215,0,0.35)', backdropFilter: 'blur(4px)' }}>
+                                                    <Crown size={10} color="white" fill="white" />
+                                                    <span style={{ fontSize: '9px', fontWeight: 900, color: 'white', letterSpacing: '0.1em' }}>#1</span>
+                                                </div>
                                             </div>
 
                                             {/* Bottom content overlay */}
                                             <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '14px 16px 16px', zIndex: 1 }}>
-                                                {/* Label */}
-                                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '3px 8px', borderRadius: '4px', background: 'rgba(251,191,36,0.2)', backdropFilter: 'blur(8px)', marginBottom: '6px' }}>
-                                                    <TrendingUp size={10} color="#FBBF24" />
-                                                    <span style={{ fontSize: '9px', fontWeight: 800, color: '#FBBF24', letterSpacing: '0.13em', textTransform: 'uppercase' as const }}>Trending Artist</span>
-                                                </div>
                                                 {/* Name */}
                                                 <Link to={`/profile/${trendingArtist.username}`} style={{ textDecoration: 'none' }}>
                                                     <div style={{ fontWeight: 900, fontSize: '20px', color: '#fff', letterSpacing: '-0.03em', lineHeight: 1.1, textShadow: '0 2px 12px rgba(0,0,0,0.6)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const, marginBottom: '6px' }}
@@ -739,14 +740,16 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                     </div>
                                     <div style={{ position: 'absolute', bottom: '-30%', left: '-10%', width: '55%', height: '80%', background: `radial-gradient(ellipse, ${actionConfig.accentColor}18 0%, transparent 70%)`, pointerEvents: 'none' }} />
                                     <div style={{ position: 'relative', zIndex: 1, height: '100%', display: 'flex', flexDirection: 'column', padding: '18px', boxSizing: 'border-box', gap: '10px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '3px 8px', borderRadius: '4px', background: `${actionConfig.accentColor}28`, backdropFilter: 'blur(8px)' }}>
+                                                {React.cloneElement(actionConfig.icon as React.ReactElement, { size: 10, color: actionConfig.accentColor })}
+                                                <span style={{ fontSize: '9px', fontWeight: 800, color: actionConfig.accentColor, letterSpacing: '0.13em', textTransform: 'uppercase' as const }}>{actionConfig.label}</span>
+                                            </div>
+                                        </div>
                                         <div style={{ width: '44px', height: '44px', borderRadius: '14px', background: `${actionConfig.accentColor}18`, border: `1px solid ${actionConfig.accentColor}40`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                                             {React.cloneElement(actionConfig.icon as React.ReactElement, { size: 22, color: actionConfig.accentColor })}
                                         </div>
                                         <div>
-                                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '3px 8px', borderRadius: '4px', background: `${actionConfig.accentColor}28`, backdropFilter: 'blur(8px)', marginBottom: '6px' }}>
-                                                {React.cloneElement(actionConfig.icon as React.ReactElement, { size: 10, color: actionConfig.accentColor })}
-                                                <span style={{ fontSize: '9px', fontWeight: 800, color: actionConfig.accentColor, letterSpacing: '0.13em', textTransform: 'uppercase' as const }}>{actionConfig.label}</span>
-                                            </div>
                                             <div style={{ fontSize: '18px', fontWeight: 900, color: colors.textPrimary, letterSpacing: '-0.02em', lineHeight: 1.2 }}>{actionConfig.sublabel}</div>
                                         </div>
                                         <p style={{ fontSize: '12px', color: colors.textSecondary, lineHeight: 1.55, margin: 0, flex: 1, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' as any }}>
