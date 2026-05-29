@@ -512,7 +512,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
                         }),
                     }}>
 
-                        {/* CARD 1: Trending Artist */}
+                        {/* CARD 1: Trending */}
                         {(() => {
                             const trendingArtist = (featured as any)?.trendingArtistOverride ?? artists[0] ?? null;
                             const avatarUrl = trendingArtist ? getAvatarUrl(trendingArtist.avatar, trendingArtist.userId) : '';
@@ -538,7 +538,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                             <div style={{ position: 'absolute', top: '12px', left: '12px', zIndex: 2, display: 'flex', alignItems: 'center', gap: '6px' }}>
                                                 <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '3px 8px', borderRadius: '4px', background: 'rgba(251,191,36,0.18)', backdropFilter: 'blur(8px)', border: '1px solid rgba(251,191,36,0.25)' }}>
                                                     <TrendingUp size={10} color="#FBBF24" />
-                                                    <span style={{ fontSize: '9px', fontWeight: 800, color: '#FBBF24', letterSpacing: '0.13em', textTransform: 'uppercase' as const }}>Trending Artist</span>
+                                                    <span style={{ fontSize: '9px', fontWeight: 800, color: '#FBBF24', letterSpacing: '0.13em', textTransform: 'uppercase' as const }}>Trending</span>
                                                 </div>
                                                 <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 8px', borderRadius: '4px', background: 'linear-gradient(135deg, #92650a, #c8a000)', boxShadow: '0 2px 8px rgba(255,215,0,0.35)', backdropFilter: 'blur(4px)' }}>
                                                     <Crown size={10} color="white" fill="white" />
