@@ -13121,17 +13121,33 @@ app.get('/api/beat-battle/admin/battles/:id/votes', requireAdmin, async (req: an
     }
 });
 
+// Cloudflare edge IP ranges — shared across millions of users, not reliable for fraud detection
+const CLOUDFLARE_RANGES = [
+    /^104\.1[6-9]\./,  /^104\.2[0-9]\./,  /^104\.3[01]\./,
+    /^172\.6[4-9]\./,  /^172\.7[0-1]\./,
+    /^162\.158\./,
+    /^198\.41\./,
+    /^190\.93\./,
+    /^188\.114\./,
+    /^197\.234\./,
+    /^103\.21\.[24]\./,
+    /^103\.22\.20[02]\./,
+    /^103\.31\.4\./,
+    /^141\.101\.[6-7][0-9]\./,
+];
+const isCloudflarePip = (ip: string) => CLOUDFLARE_RANGES.some(r => r.test(ip));
+
 // --- Admin: Vote fraud — suspicious votes grouped by shared IP ---
 app.get('/api/admin/battles/vote-fraud', requireAdmin, async (req: any, res) => {
     try {
         const battleId = req.query.battleId as string | undefined;
 
-        const where: any = { ip: { not: null } };
-        if (battleId) where.battleId = battleId;
+        const voteWhere: any = {};
+        if (battleId) voteWhere.battleId = battleId;
 
-        // Fetch all votes that have an IP
+        // 1. Fetch all votes (including ones with null ip — we'll enrich from ActivityLog)
         const votes: any[] = await (db.battleVote as any).findMany({
-            where,
+            where: voteWhere,
             select: {
                 id: true,
                 battleId: true,
@@ -13145,9 +13161,33 @@ app.get('/api/admin/battles/vote-fraud', requireAdmin, async (req: any, res) => 
             orderBy: { createdAt: 'asc' },
         });
 
-        // Group by (battleId, ip) — flag groups where more than one userId appears
+        // 2. For votes with null ip, pull IPs from ActivityLog (historical votes)
+        const nullIpVotes = votes.filter(v => !v.ip);
+        if (nullIpVotes.length > 0) {
+            const logEntries = await db.activityLog.findMany({
+                where: {
+                    action: 'battle.vote',
+                    targetId: { in: [...new Set(nullIpVotes.map(v => v.entryId))] },
+                    userId: { in: [...new Set(nullIpVotes.map(v => v.userId))] },
+                    ip: { not: null },
+                },
+                select: { userId: true, targetId: true, ip: true },
+            });
+            // Map (userId, entryId) → ip
+            const logMap = new Map<string, string>();
+            for (const l of logEntries) {
+                if (l.ip) logMap.set(`${l.userId}::${l.targetId}`, l.ip);
+            }
+            for (const v of nullIpVotes) {
+                v.ip = logMap.get(`${v.userId}::${v.entryId}`) || null;
+                v.ipSource = 'activity_log';
+            }
+        }
+
+        // 3. Group by (battleId, ip) — flag groups where more than one userId appears
         const groups = new Map<string, any[]>();
         for (const v of votes) {
+            if (!v.ip) continue;
             const key = `${v.battleId}::${v.ip}`;
             if (!groups.has(key)) groups.set(key, []);
             groups.get(key)!.push(v);
@@ -13158,10 +13198,10 @@ app.get('/api/admin/battles/vote-fraud', requireAdmin, async (req: any, res) => 
             .filter(([, vs]) => new Set(vs.map(v => v.userId)).size > 1)
             .map(([key, vs]) => {
                 const [bId, ip] = key.split('::');
-                return { battleId: bId, ip, votes: vs };
+                return { battleId: bId, ip, isCloudflareIp: isCloudflarePip(ip), votes: vs };
             });
 
-        // Resolve user profiles and battle titles
+        // 4. Resolve user profiles, battle titles, and user accounts
         const userIds = [...new Set(suspicious.flatMap(g => g.votes.map(v => v.userId)))];
         const battleIds = [...new Set(suspicious.map(g => g.battleId))];
 
@@ -13188,6 +13228,7 @@ app.get('/api/admin/battles/vote-fraud', requireAdmin, async (req: any, res) => 
             battleId: g.battleId,
             battleTitle: battleMap.get(g.battleId) || g.battleId,
             ip: g.ip,
+            isCloudflareIp: g.isCloudflareIp,
             votes: g.votes.map(v => {
                 const profile = profileMap.get(v.userId);
                 const user = userMap.get(v.userId);
@@ -13204,6 +13245,7 @@ app.get('/api/admin/battles/vote-fraud', requireAdmin, async (req: any, res) => 
                     entryId: v.entryId,
                     trackTitle: v.entry?.track?.title || 'Unknown',
                     createdAt: v.createdAt,
+                    ipSource: v.ipSource || 'vote',
                 };
             }),
         }));

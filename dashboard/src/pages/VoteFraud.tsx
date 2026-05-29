@@ -21,12 +21,14 @@ interface VoteRow {
     entryId: string;
     trackTitle: string;
     createdAt: string;
+    ipSource: 'vote' | 'activity_log';
 }
 
 interface FraudGroup {
     battleId: string;
     battleTitle: string;
     ip: string;
+    isCloudflareIp: boolean;
     votes: VoteRow[];
 }
 
@@ -359,14 +361,23 @@ export function VoteFraudPage() {
                                         {groupSelected ? <CheckSquare size={16} color={colors.primary} /> : <Square size={16} />}
                                     </button>
 
-                                    <AlertTriangle size={16} color={colors.warning} />
+                                    <AlertTriangle size={16} color={group.isCloudflareIp ? colors.textTertiary : colors.warning} />
 
                                     <div style={{ flex: 1 }}>
                                         <span style={{ fontWeight: 600, color: colors.textPrimary, fontSize: 14 }}>
                                             {group.battleTitle}
                                         </span>
                                         <span style={{ margin: '0 8px', color: colors.textTertiary }}>·</span>
-                                        <span style={{ fontFamily: 'monospace', fontSize: 13, color: colors.accent }}>{group.ip}</span>
+                                        <span style={{ fontFamily: 'monospace', fontSize: 13, color: group.isCloudflareIp ? colors.textTertiary : colors.accent }}>{group.ip}</span>
+                                        {group.isCloudflareIp && (
+                                            <span style={{
+                                                marginLeft: 6, fontSize: 11, fontWeight: 500,
+                                                background: `${colors.warning}20`, color: colors.warning,
+                                                borderRadius: borderRadius.sm, padding: '1px 6px',
+                                            }}>
+                                                Cloudflare IP — shared, review emails
+                                            </span>
+                                        )}
                                         <span style={{ margin: '0 8px', color: colors.textTertiary }}>·</span>
                                         <span style={{ fontSize: 13, color: colors.textSecondary }}>
                                             {distinctUsers} accounts, {group.votes.length} vote{group.votes.length !== 1 ? 's' : ''}
@@ -410,10 +421,23 @@ export function VoteFraudPage() {
                                                         </button>
                                                     </td>
                                                     <td style={{ padding: '8px 16px', color: colors.textPrimary, fontWeight: 500 }}>
-                                                        {vote.displayName || vote.username}
-                                                        {vote.displayName && vote.displayName !== vote.username && (
-                                                            <span style={{ color: colors.textTertiary, fontWeight: 400 }}> ({vote.username})</span>
-                                                        )}
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                            <span>
+                                                                {vote.displayName || vote.username}
+                                                                {vote.displayName && vote.displayName !== vote.username && (
+                                                                    <span style={{ color: colors.textTertiary, fontWeight: 400 }}> ({vote.username})</span>
+                                                                )}
+                                                            </span>
+                                                            {vote.ipSource === 'activity_log' && (
+                                                                <span title="IP sourced from activity log (historical vote)" style={{
+                                                                    fontSize: 10, fontWeight: 500,
+                                                                    background: `${colors.info}20`, color: colors.info,
+                                                                    borderRadius: borderRadius.sm, padding: '1px 5px',
+                                                                }}>
+                                                                    hist.
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                     </td>
                                                     <td style={{ padding: '8px 16px', color: colors.textSecondary, fontFamily: 'monospace', fontSize: 12 }}>
                                                         {vote.email || '—'}
