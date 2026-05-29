@@ -502,11 +502,9 @@ export const ArtistDiscoveryPage: React.FC = () => {
                     <div style={{
                         gridColumn: '1 / -1',
                         ...(isMobile ? {
-                            display: 'flex' as const,
-                            overflowX: 'auto' as const,
+                            display: 'grid' as const,
+                            gridTemplateColumns: 'repeat(2, 1fr)' as const,
                             gap: '12px',
-                            paddingBottom: '4px',
-                            scrollSnapType: 'x mandatory' as const,
                         } : {
                             display: 'grid',
                             gridTemplateColumns: 'repeat(4, 1fr)',
@@ -521,10 +519,9 @@ export const ArtistDiscoveryPage: React.FC = () => {
                             return (
                                 <div style={{
                                     ...panel,
-                                    height: '300px',
+                                    height: isMobile ? '240px' : '300px',
                                     position: 'relative', overflow: 'hidden', padding: 0,
                                     border: '1px solid rgba(255,255,255,0.1)',
-                                    ...(isMobile ? { flexShrink: 0, width: '260px', scrollSnapAlign: 'start' as const } : {}),
                                 }}>
                                     {trendingArtist ? (
                                         <>
@@ -594,10 +591,9 @@ export const ArtistDiscoveryPage: React.FC = () => {
                         {/* CARD 2: 1v1 Arena */}
                         <div style={{
                             ...panel,
-                            height: '300px',
+                            height: isMobile ? '240px' : '300px',
                             position: 'relative', overflow: 'hidden', padding: 0,
                             border: '1px solid rgba(139,92,246,0.18)',
-                            ...(isMobile ? { flexShrink: 0, width: '260px', scrollSnapAlign: 'start' as const } : {}),
                         }}>
                             <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg, #1a0f2e 0%, #2a0f3a 35%, #3d0f2e 70%, #2a0f1a 100%)', pointerEvents: 'none' }} />
                             <div style={{ position: 'absolute', top: '-30%', left: '-15%', width: '70%', height: '90%', background: 'radial-gradient(ellipse, rgba(139,92,246,0.25) 0%, transparent 65%)', pointerEvents: 'none' }} />
@@ -666,10 +662,9 @@ export const ArtistDiscoveryPage: React.FC = () => {
                             return (
                                 <div style={{
                                     ...panel,
-                                    height: '300px',
+                                    height: isMobile ? '240px' : '300px',
                                     position: 'relative', overflow: 'hidden', padding: 0,
                                     border: '1px solid rgba(255,255,255,0.07)',
-                                    ...(isMobile ? { flexShrink: 0, width: '260px', scrollSnapAlign: 'start' as const } : {}),
                                 }}>
                                     {thumbnail && <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${thumbnail})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />}
                                     {!thumbnail && <div style={{ position: 'absolute', inset: 0, background: `radial-gradient(ellipse at 30% 50%, ${tc.accentColor}18 0%, transparent 65%), #0f172a` }} />}
@@ -725,11 +720,10 @@ export const ArtistDiscoveryPage: React.FC = () => {
                             return (
                                 <div style={{
                                     ...panel,
-                                    height: '300px',
+                                    height: isMobile ? '240px' : '300px',
                                     position: 'relative', overflow: 'hidden', padding: 0,
                                     border: `1px solid ${actionConfig.accentColor}28`,
                                     boxSizing: 'border-box',
-                                    ...(isMobile ? { flexShrink: 0, width: '260px', scrollSnapAlign: 'start' as const } : {}),
                                 }}>
                                     <div style={{ position: 'absolute', inset: 0, background: actionConfig.bgGradient, pointerEvents: 'none' }} />
                                     <div style={{ position: 'absolute', top: '-10px', right: '-10px', opacity: 0.07, pointerEvents: 'none' }}>
