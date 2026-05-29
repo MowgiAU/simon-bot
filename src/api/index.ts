@@ -13140,112 +13140,103 @@ const isCloudflarePip = (ip: string) => CLOUDFLARE_RANGES.some(r => r.test(ip));
 // --- Admin: Vote fraud — suspicious votes grouped by shared IP ---
 app.get('/api/admin/battles/vote-fraud', requireAdmin, async (req: any, res) => {
     try {
-        const battleId = req.query.battleId as string | undefined;
+        const filterBattleId = req.query.battleId as string | undefined;
 
-        const voteWhere: any = {};
-        if (battleId) voteWhere.battleId = battleId;
+        // Drive from ActivityLog — that's where IPs are reliably stored for all historical votes.
+        // Every battle.vote logActivity call stores: userId=_localId, targetId=entryId, metadata.battleId, ip
+        const logWhere: any = { action: 'battle.vote', ip: { not: null } };
+        if (filterBattleId) {
+            // metadata is a JSON column — filter by battleId within it
+            logWhere.metadata = { path: ['battleId'], equals: filterBattleId };
+        }
 
-        // 1. Fetch all votes (including ones with null ip — we'll enrich from ActivityLog)
-        const votes: any[] = await (db.battleVote as any).findMany({
-            where: voteWhere,
-            select: {
-                id: true,
-                battleId: true,
-                entryId: true,
-                userId: true,
-                rank: true,
-                ip: true,
-                createdAt: true,
-                entry: { select: { track: { select: { title: true, profile: { select: { username: true, displayName: true, avatar: true } } } } } },
-            },
+        const voteLogs = await db.activityLog.findMany({
+            where: logWhere,
+            select: { userId: true, targetId: true, ip: true, createdAt: true, metadata: true },
             orderBy: { createdAt: 'asc' },
         });
 
-        // 2. For votes with null ip, pull IPs from ActivityLog (historical votes)
-        const nullIpVotes = votes.filter(v => !v.ip);
-        if (nullIpVotes.length > 0) {
-            const logEntries = await db.activityLog.findMany({
-                where: {
-                    action: 'battle.vote',
-                    targetId: { in: [...new Set(nullIpVotes.map(v => v.entryId))] },
-                    userId: { in: [...new Set(nullIpVotes.map(v => v.userId))] },
-                    ip: { not: null },
-                },
-                select: { userId: true, targetId: true, ip: true },
-            });
-            // Map (userId, entryId) → ip
-            const logMap = new Map<string, string>();
-            for (const l of logEntries) {
-                if (l.ip) logMap.set(`${l.userId}::${l.targetId}`, l.ip);
-            }
-            for (const v of nullIpVotes) {
-                v.ip = logMap.get(`${v.userId}::${v.entryId}`) || null;
-                v.ipSource = 'activity_log';
-            }
-        }
-
-        // 3. Group by (battleId, ip) — flag groups where more than one userId appears
+        // Group by (battleId, ip) — battleId comes from metadata
         const groups = new Map<string, any[]>();
-        for (const v of votes) {
-            if (!v.ip) continue;
-            const key = `${v.battleId}::${v.ip}`;
+        for (const l of voteLogs) {
+            const bId = (l.metadata as any)?.battleId;
+            if (!bId || !l.ip) continue;
+            const key = `${bId}::${l.ip}`;
             if (!groups.has(key)) groups.set(key, []);
-            groups.get(key)!.push(v);
+            groups.get(key)!.push({ ...l, battleId: bId });
         }
 
-        // Keep only groups with multiple distinct users
+        // Keep only groups with multiple distinct userIds
         const suspicious = Array.from(groups.entries())
-            .filter(([, vs]) => new Set(vs.map(v => v.userId)).size > 1)
-            .map(([key, vs]) => {
+            .filter(([, ls]) => new Set(ls.map((l: any) => l.userId)).size > 1)
+            .map(([key, ls]) => {
                 const [bId, ip] = key.split('::');
-                return { battleId: bId, ip, isCloudflareIp: isCloudflarePip(ip), votes: vs };
+                return { battleId: bId, ip, isCloudflareIp: isCloudflarePip(ip), logs: ls };
             });
 
-        // 4. Resolve user profiles, battle titles, and user accounts
-        const userIds = [...new Set(suspicious.flatMap(g => g.votes.map(v => v.userId)))];
-        const battleIds = [...new Set(suspicious.map(g => g.battleId))];
+        if (suspicious.length === 0) return res.json([]);
 
-        const [profiles, battles, users] = await Promise.all([
-            userIds.length ? db.musicianProfile.findMany({
-                where: { userId: { in: userIds } },
+        // Fetch the actual BattleVote records so we have voteId, rank, entryId
+        const allEntryIds = [...new Set(suspicious.flatMap(g => g.logs.map((l: any) => l.targetId).filter(Boolean)))];
+        const allUserIds  = [...new Set(suspicious.flatMap(g => g.logs.map((l: any) => l.userId).filter(Boolean)))];
+        const allBattleIds = [...new Set(suspicious.map(g => g.battleId))];
+
+        const [battleVotes, profiles, battles, users] = await Promise.all([
+            allEntryIds.length && allUserIds.length
+                ? (db.battleVote as any).findMany({
+                    where: { entryId: { in: allEntryIds }, userId: { in: allUserIds } },
+                    select: {
+                        id: true, entryId: true, userId: true, battleId: true, rank: true,
+                        entry: { select: { track: { select: { title: true } } } },
+                    },
+                  })
+                : [],
+            allUserIds.length ? db.musicianProfile.findMany({
+                where: { userId: { in: allUserIds } },
                 select: { userId: true, username: true, displayName: true, avatar: true },
             }) : [],
-            battleIds.length ? db.beatBattle.findMany({
-                where: { id: { in: battleIds } },
+            allBattleIds.length ? db.beatBattle.findMany({
+                where: { id: { in: allBattleIds } },
                 select: { id: true, title: true },
             }) : [],
-            userIds.length ? (db as any).user.findMany({
-                where: { id: { in: userIds } },
+            allUserIds.length ? (db as any).user.findMany({
+                where: { id: { in: allUserIds } },
                 select: { id: true, email: true, banned: true, createdAt: true },
             }) : [],
         ]);
 
-        const profileMap = new Map<string, any>(profiles.map((p: any) => [p.userId, p]));
-        const battleMap = new Map<string, string>(battles.map((b: any) => [b.id, b.title]));
-        const userMap = new Map<string, any>(users.map((u: any) => [u.id, u]));
+        // Index vote records by (userId, entryId) for fast lookup
+        const voteMap = new Map<string, any>();
+        for (const v of battleVotes as any[]) {
+            voteMap.set(`${v.userId}::${v.entryId}`, v);
+        }
+        const profileMap = new Map<string, any>((profiles as any[]).map((p: any) => [p.userId, p]));
+        const battleMap  = new Map<string, string>((battles as any[]).map((b: any) => [b.id, b.title]));
+        const userMap    = new Map<string, any>((users as any[]).map((u: any) => [u.id, u]));
 
         const result = suspicious.map(g => ({
             battleId: g.battleId,
             battleTitle: battleMap.get(g.battleId) || g.battleId,
             ip: g.ip,
             isCloudflareIp: g.isCloudflareIp,
-            votes: g.votes.map(v => {
-                const profile = profileMap.get(v.userId);
-                const user = userMap.get(v.userId);
+            votes: g.logs.map((l: any) => {
+                const vote   = voteMap.get(`${l.userId}::${l.targetId}`);
+                const profile = profileMap.get(l.userId);
+                const user    = userMap.get(l.userId);
                 return {
-                    voteId: v.id,
-                    userId: v.userId,
-                    username: profile?.username || profile?.displayName || v.userId,
-                    displayName: profile?.displayName,
+                    voteId: vote?.id || null,
+                    userId: l.userId,
+                    username: profile?.username || profile?.displayName || l.userId,
+                    displayName: profile?.displayName || null,
                     avatar: profile?.avatar || null,
                     email: user?.email || null,
                     banned: user?.banned || false,
                     accountCreatedAt: user?.createdAt || null,
-                    rank: v.rank,
-                    entryId: v.entryId,
-                    trackTitle: v.entry?.track?.title || 'Unknown',
-                    createdAt: v.createdAt,
-                    ipSource: v.ipSource || 'vote',
+                    rank: vote?.rank ?? null,
+                    entryId: l.targetId,
+                    trackTitle: vote?.entry?.track?.title || 'Unknown',
+                    createdAt: l.createdAt,
+                    ipSource: 'activity_log' as const,
                 };
             }),
         }));

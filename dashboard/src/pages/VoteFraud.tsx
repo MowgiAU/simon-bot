@@ -9,7 +9,7 @@ import {
 const API = import.meta.env.VITE_API_URL || '';
 
 interface VoteRow {
-    voteId: string;
+    voteId: string | null;
     userId: string;
     username: string;
     displayName: string | null;
@@ -86,7 +86,7 @@ export function VoteFraudPage() {
         }
     }, [selectedBattleId]);
 
-    const allVoteIds = groups.flatMap(g => g.votes.map(v => v.voteId));
+    const allVoteIds = groups.flatMap(g => g.votes.map(v => v.voteId).filter((id): id is string => !!id));
     const allSelected = allVoteIds.length > 0 && allVoteIds.every(id => selectedVoteIds.has(id));
 
     function toggleAll() {
@@ -97,7 +97,8 @@ export function VoteFraudPage() {
         }
     }
 
-    function toggleVote(voteId: string) {
+    function toggleVote(voteId: string | null) {
+        if (!voteId) return;
         setSelectedVoteIds(prev => {
             const next = new Set(prev);
             if (next.has(voteId)) next.delete(voteId);
@@ -118,7 +119,7 @@ export function VoteFraudPage() {
     function selectGroup(votes: VoteRow[]) {
         setSelectedVoteIds(prev => {
             const next = new Set(prev);
-            votes.forEach(v => next.add(v.voteId));
+            votes.forEach(v => { if (v.voteId) next.add(v.voteId); });
             return next;
         });
     }
@@ -142,7 +143,7 @@ export function VoteFraudPage() {
 
     async function banUsers() {
         const userIds = [...new Set(
-            groups.flatMap(g => g.votes.filter(v => selectedVoteIds.has(v.voteId)).map(v => v.userId))
+            groups.flatMap(g => g.votes.filter(v => v.voteId && selectedVoteIds.has(v.voteId)).map(v => v.userId))
         )];
         if (userIds.length === 0) return;
         setActionLoading(true);
@@ -176,7 +177,7 @@ export function VoteFraudPage() {
     }
 
     const selectedUsers = [...new Set(
-        groups.flatMap(g => g.votes.filter(v => selectedVoteIds.has(v.voteId) && !v.banned).map(v => v.userId))
+        groups.flatMap(g => g.votes.filter(v => v.voteId && selectedVoteIds.has(v.voteId) && !v.banned).map(v => v.userId))
     )];
 
     return (
@@ -334,8 +335,8 @@ export function VoteFraudPage() {
                     {groups.map(group => {
                         const key = `${group.battleId}::${group.ip}`;
                         const expanded = expandedGroups.has(key);
-                        const groupVoteIds = group.votes.map(v => v.voteId);
-                        const groupSelected = groupVoteIds.every(id => selectedVoteIds.has(id));
+                        const groupVoteIds = group.votes.map(v => v.voteId).filter((id): id is string => !!id);
+                        const groupSelected = groupVoteIds.length > 0 && groupVoteIds.every(id => selectedVoteIds.has(id));
                         const distinctUsers = new Set(group.votes.map(v => v.userId)).size;
 
                         return (
@@ -404,21 +405,25 @@ export function VoteFraudPage() {
                                         </thead>
                                         <tbody>
                                             {group.votes.map((vote, i) => (
-                                                <tr key={vote.voteId} style={{
-                                                    background: selectedVoteIds.has(vote.voteId)
+                                                <tr key={vote.voteId || `${vote.userId}-${i}`} style={{
+                                                    background: vote.voteId && selectedVoteIds.has(vote.voteId)
                                                         ? `${colors.error}10`
                                                         : i % 2 === 0 ? 'transparent' : `${colors.surfaceLight}40`,
                                                     borderBottom: `1px solid ${colors.border}20`,
                                                 }}>
                                                     <td style={{ padding: '8px 16px' }}>
-                                                        <button
-                                                            onClick={() => toggleVote(vote.voteId)}
-                                                            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: colors.textSecondary, display: 'flex', alignItems: 'center' }}
-                                                        >
-                                                            {selectedVoteIds.has(vote.voteId)
-                                                                ? <CheckSquare size={15} color={colors.primary} />
-                                                                : <Square size={15} />}
-                                                        </button>
+                                                        {vote.voteId ? (
+                                                            <button
+                                                                onClick={() => toggleVote(vote.voteId)}
+                                                                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: colors.textSecondary, display: 'flex', alignItems: 'center' }}
+                                                            >
+                                                                {selectedVoteIds.has(vote.voteId)
+                                                                    ? <CheckSquare size={15} color={colors.primary} />
+                                                                    : <Square size={15} />}
+                                                            </button>
+                                                        ) : (
+                                                            <span title="Vote already cleared" style={{ color: colors.textTertiary, fontSize: 11 }}>cleared</span>
+                                                        )}
                                                     </td>
                                                     <td style={{ padding: '8px 16px', color: colors.textPrimary, fontWeight: 500 }}>
                                                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
