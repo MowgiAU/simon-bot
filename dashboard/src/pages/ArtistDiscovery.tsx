@@ -321,7 +321,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
                             {/* Status badges when no banner image */}
                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.12em', color: colors.primary, background: `${colors.primary}25`, padding: '4px 10px', borderRadius: '4px', backdropFilter: 'blur(8px)' }}>
-                                    <Swords size={10} />Beat Battle
+                                    <Swords size={10} />Featured Battle
                                 </span>
                                 {battle && (
                                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '4px 10px', backgroundColor: statusBg, color: statusColor, fontSize: '10px', fontWeight: 700, borderRadius: '999px', letterSpacing: '0.07em', backdropFilter: 'blur(8px)' }}>
@@ -520,61 +520,66 @@ export const ArtistDiscoveryPage: React.FC = () => {
                         {/* CARD 1: Trending Artist */}
                         {(() => {
                             const trendingArtist = (featured as any)?.trendingArtistOverride ?? artists[0] ?? null;
-                            const cardStyle: React.CSSProperties = {
-                                ...panel,
-                                height: '300px',
-                                position: 'relative', overflow: 'hidden', padding: 0,
-                                border: '1px solid rgba(255,255,255,0.07)',
-                                ...(isMobile ? { flexShrink: 0, width: '260px', scrollSnapAlign: 'start' as const } : {}),
-                            };
+                            const avatarUrl = trendingArtist ? getAvatarUrl(trendingArtist.avatar, trendingArtist.userId) : '';
                             return (
-                                <div style={cardStyle}>
+                                <div style={{
+                                    ...panel,
+                                    height: '300px',
+                                    position: 'relative', overflow: 'hidden', padding: 0,
+                                    border: '1px solid rgba(255,255,255,0.1)',
+                                    ...(isMobile ? { flexShrink: 0, width: '260px', scrollSnapAlign: 'start' as const } : {}),
+                                }}>
                                     {trendingArtist ? (
                                         <>
-                                            <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${getAvatarUrl(trendingArtist.avatar, trendingArtist.userId)})`, backgroundSize: 'cover', backgroundPosition: 'center', filter: 'blur(40px) brightness(0.2) saturate(1.6)', transform: 'scale(1.3)', pointerEvents: 'none' }} />
-                                            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(160deg, rgba(14,18,26,0.3) 0%, rgba(14,18,26,0.8) 60%, rgba(14,18,26,0.95) 100%)', pointerEvents: 'none' }} />
-                                            <div style={{ position: 'absolute', top: '-30%', left: '-10%', width: '60%', height: '80%', background: `radial-gradient(ellipse, ${colors.primary}15 0%, transparent 70%)`, pointerEvents: 'none' }} />
-                                            <div style={{ position: 'relative', zIndex: 1, height: '100%', display: 'flex', flexDirection: 'column', padding: '16px', boxSizing: 'border-box', gap: '10px' }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                                                    <TrendingUp size={11} color="#FBBF24" />
-                                                    <span style={{ fontSize: '10px', fontWeight: 800, color: '#FBBF24', letterSpacing: '0.12em', textTransform: 'uppercase' as const }}>Trending Artist</span>
+                                            {/* Blurred color wash — full card */}
+                                            <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${avatarUrl})`, backgroundSize: 'cover', backgroundPosition: 'center', filter: 'blur(28px) brightness(0.18) saturate(2)', transform: 'scale(1.25)', pointerEvents: 'none' }} />
+                                            {/* Sharp avatar — top 62% */}
+                                            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '62%', backgroundImage: `url(${avatarUrl})`, backgroundSize: 'cover', backgroundPosition: 'center top' }} />
+                                            {/* Gradient fade — avatar into dark */}
+                                            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(0,0,0,0) 28%, rgba(10,13,24,0.55) 48%, rgba(10,13,24,0.97) 68%, rgba(10,13,24,1) 100%)', pointerEvents: 'none' }} />
+                                            {/* Rainbow top edge */}
+                                            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '2px', background: `conic-gradient(from 90deg at 50% 50%, ${colors.primary}, #a78bfa, #FBBF24, #F472B6, ${colors.primary})`, opacity: 0.85, pointerEvents: 'none' }} />
+
+                                            {/* #1 badge — top-left */}
+                                            <div style={{ position: 'absolute', top: '12px', left: '12px', zIndex: 2, display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '5px 10px', borderRadius: '8px', background: 'linear-gradient(135deg, #92650a, #FFD700)', boxShadow: '0 4px 14px rgba(255,215,0,0.45)', backdropFilter: 'blur(4px)' }}>
+                                                <Crown size={10} color="white" fill="white" />
+                                                <span style={{ fontSize: '9px', fontWeight: 900, color: 'white', letterSpacing: '0.1em' }}>#1</span>
+                                            </div>
+
+                                            {/* Bottom content overlay */}
+                                            <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '14px 16px 16px', zIndex: 1 }}>
+                                                {/* Label */}
+                                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '3px 8px', borderRadius: '4px', background: 'rgba(251,191,36,0.2)', backdropFilter: 'blur(8px)', marginBottom: '6px' }}>
+                                                    <TrendingUp size={10} color="#FBBF24" />
+                                                    <span style={{ fontSize: '9px', fontWeight: 800, color: '#FBBF24', letterSpacing: '0.13em', textTransform: 'uppercase' as const }}>Trending Artist</span>
                                                 </div>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                                    <div style={{ flexShrink: 0, position: 'relative' }}>
-                                                        <div style={{ position: 'absolute', inset: '-4px', borderRadius: '50%', background: `conic-gradient(from 45deg, ${colors.primary}, #a78bfa, #FBBF24, #F472B6, ${colors.primary})`, opacity: 0.7, filter: 'blur(1px)' }} />
-                                                        <div style={{ position: 'absolute', inset: '-2px', borderRadius: '50%', background: 'rgba(14,18,26,0.8)' }} />
-                                                        <div style={{ width: '56px', height: '56px', borderRadius: '50%', overflow: 'hidden', position: 'relative', zIndex: 1 }}>
-                                                            <img src={getAvatarUrl(trendingArtist.avatar, trendingArtist.userId)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={(e) => { (e.target as HTMLImageElement).src = 'https://cdn.discordapp.com/embed/avatars/0.png'; }} />
-                                                        </div>
-                                                        <div style={{ position: 'absolute', bottom: '-2px', right: '-2px', zIndex: 2, width: '22px', height: '22px', borderRadius: '50%', background: 'linear-gradient(135deg, #F59E0B, #D97706)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '8px', fontWeight: 900, color: 'white', border: '2px solid rgba(14,18,26,0.9)' }}>#1</div>
+                                                {/* Name */}
+                                                <Link to={`/profile/${trendingArtist.username}`} style={{ textDecoration: 'none' }}>
+                                                    <div style={{ fontWeight: 900, fontSize: '20px', color: '#fff', letterSpacing: '-0.03em', lineHeight: 1.1, textShadow: '0 2px 12px rgba(0,0,0,0.6)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const, marginBottom: '6px' }}
+                                                        onMouseEnter={e => (e.currentTarget.style.textDecoration = 'underline')}
+                                                        onMouseLeave={e => (e.currentTarget.style.textDecoration = 'none')}
+                                                    >
+                                                        <StyledUsername userId={trendingArtist.userId}>{trendingArtist.displayName || trendingArtist.username}</StyledUsername>
                                                     </div>
-                                                    <div style={{ flex: 1, minWidth: 0 }}>
-                                                        <Link to={`/profile/${trendingArtist.username}`} style={{ textDecoration: 'none' }}>
-                                                            <div style={{ fontWeight: 900, fontSize: '15px', color: colors.textPrimary, letterSpacing: '-0.02em', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>
-                                                                <StyledUsername userId={trendingArtist.userId}>{trendingArtist.displayName || trendingArtist.username}</StyledUsername>
-                                                            </div>
-                                                        </Link>
-                                                        <div style={{ display: 'flex', flexWrap: 'wrap' as const, gap: '3px', marginTop: '4px' }}>
-                                                            {trendingArtist.primaryGenre && (
-                                                                <span style={{ fontSize: '9px', fontWeight: 800, textTransform: 'uppercase' as const, letterSpacing: '0.06em', padding: '2px 7px', borderRadius: '20px', background: `${colors.primary}22`, border: `1px solid ${colors.primary}55`, color: colors.primary }}>{trendingArtist.primaryGenre.name}</span>
-                                                            )}
-                                                            {!trendingArtist.primaryGenre && trendingArtist.genres?.slice(0, 1).map((g: any, i: number) => (
-                                                                <span key={i} style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.05em', padding: '2px 7px', borderRadius: '20px', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)', color: colors.textSecondary }}>{g.genre.name}</span>
-                                                            ))}
-                                                        </div>
-                                                    </div>
+                                                </Link>
+                                                {/* Genre pills */}
+                                                <div style={{ display: 'flex', gap: '4px', marginBottom: '10px', flexWrap: 'wrap' as const }}>
+                                                    {trendingArtist.primaryGenre && (
+                                                        <span style={{ fontSize: '9px', fontWeight: 800, textTransform: 'uppercase' as const, letterSpacing: '0.06em', padding: '2px 8px', borderRadius: '20px', background: `${colors.primary}30`, border: `1px solid ${colors.primary}60`, color: colors.primary }}>{trendingArtist.primaryGenre.name}</span>
+                                                    )}
+                                                    {!trendingArtist.primaryGenre && trendingArtist.genres?.slice(0, 2).map((g: any, i: number) => (
+                                                        <span key={i} style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.05em', padding: '2px 8px', borderRadius: '20px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.18)', color: 'rgba(255,255,255,0.75)' }}>{g.genre.name}</span>
+                                                    ))}
                                                 </div>
-                                                {trendingArtist.bio && (
-                                                    <p style={{ fontSize: '11px', color: 'rgba(185,195,210,0.65)', lineHeight: 1.55, margin: 0, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' as any, flex: 1 }}>{trendingArtist.bio}</p>
-                                                )}
-                                                <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '10px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                                                {/* Plays + CTA */}
+                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                                     <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px' }}>
-                                                        <span style={{ fontSize: '18px', fontWeight: 900, color: colors.primary, lineHeight: 1, letterSpacing: '-0.02em' }}>
+                                                        <span style={{ fontSize: '17px', fontWeight: 900, color: colors.primary, lineHeight: 1, letterSpacing: '-0.02em' }}>
                                                             {trendingArtist.totalPlays >= 1000 ? `${(trendingArtist.totalPlays / 1000).toFixed(1)}k` : (trendingArtist.totalPlays || 0).toLocaleString()}
                                                         </span>
-                                                        <span style={{ fontSize: '9px', color: colors.textSecondary, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.06em' }}>plays</span>
+                                                        <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.5)', fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.06em' }}>plays</span>
                                                     </div>
-                                                    <Link to={`/profile/${trendingArtist.username}`} style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '7px 14px', borderRadius: '999px', textDecoration: 'none', background: colors.primary, color: 'white', fontSize: '11px', fontWeight: 700, boxShadow: `0 4px 14px ${colors.primary}44` }}>View Profile</Link>
+                                                    <Link to={`/profile/${trendingArtist.username}`} style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '7px 16px', borderRadius: '999px', textDecoration: 'none', background: colors.primary, color: 'white', fontSize: '11px', fontWeight: 700, boxShadow: `0 4px 16px ${colors.primary}55` }}>View Profile</Link>
                                                 </div>
                                             </div>
                                         </>
@@ -602,8 +607,10 @@ export const ArtistDiscoveryPage: React.FC = () => {
                             <div style={{ position: 'absolute', inset: 0, backgroundImage: 'repeating-linear-gradient(0deg, transparent 0px, transparent 3px, rgba(255,255,255,0.015) 3px, rgba(255,255,255,0.015) 4px)', pointerEvents: 'none' }} />
                             <div style={{ position: 'relative', zIndex: 1, height: '100%', display: 'flex', flexDirection: 'column', padding: '18px', boxSizing: 'border-box', gap: '10px' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                    <Swords size={12} color="#EC4899" />
-                                    <span style={{ fontSize: '10px', fontWeight: 800, color: '#EC4899', letterSpacing: '0.15em', textTransform: 'uppercase' as const }}>1v1 Arena</span>
+                                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '3px 8px', borderRadius: '4px', background: 'rgba(236,72,153,0.2)', backdropFilter: 'blur(8px)' }}>
+                                        <Swords size={10} color="#EC4899" />
+                                        <span style={{ fontSize: '9px', fontWeight: 800, color: '#EC4899', letterSpacing: '0.13em', textTransform: 'uppercase' as const }}>1v1 Arena</span>
+                                    </div>
                                     <span style={{ fontSize: '8px', fontWeight: 800, padding: '2px 5px', borderRadius: '4px', background: 'rgba(52,211,153,0.18)', color: '#34D399', letterSpacing: '0.1em', border: '1px solid rgba(52,211,153,0.3)' }}>NEW</span>
                                 </div>
                                 <div style={{ fontWeight: 900, fontSize: '24px', color: '#fff', lineHeight: 1.05, letterSpacing: '-0.03em' }}>
@@ -652,6 +659,9 @@ export const ArtistDiscoveryPage: React.FC = () => {
                             const title = contentType === 'video'
                                 ? (featured?.featuredTutorialTitle || 'Watch Tutorial')
                                 : (featuredArticle?.title || '');
+                            const description = contentType === 'video'
+                                ? (featured?.featuredTutorialDescription || null)
+                                : (featuredArticle?.excerpt || null);
                             const href = contentType === 'video'
                                 ? (featured?.featuredTutorialUrl ?? null)
                                 : (featuredArticle?.slug ? `/article/${featuredArticle.slug}` : null);
@@ -665,8 +675,10 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                 }}>
                                     {thumbnail && <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${thumbnail})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />}
                                     {!thumbnail && <div style={{ position: 'absolute', inset: 0, background: `radial-gradient(ellipse at 30% 50%, ${tc.accentColor}18 0%, transparent 65%), #0f172a` }} />}
-                                    <div style={{ position: 'absolute', inset: 0, background: thumbnail ? 'linear-gradient(to bottom, rgba(10,13,24,0.15) 0%, rgba(10,13,24,0.45) 40%, rgba(10,13,24,0.97) 100%)' : 'rgba(10,13,24,0.3)', pointerEvents: 'none' }} />
+                                    {/* Stronger overlay so text is always legible */}
+                                    <div style={{ position: 'absolute', inset: 0, background: thumbnail ? 'linear-gradient(to bottom, rgba(10,13,24,0.35) 0%, rgba(10,13,24,0.65) 38%, rgba(10,13,24,0.97) 68%, rgba(10,13,24,1) 100%)' : 'rgba(10,13,24,0.15)', pointerEvents: 'none' }} />
                                     <div style={{ position: 'relative', zIndex: 1, height: '100%', display: 'flex', flexDirection: 'column', padding: '16px', boxSizing: 'border-box' }}>
+                                        {/* Type label */}
                                         <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '3px 8px', borderRadius: '4px', background: `${tc.accentColor}25`, backdropFilter: 'blur(8px)', width: 'fit-content' }}>
                                             <span style={{ color: tc.accentColor, display: 'flex', alignItems: 'center' }}>{tc.icon}</span>
                                             <span style={{ fontSize: '9px', fontWeight: 800, color: tc.accentColor, letterSpacing: '0.12em', textTransform: 'uppercase' as const }}>{tc.label}</span>
@@ -674,7 +686,10 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                         <div style={{ flex: 1 }} />
                                         {title ? (
                                             <>
-                                                <div style={{ fontWeight: 900, fontSize: '16px', color: '#fff', lineHeight: 1.3, marginBottom: '12px', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' as any }}>{title}</div>
+                                                <div style={{ fontWeight: 900, fontSize: '15px', color: '#fff', lineHeight: 1.3, marginBottom: description ? '6px' : '10px', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any, textShadow: '0 1px 8px rgba(0,0,0,0.5)' }}>{title}</div>
+                                                {description && (
+                                                    <div style={{ fontSize: '11px', color: 'rgba(185,195,210,0.78)', lineHeight: 1.55, marginBottom: '10px', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any }}>{description}</div>
+                                                )}
                                                 {href && (
                                                     contentType === 'video' ? (
                                                         <a href={href} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '9px 0', borderRadius: '8px', textDecoration: 'none', background: tc.accentColor, color: 'white', fontSize: '12px', fontWeight: 700, boxShadow: `0 4px 14px ${tc.accentColor}44` }}>
@@ -728,7 +743,10 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                             {React.cloneElement(actionConfig.icon as React.ReactElement, { size: 22, color: actionConfig.accentColor })}
                                         </div>
                                         <div>
-                                            <div style={{ fontSize: '9px', fontWeight: 800, color: actionConfig.accentColor, letterSpacing: '0.14em', textTransform: 'uppercase' as const, marginBottom: '4px' }}>{actionConfig.label}</div>
+                                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '3px 8px', borderRadius: '4px', background: `${actionConfig.accentColor}28`, backdropFilter: 'blur(8px)', marginBottom: '6px' }}>
+                                                {React.cloneElement(actionConfig.icon as React.ReactElement, { size: 10, color: actionConfig.accentColor })}
+                                                <span style={{ fontSize: '9px', fontWeight: 800, color: actionConfig.accentColor, letterSpacing: '0.13em', textTransform: 'uppercase' as const }}>{actionConfig.label}</span>
+                                            </div>
                                             <div style={{ fontSize: '18px', fontWeight: 900, color: colors.textPrimary, letterSpacing: '-0.02em', lineHeight: 1.2 }}>{actionConfig.sublabel}</div>
                                         </div>
                                         <p style={{ fontSize: '12px', color: colors.textSecondary, lineHeight: 1.55, margin: 0, flex: 1, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' as any }}>

@@ -220,6 +220,51 @@ export function registerProjectRoutes(
 
   // ─── Desktop track picker ──────────────────────────────────────────────
 
+  // ─── Desktop: current user profile + storage stats ──────────────────────
+  app.get('/api/projects/desktop/me', requireProjectAuth, async (req: any, res) => {
+    try {
+      const userId = req.session.user._localId || req.session.user.id;
+
+      const [user, profile, projects] = await Promise.all([
+        (db as any).user.findUnique({
+          where: { id: userId },
+          select: { id: true, username: true, displayName: true, avatar: true },
+        }),
+        db.musicianProfile.findFirst({
+          where: { userId },
+          select: { username: true, displayName: true, avatar: true },
+        }),
+        db.project.findMany({
+          where: { userId, deletedAt: null },
+          select: {
+            id: true,
+            versions: {
+              orderBy: { versionNumber: 'desc' },
+              take: 1,
+              select: { totalSize: true },
+            },
+          },
+        }),
+      ]);
+
+      const totalStorageBytes = projects.reduce((sum: number, p: any) => {
+        return sum + (p.versions[0]?.totalSize ?? 0);
+      }, 0);
+
+      res.json({
+        userId,
+        username: profile?.username || user?.username || 'Producer',
+        displayName: profile?.displayName || user?.displayName || null,
+        avatar: profile?.avatar || user?.avatar || null,
+        projectCount: projects.length,
+        totalStorageBytes,
+      });
+    } catch (e: any) {
+      logger.error('Failed to fetch desktop me', e);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
   app.get('/api/projects/my-tracks', requireProjectAuth, async (req: any, res) => {
     try {
       const userId = req.session.user._localId || req.session.user.id;
