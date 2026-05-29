@@ -298,27 +298,22 @@ export const ArtistDiscoveryPage: React.FC = () => {
                         return (
                     <div style={{ ...panel, height: isMobile ? 'auto' : '400px', minHeight: isMobile ? '300px' : undefined, overflow: 'hidden', gridColumn: isMobile ? undefined : 'span 3', padding: 0, position: 'relative' }}>
 
-                        {/* Banner image — top of card, fades into content */}
-                        {bgImg && (
-                            <>
-                                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: isMobile ? '200px' : '240px', backgroundImage: `url(${bgImg})`, backgroundSize: 'cover', backgroundPosition: 'center top' }} />
-                                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: isMobile ? '200px' : '240px', background: 'linear-gradient(to bottom, rgba(10,13,24,0.15) 0%, rgba(10,13,24,0.6) 55%, rgba(10,13,24,1) 100%)' }} />
-                            </>
-                        )}
-                        {!bgImg && <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(135deg, rgba(10,13,24,0.98) 0%, ${colors.primary}18 100%)` }} />}
-                        <div style={{ position: 'absolute', top: isMobile ? '200px' : '240px', bottom: 0, left: 0, right: 0, background: 'rgba(10,13,24,0.98)' }} />
+                        {/* Banner — full background with strong overlay so label is readable at top */}
+                        {bgImg && <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${bgImg})`, backgroundSize: 'cover', backgroundPosition: 'center top' }} />}
+                        <div style={{ position: 'absolute', inset: 0, background: bgImg
+                            ? 'linear-gradient(to bottom, rgba(10,13,24,0.6) 0%, rgba(10,13,24,0.55) 35%, rgba(10,13,24,0.88) 65%, rgba(10,13,24,1) 100%)'
+                            : `linear-gradient(135deg, rgba(10,13,24,0.98) 0%, ${colors.primary}18 100%)`
+                        }} />
 
                         {/* Content */}
                         <div style={{
                             position: 'relative',
                             height: isMobile ? 'auto' : '100%',
-                            padding: isMobile ? '16px 20px 20px' : '32px 28px 22px',
-                            paddingTop: isMobile && bgImg ? '170px' : undefined,
-                            display: 'flex', flexDirection: 'column', justifyContent: isMobile ? 'flex-start' : 'space-between',
-                            gap: isMobile ? '12px' : undefined,
+                            padding: '20px 28px 22px',
+                            display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
                             boxSizing: 'border-box' as const,
                         }}>
-                            {/* Status badges when no banner image */}
+                            {/* Status badges */}
                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.12em', color: colors.primary, background: `${colors.primary}25`, padding: '4px 10px', borderRadius: '4px', backdropFilter: 'blur(8px)' }}>
                                     <Swords size={10} />Featured Battle
@@ -332,7 +327,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
                             </div>
 
                             {battle ? (
-                                <div style={{ flex: isMobile ? undefined : 1, display: 'flex', flexDirection: 'column', justifyContent: isMobile ? 'flex-start' : 'flex-end', gap: '8px', paddingBottom: isMobile ? '0' : '8px' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingBottom: isMobile ? '0' : '8px' }}>
                                     <Link to={`/battles/${battle.id}`} style={{ textDecoration: 'none' }}>
                                         <h2
                                             style={{ fontSize: isMobile ? '22px' : '30px', fontWeight: 900, margin: '0 0 6px', lineHeight: 1.1, color: '#fff', textShadow: '0 2px 12px rgba(0,0,0,0.5)' }}

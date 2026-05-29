@@ -127,6 +127,16 @@ export const BattlesPage: React.FC = () => {
     const [globalSponsors, setGlobalSponsors] = useState<PublicSponsor[]>([]);
     const [sponsorSectionTitle, setSponsorSectionTitle] = useState<string>('Official Partners');
 
+    // Shuffle entries once per battle load so ordering doesn't reveal vote leaders
+    const shuffledEntries = React.useMemo(() => {
+        const arr = [...(currentBattle?.entries ?? [])];
+        for (let i = arr.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [arr[i], arr[j]] = [arr[j], arr[i]];
+        }
+        return arr;
+    }, [currentBattle?.entries]);
+
     useEffect(() => {
         const onResize = () => setIsMobile(window.innerWidth < 768);
         window.addEventListener('resize', onResize);
@@ -657,7 +667,7 @@ export const BattlesPage: React.FC = () => {
                                 </div>
                             )}
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                {currentBattle.entries.map((entry, i) => {
+                                {shuffledEntries.map((entry, i) => {
                                     const myRank = myRanks[entry.id] || 0;
                                     const hasVoted = myRank > 0;
                                     const isVoting = votingId === entry.id;
@@ -697,10 +707,6 @@ export const BattlesPage: React.FC = () => {
                                                             {isPlaying ? <Pause size={18} fill="white" color="white" /> : <Play size={18} fill="white" color="white" />}
                                                         </div>
                                                     </div>
-                                                    {/* Rank badge */}
-                                                    {i < 3 && (
-                                                        <div style={{ position: 'absolute', top: '6px', left: '6px', fontSize: '15px', lineHeight: 1 }}>{placeEmoji(i)}</div>
-                                                    )}
                                                 </div>
 
                                                 {/* Right: info */}
@@ -721,10 +727,6 @@ export const BattlesPage: React.FC = () => {
                                                                 {entry.username}
                                                             </Link>
                                                         </div>
-                                                        {/* Vote fire count */}
-                                                        <span style={{ fontSize: '12px', color: colors.primary, fontWeight: 800, display: 'flex', alignItems: 'center', gap: '3px', flexShrink: 0 }}>
-                                                            {FIRE} {entry.voteCount}
-                                                        </span>
                                                     </div>
 
                                                     {/* Track title */}
@@ -777,14 +779,6 @@ export const BattlesPage: React.FC = () => {
                                                         <Link to={(entry as any).trackRoute || `/battles/entry/${entry.id}`} style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: colors.textSecondary, textDecoration: 'none' }}>
                                                             <ExternalLink size={13} /> View Entry
                                                         </Link>
-                                                        {/* Per-rank tally */}
-                                                        {(entry.firstPlaceVotes !== undefined || entry.secondPlaceVotes !== undefined || entry.thirdPlaceVotes !== undefined) && (
-                                                            <span style={{ marginLeft: 'auto', fontSize: '10px', color: colors.textSecondary, fontWeight: 600, display: 'flex', gap: '6px' }}>
-                                                                <span title="1st place votes">🥇 {entry.firstPlaceVotes || 0}</span>
-                                                                <span title="2nd place votes">🥈 {entry.secondPlaceVotes || 0}</span>
-                                                                <span title="3rd place votes">🥉 {entry.thirdPlaceVotes || 0}</span>
-                                                            </span>
-                                                        )}
                                                         {hasVoted && (currentBattle.status === 'voting' || sdActive) && (
                                                             <span style={{ fontSize: '10px', color: colors.primary, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                                                                 Your {myRank === 1 ? '1st' : myRank === 2 ? '2nd' : '3rd'}
