@@ -1104,7 +1104,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                 </div>
                             </div>
                             <a
-                                href="https://discord.gg/fujistudio"
+                                href="https://discord.gg/flstudio"
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 style={{
