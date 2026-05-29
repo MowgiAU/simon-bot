@@ -501,577 +501,254 @@ export const ArtistDiscoveryPage: React.FC = () => {
                     </div>
 
 
-                    {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• ROW 2: TRENDING ARTISTS / PLAYLISTS / TUTORIAL â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+                    {/* ROW 2: 4-card strip */}
+                    <div style={{
+                        gridColumn: '1 / -1',
+                        ...(isMobile ? {
+                            display: 'flex' as const,
+                            overflowX: 'auto' as const,
+                            gap: '12px',
+                            paddingBottom: '4px',
+                            scrollSnapType: 'x mandatory' as const,
+                        } : {
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(4, 1fr)',
+                            gap: '18px',
+                        }),
+                    }}>
 
-                    {/* Trending Artist */}
-                    {(() => {
-                        const trendingArtist = (featured as any)?.trendingArtistOverride ?? artists[0] ?? null;
-                        return (
-                    <div style={{ ...panel, height: isMobile ? 'auto' : '260px', position: 'relative', overflow: 'hidden', padding: 0, border: '1px solid rgba(255,255,255,0.07)', gridColumn: isMobile ? undefined : 'span 2' }}>
-                        {trendingArtist ? (
-                            <>
-                                {/* Full-bleed blurred background */}
-                                <div style={{
-                                    position: 'absolute', inset: 0,
-                                    backgroundImage: `url(${getAvatarUrl(trendingArtist.avatar, trendingArtist.userId)})`,
-                                    backgroundSize: 'cover', backgroundPosition: 'center',
-                                    filter: 'blur(40px) brightness(0.2) saturate(1.6)',
-                                    transform: 'scale(1.3)', pointerEvents: 'none',
-                                }} />
-                                <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(160deg, rgba(14,18,26,0.35) 0%, rgba(14,18,26,0.85) 70%, rgba(14,18,26,0.95) 100%)', pointerEvents: 'none' }} />
-                                {/* Accent glow */}
-                                <div style={{ position: 'absolute', top: '-30%', left: '-10%', width: '60%', height: '80%', background: `radial-gradient(ellipse, ${colors.primary}15 0%, transparent 70%)`, pointerEvents: 'none' }} />
-
-                                <div style={{ position: 'relative', zIndex: 1, display: 'flex', height: '100%', padding: isMobile ? '16px' : '20px 24px', boxSizing: 'border-box', gap: isMobile ? '14px' : '20px', alignItems: 'center' }}>
-
-                                    {/* Left: avatar with glowing ring */}
-                                    <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center' }}>
-                                        <div style={{ position: 'relative' }}>
-                                            <div style={{ position: 'absolute', inset: '-5px', borderRadius: '50%', background: `conic-gradient(from 45deg, ${colors.primary}, #a78bfa, #FBBF24, #F472B6, ${colors.primary})`, opacity: 0.7, filter: 'blur(1px)' }} />
-                                            <div style={{ position: 'absolute', inset: '-3px', borderRadius: '50%', background: 'rgba(14,18,26,0.8)' }} />
-                                            <div style={{ width: isMobile ? '90px' : '110px', height: isMobile ? '90px' : '110px', borderRadius: '50%', overflow: 'hidden', position: 'relative', zIndex: 1, boxShadow: '0 12px 40px rgba(0,0,0,0.6)' }}>
-                                                <img src={getAvatarUrl(trendingArtist.avatar, trendingArtist.userId)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                                    onError={(e) => { (e.target as HTMLImageElement).src = 'https://cdn.discordapp.com/embed/avatars/0.png'; }} />
-                                            </div>
-                                            {/* #1 badge */}
-                                            <div style={{ position: 'absolute', bottom: '0px', right: '0px', zIndex: 2, width: '28px', height: '28px', borderRadius: '50%', background: 'linear-gradient(135deg, #F59E0B, #D97706)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 900, color: 'white', border: '3px solid rgba(14,18,26,0.9)', boxShadow: '0 3px 12px rgba(245,158,11,0.6)' }}>#1</div>
-                                        </div>
-                                    </div>
-
-                                    {/* Right: info */}
-                                    <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                        {/* Label */}
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                            <TrendingUp size={12} color="#FBBF24" />
-                                            <span style={{ fontSize: '10px', fontWeight: 800, color: '#FBBF24', letterSpacing: '0.12em', textTransform: 'uppercase' }}>Trending Artist</span>
-                                        </div>
-                                        {/* Name */}
-                                        <Link to={`/profile/${trendingArtist.username}`} style={{ textDecoration: 'none' }}>
-                                            <div style={{ fontWeight: 900, fontSize: isMobile ? '18px' : '22px', color: colors.textPrimary, letterSpacing: '-0.03em', lineHeight: 1.1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                                <StyledUsername userId={trendingArtist.userId}>{trendingArtist.displayName || trendingArtist.username}</StyledUsername>
-                                            </div>
-                                        </Link>
-                                        {/* Genre pills */}
-                                        {(trendingArtist.primaryGenre || trendingArtist.genres?.length > 0) && (
-                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
-                                                {trendingArtist.primaryGenre && (
-                                                    <span style={{ fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', padding: '4px 10px', borderRadius: '20px', background: `${colors.primary}22`, border: `1px solid ${colors.primary}55`, color: colors.primary }}>
-                                                        {trendingArtist.primaryGenre.name}
-                                                    </span>
-                                                )}
-                                                {trendingArtist.genres?.filter((g: any) => g.genre && (!trendingArtist.primaryGenre || g.genre.name !== trendingArtist.primaryGenre!.name)).slice(0, 2).map((g: any, i: number) => (
-                                                    <span key={i} style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', padding: '4px 10px', borderRadius: '20px', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)', color: colors.textSecondary }}>
-                                                        {g.genre.name}
-                                                    </span>
-                                                ))}
-                                                {!trendingArtist.primaryGenre && trendingArtist.genres?.slice(0, 3).map((g: any, i: number) => (
-                                                    <span key={`fb-${i}`} style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', padding: '4px 10px', borderRadius: '20px', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)', color: colors.textSecondary }}>
-                                                        {g.genre.name}
-                                                    </span>
-                                                ))}
-                                            </div>
-                                        )}
-                                        {/* Bio */}
-                                        {trendingArtist.bio && (
-                                            <p style={{ fontSize: '12px', color: 'rgba(185,195,210,0.7)', lineHeight: 1.6, margin: 0, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any }}>
-                                                {trendingArtist.bio}
-                                            </p>
-                                        )}
-                                        {/* Stats + CTA row */}
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginTop: '4px', paddingTop: '10px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-                                            <div style={{ display: 'flex', alignItems: 'baseline', gap: '5px' }}>
-                                                <span style={{ fontSize: '22px', fontWeight: 900, color: colors.primary, lineHeight: 1, letterSpacing: '-0.02em' }}>
-                                                    {trendingArtist.totalPlays >= 1000 ? `${(trendingArtist.totalPlays / 1000).toFixed(1)}k` : (trendingArtist.totalPlays || 0).toLocaleString()}
-                                                </span>
-                                                <span style={{ fontSize: '10px', color: colors.textSecondary, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>plays</span>
-                                            </div>
-                                            <Link to={`/profile/${trendingArtist.username}`} style={{
-                                                marginLeft: 'auto',
-                                                display: 'inline-flex', alignItems: 'center', gap: '6px',
-                                                padding: '9px 20px', borderRadius: '999px', textDecoration: 'none',
-                                                background: colors.primary, color: 'white',
-                                                fontSize: '12px', fontWeight: 700, letterSpacing: '0.03em',
-                                                boxShadow: `0 4px 16px ${colors.primary}44`,
-                                                transition: 'transform 0.15s, box-shadow 0.15s',
-                                            }}
-                                                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = `0 6px 20px ${colors.primary}66`; }}
-                                                onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = `0 4px 16px ${colors.primary}44`; }}
-                                            >
-                                                View Profile
-                                            </Link>
-                                        </div>
-                                    </div>
-                                </div>
-                            </>
-                        ) : (
-                            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '20px' }}>
-                                <TrendingUp size={32} color={colors.textSecondary} style={{ opacity: 0.15 }} />
-                                <p style={{ fontSize: '12px', color: colors.textSecondary, margin: 0 }}>No artists yet</p>
-                            </div>
-                        )}
-                    </div>
-                        );
-                    })()}
-
-                    {/* 1v1 Arena â€” Beat Battles head-to-head */}
-                    <div style={{ ...panel, height: isMobile ? 'auto' : '260px', position: 'relative', overflow: 'hidden', padding: 0, border: '1px solid rgba(139,92,246,0.18)', gridColumn: isMobile ? undefined : 'span 2' }}>
-                        {/* Animated diagonal gradient background */}
-                        <div style={{
-                            position: 'absolute', inset: 0,
-                            background: 'linear-gradient(135deg, #1a0f2e 0%, #2a0f3a 35%, #3d0f2e 70%, #2a0f1a 100%)',
-                            pointerEvents: 'none',
-                        }} />
-                        {/* Purple glow top-left */}
-                        <div style={{ position: 'absolute', top: '-30%', left: '-15%', width: '70%', height: '90%', background: 'radial-gradient(ellipse, rgba(139,92,246,0.25) 0%, transparent 65%)', pointerEvents: 'none' }} />
-                        {/* Pink glow bottom-right */}
-                        <div style={{ position: 'absolute', bottom: '-25%', right: '-10%', width: '60%', height: '85%', background: 'radial-gradient(ellipse, rgba(236,72,153,0.22) 0%, transparent 65%)', pointerEvents: 'none' }} />
-                        {/* Subtle scan-line texture */}
-                        <div style={{ position: 'absolute', inset: 0, backgroundImage: 'repeating-linear-gradient(0deg, transparent 0px, transparent 3px, rgba(255,255,255,0.015) 3px, rgba(255,255,255,0.015) 4px)', pointerEvents: 'none' }} />
-
-                        <div style={{ position: 'relative', zIndex: 1, height: '100%', display: 'flex', flexDirection: isMobile ? 'column' : 'row', padding: isMobile ? '20px' : '22px 26px', boxSizing: 'border-box', gap: isMobile ? '18px' : '24px', alignItems: isMobile ? 'stretch' : 'center' }}>
-
-                            {/* Left: Branding */}
-                            <div style={{ flex: '1 1 0', minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '10px' }}>
-                                {/* Label row */}
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                    <Swords size={13} color="#EC4899" />
-                                    <span style={{ fontSize: '10px', fontWeight: 800, color: '#EC4899', letterSpacing: '0.15em', textTransform: 'uppercase' }}>1v1 Arena</span>
-                                    <span style={{ fontSize: '8px', fontWeight: 800, padding: '2px 6px', borderRadius: '4px', background: 'rgba(52,211,153,0.18)', color: '#34D399', letterSpacing: '0.1em', border: '1px solid rgba(52,211,153,0.3)' }}>NEW</span>
-                                </div>
-                                {/* Title */}
-                                <div style={{ fontWeight: 900, fontSize: isMobile ? '22px' : '26px', color: '#fff', lineHeight: 1.05, letterSpacing: '-0.03em' }}>
-                                    Producer vs<br/>Producer
-                                </div>
-                                {/* Subtitle */}
-                                <p style={{ fontSize: '12px', color: 'rgba(220,220,240,0.7)', margin: 0, lineHeight: 1.5, maxWidth: '260px' }}>
-                                    Get matched. Get a sample pack. Build a beat. Anonymous voters pick the winner.
-                                </p>
-                                {/* CTA */}
-                                <div style={{ display: 'flex', alignItems: 'center', paddingTop: '10px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-                                    <Link to="/arena" style={{
-                                        display: 'inline-flex', alignItems: 'center', gap: '7px', width: 'fit-content',
-                                        padding: '9px 20px', borderRadius: '999px', textDecoration: 'none',
-                                        background: 'linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%)',
-                                        color: 'white', fontSize: '12px', fontWeight: 700, letterSpacing: '0.03em',
-                                        boxShadow: '0 4px 16px rgba(139,92,246,0.44)',
-                                        transition: 'transform 0.15s, box-shadow 0.15s',
-                                    }}
-                                        onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(236,72,153,0.55)'; }}
-                                        onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(139,92,246,0.44)'; }}
-                                    >
-                                        <Swords size={14} /> Enter the Arena
-                                    </Link>
-                                </div>
-                            </div>
-
-                            {/* Right: Reigning champion or VS graphic */}
-                            <div style={{ flex: '0 0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: isMobile ? 'auto' : '180px' }}>
-                                {h2hChampion ? (
-                                    <Link to={h2hChampion.profile?.username ? `/profile/${h2hChampion.profile.username}` : '/arena'} style={{ textDecoration: 'none' }}>
-                                        <div style={{
-                                            position: 'relative', padding: '14px 16px',
-                                            borderRadius: '14px',
-                                            background: 'rgba(255,255,255,0.04)',
-                                            border: '1px solid rgba(251,191,36,0.35)',
-                                            boxShadow: '0 8px 24px rgba(0,0,0,0.4), inset 0 0 24px rgba(251,191,36,0.08)',
-                                            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px',
-                                            minWidth: '160px',
-                                        }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                                                <Trophy size={11} color="#FBBF24" />
-                                                <span style={{ fontSize: '9px', fontWeight: 800, color: '#FBBF24', letterSpacing: '0.12em', textTransform: 'uppercase' }}>Reigning Champ</span>
-                                            </div>
-                                            <div style={{ position: 'relative' }}>
-                                                <div style={{ position: 'absolute', inset: '-3px', borderRadius: '50%', background: 'conic-gradient(from 90deg, #FBBF24, #EC4899, #8B5CF6, #FBBF24)', opacity: 0.85, filter: 'blur(1px)' }} />
-                                                <div style={{ position: 'absolute', inset: '-2px', borderRadius: '50%', background: 'rgba(20,12,30,0.85)' }} />
-                                                <div style={{ width: '64px', height: '64px', borderRadius: '50%', overflow: 'hidden', position: 'relative', zIndex: 1 }}>
-                                                    {h2hChampion.profile?.avatar ? (
-                                                        <img src={getAvatarUrl(h2hChampion.profile.avatar, h2hChampion.userId)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                                            onError={(e) => { (e.target as HTMLImageElement).src = 'https://cdn.discordapp.com/embed/avatars/0.png'; }} />
-                                                    ) : (
-                                                        <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg, #8B5CF6, #EC4899)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 900, fontSize: '22px' }}>
-                                                            {(h2hChampion.profile?.displayName || h2hChampion.profile?.username || '?')[0].toUpperCase()}
-                                                        </div>
-                                                    )}
+                        {/* CARD 1: Trending Artist */}
+                        {(() => {
+                            const trendingArtist = (featured as any)?.trendingArtistOverride ?? artists[0] ?? null;
+                            const cardStyle: React.CSSProperties = {
+                                ...panel,
+                                height: '300px',
+                                position: 'relative', overflow: 'hidden', padding: 0,
+                                border: '1px solid rgba(255,255,255,0.07)',
+                                ...(isMobile ? { flexShrink: 0, width: '260px', scrollSnapAlign: 'start' as const } : {}),
+                            };
+                            return (
+                                <div style={cardStyle}>
+                                    {trendingArtist ? (
+                                        <>
+                                            <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${getAvatarUrl(trendingArtist.avatar, trendingArtist.userId)})`, backgroundSize: 'cover', backgroundPosition: 'center', filter: 'blur(40px) brightness(0.2) saturate(1.6)', transform: 'scale(1.3)', pointerEvents: 'none' }} />
+                                            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(160deg, rgba(14,18,26,0.3) 0%, rgba(14,18,26,0.8) 60%, rgba(14,18,26,0.95) 100%)', pointerEvents: 'none' }} />
+                                            <div style={{ position: 'absolute', top: '-30%', left: '-10%', width: '60%', height: '80%', background: `radial-gradient(ellipse, ${colors.primary}15 0%, transparent 70%)`, pointerEvents: 'none' }} />
+                                            <div style={{ position: 'relative', zIndex: 1, height: '100%', display: 'flex', flexDirection: 'column', padding: '16px', boxSizing: 'border-box', gap: '10px' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                                    <TrendingUp size={11} color="#FBBF24" />
+                                                    <span style={{ fontSize: '10px', fontWeight: 800, color: '#FBBF24', letterSpacing: '0.12em', textTransform: 'uppercase' as const }}>Trending Artist</span>
                                                 </div>
-                                            </div>
-                                            <div style={{ fontWeight: 800, fontSize: '13px', color: '#fff', textAlign: 'center', maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                {h2hChampion.profile?.displayName || h2hChampion.profile?.username || 'Anonymous'}
-                                            </div>
-                                            <div style={{ display: 'flex', gap: '10px', alignItems: 'baseline' }}>
-                                                <span style={{ fontSize: '18px', fontWeight: 900, color: '#FBBF24', lineHeight: 1, letterSpacing: '-0.02em' }}>{h2hChampion.elo}</span>
-                                                <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.55)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Elo</span>
-                                                <span style={{ fontSize: '10px', color: '#34D399', fontWeight: 700 }}>{h2hChampion.wins}W</span>
-                                                <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', fontWeight: 700 }}>Â·</span>
-                                                <span style={{ fontSize: '10px', color: 'rgba(248,113,113,0.85)', fontWeight: 700 }}>{h2hChampion.losses}L</span>
-                                            </div>
-                                        </div>
-                                    </Link>
-                                ) : (
-                                    /* Fallback: stylised arena graphic */
-                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
-                                        <div style={{ position: 'relative', width: '120px', height: '80px' }}>
-                                            {/* Left producer */}
-                                            <div style={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)', width: '52px', height: '52px', borderRadius: '12px', background: 'linear-gradient(135deg, #6366F1, #8B5CF6)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 6px 20px rgba(99,102,241,0.5)', border: '1px solid rgba(255,255,255,0.15)' }}>
-                                                <Mic2 size={22} color="white" />
-                                            </div>
-                                            {/* VS badge */}
-                                            <div style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%,-50%)', width: '28px', height: '28px', borderRadius: '50%', background: '#0d0d1a', border: '2px solid rgba(255,255,255,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1 }}>
-                                                <span style={{ fontSize: '8px', fontWeight: 900, color: 'rgba(255,255,255,0.7)', letterSpacing: '0.05em' }}>VS</span>
-                                            </div>
-                                            {/* Right producer */}
-                                            <div style={{ position: 'absolute', right: 0, top: '50%', transform: 'translateY(-50%)', width: '52px', height: '52px', borderRadius: '12px', background: 'linear-gradient(135deg, #EC4899, #F43F5E)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 6px 20px rgba(236,72,153,0.5)', border: '1px solid rgba(255,255,255,0.15)' }}>
-                                                <Mic2 size={22} color="white" />
-                                            </div>
-                                        </div>
-                                        <span style={{ fontSize: '10px', color: 'rgba(220,220,255,0.45)', fontWeight: 600, letterSpacing: '0.06em' }}>No matches yet — be first</span>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Featured Content â€” full width below */}
-                    {(() => {
-                        const contentType = featured?.featuredContentType || 'video';
-                        const typeConfig: Record<string, { icon: React.ReactNode; label: string; accentColor: string }> = {
-                            video:   { icon: <MonitorPlay size={13} />, label: 'Featured Video',   accentColor: colors.primary },
-                            news:    { icon: <Newspaper size={13} />,   label: 'Featured News',    accentColor: '#A78BFA' },
-                            guide:   { icon: <BookOpen size={13} />,    label: 'Featured Guide',   accentColor: '#FBBF24' },
-                            article: { icon: <FileText size={13} />,    label: 'Featured Article', accentColor: '#34D399' },
-                        };
-                        const tc = typeConfig[contentType] ?? typeConfig.video;
-                        return (
-                            <div style={{ ...panel, gridColumn: isMobile ? undefined : 'span 2', height: isMobile ? 'auto' : '240px', position: 'relative', overflow: 'hidden', padding: 0, border: '1px solid rgba(255,255,255,0.07)', boxSizing: 'border-box' }}>
-                                {/* Blurred thumbnail/accent background */}
-                                {contentType === 'video' && (featured?.featuredTutorialThumbnail || getTutorialThumbnail()) && (
-                                    <div style={{
-                                        position: 'absolute', inset: 0,
-                                        backgroundImage: `url(${featured?.featuredTutorialThumbnail || getTutorialThumbnail()})`,
-                                        backgroundSize: 'cover', backgroundPosition: 'center',
-                                        filter: 'blur(40px) brightness(0.2) saturate(1.5)',
-                                        transform: 'scale(1.3)',
-                                        pointerEvents: 'none',
-                                    }} />
-                                )}
-                                {contentType !== 'video' && featuredArticle?.coverImageUrl && (
-                                    <div style={{
-                                        position: 'absolute', inset: 0,
-                                        backgroundImage: `url(${featuredArticle.coverImageUrl})`,
-                                        backgroundSize: 'cover', backgroundPosition: 'center',
-                                        filter: 'blur(40px) brightness(0.18) saturate(1.4)',
-                                        transform: 'scale(1.3)',
-                                        pointerEvents: 'none',
-                                    }} />
-                                )}
-                                {contentType !== 'video' && !featuredArticle?.coverImageUrl && (
-                                    <div style={{
-                                        position: 'absolute', inset: 0,
-                                        background: `radial-gradient(ellipse at 30% 50%, ${tc.accentColor}18 0%, transparent 65%)`,
-                                        pointerEvents: 'none',
-                                    }} />
-                                )}
-                                <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg, rgba(14,18,26,0.4) 0%, rgba(14,18,26,0.8) 60%, rgba(14,18,26,0.95) 100%)', pointerEvents: 'none' }} />
-                                {/* Accent glow */}
-                                <div style={{ position: 'absolute', bottom: '-20%', right: '-10%', width: '50%', height: '70%', background: `radial-gradient(ellipse, ${tc.accentColor}10 0%, transparent 70%)`, pointerEvents: 'none' }} />
-
-                                <div style={{ position: 'relative', height: '100%', display: 'flex', flexDirection: 'column', padding: isMobile ? '20px' : '24px 28px', boxSizing: 'border-box' }}>
-                                    {/* Type label */}
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '16px' }}>
-                                        <span style={{ color: tc.accentColor, display: 'flex', alignItems: 'center' }}>{tc.icon}</span>
-                                        <span style={{ fontSize: '10px', fontWeight: 800, color: tc.accentColor, letterSpacing: '0.12em', textTransform: 'uppercase' }}>{tc.label}</span>
-                                    </div>
-
-                                    {/* Content body */}
-                                    {contentType === 'video' ? (
-                                        featured?.featuredTutorialUrl ? (
-                                            <div style={{ flex: 1, display: 'flex', gap: isMobile ? '16px' : '24px', minHeight: 0, overflow: 'hidden', alignItems: 'center' }}>
-                                                {/* Left: thumbnail with play overlay */}
-                                                <a href={featured.featuredTutorialUrl} target="_blank" rel="noopener noreferrer" style={{ flexShrink: 0, display: 'block', width: isMobile ? '140px' : '220px', textDecoration: 'none' }}>
-                                                    <div style={{
-                                                        width: '100%', aspectRatio: '16/9',
-                                                        borderRadius: '12px', overflow: 'hidden', position: 'relative',
-                                                        background: '#1f2937', border: '1px solid rgba(255,255,255,0.1)',
-                                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                        boxShadow: '0 12px 40px rgba(0,0,0,0.6)',
-                                                        cursor: 'pointer',
-                                                    }}>
-                                                        {getTutorialThumbnail() && (
-                                                            <img src={getTutorialThumbnail()!} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', inset: 0, transition: 'transform 0.3s' }} />
-                                                        )}
-                                                        <div style={{
-                                                            position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.2)',
-                                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                            transition: 'background 0.2s',
-                                                        }}>
-                                                            <div style={{
-                                                                width: '52px', height: '52px',
-                                                                background: `${colors.primary}dd`, borderRadius: '50%',
-                                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                                boxShadow: `0 6px 24px ${colors.primary}55`,
-                                                                transition: 'transform 0.2s',
-                                                            }}>
-                                                                <Play size={22} fill="white" color="white" style={{ marginLeft: '3px' }} />
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                    <div style={{ flexShrink: 0, position: 'relative' }}>
+                                                        <div style={{ position: 'absolute', inset: '-4px', borderRadius: '50%', background: `conic-gradient(from 45deg, ${colors.primary}, #a78bfa, #FBBF24, #F472B6, ${colors.primary})`, opacity: 0.7, filter: 'blur(1px)' }} />
+                                                        <div style={{ position: 'absolute', inset: '-2px', borderRadius: '50%', background: 'rgba(14,18,26,0.8)' }} />
+                                                        <div style={{ width: '56px', height: '56px', borderRadius: '50%', overflow: 'hidden', position: 'relative', zIndex: 1 }}>
+                                                            <img src={getAvatarUrl(trendingArtist.avatar, trendingArtist.userId)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={(e) => { (e.target as HTMLImageElement).src = 'https://cdn.discordapp.com/embed/avatars/0.png'; }} />
+                                                        </div>
+                                                        <div style={{ position: 'absolute', bottom: '-2px', right: '-2px', zIndex: 2, width: '22px', height: '22px', borderRadius: '50%', background: 'linear-gradient(135deg, #F59E0B, #D97706)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '8px', fontWeight: 900, color: 'white', border: '2px solid rgba(14,18,26,0.9)' }}>#1</div>
+                                                    </div>
+                                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                                        <Link to={`/profile/${trendingArtist.username}`} style={{ textDecoration: 'none' }}>
+                                                            <div style={{ fontWeight: 900, fontSize: '15px', color: colors.textPrimary, letterSpacing: '-0.02em', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>
+                                                                <StyledUsername userId={trendingArtist.userId}>{trendingArtist.displayName || trendingArtist.username}</StyledUsername>
                                                             </div>
+                                                        </Link>
+                                                        <div style={{ display: 'flex', flexWrap: 'wrap' as const, gap: '3px', marginTop: '4px' }}>
+                                                            {trendingArtist.primaryGenre && (
+                                                                <span style={{ fontSize: '9px', fontWeight: 800, textTransform: 'uppercase' as const, letterSpacing: '0.06em', padding: '2px 7px', borderRadius: '20px', background: `${colors.primary}22`, border: `1px solid ${colors.primary}55`, color: colors.primary }}>{trendingArtist.primaryGenre.name}</span>
+                                                            )}
+                                                            {!trendingArtist.primaryGenre && trendingArtist.genres?.slice(0, 1).map((g: any, i: number) => (
+                                                                <span key={i} style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.05em', padding: '2px 7px', borderRadius: '20px', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)', color: colors.textSecondary }}>{g.genre.name}</span>
+                                                            ))}
                                                         </div>
                                                     </div>
-                                                </a>
-                                                {/* Right: text + CTA */}
-                                                <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '10px', justifyContent: 'center' }}>
-                                                    <div style={{ fontWeight: 900, fontSize: isMobile ? '16px' : '22px', lineHeight: 1.2, color: colors.textPrimary, letterSpacing: '-0.02em', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any }}>
-                                                        {featured.featuredTutorialTitle || 'Watch Tutorial'}
-                                                    </div>
-                                                    {featured.featuredTutorialDescription && (
-                                                        <div style={{ fontSize: '12px', color: 'rgba(185,195,210,0.7)', lineHeight: 1.7, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' as any }}>
-                                                            {featured.featuredTutorialDescription}
-                                                        </div>
-                                                    )}
-                                                    {/* Author + date */}
-                                                    {(featured.featuredTutorialAuthor || featured.featuredTutorialDate) && (
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                                                            {featured.featuredTutorialAuthor && (
-                                                                <span style={{ fontSize: '11px', color: colors.textPrimary, fontWeight: 700 }}>
-                                                                    {featured.featuredTutorialAuthor}
-                                                                </span>
-                                                            )}
-                                                            {featured.featuredTutorialAuthor && featured.featuredTutorialDate && (
-                                                                <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.2)' }}>Â·</span>
-                                                            )}
-                                                            {featured.featuredTutorialDate && (
-                                                                <span style={{ fontSize: '11px', color: colors.textSecondary }}>
-                                                                    {featured.featuredTutorialDate}
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                    )}
-                                                    <a
-                                                        href={featured.featuredTutorialUrl}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        style={{
-                                                            display: 'inline-flex', alignItems: 'center', gap: '7px',
-                                                            padding: '9px 20px', borderRadius: '999px', width: 'fit-content',
-                                                            background: colors.primary, color: 'white',
-                                                            fontWeight: 700, fontSize: '12px', textDecoration: 'none',
-                                                            letterSpacing: '0.03em',
-                                                            boxShadow: `0 4px 16px ${colors.primary}44`,
-                                                            transition: 'transform 0.15s, box-shadow 0.15s',
-                                                        }}
-                                                        onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = `0 6px 20px ${colors.primary}66`; }}
-                                                        onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = `0 4px 16px ${colors.primary}44`; }}
-                                                    >
-                                                        <ExternalLink size={13} /> Watch Now
-                                                    </a>
                                                 </div>
-                                            </div>
-                                        ) : (
-                                            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
-                                                <MonitorPlay size={40} color={colors.textSecondary} style={{ opacity: 0.12 }} />
-                                                <p style={{ fontSize: '12px', color: colors.textSecondary, margin: 0 }}>No video set</p>
-                                            </div>
-                                        )
-                                    ) : (
-                                        /* News / Guide / Article â€” show featured article or fallback */
-                                        featuredArticle ? (
-                                            <a href={`/article/${featuredArticle.slug}`} style={{ flex: 1, display: 'flex', alignItems: 'center', gap: isMobile ? '16px' : '24px', textDecoration: 'none', color: 'inherit', overflow: 'hidden' }}>
-                                                {featuredArticle.coverImageUrl ? (
-                                                    <div style={{
-                                                        width: isMobile ? '100px' : '160px', height: isMobile ? '100px' : '160px', flexShrink: 0, borderRadius: '14px',
-                                                        overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 12px 40px rgba(0,0,0,0.5)',
-                                                    }}>
-                                                        <img src={featuredArticle.coverImageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                                    </div>
-                                                ) : (
-                                                    <div style={{
-                                                        width: isMobile ? '100px' : '160px', height: isMobile ? '100px' : '160px', flexShrink: 0, borderRadius: '14px',
-                                                        background: `${tc.accentColor}12`, border: `1px solid ${tc.accentColor}30`,
-                                                        display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
-                                                    }}>
-                                                        {contentType === 'news'
-                                                            ? <Newspaper size={40} color={tc.accentColor} style={{ opacity: 0.5 }} />
-                                                            : contentType === 'article'
-                                                            ? <FileText size={40} color={tc.accentColor} style={{ opacity: 0.5 }} />
-                                                            : <BookOpen size={40} color={tc.accentColor} style={{ opacity: 0.5 }} />}
-                                                    </div>
+                                                {trendingArtist.bio && (
+                                                    <p style={{ fontSize: '11px', color: 'rgba(185,195,210,0.65)', lineHeight: 1.55, margin: 0, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' as any, flex: 1 }}>{trendingArtist.bio}</p>
                                                 )}
-                                                <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '8px', justifyContent: 'center' }}>
-                                                    <div style={{ fontSize: isMobile ? '16px' : '22px', fontWeight: 900, color: colors.textPrimary, letterSpacing: '-0.02em', lineHeight: 1.2, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any }}>
-                                                        {featuredArticle.title}
+                                                <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '10px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px' }}>
+                                                        <span style={{ fontSize: '18px', fontWeight: 900, color: colors.primary, lineHeight: 1, letterSpacing: '-0.02em' }}>
+                                                            {trendingArtist.totalPlays >= 1000 ? `${(trendingArtist.totalPlays / 1000).toFixed(1)}k` : (trendingArtist.totalPlays || 0).toLocaleString()}
+                                                        </span>
+                                                        <span style={{ fontSize: '9px', color: colors.textSecondary, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.06em' }}>plays</span>
                                                     </div>
-                                                    {featuredArticle.excerpt && (
-                                                        <div style={{ fontSize: '12px', color: 'rgba(185,195,210,0.7)', lineHeight: 1.7, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any, overflow: 'hidden' }}>
-                                                            {featuredArticle.excerpt}
-                                                        </div>
-                                                    )}
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                                                        {featuredArticle.authorName && (
-                                                            <span style={{ fontSize: '11px', color: colors.textPrimary, fontWeight: 700 }}>
-                                                                {featuredArticle.authorName}
-                                                            </span>
-                                                        )}
-                                                        {featuredArticle.authorName && featuredArticle.publishedAt && (
-                                                            <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.2)' }}>Â·</span>
-                                                        )}
-                                                        {featuredArticle.publishedAt && (
-                                                            <span style={{ fontSize: '11px', color: colors.textSecondary }}>
-                                                                {new Date(featuredArticle.publishedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                    <div style={{ display: 'flex', alignItems: 'center', paddingTop: '12px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-                                                        <span style={{
-                                                            display: 'inline-flex', alignItems: 'center', gap: '7px', width: 'fit-content',
-                                                            padding: '9px 20px', borderRadius: '999px', fontSize: '12px', fontWeight: 700,
-                                                            background: tc.accentColor, color: 'white',
-                                                            letterSpacing: '0.03em',
-                                                            boxShadow: `0 4px 16px ${tc.accentColor}44`,
-                                                        }}>Read Article</span>
-                                                    </div>
-                                                </div>
-                                            </a>
-                                        ) : (
-                                            <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '28px', justifyContent: 'center' }}>
-                                                <div style={{
-                                                    width: '100px', height: '100px', flexShrink: 0, borderRadius: '20px',
-                                                    background: `${tc.accentColor}10`,
-                                                    border: `1px solid ${tc.accentColor}25`,
-                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                }}>
-                                                    {contentType === 'news'
-                                                        ? <Newspaper size={42} color={tc.accentColor} style={{ opacity: 0.4 }} />
-                                                        : contentType === 'article'
-                                                        ? <FileText size={42} color={tc.accentColor} style={{ opacity: 0.4 }} />
-                                                        : <BookOpen size={42} color={tc.accentColor} style={{ opacity: 0.4 }} />}
-                                                </div>
-                                                <div style={{ flex: 1, maxWidth: '300px' }}>
-                                                    <div style={{ fontSize: '18px', fontWeight: 900, color: colors.textPrimary, marginBottom: '8px', letterSpacing: '-0.02em' }}>
-                                                        {contentType === 'news' ? 'Community News' : contentType === 'article' ? 'Featured Article' : 'Community Guides'}
-                                                    </div>
-                                                    <div style={{ fontSize: '12px', color: 'rgba(185,195,210,0.6)', lineHeight: 1.7, marginBottom: '14px' }}>
-                                                        {contentType === 'news'
-                                                            ? 'Curated updates, announcements, and stories from the Fuji Studio community.'
-                                                            : contentType === 'article'
-                                                            ? 'A featured article selected by the community team.'
-                                                            : 'In-depth tutorials and production guides from experienced FL Studio producers.'}
-                                                    </div>
-                                                    <span style={{
-                                                        display: 'inline-flex', alignItems: 'center', gap: '5px',
-                                                        padding: '6px 14px', borderRadius: '999px', fontSize: '10px', fontWeight: 700,
-                                                        background: `${tc.accentColor}15`, border: `1px solid ${tc.accentColor}30`,
-                                                        color: tc.accentColor, letterSpacing: '0.05em', textTransform: 'uppercase',
-                                                    }}>No content yet</span>
+                                                    <Link to={`/profile/${trendingArtist.username}`} style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '7px 14px', borderRadius: '999px', textDecoration: 'none', background: colors.primary, color: 'white', fontSize: '11px', fontWeight: 700, boxShadow: `0 4px 14px ${colors.primary}44` }}>View Profile</Link>
                                                 </div>
                                             </div>
-                                        )
+                                        </>
+                                    ) : (
+                                        <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '20px' }}>
+                                            <TrendingUp size={32} color={colors.textSecondary} style={{ opacity: 0.15 }} />
+                                            <p style={{ fontSize: '12px', color: colors.textSecondary, margin: 0 }}>No artists yet</p>
+                                        </div>
                                     )}
                                 </div>
-                            </div>
-                        );
-                    })()}
+                            );
+                        })()}
 
-                    {/* Get Started / Upload Action Card */}
-                    {(() => {
-                        const hasProfile = !!(user?.profileUsername);
-                        const isLoggedIn = !!user;
-
-                        let actionConfig: { label: string; sublabel: string; icon: React.ReactNode; link: string; bgGradient: string; accentColor: string; buttonText: string };
-
-                        if (!isLoggedIn) {
-                            actionConfig = {
-                                label: 'Join Fuji Studio',
-                                sublabel: 'Create an account to start your music journey',
-                                icon: <UserPlus size={20} />,
-                                link: '/login',
-                                bgGradient: 'linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%)',
-                                accentColor: '#60A5FA',
-                                buttonText: 'Create Account'
-                            };
-                        } else if (!hasProfile) {
-                            actionConfig = {
-                                label: 'Set Up Artist Profile',
-                                sublabel: 'Showcase your music and connect with fans',
-                                icon: <UserPlus size={20} />,
-                                link: '/profile/setup',
-                                bgGradient: 'linear-gradient(135deg, #451a03 0%, #1e1b4b 100%)',
-                                accentColor: '#FBBF24',
-                                buttonText: 'Start Setup'
-                            };
-                        } else {
-                            actionConfig = {
-                                label: 'Share Your Music',
-                                sublabel: 'Upload your latest track and get discovered',
-                                icon: <Upload size={20} />,
-                                link: '/my-tracks',
-                                bgGradient: 'linear-gradient(135deg, #14532d 0%, #0f172a 100%)',
-                                accentColor: '#34D399',
-                                buttonText: 'Upload Track'
-                            };
-                        }
-
-                        return (
-                            <div style={{
-                                ...panel,
-                                gridColumn: isMobile ? undefined : 'span 2',
-                                height: isMobile ? 'auto' : '240px',
-                                position: 'relative',
-                                overflow: 'hidden',
-                                padding: 0,
-                                border: `1px solid ${actionConfig.accentColor}28`,
-                                boxSizing: 'border-box',
-                            }}>
-                                {/* Background */}
-                                <div style={{ position: 'absolute', inset: 0, background: actionConfig.bgGradient, pointerEvents: 'none' }} />
-                                {/* Large icon watermark — top-right */}
-                                <div style={{ position: 'absolute', top: '-10px', right: '-10px', opacity: 0.07, pointerEvents: 'none' }}>
-                                    {React.cloneElement(actionConfig.icon as React.ReactElement, { size: 140 })}
+                        {/* CARD 2: 1v1 Arena */}
+                        <div style={{
+                            ...panel,
+                            height: '300px',
+                            position: 'relative', overflow: 'hidden', padding: 0,
+                            border: '1px solid rgba(139,92,246,0.18)',
+                            ...(isMobile ? { flexShrink: 0, width: '260px', scrollSnapAlign: 'start' as const } : {}),
+                        }}>
+                            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg, #1a0f2e 0%, #2a0f3a 35%, #3d0f2e 70%, #2a0f1a 100%)', pointerEvents: 'none' }} />
+                            <div style={{ position: 'absolute', top: '-30%', left: '-15%', width: '70%', height: '90%', background: 'radial-gradient(ellipse, rgba(139,92,246,0.25) 0%, transparent 65%)', pointerEvents: 'none' }} />
+                            <div style={{ position: 'absolute', bottom: '-25%', right: '-10%', width: '60%', height: '85%', background: 'radial-gradient(ellipse, rgba(236,72,153,0.22) 0%, transparent 65%)', pointerEvents: 'none' }} />
+                            <div style={{ position: 'absolute', inset: 0, backgroundImage: 'repeating-linear-gradient(0deg, transparent 0px, transparent 3px, rgba(255,255,255,0.015) 3px, rgba(255,255,255,0.015) 4px)', pointerEvents: 'none' }} />
+                            <div style={{ position: 'relative', zIndex: 1, height: '100%', display: 'flex', flexDirection: 'column', padding: '18px', boxSizing: 'border-box', gap: '10px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <Swords size={12} color="#EC4899" />
+                                    <span style={{ fontSize: '10px', fontWeight: 800, color: '#EC4899', letterSpacing: '0.15em', textTransform: 'uppercase' as const }}>1v1 Arena</span>
+                                    <span style={{ fontSize: '8px', fontWeight: 800, padding: '2px 5px', borderRadius: '4px', background: 'rgba(52,211,153,0.18)', color: '#34D399', letterSpacing: '0.1em', border: '1px solid rgba(52,211,153,0.3)' }}>NEW</span>
                                 </div>
-                                {/* Glow */}
-                                <div style={{ position: 'absolute', bottom: '-30%', left: '-10%', width: '55%', height: '80%', background: `radial-gradient(ellipse, ${actionConfig.accentColor}18 0%, transparent 70%)`, pointerEvents: 'none' }} />
-
-                                <div style={{ position: 'relative', zIndex: 1, height: '100%', display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: 'center', padding: isMobile ? '24px' : '28px 32px', boxSizing: 'border-box', gap: '24px' }}>
-                                    {/* Icon badge */}
-                                    <div style={{ flexShrink: 0, width: isMobile ? '56px' : '72px', height: isMobile ? '56px' : '72px', borderRadius: '20px', background: `${actionConfig.accentColor}18`, border: `1px solid ${actionConfig.accentColor}40`, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 8px 28px ${actionConfig.accentColor}22` }}>
-                                        {React.cloneElement(actionConfig.icon as React.ReactElement, { size: isMobile ? 26 : 32, color: actionConfig.accentColor })}
+                                <div style={{ fontWeight: 900, fontSize: '24px', color: '#fff', lineHeight: 1.05, letterSpacing: '-0.03em' }}>
+                                    Producer<br/>vs Producer
+                                </div>
+                                <p style={{ fontSize: '12px', color: 'rgba(220,220,240,0.65)', margin: 0, lineHeight: 1.5, flex: 1 }}>
+                                    Get matched. Build a beat from a sample pack. Anonymous voters pick the winner.
+                                </p>
+                                {h2hChampion && (
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '7px 10px', borderRadius: '10px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(251,191,36,0.25)' }}>
+                                        <div style={{ width: '28px', height: '28px', borderRadius: '50%', overflow: 'hidden', flexShrink: 0, border: '1px solid rgba(251,191,36,0.5)' }}>
+                                            {h2hChampion.profile?.avatar
+                                                ? <img src={getAvatarUrl(h2hChampion.profile.avatar, h2hChampion.userId)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={(e) => { (e.target as HTMLImageElement).src = 'https://cdn.discordapp.com/embed/avatars/0.png'; }} />
+                                                : <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg, #8B5CF6, #EC4899)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 900, color: 'white' }}>{(h2hChampion.profile?.displayName || h2hChampion.profile?.username || '?')[0].toUpperCase()}</div>
+                                            }
+                                        </div>
+                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                            <div style={{ fontSize: '9px', color: '#FBBF24', fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.08em' }}>Reigning Champ</div>
+                                            <div style={{ fontSize: '12px', color: '#fff', fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>{h2hChampion.profile?.displayName || h2hChampion.profile?.username || 'Anonymous'}</div>
+                                        </div>
+                                        <div style={{ flexShrink: 0, textAlign: 'right' as const }}>
+                                            <div style={{ fontSize: '14px', fontWeight: 900, color: '#FBBF24' }}>{h2hChampion.elo}</div>
+                                            <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)', fontWeight: 600 }}>ELO</div>
+                                        </div>
                                     </div>
+                                )}
+                                <Link to="/arena" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '7px', padding: '10px 0', borderRadius: '999px', textDecoration: 'none', background: 'linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%)', color: 'white', fontSize: '12px', fontWeight: 700, boxShadow: '0 4px 16px rgba(139,92,246,0.44)' }}>
+                                    <Swords size={13} /> Enter the Arena
+                                </Link>
+                            </div>
+                        </div>
 
-                                    {/* Text */}
-                                    <div style={{ flex: 1, minWidth: 0 }}>
-                                        <div style={{ fontSize: '10px', fontWeight: 800, color: actionConfig.accentColor, letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: '8px' }}>
-                                            {actionConfig.label}
+                        {/* CARD 3: Featured Content (compact poster) */}
+                        {(() => {
+                            const contentType = featured?.featuredContentType || 'video';
+                            const typeConfig: Record<string, { icon: React.ReactNode; label: string; accentColor: string }> = {
+                                video:   { icon: <MonitorPlay size={12} />, label: 'Featured Video',   accentColor: colors.primary },
+                                news:    { icon: <Newspaper size={12} />,   label: 'Featured News',    accentColor: '#A78BFA' },
+                                guide:   { icon: <BookOpen size={12} />,    label: 'Featured Guide',   accentColor: '#FBBF24' },
+                                article: { icon: <FileText size={12} />,    label: 'Featured Article', accentColor: '#34D399' },
+                            };
+                            const tc = typeConfig[contentType] ?? typeConfig.video;
+                            const thumbnail = contentType === 'video'
+                                ? (featured?.featuredTutorialThumbnail || getTutorialThumbnail())
+                                : featuredArticle?.coverImageUrl;
+                            const title = contentType === 'video'
+                                ? (featured?.featuredTutorialTitle || 'Watch Tutorial')
+                                : (featuredArticle?.title || '');
+                            const href = contentType === 'video'
+                                ? (featured?.featuredTutorialUrl ?? null)
+                                : (featuredArticle?.slug ? `/article/${featuredArticle.slug}` : null);
+                            return (
+                                <div style={{
+                                    ...panel,
+                                    height: '300px',
+                                    position: 'relative', overflow: 'hidden', padding: 0,
+                                    border: '1px solid rgba(255,255,255,0.07)',
+                                    ...(isMobile ? { flexShrink: 0, width: '260px', scrollSnapAlign: 'start' as const } : {}),
+                                }}>
+                                    {thumbnail && <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${thumbnail})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />}
+                                    {!thumbnail && <div style={{ position: 'absolute', inset: 0, background: `radial-gradient(ellipse at 30% 50%, ${tc.accentColor}18 0%, transparent 65%), #0f172a` }} />}
+                                    <div style={{ position: 'absolute', inset: 0, background: thumbnail ? 'linear-gradient(to bottom, rgba(10,13,24,0.15) 0%, rgba(10,13,24,0.45) 40%, rgba(10,13,24,0.97) 100%)' : 'rgba(10,13,24,0.3)', pointerEvents: 'none' }} />
+                                    <div style={{ position: 'relative', zIndex: 1, height: '100%', display: 'flex', flexDirection: 'column', padding: '16px', boxSizing: 'border-box' }}>
+                                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '3px 8px', borderRadius: '4px', background: `${tc.accentColor}25`, backdropFilter: 'blur(8px)', width: 'fit-content' }}>
+                                            <span style={{ color: tc.accentColor, display: 'flex', alignItems: 'center' }}>{tc.icon}</span>
+                                            <span style={{ fontSize: '9px', fontWeight: 800, color: tc.accentColor, letterSpacing: '0.12em', textTransform: 'uppercase' as const }}>{tc.label}</span>
                                         </div>
-                                        <div style={{ fontSize: isMobile ? '18px' : '22px', fontWeight: 900, color: colors.textPrimary, letterSpacing: '-0.02em', lineHeight: 1.2, marginBottom: '8px' }}>
-                                            {actionConfig.sublabel}
+                                        <div style={{ flex: 1 }} />
+                                        {title ? (
+                                            <>
+                                                <div style={{ fontWeight: 900, fontSize: '16px', color: '#fff', lineHeight: 1.3, marginBottom: '12px', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' as any }}>{title}</div>
+                                                {href && (
+                                                    contentType === 'video' ? (
+                                                        <a href={href} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '9px 0', borderRadius: '8px', textDecoration: 'none', background: tc.accentColor, color: 'white', fontSize: '12px', fontWeight: 700, boxShadow: `0 4px 14px ${tc.accentColor}44` }}>
+                                                            <ExternalLink size={12} /> Watch Now
+                                                        </a>
+                                                    ) : (
+                                                        <Link to={href} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '9px 0', borderRadius: '8px', textDecoration: 'none', background: tc.accentColor, color: 'white', fontSize: '12px', fontWeight: 700, boxShadow: `0 4px 14px ${tc.accentColor}44` }}>
+                                                            Read Article
+                                                        </Link>
+                                                    )
+                                                )}
+                                            </>
+                                        ) : (
+                                            <div style={{ textAlign: 'center' as const, paddingBottom: '8px' }}>
+                                                <p style={{ fontSize: '11px', color: colors.textSecondary, margin: 0 }}>No content set</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            );
+                        })()}
+
+                        {/* CARD 4: Get Started / Share Your Music */}
+                        {(() => {
+                            const hasProfile = !!(user?.profileUsername);
+                            const isLoggedIn = !!user;
+                            let actionConfig: { label: string; sublabel: string; icon: React.ReactNode; link: string; bgGradient: string; accentColor: string; buttonText: string };
+                            if (!isLoggedIn) {
+                                actionConfig = { label: 'Join Fuji Studio', sublabel: 'Start your music journey', icon: <UserPlus size={18} />, link: '/login', bgGradient: 'linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%)', accentColor: '#60A5FA', buttonText: 'Create Account' };
+                            } else if (!hasProfile) {
+                                actionConfig = { label: 'Artist Profile', sublabel: 'Showcase your music', icon: <UserPlus size={18} />, link: '/profile/setup', bgGradient: 'linear-gradient(135deg, #451a03 0%, #1e1b4b 100%)', accentColor: '#FBBF24', buttonText: 'Start Setup' };
+                            } else {
+                                actionConfig = { label: 'Share Your Music', sublabel: 'Get discovered', icon: <Upload size={18} />, link: '/my-tracks', bgGradient: 'linear-gradient(135deg, #14532d 0%, #0f172a 100%)', accentColor: '#34D399', buttonText: 'Upload Track' };
+                            }
+                            return (
+                                <div style={{
+                                    ...panel,
+                                    height: '300px',
+                                    position: 'relative', overflow: 'hidden', padding: 0,
+                                    border: `1px solid ${actionConfig.accentColor}28`,
+                                    boxSizing: 'border-box',
+                                    ...(isMobile ? { flexShrink: 0, width: '260px', scrollSnapAlign: 'start' as const } : {}),
+                                }}>
+                                    <div style={{ position: 'absolute', inset: 0, background: actionConfig.bgGradient, pointerEvents: 'none' }} />
+                                    <div style={{ position: 'absolute', top: '-10px', right: '-10px', opacity: 0.07, pointerEvents: 'none' }}>
+                                        {React.cloneElement(actionConfig.icon as React.ReactElement, { size: 130 })}
+                                    </div>
+                                    <div style={{ position: 'absolute', bottom: '-30%', left: '-10%', width: '55%', height: '80%', background: `radial-gradient(ellipse, ${actionConfig.accentColor}18 0%, transparent 70%)`, pointerEvents: 'none' }} />
+                                    <div style={{ position: 'relative', zIndex: 1, height: '100%', display: 'flex', flexDirection: 'column', padding: '18px', boxSizing: 'border-box', gap: '10px' }}>
+                                        <div style={{ width: '44px', height: '44px', borderRadius: '14px', background: `${actionConfig.accentColor}18`, border: `1px solid ${actionConfig.accentColor}40`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                            {React.cloneElement(actionConfig.icon as React.ReactElement, { size: 22, color: actionConfig.accentColor })}
                                         </div>
-                                        <div style={{ fontSize: '12px', color: colors.textSecondary, lineHeight: 1.5, marginBottom: '20px' }}>
+                                        <div>
+                                            <div style={{ fontSize: '9px', fontWeight: 800, color: actionConfig.accentColor, letterSpacing: '0.14em', textTransform: 'uppercase' as const, marginBottom: '4px' }}>{actionConfig.label}</div>
+                                            <div style={{ fontSize: '18px', fontWeight: 900, color: colors.textPrimary, letterSpacing: '-0.02em', lineHeight: 1.2 }}>{actionConfig.sublabel}</div>
+                                        </div>
+                                        <p style={{ fontSize: '12px', color: colors.textSecondary, lineHeight: 1.55, margin: 0, flex: 1, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' as any }}>
                                             {!isLoggedIn
                                                 ? `Join ${Math.floor((discoveryData?.profileCount || artists.length || 0) / 25) * 25}+ producers already sharing their music.`
                                                 : !hasProfile
                                                 ? 'Your profile is your stage. Get discovered by listeners and other producers.'
-                                                : `${Math.floor((discoveryData?.profileCount || artists.length || 0) / 25) * 25}+ producers in the community — add your music to the mix.`}
-                                        </div>
-                                        <Link to={actionConfig.link} style={{
-                                            display: 'inline-flex', alignItems: 'center', gap: '6px',
-                                            padding: '9px 20px', borderRadius: '999px', textDecoration: 'none',
-                                            background: actionConfig.accentColor,
-                                            color: !isLoggedIn ? '#0f172a' : 'white',
-                                            fontSize: '12px', fontWeight: 700, letterSpacing: '0.03em',
-                                            boxShadow: `0 4px 16px ${actionConfig.accentColor}44`,
-                                            transition: 'transform 0.15s, box-shadow 0.15s',
-                                        }}
-                                            onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = `0 6px 20px ${actionConfig.accentColor}66`; }}
-                                            onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = `0 4px 16px ${actionConfig.accentColor}44`; }}
-                                        >
-                                            {isLoggedIn ? <Upload size={13} /> : <LogIn size={13} />}
+                                                : `${Math.floor((discoveryData?.profileCount || artists.length || 0) / 25) * 25}+ producers in the community — add your music.`}
+                                        </p>
+                                        <Link to={actionConfig.link} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '10px 0', borderRadius: '999px', textDecoration: 'none', background: actionConfig.accentColor, color: !isLoggedIn ? '#0f172a' : 'white', fontSize: '12px', fontWeight: 700, boxShadow: `0 4px 14px ${actionConfig.accentColor}44` }}>
+                                            {isLoggedIn ? <Upload size={12} /> : <LogIn size={12} />}
                                             {actionConfig.buttonText}
                                         </Link>
                                     </div>
                                 </div>
-                            </div>
-                        );
-                    })()}
+                            );
+                        })()}
 
-                    {/* â•â•â•â•â•â¬â•â¬â•â¬â•â¬â•â¬â•â¬â•â¬â•â¬â•â¬ FULL-WIDTH: WEEKLY CHART â•â¬â•â¬â•â¬â•â¬â•â¬â•â¬â•â¬â•â¬â•â¬â•â¬â•â¬â•â¬â•â¬ */}
-     
+                    </div>
+
                     {/* Discord Community CTA — full-width strip */}
                     <div style={{
                         gridColumn: isMobile ? undefined : '1 / -1',
