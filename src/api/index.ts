@@ -925,7 +925,13 @@ app.use(session({
 // ipKeyGenerator(ip) normalises IPv6 addresses. Wrap it in a request adapter so
 // express-rate-limit's static analysis sees the helper being used (prevents
 // ERR_ERL_KEY_GEN_IPV6 at startup). Trust proxy is already set on the app.
-const ipFromReq = (req: any): string => ipKeyGenerator(req.ip ?? req.socket?.remoteAddress ?? '');
+// Prefers CF-Connecting-IP (the real visitor IP set by Cloudflare) over req.ip,
+// which may be the Cloudflare edge IP when running behind CF without full proxy unwrapping.
+const ipFromReq = (req: any): string => {
+    const cfIp = req.headers?.['cf-connecting-ip'];
+    const raw = (Array.isArray(cfIp) ? cfIp[0] : cfIp) || req.ip || req.socket?.remoteAddress || '';
+    return ipKeyGenerator(raw);
+};
 const rlKey = (req: any): string => req.session?.user?.id || ipFromReq(req);
 
 // ── User activity logging (fire-and-forget, never blocks a response) ──────────
@@ -1746,6 +1752,10 @@ app.post('/api/auth/login', loginLimiter, async (req, res) => {
         const valid = await verifyPassword(password, dbUser.passwordHash);
         if (!valid) {
             return res.status(401).json({ error: 'Invalid email or password' });
+        }
+
+        if ((dbUser as any).banned) {
+            return res.status(403).json({ error: 'This account has been suspended.' });
         }
 
         // Block login if email not yet verified
@@ -4132,7 +4142,7 @@ app.get('/api/guilds/:guildId/my-permissions', async (req, res) => {
         if (isAdmin) {
             return res.json({ 
                 canManagePlugins: true, 
-                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content', 'account-management', 'anti-piracy', 'leveling', 'fuji-radio', 'studio-guide', 'bot-identity', 'bot-messenger', 'booster-color', 'private-messages', 'auto-messages', 'auto-responder', 'server-boost', 'reports', 'articles', 'article-review', 'pause', 'voice-stats', 'spam-guard', 'track-announcer', 'profile-styles', 'academy', 'head-to-head', 'drum-kit', 'bug-reports', 'plugin-registry', 'activity-logs', 'duplicate-profiles', 'projects']
+                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content', 'account-management', 'anti-piracy', 'leveling', 'fuji-radio', 'studio-guide', 'bot-identity', 'bot-messenger', 'booster-color', 'private-messages', 'auto-messages', 'auto-responder', 'server-boost', 'reports', 'articles', 'article-review', 'pause', 'voice-stats', 'spam-guard', 'track-announcer', 'profile-styles', 'academy', 'head-to-head', 'drum-kit', 'bug-reports', 'plugin-registry', 'activity-logs', 'duplicate-profiles', 'projects', 'vote-fraud']
             });
         }
 
@@ -11701,6 +11711,7 @@ app.post('/api/beat-battle/entries/:entryId/vote', requireAuth, async (req: any,
     try {
         const userId = req.session.user.id;
         const entryId = req.params.entryId;
+        const voterIp = ipFromReq(req);
         const rawRank = req.body?.rank;
         const rank: 1 | 2 | 3 | null = rawRank === null || rawRank === undefined
             ? null
@@ -11734,6 +11745,25 @@ app.post('/api/beat-battle/entries/:entryId/vote', requireAuth, async (req: any,
             }
         }
 
+        // IP conflict check — if another user already voted in this battle from the same IP, silently reject
+        if (rank !== null && voterIp) {
+            const ipConflict = await (db.battleVote as any).findFirst({
+                where: { battleId: entry.battleId, ip: voterIp, userId: { not: userId } },
+                select: { userId: true },
+            });
+            if (ipConflict) {
+                logActivity(req, 'battle.vote_ip_conflict', entryId, 'battle', {
+                    battleId: entry.battleId,
+                    conflictUserId: ipConflict.userId,
+                    ip: voterIp,
+                    rank,
+                });
+                logger.warn(`[VoteFraud] IP conflict: user ${userId} tried to vote in battle ${entry.battleId} but IP ${voterIp} already used by ${ipConflict.userId}`);
+                // Return a plausible response so the client doesn't know it was blocked
+                return res.json({ rank, votes: await fetchUserVotes(entry.battleId, userId) });
+            }
+        }
+
         // Clear path
         if (rank === null) {
             const existing = await db.battleVote.findUnique({ where: { entryId_userId: { entryId, userId } } });
@@ -11759,11 +11789,11 @@ app.post('/api/beat-battle/entries/:entryId/vote', requireAuth, async (req: any,
             const existing = await tx.battleVote.findUnique({ where: { entryId_userId: { entryId, userId } } });
             if (existing) {
                 if (existing.rank !== rank) {
-                    await tx.battleVote.update({ where: { id: existing.id }, data: { rank } });
+                    await (tx.battleVote as any).update({ where: { id: existing.id }, data: { rank, ip: voterIp || undefined } });
                 }
             } else {
-                await tx.battleVote.create({
-                    data: { entryId, battleId: entry.battleId, userId, rank, source: 'web' },
+                await (tx.battleVote as any).create({
+                    data: { entryId, battleId: entry.battleId, userId, rank, source: 'web', ip: voterIp || undefined },
                 });
                 await tx.battleEntry.update({ where: { id: entryId }, data: { voteCount: { increment: 1 } } });
                 await tx.battleAnalytics.create({
@@ -13087,6 +13117,176 @@ app.get('/api/beat-battle/admin/battles/:id/votes', requireAdmin, async (req: an
         });
     } catch (e: any) {
         logger.error('Beat Battle API: admin votes failed', e);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// --- Admin: Vote fraud — suspicious votes grouped by shared IP ---
+app.get('/api/admin/battles/vote-fraud', requireAdmin, async (req: any, res) => {
+    try {
+        const battleId = req.query.battleId as string | undefined;
+
+        const where: any = { ip: { not: null } };
+        if (battleId) where.battleId = battleId;
+
+        // Fetch all votes that have an IP
+        const votes: any[] = await (db.battleVote as any).findMany({
+            where,
+            select: {
+                id: true,
+                battleId: true,
+                entryId: true,
+                userId: true,
+                rank: true,
+                ip: true,
+                createdAt: true,
+                entry: { select: { track: { select: { title: true, profile: { select: { username: true, displayName: true, avatar: true } } } } } },
+            },
+            orderBy: { createdAt: 'asc' },
+        });
+
+        // Group by (battleId, ip) — flag groups where more than one userId appears
+        const groups = new Map<string, any[]>();
+        for (const v of votes) {
+            const key = `${v.battleId}::${v.ip}`;
+            if (!groups.has(key)) groups.set(key, []);
+            groups.get(key)!.push(v);
+        }
+
+        // Keep only groups with multiple distinct users
+        const suspicious = Array.from(groups.entries())
+            .filter(([, vs]) => new Set(vs.map(v => v.userId)).size > 1)
+            .map(([key, vs]) => {
+                const [bId, ip] = key.split('::');
+                return { battleId: bId, ip, votes: vs };
+            });
+
+        // Resolve user profiles and battle titles
+        const userIds = [...new Set(suspicious.flatMap(g => g.votes.map(v => v.userId)))];
+        const battleIds = [...new Set(suspicious.map(g => g.battleId))];
+
+        const [profiles, battles, users] = await Promise.all([
+            userIds.length ? db.musicianProfile.findMany({
+                where: { userId: { in: userIds } },
+                select: { userId: true, username: true, displayName: true, avatar: true },
+            }) : [],
+            battleIds.length ? db.beatBattle.findMany({
+                where: { id: { in: battleIds } },
+                select: { id: true, title: true },
+            }) : [],
+            userIds.length ? (db as any).user.findMany({
+                where: { id: { in: userIds } },
+                select: { id: true, email: true, banned: true, createdAt: true },
+            }) : [],
+        ]);
+
+        const profileMap = new Map<string, any>(profiles.map((p: any) => [p.userId, p]));
+        const battleMap = new Map<string, string>(battles.map((b: any) => [b.id, b.title]));
+        const userMap = new Map<string, any>(users.map((u: any) => [u.id, u]));
+
+        const result = suspicious.map(g => ({
+            battleId: g.battleId,
+            battleTitle: battleMap.get(g.battleId) || g.battleId,
+            ip: g.ip,
+            votes: g.votes.map(v => {
+                const profile = profileMap.get(v.userId);
+                const user = userMap.get(v.userId);
+                return {
+                    voteId: v.id,
+                    userId: v.userId,
+                    username: profile?.username || profile?.displayName || v.userId,
+                    displayName: profile?.displayName,
+                    avatar: profile?.avatar || null,
+                    email: user?.email || null,
+                    banned: user?.banned || false,
+                    accountCreatedAt: user?.createdAt || null,
+                    rank: v.rank,
+                    entryId: v.entryId,
+                    trackTitle: v.entry?.track?.title || 'Unknown',
+                    createdAt: v.createdAt,
+                };
+            }),
+        }));
+
+        res.json(result);
+    } catch (e: any) {
+        logger.error('Admin: vote fraud check failed', e);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// --- Admin: Remove votes by ID ---
+app.delete('/api/admin/battles/votes', requireAdmin, async (req: any, res) => {
+    try {
+        const { voteIds } = req.body as { voteIds: string[] };
+        if (!Array.isArray(voteIds) || voteIds.length === 0) {
+            return res.status(400).json({ error: 'voteIds array required' });
+        }
+
+        // Decrement voteCount on affected entries
+        const votes = await db.battleVote.findMany({
+            where: { id: { in: voteIds } },
+            select: { id: true, entryId: true },
+        });
+
+        await db.$transaction(async (tx) => {
+            // Group by entryId to do a single decrement per entry
+            const decrements = new Map<string, number>();
+            for (const v of votes) decrements.set(v.entryId, (decrements.get(v.entryId) || 0) + 1);
+            for (const [entryId, count] of decrements) {
+                await tx.battleEntry.update({ where: { id: entryId }, data: { voteCount: { decrement: count } } });
+            }
+            await tx.battleVote.deleteMany({ where: { id: { in: voteIds } } });
+        });
+
+        logActivity(req, 'admin.votes_removed', undefined, 'battle', { voteIds, count: votes.length });
+        logger.info(`[Admin] Removed ${votes.length} votes: ${voteIds.join(', ')}`);
+        res.json({ removed: votes.length });
+    } catch (e: any) {
+        logger.error('Admin: vote removal failed', e);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// --- Admin: Ban users by ID ---
+app.post('/api/admin/users/ban', requireAdmin, async (req: any, res) => {
+    try {
+        const { userIds, reason } = req.body as { userIds: string[]; reason?: string };
+        if (!Array.isArray(userIds) || userIds.length === 0) {
+            return res.status(400).json({ error: 'userIds array required' });
+        }
+
+        await (db as any).user.updateMany({
+            where: { id: { in: userIds } },
+            data: { banned: true, bannedAt: new Date(), bannedFor: reason || 'vote_fraud' },
+        });
+
+        logActivity(req, 'admin.users_banned', undefined, 'user', { userIds, reason, count: userIds.length });
+        logger.info(`[Admin] Banned ${userIds.length} users for ${reason || 'vote_fraud'}: ${userIds.join(', ')}`);
+        res.json({ banned: userIds.length });
+    } catch (e: any) {
+        logger.error('Admin: user ban failed', e);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// --- Admin: Unban users by ID ---
+app.post('/api/admin/users/unban', requireAdmin, async (req: any, res) => {
+    try {
+        const { userIds } = req.body as { userIds: string[] };
+        if (!Array.isArray(userIds) || userIds.length === 0) {
+            return res.status(400).json({ error: 'userIds array required' });
+        }
+
+        await (db as any).user.updateMany({
+            where: { id: { in: userIds } },
+            data: { banned: false, bannedAt: null, bannedFor: null },
+        });
+
+        logActivity(req, 'admin.users_unbanned', undefined, 'user', { userIds, count: userIds.length });
+        res.json({ unbanned: userIds.length });
+    } catch (e: any) {
+        logger.error('Admin: user unban failed', e);
         res.status(500).json({ error: 'Internal server error' });
     }
 });

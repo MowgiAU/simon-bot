@@ -74,6 +74,7 @@ const ResetPasswordPage      = lazy(() => import("./pages/ResetPasswordPage").th
 const FeaturedContentSettings = lazy(() => import("./pages/FeaturedContentSettings").then(m => ({ default: m.FeaturedContentSettings })));
 const FujiRadioPage          = lazy(() => import("./pages/FujiRadio").then(m => ({ default: m.FujiRadioPage })));
 const AccountManagementPage  = lazy(() => import("./pages/AccountManagement").then(m => ({ default: m.AccountManagementPage })));
+const VoteFraudPage          = lazy(() => import("./pages/VoteFraud").then(m => ({ default: m.VoteFraudPage })));
 const StudioGuidePage        = lazy(() => import("./pages/StudioGuide").then(m => ({ default: m.StudioGuidePage })));
 const BotMessengerPage       = lazy(() => import("./pages/BotMessenger").then(m => ({ default: m.BotMessengerPage })));
 const PrivateMessagesPage    = lazy(() => import("./pages/PrivateMessages").then(m => ({ default: m.PrivateMessagesPage })));
@@ -172,7 +173,8 @@ type Section =
   | "plugin-registry"
   | "bug-reports"
   | "admin-tools"
-  | "activity-logs";
+  | "activity-logs"
+  | "vote-fraud";
 
 const WelcomeScreen: React.FC<{ login: () => void }> = ({ login }) => {
   const navigate = useNavigate();
@@ -518,6 +520,8 @@ const AdminDashboard: React.FC = () => {
           return <AdminToolsPage />;
         case "activity-logs":
           return <ActivityLogsPage />;
+        case "vote-fraud":
+          return <VoteFraudPage />;
         case "articles":
           return <ArticlesPage />;
         case "article-review":

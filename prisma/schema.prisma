@@ -58,6 +58,11 @@ model User {
   // Support ticket system
   isTicketBlocked Boolean @default(false)
 
+  // Vote fraud / account ban
+  banned    Boolean   @default(false)
+  bannedAt  DateTime?
+  bannedFor String?   // Reason (e.g. "vote_fraud")
+
   // Soft delete
   deletedAt DateTime?
 
@@ -1471,6 +1476,7 @@ model BattleVote {
   userId    String // Discord user ID
   rank      Int      @default(1) // 1 = 1st choice, 2 = 2nd, 3 = 3rd. Sudden death always uses 1.
   source    String   @default("web") // web | discord
+  ip        String?  // IP address at time of vote (for fraud detection)
   createdAt DateTime @default(now())
 
   entry BattleEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
@@ -1479,6 +1485,7 @@ model BattleVote {
   @@unique([battleId, userId, rank]) // Each rank slot per battle is exclusive per user
   @@index([entryId])
   @@index([battleId])
+  @@index([ip])
   @@map("battle_votes")
 }
 

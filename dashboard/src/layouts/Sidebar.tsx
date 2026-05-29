@@ -482,6 +482,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             </button>
           )}
 
+          {permissions.canManagePlugins && (
+            <button
+                className={`nav-item ${activeSection === 'vote-fraud' ? 'active' : ''}`}
+                onClick={() => onNavigate('vote-fraud')}
+                title={collapsed ? "Vote Fraud" : ""}
+            >
+                <span className="nav-icon"><AnimatedWrapper icon={ShieldAlert} size={20} /></span>
+                <span className="nav-label">Vote Fraud</span>
+            </button>
+          )}
+
           {permissions.accessiblePlugins.includes('fuji-studio') && (
             <button
                 className={`nav-item ${activeSection === 'library' ? 'active' : ''}`}
