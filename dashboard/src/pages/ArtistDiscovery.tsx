@@ -567,14 +567,16 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                                     ))}
                                                 </div>
                                                 {/* Plays + CTA */}
-                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px' }}>
-                                                        <span style={{ fontSize: '17px', fontWeight: 900, color: colors.primary, lineHeight: 1, letterSpacing: '-0.02em' }}>
-                                                            {trendingArtist.totalPlays >= 1000 ? `${(trendingArtist.totalPlays / 1000).toFixed(1)}k` : (trendingArtist.totalPlays || 0).toLocaleString()}
-                                                        </span>
-                                                        <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.5)', fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.06em' }}>plays</span>
-                                                    </div>
-                                                    <Link to={`/profile/${trendingArtist.username}`} style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '7px 16px', borderRadius: '999px', textDecoration: 'none', background: colors.primary, color: 'white', fontSize: '11px', fontWeight: 700, boxShadow: `0 4px 16px ${colors.primary}55` }}>View Profile</Link>
+                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                                                    {!isMobile && (
+                                                        <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px' }}>
+                                                            <span style={{ fontSize: '17px', fontWeight: 900, color: colors.primary, lineHeight: 1, letterSpacing: '-0.02em' }}>
+                                                                {trendingArtist.totalPlays >= 1000 ? `${(trendingArtist.totalPlays / 1000).toFixed(1)}k` : (trendingArtist.totalPlays || 0).toLocaleString()}
+                                                            </span>
+                                                            <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.5)', fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.06em' }}>plays</span>
+                                                        </div>
+                                                    )}
+                                                    <Link to={`/profile/${trendingArtist.username}`} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '5px', padding: '7px 16px', borderRadius: '999px', textDecoration: 'none', background: colors.primary, color: 'white', fontSize: '11px', fontWeight: 700, boxShadow: `0 4px 16px ${colors.primary}55`, ...(isMobile ? { flex: 1 } : {}) }}>View Profile</Link>
                                                 </div>
                                             </div>
                                         </>
@@ -613,7 +615,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                 <p style={{ fontSize: '12px', color: 'rgba(220,220,240,0.65)', margin: 0, lineHeight: 1.5, flex: 1 }}>
                                     Get matched. Build a beat from a sample pack. Anonymous voters pick the winner.
                                 </p>
-                                {h2hChampion && (
+                                {h2hChampion && !isMobile && (
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '7px 10px', borderRadius: '10px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(251,191,36,0.25)' }}>
                                         <div style={{ width: '28px', height: '28px', borderRadius: '50%', overflow: 'hidden', flexShrink: 0, border: '1px solid rgba(251,191,36,0.5)' }}>
                                             {h2hChampion.profile?.avatar
