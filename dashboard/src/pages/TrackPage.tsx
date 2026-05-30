@@ -8,6 +8,7 @@ import { StyledUsername } from '../components/StyledUsername';
 import { FujiLogo } from '../components/FujiLogo';
 import { showToast } from '../components/Toast';
 import { ConfirmModal } from '../components/ConfirmModal';
+import { assertVerified, handleVerificationError } from '../lib/verificationError';
 import { 
     Music, Play, Pause, Zap, Clock, Info, Tag, Calendar,
     ArrowLeft, Share2, ExternalLink, Layers, FileAudio,
@@ -138,7 +139,7 @@ const getLicenseUrl = (license: string): string | null => {
 export const TrackPage: React.FC = () => {
     const { pathname } = useLocation();
     const navigate = useNavigate();
-    const { user, mutualAdminGuilds } = useAuth();
+    const { user, mutualAdminGuilds, emailVerified } = useAuth();
     const pluginRegistry = usePluginRegistry();
     const [track, setTrackData] = useState<Track | null>(null);
     const [loading, setLoading] = useState(true);
@@ -381,25 +382,27 @@ export const TrackPage: React.FC = () => {
 
     const toggleFavourite = async () => {
         if (!track || !user) return;
+        if (assertVerified(emailVerified)) return;
         try {
             const { data } = await axios.post(`/api/tracks/${track.id}/favourite`, {}, { withCredentials: true });
             setIsFavourited(data.favourited);
             setFavouriteCount(prev => data.favourited ? prev + 1 : prev - 1);
-        } catch {
-            showToast('Login to favourite tracks', 'error');
+        } catch (e: any) {
+            if (!handleVerificationError(e)) showToast('Login to favourite tracks', 'error');
         }
     };
 
     const toggleRepost = async () => {
         if (!track || !user) return;
         if (isOwner) { showToast("You can't repost your own track", 'error'); return; }
+        if (assertVerified(emailVerified)) return;
         try {
             const { data } = await axios.post(`/api/tracks/${track.id}/repost`, {}, { withCredentials: true });
             setIsReposted(data.reposted);
             setRepostCount(prev => data.reposted ? prev + 1 : prev - 1);
             showToast(data.reposted ? 'Reposted!' : 'Removed repost', 'success');
-        } catch {
-            showToast('Login to repost tracks', 'error');
+        } catch (e: any) {
+            if (!handleVerificationError(e)) showToast('Login to repost tracks', 'error');
         }
     };
 

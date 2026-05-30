@@ -16,6 +16,7 @@ import {
     MoreHorizontal
 } from 'lucide-react';
 import { useAuth } from '../components/AuthProvider';
+import { assertVerified, handleVerificationError } from '../lib/verificationError';
 
 // Interfaces
 interface Sample {
@@ -45,7 +46,7 @@ interface Pack {
 
 export const FujiStudio: React.FC = () => {
     const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-    const { selectedGuild } = useAuth();
+    const { selectedGuild, emailVerified } = useAuth();
     const [samples, setSamples] = useState<Sample[]>([]);
 
     useEffect(() => {
@@ -133,12 +134,12 @@ export const FujiStudio: React.FC = () => {
     };
 
     const toggleLike = async (sample: Sample) => {
-        // Optimistic UI
+        if (assertVerified(emailVerified)) return;
         setSamples(prev => prev.map(s => s.id === sample.id ? { ...s, isLiked: !s.isLiked } : s));
         try {
             await axios.post(`/api/fuji/samples/${sample.id}/like`);
-        } catch (err) {
-            // Revert on error
+        } catch (err: any) {
+            handleVerificationError(err);
             setSamples(prev => prev.map(s => s.id === sample.id ? { ...s, isLiked: sample.isLiked } : s));
         }
     };

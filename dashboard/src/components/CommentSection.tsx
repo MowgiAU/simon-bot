@@ -3,6 +3,7 @@ import axios from 'axios';
 import { colors, spacing, borderRadius } from '../theme/theme';
 import { useAuth } from './AuthProvider';
 import { showToast } from './Toast';
+import { assertVerified, handleVerificationError } from '../lib/verificationError';
 import { ReportButton } from './ReportButton';
 import { StyledUsername } from './StyledUsername';
 import {
@@ -248,7 +249,7 @@ const EmojiPicker: React.FC<{ onSelect: (emoji: string) => void; onClose: () => 
 // ─── Comment Section ──────────────────────────────────────────────────────
 
 export const CommentSection: React.FC<CommentSectionProps> = ({ trackId, profileId, battleEntryId, ownerId, currentTrackTime, isCurrentTrack, onCommentPosted, onSeek }) => {
-    const { user, mutualAdminGuilds } = useAuth();
+    const { user, mutualAdminGuilds, emailVerified } = useAuth();
     const isAdmin = mutualAdminGuilds.length > 0;
     const [comments, setComments] = useState<Comment[]>([]);
     const [loading, setLoading] = useState(true);
@@ -324,6 +325,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ trackId, profile
     const handleSubmit = async () => {
         if ((!content.trim() && !gifUrl) || sending) return;
         if (content.length > COMMENT_MAX) return;
+        if (assertVerified(emailVerified)) return;
         setSending(true);
         try {
             const res = await axios.post(`${API}/api/comments`, {
@@ -339,8 +341,9 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ trackId, profile
             setGifUrl(null);
             onCommentPosted?.();
         } catch (e: any) {
-            const msg = e?.response?.data?.error || 'Failed to post comment';
-            showToast(msg, 'error');
+            if (!handleVerificationError(e)) {
+                showToast(e?.response?.data?.error || 'Failed to post comment', 'error');
+            }
         } finally {
             setSending(false);
         }
@@ -407,6 +410,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ trackId, profile
     const handleReply = async (parentId: string, topLevelId?: string) => {
         if (!replyContent.trim() || replySending) return;
         if (replyContent.length > COMMENT_MAX) return;
+        if (assertVerified(emailVerified)) return;
         setReplySending(true);
         try {
             const res = await axios.post(`${API}/api/comments`, {
@@ -422,7 +426,9 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ trackId, profile
             setShowReplyEmoji(false);
             setExpandedReplies(prev => new Set([...prev, threadId]));
         } catch (e: any) {
-            showToast(e?.response?.data?.error || 'Failed to post reply', 'error');
+            if (!handleVerificationError(e)) {
+                showToast(e?.response?.data?.error || 'Failed to post reply', 'error');
+            }
         } finally {
             setReplySending(false);
         }
@@ -430,6 +436,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ trackId, profile
 
     const handleReact = async (commentId: string, type: 'like' | 'dislike', parentId?: string) => {
         if (!user) return;
+        if (assertVerified(emailVerified)) return;
         try {
             const res = await axios.post(`${API}/api/comments/${commentId}/react`, { type }, { withCredentials: true });
             const updateFn = (c: Comment): Comment => {
@@ -445,7 +452,9 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ trackId, profile
             } else {
                 setComments(prev => prev.map(updateFn));
             }
-        } catch {}
+        } catch (e: any) {
+            handleVerificationError(e);
+        }
     };
 
     const formatTime = (iso: string) => {

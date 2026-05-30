@@ -5,6 +5,7 @@ import { colors, spacing, borderRadius } from '../theme/theme';
 import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
 import { useAuth } from '../components/AuthProvider';
 import { usePlayer } from '../components/PlayerProvider';
+import { assertVerified } from '../lib/verificationError';
 import { StyledUsername } from '../components/StyledUsername';
 import {
     Swords, Trophy, Users, Play, Pause, Vote,
@@ -105,7 +106,7 @@ interface PublicSponsor {
 }
 
 export const BattlesPage: React.FC = () => {
-    const { user } = useAuth();
+    const { user, emailVerified } = useAuth();
     const { player, setTrack, togglePlay } = usePlayer();
     const [battles, setBattles] = useState<Battle[]>([]);
     const [currentBattle, setCurrentBattle] = useState<Battle | null>(null);
@@ -302,6 +303,7 @@ export const BattlesPage: React.FC = () => {
     // rank=1|2|3 assigns that slot. rank=null clears this entry's vote.
     const castVote = async (entryId: string, rank: 1 | 2 | 3 | null) => {
         if (!user) { window.location.href = '/api/auth/discord/login'; return; }
+        if (assertVerified(emailVerified)) return;
         setVotingId(entryId);
         try {
             const res = await fetch(`${API}/api/beat-battle/entries/${entryId}/vote`, {
@@ -335,6 +337,8 @@ export const BattlesPage: React.FC = () => {
                         })
                         .catch(() => {});
                 }
+            } else if (res.status === 403 && (data as any).error === 'email_verification_required') {
+                assertVerified(false);
             } else {
                 setVoteNotification({ message: (data as any).error || 'Could not cast vote.' });
             }

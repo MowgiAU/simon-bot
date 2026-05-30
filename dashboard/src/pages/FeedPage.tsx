@@ -8,6 +8,7 @@ import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
 import { FujiLogo } from '../components/FujiLogo';
 import axios from 'axios';
 import { Rss, Play, Pause, ChevronDown, UserPlus, Heart, Repeat2, Share2, MessageCircle } from 'lucide-react';
+import { assertVerified, handleVerificationError } from '../lib/verificationError';
 
 interface FeedTrack {
     id: string;
@@ -370,7 +371,7 @@ const FeedCard: React.FC<{
 
 // ── Main feed page ────────────────────────────
 export const FeedPage: React.FC = () => {
-    const { user } = useAuth();
+    const { user, emailVerified } = useAuth();
     const [tracks, setTracks] = useState<FeedTrack[]>([]);
     const [loading, setLoading] = useState(true);
     const [hasMore, setHasMore] = useState(false);
@@ -423,23 +424,25 @@ export const FeedPage: React.FC = () => {
     }, [user, fetchFeed]);
 
     const toggleFavourite = async (trackId: string) => {
+        if (assertVerified(emailVerified)) return;
         try {
             const { data } = await axios.post(`/api/tracks/${trackId}/favourite`, {}, { withCredentials: true });
             setFavourites(prev => ({ ...prev, [trackId]: data.favourited }));
             setTracks(prev => prev.map(t =>
                 t.id === trackId ? { ...t, _count: { ...t._count, favourites: t._count.favourites + (data.favourited ? 1 : -1) } } : t
             ));
-        } catch {}
+        } catch (e: any) { handleVerificationError(e); }
     };
 
     const toggleRepost = async (trackId: string) => {
+        if (assertVerified(emailVerified)) return;
         try {
             const { data } = await axios.post(`/api/tracks/${trackId}/repost`, {}, { withCredentials: true });
             setReposts(prev => ({ ...prev, [trackId]: data.reposted }));
             setTracks(prev => prev.map(t =>
                 t.id === trackId ? { ...t, _count: { ...t._count, reposts: t._count.reposts + (data.reposted ? 1 : -1) } } : t
             ));
-        } catch {}
+        } catch (e: any) { handleVerificationError(e); }
     };
 
     if (!user) {

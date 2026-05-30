@@ -1042,6 +1042,15 @@ const requireAuth: RequestHandler = (req, res, next) => {
     }
     next();
 };
+const requireVerified: RequestHandler = async (req: any, res, next) => {
+    if (!req.session.user) { res.status(401).json({ error: 'Unauthorized' }); return; }
+    const user = await db.user.findUnique({ where: { id: req.session.user.id }, select: { emailVerified: true } });
+    if (!user?.emailVerified) {
+        res.status(403).json({ error: 'email_verification_required', message: 'Please verify your email address to perform this action.' });
+        return;
+    }
+    next();
+};
 const requireAdmin: RequestHandler = (req, res, next) => {
     // Allow release scripts / CI to authenticate via ADMIN_API_KEY Bearer token
     const adminKey = process.env.ADMIN_API_KEY;
@@ -11258,7 +11267,7 @@ app.get('/api/fuji/samples/search', async (req: any, res) => {
 });
 
 // Toggle sample like/unlike
-app.post('/api/fuji/samples/:id/like', async (req: any, res) => {
+app.post('/api/fuji/samples/:id/like', requireAuth, requireVerified, async (req: any, res) => {
     if (!req.session?.user) return res.status(401).json({ error: 'Not authenticated' });
     try {
         const { id } = req.params;
@@ -11707,7 +11716,7 @@ app.get('/api/beat-battle/entries/:entryId', publicCache(60), async (req: any, r
 //                If the user previously had a different rank on this entry, it's updated.
 //   rank=null  ? clear the user's vote on this entry entirely.
 // Sudden-death battles only accept rank=1 and only on tied entries.
-app.post('/api/beat-battle/entries/:entryId/vote', requireAuth, async (req: any, res) => {
+app.post('/api/beat-battle/entries/:entryId/vote', requireAuth, requireVerified, async (req: any, res) => {
     try {
         const userId = req.session.user.id;
         const entryId = req.params.entryId;
@@ -15359,7 +15368,7 @@ app.get('/api/head-to-head/voting/queue', requireAuth, async (req: any, res) => 
 });
 
 // Cast a vote on a match
-app.post('/api/head-to-head/match/:id/vote', requireAuth, async (req: any, res) => {
+app.post('/api/head-to-head/match/:id/vote', requireAuth, requireVerified, async (req: any, res) => {
     try {
         const userId = req.session.user.id;
         const { voteFor } = req.body || {};
@@ -16104,7 +16113,7 @@ function analyseComment(userId: string, content: string): string | null {
     return null;
 }
 
-app.post('/api/comments', requireAuth, async (req: any, res) => {
+app.post('/api/comments', requireAuth, requireVerified, async (req: any, res) => {
     try {
         const userId = req.session.user.id;
         const { content, gifUrl: rawGifUrl, trackId, profileId, battleEntryId, parentId, trackTimestamp } = req.body;
@@ -16263,7 +16272,7 @@ app.post('/api/comments', requireAuth, async (req: any, res) => {
 });
 
 // PUT edit a comment (own only)
-app.put('/api/comments/:commentId', requireAuth, async (req: any, res) => {
+app.put('/api/comments/:commentId', requireAuth, requireVerified, async (req: any, res) => {
     try {
         const userId = req.session.user.id;
         const { commentId } = req.params;
@@ -16383,7 +16392,7 @@ app.delete('/api/comments/:commentId', requireAuth, async (req: any, res) => {
 });
 
 // POST react to a comment (like/dislike toggle)
-app.post('/api/comments/:commentId/react', requireAuth, async (req: any, res) => {
+app.post('/api/comments/:commentId/react', requireAuth, requireVerified, async (req: any, res) => {
     try {
         const userId = req.session.user.id;
         const { commentId } = req.params;
@@ -16530,7 +16539,7 @@ app.get('/api/tracks/:trackId/favourite', requireAuth, async (req: any, res) => 
 });
 
 // Toggle favourite
-app.post('/api/tracks/:trackId/favourite', requireAuth, async (req: any, res) => {
+app.post('/api/tracks/:trackId/favourite', requireAuth, requireVerified, async (req: any, res) => {
     try {
         const userId = req.session.user.id;
         const { trackId } = req.params;
@@ -16638,7 +16647,7 @@ app.get('/api/tracks/:trackId/repost', requireAuth, async (req: any, res) => {
 });
 
 // Toggle repost
-app.post('/api/tracks/:trackId/repost', requireAuth, async (req: any, res) => {
+app.post('/api/tracks/:trackId/repost', requireAuth, requireVerified, async (req: any, res) => {
     try {
         const userId = req.session.user.id;
         const { trackId } = req.params;
