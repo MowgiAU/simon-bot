@@ -2474,17 +2474,19 @@ app.get('/api/auth/status', async (req, res) => {
     // last successful refresh; this just keeps it up to date asynchronously.
     refreshSessionGuilds(req).catch(() => {});
 
-    // Re-read invited from DB (catches manual invites + previous auto-invites)
+    // Re-read emailVerified + invited from DB when either is missing from the session.
+    // This catches verification or invites that happened in a different session
+    // (e.g. clicked verification link on phone, browsing on desktop).
+    const localId = req.session.user._localId;
+    if (localId && (!req.session.user._emailVerified || !req.session.user._invited)) {
+        try {
+            const freshUser = await db.user.findUnique({ where: { id: localId }, select: { emailVerified: true, invited: true } });
+            if (freshUser?.emailVerified) req.session.user._emailVerified = true;
+            if (freshUser?.invited) req.session.user._invited = true;
+        } catch { /* non-fatal */ }
+    }
+
     let invited = !!req.session.user._invited;
-    try {
-        if (!invited && req.session.user._localId) {
-            const freshUser = await db.user.findUnique({ where: { id: req.session.user._localId }, select: { invited: true } });
-            if (freshUser?.invited) {
-                req.session.user._invited = true;
-                invited = true;
-            }
-        }
-    } catch { /* non-fatal */ }
 
     // Beta role check: if user has a configured beta role, treat as invited
     if (!invited && req.session.user.id) {
