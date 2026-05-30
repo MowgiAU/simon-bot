@@ -279,14 +279,19 @@ export class ProductionFeedbackPlugin implements IPlugin {
                     guildId,
                     actionType: 'FEEDBACK_THREAD_CREATED',
                     executorId: userId,
-                    details: { 
-                        threadId: thread.id, 
+                    details: {
+                        threadId: thread.id,
                         cost,
                         threadName: thread.name
                     }
                 });
             }
-            
+
+            const newBalance = await this.context.db.feedbackPoints.findUnique({
+                where: { guildId_userId: { guildId, userId } },
+                select: { balance: true }
+            }).then(r => r?.balance ?? 0);
+
             // Send confirmation in thread + DM the user
             try {
                 const confirmMsg = await thread.send(`✅ **Feedback Thread Opened** — ${cost} feedback points deducted.`);
@@ -296,7 +301,7 @@ export class ProductionFeedbackPlugin implements IPlugin {
             }
             try {
                 const starterUser = starterMsg.author;
-                await starterUser.send(`✅ Your feedback thread **${thread.name}** was opened. ${cost} feedback points were deducted from your balance.`);
+                await starterUser.send(`✅ Your feedback thread **${thread.name}** was opened. ${cost} feedback points were deducted from your balance. You have **${newBalance}** point${newBalance === 1 ? '' : 's'} remaining.`);
             } catch {} // DMs may be closed
 
         } catch (error: any) {
