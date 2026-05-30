@@ -1042,10 +1042,9 @@ const requireAuth: RequestHandler = (req, res, next) => {
     }
     next();
 };
-const requireVerified: RequestHandler = async (req: any, res, next) => {
+const requireVerified: RequestHandler = (req: any, res, next) => {
     if (!req.session.user) { res.status(401).json({ error: 'Unauthorized' }); return; }
-    const user = await db.user.findUnique({ where: { id: req.session.user.id }, select: { emailVerified: true } });
-    if (!user?.emailVerified) {
+    if (!req.session.user._emailVerified) {
         res.status(403).json({ error: 'email_verification_required', message: 'Please verify your email address to perform this action.' });
         return;
     }
