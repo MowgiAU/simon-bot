@@ -290,7 +290,7 @@ export class ProductionFeedbackPlugin implements IPlugin {
             const newBalance = await this.context.db.feedbackPoints.findUnique({
                 where: { guildId_userId: { guildId, userId } },
                 select: { balance: true }
-            }).then(r => r?.balance ?? 0);
+            }).then((r: { balance: number } | null) => r?.balance ?? 0);
 
             // Send confirmation in thread + DM the user
             try {
