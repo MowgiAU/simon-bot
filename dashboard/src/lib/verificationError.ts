@@ -6,7 +6,7 @@ import { showToast } from '../components/Toast';
  */
 export function handleVerificationError(e: any): boolean {
     if (e?.response?.status === 403 && e?.response?.data?.error === 'email_verification_required') {
-        showToast('Please verify your email address before performing this action. Check your inbox for a verification link.', 'error');
+        showToast('Email not verified — go to Account Settings to send a verification link.', 'error');
         return true;
     }
     return false;
@@ -18,7 +18,7 @@ export function handleVerificationError(e: any): boolean {
  */
 export function assertVerified(emailVerified: boolean): boolean {
     if (!emailVerified) {
-        showToast('Please verify your email address before performing this action. Check your inbox for a verification link.', 'error');
+        showToast('Email not verified — go to Account Settings to send a verification link.', 'error');
         return true;
     }
     return false;

@@ -1,7 +1,7 @@
 ﻿import React, { useState, useEffect, ReactNode } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { colors } from '../theme/theme';
-import { Search, Music, Zap, User, LogIn, LogOut, Menu, Home, Mic2, ChevronDown, ExternalLink, Edit3, Upload, Swords, Heart, ListMusic, X, Rss, BarChart3, Settings, MessageCircle, Sparkles, Newspaper, FolderOpen } from 'lucide-react';
+import { Search, Music, Zap, User, LogIn, LogOut, Menu, Home, Mic2, ChevronDown, ExternalLink, Edit3, Upload, Swords, Heart, ListMusic, X, Rss, BarChart3, Settings, MessageCircle, Sparkles, Newspaper, FolderOpen, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../components/AuthProvider';
 import { usePlayer } from '../components/PlayerProvider';
 import { FujiLogo } from '../components/FujiLogo';
@@ -51,7 +51,7 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
     };
     const navigate = useNavigate();
     const { pathname } = useLocation();
-    const { user, permissions, dashboardGuilds, logout, login } = useAuth();
+    const { user, permissions, dashboardGuilds, logout, login, emailVerified, email } = useAuth();
     const { player } = usePlayer();
     const { dropdownOpen: messengerOpen, setDropdownOpen: setMessengerOpen, unreadTotal: unreadMsgCount } = useChat();
 
@@ -338,6 +338,38 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                         opacity: isMobile && isSidebarOpen ? 0.3 : 1,
                         filter: isMobile && isSidebarOpen ? 'blur(4px)' : 'none'
                     }}>
+                    {/* Email verification banner — shown to logged-in users with an unverified email */}
+                    {user && email && !emailVerified && pathname !== '/account' && (
+                        <div style={{
+                            display: 'flex', alignItems: 'center', gap: '12px',
+                            padding: isMobile ? '10px 14px' : '12px 24px',
+                            backgroundColor: 'rgba(239,68,68,0.10)',
+                            borderBottom: '1px solid rgba(239,68,68,0.25)',
+                            flexWrap: 'wrap',
+                        }}>
+                            <AlertTriangle size={16} style={{ flexShrink: 0, color: '#F87171' }} />
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                                <p style={{ margin: 0, fontSize: isMobile ? '12px' : '13px', fontWeight: 600, color: '#F87171' }}>
+                                    Your email address isn't verified
+                                </p>
+                                <p style={{ margin: '2px 0 0', fontSize: '11px', color: 'rgba(255,255,255,0.5)', display: isMobile ? 'none' : 'block' }}>
+                                    You won't be able to vote, comment, or like tracks until you verify your email.
+                                </p>
+                            </div>
+                            <Link
+                                to="/account"
+                                style={{
+                                    flexShrink: 0, padding: isMobile ? '6px 12px' : '8px 16px',
+                                    backgroundColor: '#EF4444', color: '#fff',
+                                    borderRadius: '8px', textDecoration: 'none',
+                                    fontSize: isMobile ? '11px' : '12px', fontWeight: 700,
+                                    whiteSpace: 'nowrap',
+                                }}
+                            >
+                                Verify Email →
+                            </Link>
+                        </div>
+                    )}
                     {/* Profile setup nudge banner — shown to logged-in users with no artist profile */}
                     {user && !user.profileUsername && !setupBannerDismissed && pathname !== '/profile/setup' && (
                         <div style={{
