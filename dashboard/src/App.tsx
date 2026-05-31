@@ -46,6 +46,7 @@ const GenresPage             = lazy(() => import("./pages/GenresPage").then(m =>
 const AntiPiracySettingsPage = lazy(() => import("./pages/AntiPiracySettings").then(m => ({ default: m.AntiPiracySettings })));
 const LevelingSettingsPage   = lazy(() => import("./pages/LevelingSettings").then(m => ({ default: m.LevelingSettings })));
 const TermsPage              = lazy(() => import("./pages/TermsPage").then(m => ({ default: m.TermsPage })));
+const FeaturesPage           = lazy(() => import("./pages/FeaturesPage").then(m => ({ default: m.FeaturesPage })));
 const DownloadPage           = lazy(() => import("./pages/DownloadPage").then(m => ({ default: m.DownloadPage })));
 const OAuthDevicePage        = lazy(() => import("./pages/OAuthDevicePage").then(m => ({ default: m.OAuthDevicePage })));
 const CategoryResultsPage    = lazy(() => import("./pages/CategoryResultsPage").then(m => ({ default: m.CategoryResultsPage })));
@@ -886,6 +887,11 @@ const AppInternal: React.FC = () => {
   // /terms → Terms of Service & Privacy Policy
   if (currentPath === '/terms') {
     return <Suspense fallback={<PageSpinner />}><TermsPage /></Suspense>;
+  }
+
+  // /features → Public features overview
+  if (currentPath === '/features') {
+    return <Suspense fallback={<PageSpinner />}><FeaturesPage /></Suspense>;
   }
 
   // /complete-account → First-time account setup wizard for Discord-created accounts

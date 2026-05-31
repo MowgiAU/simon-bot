@@ -412,6 +412,10 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                     {children}
                     <footer style={{ borderTop: '1px solid rgba(255,255,255,0.06)', padding: '20px 24px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '24px', flexWrap: 'wrap' }}>
                         <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.3)' }}>© {new Date().getFullYear()} Fuji Studio</span>
+                        <Link to="/features" style={{ fontSize: '12px', color: 'rgba(255,255,255,0.4)', textDecoration: 'none', transition: 'color 0.2s' }}
+                            onMouseEnter={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.8)')}
+                            onMouseLeave={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.4)')}
+                        >Features</Link>
                         <Link to="/terms" style={{ fontSize: '12px', color: 'rgba(255,255,255,0.4)', textDecoration: 'none', transition: 'color 0.2s' }}
                             onMouseEnter={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.8)')}
                             onMouseLeave={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.4)')}
