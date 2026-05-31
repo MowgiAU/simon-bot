@@ -48,6 +48,7 @@ const RULE_TYPES = [
     { value: 'MAX_LENGTH', label: 'Maximum Length', icon: <FileText size={16}/> },
     { value: 'REGEX_MATCH', label: 'Regex Pattern', icon: <Copy size={16}/> },
     { value: 'CAPS_LIMIT', label: 'Caps Lock Limit', icon: <AlertTriangle size={16}/> },
+    { value: 'BLOCK_ALL_LINKS', label: 'Block All Links', icon: <Shield size={16}/> },
     { value: 'BLOCK_DOMAINS', label: 'Block Domains', icon: <Shield size={16}/> },
     { value: 'BLOCK_EXTERNAL_FORWARDS', label: 'Block External Forwards', icon: <Shield size={16}/> },
     { value: 'BLOCK_ALL_FORWARDS', label: 'Block All Forwards', icon: <Shield size={16}/> },

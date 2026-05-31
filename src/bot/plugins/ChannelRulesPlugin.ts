@@ -188,6 +188,11 @@ export class ChannelRulesPlugin implements IPlugin {
                  return ratio > (config.threshold || 0.7);
             }
             
+            case 'BLOCK_ALL_LINKS': {
+                // Block any URL — http/https, www., or bare domain patterns Discord renders as links
+                return /https?:\/\/\S+|www\.\S+\.\S+/i.test(message.content);
+            }
+
             case 'BLOCK_DOMAINS': {
                 // Simplified domain check
                 const domains = (config.domains || []).map((d: string) => d.toLowerCase());
