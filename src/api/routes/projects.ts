@@ -71,7 +71,8 @@ function makeRequireProjectAuth(requireAuth: RequestHandler, db: PrismaClient): 
           return res.status(401).json({ error: 'Token invalid or expired. Please sign in again via the desktop app.' });
         }
         if (!req.session) req.session = {} as any;
-        req.session.user = { id: row.userId };
+        const user = await db.user.findUnique({ where: { id: row.userId }, select: { id: true, discordId: true } });
+        req.session.user = { id: row.userId, _discordId: user?.discordId || null };
         return next();
       } catch (e) {
         logger.error('Failed to validate desktop token', e);
@@ -279,15 +280,17 @@ export function registerProjectRoutes(
 
   app.get('/api/projects/my-tracks', requireProjectAuth, async (req: any, res) => {
     try {
-      const userId = req.session.user._localId || req.session.user.id;
+      const nativeId = req.session.user._localId || req.session.user.id;
+      const discordId: string | null = req.session.user._discordId || null;
+      const myIds = [nativeId, ...(discordId ? [discordId] : [])];
       const profile = await db.musicianProfile.findFirst({
-        where: { userId },
+        where: { userId: { in: myIds } },
         orderBy: { totalPlays: 'desc' },
       });
       if (!profile) return res.json([]);
       const tracks = await db.track.findMany({
         where: { profileId: profile.id, status: 'active' },
-        select: { id: true, title: true, coverUrl: true, duration: true, isPublic: true },
+        select: { id: true, title: true, coverUrl: true, duration: true, isPublic: true, playCount: true, createdAt: true },
         orderBy: { createdAt: 'desc' },
       });
       res.json(tracks);

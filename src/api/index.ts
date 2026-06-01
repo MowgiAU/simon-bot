@@ -6989,7 +6989,7 @@ app.get('/api/users/me/storage', requireAuth, async (req: any, res) => {
 // Free-tier track cap \u2014 increase limit or gate behind paid tier in getUserTrackLimit() when billing is added
 const FREE_TIER_TRACK_LIMIT = 25;
 
-app.post('/api/musician/tracks', uploadLimiter, upload.fields([
+app.post('/api/musician/tracks', uploadLimiter, requireDesktopAuth, upload.fields([
   { name: 'audio', maxCount: 1 },
   { name: 'artwork', maxCount: 1 },
   { name: 'project', maxCount: 1 } // Optional .flp project file
@@ -7014,8 +7014,9 @@ app.post('/api/musician/tracks', uploadLimiter, upload.fields([
         // --- Per-user track cap ---
         // Resolve profile handling both Discord snowflake and cuid userId formats
         const canonicalUploaderId = req.session?.user?._localId || userId;
+        const uploaderDiscordId: string | null = req.session?.user?._discordId || null;
         let uploaderProfile = await db.musicianProfile.findFirst({
-            where: { userId: { in: [...new Set([userId, canonicalUploaderId])] } },
+            where: { userId: { in: [...new Set([userId, canonicalUploaderId, ...(uploaderDiscordId ? [uploaderDiscordId] : [])])] } },
             orderBy: { totalPlays: 'desc' },
         });
         if (uploaderProfile) {
@@ -7036,7 +7037,7 @@ app.post('/api/musician/tracks', uploadLimiter, upload.fields([
         // --- Storage quota check ---
         if (uploaderProfile) {
             const nativeId = canonicalUploaderId;
-            const discordId = userId !== canonicalUploaderId ? userId : null;
+            const discordId = uploaderDiscordId || (userId !== canonicalUploaderId ? userId : null);
             const storageInfo = await getUserStorageInfo(nativeId, discordId);
             const incomingBytes = audioFile.size + (projectFile?.size ?? 0);
             if (storageInfo.usedBytes + incomingBytes > storageInfo.quotaBytes) {
