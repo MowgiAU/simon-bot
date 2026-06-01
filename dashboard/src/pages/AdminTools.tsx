@@ -18,6 +18,7 @@ const TABS: { key: AdminTab; label: string; icon: React.ReactNode }[] = [
 const MaintenanceTab: React.FC = () => {
     const [reprocessing, setReprocessing] = useState(false);
     const [migratingR2, setMigratingR2] = useState(false);
+    const [backfillingStorage, setBackfillingStorage] = useState(false);
     const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
     const handleReprocessFlps = async () => {
@@ -49,6 +50,19 @@ const MaintenanceTab: React.FC = () => {
         } finally { setMigratingR2(false); }
     };
 
+    const handleBackfillStorage = async () => {
+        if (!window.confirm('Populate audioFileSizeBytes for all tracks that are missing it (uploaded before storage tracking was added). Uses R2 HeadObject for CDN tracks, fs.stat for local files. Safe to re-run. Proceed?')) return;
+        setBackfillingStorage(true);
+        setMsg({ type: 'success', text: 'Backfilling storage sizes... this may take a minute.' });
+        try {
+            const res = await axios.post('/api/admin/storage/backfill-track-sizes', {}, { withCredentials: true });
+            const d = res.data;
+            setMsg({ type: 'success', text: `Done. ${d.updated} track(s) updated, ${d.skipped} skipped (size unavailable), ${d.total} total checked.` });
+        } catch (err: any) {
+            setMsg({ type: 'error', text: err.response?.data?.error || 'Backfill failed' });
+        } finally { setBackfillingStorage(false); }
+    };
+
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.md }}>
             {msg && (
@@ -77,6 +91,17 @@ const MaintenanceTab: React.FC = () => {
                 <button onClick={handleMigrateToR2} disabled={migratingR2}
                     style={{ backgroundColor: 'transparent', color: migratingR2 ? colors.textSecondary : '#6366f1', border: `1px solid ${migratingR2 ? colors.textSecondary : '#6366f1'}`, borderRadius: borderRadius.sm, padding: `${spacing.sm} ${spacing.md}`, cursor: migratingR2 ? 'default' : 'pointer', fontWeight: 'bold', fontSize: '13px', whiteSpace: 'nowrap', flexShrink: 0, marginLeft: spacing.md }}>
                     {migratingR2 ? 'Migrating...' : 'Run'}
+                </button>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: spacing.md, backgroundColor: 'rgba(16,185,129,0.04)', borderRadius: borderRadius.sm, border: '1px solid rgba(16,185,129,0.15)' }}>
+                <div>
+                    <div style={{ fontWeight: 600, fontSize: '14px', marginBottom: '2px' }}>Backfill track storage sizes</div>
+                    <div style={{ fontSize: '12px', color: colors.textSecondary }}>Populate <code style={{ fontFamily: 'monospace', fontSize: '11px', color: colors.textSecondary }}>audioFileSizeBytes</code> for tracks uploaded before storage tracking was added. Uses R2 HeadObject for CDN tracks, disk stat for local files. Safe to re-run.</div>
+                </div>
+                <button onClick={handleBackfillStorage} disabled={backfillingStorage}
+                    style={{ backgroundColor: 'transparent', color: backfillingStorage ? colors.textSecondary : colors.primary, border: `1px solid ${backfillingStorage ? colors.textSecondary : colors.primary}`, borderRadius: borderRadius.sm, padding: `${spacing.sm} ${spacing.md}`, cursor: backfillingStorage ? 'default' : 'pointer', fontWeight: 'bold', fontSize: '13px', whiteSpace: 'nowrap', flexShrink: 0, marginLeft: spacing.md }}>
+                    {backfillingStorage ? 'Running...' : 'Run'}
                 </button>
             </div>
         </div>
