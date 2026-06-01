@@ -228,7 +228,7 @@ export function registerProjectRoutes(
       const [user, profile, projects] = await Promise.all([
         (db as any).user.findUnique({
           where: { id: userId },
-          select: { id: true, username: true, displayName: true, avatar: true },
+          select: { id: true, username: true, displayName: true, avatar: true, discordId: true },
         }),
         db.musicianProfile.findFirst({
           where: { userId },
@@ -251,11 +251,21 @@ export function registerProjectRoutes(
         return sum + (p.versions[0]?.totalSize ?? 0);
       }, 0);
 
+      // Also look up MusicianProfile by discordId if the CUID lookup failed
+      const discordId: string | null = user?.discordId || null;
+      let resolvedProfile = profile;
+      if (!resolvedProfile && discordId) {
+        resolvedProfile = await db.musicianProfile.findUnique({
+          where: { userId: discordId },
+          select: { username: true, displayName: true, avatar: true },
+        });
+      }
       res.json({
         userId,
-        username: profile?.username || user?.username || 'Producer',
-        displayName: profile?.displayName || user?.displayName || null,
-        avatar: profile?.avatar || user?.avatar || null,
+        discordId,
+        username: resolvedProfile?.username || user?.username || 'Producer',
+        displayName: resolvedProfile?.displayName || user?.displayName || null,
+        avatar: resolvedProfile?.avatar || user?.avatar || null,
         projectCount: projects.length,
         totalStorageBytes,
       });

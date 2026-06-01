@@ -20839,12 +20839,16 @@ function requireDesktopAuth(req: any, res: any, next: any) {
     if (authHeader?.startsWith('Bearer ')) {
         const token = authHeader.slice(7);
         (db as any).desktopToken.findUnique({ where: { token } })
-            .then((row: any) => {
+            .then(async (row: any) => {
                 if (!row || row.expiresAt <= new Date()) {
                     return res.status(401).json({ error: 'Token invalid or expired' });
                 }
                 if (!req.session) req.session = {} as any;
-                req.session.user = { id: row.userId };
+                // Fetch the User record to get discordId — the messaging system stores
+                // Discord IDs in ConversationParticipant.userId for Discord-linked accounts,
+                // so we need both IDs available for conversation lookups.
+                const user = await (db as any).user.findUnique({ where: { id: row.userId }, select: { id: true, discordId: true } });
+                req.session.user = { id: row.userId, _discordId: user?.discordId || null };
                 next();
             })
             .catch(() => res.status(500).json({ error: 'Internal server error' }));
@@ -20878,8 +20882,11 @@ app.post('/api/projects/desktop/notifications/read', requireDesktopAuth, async (
 app.get('/api/projects/desktop/conversations', requireDesktopAuth, async (req: any, res) => {
     try {
         const me = req.session.user.id;
+        const discordId: string | null = req.session.user._discordId || null;
+        // Conversations may be keyed by Discord ID (older entries) or native CUID — check both
+        const myIds = [me, ...(discordId ? [discordId] : [])];
         const participations = await db.conversationParticipant.findMany({
-            where: { userId: me, archived: false },
+            where: { userId: { in: myIds }, archived: false },
             include: {
                 conversation: {
                     include: {
@@ -20889,9 +20896,16 @@ app.get('/api/projects/desktop/conversations', requireDesktopAuth, async (req: a
                 },
             },
         });
-        const convos = await Promise.all(participations.map(async (p: any) => {
+        // Deduplicate in case both IDs matched the same conversation
+        const seen = new Set<string>();
+        const uniqueParticipations = participations.filter((p: any) => {
+            if (seen.has(p.conversation.id)) return false;
+            seen.add(p.conversation.id);
+            return true;
+        });
+        const convos = await Promise.all(uniqueParticipations.map(async (p: any) => {
             const conv = p.conversation;
-            const otherIds = conv.participants.filter((pp: any) => pp.userId !== me).map((pp: any) => pp.userId);
+            const otherIds = conv.participants.filter((pp: any) => !myIds.includes(pp.userId)).map((pp: any) => pp.userId);
             const others = await Promise.all(otherIds.map(async (uid: string) => {
                 const profile = await db.musicianProfile.findUnique({
                     where: { userId: uid },
@@ -20912,7 +20926,7 @@ app.get('/api/projects/desktop/conversations', requireDesktopAuth, async (req: a
                 }
             }
             const unread = await db.privateMessage.count({
-                where: { conversationId: conv.id, createdAt: { gt: p.lastReadAt }, senderId: { not: me }, deleted: false },
+                where: { conversationId: conv.id, createdAt: { gt: p.lastReadAt }, senderId: { notIn: myIds }, deleted: false },
             });
             return {
                 id: conv.id,
@@ -20937,16 +20951,20 @@ app.get('/api/projects/desktop/conversations', requireDesktopAuth, async (req: a
 app.post('/api/projects/desktop/conversations', requireDesktopAuth, async (req: any, res) => {
     try {
         const me = req.session.user.id;
+        const discordId: string | null = req.session.user._discordId || null;
+        // Use Discord ID as "self" for conversation participant if available — matches website behaviour
+        const selfId = discordId || me;
+        const myIds = discordId ? [me, discordId] : [me];
         const { participantIds, name, isGroup } = req.body;
         if (!Array.isArray(participantIds) || participantIds.length === 0) return res.status(400).json({ error: 'participantIds required' });
-        const uniqueIds = [...new Set(participantIds.filter((id: string) => id !== me))] as string[];
+        const uniqueIds = [...new Set(participantIds.filter((id: string) => !myIds.includes(id)))] as string[];
         if (uniqueIds.length === 0) return res.status(400).json({ error: 'Need at least one other participant' });
         if (!isGroup && uniqueIds.length === 1) {
             const existing = await db.conversation.findFirst({
                 where: {
                     isGroup: false,
                     AND: [
-                        { participants: { some: { userId: me } } },
+                        { participants: { some: { userId: { in: myIds } } } },
                         { participants: { some: { userId: uniqueIds[0] } } },
                     ],
                 },
@@ -20956,12 +20974,12 @@ app.post('/api/projects/desktop/conversations', requireDesktopAuth, async (req: 
                 return res.json({ id: existing.id, existing: true });
             }
         }
-        const allIds = [me, ...uniqueIds];
+        const allIds = [selfId, ...uniqueIds];
         const conv = await db.conversation.create({
             data: {
                 name: isGroup ? (name || 'Group Chat') : null,
                 isGroup: isGroup || false,
-                createdById: me,
+                createdById: selfId,
                 encryptedKey: msgEnc.generateConversationKey(),
                 participants: { create: allIds.map((uid: string) => ({ userId: uid })) },
             },
@@ -20973,15 +20991,17 @@ app.post('/api/projects/desktop/conversations', requireDesktopAuth, async (req: 
 app.get('/api/projects/desktop/conversations/:id/messages', requireDesktopAuth, async (req: any, res) => {
     try {
         const me = req.session.user.id;
+        const discordId: string | null = req.session.user._discordId || null;
+        const myIds = [me, ...(discordId ? [discordId] : [])];
         const convId = req.params.id;
-        const participant = await db.conversationParticipant.findUnique({
-            where: { conversationId_userId: { conversationId: convId, userId: me } },
+        const participant = await db.conversationParticipant.findFirst({
+            where: { conversationId: convId, userId: { in: myIds } },
         });
         if (!participant) return res.status(403).json({ error: 'Not a participant' });
         const conv = await db.conversation.findUnique({ where: { id: convId } });
         if (!conv) return res.status(404).json({ error: 'Not found' });
         const cursor = req.query.before as string | undefined;
-        const limit = Math.min(Number(req.query.limit) || 50, 100);
+        const limit = Math.min(Number(req.query.limit) || 100, 200);
         const messages = await db.privateMessage.findMany({
             where: { conversationId: convId, ...(cursor ? { createdAt: { lt: new Date(cursor) } } : {}) },
             orderBy: { createdAt: 'desc' },
@@ -21001,35 +21021,46 @@ app.get('/api/projects/desktop/conversations/:id/messages', requireDesktopAuth, 
 app.post('/api/projects/desktop/conversations/:id/messages', requireDesktopAuth, async (req: any, res) => {
     try {
         const me = req.session.user.id;
+        const discordId: string | null = req.session.user._discordId || null;
+        const myIds = [me, ...(discordId ? [discordId] : [])];
         const convId = req.params.id;
         const { content } = req.body;
         if (!content || typeof content !== 'string' || content.trim().length === 0) return res.status(400).json({ error: 'Message content required' });
-        const participant = await db.conversationParticipant.findUnique({
-            where: { conversationId_userId: { conversationId: convId, userId: me } },
+        const participant = await db.conversationParticipant.findFirst({
+            where: { conversationId: convId, userId: { in: myIds } },
         });
         if (!participant) return res.status(403).json({ error: 'Not a participant' });
         const conv = await db.conversation.findUnique({ where: { id: convId } });
         if (!conv) return res.status(404).json({ error: 'Not found' });
         const { ciphertext, iv } = msgEnc.encrypt(content.trim(), conv.encryptedKey);
+        // Use the same userId that's stored as the participant (Discord ID or CUID)
+        const senderId = (participant as any).userId;
         const msg = await db.privateMessage.create({
-            data: { conversationId: convId, senderId: me, encryptedContent: ciphertext, iv },
+            data: { conversationId: convId, senderId, encryptedContent: ciphertext, iv },
         });
         await db.conversation.update({ where: { id: convId }, data: { updatedAt: new Date() } });
         await db.conversationParticipant.update({
-            where: { conversationId_userId: { conversationId: convId, userId: me } },
+            where: { id: (participant as any).id },
             data: { lastReadAt: new Date() },
         });
-        res.json({ id: msg.id, senderId: me, content: content.trim(), deleted: false, createdAt: msg.createdAt.toISOString() });
+        res.json({ id: msg.id, senderId, content: content.trim(), deleted: false, createdAt: msg.createdAt.toISOString() });
     } catch (e) { logger.error('Desktop send message', e); res.status(500).json({ error: 'Failed' }); }
 });
 
 app.put('/api/projects/desktop/conversations/:id/read', requireDesktopAuth, async (req: any, res) => {
     try {
         const me = req.session.user.id;
-        await db.conversationParticipant.update({
-            where: { conversationId_userId: { conversationId: req.params.id, userId: me } },
-            data: { lastReadAt: new Date() },
+        const discordId: string | null = req.session.user._discordId || null;
+        const myIds = [me, ...(discordId ? [discordId] : [])];
+        const participant = await db.conversationParticipant.findFirst({
+            where: { conversationId: req.params.id, userId: { in: myIds } },
         });
+        if (participant) {
+            await db.conversationParticipant.update({
+                where: { id: (participant as any).id },
+                data: { lastReadAt: new Date() },
+            });
+        }
         res.json({ success: true });
     } catch { res.status(500).json({ error: 'Failed' }); }
 });
@@ -21037,11 +21068,13 @@ app.put('/api/projects/desktop/conversations/:id/read', requireDesktopAuth, asyn
 app.get('/api/projects/desktop/messages/unread', requireDesktopAuth, async (req: any, res) => {
     try {
         const me = req.session.user.id;
-        const participations = await db.conversationParticipant.findMany({ where: { userId: me, muted: false, archived: false } });
+        const discordId: string | null = req.session.user._discordId || null;
+        const myIds = [me, ...(discordId ? [discordId] : [])];
+        const participations = await db.conversationParticipant.findMany({ where: { userId: { in: myIds }, muted: false, archived: false } });
         let total = 0;
         for (const p of participations) {
             const count = await db.privateMessage.count({
-                where: { conversationId: (p as any).conversationId, createdAt: { gt: (p as any).lastReadAt }, senderId: { not: me }, deleted: false },
+                where: { conversationId: (p as any).conversationId, createdAt: { gt: (p as any).lastReadAt }, senderId: { notIn: myIds }, deleted: false },
             });
             if (count > 0) total++;
         }
