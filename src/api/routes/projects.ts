@@ -226,17 +226,21 @@ export function registerProjectRoutes(
     try {
       const userId = req.session.user._localId || req.session.user.id;
 
-      const [user, profile, projects] = await Promise.all([
+      const discordIdForQuery: string | null = req.session.user._discordId || null;
+      const myIds = [userId, ...(discordIdForQuery ? [discordIdForQuery] : [])];
+
+      const [user, profile, projects, trackProfiles] = await Promise.all([
         (db as any).user.findUnique({
           where: { id: userId },
           select: { id: true, username: true, displayName: true, avatar: true, discordId: true, storageQuotaBytes: true, storageTier: true },
         }),
         db.musicianProfile.findFirst({
-          where: { userId },
+          where: { userId: { in: myIds } },
           select: { username: true, displayName: true, avatar: true },
+          orderBy: { totalPlays: 'desc' },
         }),
         db.project.findMany({
-          where: { userId, deletedAt: null },
+          where: { userId: { in: myIds }, deletedAt: null },
           select: {
             id: true,
             versions: {
@@ -246,27 +250,32 @@ export function registerProjectRoutes(
             },
           },
         }),
+        db.musicianProfile.findMany({ where: { userId: { in: myIds } }, select: { id: true } }),
       ]);
 
-      const totalStorageBytes = projects.reduce((sum: number, p: any) => {
-        return sum + (p.versions[0]?.totalSize ?? 0);
-      }, 0);
+      const projectBytes = projects.reduce((sum: number, p: any) => sum + Number(p.versions[0]?.totalSize ?? 0), 0);
 
-      // Also look up MusicianProfile by discordId if the CUID lookup failed
-      const discordId: string | null = user?.discordId || null;
-      let resolvedProfile = profile;
-      if (!resolvedProfile && discordId) {
-        resolvedProfile = await db.musicianProfile.findUnique({
-          where: { userId: discordId },
-          select: { username: true, displayName: true, avatar: true },
-        });
+      let trackBytes = 0;
+      const profileIds = trackProfiles.map((p: any) => p.id);
+      if (profileIds.length > 0) {
+        try {
+          const agg = await (db as any).track.aggregate({
+            where: { profileId: { in: profileIds }, status: { not: 'deleted' }, audioFileSizeBytes: { not: null } },
+            _sum: { audioFileSizeBytes: true },
+          });
+          trackBytes = Number(agg._sum?.audioFileSizeBytes ?? 0);
+        } catch {}
       }
+
+      const totalStorageBytes = projectBytes + trackBytes;
+
+      const discordId: string | null = user?.discordId || discordIdForQuery || null;
       res.json({
         userId,
         discordId,
-        username: resolvedProfile?.username || user?.username || 'Producer',
-        displayName: resolvedProfile?.displayName || user?.displayName || null,
-        avatar: resolvedProfile?.avatar || user?.avatar || null,
+        username: profile?.username || user?.username || 'Producer',
+        displayName: profile?.displayName || user?.displayName || null,
+        avatar: profile?.avatar || user?.avatar || null,
         projectCount: projects.length,
         totalStorageBytes,
         storageQuotaBytes: Number(user?.storageQuotaBytes ?? 1073741824),
