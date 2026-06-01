@@ -147,6 +147,9 @@ export const MyTracksPage: React.FC = () => {
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [bulkSaving, setBulkSaving] = useState(false);
 
+    // Storage info
+    const [storageInfo, setStorageInfo] = useState<{ usedBytes: number; quotaBytes: number; tier: string } | null>(null);
+
     useEffect(() => {
         let _rt: ReturnType<typeof setTimeout>;
         const onResize = () => { clearTimeout(_rt); _rt = setTimeout(() => setIsMobile(window.innerWidth < 768), 150); };
@@ -208,6 +211,13 @@ export const MyTracksPage: React.FC = () => {
         if (!user) return;
         axios.get('/api/musician/my-collaborations', { withCredentials: true })
             .then(r => setPendingInvites(r.data))
+            .catch(() => {});
+    }, [user?.id]);
+
+    // Fetch storage usage
+    useEffect(() => {
+        axios.get('/api/users/me/storage', { withCredentials: true })
+            .then(r => setStorageInfo(r.data))
             .catch(() => {});
     }, [user?.id]);
 
@@ -1446,6 +1456,32 @@ export const MyTracksPage: React.FC = () => {
                 </div>
             )}
 
+
+            {/* ── Storage bar ── */}
+            {storageInfo && (
+                <div style={{ marginBottom: '20px', padding: '16px', backgroundColor: colors.surface, borderRadius: borderRadius.lg, border: `1px solid ${colors.glassBorder}` }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                        <span style={{ fontSize: '13px', fontWeight: 600, color: colors.textPrimary }}>Storage</span>
+                        <span style={{ fontSize: '12px', color: colors.textSecondary }}>
+                            {(storageInfo.usedBytes / 1048576).toFixed(0)} MB of {(storageInfo.quotaBytes / 1048576 / 1024).toFixed(0)} GB used
+                        </span>
+                    </div>
+                    <div style={{ height: '6px', backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: '3px', overflow: 'hidden' }}>
+                        <div style={{
+                            height: '100%',
+                            width: `${Math.min(100, (storageInfo.usedBytes / storageInfo.quotaBytes) * 100).toFixed(1)}%`,
+                            backgroundColor: storageInfo.usedBytes / storageInfo.quotaBytes > 0.9 ? colors.error : storageInfo.usedBytes / storageInfo.quotaBytes > 0.7 ? colors.warning : colors.primary,
+                            borderRadius: '3px',
+                            transition: 'width 0.3s ease',
+                        }} />
+                    </div>
+                    {storageInfo.usedBytes / storageInfo.quotaBytes > 0.85 && (
+                        <p style={{ margin: '8px 0 0', fontSize: '11px', color: colors.warning }}>
+                            You're running low on storage. Delete tracks or projects to free up space.
+                        </p>
+                    )}
+                </div>
+            )}
 
             {/* ── Upload / Edit form ── */}
             {isAddingTrack && renderTrackForm(false)}

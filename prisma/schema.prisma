@@ -66,6 +66,9 @@ model User {
   // Soft delete
   deletedAt DateTime?
 
+  storageQuotaBytes BigInt  @default(1073741824) // 1 GB free tier
+  storageTier       String  @default("free")     // "free" | "pro" | "unlimited"
+
   projects       Project[]
   desktopTokens  DesktopToken[]
 
@@ -1005,6 +1008,7 @@ model Track {
   projectFileUrl       String? // URL to the original .flp download
   projectZipUrl        String? // URL to the uploaded .zip project package (R2)
   projectFileSizeBytes Int? // Size of uploaded project ZIP in bytes
+  audioFileSizeBytes   Int? // Size of uploaded audio file in bytes
 
   // Waveform data (generated on upload from main audio file)
   waveformPeaks Json? // number[] ~200 normalised RMS values, 0.0–1.0

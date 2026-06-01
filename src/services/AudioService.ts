@@ -120,7 +120,7 @@ export class AudioService {
         artist?: string, album?: string, year?: number, bpm?: number, key?: string, slug?: string,
         arrangement?: object, projectFileUrl?: string, projectZipUrl?: string,
         allowAudioDownload?: boolean, allowProjectDownload?: boolean,
-        waveformPeaks?: number[], projectFileSizeBytes?: number, isPublic?: boolean,
+        waveformPeaks?: number[], projectFileSizeBytes?: number, audioFileSizeBytes?: number, isPublic?: boolean,
         license?: string, trackType?: string,
     }) {
         // Try exact match first, then fall back to resolving via User table
@@ -163,6 +163,7 @@ export class AudioService {
                 projectZipUrl: data.projectZipUrl,
                 waveformPeaks: data.waveformPeaks ?? undefined,
                 projectFileSizeBytes: data.projectFileSizeBytes,
+                audioFileSizeBytes: data.audioFileSizeBytes,
             }
         });
     }

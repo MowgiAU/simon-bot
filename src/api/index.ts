@@ -6972,6 +6972,19 @@ app.post('/api/guilds/:guildId/pending-reviews/:id/reject', async (req, res) => 
 
 // --- Musician Profile API ---
 
+// Storage info endpoint
+app.get('/api/users/me/storage', requireAuth, async (req: any, res) => {
+    try {
+        const nativeId = req.session?.user?._localId || req.session?.user?.id;
+        const discordId = req.session?.user?._localId ? req.session.user.id : null;
+        const info = await getUserStorageInfo(nativeId, discordId);
+        res.json(info);
+    } catch (e) {
+        logger.error('Storage info', e);
+        res.status(500).json({ error: 'Failed' });
+    }
+});
+
 // Post new track (Now with file uploads and metadata)
 // Free-tier track cap \u2014 increase limit or gate behind paid tier in getUserTrackLimit() when billing is added
 const FREE_TIER_TRACK_LIMIT = 25;
@@ -7016,6 +7029,27 @@ app.post('/api/musician/tracks', uploadLimiter, upload.fields([
                     code: 'TRACK_LIMIT_REACHED',
                     limit: trackLimit,
                     current: trackCount,
+                });
+            }
+        }
+
+        // --- Storage quota check ---
+        if (uploaderProfile) {
+            const nativeId = canonicalUploaderId;
+            const discordId = userId !== canonicalUploaderId ? userId : null;
+            const storageInfo = await getUserStorageInfo(nativeId, discordId);
+            const incomingBytes = audioFile.size + (projectFile?.size ?? 0);
+            if (storageInfo.usedBytes + incomingBytes > storageInfo.quotaBytes) {
+                try { fs.unlinkSync(audioFile.path); } catch {}
+                if (artworkFile) try { fs.unlinkSync(artworkFile.path); } catch {}
+                if (projectFile) try { fs.unlinkSync(projectFile.path); } catch {}
+                const usedMB = (storageInfo.usedBytes / 1048576).toFixed(0);
+                const quotaMB = (storageInfo.quotaBytes / 1048576).toFixed(0);
+                return res.status(403).json({
+                    error: `You've used ${usedMB} MB of your ${quotaMB} MB storage quota. Delete some tracks or projects to free up space.`,
+                    code: 'STORAGE_QUOTA_EXCEEDED',
+                    usedBytes: storageInfo.usedBytes,
+                    quotaBytes: storageInfo.quotaBytes,
                 });
             }
         }
@@ -7175,6 +7209,7 @@ app.post('/api/musician/tracks', uploadLimiter, upload.fields([
             ...(projectFileUrl ? { projectFileUrl } : {}),
             ...(projectZipUrl ? { projectZipUrl } : {}),
             ...(projectFileSizeBytes != null ? { projectFileSizeBytes } : {}),
+            audioFileSizeBytes: audioFile.size,
         });
 
         // Log track upload
@@ -18454,6 +18489,35 @@ app.post('/api/booster-color/settings/:guildId', async (req, res) => {
 // PRIVATE MESSAGING � Encrypted 1:1 & Group Chats
 // ---------------------------------------------------------------------------
 const msgEnc = new MessageEncryption();
+
+async function getUserStorageInfo(userId: string, discordId?: string | null): Promise<{ usedBytes: number; quotaBytes: number; tier: string }> {
+    const user = await db.user.findUnique({ where: { id: userId }, select: { storageQuotaBytes: true, storageTier: true } });
+    const quotaBytes = Number(user?.storageQuotaBytes ?? 1073741824);
+    const tier = user?.storageTier ?? 'free';
+
+    const myIds = [userId, ...(discordId ? [discordId] : [])];
+
+    // Project sync storage: sum of latest version sizes
+    const projects = await db.project.findMany({
+        where: { userId: { in: myIds }, deletedAt: null },
+        select: { versions: { orderBy: { versionNumber: 'desc' }, take: 1, select: { totalSize: true } } },
+    });
+    const projectBytes = projects.reduce((sum: number, p: any) => sum + Number(p.versions[0]?.totalSize ?? 0), 0);
+
+    // Track storage: sum of audio file sizes for active tracks
+    const profiles = await db.musicianProfile.findMany({ where: { userId: { in: myIds } }, select: { id: true } });
+    const profileIds = profiles.map((p: any) => p.id);
+    let trackBytes = 0;
+    if (profileIds.length > 0) {
+        const agg = await db.track.aggregate({
+            where: { profileId: { in: profileIds }, status: { not: 'deleted' }, audioFileSizeBytes: { not: null } },
+            _sum: { audioFileSizeBytes: true },
+        });
+        trackBytes = Number(agg._sum?.audioFileSizeBytes ?? 0);
+    }
+
+    return { usedBytes: projectBytes + trackBytes, quotaBytes, tier };
+}
 
 // Search users to start a conversation with
 app.get('/api/messages/search-users', requireAuth, async (req: any, res) => {

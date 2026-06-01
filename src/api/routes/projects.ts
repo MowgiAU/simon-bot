@@ -228,7 +228,7 @@ export function registerProjectRoutes(
       const [user, profile, projects] = await Promise.all([
         (db as any).user.findUnique({
           where: { id: userId },
-          select: { id: true, username: true, displayName: true, avatar: true, discordId: true },
+          select: { id: true, username: true, displayName: true, avatar: true, discordId: true, storageQuotaBytes: true, storageTier: true },
         }),
         db.musicianProfile.findFirst({
           where: { userId },
@@ -268,6 +268,8 @@ export function registerProjectRoutes(
         avatar: resolvedProfile?.avatar || user?.avatar || null,
         projectCount: projects.length,
         totalStorageBytes,
+        storageQuotaBytes: Number(user?.storageQuotaBytes ?? 1073741824),
+        storageTier: user?.storageTier ?? 'free',
       });
     } catch (e: any) {
       logger.error('Failed to fetch desktop me', e);
@@ -501,6 +503,23 @@ export function registerProjectRoutes(
         if (actualHash !== expectedHash) {
           fs.unlinkSync(file.path);
           return res.status(400).json({ error: 'Hash mismatch: file content does not match provided hash' });
+        }
+
+        // Storage quota check
+        const nativeId = req.session.user._localId || req.session.user.id;
+        const quotaRow = await (db as any).user.findUnique({ where: { id: nativeId }, select: { storageQuotaBytes: true } });
+        const quotaBytes = Number(quotaRow?.storageQuotaBytes ?? 1073741824);
+        const existingProjects = await db.project.findMany({
+            where: { userId: nativeId, deletedAt: null },
+            select: { versions: { orderBy: { versionNumber: 'desc' }, take: 1, select: { totalSize: true } } },
+        });
+        const usedBytes = existingProjects.reduce((sum: number, p: any) => sum + Number(p.versions[0]?.totalSize ?? 0), 0);
+        if (usedBytes + buffer.length > quotaBytes) {
+            fs.unlinkSync(file.path);
+            return res.status(403).json({
+                error: `Storage quota exceeded. You have used ${(usedBytes / 1048576).toFixed(0)} MB of your ${(quotaBytes / 1048576).toFixed(0)} MB limit.`,
+                code: 'STORAGE_QUOTA_EXCEEDED',
+            });
         }
 
         const mimeType = file.mimetype || 'application/octet-stream';
