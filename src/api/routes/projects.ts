@@ -287,6 +287,43 @@ export function registerProjectRoutes(
     }
   });
 
+  app.get('/api/projects/desktop/storage', requireProjectAuth, async (req: any, res) => {
+    try {
+      const userId = req.session.user._localId || req.session.user.id;
+      const discordId: string | null = req.session.user._discordId || null;
+      const myIds = [userId, ...(discordId ? [discordId] : [])];
+
+      const user = await (db as any).user.findUnique({
+        where: { id: userId },
+        select: { storageQuotaBytes: true, storageTier: true },
+      });
+      const quotaBytes = Number(user?.storageQuotaBytes ?? 1073741824);
+      const tier: string = user?.storageTier ?? 'free';
+
+      const projects = await db.project.findMany({
+        where: { userId: { in: myIds }, deletedAt: null },
+        select: { versions: { orderBy: { versionNumber: 'desc' }, take: 1, select: { totalSize: true } } },
+      });
+      const projectBytes = projects.reduce((sum: number, p: any) => sum + Number(p.versions[0]?.totalSize ?? 0), 0);
+
+      const profiles = await db.musicianProfile.findMany({ where: { userId: { in: myIds } }, select: { id: true } });
+      const profileIds = profiles.map((p: any) => p.id);
+      let trackBytes = 0;
+      if (profileIds.length > 0) {
+        const agg = await (db as any).track.aggregate({
+          where: { profileId: { in: profileIds }, status: { not: 'deleted' }, audioFileSizeBytes: { not: null } },
+          _sum: { audioFileSizeBytes: true },
+        });
+        trackBytes = Number(agg._sum?.audioFileSizeBytes ?? 0);
+      }
+
+      res.json({ usedBytes: projectBytes + trackBytes, quotaBytes, tier });
+    } catch (e: any) {
+      logger.error('Failed to fetch desktop storage', e);
+      res.json({ usedBytes: 0, quotaBytes: 1073741824, tier: 'free' });
+    }
+  });
+
   app.get('/api/projects/my-tracks', requireProjectAuth, async (req: any, res) => {
     try {
       const nativeId = req.session.user._localId || req.session.user.id;
