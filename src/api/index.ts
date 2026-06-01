@@ -20831,6 +20831,242 @@ app.patch('/api/web-tickets/block/:userId', requireAdmin, async (req: any, res) 
     }
 });
 
+// ─── Desktop App Routes (Bearer token auth) ─────────────────────────────────
+// These mirror existing session-auth routes but accept the desktop OAuth token.
+
+function requireDesktopAuth(req: any, res: any, next: any) {
+    const authHeader = req.headers?.authorization as string | undefined;
+    if (authHeader?.startsWith('Bearer ')) {
+        const token = authHeader.slice(7);
+        (db as any).desktopToken.findUnique({ where: { token } })
+            .then((row: any) => {
+                if (!row || row.expiresAt <= new Date()) {
+                    return res.status(401).json({ error: 'Token invalid or expired' });
+                }
+                if (!req.session) req.session = {} as any;
+                req.session.user = { id: row.userId };
+                next();
+            })
+            .catch(() => res.status(500).json({ error: 'Internal server error' }));
+        return;
+    }
+    requireAuth(req, res, next);
+}
+
+// Notifications (music_notifications table — user-scoped)
+app.get('/api/projects/desktop/notifications', requireDesktopAuth, async (req: any, res) => {
+    try {
+        const userId = req.session.user.id;
+        const notifications = await db.musicNotification.findMany({
+            where: { userId },
+            orderBy: { createdAt: 'desc' },
+            take: 30,
+        });
+        res.json(notifications);
+    } catch { res.status(500).json({ error: 'Failed' }); }
+});
+
+app.post('/api/projects/desktop/notifications/read', requireDesktopAuth, async (req: any, res) => {
+    try {
+        const userId = req.session.user.id;
+        await db.musicNotification.updateMany({ where: { userId, isRead: false }, data: { isRead: true } });
+        res.json({ success: true });
+    } catch { res.status(500).json({ error: 'Failed' }); }
+});
+
+// Conversations
+app.get('/api/projects/desktop/conversations', requireDesktopAuth, async (req: any, res) => {
+    try {
+        const me = req.session.user.id;
+        const participations = await db.conversationParticipant.findMany({
+            where: { userId: me, archived: false },
+            include: {
+                conversation: {
+                    include: {
+                        participants: true,
+                        messages: { orderBy: { createdAt: 'desc' }, take: 1 },
+                    },
+                },
+            },
+        });
+        const convos = await Promise.all(participations.map(async (p: any) => {
+            const conv = p.conversation;
+            const otherIds = conv.participants.filter((pp: any) => pp.userId !== me).map((pp: any) => pp.userId);
+            const others = await Promise.all(otherIds.map(async (uid: string) => {
+                const profile = await db.musicianProfile.findUnique({
+                    where: { userId: uid },
+                    select: { userId: true, username: true, displayName: true, avatar: true },
+                });
+                return profile || { userId: uid, username: 'Unknown', displayName: null, avatar: null };
+            }));
+            let lastMessagePreview: string | null = null;
+            let lastMessageAt: string | null = null;
+            if (conv.messages.length > 0) {
+                const msg = conv.messages[0];
+                lastMessageAt = msg.createdAt.toISOString();
+                if (!msg.deleted) {
+                    try { lastMessagePreview = msgEnc.decrypt(msg.encryptedContent, msg.iv, conv.encryptedKey); } catch { lastMessagePreview = '[encrypted]'; }
+                    if (lastMessagePreview && lastMessagePreview.length > 60) lastMessagePreview = lastMessagePreview.slice(0, 60) + '…';
+                } else {
+                    lastMessagePreview = '[deleted]';
+                }
+            }
+            const unread = await db.privateMessage.count({
+                where: { conversationId: conv.id, createdAt: { gt: p.lastReadAt }, senderId: { not: me }, deleted: false },
+            });
+            return {
+                id: conv.id,
+                name: conv.name,
+                isGroup: conv.isGroup,
+                participants: others,
+                lastMessagePreview,
+                lastMessageAt,
+                unread,
+                createdAt: conv.createdAt.toISOString(),
+            };
+        }));
+        convos.sort((a: any, b: any) => {
+            const tA = a.lastMessageAt || a.createdAt;
+            const tB = b.lastMessageAt || b.createdAt;
+            return new Date(tB).getTime() - new Date(tA).getTime();
+        });
+        res.json(convos);
+    } catch (e) { logger.error('Desktop list conversations', e); res.status(500).json({ error: 'Failed' }); }
+});
+
+app.post('/api/projects/desktop/conversations', requireDesktopAuth, async (req: any, res) => {
+    try {
+        const me = req.session.user.id;
+        const { participantIds, name, isGroup } = req.body;
+        if (!Array.isArray(participantIds) || participantIds.length === 0) return res.status(400).json({ error: 'participantIds required' });
+        const uniqueIds = [...new Set(participantIds.filter((id: string) => id !== me))] as string[];
+        if (uniqueIds.length === 0) return res.status(400).json({ error: 'Need at least one other participant' });
+        if (!isGroup && uniqueIds.length === 1) {
+            const existing = await db.conversation.findFirst({
+                where: {
+                    isGroup: false,
+                    AND: [
+                        { participants: { some: { userId: me } } },
+                        { participants: { some: { userId: uniqueIds[0] } } },
+                    ],
+                },
+                include: { participants: true },
+            });
+            if (existing && existing.participants.length === 2) {
+                return res.json({ id: existing.id, existing: true });
+            }
+        }
+        const allIds = [me, ...uniqueIds];
+        const conv = await db.conversation.create({
+            data: {
+                name: isGroup ? (name || 'Group Chat') : null,
+                isGroup: isGroup || false,
+                createdById: me,
+                encryptedKey: msgEnc.generateConversationKey(),
+                participants: { create: allIds.map((uid: string) => ({ userId: uid })) },
+            },
+        });
+        res.json({ id: conv.id, existing: false });
+    } catch (e) { logger.error('Desktop create conversation', e); res.status(500).json({ error: 'Failed' }); }
+});
+
+app.get('/api/projects/desktop/conversations/:id/messages', requireDesktopAuth, async (req: any, res) => {
+    try {
+        const me = req.session.user.id;
+        const convId = req.params.id;
+        const participant = await db.conversationParticipant.findUnique({
+            where: { conversationId_userId: { conversationId: convId, userId: me } },
+        });
+        if (!participant) return res.status(403).json({ error: 'Not a participant' });
+        const conv = await db.conversation.findUnique({ where: { id: convId } });
+        if (!conv) return res.status(404).json({ error: 'Not found' });
+        const cursor = req.query.before as string | undefined;
+        const limit = Math.min(Number(req.query.limit) || 50, 100);
+        const messages = await db.privateMessage.findMany({
+            where: { conversationId: convId, ...(cursor ? { createdAt: { lt: new Date(cursor) } } : {}) },
+            orderBy: { createdAt: 'desc' },
+            take: limit,
+        });
+        const decrypted = messages.map((m: any) => ({
+            id: m.id,
+            senderId: m.senderId,
+            content: m.deleted ? null : (() => { try { return msgEnc.decrypt(m.encryptedContent, m.iv, conv.encryptedKey); } catch { return '[decryption error]'; } })(),
+            deleted: m.deleted,
+            createdAt: m.createdAt.toISOString(),
+        }));
+        res.json(decrypted.reverse());
+    } catch (e) { logger.error('Desktop get messages', e); res.status(500).json({ error: 'Failed' }); }
+});
+
+app.post('/api/projects/desktop/conversations/:id/messages', requireDesktopAuth, async (req: any, res) => {
+    try {
+        const me = req.session.user.id;
+        const convId = req.params.id;
+        const { content } = req.body;
+        if (!content || typeof content !== 'string' || content.trim().length === 0) return res.status(400).json({ error: 'Message content required' });
+        const participant = await db.conversationParticipant.findUnique({
+            where: { conversationId_userId: { conversationId: convId, userId: me } },
+        });
+        if (!participant) return res.status(403).json({ error: 'Not a participant' });
+        const conv = await db.conversation.findUnique({ where: { id: convId } });
+        if (!conv) return res.status(404).json({ error: 'Not found' });
+        const { ciphertext, iv } = msgEnc.encrypt(content.trim(), conv.encryptedKey);
+        const msg = await db.privateMessage.create({
+            data: { conversationId: convId, senderId: me, encryptedContent: ciphertext, iv },
+        });
+        await db.conversation.update({ where: { id: convId }, data: { updatedAt: new Date() } });
+        await db.conversationParticipant.update({
+            where: { conversationId_userId: { conversationId: convId, userId: me } },
+            data: { lastReadAt: new Date() },
+        });
+        res.json({ id: msg.id, senderId: me, content: content.trim(), deleted: false, createdAt: msg.createdAt.toISOString() });
+    } catch (e) { logger.error('Desktop send message', e); res.status(500).json({ error: 'Failed' }); }
+});
+
+app.put('/api/projects/desktop/conversations/:id/read', requireDesktopAuth, async (req: any, res) => {
+    try {
+        const me = req.session.user.id;
+        await db.conversationParticipant.update({
+            where: { conversationId_userId: { conversationId: req.params.id, userId: me } },
+            data: { lastReadAt: new Date() },
+        });
+        res.json({ success: true });
+    } catch { res.status(500).json({ error: 'Failed' }); }
+});
+
+app.get('/api/projects/desktop/messages/unread', requireDesktopAuth, async (req: any, res) => {
+    try {
+        const me = req.session.user.id;
+        const participations = await db.conversationParticipant.findMany({ where: { userId: me, muted: false, archived: false } });
+        let total = 0;
+        for (const p of participations) {
+            const count = await db.privateMessage.count({
+                where: { conversationId: (p as any).conversationId, createdAt: { gt: (p as any).lastReadAt }, senderId: { not: me }, deleted: false },
+            });
+            if (count > 0) total++;
+        }
+        res.json({ unread: total });
+    } catch { res.status(500).json({ error: 'Failed' }); }
+});
+
+app.get('/api/projects/desktop/users/search', requireDesktopAuth, async (req: any, res) => {
+    try {
+        const q = (req.query.q as string || '').trim();
+        if (!q || q.length < 2) return res.json([]);
+        const profiles = await db.musicianProfile.findMany({
+            where: {
+                OR: [
+                    { username: { contains: q, mode: 'insensitive' } },
+                    { displayName: { contains: q, mode: 'insensitive' } },
+                ],
+            },
+            select: { userId: true, username: true, displayName: true, avatar: true },
+            take: 10,
+        });
+        res.json(profiles);
+    } catch { res.status(500).json({ error: 'Failed' }); }
+});
+
 // ─── Project Sync Routes ────────────────────────────────────────────────
 registerProjectRoutes(app, db, requireAuth, requireAdmin);
 
