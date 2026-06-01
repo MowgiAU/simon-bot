@@ -348,6 +348,8 @@ export const MyTracksPage: React.FC = () => {
             }
             setTracks([...tracks, res.data]);
             queryClient.invalidateQueries({ queryKey: profileQueryKey });
+            // Refresh storage bar after upload
+            axios.get('/api/users/me/storage', { withCredentials: true }).then(r => setStorageInfo(r.data)).catch(() => {});
             setIsAddingTrack(false);
             setNewTrack({ title: '', description: '', artist: '', album: '', year: '', bpm: '', key: '', allowAudioDownload: true, allowProjectDownload: true, license: 'all-rights-reserved', trackType: 'original' });
             setAudioFile(null); setArtworkFile(null); setProjectFile(null); setArtworkPreviewUrl(null);
@@ -382,6 +384,7 @@ export const MyTracksPage: React.FC = () => {
             await axios.delete(`/api/musician/tracks/${trackId}`, { withCredentials: true });
             setTracks(tracks.filter(t => t.id !== trackId));
             queryClient.invalidateQueries({ queryKey: profileQueryKey });
+            axios.get('/api/users/me/storage', { withCredentials: true }).then(r => setStorageInfo(r.data)).catch(() => {});
             setMessage({ type: 'success', text: 'Track deleted' });
         } catch (e: any) {
             const serverMsg = e?.response?.data?.error;
@@ -527,6 +530,9 @@ export const MyTracksPage: React.FC = () => {
                 .map((r, i) => ({ r, id: ids[i] }))
                 .filter(x => x.r.status === 'rejected') as Array<{ r: PromiseRejectedResult; id: string }>;
             setTracks(tracks.filter(t => !deletedIds.includes(t.id)));
+            if (deletedIds.length > 0) {
+                axios.get('/api/users/me/storage', { withCredentials: true }).then(r => setStorageInfo(r.data)).catch(() => {});
+            }
             if (failures.length === 0) {
                 setMessage({ type: 'success', text: `${ids.length} track${ids.length !== 1 ? 's' : ''} deleted` });
             } else {
@@ -1476,8 +1482,10 @@ export const MyTracksPage: React.FC = () => {
                         }} />
                     </div>
                     {storageInfo.usedBytes / storageInfo.quotaBytes > 0.85 && (
-                        <p style={{ margin: '8px 0 0', fontSize: '11px', color: colors.warning }}>
-                            You're running low on storage. Delete tracks or projects to free up space.
+                        <p style={{ margin: '8px 0 0', fontSize: '11px', color: storageInfo.usedBytes / storageInfo.quotaBytes > 0.95 ? colors.error : colors.warning }}>
+                            {storageInfo.usedBytes >= storageInfo.quotaBytes
+                                ? 'Storage full — delete tracks or projects before uploading more.'
+                                : 'Storage running low — delete tracks or projects to free up space.'}
                         </p>
                     )}
                 </div>

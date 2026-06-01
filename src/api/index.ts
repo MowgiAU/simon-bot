@@ -7039,15 +7039,16 @@ app.post('/api/musician/tracks', uploadLimiter, requireDesktopAuth, upload.field
             const nativeId = canonicalUploaderId;
             const discordId = uploaderDiscordId || (userId !== canonicalUploaderId ? userId : null);
             const storageInfo = await getUserStorageInfo(nativeId, discordId);
+            // Use original upload size for quota enforcement (conservative — actual OGG stored is smaller for WAVs)
             const incomingBytes = audioFile.size + (projectFile?.size ?? 0);
-            if (storageInfo.usedBytes + incomingBytes > storageInfo.quotaBytes) {
+            if (storageInfo.quotaBytes > 0 && storageInfo.usedBytes + incomingBytes > storageInfo.quotaBytes) {
                 try { fs.unlinkSync(audioFile.path); } catch {}
                 if (artworkFile) try { fs.unlinkSync(artworkFile.path); } catch {}
                 if (projectFile) try { fs.unlinkSync(projectFile.path); } catch {}
                 const usedMB = (storageInfo.usedBytes / 1048576).toFixed(0);
-                const quotaMB = (storageInfo.quotaBytes / 1048576).toFixed(0);
+                const quotaMB = (storageInfo.quotaBytes / 1048576 / 1024).toFixed(1);
                 return res.status(403).json({
-                    error: `You've used ${usedMB} MB of your ${quotaMB} MB storage quota. Delete some tracks or projects to free up space.`,
+                    error: `You've used ${usedMB} MB of your ${quotaMB} GB storage quota. Delete some tracks or projects to free up space.`,
                     code: 'STORAGE_QUOTA_EXCEEDED',
                     usedBytes: storageInfo.usedBytes,
                     quotaBytes: storageInfo.quotaBytes,
@@ -7294,6 +7295,8 @@ app.post('/api/musician/tracks', uploadLimiter, requireDesktopAuth, upload.field
                 // Convert audio to OGG Opus (primary stream) with embedded metadata tags
                 const finalAudioPath = await MediaConverter.convertToOgg(_bgRawAudioPath, _bgMeta);
                 bgUpdates.url = `/uploads/tracks/${path.basename(finalAudioPath)}`;
+                // Record actual compressed OGG size (not original upload size) — used for quota display
+                try { bgUpdates.audioFileSizeBytes = fs.statSync(finalAudioPath).size; } catch {}
 
                 // Also generate MP3 fallback for iOS Safari with same metadata tags
                 try {
@@ -7720,6 +7723,26 @@ app.put('/api/musician/tracks/:trackId', generalUploadLimiter, upload.fields([
 
         // Audio file replacement
         if (audioFile) {
+            // Storage quota check for audio replacement: delta check (new minus existing track size)
+            try {
+                const _editNativeId = req.session?.user?._localId || userId;
+                const _editDiscordId = req.session?.user?._discordId || (_editNativeId !== userId ? userId : null);
+                const _editStorageInfo = await getUserStorageInfo(_editNativeId, _editDiscordId);
+                const _existingTrackSize = Number((track as any).audioFileSizeBytes ?? 0);
+                const _deltaBytes = audioFile.size - _existingTrackSize;
+                if (_deltaBytes > 0 && _editStorageInfo.quotaBytes > 0 && _editStorageInfo.usedBytes + _deltaBytes > _editStorageInfo.quotaBytes) {
+                    if (audioFile) try { fs.unlinkSync(audioFile.path); } catch {}
+                    if (artworkFile) try { fs.unlinkSync(artworkFile.path); } catch {}
+                    if (projectFile) try { fs.unlinkSync(projectFile.path); } catch {}
+                    const usedMB = (_editStorageInfo.usedBytes / 1048576).toFixed(0);
+                    const quotaMB = (_editStorageInfo.quotaBytes / 1048576 / 1024).toFixed(1);
+                    return res.status(403).json({
+                        error: `You've used ${usedMB} MB of your ${quotaMB} GB storage quota. Delete some tracks or projects to free up space.`,
+                        code: 'STORAGE_QUOTA_EXCEEDED',
+                    });
+                }
+            } catch { /* allow edit if quota check fails */ }
+
             // Extract duration before conversion (metadata survives in most formats)
             try {
                 const parsed = await mm.parseFile(audioFile.path);
@@ -7729,6 +7752,8 @@ app.put('/api/musician/tracks/:trackId', generalUploadLimiter, upload.fields([
             }
             // Convert to OGG Opus (primary)
             const finalAudioPath = await MediaConverter.convertToOgg(audioFile.path);
+            // Record OGG file size for accurate storage accounting
+            try { updateData.audioFileSizeBytes = fs.statSync(finalAudioPath).size; } catch {}
             // Also generate MP3 fallback for iOS
             try {
                 const mp3Path = await MediaConverter.convertToMp3(finalAudioPath);
@@ -9488,6 +9513,49 @@ app.get('/api/admin/debug-tracks-summary', requireAdmin, async (req, res) => {
         res.json(summary);
     } catch (e: any) {
         res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Backfill audioFileSizeBytes for tracks that have null (uploaded before quota tracking was added).
+// Tries R2 HeadObject for CDN URLs, or fs.stat for local /uploads/ paths.
+app.post('/api/admin/storage/backfill-track-sizes', requireAdmin, async (req: any, res) => {
+    try {
+        const tracks = await (db as any).track.findMany({
+            where: { audioFileSizeBytes: null, status: { not: 'deleted' } },
+            select: { id: true, url: true, mp3Url: true },
+        });
+
+        let updated = 0;
+        let skipped = 0;
+
+        for (const track of tracks) {
+            const audioUrl: string = track.url;
+            let size: number | null = null;
+
+            // Try R2 HeadObject first
+            const r2Key = R2Storage.keyFromCdnUrl(audioUrl);
+            if (r2Key) {
+                size = await R2Storage.getObjectSize(r2Key);
+            }
+
+            // Fall back to local filesystem
+            if (size == null && audioUrl.startsWith('/uploads/')) {
+                const localPath = path.join(PROJECT_ROOT, 'public', audioUrl);
+                try { size = fs.statSync(localPath).size; } catch {}
+            }
+
+            if (size != null && size > 0) {
+                await (db as any).track.update({ where: { id: track.id }, data: { audioFileSizeBytes: size } });
+                updated++;
+            } else {
+                skipped++;
+            }
+        }
+
+        res.json({ total: tracks.length, updated, skipped });
+    } catch (e: any) {
+        logger.error('Backfill track sizes failed', e);
+        res.status(500).json({ error: e.message });
     }
 });
 
@@ -18492,32 +18560,37 @@ app.post('/api/booster-color/settings/:guildId', async (req, res) => {
 const msgEnc = new MessageEncryption();
 
 async function getUserStorageInfo(userId: string, discordId?: string | null): Promise<{ usedBytes: number; quotaBytes: number; tier: string }> {
-    const user = await db.user.findUnique({ where: { id: userId }, select: { storageQuotaBytes: true, storageTier: true } });
-    const quotaBytes = Number(user?.storageQuotaBytes ?? 1073741824);
-    const tier = user?.storageTier ?? 'free';
+    try {
+        const user = await (db as any).user.findUnique({ where: { id: userId }, select: { storageQuotaBytes: true, storageTier: true } });
+        const quotaBytes = Number(user?.storageQuotaBytes ?? 1073741824);
+        const tier = user?.storageTier ?? 'free';
 
-    const myIds = [userId, ...(discordId ? [discordId] : [])];
+        const myIds = [userId, ...(discordId ? [discordId] : [])];
 
-    // Project sync storage: sum of latest version sizes
-    const projects = await db.project.findMany({
-        where: { userId: { in: myIds }, deletedAt: null },
-        select: { versions: { orderBy: { versionNumber: 'desc' }, take: 1, select: { totalSize: true } } },
-    });
-    const projectBytes = projects.reduce((sum: number, p: any) => sum + Number(p.versions[0]?.totalSize ?? 0), 0);
-
-    // Track storage: sum of audio file sizes for active tracks
-    const profiles = await db.musicianProfile.findMany({ where: { userId: { in: myIds } }, select: { id: true } });
-    const profileIds = profiles.map((p: any) => p.id);
-    let trackBytes = 0;
-    if (profileIds.length > 0) {
-        const agg = await db.track.aggregate({
-            where: { profileId: { in: profileIds }, status: { not: 'deleted' }, audioFileSizeBytes: { not: null } },
-            _sum: { audioFileSizeBytes: true },
+        // Project sync storage: sum of latest version sizes
+        const projects = await db.project.findMany({
+            where: { userId: { in: myIds }, deletedAt: null },
+            select: { versions: { orderBy: { versionNumber: 'desc' }, take: 1, select: { totalSize: true } } },
         });
-        trackBytes = Number(agg._sum?.audioFileSizeBytes ?? 0);
-    }
+        const projectBytes = projects.reduce((sum: number, p: any) => sum + Number(p.versions[0]?.totalSize ?? 0), 0);
 
-    return { usedBytes: projectBytes + trackBytes, quotaBytes, tier };
+        // Track storage: sum of stored OGG audio sizes for active tracks
+        const profiles = await db.musicianProfile.findMany({ where: { userId: { in: myIds } }, select: { id: true } });
+        const profileIds = profiles.map((p: any) => p.id);
+        let trackBytes = 0;
+        if (profileIds.length > 0) {
+            const agg = await (db as any).track.aggregate({
+                where: { profileId: { in: profileIds }, status: { not: 'deleted' }, audioFileSizeBytes: { not: null } },
+                _sum: { audioFileSizeBytes: true },
+            });
+            trackBytes = Number(agg._sum?.audioFileSizeBytes ?? 0);
+        }
+
+        return { usedBytes: projectBytes + trackBytes, quotaBytes, tier };
+    } catch (e) {
+        logger.error('getUserStorageInfo failed', e);
+        return { usedBytes: 0, quotaBytes: 1073741824, tier: 'free' };
+    }
 }
 
 // Search users to start a conversation with

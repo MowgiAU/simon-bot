@@ -1,4 +1,4 @@
-import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, DeleteObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3';
 import { Logger } from '../bot/utils/logger.js';
 
 const logger = new Logger('R2Storage');
@@ -68,6 +68,29 @@ export class R2Storage {
         const url = `${cdnBase}/${key}`;
         logger.info(`Uploaded to R2: ${key} (ETag: ${etag})`);
         return url;
+    }
+
+    /**
+     * Get the content length of an R2 object by key. Returns null if not found or R2 not configured.
+     */
+    static async getObjectSize(key: string): Promise<number | null> {
+        if (!R2Storage.isConfigured()) return null;
+        const bucket = process.env.R2_BUCKET_NAME!;
+        try {
+            const result = await getClient().send(new HeadObjectCommand({ Bucket: bucket, Key: key }));
+            return result.ContentLength ?? null;
+        } catch {
+            return null;
+        }
+    }
+
+    /**
+     * Extract the R2 object key from a CDN URL. Returns null if the URL is not a CDN URL.
+     */
+    static keyFromCdnUrl(url: string): string | null {
+        const cdnBase = (process.env.CDN_URL || '').replace(/\/$/, '');
+        if (!cdnBase || !url.startsWith(cdnBase + '/')) return null;
+        return url.slice(cdnBase.length + 1);
     }
 
     /**

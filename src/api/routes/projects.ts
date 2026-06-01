@@ -508,21 +508,44 @@ export function registerProjectRoutes(
           return res.status(400).json({ error: 'Hash mismatch: file content does not match provided hash' });
         }
 
-        // Storage quota check
-        const nativeId = req.session.user._localId || req.session.user.id;
-        const quotaRow = await (db as any).user.findUnique({ where: { id: nativeId }, select: { storageQuotaBytes: true } });
-        const quotaBytes = Number(quotaRow?.storageQuotaBytes ?? 1073741824);
-        const existingProjects = await db.project.findMany({
-            where: { userId: nativeId, deletedAt: null },
-            select: { versions: { orderBy: { versionNumber: 'desc' }, take: 1, select: { totalSize: true } } },
-        });
-        const usedBytes = existingProjects.reduce((sum: number, p: any) => sum + Number(p.versions[0]?.totalSize ?? 0), 0);
-        if (usedBytes + buffer.length > quotaBytes) {
-            fs.unlinkSync(file.path);
-            return res.status(403).json({
-                error: `Storage quota exceeded. You have used ${(usedBytes / 1048576).toFixed(0)} MB of your ${(quotaBytes / 1048576).toFixed(0)} MB limit.`,
-                code: 'STORAGE_QUOTA_EXCEEDED',
-            });
+        // Storage quota check — includes both project sync bytes and track audio bytes
+        try {
+            const nativeId = req.session.user._localId || req.session.user.id;
+            const discordId: string | null = req.session.user._discordId || null;
+            const myIds = [nativeId, ...(discordId ? [discordId] : [])];
+
+            const [quotaRow, existingProjects, profiles] = await Promise.all([
+                (db as any).user.findUnique({ where: { id: nativeId }, select: { storageQuotaBytes: true } }),
+                db.project.findMany({
+                    where: { userId: { in: myIds }, deletedAt: null },
+                    select: { versions: { orderBy: { versionNumber: 'desc' }, take: 1, select: { totalSize: true } } },
+                }),
+                db.musicianProfile.findMany({ where: { userId: { in: myIds } }, select: { id: true } }),
+            ]);
+
+            const quotaBytes = Number(quotaRow?.storageQuotaBytes ?? 1073741824);
+            const projectBytes = existingProjects.reduce((sum: number, p: any) => sum + Number(p.versions[0]?.totalSize ?? 0), 0);
+
+            const profileIds = profiles.map((p: any) => p.id);
+            let trackBytes = 0;
+            if (profileIds.length > 0) {
+                const agg = await (db as any).track.aggregate({
+                    where: { profileId: { in: profileIds }, status: { not: 'deleted' }, audioFileSizeBytes: { not: null } },
+                    _sum: { audioFileSizeBytes: true },
+                });
+                trackBytes = Number(agg._sum?.audioFileSizeBytes ?? 0);
+            }
+
+            const usedBytes = projectBytes + trackBytes;
+            if (quotaBytes > 0 && usedBytes + buffer.length > quotaBytes) {
+                fs.unlinkSync(file.path);
+                return res.status(403).json({
+                    error: `Storage quota exceeded. You have used ${(usedBytes / 1048576).toFixed(0)} MB of your ${(quotaBytes / 1048576 / 1024).toFixed(1)} GB limit.`,
+                    code: 'STORAGE_QUOTA_EXCEEDED',
+                });
+            }
+        } catch (quotaErr) {
+            logger.warn('Storage quota check failed during file upload — allowing upload', quotaErr);
         }
 
         const mimeType = file.mimetype || 'application/octet-stream';
