@@ -3,11 +3,13 @@ import { colors, spacing, borderRadius } from '../theme/theme';
 import { useAuth } from '../components/AuthProvider';
 import { LevelingSettings } from './LevelingSettings';
 import { EconomyPluginPage } from './EconomyPlugin';
-import { TrendingUp, Coins } from 'lucide-react';
+import { BeatMarketSettings } from './BeatMarketSettings';
+import { TrendingUp, Coins, BarChart3 } from 'lucide-react';
 
 const TABS = [
     { key: 'leveling', label: 'Leveling', icon: TrendingUp },
     { key: 'economy', label: 'Economy', icon: Coins },
+    { key: 'beat-market', label: 'Beat Market', icon: BarChart3 },
 ] as const;
 
 type Tab = typeof TABS[number]['key'];
@@ -44,6 +46,7 @@ export function ProgressionPage() {
 
             {tab === 'leveling' && <LevelingSettings />}
             {tab === 'economy' && <EconomyPluginPage />}
+            {tab === 'beat-market' && <BeatMarketSettings />}
         </div>
     );
 }
