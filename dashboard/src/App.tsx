@@ -111,6 +111,7 @@ const ProjectDetailPage      = lazy(() => import("./pages/ProjectDetailPage").th
 const ServerStatsPage        = lazy(() => import("./pages/ServerStats").then(m => ({ default: m.ServerStats })));
 const SupportPage            = lazy(() => import("./pages/SupportPage").then(m => ({ default: m.SupportPage })));
 const PageEmbedsPage         = lazy(() => import("./pages/PageEmbeds").then(m => ({ default: m.PageEmbedsPage })));
+const BeatMarketPage         = lazy(() => import("./pages/BeatMarketPage").then(m => ({ default: m.BeatMarketPage })));
 // ErrorBoundary is imported statically above — NOT lazy. It is the outermost
 
 // Minimal inline spinner used while a lazy chunk loads
@@ -892,6 +893,11 @@ const AppInternal: React.FC = () => {
   // /features → Public features overview
   if (currentPath === '/features') {
     return <Suspense fallback={<PageSpinner />}><FeaturesPage /></Suspense>;
+  }
+
+  // /beat-market → Public explainer for the Beat Market investment system
+  if (currentPath === '/beat-market') {
+    return <Suspense fallback={<PageSpinner />}><BeatMarketPage /></Suspense>;
   }
 
   // /complete-account → First-time account setup wizard for Discord-created accounts

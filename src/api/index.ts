@@ -4152,7 +4152,7 @@ app.get('/api/guilds/:guildId/my-permissions', async (req, res) => {
         if (isAdmin) {
             return res.json({ 
                 canManagePlugins: true, 
-                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content', 'account-management', 'anti-piracy', 'leveling', 'fuji-radio', 'studio-guide', 'bot-identity', 'bot-messenger', 'booster-color', 'private-messages', 'auto-messages', 'auto-responder', 'server-boost', 'reports', 'articles', 'article-review', 'pause', 'voice-stats', 'spam-guard', 'track-announcer', 'profile-styles', 'academy', 'head-to-head', 'drum-kit', 'bug-reports', 'plugin-registry', 'activity-logs', 'duplicate-profiles', 'projects', 'vote-fraud']
+                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content', 'account-management', 'anti-piracy', 'leveling', 'fuji-radio', 'studio-guide', 'bot-identity', 'bot-messenger', 'booster-color', 'private-messages', 'auto-messages', 'auto-responder', 'server-boost', 'reports', 'articles', 'article-review', 'pause', 'voice-stats', 'spam-guard', 'track-announcer', 'profile-styles', 'academy', 'head-to-head', 'drum-kit', 'bug-reports', 'plugin-registry', 'activity-logs', 'duplicate-profiles', 'projects', 'vote-fraud', 'beat-market']
             });
         }
 
@@ -21264,6 +21264,112 @@ app.get('/api/projects/desktop/users/search', requireDesktopAuth, async (req: an
             take: 10,
         });
         res.json(profiles);
+    } catch { res.status(500).json({ error: 'Failed' }); }
+});
+
+// ─── Beat Market Routes ──────────────────────────────────────────────────
+
+app.get('/api/guilds/:guildId/beat-market/settings', requireAuth, requireAdmin, async (req, res) => {
+    try {
+        const { guildId } = req.params;
+        let settings = await db.beatMarketSettings.findUnique({ where: { guildId } });
+        if (!settings) settings = await db.beatMarketSettings.create({ data: { guildId } });
+        res.json(settings);
+    } catch { res.status(500).json({ error: 'Failed' }); }
+});
+
+app.put('/api/guilds/:guildId/beat-market/settings', requireAuth, requireAdmin, async (req, res) => {
+    try {
+        const { guildId } = req.params;
+        const { enabled, announcementChannelId, seasonDurationDays, maxInvestPerSeason, maxInvestPct, minInvest,
+                payoutRank1, payoutRank2, payoutRank3, payoutRank4, payoutRank5 } = req.body;
+        const settings = await db.beatMarketSettings.upsert({
+            where: { guildId },
+            update: { enabled, announcementChannelId, seasonDurationDays, maxInvestPerSeason, maxInvestPct, minInvest,
+                      payoutRank1, payoutRank2, payoutRank3, payoutRank4, payoutRank5 },
+            create: { guildId, enabled, announcementChannelId, seasonDurationDays, maxInvestPerSeason, maxInvestPct, minInvest,
+                      payoutRank1, payoutRank2, payoutRank3, payoutRank4, payoutRank5 },
+        });
+        res.json(settings);
+    } catch { res.status(500).json({ error: 'Failed' }); }
+});
+
+app.get('/api/guilds/:guildId/beat-market/season/active', requireAuth, async (req, res) => {
+    try {
+        const { guildId } = req.params;
+        const season = await db.beatMarketSeason.findFirst({
+            where: { guildId, status: 'active' },
+            include: {
+                trends: {
+                    include: {
+                        investments: { select: { amount: true } },
+                    },
+                    orderBy: { hypePoints: 'desc' },
+                },
+            },
+        });
+        if (!season) return res.json(null);
+        const result = {
+            ...season,
+            trends: season.trends.map((t: any) => ({
+                ...t,
+                totalInvested: t.investments.reduce((s: number, i: any) => s + i.amount, 0),
+                investorCount: t.investments.length,
+                investments: undefined,
+            })),
+        };
+        res.json(result);
+    } catch { res.status(500).json({ error: 'Failed' }); }
+});
+
+app.get('/api/guilds/:guildId/beat-market/seasons', requireAuth, async (req, res) => {
+    try {
+        const { guildId } = req.params;
+        const seasons = await db.beatMarketSeason.findMany({
+            where: { guildId, status: 'completed' },
+            orderBy: { number: 'desc' },
+            take: 20,
+            include: {
+                trends: { orderBy: { finalRank: 'asc' }, take: 1 },
+                investments: { select: { amount: true, payout: true } },
+            },
+        });
+        const result = seasons.map((s: any) => ({
+            id: s.id, number: s.number, startsAt: s.startsAt, endsAt: s.endsAt, settledAt: s.settledAt,
+            winningTrend: s.trends[0] ? { name: s.trends[0].name, emoji: s.trends[0].emoji } : null,
+            totalStaked: s.investments.reduce((sum: number, i: any) => sum + i.amount, 0),
+            totalPayout: s.investments.reduce((sum: number, i: any) => sum + (i.payout ?? 0), 0),
+            investorCount: new Set(s.investments.map((i: any) => i.userId)).size,
+        }));
+        res.json(result);
+    } catch { res.status(500).json({ error: 'Failed' }); }
+});
+
+app.get('/api/guilds/:guildId/beat-market/seasons/:seasonId', requireAuth, async (req, res) => {
+    try {
+        const { guildId, seasonId } = req.params;
+        const season = await db.beatMarketSeason.findFirst({
+            where: { id: seasonId, guildId },
+            include: {
+                trends: {
+                    orderBy: { finalRank: 'asc' },
+                    include: { investments: { select: { amount: true, payout: true, userId: true } } },
+                },
+            },
+        });
+        if (!season) return res.status(404).json({ error: 'Not found' });
+        res.json(season);
+    } catch { res.status(500).json({ error: 'Failed' }); }
+});
+
+app.post('/api/guilds/:guildId/beat-market/seasons/:seasonId/settle', requireAuth, requireAdmin, async (req, res) => {
+    // Admin override: manually mark a season's endsAt to now so the bot's next tick settles it
+    try {
+        const { guildId, seasonId } = req.params;
+        const season = await db.beatMarketSeason.findFirst({ where: { id: seasonId, guildId, status: 'active' } });
+        if (!season) return res.status(404).json({ error: 'Active season not found' });
+        await db.beatMarketSeason.update({ where: { id: seasonId }, data: { endsAt: new Date(Date.now() - 1000) } });
+        res.json({ ok: true, message: 'Season will be settled on the next lifecycle tick (up to 10 minutes).' });
     } catch { res.status(500).json({ error: 'Failed' }); }
 });
 

@@ -161,6 +161,11 @@ model Guild {
   // Head-to-Head Battles
   headToHeadSettings HeadToHeadSettings?
 
+  // Beat Market (Investment)
+  beatMarketSettings    BeatMarketSettings?
+  beatMarketSeasons     BeatMarketSeason[]
+  beatMarketInvestments BeatMarketInvestment[]
+
   @@map("guilds")
 }
 
@@ -1295,6 +1300,86 @@ model ProjectFile {
   updatedAt DateTime @updatedAt
 
   @@map("fuji_project_files")
+}
+
+// ── Beat Market (Investment System) ──────────────────────────────────────────
+
+model BeatMarketSettings {
+  id                    String  @id @default(cuid())
+  guildId               String  @unique
+  enabled               Boolean @default(true)
+  announcementChannelId String?
+  seasonDurationDays    Int     @default(7)
+  maxInvestPerSeason    Int     @default(1000)
+  maxInvestPct          Int     @default(25)
+  minInvest             Int     @default(10)
+  payoutRank1           Float   @default(1.6)
+  payoutRank2           Float   @default(1.3)
+  payoutRank3           Float   @default(1.1)
+  payoutRank4           Float   @default(0.9)
+  payoutRank5           Float   @default(0.7)
+  guild                 Guild   @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  @@map("beat_market_settings")
+}
+
+model BeatMarketSeason {
+  id          String    @id @default(cuid())
+  guildId     String
+  number      Int
+  status      String    @default("active")
+  startsAt    DateTime
+  endsAt      DateTime
+  settledAt   DateTime?
+  lastHypeAt  DateTime?
+  trends      BeatMarketTrend[]
+  investments BeatMarketInvestment[]
+  createdAt   DateTime  @default(now())
+  guild       Guild     @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  @@unique([guildId, number])
+  @@index([guildId, status])
+  @@map("beat_market_seasons")
+}
+
+model BeatMarketTrend {
+  id              String  @id @default(cuid())
+  seasonId        String
+  name            String
+  emoji           String
+  keywords        String[]
+  position        Int
+  hypePoints      Int     @default(0)
+  finalRank       Int?
+  finalMultiplier Float?
+  season          BeatMarketSeason     @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  investments     BeatMarketInvestment[]
+
+  @@unique([seasonId, position])
+  @@index([seasonId])
+  @@map("beat_market_trends")
+}
+
+model BeatMarketInvestment {
+  id         String    @id @default(cuid())
+  seasonId   String
+  trendId    String
+  guildId    String
+  userId     String
+  amount     Int
+  payout     Int?
+  multiplier Float?
+  rank       Int?
+  placedAt   DateTime  @default(now())
+  settledAt  DateTime?
+  season     BeatMarketSeason @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  trend      BeatMarketTrend  @relation(fields: [trendId], references: [id], onDelete: Cascade)
+  guild      Guild            @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  @@unique([seasonId, trendId, userId])
+  @@index([guildId, userId])
+  @@index([seasonId])
+  @@map("beat_market_investments")
 }
 
 model UserSampleFavorite {
