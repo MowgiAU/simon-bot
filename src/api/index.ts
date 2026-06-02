@@ -7196,6 +7196,7 @@ app.post('/api/musician/tracks', uploadLimiter, requireDesktopAuth, upload.field
             url: audioUrl,
             coverUrl,
             description: req.body.description,
+            lyrics: req.body.lyrics || undefined,
             duration: metadata.duration,
             artist: metadata.artist,
             album: metadata.album,

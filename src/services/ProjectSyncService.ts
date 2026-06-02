@@ -225,6 +225,40 @@ export class ProjectSyncService {
   }
 
   /**
+   * Attempt to (re-)parse the FLP file from an already-finalised version.
+   * Returns the parsed arrangement object, or null if no FLP is present / parse fails.
+   * Also persists the result to the version and project rows when successful.
+   */
+  static async parseArrangementFromVersion(
+    versionId: string,
+    projectId: string,
+    db: PrismaClient,
+  ): Promise<object | null> {
+    const version = await db.projectVersion.findUnique({
+      where: { id: versionId },
+      include: { fileEntries: true },
+    });
+    if (!version) return null;
+
+    const flpEntry = version.fileEntries.find(f => f.filePath.toLowerCase().endsWith('.flp'));
+    if (!flpEntry) return null;
+
+    try {
+      const blob = await db.projectFileBlob.findUnique({ where: { hash: flpEntry.fileHash } });
+      if (!blob) return null;
+      const flpBuffer = await ProjectSyncService.readBlob(blob.storageKey);
+      const arrangement = FLPParser.parse(flpBuffer) as any;
+      if (!arrangement) return null;
+      await db.projectVersion.update({ where: { id: versionId }, data: { arrangement, isParsed: true } });
+      await db.project.update({ where: { id: projectId }, data: { arrangement } });
+      return arrangement;
+    } catch (err) {
+      logger.warn(`Re-parse FLP failed for version ${versionId}: ${err}`);
+      return null;
+    }
+  }
+
+  /**
    * Generate an export ZIP for a published version.
    *  - Reconstructs files from blobs
    *  - If a track is linked, includes the rendered audio and metadata.txt

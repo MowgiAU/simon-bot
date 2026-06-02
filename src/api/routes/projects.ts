@@ -894,11 +894,17 @@ export function registerProjectRoutes(
 
       try { fs.rmSync(tempDir, { recursive: true, force: true }); } catch {}
 
+      let arrangement: object | null = (version.arrangement as object | null) ?? null;
+      if (!arrangement) {
+        arrangement = await ProjectSyncService.parseArrangementFromVersion(versionId, req.params.projectId, db);
+        if (arrangement) logger.info(`Re-parsed FLP arrangement at publish time for version ${versionId}`);
+      }
+
       await db.track.update({
         where: { id: trackId },
         data: {
           projectZipUrl: zipUrl,
-          arrangement: version.arrangement || undefined,
+          ...(arrangement ? { arrangement } : {}),
         },
       });
 

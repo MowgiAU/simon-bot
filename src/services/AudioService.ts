@@ -116,7 +116,7 @@ export class AudioService {
      * Adds a new track to a profile.
      */
     async addTrack(userId: string, data: {
-        title: string, url: string, coverUrl?: string, description?: string, duration?: number,
+        title: string, url: string, coverUrl?: string, description?: string, lyrics?: string, duration?: number,
         artist?: string, album?: string, year?: number, bpm?: number, key?: string, slug?: string,
         arrangement?: object, projectFileUrl?: string, projectZipUrl?: string,
         allowAudioDownload?: boolean, allowProjectDownload?: boolean,
@@ -149,6 +149,7 @@ export class AudioService {
                 url: data.url,
                 coverUrl: data.coverUrl,
                 description: data.description,
+                lyrics: data.lyrics,
                 duration: data.duration ?? 0,
                 artist: data.artist,
                 album: data.album,
@@ -158,6 +159,8 @@ export class AudioService {
                 isPublic: data.isPublic ?? true,
                 allowAudioDownload: data.allowAudioDownload ?? true,
                 allowProjectDownload: data.allowProjectDownload ?? true,
+                license: data.license,
+                trackType: data.trackType,
                 arrangement: data.arrangement ?? undefined,
                 projectFileUrl: data.projectFileUrl,
                 projectZipUrl: data.projectZipUrl,
