@@ -37,14 +37,35 @@ export class BeatMarketPlugin implements IPlugin {
     // In-memory keyword hype rate limiter: key = `${guildId}:${userId}:${trendId}` → count this hour
     private keywordHype = new Map<string, { count: number; hourStart: number }>();
 
-    // Default trend cards seeded at season start
-    private static readonly DEFAULT_TRENDS = [
+    // Fallback trends if DB genres are empty
+    private static readonly FALLBACK_TRENDS = [
         { name: 'Trap',  emoji: '🔥', keywords: ['trap', 'trap beat', 'trap music'] },
         { name: 'Lo-fi', emoji: '🌙', keywords: ['lofi', 'lo-fi', 'chill beat', 'lofi beat'] },
         { name: 'Drill', emoji: '⚡', keywords: ['drill', 'uk drill', 'ny drill'] },
         { name: 'R&B',   emoji: '🎹', keywords: ['rnb', 'r&b', 'soul beat', 'neo soul'] },
         { name: 'Phonk', emoji: '🌀', keywords: ['phonk', 'memphis', 'drift phonk'] },
     ];
+
+    // Emoji assigned by genre name/slug keyword match
+    private static readonly GENRE_EMOJI_MAP: Record<string, string> = {
+        trap: '🔥', drill: '⚡', phonk: '🌀', lofi: '🌙', 'lo-fi': '🌙', 'lo fi': '🌙',
+        rnb: '🎹', 'r&b': '🎹', soul: '🎷', jazz: '🎷', blues: '🎷',
+        pop: '🌟', hiphop: '🎤', 'hip hop': '🎤', 'hip-hop': '🎤', rap: '🎤',
+        afrobeat: '🌍', afro: '🌍', amapiano: '🌍',
+        house: '🏠', techno: '⚙️', edm: '💿', electronic: '💿', dance: '💃',
+        dubstep: '🔊', bass: '🔊', dnb: '🔊', 'drum and bass': '🔊', 'drum & bass': '🔊',
+        ambient: '🌌', cinematic: '🎬', orchestral: '🎻', classical: '🎻',
+        rock: '🎸', metal: '🤘', punk: '🤘', guitar: '🎸',
+        reggae: '🌴', dancehall: '🌴', caribbean: '🌴',
+        country: '🤠', folk: '🪕', acoustic: '🪕',
+        gospel: '🙏', christian: '🙏',
+        latin: '💃', salsa: '💃', bossa: '🌺',
+        indie: '🎵', alternative: '🎵', experimental: '🔮', future: '🔮',
+        wave: '🌊', cloud: '☁️', dark: '🌑',
+        boom: '💥', bap: '💥', 'boom bap': '💥',
+        jersey: '🏙️', chicago: '🏙️', detroit: '🏙️',
+        uk: '🇬🇧', grime: '🇬🇧',
+    };
 
     async initialize(context: IPluginContext): Promise<void> {
         this.db = context.db;
@@ -540,19 +561,73 @@ export class BeatMarketPlugin implements IPlugin {
             data: { guildId, number, startsAt, endsAt },
         });
 
-        for (let i = 0; i < BeatMarketPlugin.DEFAULT_TRENDS.length; i++) {
-            const t = BeatMarketPlugin.DEFAULT_TRENDS[i];
+        const trends = await this.pickTrends();
+
+        for (let i = 0; i < trends.length; i++) {
+            const t = trends[i];
             await this.db.beatMarketTrend.create({
-                data: { seasonId: season.id, name: t.name, emoji: t.emoji, keywords: t.keywords, position: i + 1 },
+                data: { seasonId: season.id, name: t.name, emoji: t.emoji, keywords: t.keywords, position: i + 1, genreId: t.genreId ?? null },
             });
         }
 
-        this.logger.info(`BeatMarket: created season #${number} for guild ${guildId}`);
-        await this.announceNewSeason(season, BeatMarketPlugin.DEFAULT_TRENDS, settings).catch(() => {});
+        this.logger.info(`BeatMarket: created season #${number} for guild ${guildId} with genres: ${trends.map(t => t.name).join(', ')}`);
+        await this.announceNewSeason(season, trends, settings).catch(() => {});
         return season;
     }
 
-    private async announceNewSeason(season: any, trends: typeof BeatMarketPlugin.DEFAULT_TRENDS, settings: any) {
+    private async pickTrends(): Promise<{ name: string; emoji: string; keywords: string[]; genreId: string | null }[]> {
+        try {
+            // Pull genres ranked by combined usage (tracks + profiles), take top 20 as pool
+            const genres = await this.db.$queryRaw`
+                SELECT g.id, g.name, g.slug,
+                       COUNT(DISTINCT tg."trackId") + COUNT(DISTINCT pg."profileId") AS usage_count
+                FROM genres g
+                LEFT JOIN track_genres tg ON tg."genreId" = g.id
+                LEFT JOIN profile_genres pg ON pg."genreId" = g.id
+                GROUP BY g.id, g.name, g.slug
+                HAVING COUNT(DISTINCT tg."trackId") + COUNT(DISTINCT pg."profileId") > 0
+                ORDER BY usage_count DESC
+                LIMIT 20
+            ` as { id: string; name: string; slug: string; usage_count: bigint }[];
+
+            if (genres.length < 5) {
+                // Fall back to hardcoded list if DB is sparse
+                return BeatMarketPlugin.FALLBACK_TRENDS.map(t => ({ ...t, genreId: null }));
+            }
+
+            // Shuffle the top pool and take 5
+            const shuffled = [...genres].sort(() => Math.random() - 0.5).slice(0, 5);
+
+            return shuffled.map(g => ({
+                genreId: g.id,
+                name: g.name,
+                emoji: this.emojiForGenre(g.name, g.slug),
+                keywords: this.keywordsForGenre(g.name, g.slug),
+            }));
+        } catch (e) {
+            this.logger.warn('BeatMarket: failed to load genres from DB, using fallback', e);
+            return BeatMarketPlugin.FALLBACK_TRENDS.map(t => ({ ...t, genreId: null }));
+        }
+    }
+
+    private emojiForGenre(name: string, slug: string): string {
+        const haystack = `${name} ${slug}`.toLowerCase();
+        for (const [key, emoji] of Object.entries(BeatMarketPlugin.GENRE_EMOJI_MAP)) {
+            if (haystack.includes(key)) return emoji;
+        }
+        return '🎵';
+    }
+
+    private keywordsForGenre(name: string, slug: string): string[] {
+        const kws = new Set<string>();
+        kws.add(name.toLowerCase());
+        kws.add(slug.toLowerCase().replace(/-/g, ' '));
+        // Also add slug with hyphens so "lo-fi" and "lo fi" both match
+        if (slug.includes('-')) kws.add(slug.toLowerCase());
+        return [...kws];
+    }
+
+    private async announceNewSeason(season: any, trends: { name: string; emoji: string; keywords: string[] }[], settings: any) {
         if (!settings.announcementChannelId) return;
 
         const guild = await this.client.guilds.fetch(season.guildId).catch(() => null);
@@ -612,41 +687,84 @@ export class BeatMarketPlugin implements IPlugin {
 
         for (const trend of season.trends) {
             let hypeGain = 0;
-            const kwLower = trend.keywords.map((k: string) => k.toLowerCase());
 
-            // Track announcements with matching genre
-            try {
-                const announcements = await this.db.trackAnnouncement.findMany({
-                    where: { guildId, createdAt: { gt: since }, genres: { hasSome: kwLower } },
-                    select: { id: true },
-                });
-                hypeGain += announcements.length * 10;
-            } catch { /* table may not exist */ }
+            if (trend.genreId) {
+                // Genre-ID based hype — accurate, no keyword guessing
 
-            // Track plays via genre join
-            try {
-                const playRows = await this.db.$queryRaw`
-                    SELECT COUNT(*) as cnt FROM track_plays tp
-                    JOIN track_genre_map tgm ON tgm.track_id = tp.track_id
-                    JOIN genres g ON g.id = tgm.genre_id
-                    WHERE tp.created_at > ${since}
-                      AND LOWER(g.name) = ANY(${kwLower}::text[])
-                ` as any[];
-                const plays = Math.min(Number(playRows[0]?.cnt ?? 0), 500);
-                hypeGain += plays;
-            } catch { /* skip if schema differs */ }
+                // Track announcements: tracks tagged with this genre uploaded since watermark
+                try {
+                    const announcements = await this.db.trackAnnouncement.count({
+                        where: {
+                            guildId,
+                            createdAt: { gt: since },
+                            track: { genres: { some: { genreId: trend.genreId } } },
+                        },
+                    });
+                    hypeGain += announcements * 10;
+                } catch { /* trackAnnouncement may not have track relation */ }
 
-            // Track favourites
-            try {
-                const favRows = await this.db.$queryRaw`
-                    SELECT COUNT(*) as cnt FROM track_favourites tf
-                    JOIN track_genre_map tgm ON tgm.track_id = tf.track_id
-                    JOIN genres g ON g.id = tgm.genre_id
-                    WHERE tf.created_at > ${since}
-                      AND LOWER(g.name) = ANY(${kwLower}::text[])
-                ` as any[];
-                hypeGain += Number(favRows[0]?.cnt ?? 0) * 3;
-            } catch { /* skip */ }
+                // Track plays for this genre since watermark (capped per track to 50)
+                try {
+                    const playRows = await this.db.$queryRaw`
+                        SELECT LEAST(COUNT(*), 50) AS cnt
+                        FROM track_plays tp
+                        JOIN track_genres tg ON tg."trackId" = tp."trackId"
+                        WHERE tg."genreId" = ${trend.genreId}
+                          AND tp."createdAt" > ${since}
+                    ` as any[];
+                    hypeGain += Number(playRows[0]?.cnt ?? 0);
+                } catch { /* skip */ }
+
+                // Track favourites for this genre since watermark
+                try {
+                    const favRows = await this.db.$queryRaw`
+                        SELECT COUNT(*) AS cnt
+                        FROM track_favourites tf
+                        JOIN track_genres tg ON tg."trackId" = tf."trackId"
+                        WHERE tg."genreId" = ${trend.genreId}
+                          AND tf."createdAt" > ${since}
+                    ` as any[];
+                    hypeGain += Number(favRows[0]?.cnt ?? 0) * 3;
+                } catch { /* skip */ }
+
+                // Beat battle entries with tracks tagged this genre since watermark
+                try {
+                    const battleRows = await this.db.$queryRaw`
+                        SELECT COUNT(*) AS cnt
+                        FROM battle_entries be
+                        JOIN track_genres tg ON tg."trackId" = be."trackId"
+                        WHERE tg."genreId" = ${trend.genreId}
+                          AND be."createdAt" > ${since}
+                    ` as any[];
+                    hypeGain += Number(battleRows[0]?.cnt ?? 0) * 15;
+                } catch { /* skip */ }
+
+            } else {
+                // Fallback: keyword matching for hardcoded trends
+                const kwLower = trend.keywords.map((k: string) => k.toLowerCase());
+
+                try {
+                    const playRows = await this.db.$queryRaw`
+                        SELECT COUNT(*) AS cnt FROM track_plays tp
+                        JOIN track_genres tg ON tg."trackId" = tp."trackId"
+                        JOIN genres g ON g.id = tg."genreId"
+                        WHERE tp."createdAt" > ${since}
+                          AND LOWER(g.name) = ANY(${kwLower}::text[])
+                    ` as any[];
+                    hypeGain += Math.min(Number(playRows[0]?.cnt ?? 0), 500);
+                } catch { /* skip */ }
+
+                try {
+                    const favRows = await this.db.$queryRaw`
+                        SELECT COUNT(*) AS cnt FROM track_favourites tf
+                        JOIN track_genres tg ON tg."trackId" = tf."trackId"
+                        JOIN genres g ON g.id = tg."genreId"
+                        WHERE tf."createdAt" > ${since}
+                          AND LOWER(g.name) = ANY(${kwLower}::text[])
+                    ` as any[];
+                    hypeGain += Number(favRows[0]?.cnt ?? 0) * 3;
+                } catch { /* skip */ }
+            }
 
             if (hypeGain > 0) {
                 await this.db.beatMarketTrend.update({
