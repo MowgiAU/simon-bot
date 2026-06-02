@@ -261,27 +261,93 @@ export class WelcomeGatePlugin implements IPlugin {
 
         const member = interaction.member as GuildMember;
 
+        // Test DM access before granting the verified role.
+        // If the user has blocked the bot or has DMs disabled we reject here
+        // rather than verifying them and discovering it later.
+        try {
+            const dmChannel = await member.user.createDM();
+            await dmChannel.send({
+                embeds: [new EmbedBuilder()
+                    .setTitle('✅ Verification Successful')
+                    .setDescription(`Welcome to **${interaction.guild!.name}**! Your access has been granted.`)
+                    .setColor(Colors.Green)],
+            });
+        } catch (e: any) {
+            const code = e?.code ?? e?.rawError?.code;
+            if (code === 50007) {
+                await interaction.editReply({
+                    content: [
+                        '❌ **Verification failed — the bot cannot DM you.**',
+                        '',
+                        'This server requires the bot to be able to send you direct messages.',
+                        'To fix this:',
+                        '1. If you have blocked the bot, right-click it → **Unblock**',
+                        '2. Open **User Settings → Privacy & Safety** and enable **"Allow direct messages from server members"**',
+                        '3. Come back here and click **Verify** again',
+                    ].join('\n'),
+                });
+            } else {
+                await interaction.editReply({
+                    content: '❌ **Verification failed** — the bot was unable to DM you. Please enable **"Allow direct messages from server members"** in your Discord Privacy Settings and try again.',
+                });
+            }
+            return;
+        }
+
         // Perform Role Swap
         try {
-            // Add Verified Role
             if (settings.verifiedRoleId) {
                 await member.roles.add(settings.verifiedRoleId);
             }
-
-            // Remove Unverified Role
             if (settings.unverifiedRoleId) {
                 await member.roles.remove(settings.unverifiedRoleId);
             }
-
-            // (Optional) Here you could log the answers to a log channel
-            // const answers = interaction.fields.fields.map(f => `**${f.customId}**: ${f.value}`).join('\n');
-            
-            await interaction.editReply({ content: 'Verification successful! specific access has been granted.' });
-
+            // Welcome DM was already sent above — just confirm in the ephemeral reply
+            await interaction.editReply({ content: '✅ Verification successful! Check your DMs — access has been granted.' });
         } catch (e) {
             this.logger.error('Verification role update failed', e);
             await interaction.editReply({ content: 'Something went wrong while updating your roles. Please contact an admin.' });
         }
+    }
+
+    // Unverify a member because the bot's DM was blocked (error 50007).
+    // Strips the verified role, re-applies unverified, and posts in the welcome channel.
+    private async handleBlockedDM(guild: Guild, user: User, settings: any): Promise<void> {
+        let member: GuildMember | null = guild.members.cache.get(user.id) ?? null;
+        if (!member) {
+            member = await guild.members.fetch(user.id).catch(() => null);
+        }
+        if (!member) return;
+
+        // Only act if they actually have the verified role — avoids redundant work
+        if (settings.verifiedRoleId && !member.roles.cache.has(settings.verifiedRoleId)) return;
+
+        try {
+            if (settings.verifiedRoleId) await member.roles.remove(settings.verifiedRoleId);
+            if (settings.unverifiedRoleId) await member.roles.add(settings.unverifiedRoleId);
+            this.logger.info(`Unverified ${user.tag} in ${guild.name} — bot DM is blocked`);
+        } catch (e) {
+            this.logger.warn(`Failed to unverify ${user.tag} after blocked DM: ${e}`);
+            return;
+        }
+
+        if (!settings.welcomeChannelId) return;
+        const channel = guild.channels.cache.get(settings.welcomeChannelId) as TextChannel | undefined;
+        if (!channel?.isTextBased()) return;
+
+        await channel.send({
+            content: `<@${user.id}>`,
+            embeds: [new EmbedBuilder()
+                .setTitle('Verification Required')
+                .setDescription(
+                    `You have been unverified because the bot cannot send you direct messages.\n\n` +
+                    `To regain access:\n` +
+                    `1. Unblock the bot if you have blocked it (right-click → **Unblock**)\n` +
+                    `2. Enable **Allow direct messages from server members** in your Privacy Settings\n` +
+                    `3. Return here and click **Verify** again`,
+                )
+                .setColor(Colors.Orange)],
+        }).catch(() => {});
     }
 
     // 3. Setup Command
@@ -374,10 +440,12 @@ export class WelcomeGatePlugin implements IPlugin {
                             .setTitle('Verification Required')
                             .setDescription(`Your message in **${message.guild.name}** was deleted because you are not verified yet.\nPlease go to the welcome channel and complete the verification process.`)
                             .setColor(Colors.Red);
-                        
                         await message.author.send({ embeds: [embed] });
-                    } catch (e) {
-                         // DMs might be closed, ignore
+                    } catch (e: any) {
+                        const code = e?.code ?? e?.rawError?.code;
+                        if (code === 50007) {
+                            await this.handleBlockedDM(message.guild, message.author, settings);
+                        }
                     }
                 }
             }
@@ -413,7 +481,12 @@ export class WelcomeGatePlugin implements IPlugin {
                         .setDescription(`You were disconnected from the voice channel in **${newState.guild.name}** because you are not verified.`)
                         .setColor(Colors.Red);
                     await newState.member.send({ embeds: [embed] });
-                 } catch (e) {}
+                 } catch (e: any) {
+                    const code = e?.code ?? e?.rawError?.code;
+                    if (code === 50007) {
+                        await this.handleBlockedDM(newState.guild, newState.member.user, settings);
+                    }
+                 }
             }
         } catch (error) {
             this.logger.error('Error in voice gate handler', error);
