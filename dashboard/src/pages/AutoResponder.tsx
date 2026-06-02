@@ -1,4 +1,5 @@
-﻿import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { colors, spacing, borderRadius } from '../theme/theme';
 import { ChannelSelect } from '../components/ChannelSelect';
 import { useAuth } from '../components/AuthProvider';
@@ -60,6 +61,128 @@ interface AutoResponderCategory {
     cooldownReactionEmoji: string | null;
 }
 
+interface GuildEmoji { id: string; name: string; animated: boolean; }
+
+function customEmojiUrl(val: string): string | null {
+    const m = val?.match(/^<(a)?:(\w+):(\d+)>$/);
+    if (!m) return null;
+    return `https://cdn.discordapp.com/emojis/${m[3]}.${m[1] ? 'gif' : 'webp'}?size=32`;
+}
+
+function EmojiPreview({ val, size = 20 }: { val: string | null; size?: number }) {
+    if (!val) return null;
+    const url = customEmojiUrl(val);
+    if (url) return <img src={url} alt={val} style={{ width: size, height: size, verticalAlign: 'middle', flexShrink: 0 }} />;
+    return <span style={{ fontSize: size - 2 }}>{val}</span>;
+}
+
+// ─── Emoji picker dropdown (portal-rendered to escape overflow:hidden cards) ──
+
+const EmojiPickerDropdown: React.FC<{
+    guildId: string;
+    position: { top: number; left: number };
+    onSelect: (val: string) => void;
+    onClose: () => void;
+}> = ({ guildId, position, onSelect, onClose }) => {
+    const [emojis, setEmojis] = useState<GuildEmoji[]>([]);
+    const [search, setSearch] = useState('');
+    const ref = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        fetch(`/api/guilds/${guildId}/emojis`, { credentials: 'include' })
+            .then(r => r.ok ? r.json() : [])
+            .then(d => setEmojis(Array.isArray(d) ? d : []))
+            .catch(() => {});
+    }, [guildId]);
+
+    useEffect(() => {
+        const handler = (e: MouseEvent) => {
+            if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, [onClose]);
+
+    const filtered = search
+        ? emojis.filter(e => e.name.toLowerCase().includes(search.toLowerCase()))
+        : emojis;
+
+    return createPortal(
+        <div ref={ref} style={{
+            position: 'absolute', top: position.top, left: position.left, zIndex: 9999,
+            backgroundColor: '#1a1e2e', border: `1px solid ${colors.glassBorder}`,
+            borderRadius: borderRadius.md, padding: '10px', width: '288px',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
+        }}>
+            <input autoFocus value={search} onChange={e => setSearch(e.target.value)}
+                placeholder="Search server emojis..."
+                style={{ ...inputBase, marginBottom: '8px', fontSize: '12px' }} />
+            {filtered.length === 0 ? (
+                <div style={{ color: colors.textTertiary, fontSize: '12px', textAlign: 'center', padding: '12px 0' }}>
+                    {emojis.length === 0 ? 'No custom emojis in this server' : 'No matches'}
+                </div>
+            ) : (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '2px', maxHeight: '196px', overflowY: 'auto' }}>
+                    {filtered.map(e => {
+                        const url = `https://cdn.discordapp.com/emojis/${e.id}.${e.animated ? 'gif' : 'webp'}?size=32`;
+                        const val = `<${e.animated ? 'a' : ''}:${e.name}:${e.id}>`;
+                        return (
+                            <button key={e.id} onClick={() => { onSelect(val); onClose(); }}
+                                title={`:${e.name}:`}
+                                style={{ background: 'none', border: '1px solid transparent', cursor: 'pointer',
+                                    padding: '4px', borderRadius: '4px', display: 'flex',
+                                    alignItems: 'center', justifyContent: 'center',
+                                    transition: 'background 0.1s, border-color 0.1s' }}
+                                onMouseEnter={ev => { (ev.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.08)'; (ev.currentTarget as HTMLElement).style.borderColor = colors.glassBorder; }}
+                                onMouseLeave={ev => { (ev.currentTarget as HTMLElement).style.background = 'none'; (ev.currentTarget as HTMLElement).style.borderColor = 'transparent'; }}>
+                                <img src={url} alt={e.name} style={{ width: 24, height: 24 }} />
+                            </button>
+                        );
+                    })}
+                </div>
+            )}
+        </div>,
+        document.body,
+    );
+};
+
+// ─── Emoji input: text field + live preview + picker button ──────────────────
+
+const EmojiInputWithPicker: React.FC<{
+    guildId: string;
+    value: string;
+    onChange: (val: string) => void;
+    placeholder?: string;
+    maxLength?: number;
+    inputStyle?: React.CSSProperties;
+}> = ({ guildId, value, onChange, placeholder, maxLength, inputStyle }) => {
+    const [pickerPos, setPickerPos] = useState<{ top: number; left: number } | null>(null);
+    const openPicker = useCallback((e: React.MouseEvent<HTMLButtonElement>) => {
+        const rect = e.currentTarget.getBoundingClientRect();
+        setPickerPos(p => p ? null : { top: rect.bottom + window.scrollY + 4, left: rect.left + window.scrollX });
+    }, []);
+    const url = customEmojiUrl(value);
+    return (
+        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+            {url && <img src={url} alt={value} style={{ width: 26, height: 26, flexShrink: 0 }} />}
+            <input value={value} onChange={e => onChange(e.target.value)}
+                placeholder={placeholder} maxLength={maxLength ?? 100}
+                style={{ ...inputBase, flex: 1, ...inputStyle }} />
+            <button onClick={openPicker} title="Pick server emoji"
+                style={{ background: pickerPos ? 'rgba(16,185,129,0.15)' : 'rgba(255,255,255,0.06)',
+                    border: `1px solid ${colors.glassBorder}`, borderRadius: borderRadius.sm,
+                    cursor: 'pointer', padding: '6px 8px', display: 'flex', alignItems: 'center',
+                    color: pickerPos ? colors.primary : colors.textTertiary, flexShrink: 0 }}>
+                <Smile size={14} />
+            </button>
+            {pickerPos && (
+                <EmojiPickerDropdown guildId={guildId} position={pickerPos}
+                    onSelect={onChange} onClose={() => setPickerPos(null)} />
+            )}
+        </div>
+    );
+};
+
 const TRIGGER_TYPES: { value: string; label: string; desc: string }[] = [
     { value: 'regex', label: 'Regex', desc: 'Regular expression (case-insensitive)' },
     { value: 'exact', label: 'Exact', desc: 'Must match the full message exactly' },
@@ -111,7 +234,8 @@ const sectionTitle = (t: string) => (
 
 // â”€â”€â”€ Placeholder insert bar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-const PlaceholderBar: React.FC<{ onInsert: (s: string) => void }> = ({ onInsert }) => {
+const PlaceholderBar: React.FC<{ onInsert: (s: string) => void; guildId?: string }> = ({ onInsert, guildId }) => {
+    const [pickerPos, setPickerPos] = useState<{ top: number; left: number } | null>(null);
     const tokens = [
         { label: '{user}',        val: '{user}',        title: '@mention author' },
         { label: '{mention}',     val: '{mention}',     title: '@mention alias' },
@@ -121,16 +245,36 @@ const PlaceholderBar: React.FC<{ onInsert: (s: string) => void }> = ({ onInsert 
         { label: '{server}',      val: '{server}',      title: 'server name' },
         { label: '{match1}',      val: '{match1}',      title: 'regex capture group 1' },
     ];
+    const btnStyle: React.CSSProperties = {
+        padding: '2px 8px', borderRadius: '4px', backgroundColor: 'rgba(255,255,255,0.06)',
+        border: `1px solid ${colors.glassBorder}`, color: colors.textSecondary,
+        fontSize: '11px', cursor: 'pointer', fontFamily: 'monospace',
+    };
     return (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '6px' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '6px', alignItems: 'center' }}>
             {tokens.map(t => (
-                <button key={t.val} onClick={() => onInsert(t.val)} title={t.title}
-                    style={{ padding: '2px 8px', borderRadius: '4px', backgroundColor: 'rgba(255,255,255,0.06)',
-                        border: `1px solid ${colors.glassBorder}`, color: colors.textSecondary,
-                        fontSize: '11px', cursor: 'pointer', fontFamily: 'monospace' }}>
+                <button key={t.val} onClick={() => onInsert(t.val)} title={t.title} style={btnStyle}>
                     {t.label}
                 </button>
             ))}
+            {guildId && (
+                <div style={{ position: 'relative' }}>
+                    <button onClick={e => {
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        setPickerPos(p => p ? null : { top: rect.bottom + window.scrollY + 4, left: rect.left + window.scrollX });
+                    }} title="Insert server emoji"
+                        style={{ ...btnStyle, fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: '3px',
+                            color: pickerPos ? colors.primary : colors.textSecondary,
+                            backgroundColor: pickerPos ? 'rgba(16,185,129,0.12)' : 'rgba(255,255,255,0.06)' }}>
+                        <Smile size={10} /> emoji
+                    </button>
+                    {pickerPos && (
+                        <EmojiPickerDropdown guildId={guildId} position={pickerPos}
+                            onSelect={val => { onInsert(val); setPickerPos(null); }}
+                            onClose={() => setPickerPos(null)} />
+                    )}
+                </div>
+            )}
         </div>
     );
 };
@@ -504,10 +648,14 @@ const CategoryCard: React.FC<CategoryCardProps> = ({ category, guildId, ruleCoun
                             <p style={{ margin: '4px 0 0', fontSize: '10px', color: colors.textTertiary }}>Applies to all rules in this category</p>
                         </div>
                         <div>
-                            <input value={draft.cooldownReactionEmoji || ''}
-                                onChange={e => update({ cooldownReactionEmoji: e.target.value || null })}
-                                placeholder="React emoji when on cooldown" maxLength={100}
-                                style={{ ...inputBase, maxWidth: '220px' }} />
+                            <EmojiInputWithPicker
+                                guildId={guildId}
+                                value={draft.cooldownReactionEmoji || ''}
+                                onChange={val => update({ cooldownReactionEmoji: val || null })}
+                                placeholder="React when on cooldown →"
+                                maxLength={100}
+                                inputStyle={{ maxWidth: '180px' }}
+                            />
                             <p style={{ margin: '4px 0 0', fontSize: '10px', color: colors.textTertiary }}>React with this emoji instead of responding</p>
                         </div>
                     </div>
@@ -726,8 +874,9 @@ const RuleCard: React.FC<RuleCardProps> = ({ rule, guildId, categories, onUpdate
                         </span>
                     )}
                     {draft.reactionEmoji && (
-                        <span style={{ fontSize: '12px', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '999px', padding: '2px 8px' }} title="Reaction emoji">
-                            {draft.reactionEmoji}
+                        <span style={{ backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '999px', padding: '2px 8px', display: 'inline-flex', alignItems: 'center', gap: '4px' }} title="Reaction emoji">
+                            <EmojiPreview val={draft.reactionEmoji} size={16} />
+                            {!customEmojiUrl(draft.reactionEmoji) && <span style={{ fontSize: '12px' }}>{draft.reactionEmoji}</span>}
                         </span>
                     )}
                     <span style={{ fontSize: '10px', color: colors.textTertiary, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '999px', padding: '2px 8px' }}>
@@ -783,17 +932,19 @@ const RuleCard: React.FC<RuleCardProps> = ({ rule, guildId, categories, onUpdate
                     </div>
 
                     {/* Reaction emoji */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px', padding: '10px 12px', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: borderRadius.sm, border: `1px solid ${colors.glassBorder}` }}>
-                        <Smile size={16} color={draft.reactionEmoji ? colors.primary : colors.textTertiary} />
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', marginBottom: '16px', padding: '10px 12px', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: borderRadius.sm, border: `1px solid ${colors.glassBorder}` }}>
+                        <Smile size={16} color={draft.reactionEmoji ? colors.primary : colors.textTertiary} style={{ marginTop: 3, flexShrink: 0 }} />
                         <div style={{ flex: 1 }}>
-                            <div style={{ fontSize: '13px', fontWeight: 600, color: colors.textPrimary }}>React to Message</div>
-                            <div style={{ fontSize: '11px', color: colors.textTertiary }}>Add an emoji reaction to the triggering message</div>
+                            <div style={{ fontSize: '13px', fontWeight: 600, color: colors.textPrimary, marginBottom: '4px' }}>React to Message</div>
+                            <div style={{ fontSize: '11px', color: colors.textTertiary, marginBottom: '8px' }}>Add an emoji reaction to the triggering message</div>
+                            <EmojiInputWithPicker
+                                guildId={guildId}
+                                value={draft.reactionEmoji || ''}
+                                onChange={val => update({ reactionEmoji: val || null } as any)}
+                                placeholder="🔥 unicode or pick server emoji →"
+                                maxLength={100}
+                            />
                         </div>
-                        <input value={draft.reactionEmoji || ''}
-                            onChange={e => update({ reactionEmoji: e.target.value || null } as any)}
-                            placeholder="e.g. \u{1F525} or emoji name"
-                            maxLength={100}
-                            style={{ ...inputBase, width: '140px', textAlign: 'center', fontSize: '16px', padding: '6px 10px' }} />
                     </div>
 
                     {/* Response: Text / Embed tabs */}
@@ -819,7 +970,7 @@ const RuleCard: React.FC<RuleCardProps> = ({ rule, guildId, categories, onUpdate
                                     rows={4} maxLength={2000}
                                     style={{ ...inputBase, resize: 'vertical', minHeight: '80px', fontFamily: 'inherit', lineHeight: 1.5 }} />
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginTop: '4px', flexWrap: 'wrap', gap: '6px' }}>
-                                    <PlaceholderBar onInsert={insertPlaceholder} />
+                                    <PlaceholderBar onInsert={insertPlaceholder} guildId={guildId} />
                                     <span style={{ fontSize: '10px', color: draft.response.length > 1800 ? '#ef4444' : colors.textTertiary, flexShrink: 0 }}>
                                         {draft.response.length}/2000
                                     </span>
@@ -836,7 +987,7 @@ const RuleCard: React.FC<RuleCardProps> = ({ rule, guildId, categories, onUpdate
                                         placeholder="Optional text before the embed..."
                                         rows={2} maxLength={2000}
                                         style={{ ...inputBase, resize: 'vertical', minHeight: '50px', fontFamily: 'inherit', lineHeight: 1.5, marginBottom: '6px' }} />
-                                    <PlaceholderBar onInsert={insertPlaceholder} />
+                                    <PlaceholderBar onInsert={insertPlaceholder} guildId={guildId} />
                                     <EmbedBuilder embed={embedDraft} onChange={updateEmbed} />
                                 </div>
                                 <div>
@@ -913,10 +1064,14 @@ const RuleCard: React.FC<RuleCardProps> = ({ rule, guildId, categories, onUpdate
                                 <p style={{ margin: '4px 0 0', fontSize: '10px', color: colors.textTertiary }}>How long before this rule can fire again</p>
                             </div>
                             <div>
-                                <input value={draft.cooldownReactionEmoji || ''}
-                                    onChange={e => update({ cooldownReactionEmoji: e.target.value || null })}
-                                    placeholder="React emoji when on cooldown" maxLength={100}
-                                    style={{ ...inputBase, maxWidth: '220px' }} />
+                                <EmojiInputWithPicker
+                                    guildId={guildId}
+                                    value={draft.cooldownReactionEmoji || ''}
+                                    onChange={val => update({ cooldownReactionEmoji: val || null })}
+                                    placeholder="React when on cooldown →"
+                                    maxLength={100}
+                                    inputStyle={{ maxWidth: '180px' }}
+                                />
                                 <p style={{ margin: '4px 0 0', fontSize: '10px', color: colors.textTertiary }}>React with this emoji instead of responding</p>
                             </div>
                         </div>
