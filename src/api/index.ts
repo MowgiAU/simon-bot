@@ -7299,6 +7299,10 @@ app.post('/api/musician/tracks', uploadLimiter, requireDesktopAuth, upload.field
                 // Record actual compressed OGG size (not original upload size) — used for quota display
                 try { bgUpdates.audioFileSizeBytes = fs.statSync(finalAudioPath).size; } catch {}
 
+                // Write the OGG URL to DB immediately so the player can stream the local file
+                // while R2 upload runs — avoids a gap where track.url points to the deleted original.
+                await (db as any).track.update({ where: { id: _bgTrackId }, data: { url: bgUpdates.url, audioFileSizeBytes: bgUpdates.audioFileSizeBytes } });
+
                 // Also generate MP3 fallback for iOS Safari with same metadata tags
                 try {
                     const mp3AudioPath = await MediaConverter.convertToMp3(finalAudioPath, _bgMeta);
