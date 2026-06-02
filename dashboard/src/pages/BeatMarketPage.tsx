@@ -113,7 +113,7 @@ export const BeatMarketPage: React.FC = () => {
                     <StepCard
                         number={1} icon={<TrendingUp size={16} />}
                         title="5 Trends Drop Every Week"
-                        description="At the start of each season, 5 music genre cards appear — Trap, Lo-fi, Drill, R&B, Phonk, and more. Each runs for 7 days."
+                        description="At the start of each season, 5 genre cards are randomly drawn from the genres producers on this server actually use — pulled from track uploads and musician profiles. Every season is different."
                     />
                     <StepCard
                         number={2} icon={<Coins size={16} />}
@@ -160,7 +160,7 @@ export const BeatMarketPage: React.FC = () => {
                             <HypeSource icon={<MessageSquare size={14} />} label="Genre mentioned in chat" points="+1 hype" />
                         </div>
                         <p style={{ margin: '12px 0 0', color: colors.textTertiary, fontSize: '12px' }}>
-                            Hype is updated every 30 minutes. Track keywords like "trap" or "lofi" in chat count too.
+                            Hype is updated every 30 minutes. Mentioning a genre by name in chat counts too.
                         </p>
                     </Card>
                 </div>
@@ -227,7 +227,7 @@ export const BeatMarketPage: React.FC = () => {
                     <div>
                         <div style={{ fontWeight: 700, color: colors.textPrimary, marginBottom: 6 }}>Pro Tip</div>
                         <p style={{ margin: 0, color: colors.textSecondary, fontSize: '14px', lineHeight: 1.6 }}>
-                            Watch what's trending in the server before you invest. If producers are uploading Drill beats, starting beat battles with Phonk tracks, or talking about Lo-fi in chat — that genre is about to climb the rankings. Being early to a trend pays off.
+                            The 5 trends each week are drawn from genres producers on this server actually use — so pay attention to what people are making and uploading. If you see a wave of tracks in a certain style, that genre is probably in the pool and about to rack up hype. Being early pays off.
                         </p>
                     </div>
                 </div>
