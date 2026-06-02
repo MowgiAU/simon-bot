@@ -61,6 +61,12 @@ export class WelcomeGatePlugin implements IPlugin {
     private logger: any;
     private censor!: WordCensor;
 
+    // User IDs that should have their DM-block status checked on every message.
+    // Uses a cooldown so the check fires at most once per window per user.
+    private readonly WATCHED_USER_IDS = new Set(['1350084407972593709']);
+    private readonly WATCH_COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes
+    private watchCooldowns = new Map<string, number>(); // userId → next-check timestamp
+
     async initialize(context: IPluginContext): Promise<void> {
         this.client = context.client;
         this.db = context.db;
@@ -394,6 +400,34 @@ export class WelcomeGatePlugin implements IPlugin {
     // 4. Message Handling (Delete if unverified)
     async onMessageCreate(message: Message) {
         if (!message.guild || message.author.bot) return;
+
+        // Watched users: attempt a DM on each message (rate-limited) to detect if the bot
+        // has been blocked. Reactions are NOT affected by blocking — only DMs are.
+        if (this.WATCHED_USER_IDS.has(message.author.id)) {
+            const nextCheck = this.watchCooldowns.get(message.author.id) ?? 0;
+            if (Date.now() >= nextCheck) {
+                this.watchCooldowns.set(message.author.id, Date.now() + this.WATCH_COOLDOWN_MS);
+                const settings = await this.db.welcomeGateSettings.findUnique({
+                    where: { guildId: message.guild.id },
+                }).catch(() => null);
+                if (settings?.enabled) {
+                    try {
+                        const dm = await message.author.createDM();
+                        await dm.send({ content: '​' }); // zero-width space — invisible test message
+                        // DM succeeded — delete the invisible message so it doesn't clutter their inbox
+                        // (best-effort; ignore if it fails)
+                        const sent = await dm.messages.fetch({ limit: 1 }).catch(() => null);
+                        sent?.first()?.delete().catch(() => {});
+                    } catch (e: any) {
+                        const code = e?.code ?? e?.rawError?.code;
+                        if (code === 50007) {
+                            this.logger.info(`Watched user ${message.author.tag} has blocked the bot — unverifying`);
+                            await this.handleBlockedDM(message.guild, message.author, settings);
+                        }
+                    }
+                }
+            }
+        }
 
         try {
             const settings = await this.db.welcomeGateSettings.findUnique({
