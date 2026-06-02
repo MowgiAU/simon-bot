@@ -548,7 +548,51 @@ export class BeatMarketPlugin implements IPlugin {
         }
 
         this.logger.info(`BeatMarket: created season #${number} for guild ${guildId}`);
+        await this.announceNewSeason(season, BeatMarketPlugin.DEFAULT_TRENDS, settings).catch(() => {});
         return season;
+    }
+
+    private async announceNewSeason(season: any, trends: typeof BeatMarketPlugin.DEFAULT_TRENDS, settings: any) {
+        if (!settings.announcementChannelId) return;
+
+        const guild = await this.client.guilds.fetch(season.guildId).catch(() => null);
+        if (!guild) return;
+
+        const channel = await guild.channels.fetch(settings.announcementChannelId).catch(() => null);
+        if (!channel || !('send' in channel)) return;
+
+        const endsAt = Math.floor(new Date(season.endsAt).getTime() / 1000);
+        const curr = settings.currencyEmoji;
+
+        const embed = new EmbedBuilder()
+            .setTitle(`📈 Beat Market — Season #${season.number} is Live!`)
+            .setColor('#10E87A')
+            .setDescription(
+                `A new season has started! Stake your ${curr} on which music genre will dominate the server this week.\n\n` +
+                `**Season ends:** <t:${endsAt}:R> (<t:${endsAt}:f>)\n​`
+            );
+
+        const trendLines = trends.map((t, i) =>
+            `${t.emoji} **${t.name}** — ${t.keywords.slice(0, 2).join(', ')}`
+        ).join('\n');
+
+        embed.addFields(
+            { name: 'This Week\'s Trends', value: trendLines },
+            {
+                name: 'Payout Multipliers',
+                value: '🥇 1st: **1.6×**  🥈 2nd: **1.3×**  🥉 3rd: **1.1×**  4th: 0.9×  5th: 0.7×',
+            },
+            {
+                name: 'How to Play',
+                value:
+                    '`/market-trends` — see live hype standings\n' +
+                    '`/invest <trend> <amount>` — stake your coins\n' +
+                    '`/portfolio` — track your positions\n' +
+                    `Learn more: https://fujistud.io/beat-market`,
+            },
+        );
+
+        await (channel as any).send({ embeds: [embed] });
     }
 
     // ─── Hype accumulation ────────────────────────────────────────────────────
