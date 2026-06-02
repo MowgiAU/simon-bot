@@ -21269,18 +21269,20 @@ app.get('/api/projects/desktop/users/search', requireDesktopAuth, async (req: an
 
 // ─── Beat Market Routes ──────────────────────────────────────────────────
 
-app.get('/api/guilds/:guildId/beat-market/settings', requireAuth, requireAdmin, async (req, res) => {
+app.get('/api/guilds/:guildId/beat-market/settings', async (req, res) => {
     try {
         const { guildId } = req.params;
+        if (!await checkPluginAccess(guildId, req, 'beat-market')) return res.status(403).json({ error: 'Forbidden' });
         let settings = await db.beatMarketSettings.findUnique({ where: { guildId } });
         if (!settings) settings = await db.beatMarketSettings.create({ data: { guildId } });
         res.json(settings);
     } catch { res.status(500).json({ error: 'Failed' }); }
 });
 
-app.put('/api/guilds/:guildId/beat-market/settings', requireAuth, requireAdmin, async (req, res) => {
+app.put('/api/guilds/:guildId/beat-market/settings', async (req, res) => {
     try {
         const { guildId } = req.params;
+        if (!await checkPluginAccess(guildId, req, 'beat-market')) return res.status(403).json({ error: 'Forbidden' });
         const { enabled, announcementChannelId, seasonDurationDays, maxInvestPerSeason, maxInvestPct, minInvest,
                 payoutRank1, payoutRank2, payoutRank3, payoutRank4, payoutRank5 } = req.body;
         const settings = await db.beatMarketSettings.upsert({
@@ -21294,9 +21296,10 @@ app.put('/api/guilds/:guildId/beat-market/settings', requireAuth, requireAdmin, 
     } catch { res.status(500).json({ error: 'Failed' }); }
 });
 
-app.get('/api/guilds/:guildId/beat-market/season/active', requireAuth, async (req, res) => {
+app.get('/api/guilds/:guildId/beat-market/season/active', async (req, res) => {
     try {
         const { guildId } = req.params;
+        if (!await checkPluginAccess(guildId, req, 'beat-market')) return res.status(403).json({ error: 'Forbidden' });
         const season = await db.beatMarketSeason.findFirst({
             where: { guildId, status: 'active' },
             include: {
@@ -21322,9 +21325,10 @@ app.get('/api/guilds/:guildId/beat-market/season/active', requireAuth, async (re
     } catch { res.status(500).json({ error: 'Failed' }); }
 });
 
-app.get('/api/guilds/:guildId/beat-market/seasons', requireAuth, async (req, res) => {
+app.get('/api/guilds/:guildId/beat-market/seasons', async (req, res) => {
     try {
         const { guildId } = req.params;
+        if (!await checkPluginAccess(guildId, req, 'beat-market')) return res.status(403).json({ error: 'Forbidden' });
         const seasons = await db.beatMarketSeason.findMany({
             where: { guildId, status: 'completed' },
             orderBy: { number: 'desc' },
@@ -21345,9 +21349,10 @@ app.get('/api/guilds/:guildId/beat-market/seasons', requireAuth, async (req, res
     } catch { res.status(500).json({ error: 'Failed' }); }
 });
 
-app.get('/api/guilds/:guildId/beat-market/seasons/:seasonId', requireAuth, async (req, res) => {
+app.get('/api/guilds/:guildId/beat-market/seasons/:seasonId', async (req, res) => {
     try {
         const { guildId, seasonId } = req.params;
+        if (!await checkPluginAccess(guildId, req, 'beat-market')) return res.status(403).json({ error: 'Forbidden' });
         const season = await db.beatMarketSeason.findFirst({
             where: { id: seasonId, guildId },
             include: {
@@ -21362,10 +21367,11 @@ app.get('/api/guilds/:guildId/beat-market/seasons/:seasonId', requireAuth, async
     } catch { res.status(500).json({ error: 'Failed' }); }
 });
 
-app.post('/api/guilds/:guildId/beat-market/seasons/:seasonId/settle', requireAuth, requireAdmin, async (req, res) => {
+app.post('/api/guilds/:guildId/beat-market/seasons/:seasonId/settle', async (req, res) => {
     // Admin override: manually mark a season's endsAt to now so the bot's next tick settles it
     try {
         const { guildId, seasonId } = req.params;
+        if (!await checkPluginAccess(guildId, req, 'beat-market')) return res.status(403).json({ error: 'Forbidden' });
         const season = await db.beatMarketSeason.findFirst({ where: { id: seasonId, guildId, status: 'active' } });
         if (!season) return res.status(404).json({ error: 'Active season not found' });
         await db.beatMarketSeason.update({ where: { id: seasonId }, data: { endsAt: new Date(Date.now() - 1000) } });
