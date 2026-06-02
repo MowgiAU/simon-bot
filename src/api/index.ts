@@ -7204,7 +7204,7 @@ app.post('/api/musician/tracks', uploadLimiter, requireDesktopAuth, upload.field
             bpm: metadata.bpm,
             key: metadata.key,
             isPublic: _isPublic,
-            allowAudioDownload: req.body.allowAudioDownload === 'true',
+            allowAudioDownload: req.body.allowAudioDownload !== 'false',
             allowProjectDownload: req.body.allowProjectDownload === 'true',
             ...(req.body.license ? { license: req.body.license } : {}),
             ...(req.body.trackType ? { trackType: req.body.trackType } : {}),
@@ -8328,12 +8328,6 @@ app.get('/api/tracks/:trackId/stream', streamLimiter, async (req: any, res) => {
         const upstreamHeaders: Record<string, string> = {};
         if (req.headers.range) upstreamHeaders['Range'] = req.headers.range as string;
 
-        const upstream = await axios.get(sourceUrl, {
-            responseType: 'stream',
-            headers: upstreamHeaders,
-            validateStatus: s => s < 500,
-        });
-
         const outHeaders: Record<string, string | number> = {
             'Content-Type': contentType,
             'Content-Disposition': 'inline',
@@ -8341,6 +8335,36 @@ app.get('/api/tracks/:trackId/stream', streamLimiter, async (req: any, res) => {
             'Cache-Control': 'no-store, no-cache, must-revalidate',
             'X-Content-Type-Options': 'nosniff',
         };
+
+        if (!sourceUrl.startsWith('http')) {
+            // Local file path — read from disk (occurs during background processing before R2 upload)
+            const localPath = path.join(process.cwd(), 'public', sourceUrl.startsWith('/') ? sourceUrl.slice(1) : sourceUrl);
+            if (!fs.existsSync(localPath)) return res.status(404).send();
+            const stat = fs.statSync(localPath);
+            const fileSize = stat.size;
+            const rangeHeader = req.headers.range as string | undefined;
+            if (rangeHeader) {
+                const [startStr, endStr] = rangeHeader.replace(/bytes=/, '').split('-');
+                const start = parseInt(startStr, 10);
+                const end = endStr ? parseInt(endStr, 10) : fileSize - 1;
+                outHeaders['Content-Length'] = end - start + 1;
+                outHeaders['Content-Range'] = `bytes ${start}-${end}/${fileSize}`;
+                res.writeHead(206, outHeaders);
+                fs.createReadStream(localPath, { start, end }).pipe(res);
+            } else {
+                outHeaders['Content-Length'] = fileSize;
+                res.writeHead(200, outHeaders);
+                fs.createReadStream(localPath).pipe(res);
+            }
+            return;
+        }
+
+        const upstream = await axios.get(sourceUrl, {
+            responseType: 'stream',
+            headers: upstreamHeaders,
+            validateStatus: s => s < 500,
+        });
+
         if (upstream.headers['content-length']) outHeaders['Content-Length'] = upstream.headers['content-length'] as string;
         if (upstream.headers['content-range'])  outHeaders['Content-Range']  = upstream.headers['content-range']  as string;
 
