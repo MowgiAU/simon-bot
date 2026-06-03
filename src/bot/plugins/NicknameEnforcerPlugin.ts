@@ -60,36 +60,41 @@ export class NicknameEnforcerPlugin implements IPlugin {
     if (interaction.commandName !== 'nickname-scan') return;
     if (!interaction.guild) return;
 
-    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+    await interaction.reply({ content: 'Scan started — this runs in the background. Check logs for results.', flags: MessageFlags.Ephemeral });
 
-    let fixed = 0;
-    let skipped = 0;
-    let failed = 0;
-
-    const members = await interaction.guild.members.fetch();
-
-    for (const [, member] of members) {
-      if (member.user.bot) continue;
-      const displayName = member.nickname ?? member.user.username;
-      if (!LEADING_SYMBOLS_RE.test(displayName)) continue;
-
-      const cleaned = displayName.replace(LEADING_SYMBOLS_RE, '');
-      if (!cleaned) { skipped++; continue; }
-
-      if (!this.canRename(member)) { skipped++; continue; }
+    const guild = interaction.guild;
+    setImmediate(async () => {
+      let fixed = 0;
+      let skipped = 0;
+      let failed = 0;
 
       try {
-        await member.setNickname(cleaned, 'Nickname scan: leading symbols removed');
-        fixed++;
-        this.logger.info(`[scan] Renamed "${displayName}" → "${cleaned}" (${member.user.username})`);
-      } catch {
-        failed++;
-      }
-    }
+        const members = await guild.members.fetch();
 
-    await interaction.editReply(
-      `Scan complete — **${fixed}** fixed, **${skipped}** skipped (owner / higher role / empty result), **${failed}** failed.`
-    );
+        for (const [, member] of members) {
+          if (member.user.bot) continue;
+          const displayName = member.nickname ?? member.user.username;
+          if (!LEADING_SYMBOLS_RE.test(displayName)) continue;
+
+          const cleaned = displayName.replace(LEADING_SYMBOLS_RE, '');
+          if (!cleaned) { skipped++; continue; }
+
+          if (!this.canRename(member)) { skipped++; continue; }
+
+          try {
+            await member.setNickname(cleaned, 'Nickname scan: leading symbols removed');
+            fixed++;
+            this.logger.info(`[scan] Renamed "${displayName}" → "${cleaned}" (${member.user.username})`);
+          } catch {
+            failed++;
+          }
+        }
+      } catch (err) {
+        this.logger.error('[scan] Failed during member fetch or processing', err);
+      }
+
+      this.logger.info(`[scan] Complete — ${fixed} fixed, ${skipped} skipped, ${failed} failed`);
+    });
   }
 
   private async enforce(member: GuildMember): Promise<void> {
