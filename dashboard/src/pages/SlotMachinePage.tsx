@@ -13,7 +13,7 @@ const DEFAULT_SYMBOLS = [
   { emoji: '🔥', label: 'Fire',       weight: 1,  multiplier: 20 },
 ];
 
-interface SlotSymbol { emoji: string; label: string; weight: number; multiplier: number; }
+interface SlotSymbol { emoji: string; label: string; weight: number; multiplier: number; imageUrl?: string; }
 interface SlotSounds { spin?: string; win?: string; jackpot?: string; twoMatch?: string; loss?: string; }
 interface SpinResult { reels: string[]; payout: number; multiplier: number; net: number; newBalance: number; currencyEmoji: string; }
 interface HistoryEntry { reels: string[]; net: number; }
@@ -132,6 +132,7 @@ export const SlotMachinePage: React.FC = () => {
 
   const emojiList = symbols.map(s => s.emoji);
   const rndEmoji = () => emojiList[Math.floor(Math.random() * emojiList.length)] || '🎵';
+  const imageMap = new Map(symbols.filter(s => s.imageUrl).map(s => [s.emoji, s.imageUrl!]));
   const maxBet = balance === null ? 10 : Math.min(500, Math.max(10, Math.floor(balance / 2)));
   const canSpin = !spinning && cooldown === 0 && balance !== null && balance >= 10 && balance >= bet;
 
@@ -362,8 +363,10 @@ export const SlotMachinePage: React.FC = () => {
                       overflow: 'hidden',
                       ...reelGlow(i),
                     }}>
-                      <div className={spinning && !lockedReels[i] ? 'slots-reel-spinning' : ''} style={{ lineHeight: 1 }}>
-                        {emoji}
+                      <div className={spinning && !lockedReels[i] ? 'slots-reel-spinning' : ''} style={{ lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
+                        {imageMap.has(emoji)
+                          ? <img src={imageMap.get(emoji)} alt={emoji} style={{ width: '64%', height: '64%', objectFit: 'contain', display: 'block' }} />
+                          : emoji}
                       </div>
                     </div>
                   ))}
@@ -499,7 +502,12 @@ export const SlotMachinePage: React.FC = () => {
                         padding: '5px 8px', background: 'rgba(255,255,255,0.02)',
                         borderRadius: 6, fontSize: '13px',
                       }}>
-                        <span style={{ letterSpacing: '3px' }}>{s.emoji}{s.emoji}{s.emoji}</span>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                        {[0,1,2].map(n => imageMap.has(s.emoji)
+                          ? <img key={n} src={imageMap.get(s.emoji)} alt={s.emoji} style={{ width: 18, height: 18, objectFit: 'contain' }} />
+                          : <span key={n}>{s.emoji}</span>
+                        )}
+                      </span>
                         <span style={{ color: colors.primary, fontWeight: 700 }}>{s.multiplier}×</span>
                       </div>
                     ))}
@@ -515,6 +523,49 @@ export const SlotMachinePage: React.FC = () => {
               </div>
             </>
           )}
+        </div>
+
+        {/* ── How it works ── */}
+        <div style={{ width: '100%', maxWidth: 480 }}>
+          <details>
+            <summary style={{ cursor: 'pointer', fontSize: '11px', color: 'rgba(148,163,184,0.4)', textTransform: 'uppercase', letterSpacing: '0.1em', userSelect: 'none', listStyle: 'none', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span>▸</span> How it works
+            </summary>
+            <div style={{
+              marginTop: 12,
+              background: 'rgba(255,255,255,0.02)',
+              border: '1px solid rgba(255,255,255,0.06)',
+              borderRadius: 12,
+              padding: '16px 18px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 12,
+              fontSize: '13px',
+              color: 'rgba(148,163,184,0.8)',
+              lineHeight: 1.6,
+            }}>
+              <div>
+                <span style={{ color: colors.primary, fontWeight: 600 }}>Getting started</span><br />
+                Use the <code style={{ background: 'rgba(255,255,255,0.07)', padding: '1px 6px', borderRadius: 4, fontSize: '12px' }}>/slots</code> command in Discord to get a link to this page. You need a Discord account linked to your Fuji Studio profile to play.
+              </div>
+              <div>
+                <span style={{ color: colors.primary, fontWeight: 600 }}>Placing a bet</span><br />
+                Use the +/− buttons to set your wager. The minimum bet is <strong style={{ color: 'rgba(248,250,252,0.8)' }}>10 coins</strong> and the maximum is the lesser of <strong style={{ color: 'rgba(248,250,252,0.8)' }}>500 coins</strong> or <strong style={{ color: 'rgba(248,250,252,0.8)' }}>half your balance</strong> — so you can never lose everything in one spin.
+              </div>
+              <div>
+                <span style={{ color: colors.primary, fontWeight: 600 }}>Winning</span><br />
+                Three matching symbols pays the multiplier shown in the paytable. Two matching symbols returns your bet (no profit, no loss). Anything else and you lose the bet. Wins are capped at <strong style={{ color: 'rgba(248,250,252,0.8)' }}>5,000 coins</strong> per spin.
+              </div>
+              <div>
+                <span style={{ color: colors.primary, fontWeight: 600 }}>Coins</span><br />
+                Wins and losses update your real server balance — the same coins you earn from chatting, daily rewards, and the shop. There is a <strong style={{ color: 'rgba(248,250,252,0.8)' }}>3-second cooldown</strong> between spins.
+              </div>
+              <div>
+                <span style={{ color: colors.primary, fontWeight: 600 }}>Fairness</span><br />
+                All rolls happen on the server — the outcome is determined before the reels finish animating, so the animation is purely visual.
+              </div>
+            </div>
+          </details>
         </div>
 
         {/* ── History ticker ── */}
@@ -533,7 +584,12 @@ export const SlotMachinePage: React.FC = () => {
                   borderRadius: 20,
                   fontSize: '14px',
                 }}>
-                  <span style={{ letterSpacing: '2px' }}>{h.reels.join('')}</span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                    {h.reels.map((e, ri) => imageMap.has(e)
+                      ? <img key={ri} src={imageMap.get(e)} alt={e} style={{ width: 20, height: 20, objectFit: 'contain' }} />
+                      : <span key={ri} style={{ fontSize: '18px' }}>{e}</span>
+                    )}
+                  </span>
                   <span style={{
                     fontWeight: 700, fontSize: '12px',
                     color: h.net > 0 ? colors.primary : h.net === 0 ? '#F59E0B' : colors.tertiary,

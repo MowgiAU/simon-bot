@@ -109,6 +109,8 @@ const storage = multer.diskStorage({
       dir = path.join(PROJECT_ROOT, 'public/uploads/plugins');
     } else if (file.fieldname === 'slotSound') {
       dir = path.join(PROJECT_ROOT, 'public/uploads/slot-sounds');
+    } else if (file.fieldname === 'slotIcon') {
+      dir = path.join(PROJECT_ROOT, 'public/uploads/slot-icons');
     }
 
     // Ensure directory exists synchronously to prevent race conditions during target upload
@@ -174,6 +176,13 @@ const upload = multer({
         cb(null, true);
       } else {
         cb(new Error('Only audio files are allowed for slot sounds (MP3, WAV, OGG, AAC, M4A).'));
+      }
+    } else if (file.fieldname === 'slotIcon') {
+      const imageExts = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.avif', '.svg'];
+      if (file.mimetype.startsWith('image/') || imageExts.includes(ext)) {
+        cb(null, true);
+      } else {
+        cb(new Error('Only image files are allowed for slot icons (PNG, JPG, GIF, WEBP, SVG).'));
       }
     } else if (file.fieldname === 'articleAudio') {
       const audioExtensions = ['.mp3', '.wav', '.flac', '.ogg', '.aac', '.m4a', '.aiff', '.aif'];
@@ -4677,6 +4686,18 @@ app.post('/api/slots/sounds/:guildId/:event', upload.single('slotSound'), async 
         res.json({ url });
     } catch (e) {
         logger.error('Slot sound upload failed', e);
+        res.status(500).json({ error: 'Failed' });
+    }
+});
+
+app.post('/api/slots/icon/:guildId', upload.single('slotIcon'), async (req, res) => {
+    try {
+        const { guildId } = req.params;
+        if (!await checkPluginAccess(guildId, req, 'slots')) return res.status(403).json({ error: 'Forbidden' });
+        if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+        res.json({ url: `/uploads/slot-icons/${req.file.filename}` });
+    } catch (e) {
+        logger.error('Slot icon upload failed', e);
         res.status(500).json({ error: 'Failed' });
     }
 });

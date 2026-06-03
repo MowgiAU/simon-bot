@@ -8,6 +8,7 @@ interface SlotSymbol {
   label: string;
   weight: number;
   multiplier: number;
+  imageUrl?: string;
 }
 
 interface SlotSounds {
@@ -57,9 +58,11 @@ export const SlotMachineSettings: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState<keyof SlotSounds | null>(null);
+  const [uploadingIconIdx, setUploadingIconIdx] = useState<number | null>(null);
   const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(null);
 
   const fileInputRefs = useRef<Partial<Record<keyof SlotSounds, HTMLInputElement | null>>>({});
+  const iconInputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   const showMsg = (text: string, ok: boolean) => {
     setMessage({ text, ok });
@@ -79,11 +82,29 @@ export const SlotMachineSettings: React.FC = () => {
       .finally(() => setLoading(false));
   }, [guildId]);
 
+  const uploadIcon = async (idx: number, file: File) => {
+    if (!guildId) return;
+    setUploadingIconIdx(idx);
+    const form = new FormData();
+    form.append('slotIcon', file);
+    try {
+      const res = await fetch(`/api/slots/icon/${guildId}`, {
+        method: 'POST',
+        credentials: 'include',
+        body: form,
+      });
+      const data = await res.json();
+      if (!res.ok) showMsg(data.error ?? 'Upload failed.', false);
+      else { updateSymbol(idx, 'imageUrl', data.url); showMsg('Icon uploaded — save symbols to apply.', true); }
+    } catch { showMsg('Upload failed.', false); }
+    finally { setUploadingIconIdx(null); }
+  };
+
   const saveSymbols = async () => {
     if (!guildId) return;
     // Validate
     for (const s of symbols) {
-      if (!s.emoji.trim()) return showMsg('Every symbol needs an emoji.', false);
+      if (!s.emoji.trim() && !s.imageUrl) return showMsg('Every symbol needs an emoji or uploaded icon.', false);
       if (s.weight < 1) return showMsg('Weights must be at least 1.', false);
       if (s.multiplier < 1) return showMsg('Multipliers must be at least 1.', false);
     }
@@ -240,7 +261,7 @@ export const SlotMachineSettings: React.FC = () => {
           </div>
 
           {/* Column headers */}
-          <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr 80px 100px 40px', gap: 8, padding: '0 4px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr 80px 100px 40px', gap: 8, padding: '0 4px' }}>
             {['Icon', 'Label', 'Weight', 'Multiplier (3×)', ''].map(h => (
               <span key={h} style={{ fontSize: '11px', color: colors.textTertiary, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{h}</span>
             ))}
@@ -249,7 +270,7 @@ export const SlotMachineSettings: React.FC = () => {
           {symbols.map((sym, i) => (
             <div key={i} style={{
               display: 'grid',
-              gridTemplateColumns: '80px 1fr 80px 100px 40px',
+              gridTemplateColumns: '120px 1fr 80px 100px 40px',
               gap: 8,
               alignItems: 'center',
               background: colors.surface,
@@ -257,12 +278,64 @@ export const SlotMachineSettings: React.FC = () => {
               borderRadius: borderRadius.md,
               padding: '10px 12px',
             }}>
-              <input
-                value={sym.emoji}
-                onChange={e => updateSymbol(i, 'emoji', e.target.value)}
-                style={{ ...inputStyle, fontSize: '24px', textAlign: 'center', padding: '4px' }}
-                maxLength={4}
-              />
+              {/* Icon cell: image preview OR emoji input + upload button */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                {sym.imageUrl ? (
+                  <>
+                    <img
+                      src={sym.imageUrl}
+                      alt={sym.label}
+                      style={{ width: 40, height: 40, objectFit: 'contain', borderRadius: borderRadius.sm, background: colors.background, flexShrink: 0 }}
+                    />
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                      <button
+                        onClick={() => iconInputRefs.current[i]?.click()}
+                        disabled={uploadingIconIdx === i}
+                        title="Replace image"
+                        style={{ padding: '3px 6px', fontSize: '10px', background: colors.surfaceLight, border: `1px solid ${colors.border}`, borderRadius: 4, color: colors.textSecondary, cursor: 'pointer' }}
+                      >
+                        {uploadingIconIdx === i ? '…' : 'Replace'}
+                      </button>
+                      <button
+                        onClick={() => updateSymbol(i, 'imageUrl', '')}
+                        title="Remove image"
+                        style={{ padding: '3px 6px', fontSize: '10px', background: 'rgba(239,68,68,0.08)', border: `1px solid rgba(239,68,68,0.2)`, borderRadius: 4, color: colors.error, cursor: 'pointer' }}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <input
+                      value={sym.emoji}
+                      onChange={e => updateSymbol(i, 'emoji', e.target.value)}
+                      style={{ ...inputStyle, fontSize: '22px', textAlign: 'center', padding: '4px', width: 46, flexShrink: 0 }}
+                      maxLength={4}
+                      title="Emoji"
+                    />
+                    <button
+                      onClick={() => iconInputRefs.current[i]?.click()}
+                      disabled={uploadingIconIdx === i}
+                      title="Upload a custom image instead"
+                      style={{ padding: '5px 7px', background: colors.surfaceLight, border: `1px solid ${colors.border}`, borderRadius: 6, color: colors.textSecondary, cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                    >
+                      {uploadingIconIdx === i ? <span style={{ fontSize: 10 }}>…</span> : <Upload size={13} />}
+                    </button>
+                  </>
+                )}
+                <input
+                  type="file"
+                  accept="image/*"
+                  ref={el => { iconInputRefs.current[i] = el; }}
+                  style={{ display: 'none' }}
+                  onChange={e => {
+                    const file = e.target.files?.[0];
+                    if (file) uploadIcon(i, file);
+                    e.target.value = '';
+                  }}
+                />
+              </div>
               <input
                 value={sym.label}
                 onChange={e => updateSymbol(i, 'label', e.target.value)}
