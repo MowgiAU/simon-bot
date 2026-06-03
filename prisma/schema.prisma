@@ -163,6 +163,7 @@ model Guild {
 
   // Slot Machine
   slotMachineSettings   SlotMachineSettings?
+  slotPot               SlotPot?
 
   // Beat Market (Investment)
   beatMarketSettings    BeatMarketSettings?
@@ -1405,6 +1406,18 @@ model SlotMachineSettings {
   guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
 
   @@map("slot_machine_settings")
+}
+
+model SlotPot {
+  id      String @id @default(cuid())
+  guildId String @unique
+  balance Int    @default(0)
+
+  updatedAt DateTime @updatedAt
+
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  @@map("slot_pot")
 }
 
 model UserSampleFavorite {

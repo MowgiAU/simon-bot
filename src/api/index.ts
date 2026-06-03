@@ -4590,6 +4590,16 @@ app.post('/api/slots/spin', async (req, res) => {
             },
         });
 
+        // Accumulate losses into the slot pot (coins lost on a zero-payout spin)
+        if (net < 0) {
+            await db.guild.upsert({ where: { id: guildId }, update: {}, create: { id: guildId, name: '' } });
+            await db.slotPot.upsert({
+                where: { guildId },
+                update: { balance: { increment: bet } },
+                create: { guildId, balance: bet },
+            });
+        }
+
         res.json({
             reels,
             payout,
@@ -4601,6 +4611,19 @@ app.post('/api/slots/spin', async (req, res) => {
         });
     } catch (e) {
         logger.error('Slots spin failed', e);
+        res.status(500).json({ error: 'Failed' });
+    }
+});
+
+// Slot Pot (admin — read-only for now)
+app.get('/api/slots/pot/:guildId', async (req, res) => {
+    try {
+        const { guildId } = req.params;
+        if (!await checkPluginAccess(guildId, req, 'slots')) return res.status(403).json({ error: 'Forbidden' });
+        const pot = await db.slotPot.findUnique({ where: { guildId } });
+        res.json({ balance: pot?.balance ?? 0 });
+    } catch (e) {
+        logger.error('Slot pot fetch failed', e);
         res.status(500).json({ error: 'Failed' });
     }
 });
