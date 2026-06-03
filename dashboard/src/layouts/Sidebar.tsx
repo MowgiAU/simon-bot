@@ -50,6 +50,7 @@ import {
   Activity,
   HardDrive,
   Layers,
+  Dices,
 } from 'lucide-react';
 import { AnimatedWrapper } from '../components/AnimatedWrapper';
 import logoUrl from '../assets/logo.svg'; 
@@ -218,6 +219,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             >
                 <span className="nav-icon"><AnimatedWrapper icon={Hammer} size={20} /></span>
                 <span className="nav-label">Pause Command</span>
+            </button>
+          )}
+
+          {permissions.accessiblePlugins.includes('slots') && (
+            <button
+                className={`nav-item ${activeSection === 'slots' ? 'active' : ''}`}
+                onClick={() => onNavigate('slots')}
+                title={collapsed ? "Slot Machine" : ""}
+            >
+                <span className="nav-icon"><AnimatedWrapper icon={Dices} size={20} /></span>
+                <span className="nav-label">Slot Machine</span>
             </button>
           )}
 
