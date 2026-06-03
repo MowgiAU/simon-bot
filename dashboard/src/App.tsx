@@ -113,6 +113,7 @@ const SupportPage            = lazy(() => import("./pages/SupportPage").then(m =
 const PageEmbedsPage         = lazy(() => import("./pages/PageEmbeds").then(m => ({ default: m.PageEmbedsPage })));
 const BeatMarketPage         = lazy(() => import("./pages/BeatMarketPage").then(m => ({ default: m.BeatMarketPage })));
 const SlotMachinePage        = lazy(() => import("./pages/SlotMachinePage").then(m => ({ default: m.SlotMachinePage })));
+const SlotMachineSettings    = lazy(() => import("./pages/SlotMachineSettings").then(m => ({ default: m.SlotMachineSettings })));
 // ErrorBoundary is imported statically above — NOT lazy. It is the outermost
 
 // Minimal inline spinner used while a lazy chunk loads
@@ -535,6 +536,8 @@ const AdminDashboard: React.FC = () => {
           return <GenresPage />;
         case "academy":
           return <AcademyPage />;
+        case "slots":
+          return <SlotMachineSettings />;
         case "stats":
           return <ServerStatsPage guildId={selectedGuild.id} />;
         case "page-embeds":

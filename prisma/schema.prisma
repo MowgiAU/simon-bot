@@ -161,6 +161,9 @@ model Guild {
   // Head-to-Head Battles
   headToHeadSettings HeadToHeadSettings?
 
+  // Slot Machine
+  slotMachineSettings   SlotMachineSettings?
+
   // Beat Market (Investment)
   beatMarketSettings    BeatMarketSettings?
   beatMarketSeasons     BeatMarketSeason[]
@@ -1380,6 +1383,28 @@ model BeatMarketInvestment {
   @@index([guildId, userId])
   @@index([seasonId])
   @@map("beat_market_investments")
+}
+
+model SlotMachineSettings {
+  id      String @id @default(cuid())
+  guildId String @unique
+
+  // JSON array of { emoji, label, weight, multiplier }
+  symbols Json @default("[]")
+
+  // Sound effect URLs (served from /uploads/slot-sounds/)
+  soundSpin     String?
+  soundWin      String?
+  soundJackpot  String?
+  soundTwoMatch String?
+  soundLoss     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  @@map("slot_machine_settings")
 }
 
 model UserSampleFavorite {

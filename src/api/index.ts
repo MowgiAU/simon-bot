@@ -107,6 +107,8 @@ const storage = multer.diskStorage({
       dir = path.join(PROJECT_ROOT, 'public/uploads/articles/presets');
     } else if (file.fieldname === 'pluginImage') {
       dir = path.join(PROJECT_ROOT, 'public/uploads/plugins');
+    } else if (file.fieldname === 'slotSound') {
+      dir = path.join(PROJECT_ROOT, 'public/uploads/slot-sounds');
     }
 
     // Ensure directory exists synchronously to prevent race conditions during target upload
@@ -164,6 +166,14 @@ const upload = multer({
       } else {
         console.warn(`[Upload] Project filter rejected: mime=${file.mimetype} ext="${ext}" name="${file.originalname}"`);
         cb(new Error('Only project files (.flp, .als) or .zip bundles are allowed!'));
+      }
+    } else if (file.fieldname === 'slotSound') {
+      const audioExtensions = ['.mp3', '.wav', '.ogg', '.aac', '.m4a'];
+      const mimeOk = file.mimetype.startsWith('audio/') || (file.mimetype === 'application/octet-stream' && audioExtensions.includes(ext));
+      if (mimeOk || audioExtensions.includes(ext)) {
+        cb(null, true);
+      } else {
+        cb(new Error('Only audio files are allowed for slot sounds (MP3, WAV, OGG, AAC, M4A).'));
       }
     } else if (file.fieldname === 'articleAudio') {
       const audioExtensions = ['.mp3', '.wav', '.flac', '.ogg', '.aac', '.m4a', '.aiff', '.aif'];
@@ -4169,7 +4179,7 @@ app.get('/api/guilds/:guildId/my-permissions', async (req, res) => {
         if (isAdmin) {
             return res.json({ 
                 canManagePlugins: true, 
-                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content', 'account-management', 'anti-piracy', 'leveling', 'fuji-radio', 'studio-guide', 'bot-identity', 'bot-messenger', 'booster-color', 'private-messages', 'auto-messages', 'auto-responder', 'server-boost', 'reports', 'articles', 'article-review', 'pause', 'voice-stats', 'spam-guard', 'track-announcer', 'profile-styles', 'academy', 'head-to-head', 'drum-kit', 'bug-reports', 'plugin-registry', 'activity-logs', 'duplicate-profiles', 'projects', 'vote-fraud', 'beat-market']
+                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content', 'account-management', 'anti-piracy', 'leveling', 'fuji-radio', 'studio-guide', 'bot-identity', 'bot-messenger', 'booster-color', 'private-messages', 'auto-messages', 'auto-responder', 'server-boost', 'reports', 'articles', 'article-review', 'pause', 'voice-stats', 'spam-guard', 'track-announcer', 'profile-styles', 'academy', 'head-to-head', 'drum-kit', 'bug-reports', 'plugin-registry', 'activity-logs', 'duplicate-profiles', 'projects', 'vote-fraud', 'beat-market', 'slots']
             });
         }
 
@@ -4468,15 +4478,28 @@ app.get('/api/slots/balance', async (req, res) => {
         }
 
         const guildId = process.env.GUILD_ID!;
-        const [account, settings] = await Promise.all([
+        const [account, settings, slotSettings] = await Promise.all([
             db.economyAccount.findUnique({ where: { guildId_userId: { guildId, userId: discordId } } }),
             db.economySettings.findUnique({ where: { guildId } }),
+            db.slotMachineSettings.findUnique({ where: { guildId } }),
         ]);
+
+        const symbols = Array.isArray(slotSettings?.symbols) && (slotSettings.symbols as any[]).length
+            ? slotSettings.symbols
+            : null;
 
         res.json({
             balance: account?.balance ?? 0,
             currencyEmoji: settings?.currencyEmoji ?? '🪙',
             currencyName: settings?.currencyName ?? 'Coins',
+            symbols,
+            sounds: slotSettings ? {
+                spin:     slotSettings.soundSpin     ?? null,
+                win:      slotSettings.soundWin      ?? null,
+                jackpot:  slotSettings.soundJackpot  ?? null,
+                twoMatch: slotSettings.soundTwoMatch ?? null,
+                loss:     slotSettings.soundLoss     ?? null,
+            } : {},
         });
     } catch (e) {
         logger.error('Slots balance fetch failed', e);
@@ -4569,6 +4592,111 @@ app.post('/api/slots/spin', async (req, res) => {
         });
     } catch (e) {
         logger.error('Slots spin failed', e);
+        res.status(500).json({ error: 'Failed' });
+    }
+});
+
+// Slot Machine Settings (admin)
+
+app.get('/api/slots/settings/:guildId', async (req, res) => {
+    try {
+        const { guildId } = req.params;
+        if (!await checkPluginAccess(guildId, req, 'slots')) return res.status(403).json({ error: 'Forbidden' });
+
+        const s = await db.slotMachineSettings.findUnique({ where: { guildId } });
+        res.json({
+            symbols: Array.isArray(s?.symbols) && (s.symbols as any[]).length ? s.symbols : [],
+            sounds: s ? {
+                spin:     s.soundSpin     ?? null,
+                win:      s.soundWin      ?? null,
+                jackpot:  s.soundJackpot  ?? null,
+                twoMatch: s.soundTwoMatch ?? null,
+                loss:     s.soundLoss     ?? null,
+            } : { spin: null, win: null, jackpot: null, twoMatch: null, loss: null },
+        });
+    } catch (e) {
+        logger.error('Slots settings fetch failed', e);
+        res.status(500).json({ error: 'Failed' });
+    }
+});
+
+app.post('/api/slots/settings/:guildId', async (req, res) => {
+    try {
+        const { guildId } = req.params;
+        if (!await checkPluginAccess(guildId, req, 'slots')) return res.status(403).json({ error: 'Forbidden' });
+
+        const { symbols } = req.body;
+
+        if (!Array.isArray(symbols) || symbols.length < 2 || symbols.length > 10) {
+            return res.status(400).json({ error: 'Symbols must be an array of 2–10 entries' });
+        }
+        for (const s of symbols) {
+            if (!s.emoji || typeof s.weight !== 'number' || s.weight < 1 || typeof s.multiplier !== 'number' || s.multiplier < 1) {
+                return res.status(400).json({ error: 'Each symbol needs emoji, weight ≥ 1, multiplier ≥ 1' });
+            }
+        }
+
+        await db.guild.upsert({ where: { id: guildId }, update: {}, create: { id: guildId, name: '' } });
+        const updated = await db.slotMachineSettings.upsert({
+            where: { guildId },
+            update: { symbols },
+            create: { guildId, symbols },
+        });
+
+        res.json({ symbols: updated.symbols });
+    } catch (e) {
+        logger.error('Slots settings save failed', e);
+        res.status(500).json({ error: 'Failed' });
+    }
+});
+
+const SLOT_SOUND_EVENTS = ['spin', 'win', 'jackpot', 'twoMatch', 'loss'] as const;
+type SlotSoundEvent = typeof SLOT_SOUND_EVENTS[number];
+
+const SLOT_SOUND_FIELD: Record<SlotSoundEvent, string> = {
+    spin: 'soundSpin', win: 'soundWin', jackpot: 'soundJackpot', twoMatch: 'soundTwoMatch', loss: 'soundLoss',
+};
+
+app.post('/api/slots/sounds/:guildId/:event', upload.single('slotSound'), async (req, res) => {
+    try {
+        const { guildId, event } = req.params;
+        if (!await checkPluginAccess(guildId, req, 'slots')) return res.status(403).json({ error: 'Forbidden' });
+        if (!SLOT_SOUND_EVENTS.includes(event as SlotSoundEvent)) return res.status(400).json({ error: 'Invalid event' });
+        if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+
+        const url = `/uploads/slot-sounds/${req.file.filename}`;
+        const field = SLOT_SOUND_FIELD[event as SlotSoundEvent];
+
+        await db.guild.upsert({ where: { id: guildId }, update: {}, create: { id: guildId, name: '' } });
+        await db.slotMachineSettings.upsert({
+            where: { guildId },
+            update: { [field]: url },
+            create: { guildId, [field]: url },
+        });
+
+        res.json({ url });
+    } catch (e) {
+        logger.error('Slot sound upload failed', e);
+        res.status(500).json({ error: 'Failed' });
+    }
+});
+
+app.delete('/api/slots/sounds/:guildId/:event', async (req, res) => {
+    try {
+        const { guildId, event } = req.params;
+        if (!await checkPluginAccess(guildId, req, 'slots')) return res.status(403).json({ error: 'Forbidden' });
+        if (!SLOT_SOUND_EVENTS.includes(event as SlotSoundEvent)) return res.status(400).json({ error: 'Invalid event' });
+
+        const field = SLOT_SOUND_FIELD[event as SlotSoundEvent];
+        await db.slotMachineSettings.upsert({
+            where: { guildId },
+            update: { [field]: null },
+            create: { guildId },
+        });
+
+        res.json({ ok: true });
+    } catch (e) {
+        logger.error('Slot sound delete failed', e);
         res.status(500).json({ error: 'Failed' });
     }
 });

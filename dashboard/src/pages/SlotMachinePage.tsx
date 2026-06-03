@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { colors, spacing, borderRadius, shadows, typography } from '../theme/theme';
 import { Coins, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 
-const SYMBOLS = [
+const DEFAULT_SYMBOLS = [
   { emoji: '🎵', label: 'Note',        weight: 40, multiplier: 3  },
   { emoji: '🎸', label: 'Guitar',      weight: 25, multiplier: 4  },
   { emoji: '🎹', label: 'Piano',       weight: 20, multiplier: 5  },
@@ -13,10 +13,16 @@ const SYMBOLS = [
   { emoji: '💎', label: 'Diamond',     weight: 4,  multiplier: 10 },
   { emoji: '🔥', label: 'Fire',        weight: 1,  multiplier: 20 },
 ];
-const EMOJI_LIST = SYMBOLS.map(s => s.emoji);
+
+interface SlotSymbol { emoji: string; label: string; weight: number; multiplier: number; }
+interface SlotSounds { spin?: string; win?: string; jackpot?: string; twoMatch?: string; loss?: string; }
+
+function playSound(url?: string) {
+  if (!url) return;
+  try { new Audio(url).play(); } catch { /* ignore autoplay policy errors */ }
+}
 
 const sleep = (ms: number) => new Promise<void>(r => setTimeout(r, ms));
-const randomEmoji = () => EMOJI_LIST[Math.floor(Math.random() * EMOJI_LIST.length)];
 
 interface SpinResult {
   reels: string[];
@@ -62,6 +68,8 @@ export const SlotMachinePage: React.FC = () => {
   const [balance, setBalance] = useState<number | null>(null);
   const [currencyEmoji, setCurrencyEmoji] = useState('🪙');
   const [currencyName, setCurrencyName] = useState('Coins');
+  const [symbols, setSymbols] = useState<SlotSymbol[]>(DEFAULT_SYMBOLS);
+  const [sounds, setSounds] = useState<SlotSounds>({});
   const [bet, setBet] = useState(10);
   const [spinning, setSpinning] = useState(false);
   const [displayReels, setDisplayReels] = useState(['🎵', '🎸', '🎹']);
@@ -84,6 +92,8 @@ export const SlotMachinePage: React.FC = () => {
       setBalance(data.balance);
       setCurrencyEmoji(data.currencyEmoji);
       setCurrencyName(data.currencyName);
+      if (data.symbols?.length) setSymbols(data.symbols);
+      if (data.sounds) setSounds(data.sounds);
     } catch {
       setError('Failed to load balance.');
     }
@@ -105,6 +115,9 @@ export const SlotMachinePage: React.FC = () => {
     if (spinIntervalRef.current) clearInterval(spinIntervalRef.current);
     if (cooldownIntervalRef.current) clearInterval(cooldownIntervalRef.current);
   }, []);
+
+  const emojiList = symbols.map(s => s.emoji);
+  const rndEmoji = () => emojiList[Math.floor(Math.random() * emojiList.length)] || '🎵';
 
   const maxBet = balance === null ? 10 : Math.min(500, Math.max(10, Math.floor(balance / 2)));
   const canSpin = !spinning && cooldown === 0 && balance !== null && balance >= 10 && balance >= bet;
@@ -129,9 +142,10 @@ export const SlotMachinePage: React.FC = () => {
     setResult(null);
     setLockedReels([false, false, false]);
     setSpinning(true);
+    playSound(sounds.spin);
 
     spinIntervalRef.current = setInterval(() => {
-      setDisplayReels([randomEmoji(), randomEmoji(), randomEmoji()]);
+      setDisplayReels([rndEmoji(), rndEmoji(), rndEmoji()]);
     }, 75);
 
     try {
@@ -158,14 +172,20 @@ export const SlotMachinePage: React.FC = () => {
       clearInterval(spinIntervalRef.current!);
 
       // Settle reels one by one
-      setDisplayReels([spinResult.reels[0], randomEmoji(), randomEmoji()]);
+      setDisplayReels([spinResult.reels[0], rndEmoji(), rndEmoji()]);
       setLockedReels([true, false, false]);
       await sleep(300);
-      setDisplayReels([spinResult.reels[0], spinResult.reels[1], randomEmoji()]);
+      setDisplayReels([spinResult.reels[0], spinResult.reels[1], rndEmoji()]);
       setLockedReels([true, true, false]);
       await sleep(300);
       setDisplayReels(spinResult.reels);
       setLockedReels([true, true, true]);
+
+      // Play result sound
+      const isJackpot = spinResult.multiplier >= 10;
+      if (spinResult.net > 0) playSound(isJackpot ? (sounds.jackpot || sounds.win) : sounds.win);
+      else if (spinResult.net === 0) playSound(sounds.twoMatch);
+      else playSound(sounds.loss);
 
       setResult(spinResult);
       setBalance(spinResult.newBalance);
@@ -301,7 +321,7 @@ export const SlotMachinePage: React.FC = () => {
                       {result.net > 0
                         ? `Won ${currencyEmoji} ${result.payout.toLocaleString()} — ${result.multiplier}×`
                         : result.net === 0
-                        ? 'Push — bet returned'
+                        ? 'Two of a kind — coins back'
                         : `Lost ${currencyEmoji} ${bet.toLocaleString()}`}
                     </span>
                   </>
@@ -373,7 +393,7 @@ export const SlotMachinePage: React.FC = () => {
                   Payout table
                 </summary>
                 <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  {[...SYMBOLS].reverse().map(s => (
+                  {[...symbols].reverse().map(s => (
                     <div key={s.emoji} style={{
                       display: 'flex',
                       justifyContent: 'space-between',
@@ -393,7 +413,7 @@ export const SlotMachinePage: React.FC = () => {
                     fontSize: '13px',
                   }}>
                     <span style={{ color: colors.textSecondary }}>Any two matching</span>
-                    <span style={{ color: colors.highlight, fontWeight: 600 }}>Push (bet back)</span>
+                    <span style={{ color: colors.highlight, fontWeight: 600 }}>Two of a kind — coins back</span>
                   </div>
                 </div>
               </details>
