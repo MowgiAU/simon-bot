@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { IPlugin, IPluginContext } from '../types/plugin';
 import { Logger } from '../utils/logger';
 
-const LEADING_SYMBOLS_RE = /^[^a-zA-Z0-9]+/;
+const LEADING_SYMBOLS_RE = /^[^\p{L}\p{N}]+/u;
 
 export class NicknameEnforcerPlugin implements IPlugin {
   id = 'nickname-enforcer';
