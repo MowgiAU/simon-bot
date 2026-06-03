@@ -119,9 +119,8 @@ export const AppStyles = `
     .sidebar-overlay {
       position: fixed;
       inset: 0;
-      background: rgba(0,0,0,0.6);
+      background: rgba(0,0,0,0.75);
       z-index: 999;
-      backdrop-filter: blur(8px);
     }
 
     .dashboard-grid-split {

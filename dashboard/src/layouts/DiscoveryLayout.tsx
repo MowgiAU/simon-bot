@@ -326,9 +326,12 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                     id="main-content"
                     tabIndex={-1}
                     style={{ 
-                        flex: 1, 
-                        overflowY: 'auto', 
-                        backgroundColor: '#161925', 
+                        flex: 1,
+                        overflowY: 'auto',
+                        backgroundColor: '#161925',
+                        // translateZ(0) promotes this element to its own GPU compositing layer,
+                        // preventing scroll de-sync on Android Chrome with fixed siblings.
+                        transform: 'translateZ(0)',
                         paddingBottom: (() => {
                             if (!player.currentTrack) return isMobile ? '72px' : '24px';
                             const collapsed = localStorage.getItem('player_collapsed') === '1';
@@ -336,7 +339,9 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                             return isMobile ? '200px' : '100px';
                         })(),
                         opacity: isMobile && isSidebarOpen ? 0.3 : 1,
-                        filter: isMobile && isSidebarOpen ? 'blur(4px)' : 'none'
+                        // Avoid `filter: none` — even that value hints the browser to create
+                        // a stacking context and can trigger compositing bugs on Android Chrome.
+                        ...(isMobile && isSidebarOpen ? { filter: 'blur(4px)' } : {})
                     }}>
                     {/* Email verification banner — shown to logged-in users with an unverified email */}
                     {user && email && !emailVerified && pathname !== '/account' && (
@@ -475,8 +480,7 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                     onClick={() => setIsPieMenuOpen(false)}
                     style={{
                         position: 'fixed', inset: 0, zIndex: 500,
-                        backgroundColor: 'rgba(10,13,22,0.92)',
-                        backdropFilter: 'blur(14px)',
+                        backgroundColor: 'rgba(10,13,22,0.97)',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                     }}
                 >

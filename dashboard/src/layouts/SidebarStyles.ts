@@ -319,7 +319,7 @@ export const SidebarStyles = `
       width: 280px;
       transform: translateX(-100%);
       box-shadow: 4px 0 24px rgba(0, 0, 0, 0.5);
-      backdrop-filter: blur(20px);
+      /* backdrop-filter removed — causes GPU compositing de-sync on Android Chrome */
     }
 
     .app.sidebar-open .sidebar {
