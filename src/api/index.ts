@@ -441,6 +441,23 @@ function downsamplePeaks(peaks: number[], targetLength = 60): number[] {
 // guildId -> { channels: { data: any, timestamp: number }, roles: { data: any, timestamp: number } }
 // Cache member roles: guildId:userId -> { roles, timestamp }
 const memberRoleCache = new Map<string, { roles: string[], timestamp: number }>();
+
+// --- Slot Machine ---
+const slotCooldowns = new Map<string, number>();
+const SLOT_SYMBOLS = [
+  { emoji: '🎵', weight: 40, multiplier: 3  },
+  { emoji: '🎸', weight: 25, multiplier: 4  },
+  { emoji: '🎹', weight: 20, multiplier: 5  },
+  { emoji: '🎧', weight: 10, multiplier: 7  },
+  { emoji: '💎', weight: 4,  multiplier: 10 },
+  { emoji: '🔥', weight: 1,  multiplier: 20 },
+];
+const SLOT_TOTAL_WEIGHT = SLOT_SYMBOLS.reduce((s, sym) => s + sym.weight, 0);
+function rollReel(): string {
+  let r = Math.random() * SLOT_TOTAL_WEIGHT;
+  for (const sym of SLOT_SYMBOLS) { r -= sym.weight; if (r <= 0) return sym.emoji; }
+  return SLOT_SYMBOLS[SLOT_SYMBOLS.length - 1].emoji;
+}
 const MEMBER_ROLE_CACHE_TTL = 1000 * 60 * 5; // 5 minutes
 
 // Cache for plugin settings to avoid repeated DB lookups in checkPluginAccess
@@ -4434,6 +4451,124 @@ app.get('/api/economy/leaderboard/:guildId', async (req, res) => {
 
     } catch (e) {
         logger.error('Leaderboard fetch failed', e);
+        res.status(500).json({ error: 'Failed' });
+    }
+});
+
+// --- Slot Machine Routes ---
+
+app.get('/api/slots/balance', async (req, res) => {
+    try {
+        const user = req.session.user;
+        if (!user) return res.status(401).json({ error: 'Unauthorized' });
+
+        const discordId = user.id;
+        if (!discordId || discordId === user._localId) {
+            return res.status(403).json({ error: 'Discord account required' });
+        }
+
+        const guildId = process.env.GUILD_ID!;
+        const [account, settings] = await Promise.all([
+            db.economyAccount.findUnique({ where: { guildId_userId: { guildId, userId: discordId } } }),
+            db.economySettings.findUnique({ where: { guildId } }),
+        ]);
+
+        res.json({
+            balance: account?.balance ?? 0,
+            currencyEmoji: settings?.currencyEmoji ?? '🪙',
+            currencyName: settings?.currencyName ?? 'Coins',
+        });
+    } catch (e) {
+        logger.error('Slots balance fetch failed', e);
+        res.status(500).json({ error: 'Failed' });
+    }
+});
+
+app.post('/api/slots/spin', async (req, res) => {
+    try {
+        const user = req.session.user;
+        if (!user) return res.status(401).json({ error: 'Unauthorized' });
+
+        const discordId = user.id;
+        if (!discordId || discordId === user._localId) {
+            return res.status(403).json({ error: 'Discord account required' });
+        }
+
+        const { bet } = req.body;
+        if (!Number.isInteger(bet) || bet < 10) return res.status(400).json({ error: 'Minimum bet is 10 coins' });
+        if (bet > 500) return res.status(400).json({ error: 'Maximum bet is 500 coins' });
+
+        // Cooldown: 3 seconds between spins
+        const lastSpin = slotCooldowns.get(discordId) ?? 0;
+        const elapsed = Date.now() - lastSpin;
+        if (elapsed < 3000) {
+            const retryAfter = Math.ceil((3000 - elapsed) / 1000);
+            return res.status(429).json({ error: 'Spin cooldown active', retryAfter });
+        }
+
+        const guildId = process.env.GUILD_ID!;
+        const [account, settings] = await Promise.all([
+            db.economyAccount.findUnique({ where: { guildId_userId: { guildId, userId: discordId } } }),
+            db.economySettings.findUnique({ where: { guildId } }),
+        ]);
+
+        const balance = account?.balance ?? 0;
+        if (balance < 10) return res.status(400).json({ error: 'Insufficient balance' });
+        if (balance < bet) return res.status(400).json({ error: 'Insufficient balance' });
+
+        // Max bet is half balance (minimum cap 10 so low-balance players can still play)
+        const maxBet = Math.min(500, Math.max(10, Math.floor(balance / 2)));
+        if (bet > maxBet) return res.status(400).json({ error: `Max bet is ${maxBet} coins (half your balance)` });
+
+        // Roll
+        slotCooldowns.set(discordId, Date.now());
+        const reels = [rollReel(), rollReel(), rollReel()];
+
+        let multiplier = 0;
+        let payout = 0;
+        if (reels[0] === reels[1] && reels[1] === reels[2]) {
+            const sym = SLOT_SYMBOLS.find(s => s.emoji === reels[0])!;
+            multiplier = sym.multiplier;
+            payout = Math.min(bet * multiplier, 5000); // hard cap
+        } else if (reels[0] === reels[1] || reels[1] === reels[2] || reels[0] === reels[2]) {
+            multiplier = 1; // push — return bet
+            payout = bet;
+        }
+
+        const net = payout - bet;
+
+        // Update balance atomically
+        const updated = await db.economyAccount.upsert({
+            where: { guildId_userId: { guildId, userId: discordId } },
+            update: {
+                balance: { increment: net },
+                totalEarned: net > 0 ? { increment: net } : undefined,
+            },
+            create: { guildId, userId: discordId, balance: Math.max(0, net) },
+        });
+
+        await db.economyTransaction.create({
+            data: {
+                guildId,
+                amount: net,
+                type: 'SLOTS',
+                reason: `Slots: ${reels.join('')} — ${multiplier > 1 ? `${multiplier}×` : multiplier === 1 ? 'push' : 'loss'}`,
+                toUserId: net > 0 ? discordId : null,
+                fromUserId: net < 0 ? discordId : null,
+            },
+        });
+
+        res.json({
+            reels,
+            payout,
+            multiplier,
+            net,
+            newBalance: updated.balance,
+            currencyEmoji: settings?.currencyEmoji ?? '🪙',
+            currencyName: settings?.currencyName ?? 'Coins',
+        });
+    } catch (e) {
+        logger.error('Slots spin failed', e);
         res.status(500).json({ error: 'Failed' });
     }
 });

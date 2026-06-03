@@ -42,7 +42,7 @@ export class EconomyPlugin implements IPlugin {
 
     configSchema = z.object({});
 
-    commands = ['wallet', 'wealth', 'market', 'buy', 'nick-optout', 'pay', 'use'];
+    commands = ['wallet', 'wealth', 'market', 'buy', 'nick-optout', 'pay', 'use', 'slots'];
 
     private client: any;
     private db: any;
@@ -122,6 +122,7 @@ export class EconomyPlugin implements IPlugin {
         else if (commandName === 'use') await this.handleUse(interaction);
         else if (commandName === 'nick-optout') await this.handleNickOptout(interaction);
         else if (commandName === 'pay') await this.handlePay(interaction);
+        else if (commandName === 'slots') await this.handleSlots(interaction);
     }
 
     /**
@@ -694,6 +695,26 @@ export class EconomyPlugin implements IPlugin {
             executorId: interaction.user.id,
             details: { recipient: recipient.id, amount },
         });
+    }
+
+    private async handleSlots(interaction: ChatInputCommandInteraction): Promise<void> {
+        const settings = await this.getSettings(interaction.guildId!);
+        const account = await this.getAccount(interaction.guildId!, interaction.user.id);
+        await interaction.reply({
+            content: [
+                `${settings.currencyEmoji} **Slot Machine** — your balance: **${account.balance.toLocaleString()} ${settings.currencyName}**`,
+                `Play here: **https://fujistud.io/slots**`,
+            ].join('\n'),
+            flags: MessageFlags.Ephemeral,
+        });
+    }
+
+    async registerCommands(): Promise<any[]> {
+        const { SlashCommandBuilder } = await import('@discordjs/builders');
+        const cmd = new SlashCommandBuilder()
+            .setName('slots')
+            .setDescription('Get a link to the slot machine to spend your coins');
+        return [cmd];
     }
 
     // --- Helpers ---
