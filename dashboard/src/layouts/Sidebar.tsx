@@ -154,479 +154,315 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
           </button>
         </div>
 
-        {/* Bot Management Section */}
+        {/* ── Bot ── */}
         <div className="nav-group">
           <h3 className="nav-group-title"><Bot size={12} style={{ marginRight: 6, verticalAlign: 'middle', opacity: 0.5 }} />Bot</h3>
-          <button
-            className={`nav-item ${activeSection === 'dashboard' ? 'active' : ''}`}
-            onClick={() => onNavigate('dashboard')}
-            title={collapsed ? "Overview" : ""}
-          >
+          <button className={`nav-item ${activeSection === 'dashboard' ? 'active' : ''}`} onClick={() => onNavigate('dashboard')} title={collapsed ? "Overview" : ""}>
             <span className="nav-icon"><AnimatedWrapper icon={LayoutDashboard} size={20} /></span>
             <span className="nav-label">Overview</span>
           </button>
-
-          {permissions.accessiblePlugins.includes('bot-identity') && (
-          <button
-            className={`nav-item ${activeSection === 'bot-identity' ? 'active' : ''}`}
-            onClick={() => onNavigate('bot-identity')}
-            title={collapsed ? "Bot Identity" : ""}
-          >
-            <span className="nav-icon"><AnimatedWrapper icon={UserIcon} size={20} /></span>
-            <span className="nav-label">Bot Identity</span>
-          </button>
-          )}
-
           {permissions.accessiblePlugins.includes('moderation') && (
-          <button
-            className={`nav-item ${activeSection === 'moderation' ? 'active' : ''}`}
-            onClick={() => onNavigate('moderation')}
-            onMouseEnter={() => prefetch('moderation')}
-            title={collapsed ? "Moderation" : ""}
-          >
-            <span className="nav-icon"><AnimatedWrapper icon={ShieldAlert} size={20} /></span>
-            <span className="nav-label">Moderation</span>
-          </button>
-          )}
-
-          {permissions.accessiblePlugins.includes('word-filter') && (
-            <button
-                className={`nav-item ${activeSection === 'word-filter-settings' ? 'active' : ''}`}
-                onClick={() => onNavigate('word-filter-settings')}
-                title={collapsed ? "Word Filter" : ""}
-            >
-                <span className="nav-icon"><AnimatedWrapper icon={Type} size={20} /></span>
-                <span className="nav-label">Word Filter</span>
+            <button className={`nav-item ${activeSection === 'moderation' ? 'active' : ''}`} onClick={() => onNavigate('moderation')} onMouseEnter={() => prefetch('moderation')} title={collapsed ? "Moderation" : ""}>
+              <span className="nav-icon"><AnimatedWrapper icon={ShieldAlert} size={20} /></span>
+              <span className="nav-label">Moderation</span>
             </button>
           )}
-
           {permissions.accessiblePlugins.includes('anti-piracy') && (
-            <button
-                className={`nav-item ${activeSection === 'anti-piracy' ? 'active' : ''}`}
-                onClick={() => onNavigate('anti-piracy')}
-                title={collapsed ? "Anti-Piracy" : ""}
-            >
-                <span className="nav-icon"><AnimatedWrapper icon={ShieldOff} size={20} /></span>
-                <span className="nav-label">Anti-Piracy</span>
+            <button className={`nav-item ${activeSection === 'anti-piracy' ? 'active' : ''}`} onClick={() => onNavigate('anti-piracy')} title={collapsed ? "Anti-Piracy" : ""}>
+              <span className="nav-icon"><AnimatedWrapper icon={ShieldOff} size={20} /></span>
+              <span className="nav-label">Anti-Piracy</span>
             </button>
           )}
-
           {permissions.accessiblePlugins.includes('pause') && (
-            <button
-                className={`nav-item ${activeSection === 'pause' ? 'active' : ''}`}
-                onClick={() => onNavigate('pause')}
-                title={collapsed ? "Pause Command" : ""}
-            >
-                <span className="nav-icon"><AnimatedWrapper icon={Hammer} size={20} /></span>
-                <span className="nav-label">Pause Command</span>
+            <button className={`nav-item ${activeSection === 'pause' ? 'active' : ''}`} onClick={() => onNavigate('pause')} title={collapsed ? "Pause Command" : ""}>
+              <span className="nav-icon"><AnimatedWrapper icon={Hammer} size={20} /></span>
+              <span className="nav-label">Pause Command</span>
             </button>
           )}
-
-          {permissions.accessiblePlugins.includes('slots') && (
-            <button
-                className={`nav-item ${activeSection === 'slots' ? 'active' : ''}`}
-                onClick={() => onNavigate('slots')}
-                title={collapsed ? "Slot Machine" : ""}
-            >
-                <span className="nav-icon"><AnimatedWrapper icon={Dices} size={20} /></span>
-                <span className="nav-label">Slot Machine</span>
+          {(permissions.accessiblePlugins.includes('logger') || permissions.accessiblePlugins.includes('moderation')) && (
+            <button className={`nav-item ${activeSection === 'logs' ? 'active' : ''}`} onClick={() => onNavigate('logs')} onMouseEnter={() => prefetch('logs')} title={collapsed ? "Audit Logs" : ""}>
+              <span className="nav-icon"><AnimatedWrapper icon={ScrollText} size={20} /></span>
+              <span className="nav-label">Audit Logs</span>
             </button>
           )}
+        </div>
 
-          {['leveling', 'economy'].some(p => permissions.accessiblePlugins.includes(p)) && (
-            <button
-                className={`nav-item ${activeSection === 'progression' ? 'active' : ''}`}
-                onClick={() => onNavigate('progression')}
-                title={collapsed ? "Progression" : ""}
-            >
-                <span className="nav-icon"><AnimatedWrapper icon={TrendingUp} size={20} /></span>
-                <span className="nav-label">Progression</span>
-            </button>
-          )}
-
-          {['welcome-gate', 'auto-messages', 'auto-responder', 'channel-rules', 'spam-guard'].some(p => permissions.accessiblePlugins.includes(p)) && (
-            <button
-                className={`nav-item ${activeSection === 'automation' ? 'active' : ''}`}
-                onClick={() => onNavigate('automation')}
-                title={collapsed ? "Automation" : ""}
-            >
+        {/* ── Automation ── */}
+        {['welcome-gate', 'auto-messages', 'auto-responder', 'channel-rules', 'spam-guard', 'word-filter', 'email-client', 'tickets'].some(p => permissions.accessiblePlugins.includes(p)) && (
+          <div className="nav-group">
+            <h3 className="nav-group-title"><Zap size={12} style={{ marginRight: 6, verticalAlign: 'middle', opacity: 0.5 }} />Automation</h3>
+            {['welcome-gate', 'auto-messages', 'auto-responder', 'channel-rules', 'spam-guard'].some(p => permissions.accessiblePlugins.includes(p)) && (
+              <button className={`nav-item ${activeSection === 'automation' ? 'active' : ''}`} onClick={() => onNavigate('automation')} title={collapsed ? "Automation" : ""}>
                 <span className="nav-icon"><AnimatedWrapper icon={Zap} size={20} /></span>
                 <span className="nav-label">Automation</span>
-            </button>
-          )}
-
-
-          {permissions.accessiblePlugins.includes('email-client') && (
-            <button
-                className={`nav-item ${activeSection === 'email-client' ? 'active' : ''}`}
-                onClick={() => onNavigate('email-client')}
-                title={collapsed ? "Email Client" : ""}
-            >
+              </button>
+            )}
+            {permissions.accessiblePlugins.includes('word-filter') && (
+              <button className={`nav-item ${activeSection === 'word-filter-settings' ? 'active' : ''}`} onClick={() => onNavigate('word-filter-settings')} title={collapsed ? "Word Filter" : ""}>
+                <span className="nav-icon"><AnimatedWrapper icon={Type} size={20} /></span>
+                <span className="nav-label">Word Filter</span>
+              </button>
+            )}
+            {permissions.accessiblePlugins.includes('email-client') && (
+              <button className={`nav-item ${activeSection === 'email-client' ? 'active' : ''}`} onClick={() => onNavigate('email-client')} title={collapsed ? "Email Client" : ""}>
                 <span className="nav-icon"><AnimatedWrapper icon={Mail} size={20} /></span>
                 <span className="nav-label">Email Client</span>
-            </button>
-          )}
-
-          {permissions.accessiblePlugins.includes('tickets') && (
-            <button
-                className={`nav-item ${activeSection === 'tickets' ? 'active' : ''}`}
-                onClick={() => onNavigate('tickets')}
-                onMouseEnter={() => prefetch('tickets')}
-                title={collapsed ? "Tickets" : ""}
-            >
+              </button>
+            )}
+            {permissions.accessiblePlugins.includes('tickets') && (
+              <button className={`nav-item ${activeSection === 'tickets' ? 'active' : ''}`} onClick={() => onNavigate('tickets')} onMouseEnter={() => prefetch('tickets')} title={collapsed ? "Tickets" : ""}>
                 <span className="nav-icon"><AnimatedWrapper icon={Ticket} size={20} /></span>
                 <span className="nav-label">Tickets</span>
-            </button>
-          )}
+              </button>
+            )}
+          </div>
+        )}
 
-{permissions.accessiblePlugins.includes('fuji-radio') && (
-            <button
-                className={`nav-item ${activeSection === 'fuji-radio' ? 'active' : ''}`}
-                onClick={() => onNavigate('fuji-radio')}
-                title={collapsed ? "Fuji FM" : ""}
-            >
+        {/* ── Messaging ── */}
+        {['bot-identity', 'fuji-radio', 'track-announcer', 'bot-messenger', 'private-messages'].some(p => permissions.accessiblePlugins.includes(p)) && (
+          <div className="nav-group">
+            <h3 className="nav-group-title"><Send size={12} style={{ marginRight: 6, verticalAlign: 'middle', opacity: 0.5 }} />Messaging</h3>
+            {permissions.accessiblePlugins.includes('bot-identity') && (
+              <button className={`nav-item ${activeSection === 'bot-identity' ? 'active' : ''}`} onClick={() => onNavigate('bot-identity')} title={collapsed ? "Bot Identity" : ""}>
+                <span className="nav-icon"><AnimatedWrapper icon={UserIcon} size={20} /></span>
+                <span className="nav-label">Bot Identity</span>
+              </button>
+            )}
+            {permissions.accessiblePlugins.includes('fuji-radio') && (
+              <button className={`nav-item ${activeSection === 'fuji-radio' ? 'active' : ''}`} onClick={() => onNavigate('fuji-radio')} title={collapsed ? "Fuji FM" : ""}>
                 <span className="nav-icon"><AnimatedWrapper icon={Radio} size={20} /></span>
                 <span className="nav-label">Fuji FM</span>
-            </button>
-          )}
-
-          {permissions.accessiblePlugins.includes('track-announcer') && (
-            <button
-                className={`nav-item ${activeSection === 'track-announcer' ? 'active' : ''}`}
-                onClick={() => onNavigate('track-announcer')}
-                title={collapsed ? "Track Announcer" : ""}
-            >
+              </button>
+            )}
+            {permissions.accessiblePlugins.includes('track-announcer') && (
+              <button className={`nav-item ${activeSection === 'track-announcer' ? 'active' : ''}`} onClick={() => onNavigate('track-announcer')} title={collapsed ? "Track Announcer" : ""}>
                 <span className="nav-icon"><AnimatedWrapper icon={Megaphone} size={20} /></span>
                 <span className="nav-label">Track Announcer</span>
-            </button>
-          )}
-
-          {permissions.accessiblePlugins.includes('academy') && (
-            <button
-                className={`nav-item ${activeSection === 'academy' ? 'active' : ''}`}
-                onClick={() => onNavigate('academy')}
-                title={collapsed ? "Academy" : ""}
-            >
-                <span className="nav-icon"><AnimatedWrapper icon={GraduationCap} size={20} /></span>
-                <span className="nav-label">Academy</span>
-            </button>
-          )}
-
-          {permissions.accessiblePlugins.includes('studio-guide') && (
-            <button
-                className={`nav-item ${activeSection === 'studio-guide' ? 'active' : ''}`}
-                onClick={() => onNavigate('studio-guide')}
-                title={collapsed ? "Studio Guide" : ""}
-            >
-                <span className="nav-icon"><AnimatedWrapper icon={BookOpen} size={20} /></span>
-                <span className="nav-label">Studio Guide</span>
-            </button>
-          )}
-
-          {permissions.accessiblePlugins.includes('bot-messenger') && (
-            <button
-                className={`nav-item ${activeSection === 'bot-messenger' ? 'active' : ''}`}
-                onClick={() => onNavigate('bot-messenger')}
-                title={collapsed ? "Bot Messenger" : ""}
-            >
+              </button>
+            )}
+            {permissions.accessiblePlugins.includes('bot-messenger') && (
+              <button className={`nav-item ${activeSection === 'bot-messenger' ? 'active' : ''}`} onClick={() => onNavigate('bot-messenger')} title={collapsed ? "Bot Messenger" : ""}>
                 <span className="nav-icon"><AnimatedWrapper icon={Send} size={20} /></span>
                 <span className="nav-label">Bot Messenger</span>
-            </button>
-          )}
-
-          {permissions.accessiblePlugins.includes('private-messages') && (
-            <button
-                className={`nav-item ${activeSection === 'private-messages' ? 'active' : ''}`}
-                onClick={() => onNavigate('private-messages')}
-                title={collapsed ? "Private Messages" : ""}
-            >
-                <span className="nav-icon"><AnimatedWrapper icon={Mail} size={20} /></span>
+              </button>
+            )}
+            {permissions.accessiblePlugins.includes('private-messages') && (
+              <button className={`nav-item ${activeSection === 'private-messages' ? 'active' : ''}`} onClick={() => onNavigate('private-messages')} title={collapsed ? "Private Messages" : ""}>
+                <span className="nav-icon"><AnimatedWrapper icon={MessageSquare} size={20} /></span>
                 <span className="nav-label">Private Messages</span>
-            </button>
-          )}
+              </button>
+            )}
+          </div>
+        )}
 
-          {['server-boost', 'booster-color'].some(p => permissions.accessiblePlugins.includes(p)) && (
-            <button
-                className={`nav-item ${activeSection === 'boost' ? 'active' : ''}`}
-                onClick={() => onNavigate('boost')}
-                title={collapsed ? "Boost" : ""}
-            >
+        {/* ── Progression ── */}
+        {['leveling', 'economy', 'slots', 'server-boost', 'booster-color', 'voice-stats', 'stats'].some(p => permissions.accessiblePlugins.includes(p)) && (
+          <div className="nav-group">
+            <h3 className="nav-group-title"><TrendingUp size={12} style={{ marginRight: 6, verticalAlign: 'middle', opacity: 0.5 }} />Progression</h3>
+            {['leveling', 'economy'].some(p => permissions.accessiblePlugins.includes(p)) && (
+              <button className={`nav-item ${activeSection === 'progression' ? 'active' : ''}`} onClick={() => onNavigate('progression')} title={collapsed ? "Progression" : ""}>
+                <span className="nav-icon"><AnimatedWrapper icon={TrendingUp} size={20} /></span>
+                <span className="nav-label">Progression</span>
+              </button>
+            )}
+            {permissions.accessiblePlugins.includes('slots') && (
+              <button className={`nav-item ${activeSection === 'slots' ? 'active' : ''}`} onClick={() => onNavigate('slots')} title={collapsed ? "Slot Machine" : ""}>
+                <span className="nav-icon"><AnimatedWrapper icon={Dices} size={20} /></span>
+                <span className="nav-label">Slot Machine</span>
+              </button>
+            )}
+            {['server-boost', 'booster-color'].some(p => permissions.accessiblePlugins.includes(p)) && (
+              <button className={`nav-item ${activeSection === 'boost' ? 'active' : ''}`} onClick={() => onNavigate('boost')} title={collapsed ? "Boost" : ""}>
                 <span className="nav-icon"><AnimatedWrapper icon={Sparkles} size={20} /></span>
                 <span className="nav-label">Boost</span>
-            </button>
-          )}
-
-          {permissions.accessiblePlugins.includes('voice-stats') && (
-            <button
-                className={`nav-item ${activeSection === 'voice-stats' ? 'active' : ''}`}
-                onClick={() => onNavigate('voice-stats')}
-                title={collapsed ? "Voice Stats" : ""}
-            >
+              </button>
+            )}
+            {permissions.accessiblePlugins.includes('voice-stats') && (
+              <button className={`nav-item ${activeSection === 'voice-stats' ? 'active' : ''}`} onClick={() => onNavigate('voice-stats')} title={collapsed ? "Voice Stats" : ""}>
                 <span className="nav-icon"><AnimatedWrapper icon={BarChart2} size={20} /></span>
                 <span className="nav-label">Voice Stats</span>
-            </button>
-          )}
-
-          {permissions.accessiblePlugins.includes('stats') && (
-            <button
-                className={`nav-item ${activeSection === 'stats' ? 'active' : ''}`}
-                onClick={() => onNavigate('stats')}
-                title={collapsed ? "Server Stats" : ""}
-            >
+              </button>
+            )}
+            {permissions.accessiblePlugins.includes('stats') && (
+              <button className={`nav-item ${activeSection === 'stats' ? 'active' : ''}`} onClick={() => onNavigate('stats')} title={collapsed ? "Server Stats" : ""}>
                 <span className="nav-icon"><AnimatedWrapper icon={BarChart3} size={20} /></span>
                 <span className="nav-label">Server Stats</span>
-            </button>
-          )}
+              </button>
+            )}
+          </div>
+        )}
 
-          {permissions.accessiblePlugins.includes('production-feedback') && (
-            <button
-                className={`nav-item ${activeSection === 'feedback' ? 'active' : ''}`}
-                onClick={() => onNavigate('feedback')}
-                title={collapsed ? "Feedback" : ""}
-            >
+        {/* ── Community ── */}
+        {['academy', 'studio-guide', 'production-feedback'].some(p => permissions.accessiblePlugins.includes(p)) && (
+          <div className="nav-group">
+            <h3 className="nav-group-title"><GraduationCap size={12} style={{ marginRight: 6, verticalAlign: 'middle', opacity: 0.5 }} />Community</h3>
+            {permissions.accessiblePlugins.includes('academy') && (
+              <button className={`nav-item ${activeSection === 'academy' ? 'active' : ''}`} onClick={() => onNavigate('academy')} title={collapsed ? "Academy" : ""}>
+                <span className="nav-icon"><AnimatedWrapper icon={GraduationCap} size={20} /></span>
+                <span className="nav-label">Academy</span>
+              </button>
+            )}
+            {permissions.accessiblePlugins.includes('studio-guide') && (
+              <button className={`nav-item ${activeSection === 'studio-guide' ? 'active' : ''}`} onClick={() => onNavigate('studio-guide')} title={collapsed ? "Studio Guide" : ""}>
+                <span className="nav-icon"><AnimatedWrapper icon={BookOpen} size={20} /></span>
+                <span className="nav-label">Studio Guide</span>
+              </button>
+            )}
+            {permissions.accessiblePlugins.includes('production-feedback') && (
+              <button className={`nav-item ${activeSection === 'feedback' ? 'active' : ''}`} onClick={() => onNavigate('feedback')} title={collapsed ? "Feedback" : ""}>
                 <span className="nav-icon"><AnimatedWrapper icon={MessageSquare} size={20} /></span>
                 <span className="nav-label">Feedback</span>
-            </button>
-          )}
+              </button>
+            )}
+          </div>
+        )}
 
-          {(permissions.accessiblePlugins.includes('logger') || permissions.accessiblePlugins.includes('moderation')) && (
-          <button
-            className={`nav-item ${activeSection === 'logs' ? 'active' : ''}`}
-            onClick={() => onNavigate('logs')}
-            onMouseEnter={() => prefetch('logs')}
-            title={collapsed ? "Audit Logs" : ""}
-          >
-            <span className="nav-icon"><AnimatedWrapper icon={ScrollText} size={20} /></span>
-            <span className="nav-label">Audit Logs</span>
-          </button>
-          )}
-        </div>
-
-        {/* Website Section */}
-        <div className="nav-group">
-          <h3 className="nav-group-title"><Globe size={12} style={{ marginRight: 6, verticalAlign: 'middle', opacity: 0.5 }} />Website</h3>
-          
-          {permissions.accessiblePlugins.includes('musician-profiles') && (
-            <button
-                className={`nav-item ${activeSection === 'musician-profiles-admin' ? 'active' : ''}`}
-                onClick={() => onNavigate('musician-profiles-admin')}
-                title={collapsed ? "Discover & Profiles" : ""}
-            >
-                <span className="nav-icon"><AnimatedWrapper icon={Palette} size={20} /></span>
-                <span className="nav-label">Discover & Profiles</span>
-            </button>
-          )}
-
-          {permissions.accessiblePlugins.includes('musician-profiles') && (
-            <button
-                className={`nav-item ${activeSection === 'plugin-registry' ? 'active' : ''}`}
-                onClick={() => onNavigate('plugin-registry')}
-                title={collapsed ? "Plugin Registry" : ""}
-            >
-                <span className="nav-icon"><AnimatedWrapper icon={Puzzle} size={20} /></span>
-                <span className="nav-label">Plugin Registry</span>
-            </button>
-          )}
-
-          {permissions.accessiblePlugins.includes('profile-styles') && (
-            <button
-                className={`nav-item ${activeSection === 'profile-styles' ? 'active' : ''}`}
-                onClick={() => onNavigate('profile-styles')}
-                title={collapsed ? "Profile Styles" : ""}
-            >
-                <span className="nav-icon"><AnimatedWrapper icon={Palette} size={20} /></span>
-                <span className="nav-label">Profile Styles</span>
-            </button>
-          )}
-
-          {permissions.accessiblePlugins.includes('account-management') && (
-            <button
-                className={`nav-item ${activeSection === 'account-management' ? 'active' : ''}`}
-                onClick={() => onNavigate('account-management')}
-                title={collapsed ? "Accounts" : ""}
-            >
-                <span className="nav-icon"><AnimatedWrapper icon={Users} size={20} /></span>
-                <span className="nav-label">Accounts</span>
-            </button>
-          )}
-
-          {permissions.accessiblePlugins.includes('reports') && (
-            <button
-                className={`nav-item ${activeSection === 'reports' ? 'active' : ''}`}
-                onClick={() => onNavigate('reports')}
-                title={collapsed ? "Reports" : ""}
-            >
-                <span className="nav-icon"><AnimatedWrapper icon={Flag} size={20} /></span>
-                <span className="nav-label">Reports</span>
-            </button>
-          )}
-
-          {permissions.canManagePlugins && (
-            <button
-                className={`nav-item ${activeSection === 'bug-reports' ? 'active' : ''}`}
-                onClick={() => onNavigate('bug-reports')}
-                title={collapsed ? "Bug Reports" : ""}
-            >
-                <span className="nav-icon"><AnimatedWrapper icon={Bug} size={20} /></span>
-                <span className="nav-label">Bug Reports</span>
-            </button>
-          )}
-
-          {permissions.canManagePlugins && (
-            <button
-                className={`nav-item ${activeSection === 'admin-tools' ? 'active' : ''}`}
-                onClick={() => onNavigate('admin-tools')}
-                title={collapsed ? "Admin Tools" : ""}
-            >
-                <span className="nav-icon"><AnimatedWrapper icon={HardDrive} size={20} /></span>
-                <span className="nav-label">Admin Tools</span>
-            </button>
-          )}
-
-          {permissions.canManagePlugins && (
-            <button
-                className={`nav-item ${activeSection === 'activity-logs' ? 'active' : ''}`}
-                onClick={() => onNavigate('activity-logs')}
-                title={collapsed ? "Activity Logs" : ""}
-            >
-                <span className="nav-icon"><AnimatedWrapper icon={Activity} size={20} /></span>
-                <span className="nav-label">Activity Logs</span>
-            </button>
-          )}
-
-          {permissions.canManagePlugins && (
-            <button
-                className={`nav-item ${activeSection === 'vote-fraud' ? 'active' : ''}`}
-                onClick={() => onNavigate('vote-fraud')}
-                title={collapsed ? "Vote Fraud" : ""}
-            >
-                <span className="nav-icon"><AnimatedWrapper icon={ShieldAlert} size={20} /></span>
-                <span className="nav-label">Vote Fraud</span>
-            </button>
-          )}
-
-          {permissions.accessiblePlugins.includes('fuji-studio') && (
-            <button
-                className={`nav-item ${activeSection === 'library' ? 'active' : ''}`}
-                onClick={() => onNavigate('library')}
-                title={collapsed ? "Music Library" : ""}
-            >
-                <span className="nav-icon"><AnimatedWrapper icon={Music} size={20} /></span>
-                <span className="nav-label">Music Library</span>
-            </button>
-          )}
-
-          {permissions.accessiblePlugins.includes('projects') && (
-            <button
-                className="nav-item"
-                onClick={() => navigate('/projects')}
-                title={collapsed ? "Projects" : ""}
-            >
-                <span className="nav-icon"><AnimatedWrapper icon={Layers} size={20} /></span>
-                <span className="nav-label">Projects</span>
-            </button>
-          )}
-
-          {permissions.accessiblePlugins.includes('beat-battle') && (
-            <button
-                className={`nav-item ${activeSection === 'beat-battle' ? 'active' : ''}`}
-                onClick={() => onNavigate('beat-battle')}
-                onMouseEnter={() => prefetch('beat-battle')}
-                title={collapsed ? "Beat Battles" : ""}
-            >
+        {/* ── Battles ── */}
+        {['beat-battle', 'head-to-head', 'drum-kit', 'vote-fraud'].some(p => permissions.accessiblePlugins.includes(p)) && (
+          <div className="nav-group">
+            <h3 className="nav-group-title"><Swords size={12} style={{ marginRight: 6, verticalAlign: 'middle', opacity: 0.5 }} />Battles</h3>
+            {permissions.accessiblePlugins.includes('beat-battle') && (
+              <button className={`nav-item ${activeSection === 'beat-battle' ? 'active' : ''}`} onClick={() => onNavigate('beat-battle')} onMouseEnter={() => prefetch('beat-battle')} title={collapsed ? "Beat Battles" : ""}>
                 <span className="nav-icon"><AnimatedWrapper icon={Swords} size={20} /></span>
                 <span className="nav-label">Beat Battles</span>
-            </button>
-          )}
-
-          {permissions.accessiblePlugins.includes('head-to-head') && (
-            <button
-                className={`nav-item ${activeSection === 'head-to-head' ? 'active' : ''}`}
-                onClick={() => onNavigate('head-to-head')}
-                title={collapsed ? "Head-to-Head" : ""}
-            >
+              </button>
+            )}
+            {permissions.accessiblePlugins.includes('head-to-head') && (
+              <button className={`nav-item ${activeSection === 'head-to-head' ? 'active' : ''}`} onClick={() => onNavigate('head-to-head')} title={collapsed ? "Head-to-Head" : ""}>
                 <span className="nav-icon"><AnimatedWrapper icon={Swords} size={20} /></span>
                 <span className="nav-label">Head-to-Head</span>
-            </button>
-          )}
-
-          {permissions.accessiblePlugins.includes('drum-kit') && (
-            <button
-                className={`nav-item ${activeSection === 'drum-kit' ? 'active' : ''}`}
-                onClick={() => onNavigate('drum-kit')}
-                title={collapsed ? "Drum Kit Generator" : ""}
-            >
+              </button>
+            )}
+            {permissions.accessiblePlugins.includes('drum-kit') && (
+              <button className={`nav-item ${activeSection === 'drum-kit' ? 'active' : ''}`} onClick={() => onNavigate('drum-kit')} title={collapsed ? "Drum Kit Generator" : ""}>
                 <span className="nav-icon"><AnimatedWrapper icon={Drum} size={20} /></span>
                 <span className="nav-label">Drum Kit Generator</span>
-            </button>
-          )}
+              </button>
+            )}
+            {permissions.canManagePlugins && (
+              <button className={`nav-item ${activeSection === 'vote-fraud' ? 'active' : ''}`} onClick={() => onNavigate('vote-fraud')} title={collapsed ? "Vote Fraud" : ""}>
+                <span className="nav-icon"><AnimatedWrapper icon={ShieldAlert} size={20} /></span>
+                <span className="nav-label">Vote Fraud</span>
+              </button>
+            )}
+          </div>
+        )}
 
-          {permissions.accessiblePlugins.includes('articles') && (
-            <button
-                className={`nav-item ${activeSection === 'articles' ? 'active' : ''}`}
-                onClick={() => onNavigate('articles')}
-                title={collapsed ? "Articles" : ""}
-            >
+        {/* ── Content ── */}
+        {['articles', 'article-review'].some(p => permissions.accessiblePlugins.includes(p)) && (
+          <div className="nav-group">
+            <h3 className="nav-group-title"><FileText size={12} style={{ marginRight: 6, verticalAlign: 'middle', opacity: 0.5 }} />Content</h3>
+            {permissions.accessiblePlugins.includes('articles') && (
+              <button className={`nav-item ${activeSection === 'articles' ? 'active' : ''}`} onClick={() => onNavigate('articles')} title={collapsed ? "Articles" : ""}>
                 <span className="nav-icon"><AnimatedWrapper icon={FileText} size={20} /></span>
                 <span className="nav-label">Articles</span>
-            </button>
-          )}
-
-          {permissions.accessiblePlugins.includes('article-review') && (
-            <button
-                className={`nav-item ${activeSection === 'article-review' ? 'active' : ''}`}
-                onClick={() => onNavigate('article-review')}
-                title={collapsed ? "Article Review" : ""}
-            >
+              </button>
+            )}
+            {permissions.accessiblePlugins.includes('article-review') && (
+              <button className={`nav-item ${activeSection === 'article-review' ? 'active' : ''}`} onClick={() => onNavigate('article-review')} title={collapsed ? "Article Review" : ""}>
                 <span className="nav-icon"><AnimatedWrapper icon={ClipboardCheck} size={20} /></span>
                 <span className="nav-label">Article Review</span>
-            </button>
-          )}
-        </div>
+              </button>
+            )}
+          </div>
+        )}
 
-        {/* System Section */}
+        {/* ── Discover & Profiles ── */}
+        {['musician-profiles', 'profile-styles', 'account-management', 'projects', 'fuji-studio'].some(p => permissions.accessiblePlugins.includes(p)) && (
+          <div className="nav-group">
+            <h3 className="nav-group-title"><Globe size={12} style={{ marginRight: 6, verticalAlign: 'middle', opacity: 0.5 }} />Discover & Profiles</h3>
+            {permissions.accessiblePlugins.includes('musician-profiles') && (
+              <button className={`nav-item ${activeSection === 'musician-profiles-admin' ? 'active' : ''}`} onClick={() => onNavigate('musician-profiles-admin')} title={collapsed ? "Discover & Profiles" : ""}>
+                <span className="nav-icon"><AnimatedWrapper icon={Palette} size={20} /></span>
+                <span className="nav-label">Discover & Profiles</span>
+              </button>
+            )}
+            {permissions.accessiblePlugins.includes('musician-profiles') && (
+              <button className={`nav-item ${activeSection === 'plugin-registry' ? 'active' : ''}`} onClick={() => onNavigate('plugin-registry')} title={collapsed ? "Plugin Registry" : ""}>
+                <span className="nav-icon"><AnimatedWrapper icon={Puzzle} size={20} /></span>
+                <span className="nav-label">Plugin Registry</span>
+              </button>
+            )}
+            {permissions.accessiblePlugins.includes('profile-styles') && (
+              <button className={`nav-item ${activeSection === 'profile-styles' ? 'active' : ''}`} onClick={() => onNavigate('profile-styles')} title={collapsed ? "Profile Styles" : ""}>
+                <span className="nav-icon"><AnimatedWrapper icon={Palette} size={20} /></span>
+                <span className="nav-label">Profile Styles</span>
+              </button>
+            )}
+            {permissions.accessiblePlugins.includes('account-management') && (
+              <button className={`nav-item ${activeSection === 'account-management' ? 'active' : ''}`} onClick={() => onNavigate('account-management')} title={collapsed ? "Accounts" : ""}>
+                <span className="nav-icon"><AnimatedWrapper icon={Users} size={20} /></span>
+                <span className="nav-label">Accounts</span>
+              </button>
+            )}
+            {permissions.accessiblePlugins.includes('projects') && (
+              <button className="nav-item" onClick={() => navigate('/projects')} title={collapsed ? "Projects" : ""}>
+                <span className="nav-icon"><AnimatedWrapper icon={Layers} size={20} /></span>
+                <span className="nav-label">Projects</span>
+              </button>
+            )}
+            {permissions.accessiblePlugins.includes('fuji-studio') && (
+              <button className={`nav-item ${activeSection === 'library' ? 'active' : ''}`} onClick={() => onNavigate('library')} title={collapsed ? "Music Library" : ""}>
+                <span className="nav-icon"><AnimatedWrapper icon={Music} size={20} /></span>
+                <span className="nav-label">Music Library</span>
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* ── Reports ── */}
+        {(permissions.accessiblePlugins.includes('reports') || permissions.canManagePlugins) && (
+          <div className="nav-group">
+            <h3 className="nav-group-title"><Flag size={12} style={{ marginRight: 6, verticalAlign: 'middle', opacity: 0.5 }} />Reports</h3>
+            {permissions.accessiblePlugins.includes('reports') && (
+              <button className={`nav-item ${activeSection === 'reports' ? 'active' : ''}`} onClick={() => onNavigate('reports')} title={collapsed ? "Reports" : ""}>
+                <span className="nav-icon"><AnimatedWrapper icon={Flag} size={20} /></span>
+                <span className="nav-label">Reports</span>
+              </button>
+            )}
+            {permissions.canManagePlugins && (
+              <button className={`nav-item ${activeSection === 'bug-reports' ? 'active' : ''}`} onClick={() => onNavigate('bug-reports')} title={collapsed ? "Bug Reports" : ""}>
+                <span className="nav-icon"><AnimatedWrapper icon={Bug} size={20} /></span>
+                <span className="nav-label">Bug Reports</span>
+              </button>
+            )}
+            {permissions.canManagePlugins && (
+              <button className={`nav-item ${activeSection === 'activity-logs' ? 'active' : ''}`} onClick={() => onNavigate('activity-logs')} title={collapsed ? "Activity Logs" : ""}>
+                <span className="nav-icon"><AnimatedWrapper icon={Activity} size={20} /></span>
+                <span className="nav-label">Activity Logs</span>
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* ── System ── */}
         <div className="nav-group">
           <h3 className="nav-group-title">System</h3>
           {permissions.canManagePlugins && (
-          <button
-            className={`nav-item ${activeSection === 'plugins' ? 'active' : ''}`}
-            onClick={() => onNavigate('plugins')}
-            title={collapsed ? "Plugin Management" : ""}
-          >
-            <span className="nav-icon"><AnimatedWrapper icon={Settings} size={18} /></span>
-            <span className="nav-label">Plugin Management</span>
-          </button>
+            <button className={`nav-item ${activeSection === 'plugins' ? 'active' : ''}`} onClick={() => onNavigate('plugins')} title={collapsed ? "Plugin Management" : ""}>
+              <span className="nav-icon"><AnimatedWrapper icon={Settings} size={18} /></span>
+              <span className="nav-label">Plugin Management</span>
+            </button>
           )}
-          <button
-            className={`nav-item ${activeSection === 'database-management' ? 'active' : ''}`}
-            onClick={() => onNavigate('database-management')}
-            title={collapsed ? "Database Management" : ""}
-          >
+          {permissions.canManagePlugins && (
+            <button className={`nav-item ${activeSection === 'admin-tools' ? 'active' : ''}`} onClick={() => onNavigate('admin-tools')} title={collapsed ? "Admin Tools" : ""}>
+              <span className="nav-icon"><AnimatedWrapper icon={HardDrive} size={18} /></span>
+              <span className="nav-label">Admin Tools</span>
+            </button>
+          )}
+          <button className={`nav-item ${activeSection === 'database-management' ? 'active' : ''}`} onClick={() => onNavigate('database-management')} title={collapsed ? "Database Backups" : ""}>
             <span className="nav-icon"><AnimatedWrapper icon={Database} size={18} /></span>
             <span className="nav-label">Database Backups</span>
           </button>
-          <button
-            className={`nav-item ${activeSection === 'docs' ? 'active' : ''}`}
-            onClick={() => onNavigate('docs')}
-            title={collapsed ? "Documentation" : ""}
-          >
+          <button className={`nav-item ${activeSection === 'docs' ? 'active' : ''}`} onClick={() => onNavigate('docs')} title={collapsed ? "Documentation" : ""}>
             <span className="nav-icon"><AnimatedWrapper icon={BookOpen} size={18} /></span>
             <span className="nav-label">Documentation</span>
           </button>
-          <button
-            className={`nav-item ${activeSection === 'page-embeds' ? 'active' : ''}`}
-            onClick={() => onNavigate('page-embeds')}
-            title={collapsed ? "Page Embeds" : ""}
-          >
+          <button className={`nav-item ${activeSection === 'page-embeds' ? 'active' : ''}`} onClick={() => onNavigate('page-embeds')} title={collapsed ? "Page Embeds" : ""}>
             <span className="nav-icon"><AnimatedWrapper icon={Globe} size={18} /></span>
             <span className="nav-label">Page Embeds</span>
           </button>
-          <button
-            className="nav-item"
-            onClick={logout}
-            title={collapsed ? "Logout" : ""}
-            style={{ color: colors.error }}
-          >
+          <button className="nav-item" onClick={logout} title={collapsed ? "Logout" : ""} style={{ color: colors.error }}>
             <span className="nav-icon"><LogOut size={18} /></span>
             <span className="nav-label">Logout</span>
           </button>
