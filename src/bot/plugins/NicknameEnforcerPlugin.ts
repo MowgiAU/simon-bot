@@ -73,7 +73,7 @@ export class NicknameEnforcerPlugin implements IPlugin {
 
         for (const [, member] of members) {
           if (member.user.bot) continue;
-          const displayName = member.nickname ?? member.user.username;
+          const displayName = member.displayName;
           if (!LEADING_SYMBOLS_RE.test(displayName)) continue;
 
           const cleaned = displayName.replace(LEADING_SYMBOLS_RE, '');
@@ -100,7 +100,7 @@ export class NicknameEnforcerPlugin implements IPlugin {
   private async enforce(member: GuildMember): Promise<void> {
     if (!this.context || member.user.bot) return;
 
-    const displayName = member.nickname ?? member.user.username;
+    const displayName = member.displayName;
     if (!LEADING_SYMBOLS_RE.test(displayName)) return;
 
     const cleaned = displayName.replace(LEADING_SYMBOLS_RE, '');
