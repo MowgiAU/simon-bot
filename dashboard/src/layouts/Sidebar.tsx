@@ -15,8 +15,9 @@ import {
   Settings, 
   User as UserIcon,
   LogOut, 
-  ChevronLeft, 
+  ChevronLeft,
   ChevronRight,
+  ChevronDown,
   MessageSquare,
   Mail,
   Ticket,
@@ -56,6 +57,58 @@ import { AnimatedWrapper } from '../components/AnimatedWrapper';
 import logoUrl from '../assets/logo.svg'; 
 
 import { User, Guild } from '../components/AuthProvider';
+
+const GROUPS_KEY = 'fuji_sidebar_groups';
+
+function loadGroupState(): Record<string, boolean> {
+  try { return JSON.parse(localStorage.getItem(GROUPS_KEY) || '{}'); } catch { return {}; }
+}
+
+interface NavGroupProps {
+  id: string;
+  label: string;
+  icon: React.ReactNode;
+  collapsed: boolean; // sidebar-level collapse
+  children: React.ReactNode;
+}
+
+const NavGroup: React.FC<NavGroupProps> = ({ id, label, icon, collapsed: sidebarCollapsed, children }) => {
+  const [open, setOpen] = useState<boolean>(() => {
+    const saved = loadGroupState();
+    return saved[id] !== undefined ? saved[id] : true;
+  });
+
+  const toggle = () => {
+    const next = !open;
+    setOpen(next);
+    try {
+      const saved = loadGroupState();
+      localStorage.setItem(GROUPS_KEY, JSON.stringify({ ...saved, [id]: next }));
+    } catch {}
+  };
+
+  return (
+    <div className="nav-group">
+      <h3
+        className="nav-group-title"
+        onClick={toggle}
+        style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', userSelect: 'none' }}
+      >
+        <span style={{ display: 'flex', alignItems: 'center' }}>
+          {icon}
+          {!sidebarCollapsed && label}
+        </span>
+        {!sidebarCollapsed && (
+          <ChevronDown
+            size={12}
+            style={{ opacity: 0.4, transition: 'transform 0.2s', transform: open ? 'rotate(0deg)' : 'rotate(-90deg)' }}
+          />
+        )}
+      </h3>
+      {open && children}
+    </div>
+  );
+};
 
 interface SidebarProps {
   activeSection: string;
@@ -155,8 +208,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
         </div>
 
         {/* ── Bot ── */}
-        <div className="nav-group">
-          <h3 className="nav-group-title"><Bot size={12} style={{ marginRight: 6, verticalAlign: 'middle', opacity: 0.5 }} />Bot</h3>
+        <NavGroup id="bot" label="Bot" icon={<Bot size={12} style={{ marginRight: 6, verticalAlign: 'middle', opacity: 0.5 }} />} collapsed={collapsed}>
           <button className={`nav-item ${activeSection === 'dashboard' ? 'active' : ''}`} onClick={() => onNavigate('dashboard')} title={collapsed ? "Overview" : ""}>
             <span className="nav-icon"><AnimatedWrapper icon={LayoutDashboard} size={20} /></span>
             <span className="nav-label">Overview</span>
@@ -185,12 +237,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
               <span className="nav-label">Audit Logs</span>
             </button>
           )}
-        </div>
+        </NavGroup>
 
         {/* ── Automation ── */}
         {['welcome-gate', 'auto-messages', 'auto-responder', 'channel-rules', 'spam-guard', 'word-filter', 'email-client', 'tickets'].some(p => permissions.accessiblePlugins.includes(p)) && (
-          <div className="nav-group">
-            <h3 className="nav-group-title"><Zap size={12} style={{ marginRight: 6, verticalAlign: 'middle', opacity: 0.5 }} />Automation</h3>
+          <NavGroup id="automation" label="Automation" icon={<Zap size={12} style={{ marginRight: 6, verticalAlign: 'middle', opacity: 0.5 }} />} collapsed={collapsed}>
             {['welcome-gate', 'auto-messages', 'auto-responder', 'channel-rules', 'spam-guard'].some(p => permissions.accessiblePlugins.includes(p)) && (
               <button className={`nav-item ${activeSection === 'automation' ? 'active' : ''}`} onClick={() => onNavigate('automation')} title={collapsed ? "Automation" : ""}>
                 <span className="nav-icon"><AnimatedWrapper icon={Zap} size={20} /></span>
@@ -215,13 +266,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
                 <span className="nav-label">Tickets</span>
               </button>
             )}
-          </div>
+          </NavGroup>
         )}
 
         {/* ── Messaging ── */}
         {['bot-identity', 'fuji-radio', 'track-announcer', 'bot-messenger', 'private-messages'].some(p => permissions.accessiblePlugins.includes(p)) && (
-          <div className="nav-group">
-            <h3 className="nav-group-title"><Send size={12} style={{ marginRight: 6, verticalAlign: 'middle', opacity: 0.5 }} />Messaging</h3>
+          <NavGroup id="messaging" label="Messaging" icon={<Send size={12} style={{ marginRight: 6, verticalAlign: 'middle', opacity: 0.5 }} />} collapsed={collapsed}>
             {permissions.accessiblePlugins.includes('bot-identity') && (
               <button className={`nav-item ${activeSection === 'bot-identity' ? 'active' : ''}`} onClick={() => onNavigate('bot-identity')} title={collapsed ? "Bot Identity" : ""}>
                 <span className="nav-icon"><AnimatedWrapper icon={UserIcon} size={20} /></span>
@@ -252,13 +302,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
                 <span className="nav-label">Private Messages</span>
               </button>
             )}
-          </div>
+          </NavGroup>
         )}
 
         {/* ── Progression ── */}
         {['leveling', 'economy', 'slots', 'server-boost', 'booster-color', 'voice-stats', 'stats'].some(p => permissions.accessiblePlugins.includes(p)) && (
-          <div className="nav-group">
-            <h3 className="nav-group-title"><TrendingUp size={12} style={{ marginRight: 6, verticalAlign: 'middle', opacity: 0.5 }} />Progression</h3>
+          <NavGroup id="progression" label="Progression" icon={<TrendingUp size={12} style={{ marginRight: 6, verticalAlign: 'middle', opacity: 0.5 }} />} collapsed={collapsed}>
             {['leveling', 'economy'].some(p => permissions.accessiblePlugins.includes(p)) && (
               <button className={`nav-item ${activeSection === 'progression' ? 'active' : ''}`} onClick={() => onNavigate('progression')} title={collapsed ? "Progression" : ""}>
                 <span className="nav-icon"><AnimatedWrapper icon={TrendingUp} size={20} /></span>
@@ -289,13 +338,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
                 <span className="nav-label">Server Stats</span>
               </button>
             )}
-          </div>
+          </NavGroup>
         )}
 
         {/* ── Community ── */}
         {['academy', 'studio-guide', 'production-feedback'].some(p => permissions.accessiblePlugins.includes(p)) && (
-          <div className="nav-group">
-            <h3 className="nav-group-title"><GraduationCap size={12} style={{ marginRight: 6, verticalAlign: 'middle', opacity: 0.5 }} />Community</h3>
+          <NavGroup id="community" label="Community" icon={<GraduationCap size={12} style={{ marginRight: 6, verticalAlign: 'middle', opacity: 0.5 }} />} collapsed={collapsed}>
             {permissions.accessiblePlugins.includes('academy') && (
               <button className={`nav-item ${activeSection === 'academy' ? 'active' : ''}`} onClick={() => onNavigate('academy')} title={collapsed ? "Academy" : ""}>
                 <span className="nav-icon"><AnimatedWrapper icon={GraduationCap} size={20} /></span>
@@ -314,13 +362,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
                 <span className="nav-label">Feedback</span>
               </button>
             )}
-          </div>
+          </NavGroup>
         )}
 
         {/* ── Battles ── */}
-        {['beat-battle', 'head-to-head', 'drum-kit', 'vote-fraud'].some(p => permissions.accessiblePlugins.includes(p)) && (
-          <div className="nav-group">
-            <h3 className="nav-group-title"><Swords size={12} style={{ marginRight: 6, verticalAlign: 'middle', opacity: 0.5 }} />Battles</h3>
+        {(['beat-battle', 'head-to-head', 'drum-kit'].some(p => permissions.accessiblePlugins.includes(p)) || permissions.canManagePlugins) && (
+          <NavGroup id="battles" label="Battles" icon={<Swords size={12} style={{ marginRight: 6, verticalAlign: 'middle', opacity: 0.5 }} />} collapsed={collapsed}>
             {permissions.accessiblePlugins.includes('beat-battle') && (
               <button className={`nav-item ${activeSection === 'beat-battle' ? 'active' : ''}`} onClick={() => onNavigate('beat-battle')} onMouseEnter={() => prefetch('beat-battle')} title={collapsed ? "Beat Battles" : ""}>
                 <span className="nav-icon"><AnimatedWrapper icon={Swords} size={20} /></span>
@@ -345,13 +392,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
                 <span className="nav-label">Vote Fraud</span>
               </button>
             )}
-          </div>
+          </NavGroup>
         )}
 
         {/* ── Content ── */}
         {['articles', 'article-review'].some(p => permissions.accessiblePlugins.includes(p)) && (
-          <div className="nav-group">
-            <h3 className="nav-group-title"><FileText size={12} style={{ marginRight: 6, verticalAlign: 'middle', opacity: 0.5 }} />Content</h3>
+          <NavGroup id="content" label="Content" icon={<FileText size={12} style={{ marginRight: 6, verticalAlign: 'middle', opacity: 0.5 }} />} collapsed={collapsed}>
             {permissions.accessiblePlugins.includes('articles') && (
               <button className={`nav-item ${activeSection === 'articles' ? 'active' : ''}`} onClick={() => onNavigate('articles')} title={collapsed ? "Articles" : ""}>
                 <span className="nav-icon"><AnimatedWrapper icon={FileText} size={20} /></span>
@@ -364,13 +410,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
                 <span className="nav-label">Article Review</span>
               </button>
             )}
-          </div>
+          </NavGroup>
         )}
 
         {/* ── Discover & Profiles ── */}
         {['musician-profiles', 'profile-styles', 'account-management', 'projects', 'fuji-studio'].some(p => permissions.accessiblePlugins.includes(p)) && (
-          <div className="nav-group">
-            <h3 className="nav-group-title"><Globe size={12} style={{ marginRight: 6, verticalAlign: 'middle', opacity: 0.5 }} />Discover & Profiles</h3>
+          <NavGroup id="discover" label="Discover & Profiles" icon={<Globe size={12} style={{ marginRight: 6, verticalAlign: 'middle', opacity: 0.5 }} />} collapsed={collapsed}>
             {permissions.accessiblePlugins.includes('musician-profiles') && (
               <button className={`nav-item ${activeSection === 'musician-profiles-admin' ? 'active' : ''}`} onClick={() => onNavigate('musician-profiles-admin')} title={collapsed ? "Discover & Profiles" : ""}>
                 <span className="nav-icon"><AnimatedWrapper icon={Palette} size={20} /></span>
@@ -407,13 +452,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
                 <span className="nav-label">Music Library</span>
               </button>
             )}
-          </div>
+          </NavGroup>
         )}
 
         {/* ── Reports ── */}
         {(permissions.accessiblePlugins.includes('reports') || permissions.canManagePlugins) && (
-          <div className="nav-group">
-            <h3 className="nav-group-title"><Flag size={12} style={{ marginRight: 6, verticalAlign: 'middle', opacity: 0.5 }} />Reports</h3>
+          <NavGroup id="reports" label="Reports" icon={<Flag size={12} style={{ marginRight: 6, verticalAlign: 'middle', opacity: 0.5 }} />} collapsed={collapsed}>
             {permissions.accessiblePlugins.includes('reports') && (
               <button className={`nav-item ${activeSection === 'reports' ? 'active' : ''}`} onClick={() => onNavigate('reports')} title={collapsed ? "Reports" : ""}>
                 <span className="nav-icon"><AnimatedWrapper icon={Flag} size={20} /></span>
@@ -432,12 +476,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
                 <span className="nav-label">Activity Logs</span>
               </button>
             )}
-          </div>
+          </NavGroup>
         )}
 
         {/* ── System ── */}
-        <div className="nav-group">
-          <h3 className="nav-group-title">System</h3>
+        <NavGroup id="system" label="System" icon={null} collapsed={collapsed}>
           {permissions.canManagePlugins && (
             <button className={`nav-item ${activeSection === 'plugins' ? 'active' : ''}`} onClick={() => onNavigate('plugins')} title={collapsed ? "Plugin Management" : ""}>
               <span className="nav-icon"><AnimatedWrapper icon={Settings} size={18} /></span>
@@ -466,7 +509,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             <span className="nav-icon"><LogOut size={18} /></span>
             <span className="nav-label">Logout</span>
           </button>
-        </div>
+        </NavGroup>
       </div>
 
       <div className="sidebar-footer">
