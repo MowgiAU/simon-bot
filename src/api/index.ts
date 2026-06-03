@@ -4563,8 +4563,8 @@ app.post('/api/slots/spin', async (req, res) => {
             multiplier = sym.multiplier;
             payout = Math.min(bet * multiplier, 5000); // hard cap
         } else if (reels[0] === reels[1] || reels[1] === reels[2] || reels[0] === reels[2]) {
-            multiplier = 1; // push — return bet
-            payout = bet;
+            multiplier = 1.25; // small win on two matching — keeps players engaged
+            payout = Math.floor(bet * 1.25);
         }
 
         const net = payout - bet;
@@ -4584,7 +4584,7 @@ app.post('/api/slots/spin', async (req, res) => {
                 guildId,
                 amount: net,
                 type: 'SLOTS',
-                reason: `Slots: ${reels.join('')} — ${multiplier > 1 ? `${multiplier}×` : multiplier === 1 ? 'push' : 'loss'}`,
+                reason: `Slots: ${reels.join('')} — ${multiplier > 1 ? `${multiplier}×` : 'loss'}`,
                 toUserId: net > 0 ? discordId : null,
                 fromUserId: net < 0 ? discordId : null,
             },
