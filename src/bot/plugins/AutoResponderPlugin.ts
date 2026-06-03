@@ -32,7 +32,7 @@ export class AutoResponderPlugin implements IPlugin {
 
     requiredPermissions: PermissionResolvable[] = ['SendMessages', 'ViewChannel', 'AddReactions'];
     commands: string[] = [];
-    events: string[] = ['messageCreate'];
+    events: string[] = ['messageCreate', 'messageUpdate'];
     dashboardSections = ['auto-responder'];
     readonly defaultEnabled = true;
 

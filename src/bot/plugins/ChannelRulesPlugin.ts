@@ -31,7 +31,7 @@ export class ChannelRulesPlugin implements IPlugin {
     ];
     
     commands = ['rules']; // Maybe a debug command?
-    events = ['messageCreate', 'interactionCreate'];
+    events = ['messageCreate', 'messageUpdate', 'interactionCreate'];
     dashboardSections = ['channel-rules'];
     defaultEnabled = true;
 

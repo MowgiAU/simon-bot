@@ -450,6 +450,35 @@ export class SimonBot {
       }
     });
 
+    this.client.on('messageUpdate', async (oldMessage, newMessage) => {
+      if (newMessage.author?.bot) return;
+      if (!newMessage.guildId) return;
+      // Skip if content didn't change (e.g. embed unfurl)
+      if (oldMessage.content === newMessage.content) return;
+
+      // Fetch full message if partial
+      const message = newMessage.partial ? await newMessage.fetch().catch(() => null) : newMessage;
+      if (!message || !message.content) return;
+
+      const plugins = this.pluginManager.getEnabled();
+      for (const plugin of plugins) {
+        if (!plugin.events.includes('messageUpdate')) continue;
+        const isEnabled = await this.isPluginEnabled(message.guildId!, plugin.id);
+        if (!isEnabled) continue;
+
+        const p = plugin as any;
+        try {
+          if (typeof p.onMessageCreate === 'function') {
+            await p.onMessageCreate(message);
+          } else if (typeof p.onMessage === 'function') {
+            await p.onMessage(message);
+          }
+        } catch (error) {
+          this.logger.error(`Error in plugin ${plugin.id} messageUpdate handler`, error);
+        }
+      }
+    });
+
     this.client.on('voiceStateUpdate', async (oldState, newState) => {
       this.logger.info(`[voiceStateUpdate] Event fired: user=${newState.member?.user?.tag || 'unknown'} oldChannel=${oldState.channelId} newChannel=${newState.channelId}`);
       const plugins = this.pluginManager.getEnabled();

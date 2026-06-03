@@ -26,7 +26,7 @@ export class WordFilterPlugin implements IPlugin {
   
   requiredPermissions: PermissionResolvable[] = ['ManageMessages', 'SendMessages', 'ManageNicknames'];
   commands = ['filter'];
-  events = ['messageCreate', 'guildMemberAdd', 'guildMemberUpdate'];
+  events = ['messageCreate', 'messageUpdate', 'guildMemberAdd', 'guildMemberUpdate'];
   dashboardSections = ['word-filter-settings', 'word-filter-groups'];
   defaultEnabled = true;
   
