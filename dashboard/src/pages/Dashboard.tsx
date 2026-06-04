@@ -231,7 +231,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ guildId, onNavigate, acces
                 const hasPending = pending > 0;
                 return (
                   <button
-                    onClick={() => onNavigate('production-feedback')}
+                    onClick={() => onNavigate('feedback')}
                     style={{
                       display: 'flex', alignItems: 'center', gap: '16px',
                       background: hasPending ? 'linear-gradient(135deg, rgba(167,139,250,0.12) 0%, rgba(167,139,250,0.05) 100%)' : 'rgba(255,255,255,0.03)',
