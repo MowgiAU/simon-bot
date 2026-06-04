@@ -985,8 +985,8 @@ export const TrackPage: React.FC = () => {
                 {(track.arrangement && (track.arrangement.tracks.some(t => t.clips.length > 0) || track.arrangement.projectInfo)) || track.youtubeUrl ? (
                     <div style={{
                         marginBottom: '24px', borderRadius: '16px', overflow: 'hidden',
-                        border: track.youtubeUrl && videoView === 'video' ? '1px solid rgba(255,0,0,0.2)' : '1px solid rgba(242,123,19,0.2)',
-                        background: track.youtubeUrl && videoView === 'video'
+                        border: track.youtubeUrl && (videoView === 'video' || !track.arrangement) ? '1px solid rgba(255,0,0,0.2)' : '1px solid rgba(242,123,19,0.2)',
+                        background: track.youtubeUrl && (videoView === 'video' || !track.arrangement)
                             ? 'linear-gradient(135deg, rgba(255,0,0,0.06) 0%, rgba(14,18,26,0.95) 100%)'
                             : 'linear-gradient(135deg, rgba(242,123,19,0.06) 0%, rgba(14,18,26,0.95) 50%, rgba(124,58,237,0.04) 100%)',
                     }}>
@@ -999,16 +999,16 @@ export const TrackPage: React.FC = () => {
                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                 <div style={{
                                     width: '40px', height: '40px', borderRadius: '10px',
-                                    background: track.youtubeUrl && videoView === 'video'
+                                    background: track.youtubeUrl && (videoView === 'video' || !track.arrangement)
                                         ? 'linear-gradient(135deg, #ff0000, #cc0000)'
                                         : `linear-gradient(135deg, ${colors.primary}, #E65100)`,
                                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    boxShadow: track.youtubeUrl && videoView === 'video' ? '0 4px 16px rgba(255,0,0,0.4)' : `0 4px 16px ${colors.primary}44`,
+                                    boxShadow: track.youtubeUrl && (videoView === 'video' || !track.arrangement) ? '0 4px 16px rgba(255,0,0,0.4)' : `0 4px 16px ${colors.primary}44`,
                                 }}>
-                                    {track.youtubeUrl && videoView === 'video' ? <Youtube size={20} color="white" /> : <Layers size={20} color="white" />}
+                                    {track.youtubeUrl && (videoView === 'video' || !track.arrangement) ? <Youtube size={20} color="white" /> : <Layers size={20} color="white" />}
                                 </div>
                                 <div>
-                                    {track.youtubeUrl && videoView === 'video' ? (
+                                    {track.youtubeUrl && (videoView === 'video' || !track.arrangement) ? (
                                         <>
                                             <h2 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700 }}>Music Video</h2>
                                             <p style={{ margin: 0, fontSize: '12px', color: colors.textSecondary }}>YouTube · muted, synced to audio</p>
@@ -1132,8 +1132,8 @@ export const TrackPage: React.FC = () => {
                             </div>
                         )}
 
-                        {/* Music video view */}
-                        {track.youtubeUrl && videoView === 'video' && (() => {
+                        {/* Music video view — show when toggled, or always if there's no arrangement */}
+                        {track.youtubeUrl && (videoView === 'video' || !track.arrangement) && (() => {
                             const vid = extractYouTubeId(track.youtubeUrl);
                             return vid ? (
                                 <MemoizedYouTube
