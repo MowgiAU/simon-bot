@@ -200,6 +200,10 @@ export const BattleDetailPage: React.FC = () => {
 
     // Extract battleId from /battles/:id
     const battleId = pathname.split('/').filter(Boolean)[1];
+    // Ref so the fetch effect can check whether we already have data without
+    // adding `battle` as a dependency (which would cause re-fetch loops).
+    const battleRef = useRef<Battle | null>(null);
+    battleRef.current = battle;
 
     // Auto-dismiss vote notification
     useEffect(() => {
@@ -276,11 +280,15 @@ export const BattleDetailPage: React.FC = () => {
 
     useEffect(() => {
         if (!battleId) return;
-        setLoading(true);
+        let isMounted = true;
+        // Only show the loading spinner if we don't already have data (prevents
+        // the loading flash that occurs when navigate() changes battleId after a
+        // cuid→slug redirect, which re-triggers this effect).
+        if (!battleRef.current) setLoading(true);
         fetch(`${API}/api/beat-battle/battles/${battleId}`, { credentials: 'include' })
             .then(r => r.ok ? r.json() : null)
             .then(data => {
-                if (!data) return;
+                if (!data || !isMounted) return;
                 if (Array.isArray(data.entries)) {
                     data.entries = data.entries.map(flattenBattleEntry);
                 }
@@ -291,7 +299,8 @@ export const BattleDetailPage: React.FC = () => {
                 }
             })
             .catch(() => {})
-            .finally(() => setLoading(false));
+            .finally(() => { if (isMounted) setLoading(false); });
+        return () => { isMounted = false; };
     }, [battleId]);
 
     useEffect(() => {
