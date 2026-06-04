@@ -162,25 +162,34 @@ const MemoizedYouTube: React.FC<{
     player: any;
     isPlaying: boolean;
 }> = React.memo(({ videoId, trackId, player, isPlaying }) => {
-    const containerRef = useRef<HTMLDivElement>(null);
+    // wrapperRef is tracked by React; the inner player div is created imperatively
+    // so React never reconciles it away when YouTube replaces it with an iframe.
+    const wrapperRef = useRef<HTMLDivElement>(null);
     const ytRef = useRef<any>(null);
     const currentTimeRef = useRef(0);
     const isPlayingRef = useRef(false);
 
-    // Update refs on every render — no child re-renders triggered
     const isThisTrack = player.currentTrack?.id === trackId;
     currentTimeRef.current = isThisTrack ? player.currentTime : 0;
     isPlayingRef.current = isPlaying && isThisTrack;
 
-    // Mount / unmount the YT player
     useEffect(() => {
         let destroyed = false;
         const init = () => {
-            if (destroyed || !containerRef.current) return;
-            ytRef.current = new window.YT.Player(containerRef.current, {
+            if (destroyed || !wrapperRef.current) return;
+            // Create an unmanaged div for YT to own — React never touches it
+            const playerDiv = document.createElement('div');
+            playerDiv.style.width = '100%';
+            playerDiv.style.height = '100%';
+            wrapperRef.current.appendChild(playerDiv);
+            ytRef.current = new window.YT.Player(playerDiv, {
                 videoId,
+                width: '100%',
+                height: '100%',
                 playerVars: { autoplay: 0, mute: 1, controls: 1, modestbranding: 1, rel: 0, enablejsapi: 1 },
-                events: { onReady: () => ytRef.current?.mute() },
+                events: {
+                    onReady: (e: any) => e.target.mute(),
+                },
             });
         };
         loadYouTubeApi(init);
@@ -188,17 +197,17 @@ const MemoizedYouTube: React.FC<{
             destroyed = true;
             try { ytRef.current?.destroy(); } catch {}
             ytRef.current = null;
+            if (wrapperRef.current) wrapperRef.current.innerHTML = '';
         };
     }, [videoId]);
 
-    // Sync loop: play/pause + seek to match the audio player
     useEffect(() => {
         const interval = setInterval(() => {
             const yt = ytRef.current;
             if (!yt || typeof yt.getPlayerState !== 'function') return;
             try {
                 const shouldPlay = isPlayingRef.current;
-                const state = yt.getPlayerState(); // 1=playing 2=paused
+                const state = yt.getPlayerState();
                 if (shouldPlay && state !== 1 && state !== 3) yt.playVideo();
                 else if (!shouldPlay && state === 1) yt.pauseVideo();
                 if (shouldPlay) {
@@ -212,7 +221,7 @@ const MemoizedYouTube: React.FC<{
 
     return (
         <div style={{ position: 'relative', paddingBottom: '56.25%', height: 0, overflow: 'hidden', borderRadius: '0 0 16px 16px' }}>
-            <div ref={containerRef} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }} />
+            <div ref={wrapperRef} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }} />
         </div>
     );
 });
