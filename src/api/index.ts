@@ -8462,7 +8462,8 @@ app.put('/api/admin/tracks/:trackId', requireAdmin, upload.fields([
 
         const updateData: any = {};
 
-        const { title, description, artist, album, year, bpm, key: musicKey, genreIds } = req.body;
+        const { title, description, artist, album, year, bpm, key: musicKey, genreIds, youtubeUrl: adminYoutubeUrl } = req.body;
+        if (adminYoutubeUrl !== undefined) updateData.youtubeUrl = adminYoutubeUrl || null;
         if (title !== undefined) {
             const cleanTitle = sanitizeDisplayName(title);
             updateData.title = cleanTitle;
