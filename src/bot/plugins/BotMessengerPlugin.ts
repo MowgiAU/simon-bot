@@ -13,6 +13,9 @@ import {
     User,
     PartialUser,
     GuildMember,
+    ButtonBuilder,
+    ButtonStyle,
+    ActionRowBuilder,
 } from 'discord.js';
 import { z } from 'zod';
 import { IPlugin, IPluginContext } from '../types/plugin';
@@ -45,6 +48,13 @@ export class BotMessengerPlugin implements IPlugin {
     private context: IPluginContext | null = null;
     private logger = new Logger('BotMessengerPlugin');
     private db: any;
+
+    // In-memory store for pending whispers: notification message ID → whisper data
+    private pendingWhispers = new Map<string, {
+        content: string;
+        targetUserId: string;
+        senderName: string;
+    }>();
 
     constructor(simonClient?: Client | null) {
         this.simonClient = simonClient ?? null;
@@ -107,7 +117,18 @@ export class BotMessengerPlugin implements IPlugin {
                     )
             );
 
-        return [sendCommand, reactCommand];
+        const whisperCommand = new SlashCommandBuilder()
+            .setName('whisper')
+            .setDescription('Send a private message to a user — only they can read it')
+            .setDefaultMemberPermissions(0x0000000000000020) // MANAGE_GUILD
+            .addUserOption(opt =>
+                opt.setName('user').setDescription('The user to whisper to').setRequired(true)
+            )
+            .addStringOption(opt =>
+                opt.setName('message').setDescription('The private message content').setRequired(true)
+            );
+
+        return [sendCommand, reactCommand, whisperCommand];
     }
 
     async onInteractionCreate(interaction: any): Promise<void> {
@@ -118,6 +139,13 @@ export class BotMessengerPlugin implements IPlugin {
             await this.handleSend(interaction);
         } else if (interaction.commandName === 'react') {
             await this.handleReact(interaction);
+        } else if (interaction.commandName === 'whisper') {
+            await this.handleWhisper(interaction);
+        }
+
+        // Button: user clicking "View Message" on a whisper notification
+        if (interaction.isButton() && interaction.customId === 'whisper_view') {
+            await this.handleWhisperView(interaction);
         }
     }
 
@@ -183,6 +211,90 @@ export class BotMessengerPlugin implements IPlugin {
             this.logger.error(`Failed to react: ${err.message}`);
             await interaction.reply({ content: `Failed to react: ${err.message}`, flags: MessageFlags.Ephemeral });
         }
+    }
+
+    private async handleWhisper(interaction: any): Promise<void> {
+        const target  = interaction.options.getUser('user', true);
+        const content = interaction.options.getString('message', true);
+        const channel = interaction.channel as TextChannel;
+
+        if (!channel || !('send' in channel)) {
+            await interaction.reply({ content: 'Cannot send in this channel.', flags: MessageFlags.Ephemeral });
+            return;
+        }
+
+        if (target.bot) {
+            await interaction.reply({ content: 'You cannot whisper to a bot.', flags: MessageFlags.Ephemeral });
+            return;
+        }
+
+        const senderName = interaction.member?.displayName || interaction.user.username;
+
+        const button = new ButtonBuilder()
+            .setCustomId('whisper_view')
+            .setLabel('📨 View Private Message')
+            .setStyle(ButtonStyle.Secondary);
+
+        const row = new ActionRowBuilder<ButtonBuilder>().addComponents(button);
+
+        try {
+            const notification = await channel.send({
+                content: `📨 <@${target.id}> — you have a private message waiting.`,
+                components: [row],
+            });
+
+            this.pendingWhispers.set(notification.id, {
+                content,
+                targetUserId: target.id,
+                senderName,
+            });
+
+            await interaction.reply({
+                content: `Whisper sent to <@${target.id}>.`,
+                flags: MessageFlags.Ephemeral,
+            });
+        } catch (err: any) {
+            this.logger.error(`Failed to send whisper: ${err.message}`);
+            await interaction.reply({ content: `Failed to send whisper: ${err.message}`, flags: MessageFlags.Ephemeral });
+        }
+    }
+
+    private async handleWhisperView(interaction: any): Promise<void> {
+        const messageId = interaction.message?.id;
+        const whisper = messageId ? this.pendingWhispers.get(messageId) : null;
+
+        if (!whisper) {
+            await interaction.reply({
+                content: '📭 This message has already been read.',
+                flags: MessageFlags.Ephemeral,
+            });
+            return;
+        }
+
+        if (interaction.user.id !== whisper.targetUserId) {
+            await interaction.reply({
+                content: '🔒 This message isn\'t for you.',
+                flags: MessageFlags.Ephemeral,
+            });
+            return;
+        }
+
+        // Deliver the whisper ephemerally then delete the notification
+        await interaction.reply({
+            embeds: [
+                new EmbedBuilder()
+                    .setColor(0x5865F2)
+                    .setTitle('📨 Private Message')
+                    .setDescription(whisper.content)
+                    .setFooter({ text: `From: ${whisper.senderName}` })
+                    .setTimestamp(),
+            ],
+            flags: MessageFlags.Ephemeral,
+        });
+
+        // Remove from store and delete the notification message
+        this.pendingWhispers.delete(messageId);
+        await interaction.message.delete().catch(() => {});
     }
 
     // ─── Reaction Roles ─────────────────────────────────────────────────────────
