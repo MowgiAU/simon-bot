@@ -81,8 +81,9 @@ const BotMessengerPage       = lazy(() => import("./pages/BotMessenger").then(m 
 const PrivateMessagesPage    = lazy(() => import("./pages/PrivateMessages").then(m => ({ default: m.PrivateMessagesPage })));
 const AutoMessagesPage       = lazy(() => import("./pages/AutoMessages").then(m => ({ default: m.AutoMessagesPage })));
 const AutoResponderPage      = lazy(() => import("./pages/AutoResponder").then(m => ({ default: m.AutoResponderPage })));
-const FrontpageEditorialB    = lazy(() => import("./pages/FrontpageEditorialB").then(m => ({ default: m.FrontpageEditorialB })));
 const FrontpageStitch        = lazy(() => import("./pages/FrontpageStitch").then(m => ({ default: m.FrontpageStitch })));
+const FrontpageEditorialB    = lazy(() => import("./pages/FrontpageEditorialB").then(m => ({ default: m.FrontpageEditorialB })));
+const FrontpageVHub          = lazy(() => import("./pages/FrontpageVHub").then(m => ({ default: m.FrontpageVHub })));
 const PausePage              = lazy(() => import("./pages/Pause").then(m => ({ default: m.PausePage })));
 const ServerBoostPage        = lazy(() => import("./pages/ServerBoost").then(m => ({ default: m.ServerBoostPage })));
 const VoiceStatsPage         = lazy(() => import("./pages/VoiceStats").then(m => ({ default: m.VoiceStatsPage })));
@@ -855,11 +856,17 @@ const AppInternal: React.FC = () => {
   }
 
   // Hidden test frontpages — not linked from nav
-  if (currentPath === '/preview/editorial-b') {
+  // alt_a = Stitch (dark neon leaderboard)
+  // alt_b = Editorial B (magazine/news focus)
+  // alt_c = VHub (sidebar hub, deep navy)
+  if (currentPath === '/preview/alt_a') {
+    return <Suspense fallback={<PageSpinner />}><FrontpageStitch /></Suspense>;
+  }
+  if (currentPath === '/preview/alt_b') {
     return <Suspense fallback={<PageSpinner />}><FrontpageEditorialB /></Suspense>;
   }
-  if (currentPath === '/preview/stitch-a') {
-    return <Suspense fallback={<PageSpinner />}><FrontpageStitch /></Suspense>;
+  if (currentPath === '/preview/alt_c') {
+    return <Suspense fallback={<PageSpinner />}><FrontpageVHub /></Suspense>;
   }
 
   // Artist Discovery homepage

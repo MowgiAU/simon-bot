@@ -110,7 +110,7 @@ export const FrontpageStitch: React.FC = () => {
         <DiscoveryLayout activeTab="home">
             {/* dev badge */}
             <div style={{ position: 'fixed', bottom: 16, right: 16, zIndex: 9999, background: NEON, color: BG, fontSize: 10, fontWeight: 700, padding: '4px 10px', borderRadius: 999, letterSpacing: '0.1em', pointerEvents: 'none' }}>
-                STITCH A — TEST
+                ALT_A — TEST
             </div>
 
             <div style={{ background: BG, color: '#fff', fontFamily: 'Inter, sans-serif', minHeight: '100vh', padding: isMobile ? '24px 16px' : '32px 24px', display: 'flex', flexDirection: 'column', gap: 48 }}>

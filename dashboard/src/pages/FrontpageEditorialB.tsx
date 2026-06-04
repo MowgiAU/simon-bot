@@ -118,7 +118,7 @@ export const FrontpageEditorialB: React.FC = () => {
         <DiscoveryLayout activeTab="home">
             {/* ── dev badge ── */}
             <div style={{ position: 'fixed', bottom: 16, right: 16, zIndex: 9999, background: ED.purple, color: '#fff', fontSize: 10, fontWeight: 700, padding: '4px 10px', borderRadius: 999, letterSpacing: '0.1em', pointerEvents: 'none' }}>
-                EDITORIAL B — TEST
+                ALT_B — TEST
             </div>
 
             <div style={{ background: ED.bg, color: ED.text, fontFamily: 'Inter, sans-serif', minHeight: '100vh' }}>
