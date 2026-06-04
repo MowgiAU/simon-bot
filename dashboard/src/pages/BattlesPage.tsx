@@ -407,10 +407,17 @@ export const BattlesPage: React.FC = () => {
                             <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(16,19,29,0.97) 0%, rgba(22,25,37,0.75) 50%, rgba(22,25,37,0.35) 100%)', zIndex: 1 }} />
                             <div style={{ position: 'relative', zIndex: 2, padding: isMobile ? '20px 16px' : '32px 40px' }}>
                                 {/* Status badge */}
-                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: currentBattle.status === 'completed' ? GOLD : currentBattle.status === 'voting' ? ACCENT : '#34D399', fontWeight: 700, fontSize: '11px', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '10px' }}>
-                                    {currentBattle.status === 'completed' ? <Trophy size={13} /> : <Flame size={13} />}
-                                    {currentBattle.status === 'completed' ? 'Battle Ended' : currentBattle.status === 'voting' ? 'Voting Live' : currentBattle.status === 'active' ? 'Submissions Open' : 'Coming Soon'}
-                                </div>
+                                {(() => {
+                                    const votingOver = currentBattle.status === 'completed' || (currentBattle.votingEnd && new Date(currentBattle.votingEnd) < new Date());
+                                    const color = votingOver ? GOLD : currentBattle.status === 'voting' ? ACCENT : '#34D399';
+                                    const label = votingOver ? 'Battle Ended' : currentBattle.status === 'voting' ? 'Voting Live' : currentBattle.status === 'active' ? 'Submissions Open' : 'Coming Soon';
+                                    return (
+                                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color, fontWeight: 700, fontSize: '11px', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '10px' }}>
+                                            {votingOver ? <Trophy size={13} /> : <Flame size={13} />}
+                                            {label}
+                                        </div>
+                                    );
+                                })()}
                                 <div style={{ display: 'flex', alignItems: isMobile ? 'flex-start' : 'flex-end', justifyContent: 'space-between', flexDirection: isMobile ? 'column' : 'row', gap: '16px' }}>
                                     <div style={{ flex: 1 }}>
                                         <Link to={`/battles/${currentBattle.slug || currentBattle.id}`} style={{ textDecoration: 'none' }}>
@@ -438,14 +445,19 @@ export const BattlesPage: React.FC = () => {
                                     </div>
                                     {/* Right side: winner card (completed) or countdown + CTA */}
                                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: isMobile ? 'flex-start' : 'flex-end', gap: '12px', flexShrink: 0 }}>
-                                        {currentBattle.status === 'completed' && (() => {
+                                        {(currentBattle.status === 'completed' || (currentBattle.votingEnd && new Date(currentBattle.votingEnd) < new Date())) && (() => {
                                             const entryPoints = (e: Entry) => (e.firstPlaceVotes ?? 0) * 3 + (e.secondPlaceVotes ?? 0) * 2 + (e.thirdPlaceVotes ?? 0);
                                             const sorted = [...(currentBattle.entries ?? [])].sort((a, b) => entryPoints(b) - entryPoints(a));
                                             const winner = currentBattle.winnerEntryId
                                                 ? (currentBattle.entries ?? []).find(e => e.id === currentBattle.winnerEntryId) ?? sorted[0]
                                                 : sorted[0];
                                             const firstPrize = currentBattle.prizes?.[0];
-                                            if (!winner) return null;
+                                            if (!winner) return (
+                                                <Link to={`/battles/${currentBattle.slug || currentBattle.id}`}
+                                                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '10px 20px', borderRadius: '8px', backgroundColor: `${GOLD}22`, color: GOLD, border: `1px solid ${GOLD}55`, fontWeight: 700, fontSize: '13px', textDecoration: 'none' }}>
+                                                    <Trophy size={14} /> See Full Results
+                                                </Link>
+                                            );
                                             const isPlayingWinner = player.currentTrack?.url === winner.audioUrl && player.isPlaying;
                                             return (
                                                 <div style={{ backgroundColor: 'rgba(255,215,0,0.08)', border: '1px solid rgba(255,215,0,0.25)', borderRadius: '12px', padding: '14px 18px', minWidth: isMobile ? '0' : '260px', maxWidth: '320px' }}>
@@ -474,7 +486,7 @@ export const BattlesPage: React.FC = () => {
                                                 </div>
                                             );
                                         })()}
-                                        {countdown && currentBattle.status !== 'completed' && (
+                                        {countdown && currentBattle.status !== 'completed' && !(currentBattle.votingEnd && new Date(currentBattle.votingEnd) < new Date()) && (
                                             <div style={{ display: 'flex', gap: '6px' }}>
                                                 {[
                                                     { val: countdown.days, label: 'D' },
