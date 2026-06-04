@@ -179,24 +179,21 @@ const MemoizedYouTube: React.FC<{
         return () => window.removeEventListener('message', onMessage);
     }, [onUserPause]);
 
-    // Sync loop: play/pause + drift correction
+    // Sync loop: only reacts to play/pause transitions
+    // We seek once when playback starts (to sync the start position) and then
+    // let the video run freely — no continuous drift correction since it's muted.
     useEffect(() => {
         const interval = setInterval(() => {
             const shouldPlay = isPlayingRef.current;
-            if (shouldPlay !== lastSentPlayState.current) {
-                if (shouldPlay) {
-                    ytCmd('seekTo', [currentTimeRef.current, true], true);
-                    ytCmd('playVideo', [], true);
-                } else {
-                    ytCmd('pauseVideo', [], true);
-                }
-                lastSentPlayState.current = shouldPlay;
-            }
-            // Drift correction — only seek if playing and gap > 2s
+            if (shouldPlay === lastSentPlayState.current) return;
             if (shouldPlay) {
                 ytCmd('seekTo', [currentTimeRef.current, true], true);
+                ytCmd('playVideo', [], true);
+            } else {
+                ytCmd('pauseVideo', [], true);
             }
-        }, 1000);
+            lastSentPlayState.current = shouldPlay;
+        }, 500);
         return () => clearInterval(interval);
     }, [ytCmd]);
 
