@@ -1,4 +1,5 @@
 import {
+    Client,
     Message,
     TextChannel,
     EmbedBuilder,
@@ -37,6 +38,12 @@ export class AutoResponderPlugin implements IPlugin {
     readonly defaultEnabled = true;
 
     configSchema = z.object({});
+
+    private simonClient: Client | null;
+
+    constructor(simonClient?: Client | null) {
+        this.simonClient = simonClient ?? null;
+    }
 
     private context: IPluginContext | null = null;
     private logger = new Logger('AutoResponderPlugin');
@@ -139,6 +146,22 @@ export class AutoResponderPlugin implements IPlugin {
         const categoryMap = new Map<string, any>(categories.map((c: any) => [c.id, c]));
 
         const channelId = msg.channel.id;
+        // Lazily fetch the triggering message through the simon client (for reactions/sends as that bot)
+        let simonMsgFetched = false;
+        let simonMsg: Message | null = null;
+        const getSimonMsg = async (): Promise<Message | null> => {
+            if (!simonMsgFetched) {
+                simonMsgFetched = true;
+                if (this.simonClient) {
+                    const simonChannel = this.simonClient.channels.cache.get(msg.channel.id) as TextChannel | null;
+                    if (simonChannel) {
+                        simonMsg = await simonChannel.messages.fetch(msg.id).catch(() => null);
+                    }
+                }
+            }
+            return simonMsg;
+        };
+
         let textResponseSent = false; // only the first matching rule sends a text/embed reply
 
         // Evaluate global per-user cooldown ONCE before the loop so that rules firing
@@ -233,14 +256,20 @@ export class AutoResponderPlugin implements IPlugin {
                     if (rule.reactionEmoji) {
                         try {
                             const resolved = this.resolveEmoji(rule.reactionEmoji, msg.guild!);
-                            if (resolved) await msg.react(resolved);
+                            if (resolved) {
+                                const sm = await getSimonMsg();
+                                await (sm ?? msg).react(resolved);
+                            }
                         } catch { /* ignore */ }
                     }
                     // Also react with the cooldown-specific emoji if set
                     if (effectiveCooldownReactionEmoji) {
                         try {
                             const resolved = this.resolveEmoji(effectiveCooldownReactionEmoji, msg.guild!);
-                            if (resolved) await msg.react(resolved);
+                            if (resolved) {
+                                const sm = await getSimonMsg();
+                                await (sm ?? msg).react(resolved);
+                            }
                         } catch { /* ignore */ }
                     }
                     continue; // skip text/embed response
@@ -337,7 +366,10 @@ export class AutoResponderPlugin implements IPlugin {
                 if (rule.reactionEmoji) {
                     try {
                         const resolved = this.resolveEmoji(rule.reactionEmoji, msg.guild!);
-                        if (resolved) await msg.react(resolved);
+                        if (resolved) {
+                            const sm = await getSimonMsg();
+                            await (sm ?? msg).react(resolved);
+                        }
                     } catch (reactErr: any) {
                         this.logger.warn(`AutoResponder: failed to react with "${rule.reactionEmoji}": ${reactErr?.message}`);
                     }
@@ -345,7 +377,9 @@ export class AutoResponderPlugin implements IPlugin {
 
                 // Send text/embed response if present (only once per message, not when global cooldown active)
                 if (!textResponseSent && !globalCooldownBlocked && (sendPayload.content || sendPayload.embeds)) {
-                    await (msg.channel as TextChannel).send(sendPayload);
+                    const sm = await getSimonMsg();
+                    const sendChannel = sm ? (sm.channel as TextChannel) : (msg.channel as TextChannel);
+                    await sendChannel.send(sendPayload);
                     textResponseSent = true;
                 } else if (!rule.reactionEmoji && !(sendPayload.content || sendPayload.embeds)) {
                     // No reaction and no response — skip this rule entirely

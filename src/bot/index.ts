@@ -118,9 +118,16 @@ export class SimonBot {
       // Initialize default guild and word filter settings on startup
       await this.initializeDefaults();
 
+      // Login second bot for auto responder if configured
+      if (process.env.SIMON_BOT_TOKEN) {
+        this.simonClient = new Client({ intents: [GatewayIntentBits.Guilds] });
+        await this.simonClient.login(process.env.SIMON_BOT_TOKEN);
+        this.logger.info('Simon Bot (auto responder) logged in to Discord');
+      }
+
       // Load plugins
       const plugins = await this.pluginLoader.loadPlugins();
-      
+
       // For now, manually register the word filter plugin
       this.pluginManager.register(new WordFilterPlugin());
       this.pluginManager.register(new StatsPlugin());
@@ -146,7 +153,7 @@ export class SimonBot {
       this.pluginManager.register(new BoosterColorPlugin());
       this.pluginManager.register(new PrivateMessagesPlugin());
       this.pluginManager.register(new AutoMessagesPlugin());
-      this.pluginManager.register(new AutoResponderPlugin());
+      this.pluginManager.register(new AutoResponderPlugin(this.simonClient));
       this.pluginManager.register(new ServerBoostPlugin());
       this.pluginManager.register(new PausePlugin());
       this.pluginManager.register(new VoiceStatChannelsPlugin());
@@ -680,6 +687,7 @@ export class SimonBot {
     });
   }
 
+  private simonClient: Client | null = null;
   private pluginCache = new Map<string, boolean>();
   private lastProcessedAvatarUrl: string | null = null;
   private lastPresenceSignature: string = '';
@@ -951,6 +959,7 @@ export class SimonBot {
     }
 
     // Disconnect from Discord
+    this.simonClient?.destroy();
     this.client.destroy();
 
     // Disconnect from database
