@@ -3763,6 +3763,12 @@ app.get('/api/guilds/:guildId/stats', async (req, res) => {
       trackCount,
       openReports,
       openBugReports,
+      autoResponderRuleCount,
+      feedbackPending,
+      feedbackPointsAgg,
+      spamGuardSettings,
+      activeBattles,
+      beatMarketSeason,
     ] = await Promise.all([
       // 1. Server Stats History — last 60 days, most recent first so take(60) never clips new data
       db.serverStats.findMany({
@@ -3813,6 +3819,18 @@ app.get('/api/guilds/:guildId/stats', async (req, res) => {
       db.report.count({ where: { status: { in: ['open', 'reviewing'] } } }),
       // 14. Open bug reports
       db.bugReport.count({ where: { status: { not: 'resolved' } } }),
+      // 15. Auto responder active rule count
+      db.autoResponderRule.count({ where: { guildId, enabled: true } }),
+      // 16. Feedback posts pending staff review (AI flagged UNSURE)
+      db.feedbackPost.count({ where: { guildId, aiState: 'UNSURE' } }),
+      // 17. Total feedback points ever awarded
+      db.feedbackPoints.aggregate({ where: { guildId }, _sum: { totalEarned: true } }),
+      // 18. Spam Guard settings
+      db.spamGuardSettings.findUnique({ where: { guildId } }),
+      // 19. Active beat battles
+      db.beatBattle.count({ where: { guildId, status: { in: ['active', 'voting'] } } }),
+      // 20. Placeholder (beat market season omitted — schema migration pending)
+      Promise.resolve(null),
     ]);
 
     const topChannels = topChannelsRaw.map(c => ({
@@ -3860,6 +3878,11 @@ app.get('/api/guilds/:guildId/stats', async (req, res) => {
         filter: { enabled: filterSettings?.enabled || false },
         reports: { open: openReports },
         bugReports: { open: openBugReports },
+        autoResponder: { activeRules: autoResponderRuleCount },
+        feedback: { pending: feedbackPending, totalPointsAwarded: feedbackPointsAgg._sum.totalEarned || 0 },
+        spamGuard: { enabled: spamGuardSettings?.enabled ?? true },
+        beatBattle: { active: activeBattles },
+        beatMarket: { activeSeason: null },
       }
     });
 

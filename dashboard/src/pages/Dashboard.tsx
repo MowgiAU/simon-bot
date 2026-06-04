@@ -4,7 +4,8 @@ import {
 } from 'recharts';
 import {
   MessageSquare, Shield, ShieldAlert, DollarSign, UserPlus, Settings,
-  Users, Mic, Bot, Globe, Music, Headphones, Flag, Mail, Bug, ArrowRight, type LucideIcon
+  Users, Mic, Bot, Globe, Music, Headphones, Flag, Mail, Bug, ArrowRight,
+  Zap, Star, Swords, TrendingUp, type LucideIcon
 } from 'lucide-react';
 import { colors } from '../theme/theme';
 import './Dashboard.css';
@@ -48,6 +49,11 @@ interface DashboardStats {
     filter: { enabled: boolean };
     reports?: { open: number };
     bugReports?: { open: number };
+    autoResponder?: { activeRules: number };
+    feedback?: { pending: number; totalPointsAwarded: number };
+    spamGuard?: { enabled: boolean };
+    beatBattle?: { active: number };
+    beatMarket?: { activeSeason: number | null };
   };
   recentLogs?: Array<{
     id: string;
@@ -135,8 +141,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ guildId, onNavigate, acces
             )}
           </div>
 
-          {/* Attention Cards — Emails + Bug Reports */}
-          {(accessiblePlugins.includes('email-client') || accessiblePlugins.includes('bug-reports')) && (
+          {/* Attention Cards — Emails + Bug Reports + Feedback */}
+          {(accessiblePlugins.includes('email-client') || accessiblePlugins.includes('bug-reports') || accessiblePlugins.includes('production-feedback')) && (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', marginBottom: '24px' }}>
               {accessiblePlugins.includes('email-client') && (() => {
                 const unread = stats?.pluginsData?.email?.unread ?? 0;
@@ -217,6 +223,47 @@ export const Dashboard: React.FC<DashboardProps> = ({ guildId, onNavigate, acces
                       {hasOpen && <div style={{ fontSize: '11px', color: '#fde68a', marginTop: '2px' }}>Needs your attention</div>}
                     </div>
                     <ArrowRight size={16} color={hasOpen ? '#fbbf24' : colors.textTertiary} style={{ flexShrink: 0 }} />
+                  </button>
+                );
+              })()}
+              {accessiblePlugins.includes('production-feedback') && (() => {
+                const pending = stats?.pluginsData?.feedback?.pending ?? 0;
+                const hasPending = pending > 0;
+                return (
+                  <button
+                    onClick={() => onNavigate('production-feedback')}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: '16px',
+                      background: hasPending ? 'linear-gradient(135deg, rgba(167,139,250,0.12) 0%, rgba(167,139,250,0.05) 100%)' : 'rgba(255,255,255,0.03)',
+                      border: hasPending ? '1px solid rgba(167,139,250,0.35)' : '1px solid rgba(255,255,255,0.07)',
+                      borderRadius: '14px', padding: '18px 20px', cursor: 'pointer',
+                      textAlign: 'left', transition: 'all 0.2s', width: '100%',
+                    }}
+                  >
+                    <div style={{
+                      width: '48px', height: '48px', borderRadius: '12px', flexShrink: 0,
+                      background: hasPending ? 'rgba(167,139,250,0.2)' : 'rgba(255,255,255,0.06)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      position: 'relative',
+                    }}>
+                      <Star size={22} color={hasPending ? '#a78bfa' : colors.textSecondary} />
+                      {hasPending && (
+                        <div style={{
+                          position: 'absolute', top: '-4px', right: '-4px',
+                          width: '18px', height: '18px', borderRadius: '50%',
+                          background: '#7c3aed', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: '10px', fontWeight: 700, color: '#fff',
+                        }}>{pending > 9 ? '9+' : pending}</div>
+                      )}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: '13px', color: colors.textSecondary, marginBottom: '2px' }}>Feedback Reviews</div>
+                      <div style={{ fontSize: '22px', fontWeight: 700, color: hasPending ? '#a78bfa' : colors.textPrimary, lineHeight: 1.1 }}>
+                        {pending === 0 ? 'Queue clear' : `${pending} pending`}
+                      </div>
+                      {hasPending && <div style={{ fontSize: '11px', color: '#c4b5fd', marginTop: '2px' }}>AI flagged for staff review</div>}
+                    </div>
+                    <ArrowRight size={16} color={hasPending ? '#a78bfa' : colors.textTertiary} style={{ flexShrink: 0 }} />
                   </button>
                 );
               })()}
@@ -355,6 +402,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ guildId, onNavigate, acces
                 {accessiblePlugins.includes('welcome-gate') && (
                   <StatusRow label="Welcome Gate" active={stats?.pluginsData?.welcome?.enabled} onClick={() => onNavigate('welcome-gate')} />
                 )}
+                {accessiblePlugins.includes('spam-guard') && (
+                  <StatusRow label="Spam Guard" active={stats?.pluginsData?.spamGuard?.enabled} onClick={() => onNavigate('spam-guard')} />
+                )}
                 {accessiblePlugins.includes('tickets') && (
                 <div className="info-row" style={{ cursor: 'pointer' }} onClick={() => onNavigate('tickets')}>
                   <span className="info-label">Open Tickets</span>
@@ -367,12 +417,36 @@ export const Dashboard: React.FC<DashboardProps> = ({ guildId, onNavigate, acces
                   <span className="info-value">{formatNumber(stats?.pluginsData?.economy?.totalBalance || 0)}</span>
                 </div>
                 )}
+                {accessiblePlugins.includes('auto-responder') && (
+                <div className="info-row" style={{ cursor: 'pointer' }} onClick={() => onNavigate('auto-responder')}>
+                  <span className="info-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Zap size={13} /> Auto Responder
+                  </span>
+                  <span className="info-value">{stats?.pluginsData?.autoResponder?.activeRules ?? 0} rules</span>
+                </div>
+                )}
+                {accessiblePlugins.includes('beat-battle') && (stats?.pluginsData?.beatBattle?.active ?? 0) > 0 && (
+                <div className="info-row" style={{ cursor: 'pointer' }} onClick={() => onNavigate('beat-battle')}>
+                  <span className="info-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Swords size={13} /> Beat Battle
+                  </span>
+                  <span className="info-value" style={{ color: colors.primary }}>{stats!.pluginsData!.beatBattle!.active} active</span>
+                </div>
+                )}
+                {accessiblePlugins.includes('beat-market') && stats?.pluginsData?.beatMarket?.activeSeason != null && (
+                <div className="info-row" style={{ cursor: 'pointer' }} onClick={() => onNavigate('beat-market')}>
+                  <span className="info-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <TrendingUp size={13} /> Beat Market
+                  </span>
+                  <span className="info-value">Season {stats.pluginsData!.beatMarket!.activeSeason}</span>
+                </div>
+                )}
                 {(stats?.pluginsData?.reports?.open ?? 0) > 0 && (
                 <div className="info-row" style={{ cursor: 'pointer', borderTop: '1px solid rgba(239,68,68,0.2)', paddingTop: '10px', marginTop: '4px' }} onClick={() => onNavigate('reports')}>
                   <span className="info-label" style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#ef4444' }}>
                     <Flag size={13} /> User Reports
                   </span>
-                  <span className="info-value" style={{ color: '#ef4444', fontWeight: 700 }}>{stats.pluginsData!.reports!.open}</span>
+                  <span className="info-value" style={{ color: '#ef4444', fontWeight: 700 }}>{stats?.pluginsData?.reports?.open}</span>
                 </div>
                 )}
               </div>
@@ -397,6 +471,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ guildId, onNavigate, acces
                   <span className="info-label">Total Bans</span>
                   <span className="info-value">{stats?.totals.bans || 0}</span>
                 </div>
+                {accessiblePlugins.includes('production-feedback') && (
+                <div className="info-row">
+                  <span className="info-label">Feedback Points Awarded</span>
+                  <span className="info-value">{formatNumber(stats?.pluginsData?.feedback?.totalPointsAwarded || 0)}</span>
+                </div>
+                )}
                 <div className="info-row">
                   <span className="info-label">Top Channel</span>
                   <span className="info-value">#{stats?.topChannels?.[0]?.name || '-'}</span>
