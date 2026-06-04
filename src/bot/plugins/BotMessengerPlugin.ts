@@ -1,4 +1,5 @@
 import {
+    Client,
     Message,
     TextChannel,
     PermissionResolvable,
@@ -40,9 +41,14 @@ export class BotMessengerPlugin implements IPlugin {
 
     configSchema = z.object({});
 
+    private simonClient: Client | null;
     private context: IPluginContext | null = null;
     private logger = new Logger('BotMessengerPlugin');
     private db: any;
+
+    constructor(simonClient?: Client | null) {
+        this.simonClient = simonClient ?? null;
+    }
 
     async initialize(context: IPluginContext): Promise<void> {
         this.context = context;
@@ -67,6 +73,14 @@ export class BotMessengerPlugin implements IPlugin {
             )
             .addStringOption(opt =>
                 opt.setName('reply_to').setDescription('Message ID to reply to')
+            )
+            .addStringOption(opt =>
+                opt.setName('bot')
+                    .setDescription('Which bot to send as (default: main bot)')
+                    .addChoices(
+                        { name: 'Main Bot', value: 'main' },
+                        { name: 'Simon Bot', value: 'simon' },
+                    )
             );
 
         const reactCommand = new SlashCommandBuilder()
@@ -83,6 +97,14 @@ export class BotMessengerPlugin implements IPlugin {
                 opt.setName('channel')
                     .setDescription('Channel the message is in (default: current)')
                     .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)
+            )
+            .addStringOption(opt =>
+                opt.setName('bot')
+                    .setDescription('Which bot to react as (default: main bot)')
+                    .addChoices(
+                        { name: 'Main Bot', value: 'main' },
+                        { name: 'Simon Bot', value: 'simon' },
+                    )
             );
 
         return [sendCommand, reactCommand];
@@ -101,8 +123,15 @@ export class BotMessengerPlugin implements IPlugin {
 
     private async handleSend(interaction: any): Promise<void> {
         const content = interaction.options.getString('message', true);
-        const channel = interaction.options.getChannel('channel') || interaction.channel;
+        const channelOption = interaction.options.getChannel('channel') || interaction.channel;
         const replyTo = interaction.options.getString('reply_to');
+        const botChoice = interaction.options.getString('bot') ?? 'main';
+        const useSimon = botChoice === 'simon' && !!this.simonClient;
+
+        // Resolve channel through the appropriate client
+        const channel = useSimon
+            ? (this.simonClient!.channels.cache.get(channelOption?.id ?? channelOption?.id) as TextChannel | null ?? channelOption)
+            : channelOption;
 
         if (!channel || !('send' in channel)) {
             await interaction.reply({ content: 'Invalid channel.', flags: MessageFlags.Ephemeral });
@@ -115,8 +144,9 @@ export class BotMessengerPlugin implements IPlugin {
                 opts.reply = { messageReference: replyTo, failIfNotExists: false };
             }
             const sent = await (channel as TextChannel).send(opts);
+            const botLabel = useSimon ? 'Simon Bot' : 'Main Bot';
             await interaction.reply({
-                content: `Message sent in <#${channel.id}> ([jump](${sent.url}))`,
+                content: `Message sent as **${botLabel}** in <#${channel.id}> ([jump](${sent.url}))`,
                 flags: MessageFlags.Ephemeral,
             });
         } catch (err: any) {
@@ -128,7 +158,13 @@ export class BotMessengerPlugin implements IPlugin {
     private async handleReact(interaction: any): Promise<void> {
         const messageId = interaction.options.getString('message_id', true);
         const emoji = interaction.options.getString('emoji', true);
-        const channel = interaction.options.getChannel('channel') || interaction.channel;
+        const channelOption = interaction.options.getChannel('channel') || interaction.channel;
+        const botChoice = interaction.options.getString('bot') ?? 'main';
+        const useSimon = botChoice === 'simon' && !!this.simonClient;
+
+        const channel = useSimon
+            ? (this.simonClient!.channels.cache.get(channelOption?.id) as TextChannel | null ?? channelOption)
+            : channelOption;
 
         if (!channel || !('messages' in channel)) {
             await interaction.reply({ content: 'Invalid channel.', flags: MessageFlags.Ephemeral });
@@ -138,8 +174,9 @@ export class BotMessengerPlugin implements IPlugin {
         try {
             const msg = await (channel as TextChannel).messages.fetch(messageId);
             await msg.react(emoji);
+            const botLabel = useSimon ? 'Simon Bot' : 'Main Bot';
             await interaction.reply({
-                content: `Reacted with ${emoji} on [message](${msg.url})`,
+                content: `Reacted with ${emoji} as **${botLabel}** on [message](${msg.url})`,
                 flags: MessageFlags.Ephemeral,
             });
         } catch (err: any) {

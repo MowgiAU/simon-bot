@@ -499,17 +499,17 @@ const discordCache = new Map<string, {
 
 const CACHE_RESOURCES_TTL = 1000 * 60 * 5; // 5 minutes cache for channels/roles
 
-const discordReq = async (method: string, path: string, data?: any): Promise<any> => {
+const discordReq = async (method: string, path: string, data?: any, token?: string): Promise<any> => {
     const isGet = method.toLowerCase() === 'get';
     const isChannelList = path.match(/^\/guilds\/\d+\/channels$/);
     const isRoleList = path.match(/^\/guilds\/\d+\/roles$/);
-    
+
     // Check Cache for GET /guilds/:id/channels or roles
     if (isGet && (isChannelList || isRoleList)) {
         const guildId = path.split('/')[2];
         const cacheType = isChannelList ? 'channels' : 'roles';
         const guildCache = discordCache.get(guildId);
-        
+
         if (guildCache?.[cacheType] && (Date.now() - guildCache[cacheType]!.timestamp < CACHE_RESOURCES_TTL)) {
             // logger.info(`[Discord Cache] Hit: ${cacheType} for ${guildId}`);
             return { data: guildCache[cacheType]!.data };
@@ -524,7 +524,7 @@ const discordReq = async (method: string, path: string, data?: any): Promise<any
             const response = await axios({
                 method,
                 url: `https://discord.com/api/v10${path}`,
-                headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` },
+                headers: { Authorization: `Bot ${token || process.env.DISCORD_TOKEN}` },
                 data,
                 timeout: 10000 // 10s timeout
             });
@@ -6165,11 +6165,13 @@ app.post('/api/bot-messenger/:guildId/send', async (req, res) => {
     const { guildId } = req.params;
     if (!hasDashboardAccess(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
 
-    const { channelId, content, embeds, replyTo, stickerId } = req.body;
+    const { channelId, content, embeds, replyTo, stickerId, useSimon } = req.body;
     if (!channelId) return res.status(400).json({ error: 'channelId is required' });
     if (!content && (!embeds || embeds.length === 0) && !stickerId) {
         return res.status(400).json({ error: 'Message must have content, embeds, or a sticker' });
     }
+
+    const botToken = useSimon && process.env.SIMON_BOT_TOKEN ? process.env.SIMON_BOT_TOKEN : undefined;
 
     try {
         const payload: any = {};
@@ -6179,7 +6181,7 @@ app.post('/api/bot-messenger/:guildId/send', async (req, res) => {
         if (replyTo) {
             payload.message_reference = { message_id: replyTo, fail_if_not_exists: false };
         }
-        const response = await discordReq('post', `/channels/${channelId}/messages`, payload);
+        const response = await discordReq('post', `/channels/${channelId}/messages`, payload, botToken);
         res.json(response.data);
     } catch (err: any) {
         logger.error('Failed to send message via messenger', err);
@@ -6193,19 +6195,21 @@ app.post('/api/bot-messenger/:guildId/react', async (req, res) => {
     const { guildId } = req.params;
     if (!hasDashboardAccess(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
 
-    const { channelId, messageId, emoji } = req.body;
+    const { channelId, messageId, emoji, useSimon } = req.body;
     if (!channelId || !messageId || !emoji) {
         return res.status(400).json({ error: 'channelId, messageId, and emoji are required' });
     }
 
+    const botToken = useSimon && process.env.SIMON_BOT_TOKEN ? process.env.SIMON_BOT_TOKEN : undefined;
+
     try {
         // Normalise emoji for Discord's reaction endpoint:
-        // - Custom emoji arrives as "<:name:id>" or "<a:name:id>" ? strip to "name:id"
-        // - Unicode emoji arrives as raw character (e.g. "??") ? use as-is
+        // - Custom emoji arrives as "<:name:id>" or "<a:name:id>" → strip to "name:id"
+        // - Unicode emoji arrives as raw character (e.g. "🔥") → use as-is
         const customMatch = emoji.match(/^<a?:([^:]+):(\d+)>$/);
         const normalised = customMatch ? `${customMatch[1]}:${customMatch[2]}` : emoji;
         const encoded = encodeURIComponent(normalised);
-        await discordReq('put', `/channels/${channelId}/messages/${messageId}/reactions/${encoded}/@me`);
+        await discordReq('put', `/channels/${channelId}/messages/${messageId}/reactions/${encoded}/@me`, undefined, botToken);
         res.json({ success: true });
     } catch (err: any) {
         logger.error('Failed to add reaction', err);

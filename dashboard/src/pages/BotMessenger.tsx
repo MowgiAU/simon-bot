@@ -1175,6 +1175,7 @@ export function BotMessengerPage() {
     const [showStickers, setShowStickers] = useState(false);
     const [sending, setSending] = useState(false);
     const [status, setStatus] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+    const [sendBot, setSendBot] = useState<'main' | 'simon'>('main');
 
     // Embed tab state
     const [embedChannelId, setEmbedChannelId] = useState('');
@@ -1183,6 +1184,7 @@ export function BotMessengerPage() {
     const [embedReplyTo, setEmbedReplyTo] = useState('');
     const [embedSending, setEmbedSending] = useState(false);
     const [embedStatus, setEmbedStatus] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+    const [embedBot, setEmbedBot] = useState<'main' | 'simon'>('main');
 
     // Forum tab state
     const [forumTab, setForumTab] = useState<'new-post' | 'reply'>('new-post');
@@ -1224,6 +1226,7 @@ export function BotMessengerPage() {
                 content: message.trim() || undefined,
                 replyTo: replyTo?.id || undefined,
                 stickerId: selectedSticker?.id || undefined,
+                useSimon: sendBot === 'simon',
             }, { withCredentials: true });
             setMessage('');
             setReplyTo(null);
@@ -1315,6 +1318,7 @@ export function BotMessengerPage() {
                 content: embedContent.trim() || undefined,
                 embeds: [embedPayload],
                 replyTo: embedReplyTo || undefined,
+                useSimon: embedBot === 'simon',
             }, { withCredentials: true });
             setEmbedStatus({ type: 'success', text: 'Embed sent!' });
             setTimeout(() => setEmbedStatus(null), 3000);
@@ -1424,6 +1428,14 @@ export function BotMessengerPage() {
                                 <Sticker size={16} />
                             </button>
                             <div style={{ flex: 1 }} />
+                            {/* Bot selector */}
+                            <div style={{ display: 'flex', background: 'rgba(255,255,255,0.04)', borderRadius: '8px', padding: '2px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                                {(['main', 'simon'] as const).map(bot => (
+                                    <button key={bot} onClick={() => setSendBot(bot)} style={{ padding: '4px 10px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontSize: '11px', fontWeight: 600, background: sendBot === bot ? 'rgba(255,255,255,0.12)' : 'transparent', color: sendBot === bot ? colors.textPrimary : colors.textTertiary, transition: 'all 0.15s' }}>
+                                        {bot === 'main' ? 'Main Bot' : 'Simon Bot'}
+                                    </button>
+                                ))}
+                            </div>
                             <button onClick={handleSendMessage} disabled={sending || (!message.trim() && !selectedSticker) || !channelId}
                                 style={{ ...btnPrimary, opacity: sending || (!message.trim() && !selectedSticker) || !channelId ? 0.5 : 1 }}>
                                 <Send size={16} /> {sending ? 'Sending...' : 'Send'}
@@ -1473,7 +1485,7 @@ export function BotMessengerPage() {
 
                         <EmbedBuilder embed={embed} onChange={setEmbed} guildId={guildId} />
 
-                        <div style={{ display: 'flex', gap: spacing.sm, marginTop: spacing.lg, alignItems: 'center' }}>
+                        <div style={{ display: 'flex', gap: spacing.sm, marginTop: spacing.lg, alignItems: 'center', flexWrap: 'wrap' }}>
                             <button onClick={handleSendEmbed} disabled={embedSending || !embedChannelId}
                                 style={{ ...btnPrimary, opacity: embedSending || !embedChannelId ? 0.5 : 1 }}>
                                 <Send size={16} /> {embedSending ? 'Sending...' : 'Send Embed'}
@@ -1481,6 +1493,15 @@ export function BotMessengerPage() {
                             <button onClick={() => setEmbed({ ...defaultEmbed })} style={btnSecondary}>
                                 <Trash2 size={14} /> Reset
                             </button>
+                            <div style={{ flex: 1 }} />
+                            {/* Bot selector */}
+                            <div style={{ display: 'flex', background: 'rgba(255,255,255,0.04)', borderRadius: '8px', padding: '2px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                                {(['main', 'simon'] as const).map(bot => (
+                                    <button key={bot} onClick={() => setEmbedBot(bot)} style={{ padding: '4px 10px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontSize: '11px', fontWeight: 600, background: embedBot === bot ? 'rgba(255,255,255,0.12)' : 'transparent', color: embedBot === bot ? colors.textPrimary : colors.textTertiary, transition: 'all 0.15s' }}>
+                                        {bot === 'main' ? 'Main Bot' : 'Simon Bot'}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
 
                         {embedStatus && (

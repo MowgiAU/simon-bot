@@ -152,7 +152,7 @@ export class SimonBot {
       this.pluginManager.register(new LevelingPlugin());
       this.pluginManager.register(new FujiRadioPlugin());
       this.pluginManager.register(new StudioGuidePlugin());
-      this.pluginManager.register(new BotMessengerPlugin());
+      this.pluginManager.register(new BotMessengerPlugin(this.simonClient));
       this.pluginManager.register(new BoosterColorPlugin());
       this.pluginManager.register(new PrivateMessagesPlugin());
       this.pluginManager.register(new AutoMessagesPlugin());
