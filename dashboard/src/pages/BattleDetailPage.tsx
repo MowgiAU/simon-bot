@@ -662,6 +662,95 @@ export const BattleDetailPage: React.FC = () => {
                     </div>
                 </section>
 
+                {/* ── PODIUM SPOTLIGHT (Winner Announced) ── */}
+                {isCompleted && firstPlace && (
+                    <section id="winner-spotlight" style={{ maxWidth: '1300px', margin: '0 auto', padding: isMobile ? '0 16px 32px' : '0 24px 48px' }}>
+                        {/* Section heading */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
+                            <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: 'rgba(255,215,0,0.15)', border: '2px solid rgba(255,215,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                <Trophy size={18} color="#FFD700" />
+                            </div>
+                            <div>
+                                <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 700, color: '#FFD700' }}>Battle Results</h2>
+                                <p style={{ margin: '2px 0 0', fontSize: '13px', color: colors.textSecondary }}>Final standings for this battle.</p>
+                            </div>
+                        </div>
+
+                        {/* How votes are tallied */}
+                        <div style={{
+                            backgroundColor: colors.surface,
+                            padding: spacing.md,
+                            borderRadius: borderRadius.md,
+                            marginBottom: spacing.lg,
+                            borderLeft: `4px solid #FFD700`,
+                        }}>
+                            <p style={{ margin: 0, color: colors.textPrimary, fontSize: '13px', lineHeight: 1.5 }}>
+                                <strong>How votes are tallied:</strong> each voter ranks their top 3 entries.
+                                A 1st-place vote is worth <strong>3 pts</strong>, a 2nd-place vote is worth <strong>2 pts</strong>,
+                                and a 3rd-place vote is worth <strong>1 pt</strong>. Final standings are sorted by total points,
+                                with ties broken by most 1st-place votes, then most 2nd-place votes.
+                                If two or more entries tie for 1st place after voting ends, a <strong>sudden-death runoff</strong> is
+                                triggered, voters pick a single winner from the tied entries.
+                            </p>
+                        </div>
+
+                        {/* Podium cards */}
+                        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : secondPlace ? (thirdPlace ? '1fr 1fr 1fr' : '1fr 1fr') : '1fr', gap: '16px' }}>
+                            {([
+                                { entry: firstPlace,  rank: 1, label: '🥇 1st Place', color: '#FFD700', bg: 'rgba(255,215,0,0.08)',  border: 'rgba(255,215,0,0.35)',  glow: 'rgba(255,215,0,0.2)'  },
+                                { entry: secondPlace, rank: 2, label: '🥈 2nd Place', color: '#C0C0C0', bg: 'rgba(192,192,192,0.06)', border: 'rgba(192,192,192,0.3)', glow: 'rgba(192,192,192,0.15)' },
+                                { entry: thirdPlace,  rank: 3, label: '🥉 3rd Place', color: '#CD7F32', bg: 'rgba(205,127,50,0.07)',  border: 'rgba(205,127,50,0.3)', glow: 'rgba(205,127,50,0.15)' },
+                            ] as const).map(({ entry, rank, label, color, bg, border, glow }) => {
+                                if (!entry) return null;
+                                const imgSrc = (entry.coverUrl || entry.avatarUrl);
+                                const imgUrl = imgSrc ? (imgSrc.startsWith('http') ? imgSrc : `${API}${imgSrc}`) : null;
+                                return (
+                                    <div key={entry.id} style={{
+                                        position: 'relative', borderRadius: borderRadius.lg, overflow: 'hidden',
+                                        backgroundColor: bg, border: `1px solid ${border}`,
+                                        boxShadow: rank === 1 ? `0 8px 32px ${glow}` : `0 4px 16px ${glow}`,
+                                        padding: isMobile ? '20px 16px' : '24px 28px',
+                                    }}>
+                                        {/* accent bar */}
+                                        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '3px', background: `linear-gradient(90deg, transparent, ${color}, transparent)` }} />
+                                        <div style={{ fontSize: '11px', fontWeight: 700, color, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '14px' }}>{label}</div>
+                                        <div style={{ display: 'flex', gap: '14px', alignItems: 'flex-start' }}>
+                                            {imgUrl && (
+                                                <div style={{ width: '60px', height: '60px', flexShrink: 0, borderRadius: borderRadius.md, overflow: 'hidden', border: `2px solid ${border}`, boxShadow: `0 0 12px ${glow}` }}>
+                                                    <img src={imgUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                </div>
+                                            )}
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                <Link to={(entry as any).trackRoute || `/battles/entry/${entry.id}`} style={{ fontSize: '16px', fontWeight: 800, color: rank === 1 ? color : colors.textPrimary, textDecoration: 'none', lineHeight: 1.2, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: '4px' }}>
+                                                    {entry.trackTitle}
+                                                </Link>
+                                                <Link to={`/profile/${entry.userId}`} style={{ fontSize: '13px', color, fontWeight: 600, textDecoration: 'none', display: 'block', marginBottom: '8px' }}>
+                                                    <StyledUsername userId={entry.userId} showBadge={false}>@{entry.username}</StyledUsername>
+                                                </Link>
+                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                                                    {isCompleted ? (() => {
+                                                        const pts = entryPoints(entry);
+                                                        return (
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                                                <Flame size={12} color={ACCENT} />
+                                                                <span style={{ fontSize: '12px', fontWeight: 700, color: ACCENT }}>{pts} {pts === 1 ? 'pt' : 'pts'}</span>
+                                                            </div>
+                                                        );
+                                                    })() : <span />}
+                                                    <Link to={(entry as any).trackRoute || `/battles/entry/${entry.id}`}
+                                                        style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 14px', backgroundColor: color, color: '#1a1a1a', borderRadius: '8px', fontWeight: 700, fontSize: '12px', textDecoration: 'none', boxShadow: `0 2px 8px ${glow}` }}>
+                                                        <Play size={11} fill="#1a1a1a" /> Listen
+                                                    </Link>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </section>
+                )}
+
                 {/* ── DESCRIPTION ── */}
                 {battle.description && (
                     <section style={{ maxWidth: '1300px', margin: '0 auto', padding: isMobile ? '24px 16px 32px' : '40px 24px 48px' }}>
@@ -913,95 +1002,6 @@ export const BattleDetailPage: React.FC = () => {
                         </div>
                     </div>
                 </section>
-
-                {/* ── PODIUM SPOTLIGHT ── */}
-                {isCompleted && firstPlace && (
-                    <section id="winner-spotlight" style={{ maxWidth: '1300px', margin: '0 auto', padding: isMobile ? '0 16px 32px' : '0 24px 48px' }}>
-                        {/* Section heading */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
-                            <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: 'rgba(255,215,0,0.15)', border: '2px solid rgba(255,215,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                <Trophy size={18} color="#FFD700" />
-                            </div>
-                            <div>
-                                <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 700, color: '#FFD700' }}>Battle Results</h2>
-                                <p style={{ margin: '2px 0 0', fontSize: '13px', color: colors.textSecondary }}>Final standings for this battle.</p>
-                            </div>
-                        </div>
-
-                        {/* How votes are tallied */}
-                        <div style={{
-                            backgroundColor: colors.surface,
-                            padding: spacing.md,
-                            borderRadius: borderRadius.md,
-                            marginBottom: spacing.lg,
-                            borderLeft: `4px solid #FFD700`,
-                        }}>
-                            <p style={{ margin: 0, color: colors.textPrimary, fontSize: '13px', lineHeight: 1.5 }}>
-                                <strong>How votes are tallied:</strong> each voter ranks their top 3 entries.
-                                A 1st-place vote is worth <strong>3 pts</strong>, a 2nd-place vote is worth <strong>2 pts</strong>,
-                                and a 3rd-place vote is worth <strong>1 pt</strong>. Final standings are sorted by total points,
-                                with ties broken by most 1st-place votes, then most 2nd-place votes.
-                                If two or more entries tie for 1st place after voting ends, a <strong>sudden-death runoff</strong> is
-                                triggered, voters pick a single winner from the tied entries.
-                            </p>
-                        </div>
-
-                        {/* Podium cards */}
-                        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : secondPlace ? (thirdPlace ? '1fr 1fr 1fr' : '1fr 1fr') : '1fr', gap: '16px' }}>
-                            {([
-                                { entry: firstPlace,  rank: 1, label: '🥇 1st Place', color: '#FFD700', bg: 'rgba(255,215,0,0.08)',  border: 'rgba(255,215,0,0.35)',  glow: 'rgba(255,215,0,0.2)'  },
-                                { entry: secondPlace, rank: 2, label: '🥈 2nd Place', color: '#C0C0C0', bg: 'rgba(192,192,192,0.06)', border: 'rgba(192,192,192,0.3)', glow: 'rgba(192,192,192,0.15)' },
-                                { entry: thirdPlace,  rank: 3, label: '🥉 3rd Place', color: '#CD7F32', bg: 'rgba(205,127,50,0.07)',  border: 'rgba(205,127,50,0.3)', glow: 'rgba(205,127,50,0.15)' },
-                            ] as const).map(({ entry, rank, label, color, bg, border, glow }) => {
-                                if (!entry) return null;
-                                const imgSrc = (entry.coverUrl || entry.avatarUrl);
-                                const imgUrl = imgSrc ? (imgSrc.startsWith('http') ? imgSrc : `${API}${imgSrc}`) : null;
-                                return (
-                                    <div key={entry.id} style={{
-                                        position: 'relative', borderRadius: borderRadius.lg, overflow: 'hidden',
-                                        backgroundColor: bg, border: `1px solid ${border}`,
-                                        boxShadow: rank === 1 ? `0 8px 32px ${glow}` : `0 4px 16px ${glow}`,
-                                        padding: isMobile ? '20px 16px' : '24px 28px',
-                                    }}>
-                                        {/* accent bar */}
-                                        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '3px', background: `linear-gradient(90deg, transparent, ${color}, transparent)` }} />
-                                        <div style={{ fontSize: '11px', fontWeight: 700, color, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '14px' }}>{label}</div>
-                                        <div style={{ display: 'flex', gap: '14px', alignItems: 'flex-start' }}>
-                                            {imgUrl && (
-                                                <div style={{ width: '60px', height: '60px', flexShrink: 0, borderRadius: borderRadius.md, overflow: 'hidden', border: `2px solid ${border}`, boxShadow: `0 0 12px ${glow}` }}>
-                                                    <img src={imgUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                                </div>
-                                            )}
-                                            <div style={{ flex: 1, minWidth: 0 }}>
-                                                <Link to={(entry as any).trackRoute || `/battles/entry/${entry.id}`} style={{ fontSize: '16px', fontWeight: 800, color: rank === 1 ? color : colors.textPrimary, textDecoration: 'none', lineHeight: 1.2, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: '4px' }}>
-                                                    {entry.trackTitle}
-                                                </Link>
-                                                <Link to={`/profile/${entry.userId}`} style={{ fontSize: '13px', color, fontWeight: 600, textDecoration: 'none', display: 'block', marginBottom: '8px' }}>
-                                                    <StyledUsername userId={entry.userId} showBadge={false}>@{entry.username}</StyledUsername>
-                                                </Link>
-                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
-                                                    {isCompleted ? (() => {
-                                                        const pts = entryPoints(entry);
-                                                        return (
-                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                                                                <Flame size={12} color={ACCENT} />
-                                                                <span style={{ fontSize: '12px', fontWeight: 700, color: ACCENT }}>{pts} {pts === 1 ? 'pt' : 'pts'}</span>
-                                                            </div>
-                                                        );
-                                                    })() : <span />}
-                                                    <Link to={(entry as any).trackRoute || `/battles/entry/${entry.id}`}
-                                                        style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 14px', backgroundColor: color, color: '#1a1a1a', borderRadius: '8px', fontWeight: 700, fontSize: '12px', textDecoration: 'none', boxShadow: `0 2px 8px ${glow}` }}>
-                                                        <Play size={11} fill="#1a1a1a" /> Listen
-                                                    </Link>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </section>
-                )}
 
                 </div>
                 <div style={{ order: isVotingPhase ? 1 : 2 }}>
