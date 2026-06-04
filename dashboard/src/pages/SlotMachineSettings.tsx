@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { colors, spacing, borderRadius, shadows, typography } from '../theme/theme';
 import { useAuth } from '../components/AuthProvider';
-import { Dices, Save, Upload, Trash2, Play, Plus, RotateCcw, TrendingDown, RefreshCw } from 'lucide-react';
+import { Dices, Save, Upload, Trash2, Play, Plus, RotateCcw, TrendingDown, RefreshCw, Gift } from 'lucide-react';
 
 interface LossEntry {
   discordId: string;
@@ -64,6 +64,10 @@ export const SlotMachineSettings: React.FC = () => {
   const [losses, setLosses] = useState<LossEntry[]>([]);
   const [lossesLoading, setLossesLoading] = useState(false);
   const [potBalance, setPotBalance] = useState<number | null>(null);
+  const [returnTarget, setReturnTarget] = useState<LossEntry | null>(null);
+  const [returnAmount, setReturnAmount] = useState('');
+  const [returning, setReturning] = useState(false);
+  const [returnMsg, setReturnMsg] = useState<{ text: string; ok: boolean } | null>(null);
   const [symbols, setSymbols] = useState<SlotSymbol[]>(DEFAULT_SYMBOLS);
   const [sounds, setSounds] = useState<SlotSounds>({ spin: null, win: null, jackpot: null, twoMatch: null, loss: null });
   const [loading, setLoading] = useState(true);
@@ -191,6 +195,31 @@ export const SlotMachineSettings: React.FC = () => {
   useEffect(() => {
     if (tab === 'losses') fetchLosses();
   }, [tab, guildId]);
+
+  const returnCoins = async () => {
+    if (!guildId || !returnTarget) return;
+    const amount = parseInt(returnAmount);
+    if (!amount || amount < 1) return;
+    setReturning(true);
+    try {
+      const res = await fetch(`/api/economy/vault/${guildId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ userId: returnTarget.discordId, amount, mode: 'add' }),
+      });
+      if (!res.ok) {
+        const d = await res.json();
+        setReturnMsg({ text: d.error ?? 'Failed to return coins.', ok: false });
+      } else {
+        setReturnMsg({ text: `Returned 🪙 ${amount.toLocaleString()} to ${returnTarget.username}`, ok: true });
+        setReturnTarget(null);
+        setReturnAmount('');
+        setTimeout(() => setReturnMsg(null), 4000);
+      }
+    } catch { setReturnMsg({ text: 'Network error.', ok: false }); }
+    finally { setReturning(false); }
+  };
 
   const totalWeight = symbols.reduce((s, sym) => s + (sym.weight || 0), 0);
 
@@ -568,23 +597,23 @@ export const SlotMachineSettings: React.FC = () => {
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 0, border: `1px solid ${colors.border}`, borderRadius: borderRadius.md, overflow: 'hidden' }}>
               {/* Header */}
-              <div style={{ display: 'grid', gridTemplateColumns: '40px 1fr 120px 80px', gap: 12, padding: '10px 16px', background: colors.surfaceLight, borderBottom: `1px solid ${colors.border}` }}>
-                {['#', 'Player', 'Coins Lost', 'Spins'].map(h => (
+              <div style={{ display: 'grid', gridTemplateColumns: '40px 1fr 120px 70px 100px', gap: 12, padding: '10px 16px', background: colors.surfaceLight, borderBottom: `1px solid ${colors.border}` }}>
+                {['#', 'Player', 'Coins Lost', 'Spins', ''].map(h => (
                   <span key={h} style={{ fontSize: '11px', color: colors.textTertiary, textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600 }}>{h}</span>
                 ))}
               </div>
               {losses.map((entry, i) => (
                 <div key={entry.discordId} style={{
-                  display: 'grid', gridTemplateColumns: '40px 1fr 120px 80px', gap: 12,
-                  padding: '12px 16px', alignItems: 'center',
+                  display: 'grid', gridTemplateColumns: '40px 1fr 120px 70px 100px', gap: 12,
+                  padding: '10px 16px', alignItems: 'center',
                   background: i % 2 === 0 ? colors.surface : 'transparent',
                   borderBottom: i < losses.length - 1 ? `1px solid ${colors.border}` : 'none',
                 }}>
                   <span style={{ fontSize: '13px', color: colors.textTertiary, fontWeight: 600 }}>#{i + 1}</span>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
                     {entry.avatar
-                      ? <img src={entry.avatar} alt="" style={{ width: 32, height: 32, borderRadius: '50%', flexShrink: 0 }} />
-                      : <div style={{ width: 32, height: 32, borderRadius: '50%', background: colors.surfaceLight, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14 }}>👤</div>
+                      ? <img src={entry.avatar} alt="" style={{ width: 30, height: 30, borderRadius: '50%', flexShrink: 0 }} />
+                      : <div style={{ width: 30, height: 30, borderRadius: '50%', background: colors.surfaceLight, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13 }}>👤</div>
                     }
                     <span style={{ fontSize: '14px', color: colors.textPrimary, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.username}</span>
                   </div>
@@ -594,8 +623,70 @@ export const SlotMachineSettings: React.FC = () => {
                   <span style={{ fontSize: '13px', color: colors.textSecondary, fontVariantNumeric: 'tabular-nums' }}>
                     {entry.spinsLost.toLocaleString()}
                   </span>
+                  <button
+                    onClick={() => { setReturnTarget(entry); setReturnAmount(String(entry.totalLost)); }}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 5, padding: '6px 10px',
+                      background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.25)',
+                      borderRadius: borderRadius.md, color: colors.primary, fontSize: '12px',
+                      fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap',
+                    }}
+                  >
+                    <Gift size={12} /> Return
+                  </button>
                 </div>
               ))}
+            </div>
+          )}
+
+          {/* Return coins modal */}
+          {returnTarget && (
+            <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+              <div style={{ background: colors.surface, border: `1px solid ${colors.border}`, borderRadius: borderRadius.xl, padding: 28, width: '100%', maxWidth: 420, boxShadow: '0 24px 64px rgba(0,0,0,0.6)' }}>
+                <h3 style={{ margin: '0 0 6px', color: colors.textPrimary }}>Return Coins</h3>
+                <p style={{ margin: '0 0 20px', color: colors.textSecondary, fontSize: 14 }}>
+                  Sending coins to <strong style={{ color: colors.textPrimary }}>{returnTarget.username}</strong> who lost a total of <strong style={{ color: colors.tertiary }}>🪙 {returnTarget.totalLost.toLocaleString()}</strong>.
+                </p>
+
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{ display: 'block', fontSize: 12, color: colors.textTertiary, marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Amount</label>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <input
+                      type="number"
+                      min={1}
+                      value={returnAmount}
+                      onChange={e => setReturnAmount(e.target.value)}
+                      style={{ ...inputStyle, flex: 1 }}
+                      placeholder="Enter amount"
+                    />
+                    <button
+                      onClick={() => setReturnAmount(String(returnTarget.totalLost))}
+                      style={{ padding: '8px 12px', background: colors.surfaceLight, border: `1px solid ${colors.border}`, borderRadius: borderRadius.md, color: colors.textSecondary, fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                    >
+                      All ({returnTarget.totalLost.toLocaleString()})
+                    </button>
+                  </div>
+                </div>
+
+                {returnMsg && (
+                  <div style={{ marginBottom: 14, padding: '8px 12px', borderRadius: borderRadius.md, background: returnMsg.ok ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)', border: `1px solid ${returnMsg.ok ? colors.primary : colors.error}`, color: returnMsg.ok ? colors.primary : colors.error, fontSize: 13 }}>
+                    {returnMsg.text}
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                  <button onClick={() => { setReturnTarget(null); setReturnAmount(''); setReturnMsg(null); }} style={{ padding: '9px 18px', background: colors.surfaceLight, border: `1px solid ${colors.border}`, borderRadius: borderRadius.md, color: colors.textSecondary, fontSize: 14, cursor: 'pointer' }}>
+                    Cancel
+                  </button>
+                  <button
+                    onClick={returnCoins}
+                    disabled={returning || !returnAmount || parseInt(returnAmount) < 1}
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 18px', background: colors.primary, border: 'none', borderRadius: borderRadius.md, color: '#fff', fontSize: 14, fontWeight: 700, cursor: returning ? 'not-allowed' : 'pointer', opacity: returning ? 0.7 : 1 }}
+                  >
+                    <Gift size={14} /> {returning ? 'Sending...' : 'Send Coins'}
+                  </button>
+                </div>
+              </div>
             </div>
           )}
         </div>
