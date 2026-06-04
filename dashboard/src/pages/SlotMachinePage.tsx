@@ -671,6 +671,19 @@ export const SlotMachinePage: React.FC = () => {
                 </div>
               </div>
             )}
+          {/* SFX credit */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 4px' }}>
+            <span style={{ fontSize: 11, color: N.textDim }}>🎧 Sound effects by</span>
+            <a
+              href="https://fujistud.io/profile/seven_dayzys"
+              target="_blank"
+              rel="noreferrer"
+              style={{ fontSize: 11, color: N.green, textDecoration: 'none', fontWeight: 600 }}
+              onMouseEnter={e => (e.currentTarget.style.textDecoration = 'underline')}
+              onMouseLeave={e => (e.currentTarget.style.textDecoration = 'none')}
+            >
+              seven_dayzys
+            </a>
           </div>
         </div>
       </div>
