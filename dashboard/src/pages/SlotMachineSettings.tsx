@@ -228,23 +228,42 @@ export const SlotMachineSettings: React.FC = () => {
     if (!amount || amount < 1) return;
     setReturning(true);
     try {
-      const res = await fetch(`/api/economy/vault/${guildId}`, {
+      const res = await fetch(`/api/slots/return/${guildId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ userId: returnTarget.discordId, amount, mode: 'add' }),
+        body: JSON.stringify({ userId: returnTarget.discordId, amount }),
       });
       if (!res.ok) {
         const d = await res.json();
         setReturnMsg({ text: d.error ?? 'Failed to return coins.', ok: false });
       } else {
         setReturnMsg({ text: `Returned 🪙 ${amount.toLocaleString()} to ${returnTarget.username}`, ok: true });
+        // Remove from list immediately
+        setLosses(prev => prev.filter(l => l.discordId !== returnTarget.discordId));
         setReturnTarget(null);
         setReturnAmount('');
         setTimeout(() => setReturnMsg(null), 4000);
       }
     } catch { setReturnMsg({ text: 'Network error.', ok: false }); }
     finally { setReturning(false); }
+  };
+
+  const markAllReturned = async () => {
+    if (!guildId || losses.length === 0) return;
+    const userIds = losses.map(l => l.discordId);
+    try {
+      const res = await fetch(`/api/slots/mark-returned/${guildId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ userIds }),
+      });
+      if (res.ok) {
+        setLosses([]);
+        showMsg(`Marked ${userIds.length} user${userIds.length !== 1 ? 's' : ''} as settled.`, true);
+      }
+    } catch { showMsg('Network error.', false); }
   };
 
   const totalWeight = symbols.reduce((s, sym) => s + (sym.weight || 0), 0);
@@ -685,14 +704,24 @@ export const SlotMachineSettings: React.FC = () => {
                 </div>
               </div>
             </div>
-            <button
-              onClick={fetchLosses}
-              disabled={lossesLoading}
-              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', background: colors.surface, border: `1px solid ${colors.border}`, borderRadius: borderRadius.md, color: colors.textSecondary, fontSize: '13px', cursor: 'pointer', opacity: lossesLoading ? 0.5 : 1 }}
-            >
-              <RefreshCw size={13} style={{ animation: lossesLoading ? 'spin 1s linear infinite' : 'none' }} />
-              Refresh
-            </button>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {losses.length > 0 && (
+                <button
+                  onClick={markAllReturned}
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', background: 'rgba(16,185,129,0.08)', border: `1px solid rgba(16,185,129,0.3)`, borderRadius: borderRadius.md, color: colors.primary, fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}
+                >
+                  <Gift size={13} /> Mark all settled
+                </button>
+              )}
+              <button
+                onClick={fetchLosses}
+                disabled={lossesLoading}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', background: colors.surface, border: `1px solid ${colors.border}`, borderRadius: borderRadius.md, color: colors.textSecondary, fontSize: '13px', cursor: 'pointer', opacity: lossesLoading ? 0.5 : 1 }}
+              >
+                <RefreshCw size={13} style={{ animation: lossesLoading ? 'spin 1s linear infinite' : 'none' }} />
+                Refresh
+              </button>
+            </div>
           </div>
 
           {/* Table */}

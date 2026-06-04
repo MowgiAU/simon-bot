@@ -4664,40 +4664,54 @@ app.get('/api/slots/pot/:guildId', async (req, res) => {
     }
 });
 
-// Slot losses leaderboard (admin)
+// Slot losses leaderboard (admin) — only counts losses since each user's last return
 app.get('/api/slots/losses/:guildId', async (req, res) => {
     try {
         const { guildId } = req.params;
         if (!await checkPluginAccess(guildId, req, 'slots')) return res.status(403).json({ error: 'Forbidden' });
 
-        // Gross losses per user (losing spins only)
-        const lossRows = await db.economyTransaction.groupBy({
-            by: ['fromUserId'],
+        // Get the most recent return timestamp per user
+        const lastReturns = await db.slotReturn.findMany({
+            where: { guildId },
+            orderBy: { returnedAt: 'desc' },
+            distinct: ['userId'],
+            select: { userId: true, returnedAt: true },
+        });
+        const lastReturnByUser = new Map(lastReturns.map(r => [r.userId, r.returnedAt]));
+
+        // Get all users who ever had a losing spin
+        const allLossUsers = await db.economyTransaction.findMany({
             where: { guildId, type: 'SLOTS', amount: { lt: 0 }, fromUserId: { not: null } },
-            _sum: { amount: true },
-            _count: { _all: true },
+            distinct: ['fromUserId'],
+            select: { fromUserId: true },
         });
 
-        // Gross wins per user (winning spins only)
-        const winRows = await db.economyTransaction.groupBy({
-            by: ['toUserId'],
-            where: { guildId, type: 'SLOTS', amount: { gt: 0 }, toUserId: { not: null } },
-            _sum: { amount: true },
-        });
+        // For each user, calculate losses/wins only since their last return
+        const userStats = await Promise.all(allLossUsers.map(async ({ fromUserId }) => {
+            const userId = fromUserId!;
+            const since = lastReturnByUser.get(userId) ?? new Date(0);
 
-        const winsByUser = new Map(winRows.map(r => [r.toUserId!, r._sum.amount ?? 0]));
+            const [lossAgg, winAgg] = await Promise.all([
+                db.economyTransaction.aggregate({
+                    where: { guildId, type: 'SLOTS', amount: { lt: 0 }, fromUserId: userId, createdAt: { gt: since } },
+                    _sum: { amount: true },
+                    _count: { _all: true },
+                }),
+                db.economyTransaction.aggregate({
+                    where: { guildId, type: 'SLOTS', amount: { gt: 0 }, toUserId: userId, createdAt: { gt: since } },
+                    _sum: { amount: true },
+                }),
+            ]);
 
-        // Merge: net loss = gross lost - gross won. Only include users who are net negative.
-        const merged = lossRows
-            .map(row => {
-                const discordId = row.fromUserId!;
-                const grossLost = Math.abs(row._sum.amount ?? 0);
-                const grossWon  = winsByUser.get(discordId) ?? 0;
-                const netLoss   = Math.max(0, grossLost - grossWon);
-                return { discordId, grossLost, grossWon, netLoss, spinsLost: row._count._all };
-            })
+            const grossLost = Math.abs(lossAgg._sum.amount ?? 0);
+            const grossWon  = winAgg._sum.amount ?? 0;
+            const netLoss   = Math.max(0, grossLost - grossWon);
+            return { discordId: userId, grossLost, grossWon, netLoss, spinsLost: lossAgg._count._all };
+        }));
+
+        const merged = userStats
             .filter(r => r.netLoss > 0)
-            .sort((a, b) => b.netLoss - a.netLoss); // highest net loss first
+            .sort((a, b) => b.netLoss - a.netLoss);
 
         // Enrich with Discord user info
         const enriched = await Promise.all(merged.map(async row => {
@@ -4713,13 +4727,61 @@ app.get('/api/slots/losses/:guildId', async (req, res) => {
                     ? `https://cdn.discordapp.com/avatars/${row.discordId}/${r.data.avatar}.png?size=64`
                     : null;
             } catch { /* use ID as fallback */ }
-
             return { ...row, username, avatar };
         }));
 
         res.json(enriched);
     } catch (e) {
         logger.error('Slot losses fetch failed', e);
+        res.status(500).json({ error: 'Failed' });
+    }
+});
+
+// Record a slot coin return (replaces direct vault call from the losses UI)
+app.post('/api/slots/return/:guildId', async (req, res) => {
+    try {
+        const { guildId } = req.params;
+        if (!await checkPluginAccess(guildId, req, 'slots')) return res.status(403).json({ error: 'Forbidden' });
+
+        const { userId, amount } = req.body;
+        if (!userId || !Number.isInteger(amount) || amount < 1) return res.status(400).json({ error: 'Invalid request' });
+
+        // Add coins to their balance
+        await db.economyAccount.upsert({
+            where: { guildId_userId: { guildId, userId } },
+            update: { balance: { increment: amount }, totalEarned: { increment: amount } },
+            create: { guildId, userId, balance: amount, totalEarned: amount },
+        });
+        await db.economyTransaction.create({
+            data: { guildId, amount, type: 'ADMIN', reason: 'Slot loss return', toUserId: userId },
+        });
+
+        // Stamp this return so future losses are counted from now
+        await db.slotReturn.create({ data: { guildId, userId, amount } });
+
+        res.json({ ok: true });
+    } catch (e) {
+        logger.error('Slot return failed', e);
+        res.status(500).json({ error: 'Failed' });
+    }
+});
+
+// Mark all current losses as settled (bulk return stamp, no coins transferred)
+app.post('/api/slots/mark-returned/:guildId', async (req, res) => {
+    try {
+        const { guildId } = req.params;
+        if (!await checkPluginAccess(guildId, req, 'slots')) return res.status(403).json({ error: 'Forbidden' });
+
+        const { userIds } = req.body; // array of Discord IDs
+        if (!Array.isArray(userIds) || userIds.length === 0) return res.status(400).json({ error: 'No users provided' });
+
+        await db.slotReturn.createMany({
+            data: userIds.map((userId: string) => ({ guildId, userId, amount: 0 })),
+        });
+
+        res.json({ marked: userIds.length });
+    } catch (e) {
+        logger.error('Slot mark-returned failed', e);
         res.status(500).json({ error: 'Failed' });
     }
 });
