@@ -204,6 +204,14 @@ export const SlotMachineSettings: React.FC = () => {
     finally { setSavingLimits(false); }
   };
 
+  const recalcPot = async () => {
+    if (!guildId) return;
+    try {
+      const res = await fetch(`/api/slots/pot/${guildId}/recalculate`, { method: 'POST', credentials: 'include' });
+      if (res.ok) { const d = await res.json(); setPotBalance(d.balance); showMsg('Pot recalculated from all-time transaction history.', true); }
+    } catch { showMsg('Recalculate failed.', false); }
+  };
+
   const fetchLosses = async () => {
     if (!guildId) return;
     setLossesLoading(true);
@@ -698,13 +706,20 @@ export const SlotMachineSettings: React.FC = () => {
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <TrendingDown size={20} color={colors.tertiary} />
               <div>
-                <div style={{ fontSize: '12px', color: colors.textTertiary, marginBottom: 2 }}>Total Pot (coins lost)</div>
+                <div style={{ fontSize: '12px', color: colors.textTertiary, marginBottom: 2 }}>Net House Pot (losses − payouts)</div>
                 <div style={{ fontSize: '22px', fontWeight: 800, color: colors.textPrimary, fontVariantNumeric: 'tabular-nums' }}>
                   {potBalance === null ? '—' : `🪙 ${potBalance.toLocaleString()}`}
                 </div>
               </div>
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                onClick={recalcPot}
+                title="Recalculate pot from all-time transaction history"
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', background: colors.surface, border: `1px solid ${colors.border}`, borderRadius: borderRadius.md, color: colors.textTertiary, fontSize: '12px', cursor: 'pointer' }}
+              >
+                Recalc Pot
+              </button>
               {losses.length > 0 && (
                 <button
                   onClick={markAllReturned}

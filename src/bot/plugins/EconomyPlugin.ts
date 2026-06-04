@@ -698,15 +698,74 @@ export class EconomyPlugin implements IPlugin {
     }
 
     private async handleSlots(interaction: ChatInputCommandInteraction): Promise<void> {
-        const settings = await this.getSettings(interaction.guildId!);
-        const account = await this.getAccount(interaction.guildId!, interaction.user.id);
-        await interaction.reply({
-            content: [
-                `${settings.currencyEmoji} **Slot Machine** — your balance: **${account.balance.toLocaleString()} ${settings.currencyName}**`,
-                `Play here: **https://fujistud.io/slots**`,
-            ].join('\n'),
-            flags: MessageFlags.Ephemeral,
-        });
+        const guildId = interaction.guildId!;
+        const [settings, account, slotSettings] = await Promise.all([
+            this.getSettings(guildId),
+            this.getAccount(guildId, interaction.user.id),
+            this.db.slotMachineSettings.findUnique({ where: { guildId } }).catch(() => null),
+        ]);
+
+        const balance = account.balance;
+        const maxBet = Math.min(500, Math.max(10, Math.floor(balance / 2)));
+        const em = settings.currencyEmoji;
+
+        const embed = new EmbedBuilder()
+            .setColor(0x10B981)
+            .setTitle('🎰  Fuji Slots')
+            .setURL('https://fujistud.io/slots')
+            .setDescription('Spin the reels and win big — or walk away with a little extra. Your server coins, real stakes.')
+            .addFields(
+                {
+                    name: `${em} Your Balance`,
+                    value: `**${balance.toLocaleString()}** ${settings.currencyName}`,
+                    inline: true,
+                },
+                {
+                    name: '🎲 Max Bet This Spin',
+                    value: `**${maxBet.toLocaleString()}** ${em}`,
+                    inline: true,
+                },
+                {
+                    name: '🏆 Max Win Per Spin',
+                    value: `**5,000** ${em}`,
+                    inline: true,
+                },
+            );
+
+        // Show daily limits if configured
+        if (slotSettings?.dailySpendCap || slotSettings?.dailyWinCap) {
+            const limits: string[] = [];
+            if (slotSettings.dailySpendCap) limits.push(`Spend cap: **${slotSettings.dailySpendCap.toLocaleString()}** ${em}/day`);
+            if (slotSettings.dailyWinCap)   limits.push(`Win cap: **${slotSettings.dailyWinCap.toLocaleString()}** ${em}/day`);
+            embed.addFields({ name: '⚠️ Daily Limits', value: limits.join('\n'), inline: false });
+        }
+
+        embed
+            .addFields({
+                name: '📊 Paytable',
+                value: [
+                    '🔥🔥🔥 → **20×** total return',
+                    '💎💎💎 → **10×** total return',
+                    '🎧🎧🎧 → **7×** total return',
+                    '🎹🎹🎹 → **5×** total return',
+                    '🎸🎸🎸 → **4×** total return',
+                    '🎵🎵🎵 → **3×** total return',
+                    '✨ Any two matching → **1.25×** (small profit)',
+                ].join('\n'),
+                inline: false,
+            })
+            .setFooter({ text: '3-second cooldown between spins • Limits reset at midnight UTC' })
+            .setTimestamp();
+
+        const button = new ActionRowBuilder<ButtonBuilder>().addComponents(
+            new ButtonBuilder()
+                .setLabel('Play Now')
+                .setURL('https://fujistud.io/slots')
+                .setStyle(ButtonStyle.Link)
+                .setEmoji('🎰'),
+        );
+
+        await interaction.reply({ embeds: [embed], components: [button], flags: MessageFlags.Ephemeral });
     }
 
     async registerCommands(): Promise<any[]> {

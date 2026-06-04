@@ -4610,15 +4610,15 @@ app.post('/api/slots/spin', async (req, res) => {
             },
         });
 
-        // Accumulate losses into the slot pot (coins lost on a zero-payout spin)
-        if (net < 0) {
-            await db.guild.upsert({ where: { id: guildId }, update: {}, create: { id: guildId, name: '' } });
-            await db.slotPot.upsert({
-                where: { guildId },
-                update: { balance: { increment: bet } },
-                create: { guildId, balance: bet },
-            });
-        }
+        // Pot tracks the house's true net position: bet - payout every spin.
+        // Positive when player loses (house keeps coins), negative when house pays out.
+        const potDelta = bet - payout;
+        await db.guild.upsert({ where: { id: guildId }, update: {}, create: { id: guildId, name: '' } });
+        await db.slotPot.upsert({
+            where: { guildId },
+            update: { balance: { increment: potDelta } },
+            create: { guildId, balance: potDelta },
+        });
 
         // Update daily tracker
         await db.slotDailyTracker.upsert({
@@ -4651,7 +4651,7 @@ app.post('/api/slots/spin', async (req, res) => {
     }
 });
 
-// Slot Pot (admin — read-only for now)
+// Slot Pot (admin)
 app.get('/api/slots/pot/:guildId', async (req, res) => {
     try {
         const { guildId } = req.params;
@@ -4660,6 +4660,32 @@ app.get('/api/slots/pot/:guildId', async (req, res) => {
         res.json({ balance: pot?.balance ?? 0 });
     } catch (e) {
         logger.error('Slot pot fetch failed', e);
+        res.status(500).json({ error: 'Failed' });
+    }
+});
+
+// Recalculate pot from all SLOTS transactions (corrects any historical inaccuracy)
+app.post('/api/slots/pot/:guildId/recalculate', async (req, res) => {
+    try {
+        const { guildId } = req.params;
+        if (!await checkPluginAccess(guildId, req, 'slots')) return res.status(403).json({ error: 'Forbidden' });
+
+        // True house net = sum of all (bet - payout) = sum of all -(net) = -sum(all SLOTS amounts)
+        const agg = await db.economyTransaction.aggregate({
+            where: { guildId, type: 'SLOTS' },
+            _sum: { amount: true },
+        });
+        const trueBalance = -((agg._sum as any)?.amount ?? 0);
+
+        await db.slotPot.upsert({
+            where: { guildId },
+            update: { balance: trueBalance },
+            create: { guildId, balance: trueBalance },
+        });
+
+        res.json({ balance: trueBalance });
+    } catch (e) {
+        logger.error('Slot pot recalculate failed', e);
         res.status(500).json({ error: 'Failed' });
     }
 });
@@ -4677,7 +4703,7 @@ app.get('/api/slots/losses/:guildId', async (req, res) => {
             distinct: ['userId'],
             select: { userId: true, returnedAt: true },
         });
-        const lastReturnByUser = new Map(lastReturns.map(r => [r.userId, r.returnedAt]));
+        const lastReturnByUser = new Map(lastReturns.map((r: { userId: string; returnedAt: Date }) => [r.userId, r.returnedAt]));
 
         // Get all users who ever had a losing spin
         const allLossUsers = await db.economyTransaction.findMany({
@@ -4687,26 +4713,27 @@ app.get('/api/slots/losses/:guildId', async (req, res) => {
         });
 
         // For each user, calculate losses/wins only since their last return
-        const userStats = await Promise.all(allLossUsers.map(async ({ fromUserId }) => {
+        const userStats = await Promise.all(allLossUsers.map(async ({ fromUserId }: { fromUserId: string | null }) => {
             const userId = fromUserId!;
-            const since = lastReturnByUser.get(userId) ?? new Date(0);
+            const since = lastReturnByUser.get(userId) as Date | undefined;
+            const sinceFilter = since ? { gt: since } : undefined;
 
             const [lossAgg, winAgg] = await Promise.all([
                 db.economyTransaction.aggregate({
-                    where: { guildId, type: 'SLOTS', amount: { lt: 0 }, fromUserId: userId, createdAt: { gt: since } },
+                    where: { guildId, type: 'SLOTS', amount: { lt: 0 }, fromUserId: userId, ...(sinceFilter ? { createdAt: sinceFilter } : {}) },
                     _sum: { amount: true },
-                    _count: { _all: true },
+                    _count: true,
                 }),
                 db.economyTransaction.aggregate({
-                    where: { guildId, type: 'SLOTS', amount: { gt: 0 }, toUserId: userId, createdAt: { gt: since } },
+                    where: { guildId, type: 'SLOTS', amount: { gt: 0 }, toUserId: userId, ...(sinceFilter ? { createdAt: sinceFilter } : {}) },
                     _sum: { amount: true },
                 }),
             ]);
 
-            const grossLost = Math.abs(lossAgg._sum.amount ?? 0);
-            const grossWon  = winAgg._sum.amount ?? 0;
+            const grossLost = Math.abs(lossAgg._sum?.amount ?? 0);
+            const grossWon  = winAgg._sum?.amount ?? 0;
             const netLoss   = Math.max(0, grossLost - grossWon);
-            return { discordId: userId, grossLost, grossWon, netLoss, spinsLost: lossAgg._count._all };
+            return { discordId: userId, grossLost, grossWon, netLoss, spinsLost: lossAgg._count ?? 0 };
         }));
 
         const merged = userStats

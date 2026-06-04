@@ -4,6 +4,9 @@ import {
     AutocompleteInteraction,
     Interaction,
     EmbedBuilder,
+    ActionRowBuilder,
+    ButtonBuilder,
+    ButtonStyle,
     PermissionsBitField,
     Message,
 } from 'discord.js';
@@ -448,10 +451,120 @@ export class BeatMarketPlugin implements IPlugin {
     }
 
     private async handleBeatMarketInfo(interaction: ChatInputCommandInteraction) {
-        await interaction.reply({
-            content: `**📈 Beat Market** — Learn how the investment system works:\nhttps://fujistud.io/beat-market`,
-            ephemeral: false,
-        });
+        await interaction.deferReply();
+
+        const guildId = interaction.guildId!;
+
+        const [settings, activeSeason, userInvestments] = await Promise.all([
+            this.db.beatMarketSettings.findUnique({ where: { guildId } }),
+            this.db.beatMarketSeason.findFirst({
+                where: { guildId, status: 'active' },
+                include: {
+                    trends: { orderBy: { hypePoints: 'desc' }, take: 8 },
+                    investments: { where: { userId: interaction.user.id } },
+                },
+            }),
+            this.db.beatMarketInvestment.findMany({
+                where: { guildId, userId: interaction.user.id },
+                include: { trend: { select: { name: true, emoji: true } }, season: { select: { number: true, status: true } } },
+                orderBy: { createdAt: 'desc' },
+                take: 3,
+            }),
+        ]);
+
+        const em = settings?.currencyEmoji ?? '🪙';
+        const rankEmojis = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣'];
+
+        const embed = new EmbedBuilder()
+            .setColor(0xF59E0B)
+            .setTitle('📈  Beat Market')
+            .setURL('https://fujistud.io/beat-market')
+            .setDescription(
+                'Stake your coins on trending music genres each week. ' +
+                'The more hype a genre builds in chat, the higher it ranks — and the bigger your payout.'
+            );
+
+        if (activeSeason) {
+            const endsAt = activeSeason.endsAt ? Math.floor(new Date(activeSeason.endsAt).getTime() / 1000) : null;
+            const totalPool = activeSeason.investments.reduce((s: number, i: any) => s + i.amount, 0);
+
+            embed.addFields({
+                name: `📅 Season #${activeSeason.number}`,
+                value: endsAt
+                    ? `Ends <t:${endsAt}:R> • ${em} **${totalPool.toLocaleString()}** in the pool`
+                    : `${em} **${totalPool.toLocaleString()}** in the pool`,
+                inline: false,
+            });
+
+            if (activeSeason.trends.length > 0) {
+                const trendLines = activeSeason.trends.map((t: any, i: number) => {
+                    const myInv = activeSeason.investments.find((inv: any) => inv.trendId === t.id);
+                    const mine = myInv ? ` ← you: ${em}${myInv.amount.toLocaleString()}` : '';
+                    const hypeBar = '█'.repeat(Math.min(8, Math.ceil(t.hypePoints / 10))) + '░'.repeat(Math.max(0, 8 - Math.ceil(t.hypePoints / 10)));
+                    return `${rankEmojis[i] ?? `${i+1}.`} ${t.emoji} **${t.name}** \`${hypeBar}\` ${t.hypePoints} hype${mine}`;
+                });
+                embed.addFields({
+                    name: '🔥 Current Rankings',
+                    value: trendLines.join('\n'),
+                    inline: false,
+                });
+            }
+
+            // Payout table
+            if (settings) {
+                const payouts = [
+                    settings.payoutRank1, settings.payoutRank2, settings.payoutRank3,
+                    settings.payoutRank4, settings.payoutRank5,
+                ].filter(Boolean);
+                embed.addFields({
+                    name: '💰 Payout Multipliers',
+                    value: payouts.map((p: number, i: number) => `${rankEmojis[i]} **${p}×**`).join('  '),
+                    inline: false,
+                });
+            }
+        } else {
+            embed.addFields({ name: '📅 Season', value: 'No active season right now. Check back soon!', inline: false });
+        }
+
+        // User's recent activity
+        if (userInvestments.length > 0) {
+            const lines = userInvestments.map((inv: any) => {
+                const status = inv.season.status === 'active' ? '🟢 Active' : '✅ Settled';
+                const payout = inv.payout != null ? ` → ${em}${inv.payout.toLocaleString()}` : '';
+                return `${status} S#${inv.season.number} — ${inv.trend.emoji} ${inv.trend.name}: ${em}${inv.amount.toLocaleString()}${payout}`;
+            });
+            embed.addFields({ name: '🎒 Your Recent Investments', value: lines.join('\n'), inline: false });
+        }
+
+        embed
+            .addFields({
+                name: '📖 How It Works',
+                value: [
+                    `**1.** Use \`/market-trends\` to see live genre rankings`,
+                    `**2.** Use \`/invest <genre> <amount>\` to stake coins`,
+                    `**3.** Genres earn hype from chat activity throughout the week`,
+                    `**4.** At season end, top-ranked genres pay out multipliers to investors`,
+                ].join('\n'),
+                inline: false,
+            })
+            .setFooter({ text: 'Hype updates every 30 min • One investment per genre per season' })
+            .setTimestamp();
+
+        const button = new ActionRowBuilder<ButtonBuilder>().addComponents(
+            new ButtonBuilder()
+                .setLabel('View Beat Market')
+                .setURL('https://fujistud.io/beat-market')
+                .setStyle(ButtonStyle.Link)
+                .setEmoji('📈'),
+            new ButtonBuilder()
+                .setLabel('Invest Now')
+                .setCustomId('beat_market_invest_prompt')
+                .setStyle(ButtonStyle.Secondary)
+                .setEmoji('💰')
+                .setDisabled(true), // visual only — reminds them to use /invest
+        );
+
+        await interaction.editReply({ embeds: [embed], components: [button] });
     }
 
     // ─── Season lifecycle ─────────────────────────────────────────────────────
