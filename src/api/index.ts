@@ -9838,7 +9838,7 @@ app.get('/api/discovery/settings', publicCache(120), async (req, res) => {
                     (featuredBattle.votingEnd && new Date(featuredBattle.votingEnd) < new Date());
                 if (votingOver) {
                     // Tally votes to find winner
-                    const tallies = await db.battleVote.groupBy({
+                    const tallies = await (db.battleVote as any).groupBy({
                         by: ['entryId', 'rank'],
                         where: { battleId: featuredBattle.id },
                         _count: { _all: true },
@@ -9852,7 +9852,7 @@ app.get('/api/discovery/settings', publicCache(120), async (req, res) => {
                     const winnerEntryId = featuredBattle.winnerEntryId ||
                         [...points.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || null;
                     if (winnerEntryId) {
-                        const winnerEntry = await db.beatBattleEntry.findUnique({
+                        const winnerEntry = await db.battleEntry.findUnique({
                             where: { id: winnerEntryId },
                             include: {
                                 track: {
