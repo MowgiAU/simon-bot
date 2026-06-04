@@ -835,6 +835,47 @@ export const Logs: React.FC<LogsProps> = ({ guildId, searchParam }) => {
                                 );
                             }
 
+                            if (log.action === 'FEEDBACK_DENIED') {
+                                const d = log.details || {};
+                                return (
+                                    <div style={{ fontSize: '13px' }}>
+                                        <div style={{ fontWeight: 600, color: '#F87171', marginBottom: 6 }}>
+                                            ❌ Feedback Rejected by AI
+                                            {d.score !== undefined && (
+                                                <span style={{ marginLeft: 8, fontWeight: 400, fontSize: '12px', color: colors.textSecondary }}>
+                                                    Score: {d.score}/10
+                                                </span>
+                                            )}
+                                        </div>
+                                        {d.reason && (
+                                            <div style={{ color: colors.textSecondary, marginBottom: 6 }}>
+                                                <span style={{ fontWeight: 600, color: colors.textPrimary }}>Reason: </span>
+                                                {d.reason}
+                                            </div>
+                                        )}
+                                        {d.threadName && (
+                                            <div style={{ color: colors.textSecondary, marginBottom: 4 }}>
+                                                <span style={{ fontWeight: 600, color: colors.textPrimary }}>Thread: </span>
+                                                {d.threadName}
+                                            </div>
+                                        )}
+                                        {d.content && (
+                                            <div style={{
+                                                marginTop: 6, padding: '6px 10px',
+                                                background: 'rgba(248,113,113,0.06)',
+                                                border: '1px solid rgba(248,113,113,0.15)',
+                                                borderRadius: 6, color: colors.textSecondary,
+                                                fontStyle: 'italic', fontSize: '12px',
+                                                overflow: 'hidden', textOverflow: 'ellipsis',
+                                                display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' as any,
+                                            }}>
+                                                "{d.content}"
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            }
+
                             if (log.details?.postId) {
                                 return (
                                     <div style={{ fontSize: '13px' }}>
