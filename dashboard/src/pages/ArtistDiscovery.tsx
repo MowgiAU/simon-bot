@@ -91,6 +91,11 @@ interface FeaturedData {
         _count?: { entries: number };
         sponsor: { id: string; name: string; logoUrl: string | null } | null;
         prizes: { place: string; title?: string; description: string }[] | null;
+        winner?: {
+            id: string; trackTitle: string; username: string; userId: string;
+            audioUrl: string; coverUrl: string | null;
+            trackSlug: string | null; trackId: string | null; points: number;
+        } | null;
     } | null;
     featuredBattleDescription?: string | null;
     globalSponsors?: { id: string; name: string; logoUrl: string | null; websiteUrl: string | null; links: { id: string; url: string; label: string }[] }[];
@@ -292,9 +297,10 @@ export const ArtistDiscoveryPage: React.FC = () => {
                         const battle = featured?.featuredBattle;
                         const battleDesc = featured?.featuredBattleDescription;
                         const bgImg = battle?.bannerUrl || battle?.cardImageUrl;
-                        const statusColor = battle?.status === 'voting' ? '#FBBF24' : battle?.status === 'active' ? '#34D399' : battle?.status === 'completed' ? '#94A3B8' : '#60A5FA';
-                        const statusBg = battle?.status === 'voting' ? 'rgba(251,191,36,0.22)' : battle?.status === 'active' ? 'rgba(52,211,153,0.22)' : battle?.status === 'completed' ? 'rgba(100,116,139,0.22)' : 'rgba(96,165,250,0.22)';
-                        const statusLabel = battle?.status === 'voting' ? 'VOTING' : battle?.status === 'active' ? 'LIVE' : battle?.status === 'completed' ? 'ENDED' : 'UPCOMING';
+                        const votingOver = battle && (battle.status === 'completed' || (battle.votingEnd && new Date(battle.votingEnd) < new Date()));
+                        const statusColor = votingOver ? '#FFD700' : battle?.status === 'voting' ? '#FBBF24' : battle?.status === 'active' ? '#34D399' : '#60A5FA';
+                        const statusBg = votingOver ? 'rgba(255,215,0,0.18)' : battle?.status === 'voting' ? 'rgba(251,191,36,0.22)' : battle?.status === 'active' ? 'rgba(52,211,153,0.22)' : 'rgba(96,165,250,0.22)';
+                        const statusLabel = votingOver ? 'ENDED' : battle?.status === 'voting' ? 'VOTING' : battle?.status === 'active' ? 'LIVE' : 'UPCOMING';
                         return (
                     <div style={{ ...panel, height: isMobile ? 'auto' : '400px', minHeight: isMobile ? '300px' : undefined, overflow: 'hidden', gridColumn: isMobile ? undefined : 'span 3', padding: 0, position: 'relative' }}>
 
@@ -355,7 +361,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                             </span>
                                         )}
                                     </div>
-                                    {battle.prizes && battle.prizes.length > 0 && (
+                                    {!votingOver && battle.prizes && battle.prizes.length > 0 && (
                                         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' as const }}>
                                             {battle.prizes.slice(0, 3).map((p, i) => (
                                                 <div key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: 'rgba(255,255,255,0.75)', background: 'rgba(255,255,255,0.07)', borderRadius: '6px', padding: '4px 10px', border: '1px solid rgba(255,255,255,0.08)' }}>
@@ -363,6 +369,25 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                                     {p.title ? <span style={{ color: colors.primary, fontWeight: 700 }}>{p.title}</span> : <span>{p.description}</span>}
                                                 </div>
                                             ))}
+                                        </div>
+                                    )}
+                                    {votingOver && battle.winner && (
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: 'rgba(255,215,0,0.08)', border: '1px solid rgba(255,215,0,0.25)', borderRadius: '10px', padding: '10px 14px' }}>
+                                            <Crown size={14} color="#FFD700" style={{ flexShrink: 0 }} />
+                                            {battle.winner.coverUrl && (
+                                                <img src={battle.winner.coverUrl} alt="" style={{ width: '36px', height: '36px', borderRadius: '6px', objectFit: 'cover', flexShrink: 0, border: '1px solid rgba(255,215,0,0.3)' }} />
+                                            )}
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                <div style={{ fontSize: '13px', fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{battle.winner.trackTitle}</div>
+                                                <div style={{ fontSize: '11px', color: '#FFD700', fontWeight: 600 }}>@{battle.winner.username}</div>
+                                                {battle.prizes?.[0] && <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.45)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>🏆 {battle.prizes[0].title || battle.prizes[0].description}</div>}
+                                            </div>
+                                            <button
+                                                onClick={() => setTrack({ id: battle.winner!.id, title: battle.winner!.trackTitle, artist: battle.winner!.username, username: battle.winner!.username, url: battle.winner!.audioUrl, cover: battle.winner!.coverUrl })}
+                                                style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: '#FFD700', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, boxShadow: '0 2px 10px rgba(255,215,0,0.5)' }}
+                                            >
+                                                <Play size={13} fill="#1a1a1a" color="#1a1a1a" />
+                                            </button>
                                         </div>
                                     )}
                                 </div>
@@ -384,12 +409,14 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                     ) : <div />}
                                     <Link to={`/battles/${battle.id}`} style={{
                                         display: 'inline-flex', alignItems: 'center', gap: '7px',
-                                        fontSize: '13px', fontWeight: 700, textDecoration: 'none', color: 'white',
-                                        backgroundColor: battle.status === 'voting' ? '#FBBF24' : battle.status === 'completed' ? 'rgba(100,116,139,0.6)' : colors.primary,
+                                        fontSize: '13px', fontWeight: 700, textDecoration: 'none',
+                                        backgroundColor: votingOver ? 'rgba(255,215,0,0.15)' : battle.status === 'voting' ? '#FBBF24' : colors.primary,
                                         padding: '11px 22px', borderRadius: '8px',
-                                        boxShadow: battle.status === 'voting' ? '0 4px 20px rgba(251,191,36,0.4)' : battle.status === 'completed' ? 'none' : `0 4px 20px ${colors.primary}55`,
+                                        boxShadow: votingOver ? 'none' : battle.status === 'voting' ? '0 4px 20px rgba(251,191,36,0.4)' : `0 4px 20px ${colors.primary}55`,
+                                        border: votingOver ? '1px solid rgba(255,215,0,0.35)' : 'none',
+                                        color: votingOver ? '#FFD700' : 'white',
                                     }}>
-                                        {battle.status === 'voting' ? <><Trophy size={14} /> Vote Now</> : battle.status === 'active' ? <><Swords size={14} /> Submit a Beat</> : battle.status === 'completed' ? 'View Results →' : 'View Battle →'}
+                                        {votingOver ? <><Trophy size={14} /> Full Results</> : battle.status === 'voting' ? <><Trophy size={14} /> Vote Now</> : battle.status === 'active' ? <><Swords size={14} /> Submit a Beat</> : 'View Battle →'}
                                     </Link>
                                 </div>
                             )}

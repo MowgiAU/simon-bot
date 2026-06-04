@@ -9823,16 +9823,62 @@ app.get('/api/discovery/settings', publicCache(120), async (req, res) => {
 
         // Featured battle
         if ((settings as any).featuredBattleId) {
-            queries.push(db.beatBattle.findUnique({
-                where: { id: (settings as any).featuredBattleId },
-                include: {
-                    sponsor: true,
-                    _count: { select: { entries: { where: { deletedAt: null } } } },
-                },
-            }).then(featuredBattle => {
+            queries.push((async () => {
+                const featuredBattle = await db.beatBattle.findUnique({
+                    where: { id: (settings as any).featuredBattleId },
+                    include: {
+                        sponsor: true,
+                        _count: { select: { entries: { where: { deletedAt: null } } } },
+                    },
+                }) as any;
+                if (!featuredBattle) { result.featuredBattle = null; return; }
+
+                // For ended battles, attach winner entry so the card can show it
+                const votingOver = featuredBattle.status === 'completed' ||
+                    (featuredBattle.votingEnd && new Date(featuredBattle.votingEnd) < new Date());
+                if (votingOver) {
+                    // Tally votes to find winner
+                    const tallies = await db.battleVote.groupBy({
+                        by: ['entryId', 'rank'],
+                        where: { battleId: featuredBattle.id },
+                        _count: { _all: true },
+                    }) as any[];
+                    const points = new Map<string, number>();
+                    for (const t of tallies) {
+                        const pts = t.rank === 1 ? 3 : t.rank === 2 ? 2 : 1;
+                        points.set(t.entryId, (points.get(t.entryId) ?? 0) + pts * t._count._all);
+                    }
+                    // Determine winner entry ID
+                    const winnerEntryId = featuredBattle.winnerEntryId ||
+                        [...points.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+                    if (winnerEntryId) {
+                        const winnerEntry = await db.beatBattleEntry.findUnique({
+                            where: { id: winnerEntryId },
+                            include: {
+                                track: {
+                                    select: { id: true, title: true, slug: true, url: true, coverUrl: true,
+                                        profile: { select: { username: true, displayName: true, userId: true } } },
+                                },
+                            },
+                        }) as any;
+                        if (winnerEntry) {
+                            featuredBattle.winner = {
+                                id: winnerEntry.id,
+                                trackTitle: winnerEntry.track?.title ?? 'Unknown',
+                                username: winnerEntry.track?.profile?.displayName || winnerEntry.track?.profile?.username || 'Producer',
+                                userId: winnerEntry.track?.profile?.userId ?? winnerEntry.userId,
+                                audioUrl: winnerEntry.track?.url ?? '',
+                                coverUrl: winnerEntry.track?.coverUrl ?? null,
+                                trackSlug: winnerEntry.track?.slug ?? null,
+                                trackId: winnerEntry.track?.id ?? null,
+                                points: points.get(winnerEntryId) ?? 0,
+                            };
+                        }
+                    }
+                }
                 result.featuredBattle = featuredBattle;
                 result.featuredBattleDescription = (settings as any).featuredBattleDescription;
-            }));
+            })());
         } else {
             result.featuredBattle = null;
         }
