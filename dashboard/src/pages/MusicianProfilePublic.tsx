@@ -1,4 +1,5 @@
 ﻿import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, useNavigate } from 'react-router-dom';
 import { colors, spacing, borderRadius } from '../theme/theme';
 import { useAuth } from '../components/AuthProvider';
@@ -1601,8 +1602,9 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
 
             </div>
 
-            {/* Back to Edit Button (Owner only) — left side to avoid upload/bug-report cluster on right */}
-            {isOwnProfile && (
+            {/* Back to Edit Button (Owner only) — portalled to document.body so position:fixed
+                is relative to the viewport, not the transformed <main> scroll container */}
+            {isOwnProfile && createPortal(
                 <button
                     onClick={onEdit}
                     style={{
@@ -1626,7 +1628,8 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                     }}
                 >
                     <Edit3 size={16} /> {isMobile ? 'Edit' : 'Edit My Profile'}
-                </button>
+                </button>,
+                document.body
             )}
 
             <div style={{ height: player.currentTrack ? '100px' : '20px' }} />
