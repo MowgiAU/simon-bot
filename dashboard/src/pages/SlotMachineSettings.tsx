@@ -1,7 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { colors, spacing, borderRadius, shadows, typography } from '../theme/theme';
 import { useAuth } from '../components/AuthProvider';
-import { Dices, Save, Upload, Trash2, Play, Plus, RotateCcw } from 'lucide-react';
+import { Dices, Save, Upload, Trash2, Play, Plus, RotateCcw, TrendingDown, RefreshCw } from 'lucide-react';
+
+interface LossEntry {
+  discordId: string;
+  username: string;
+  avatar: string | null;
+  totalLost: number;
+  spinsLost: number;
+}
 
 interface SlotSymbol {
   emoji: string;
@@ -52,7 +60,10 @@ export const SlotMachineSettings: React.FC = () => {
   const { selectedGuild } = useAuth();
   const guildId = selectedGuild?.id;
 
-  const [tab, setTab] = useState<'symbols' | 'sounds'>('symbols');
+  const [tab, setTab] = useState<'symbols' | 'sounds' | 'losses'>('symbols');
+  const [losses, setLosses] = useState<LossEntry[]>([]);
+  const [lossesLoading, setLossesLoading] = useState(false);
+  const [potBalance, setPotBalance] = useState<number | null>(null);
   const [symbols, setSymbols] = useState<SlotSymbol[]>(DEFAULT_SYMBOLS);
   const [sounds, setSounds] = useState<SlotSounds>({ spin: null, win: null, jackpot: null, twoMatch: null, loss: null });
   const [loading, setLoading] = useState(true);
@@ -163,6 +174,24 @@ export const SlotMachineSettings: React.FC = () => {
     setSymbols(prev => prev.filter((_, idx) => idx !== i));
   };
 
+  const fetchLosses = async () => {
+    if (!guildId) return;
+    setLossesLoading(true);
+    try {
+      const [lossRes, potRes] = await Promise.all([
+        fetch(`/api/slots/losses/${guildId}`, { credentials: 'include' }),
+        fetch(`/api/slots/pot/${guildId}`, { credentials: 'include' }),
+      ]);
+      if (lossRes.ok) setLosses(await lossRes.json());
+      if (potRes.ok) { const p = await potRes.json(); setPotBalance(p.balance); }
+    } catch { /* silent */ }
+    finally { setLossesLoading(false); }
+  };
+
+  useEffect(() => {
+    if (tab === 'losses') fetchLosses();
+  }, [tab, guildId]);
+
   const totalWeight = symbols.reduce((s, sym) => s + (sym.weight || 0), 0);
 
   if (!selectedGuild) return (
@@ -202,7 +231,7 @@ export const SlotMachineSettings: React.FC = () => {
 
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
-        {(['symbols', 'sounds'] as const).map(t => (
+        {(['symbols', 'sounds', 'losses'] as const).map(t => (
           <button key={t} onClick={() => setTab(t)} style={{
             padding: '8px 20px',
             borderRadius: borderRadius.md,
@@ -499,6 +528,76 @@ export const SlotMachineSettings: React.FC = () => {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* ── Losses Tab ── */}
+      {tab === 'losses' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+          {/* Pot summary */}
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            background: 'rgba(244,63,94,0.07)', border: '1px solid rgba(244,63,94,0.2)',
+            borderRadius: borderRadius.md, padding: '14px 18px',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <TrendingDown size={20} color={colors.tertiary} />
+              <div>
+                <div style={{ fontSize: '12px', color: colors.textTertiary, marginBottom: 2 }}>Total Pot (coins lost)</div>
+                <div style={{ fontSize: '22px', fontWeight: 800, color: colors.textPrimary, fontVariantNumeric: 'tabular-nums' }}>
+                  {potBalance === null ? '—' : `🪙 ${potBalance.toLocaleString()}`}
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={fetchLosses}
+              disabled={lossesLoading}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', background: colors.surface, border: `1px solid ${colors.border}`, borderRadius: borderRadius.md, color: colors.textSecondary, fontSize: '13px', cursor: 'pointer', opacity: lossesLoading ? 0.5 : 1 }}
+            >
+              <RefreshCw size={13} style={{ animation: lossesLoading ? 'spin 1s linear infinite' : 'none' }} />
+              Refresh
+            </button>
+          </div>
+
+          {/* Table */}
+          {lossesLoading ? (
+            <div style={{ textAlign: 'center', padding: '40px 0', color: colors.textTertiary }}>Loading...</div>
+          ) : losses.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '40px 0', color: colors.textTertiary }}>No losses recorded yet.</div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 0, border: `1px solid ${colors.border}`, borderRadius: borderRadius.md, overflow: 'hidden' }}>
+              {/* Header */}
+              <div style={{ display: 'grid', gridTemplateColumns: '40px 1fr 120px 80px', gap: 12, padding: '10px 16px', background: colors.surfaceLight, borderBottom: `1px solid ${colors.border}` }}>
+                {['#', 'Player', 'Coins Lost', 'Spins'].map(h => (
+                  <span key={h} style={{ fontSize: '11px', color: colors.textTertiary, textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600 }}>{h}</span>
+                ))}
+              </div>
+              {losses.map((entry, i) => (
+                <div key={entry.discordId} style={{
+                  display: 'grid', gridTemplateColumns: '40px 1fr 120px 80px', gap: 12,
+                  padding: '12px 16px', alignItems: 'center',
+                  background: i % 2 === 0 ? colors.surface : 'transparent',
+                  borderBottom: i < losses.length - 1 ? `1px solid ${colors.border}` : 'none',
+                }}>
+                  <span style={{ fontSize: '13px', color: colors.textTertiary, fontWeight: 600 }}>#{i + 1}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                    {entry.avatar
+                      ? <img src={entry.avatar} alt="" style={{ width: 32, height: 32, borderRadius: '50%', flexShrink: 0 }} />
+                      : <div style={{ width: 32, height: 32, borderRadius: '50%', background: colors.surfaceLight, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14 }}>👤</div>
+                    }
+                    <span style={{ fontSize: '14px', color: colors.textPrimary, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.username}</span>
+                  </div>
+                  <span style={{ fontSize: '14px', fontWeight: 700, color: colors.tertiary, fontVariantNumeric: 'tabular-nums' }}>
+                    🪙 {entry.totalLost.toLocaleString()}
+                  </span>
+                  <span style={{ fontSize: '13px', color: colors.textSecondary, fontVariantNumeric: 'tabular-nums' }}>
+                    {entry.spinsLost.toLocaleString()}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>

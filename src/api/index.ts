@@ -4628,6 +4628,53 @@ app.get('/api/slots/pot/:guildId', async (req, res) => {
     }
 });
 
+// Slot losses leaderboard (admin)
+app.get('/api/slots/losses/:guildId', async (req, res) => {
+    try {
+        const { guildId } = req.params;
+        if (!await checkPluginAccess(guildId, req, 'slots')) return res.status(403).json({ error: 'Forbidden' });
+
+        // Group losses by user, sum absolute values
+        const rows = await db.economyTransaction.groupBy({
+            by: ['fromUserId'],
+            where: { guildId, type: 'SLOTS', amount: { lt: 0 }, fromUserId: { not: null } },
+            _sum: { amount: true },
+            _count: { _all: true },
+            orderBy: { _sum: { amount: 'asc' } }, // most negative first
+        });
+
+        // Enrich with Discord user info
+        const enriched = await Promise.all(rows.map(async row => {
+            const discordId = row.fromUserId!;
+            let username = discordId;
+            let avatar: string | null = null;
+            try {
+                const r = await axios.get(`https://discord.com/api/v10/users/${discordId}`, {
+                    headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` },
+                    timeout: 3000,
+                });
+                username = r.data.global_name || r.data.username || discordId;
+                avatar = r.data.avatar
+                    ? `https://cdn.discordapp.com/avatars/${discordId}/${r.data.avatar}.png?size=64`
+                    : null;
+            } catch { /* use ID as fallback */ }
+
+            return {
+                discordId,
+                username,
+                avatar,
+                totalLost: Math.abs(row._sum.amount ?? 0),
+                spinsLost: row._count._all,
+            };
+        }));
+
+        res.json(enriched);
+    } catch (e) {
+        logger.error('Slot losses fetch failed', e);
+        res.status(500).json({ error: 'Failed' });
+    }
+});
+
 // Slot Machine Settings (admin)
 
 app.get('/api/slots/settings/:guildId', async (req, res) => {
