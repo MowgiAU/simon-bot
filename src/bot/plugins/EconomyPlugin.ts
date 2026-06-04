@@ -709,6 +709,19 @@ export class EconomyPlugin implements IPlugin {
         const maxBet = Math.min(500, Math.max(10, Math.floor(balance / 2)));
         const em = settings.currencyEmoji;
 
+        // Use guild-configured symbols if set, otherwise defaults
+        const defaultSymbols = [
+            { emoji: '🎵', multiplier: 3 }, { emoji: '🎸', multiplier: 4 },
+            { emoji: '🎹', multiplier: 5 }, { emoji: '🎧', multiplier: 7 },
+            { emoji: '💎', multiplier: 10 }, { emoji: '🔥', multiplier: 20 },
+        ];
+        const customSymbols: { emoji: string; multiplier: number }[] | null =
+            Array.isArray(slotSettings?.symbols) && slotSettings.symbols.length >= 2
+                ? slotSettings.symbols as { emoji: string; multiplier: number }[]
+                : null;
+        const activeSymbols = customSymbols ?? defaultSymbols;
+        const sortedSymbols = [...activeSymbols].sort((a, b) => b.multiplier - a.multiplier);
+
         const embed = new EmbedBuilder()
             .setColor(0x10B981)
             .setTitle('🎰  Fuji Slots')
@@ -740,21 +753,18 @@ export class EconomyPlugin implements IPlugin {
             embed.addFields({ name: '⚠️ Daily Limits', value: limits.join('\n'), inline: false });
         }
 
+        const paytableLines = sortedSymbols.map(s =>
+            `${s.emoji}${s.emoji}${s.emoji} → **${s.multiplier}×** total return (+${((s.multiplier - 1) * 100).toFixed(0)}% profit)`
+        );
+        paytableLines.push('✨ Any two matching → **1.25×** (+25% profit)');
+
         embed
             .addFields({
                 name: '📊 Paytable',
-                value: [
-                    '🔥🔥🔥 → **20×** total return',
-                    '💎💎💎 → **10×** total return',
-                    '🎧🎧🎧 → **7×** total return',
-                    '🎹🎹🎹 → **5×** total return',
-                    '🎸🎸🎸 → **4×** total return',
-                    '🎵🎵🎵 → **3×** total return',
-                    '✨ Any two matching → **1.25×** (small profit)',
-                ].join('\n'),
+                value: paytableLines.join('\n'),
                 inline: false,
             })
-            .setFooter({ text: '3-second cooldown between spins • Limits reset at midnight UTC' })
+            .setFooter({ text: 'Multiplier = total coins returned ÷ bet • 3s cooldown • Daily limits reset at midnight UTC' })
             .setTimestamp();
 
         const button = new ActionRowBuilder<ButtonBuilder>().addComponents(

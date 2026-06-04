@@ -463,7 +463,7 @@ const memberRoleCache = new Map<string, { roles: string[], timestamp: number }>(
 
 // --- Slot Machine ---
 const slotCooldowns = new Map<string, number>();
-const SLOT_SYMBOLS = [
+const DEFAULT_SLOT_SYMBOLS = [
   { emoji: '🎵', weight: 40, multiplier: 3  },
   { emoji: '🎸', weight: 25, multiplier: 4  },
   { emoji: '🎹', weight: 20, multiplier: 5  },
@@ -471,11 +471,20 @@ const SLOT_SYMBOLS = [
   { emoji: '💎', weight: 4,  multiplier: 10 },
   { emoji: '🔥', weight: 1,  multiplier: 20 },
 ];
-const SLOT_TOTAL_WEIGHT = SLOT_SYMBOLS.reduce((s, sym) => s + sym.weight, 0);
-function rollReel(): string {
-  let r = Math.random() * SLOT_TOTAL_WEIGHT;
-  for (const sym of SLOT_SYMBOLS) { r -= sym.weight; if (r <= 0) return sym.emoji; }
-  return SLOT_SYMBOLS[SLOT_SYMBOLS.length - 1].emoji;
+
+interface SlotSymbol { emoji: string; weight: number; multiplier: number; imageUrl?: string; }
+
+function getActiveSymbols(slotSettings: any): SlotSymbol[] {
+  const custom = slotSettings?.symbols;
+  if (Array.isArray(custom) && custom.length >= 2) return custom as SlotSymbol[];
+  return DEFAULT_SLOT_SYMBOLS;
+}
+
+function rollReel(symbols: SlotSymbol[]): string {
+  const total = symbols.reduce((s, sym) => s + sym.weight, 0);
+  let r = Math.random() * total;
+  for (const sym of symbols) { r -= sym.weight; if (r <= 0) return sym.emoji; }
+  return symbols[symbols.length - 1].emoji;
 }
 const MEMBER_ROLE_CACHE_TTL = 1000 * 60 * 5; // 5 minutes
 
@@ -4572,16 +4581,17 @@ app.post('/api/slots/spin', async (req, res) => {
             return res.status(400).json({ error: `Daily win limit of ${slotSettings.dailyWinCap.toLocaleString()} coins reached. Come back tomorrow!`, dailyLimitReached: true });
         }
 
-        // Roll
+        // Roll using guild-configured symbols (falls back to defaults)
+        const activeSymbols = getActiveSymbols(slotSettings);
         slotCooldowns.set(discordId, Date.now());
-        const reels = [rollReel(), rollReel(), rollReel()];
+        const reels = [rollReel(activeSymbols), rollReel(activeSymbols), rollReel(activeSymbols)];
 
         let multiplier = 0;
         let payout = 0;
         if (reels[0] === reels[1] && reels[1] === reels[2]) {
-            const sym = SLOT_SYMBOLS.find(s => s.emoji === reels[0])!;
+            const sym = activeSymbols.find(s => s.emoji === reels[0]) ?? activeSymbols[0];
             multiplier = sym.multiplier;
-            payout = Math.min(bet * multiplier, 5000); // hard cap
+            payout = Math.min(bet * multiplier, 5000); // hard cap at 5,000 per spin
         } else if (reels[0] === reels[1] || reels[1] === reels[2] || reels[0] === reels[2]) {
             multiplier = 1.25; // small win on two matching — keeps players engaged
             payout = Math.floor(bet * 1.25);
