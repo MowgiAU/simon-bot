@@ -516,10 +516,10 @@ export const SlotMachinePage: React.FC = () => {
                       }}>
                         {result.net > 0
                           ? isJackpot
-                            ? `★ JACKPOT! ${currencyEmoji} ${result.payout.toLocaleString()} ★`
+                            ? `★ JACKPOT! +${result.net.toLocaleString()} ${currencyEmoji} ★`
                             : result.multiplier === 1.25
-                            ? `Two of a Kind! ${currencyEmoji} +${result.net.toLocaleString()}`
-                            : `Win! ${currencyEmoji} ${result.payout.toLocaleString()} — ${result.multiplier}×`
+                            ? `Two of a Kind! +${result.net.toLocaleString()} ${currencyEmoji}`
+                            : `Win! +${result.net.toLocaleString()} ${currencyEmoji} — ${result.multiplier}×`
                           : `Lost ${currencyEmoji} ${bet.toLocaleString()}`}
                       </span>
                     </div>
@@ -596,8 +596,9 @@ export const SlotMachinePage: React.FC = () => {
 
             {/* Paytable */}
             <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16, overflow: 'hidden' }}>
-              <div style={{ padding: '12px 16px 8px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+              <div style={{ padding: '12px 16px 8px', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
                 <span style={{ fontSize: 10, color: 'rgba(148,163,184,0.4)', letterSpacing: '0.14em', textTransform: 'uppercase' }}>Paytable</span>
+                <span style={{ fontSize: 10, color: 'rgba(148,163,184,0.3)' }}>multiplier × bet = total returned</span>
               </div>
               <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 5 }}>
                 {[...symbols].reverse().map(s => {
@@ -614,14 +615,23 @@ export const SlotMachinePage: React.FC = () => {
                         {[0,1,2].map(n => <SymbolEl key={n} emoji={s.emoji} size={22} />)}
                         <span style={{ fontSize: 11, color: 'rgba(148,163,184,0.45)', marginLeft: 4 }}>{s.label}</span>
                       </div>
-                      <span style={{ fontWeight: 800, fontSize: 15, color: isTop ? '#F59E0B' : '#10B981', fontFamily: '"Courier New",monospace' }}>{s.multiplier}×</span>
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontWeight: 800, fontSize: 14, color: isTop ? '#F59E0B' : '#10B981', fontFamily: '"Courier New",monospace' }}>{s.multiplier}×</div>
+                        <div style={{ fontSize: 10, color: 'rgba(148,163,184,0.3)', fontFamily: '"Courier New",monospace' }}>+{((s.multiplier - 1) * 100).toFixed(0)}% profit</div>
+                      </div>
                     </div>
                   );
                 })}
                 {/* Two of a kind row */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 10px', background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.18)', borderRadius: 8 }}>
                   <span style={{ fontSize: 13, color: 'rgba(148,163,184,0.7)' }}>Any two matching</span>
-                  <span style={{ fontWeight: 800, fontSize: 14, color: '#10B981', fontFamily: '"Courier New",monospace' }}>1.25×</span>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontWeight: 800, fontSize: 14, color: '#10B981', fontFamily: '"Courier New",monospace' }}>1.25×</div>
+                    <div style={{ fontSize: 10, color: 'rgba(148,163,184,0.3)', fontFamily: '"Courier New",monospace' }}>+25% profit</div>
+                  </div>
+                </div>
+                <div style={{ fontSize: 10, color: 'rgba(148,163,184,0.25)', padding: '4px 2px', lineHeight: 1.5 }}>
+                  Example: bet 100 coins, hit 3× → receive 300 back, net +200
                 </div>
               </div>
             </div>

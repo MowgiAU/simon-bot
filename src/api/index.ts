@@ -4539,9 +4539,16 @@ app.post('/api/slots/spin', async (req, res) => {
         }
 
         const guildId = process.env.GUILD_ID!;
-        const [account, settings] = await Promise.all([
+
+        // UTC date key (midnight)
+        const today = new Date();
+        today.setUTCHours(0, 0, 0, 0);
+
+        const [account, settings, slotSettings, dailyTracker] = await Promise.all([
             db.economyAccount.findUnique({ where: { guildId_userId: { guildId, userId: discordId } } }),
             db.economySettings.findUnique({ where: { guildId } }),
+            db.slotMachineSettings.findUnique({ where: { guildId } }),
+            db.slotDailyTracker.findUnique({ where: { guildId_userId_date: { guildId, userId: discordId, date: today } } }),
         ]);
 
         const balance = account?.balance ?? 0;
@@ -4551,6 +4558,19 @@ app.post('/api/slots/spin', async (req, res) => {
         // Max bet is half balance (minimum cap 10 so low-balance players can still play)
         const maxBet = Math.min(500, Math.max(10, Math.floor(balance / 2)));
         if (bet > maxBet) return res.status(400).json({ error: `Max bet is ${maxBet} coins (half your balance)` });
+
+        // Daily spend cap check
+        const spentToday = dailyTracker?.totalBet ?? 0;
+        if (slotSettings?.dailySpendCap && spentToday + bet > slotSettings.dailySpendCap) {
+            const remaining = Math.max(0, slotSettings.dailySpendCap - spentToday);
+            return res.status(400).json({ error: `Daily spend limit reached. You can bet up to ${remaining} more coins today.`, dailyLimitReached: true });
+        }
+
+        // Daily win cap check
+        const wonToday = dailyTracker?.totalNetWon ?? 0;
+        if (slotSettings?.dailyWinCap && wonToday >= slotSettings.dailyWinCap) {
+            return res.status(400).json({ error: `Daily win limit of ${slotSettings.dailyWinCap.toLocaleString()} coins reached. Come back tomorrow!`, dailyLimitReached: true });
+        }
 
         // Roll
         slotCooldowns.set(discordId, Date.now());
@@ -4600,6 +4620,16 @@ app.post('/api/slots/spin', async (req, res) => {
             });
         }
 
+        // Update daily tracker
+        await db.slotDailyTracker.upsert({
+            where: { guildId_userId_date: { guildId, userId: discordId, date: today } },
+            update: {
+                totalBet: { increment: bet },
+                totalNetWon: net > 0 ? { increment: net } : undefined,
+            },
+            create: { guildId, userId: discordId, date: today, totalBet: bet, totalNetWon: Math.max(0, net) },
+        });
+
         res.json({
             reels,
             payout,
@@ -4608,6 +4638,12 @@ app.post('/api/slots/spin', async (req, res) => {
             newBalance: updated.balance,
             currencyEmoji: settings?.currencyEmoji ?? '🪙',
             currencyName: settings?.currencyName ?? 'Coins',
+            daily: {
+                spentToday: spentToday + bet,
+                wonToday: wonToday + Math.max(0, net),
+                spendCap: slotSettings?.dailySpendCap ?? null,
+                winCap: slotSettings?.dailyWinCap ?? null,
+            },
         });
     } catch (e) {
         logger.error('Slots spin failed', e);
@@ -4705,6 +4741,8 @@ app.get('/api/slots/settings/:guildId', async (req, res) => {
                 twoMatch: s.soundTwoMatch ?? null,
                 loss:     s.soundLoss     ?? null,
             } : { spin: null, win: null, jackpot: null, twoMatch: null, loss: null },
+            dailySpendCap: s?.dailySpendCap ?? null,
+            dailyWinCap:   s?.dailyWinCap   ?? null,
         });
     } catch (e) {
         logger.error('Slots settings fetch failed', e);
@@ -4717,25 +4755,32 @@ app.post('/api/slots/settings/:guildId', async (req, res) => {
         const { guildId } = req.params;
         if (!await checkPluginAccess(guildId, req, 'slots')) return res.status(403).json({ error: 'Forbidden' });
 
-        const { symbols } = req.body;
+        const { symbols, dailySpendCap, dailyWinCap } = req.body;
 
-        if (!Array.isArray(symbols) || symbols.length < 2 || symbols.length > 10) {
-            return res.status(400).json({ error: 'Symbols must be an array of 2–10 entries' });
-        }
-        for (const s of symbols) {
-            if (!s.emoji || typeof s.weight !== 'number' || s.weight < 1 || typeof s.multiplier !== 'number' || s.multiplier < 1) {
-                return res.status(400).json({ error: 'Each symbol needs emoji, weight ≥ 1, multiplier ≥ 1' });
+        if (symbols !== undefined) {
+            if (!Array.isArray(symbols) || symbols.length < 2 || symbols.length > 10) {
+                return res.status(400).json({ error: 'Symbols must be an array of 2–10 entries' });
+            }
+            for (const s of symbols) {
+                if (!s.emoji || typeof s.weight !== 'number' || s.weight < 1 || typeof s.multiplier !== 'number' || s.multiplier < 1) {
+                    return res.status(400).json({ error: 'Each symbol needs emoji, weight ≥ 1, multiplier ≥ 1' });
+                }
             }
         }
+
+        const data: Record<string, any> = {};
+        if (symbols !== undefined) data.symbols = symbols;
+        if (dailySpendCap !== undefined) data.dailySpendCap = dailySpendCap === null ? null : Math.max(0, parseInt(dailySpendCap)) || null;
+        if (dailyWinCap !== undefined) data.dailyWinCap = dailyWinCap === null ? null : Math.max(0, parseInt(dailyWinCap)) || null;
 
         await db.guild.upsert({ where: { id: guildId }, update: {}, create: { id: guildId, name: '' } });
         const updated = await db.slotMachineSettings.upsert({
             where: { guildId },
-            update: { symbols },
-            create: { guildId, symbols },
+            update: data,
+            create: { guildId, ...data },
         });
 
-        res.json({ symbols: updated.symbols });
+        res.json({ symbols: updated.symbols, dailySpendCap: updated.dailySpendCap, dailyWinCap: updated.dailyWinCap });
     } catch (e) {
         logger.error('Slots settings save failed', e);
         res.status(500).json({ error: 'Failed' });

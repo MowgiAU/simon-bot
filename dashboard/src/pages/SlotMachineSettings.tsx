@@ -62,7 +62,7 @@ export const SlotMachineSettings: React.FC = () => {
   const { selectedGuild } = useAuth();
   const guildId = selectedGuild?.id;
 
-  const [tab, setTab] = useState<'symbols' | 'sounds' | 'losses'>('symbols');
+  const [tab, setTab] = useState<'symbols' | 'sounds' | 'limits' | 'losses'>('symbols');
   const [losses, setLosses] = useState<LossEntry[]>([]);
   const [lossesLoading, setLossesLoading] = useState(false);
   const [potBalance, setPotBalance] = useState<number | null>(null);
@@ -70,6 +70,9 @@ export const SlotMachineSettings: React.FC = () => {
   const [returnAmount, setReturnAmount] = useState('');
   const [returning, setReturning] = useState(false);
   const [returnMsg, setReturnMsg] = useState<{ text: string; ok: boolean } | null>(null);
+  const [dailySpendCap, setDailySpendCap] = useState<string>('');
+  const [dailyWinCap, setDailyWinCap] = useState<string>('');
+  const [savingLimits, setSavingLimits] = useState(false);
   const [symbols, setSymbols] = useState<SlotSymbol[]>(DEFAULT_SYMBOLS);
   const [sounds, setSounds] = useState<SlotSounds>({ spin: null, win: null, jackpot: null, twoMatch: null, loss: null });
   const [loading, setLoading] = useState(true);
@@ -94,6 +97,8 @@ export const SlotMachineSettings: React.FC = () => {
       .then(data => {
         if (data.symbols?.length) setSymbols(data.symbols);
         if (data.sounds) setSounds(data.sounds);
+        setDailySpendCap(data.dailySpendCap != null ? String(data.dailySpendCap) : '');
+        setDailyWinCap(data.dailyWinCap != null ? String(data.dailyWinCap) : '');
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -180,6 +185,25 @@ export const SlotMachineSettings: React.FC = () => {
     setSymbols(prev => prev.filter((_, idx) => idx !== i));
   };
 
+  const saveLimits = async () => {
+    if (!guildId) return;
+    setSavingLimits(true);
+    try {
+      const res = await fetch(`/api/slots/settings/${guildId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          dailySpendCap: dailySpendCap.trim() ? parseInt(dailySpendCap) || null : null,
+          dailyWinCap:   dailyWinCap.trim()   ? parseInt(dailyWinCap)   || null : null,
+        }),
+      });
+      if (!res.ok) { const d = await res.json(); showMsg(d.error ?? 'Failed to save.', false); }
+      else showMsg('Limits saved!', true);
+    } catch { showMsg('Network error.', false); }
+    finally { setSavingLimits(false); }
+  };
+
   const fetchLosses = async () => {
     if (!guildId) return;
     setLossesLoading(true);
@@ -262,7 +286,7 @@ export const SlotMachineSettings: React.FC = () => {
 
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
-        {(['symbols', 'sounds', 'losses'] as const).map(t => (
+        {(['symbols', 'sounds', 'limits', 'losses'] as const).map(t => (
           <button key={t} onClick={() => setTab(t)} style={{
             padding: '8px 20px',
             borderRadius: borderRadius.md,
@@ -563,6 +587,86 @@ export const SlotMachineSettings: React.FC = () => {
       )}
 
       {/* ── Losses Tab ── */}
+      {/* ── Limits Tab ── */}
+      {tab === 'limits' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          <div style={{ backgroundColor: colors.surface, padding: spacing.md, borderRadius: borderRadius.md, borderLeft: `4px solid ${colors.primary}` }}>
+            <p style={{ margin: 0, color: colors.textPrimary, fontSize: 14 }}>
+              Set daily limits to prevent excessive spending or winning. Limits reset at midnight UTC. Leave blank for no limit.
+            </p>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {/* Daily spend cap */}
+            <div style={{ background: colors.surface, border: `1px solid ${colors.border}`, borderRadius: borderRadius.md, padding: '18px 20px' }}>
+              <div style={{ fontWeight: 600, fontSize: 15, color: colors.textPrimary, marginBottom: 4 }}>Daily Spend Cap</div>
+              <div style={{ fontSize: 13, color: colors.textSecondary, marginBottom: 12 }}>
+                Maximum coins a user can <strong>bet</strong> in a single day across all spins. Once reached, they cannot spin again until midnight UTC.
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 18 }}>🪙</span>
+                <input
+                  type="number"
+                  min={0}
+                  placeholder="No limit"
+                  value={dailySpendCap}
+                  onChange={e => setDailySpendCap(e.target.value)}
+                  style={{ ...inputStyle, maxWidth: 200 }}
+                />
+                {dailySpendCap && (
+                  <button onClick={() => setDailySpendCap('')} style={{ padding: '8px 12px', background: colors.surfaceLight, border: `1px solid ${colors.border}`, borderRadius: borderRadius.md, color: colors.textTertiary, fontSize: 12, cursor: 'pointer' }}>
+                    Clear
+                  </button>
+                )}
+              </div>
+              {dailySpendCap && (
+                <p style={{ margin: '8px 0 0', fontSize: 12, color: colors.textTertiary }}>
+                  Players can bet up to 🪙 {parseInt(dailySpendCap).toLocaleString()} per day.
+                </p>
+              )}
+            </div>
+
+            {/* Daily win cap */}
+            <div style={{ background: colors.surface, border: `1px solid ${colors.border}`, borderRadius: borderRadius.md, padding: '18px 20px' }}>
+              <div style={{ fontWeight: 600, fontSize: 15, color: colors.textPrimary, marginBottom: 4 }}>Daily Win Cap</div>
+              <div style={{ fontSize: 13, color: colors.textSecondary, marginBottom: 12 }}>
+                Maximum coins a user can <strong>net win</strong> in a single day from slots. Once reached, they cannot spin again until midnight UTC.
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 18 }}>🪙</span>
+                <input
+                  type="number"
+                  min={0}
+                  placeholder="No limit"
+                  value={dailyWinCap}
+                  onChange={e => setDailyWinCap(e.target.value)}
+                  style={{ ...inputStyle, maxWidth: 200 }}
+                />
+                {dailyWinCap && (
+                  <button onClick={() => setDailyWinCap('')} style={{ padding: '8px 12px', background: colors.surfaceLight, border: `1px solid ${colors.border}`, borderRadius: borderRadius.md, color: colors.textTertiary, fontSize: 12, cursor: 'pointer' }}>
+                    Clear
+                  </button>
+                )}
+              </div>
+              {dailyWinCap && (
+                <p style={{ margin: '8px 0 0', fontSize: 12, color: colors.textTertiary }}>
+                  Players can net win up to 🪙 {parseInt(dailyWinCap).toLocaleString()} per day.
+                </p>
+              )}
+            </div>
+          </div>
+
+          <button
+            onClick={saveLimits}
+            disabled={savingLimits}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '12px', background: colors.primary, color: '#fff', border: 'none', borderRadius: borderRadius.md, fontWeight: 700, fontSize: 15, cursor: savingLimits ? 'not-allowed' : 'pointer', opacity: savingLimits ? 0.7 : 1 }}
+          >
+            <Save size={16} />
+            {savingLimits ? 'Saving...' : 'Save Limits'}
+          </button>
+        </div>
+      )}
+
       {tab === 'losses' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 

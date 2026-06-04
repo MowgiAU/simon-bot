@@ -164,6 +164,7 @@ model Guild {
   // Slot Machine
   slotMachineSettings   SlotMachineSettings?
   slotPot               SlotPot?
+  slotDailyTrackers     SlotDailyTracker[]
 
   // Beat Market (Investment)
   beatMarketSettings    BeatMarketSettings?
@@ -1400,12 +1401,30 @@ model SlotMachineSettings {
   soundTwoMatch String?
   soundLoss     String?
 
+  // Daily limits (null = no limit)
+  dailySpendCap Int? // max coins a user can bet per day
+  dailyWinCap   Int? // max net coins a user can win per day
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
 
   @@map("slot_machine_settings")
+}
+
+model SlotDailyTracker {
+  id          String   @id @default(cuid())
+  guildId     String
+  userId      String
+  date        DateTime // UTC date (time zeroed to 00:00:00)
+  totalBet    Int      @default(0)
+  totalNetWon Int      @default(0)
+
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  @@unique([guildId, userId, date])
+  @@map("slot_daily_tracker")
 }
 
 model SlotPot {
