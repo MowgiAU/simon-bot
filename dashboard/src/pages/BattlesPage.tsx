@@ -181,7 +181,8 @@ export const BattlesPage: React.FC = () => {
                 const active = featured ||
                                data.find(b => b.status === 'voting') ||
                                data.find(b => b.status === 'active') ||
-                               data.find(b => b.status === 'upcoming');
+                               data.find(b => b.status === 'upcoming') ||
+                               data.find(b => b.status === 'completed');
                 if (active) {
                     const detail = await fetch(`${API}/api/beat-battle/battles/${active.id}`, { credentials: 'include' });
                     if (detail.ok) {
@@ -193,7 +194,8 @@ export const BattlesPage: React.FC = () => {
             } else {
                 const active = data.find(b => b.status === 'voting') ||
                                data.find(b => b.status === 'active') ||
-                               data.find(b => b.status === 'upcoming');
+                               data.find(b => b.status === 'upcoming') ||
+                               data.find(b => b.status === 'completed');
                 if (active) {
                     const detail = await fetch(`${API}/api/beat-battle/battles/${active.id}`, { credentials: 'include' });
                     if (detail.ok) {
@@ -405,9 +407,9 @@ export const BattlesPage: React.FC = () => {
                             <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(16,19,29,0.97) 0%, rgba(22,25,37,0.75) 50%, rgba(22,25,37,0.35) 100%)', zIndex: 1 }} />
                             <div style={{ position: 'relative', zIndex: 2, padding: isMobile ? '20px 16px' : '32px 40px' }}>
                                 {/* Status badge */}
-                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: currentBattle.status === 'voting' ? ACCENT : '#34D399', fontWeight: 700, fontSize: '11px', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '10px' }}>
-                                    <Flame size={13} />
-                                    {currentBattle.status === 'voting' ? 'Voting Live' : currentBattle.status === 'active' ? 'Submissions Open' : 'Coming Soon'}
+                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: currentBattle.status === 'completed' ? GOLD : currentBattle.status === 'voting' ? ACCENT : '#34D399', fontWeight: 700, fontSize: '11px', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '10px' }}>
+                                    {currentBattle.status === 'completed' ? <Trophy size={13} /> : <Flame size={13} />}
+                                    {currentBattle.status === 'completed' ? 'Battle Ended' : currentBattle.status === 'voting' ? 'Voting Live' : currentBattle.status === 'active' ? 'Submissions Open' : 'Coming Soon'}
                                 </div>
                                 <div style={{ display: 'flex', alignItems: isMobile ? 'flex-start' : 'flex-end', justifyContent: 'space-between', flexDirection: isMobile ? 'column' : 'row', gap: '16px' }}>
                                     <div style={{ flex: 1 }}>
@@ -434,9 +436,45 @@ export const BattlesPage: React.FC = () => {
                                             )}
                                         </div>
                                     </div>
-                                    {/* Right side: countdown + CTA */}
+                                    {/* Right side: winner card (completed) or countdown + CTA */}
                                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: isMobile ? 'flex-start' : 'flex-end', gap: '12px', flexShrink: 0 }}>
-                                        {countdown && (
+                                        {currentBattle.status === 'completed' && (() => {
+                                            const entryPoints = (e: Entry) => (e.firstPlaceVotes ?? 0) * 3 + (e.secondPlaceVotes ?? 0) * 2 + (e.thirdPlaceVotes ?? 0);
+                                            const sorted = [...(currentBattle.entries ?? [])].sort((a, b) => entryPoints(b) - entryPoints(a));
+                                            const winner = currentBattle.winnerEntryId
+                                                ? (currentBattle.entries ?? []).find(e => e.id === currentBattle.winnerEntryId) ?? sorted[0]
+                                                : sorted[0];
+                                            const firstPrize = currentBattle.prizes?.[0];
+                                            if (!winner) return null;
+                                            const isPlayingWinner = player.currentTrack?.url === winner.audioUrl && player.isPlaying;
+                                            return (
+                                                <div style={{ backgroundColor: 'rgba(255,215,0,0.08)', border: '1px solid rgba(255,215,0,0.25)', borderRadius: '12px', padding: '14px 18px', minWidth: isMobile ? '0' : '260px', maxWidth: '320px' }}>
+                                                    <div style={{ fontSize: '10px', fontWeight: 700, color: GOLD, letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                                        <Trophy size={11} /> Winner
+                                                    </div>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                        {(winner.coverUrl || winner.avatarUrl) && (
+                                                            <img src={`${API}${winner.coverUrl || winner.avatarUrl}`} alt="" style={{ width: '44px', height: '44px', borderRadius: '6px', objectFit: 'cover', flexShrink: 0, border: '1px solid rgba(255,215,0,0.3)' }} />
+                                                        )}
+                                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                                            <div style={{ fontSize: '14px', fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{winner.trackTitle}</div>
+                                                            <div style={{ fontSize: '12px', color: GOLD, fontWeight: 600 }}>@{winner.username}</div>
+                                                            {firstPrize && <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{firstPrize.title || firstPrize.description}</div>}
+                                                        </div>
+                                                        <button
+                                                            onClick={() => {
+                                                                if (isPlayingWinner) { togglePlay(); }
+                                                                else { setTrack({ id: winner.id, title: winner.trackTitle, artist: winner.username, username: winner.username, url: winner.audioUrl, cover: winner.coverUrl ? `${API}${winner.coverUrl}` : null }); }
+                                                            }}
+                                                            style={{ width: '36px', height: '36px', borderRadius: '50%', backgroundColor: GOLD, border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, boxShadow: '0 4px 12px rgba(255,215,0,0.4)' }}
+                                                        >
+                                                            {isPlayingWinner ? <Pause size={14} fill="#1a1a1a" color="#1a1a1a" /> : <Play size={14} fill="#1a1a1a" color="#1a1a1a" />}
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })()}
+                                        {countdown && currentBattle.status !== 'completed' && (
                                             <div style={{ display: 'flex', gap: '6px' }}>
                                                 {[
                                                     { val: countdown.days, label: 'D' },
