@@ -3447,9 +3447,7 @@ app.get('/api/guilds/:guildId/logs', async (req, res) => {
     const CATEGORY_ACTIONS: Record<string, string[]> = {
         'MOD': ['MOD', 'kick', 'ban', 'unban', 'timeout', 'untimeout', 'warn', 'purge', 'softban',
                 'member_kick', 'member_ban', 'member_timeout', 'message_approved_web', 'message_rejected_web', 'announcement_posted'],
-        'AUTOMOD': ['AUTOMOD', 'automod_block', 'spam_detected'],
-        'ROLE': ['ROLE', 'role_create', 'role_delete', 'role_update', 'member_role_update'],
-        'PROFANITY': ['PROFANITY', 'message_filtered', 'profanity_detected'],
+        'AUTOMOD': ['AUTOMOD', 'automod_block', 'spam_detected', 'message_filtered', 'profanity_detected'],
         'CURRENCY': ['CURRENCY', 'item_bought', 'transaction'],
         'LINK': ['LINK', 'link_deleted', 'link_filtered'],
         'PIRACY': ['PIRACY', 'piracy_detected'],
