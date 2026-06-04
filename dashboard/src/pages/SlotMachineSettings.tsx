@@ -7,7 +7,9 @@ interface LossEntry {
   discordId: string;
   username: string;
   avatar: string | null;
-  totalLost: number;
+  grossLost: number;  // coins that left wallet in losing spins
+  grossWon: number;   // coins won from slots
+  netLoss: number;    // grossLost - grossWon — actual pre-session coins lost
   spinsLost: number;
 }
 
@@ -597,14 +599,14 @@ export const SlotMachineSettings: React.FC = () => {
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 0, border: `1px solid ${colors.border}`, borderRadius: borderRadius.md, overflow: 'hidden' }}>
               {/* Header */}
-              <div style={{ display: 'grid', gridTemplateColumns: '40px 1fr 120px 70px 100px', gap: 12, padding: '10px 16px', background: colors.surfaceLight, borderBottom: `1px solid ${colors.border}` }}>
-                {['#', 'Player', 'Coins Lost', 'Spins', ''].map(h => (
+              <div style={{ display: 'grid', gridTemplateColumns: '36px 1fr 110px 110px 70px 100px', gap: 10, padding: '10px 16px', background: colors.surfaceLight, borderBottom: `1px solid ${colors.border}` }}>
+                {['#', 'Player', 'Net Lost', 'Gross Lost', 'Spins', ''].map(h => (
                   <span key={h} style={{ fontSize: '11px', color: colors.textTertiary, textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600 }}>{h}</span>
                 ))}
               </div>
               {losses.map((entry, i) => (
                 <div key={entry.discordId} style={{
-                  display: 'grid', gridTemplateColumns: '40px 1fr 120px 70px 100px', gap: 12,
+                  display: 'grid', gridTemplateColumns: '36px 1fr 110px 110px 70px 100px', gap: 10,
                   padding: '10px 16px', alignItems: 'center',
                   background: i % 2 === 0 ? colors.surface : 'transparent',
                   borderBottom: i < losses.length - 1 ? `1px solid ${colors.border}` : 'none',
@@ -617,14 +619,22 @@ export const SlotMachineSettings: React.FC = () => {
                     }
                     <span style={{ fontSize: '14px', color: colors.textPrimary, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.username}</span>
                   </div>
-                  <span style={{ fontSize: '14px', fontWeight: 700, color: colors.tertiary, fontVariantNumeric: 'tabular-nums' }}>
-                    🪙 {entry.totalLost.toLocaleString()}
-                  </span>
+                  {/* Net loss (real coins from pre-session balance) */}
+                  <div>
+                    <span style={{ fontSize: '14px', fontWeight: 700, color: colors.tertiary, fontVariantNumeric: 'tabular-nums' }}>
+                      🪙 {entry.netLoss.toLocaleString()}
+                    </span>
+                  </div>
+                  {/* Gross lost / gross won breakdown */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                    <span style={{ fontSize: '12px', color: colors.tertiary, fontVariantNumeric: 'tabular-nums' }}>−{entry.grossLost.toLocaleString()}</span>
+                    <span style={{ fontSize: '11px', color: colors.primary, fontVariantNumeric: 'tabular-nums' }}>+{entry.grossWon.toLocaleString()}</span>
+                  </div>
                   <span style={{ fontSize: '13px', color: colors.textSecondary, fontVariantNumeric: 'tabular-nums' }}>
                     {entry.spinsLost.toLocaleString()}
                   </span>
                   <button
-                    onClick={() => { setReturnTarget(entry); setReturnAmount(String(entry.totalLost)); }}
+                    onClick={() => { setReturnTarget(entry); setReturnAmount(String(entry.netLoss)); }}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 5, padding: '6px 10px',
                       background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.25)',
@@ -644,9 +654,23 @@ export const SlotMachineSettings: React.FC = () => {
             <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
               <div style={{ background: colors.surface, border: `1px solid ${colors.border}`, borderRadius: borderRadius.xl, padding: 28, width: '100%', maxWidth: 420, boxShadow: '0 24px 64px rgba(0,0,0,0.6)' }}>
                 <h3 style={{ margin: '0 0 6px', color: colors.textPrimary }}>Return Coins</h3>
-                <p style={{ margin: '0 0 20px', color: colors.textSecondary, fontSize: 14 }}>
-                  Sending coins to <strong style={{ color: colors.textPrimary }}>{returnTarget.username}</strong> who lost a total of <strong style={{ color: colors.tertiary }}>🪙 {returnTarget.totalLost.toLocaleString()}</strong>.
-                </p>
+                <div style={{ margin: '0 0 20px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 14px', background: colors.surfaceLight, borderRadius: borderRadius.md, fontSize: 13 }}>
+                    <span style={{ color: colors.textSecondary }}>Gross lost (all losing spins)</span>
+                    <span style={{ color: colors.tertiary, fontWeight: 600 }}>🪙 {returnTarget.grossLost.toLocaleString()}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 14px', background: colors.surfaceLight, borderRadius: borderRadius.md, fontSize: 13 }}>
+                    <span style={{ color: colors.textSecondary }}>Won from slots (house money)</span>
+                    <span style={{ color: colors.primary, fontWeight: 600 }}>🪙 {returnTarget.grossWon.toLocaleString()}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 14px', background: 'rgba(244,63,94,0.07)', border: `1px solid rgba(244,63,94,0.2)`, borderRadius: borderRadius.md, fontSize: 13 }}>
+                    <span style={{ color: colors.textPrimary, fontWeight: 600 }}>Net loss (pre-session coins)</span>
+                    <span style={{ color: colors.tertiary, fontWeight: 700 }}>🪙 {returnTarget.netLoss.toLocaleString()}</span>
+                  </div>
+                  <p style={{ margin: 0, fontSize: 12, color: colors.textTertiary }}>
+                    The default amount below is their <strong>net loss</strong> — coins from their wallet before playing, not winnings they re-gambled.
+                  </p>
+                </div>
 
                 <div style={{ marginBottom: 16 }}>
                   <label style={{ display: 'block', fontSize: 12, color: colors.textTertiary, marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Amount</label>
@@ -660,10 +684,10 @@ export const SlotMachineSettings: React.FC = () => {
                       placeholder="Enter amount"
                     />
                     <button
-                      onClick={() => setReturnAmount(String(returnTarget.totalLost))}
+                      onClick={() => setReturnAmount(String(returnTarget.netLoss))}
                       style={{ padding: '8px 12px', background: colors.surfaceLight, border: `1px solid ${colors.border}`, borderRadius: borderRadius.md, color: colors.textSecondary, fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap' }}
                     >
-                      All ({returnTarget.totalLost.toLocaleString()})
+                      Net ({returnTarget.netLoss.toLocaleString()})
                     </button>
                   </div>
                 </div>

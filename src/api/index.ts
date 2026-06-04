@@ -4634,38 +4634,51 @@ app.get('/api/slots/losses/:guildId', async (req, res) => {
         const { guildId } = req.params;
         if (!await checkPluginAccess(guildId, req, 'slots')) return res.status(403).json({ error: 'Forbidden' });
 
-        // Group losses by user, sum absolute values
-        const rows = await db.economyTransaction.groupBy({
+        // Gross losses per user (losing spins only)
+        const lossRows = await db.economyTransaction.groupBy({
             by: ['fromUserId'],
             where: { guildId, type: 'SLOTS', amount: { lt: 0 }, fromUserId: { not: null } },
             _sum: { amount: true },
             _count: { _all: true },
-            orderBy: { _sum: { amount: 'asc' } }, // most negative first
         });
 
+        // Gross wins per user (winning spins only)
+        const winRows = await db.economyTransaction.groupBy({
+            by: ['toUserId'],
+            where: { guildId, type: 'SLOTS', amount: { gt: 0 }, toUserId: { not: null } },
+            _sum: { amount: true },
+        });
+
+        const winsByUser = new Map(winRows.map(r => [r.toUserId!, r._sum.amount ?? 0]));
+
+        // Merge: net loss = gross lost - gross won. Only include users who are net negative.
+        const merged = lossRows
+            .map(row => {
+                const discordId = row.fromUserId!;
+                const grossLost = Math.abs(row._sum.amount ?? 0);
+                const grossWon  = winsByUser.get(discordId) ?? 0;
+                const netLoss   = Math.max(0, grossLost - grossWon);
+                return { discordId, grossLost, grossWon, netLoss, spinsLost: row._count._all };
+            })
+            .filter(r => r.netLoss > 0)
+            .sort((a, b) => b.netLoss - a.netLoss); // highest net loss first
+
         // Enrich with Discord user info
-        const enriched = await Promise.all(rows.map(async row => {
-            const discordId = row.fromUserId!;
-            let username = discordId;
+        const enriched = await Promise.all(merged.map(async row => {
+            let username = row.discordId;
             let avatar: string | null = null;
             try {
-                const r = await axios.get(`https://discord.com/api/v10/users/${discordId}`, {
+                const r = await axios.get(`https://discord.com/api/v10/users/${row.discordId}`, {
                     headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` },
                     timeout: 3000,
                 });
-                username = r.data.global_name || r.data.username || discordId;
+                username = r.data.global_name || r.data.username || row.discordId;
                 avatar = r.data.avatar
-                    ? `https://cdn.discordapp.com/avatars/${discordId}/${r.data.avatar}.png?size=64`
+                    ? `https://cdn.discordapp.com/avatars/${row.discordId}/${r.data.avatar}.png?size=64`
                     : null;
             } catch { /* use ID as fallback */ }
 
-            return {
-                discordId,
-                username,
-                avatar,
-                totalLost: Math.abs(row._sum.amount ?? 0),
-                spinsLost: row._count._all,
-            };
+            return { ...row, username, avatar };
         }));
 
         res.json(enriched);
