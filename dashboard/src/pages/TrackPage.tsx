@@ -134,94 +134,63 @@ function extractYouTubeId(url: string): string | null {
     return null;
 }
 
-declare global {
-    interface Window { YT: any; onYouTubeIframeAPIReady?: () => void; }
-}
-let _ytApiState: 'idle' | 'loading' | 'ready' = 'idle';
-const _ytCallbacks: Array<() => void> = [];
-function loadYouTubeApi(cb: () => void) {
-    if (_ytApiState === 'ready') { cb(); return; }
-    _ytCallbacks.push(cb);
-    if (_ytApiState === 'loading') return;
-    _ytApiState = 'loading';
-    const prev = window.onYouTubeIframeAPIReady;
-    window.onYouTubeIframeAPIReady = () => {
-        _ytApiState = 'ready';
-        _ytCallbacks.forEach(f => f());
-        _ytCallbacks.length = 0;
-        prev?.();
-    };
-    const s = document.createElement('script');
-    s.src = 'https://www.youtube.com/iframe_api';
-    document.head.appendChild(s);
-}
-
 const MemoizedYouTube: React.FC<{
     videoId: string;
     trackId: string;
     player: any;
     isPlaying: boolean;
 }> = React.memo(({ videoId, trackId, player, isPlaying }) => {
-    // wrapperRef is tracked by React; the inner player div is created imperatively
-    // so React never reconciles it away when YouTube replaces it with an iframe.
-    const wrapperRef = useRef<HTMLDivElement>(null);
-    const ytRef = useRef<any>(null);
+    const iframeRef = useRef<HTMLIFrameElement>(null);
     const currentTimeRef = useRef(0);
     const isPlayingRef = useRef(false);
+    const lastSentPlayState = useRef<boolean | null>(null);
 
     const isThisTrack = player.currentTrack?.id === trackId;
     currentTimeRef.current = isThisTrack ? player.currentTime : 0;
     isPlayingRef.current = isPlaying && isThisTrack;
 
-    useEffect(() => {
-        let destroyed = false;
-        const init = () => {
-            if (destroyed || !wrapperRef.current) return;
-            // Create an unmanaged div for YT to own — React never touches it
-            const playerDiv = document.createElement('div');
-            playerDiv.style.width = '100%';
-            playerDiv.style.height = '100%';
-            wrapperRef.current.appendChild(playerDiv);
-            ytRef.current = new window.YT.Player(playerDiv, {
-                videoId,
-                width: '100%',
-                height: '100%',
-                playerVars: { autoplay: 0, mute: 1, controls: 1, modestbranding: 1, rel: 0, enablejsapi: 1 },
-                events: {
-                    onReady: (e: any) => e.target.mute(),
-                },
-            });
-        };
-        loadYouTubeApi(init);
-        return () => {
-            destroyed = true;
-            try { ytRef.current?.destroy(); } catch {}
-            ytRef.current = null;
-            if (wrapperRef.current) wrapperRef.current.innerHTML = '';
-        };
-    }, [videoId]);
-
-    useEffect(() => {
-        const interval = setInterval(() => {
-            const yt = ytRef.current;
-            if (!yt || typeof yt.getPlayerState !== 'function') return;
-            try {
-                const shouldPlay = isPlayingRef.current;
-                const state = yt.getPlayerState();
-                if (shouldPlay && state !== 1 && state !== 3) yt.playVideo();
-                else if (!shouldPlay && state === 1) yt.pauseVideo();
-                if (shouldPlay) {
-                    const diff = Math.abs(yt.getCurrentTime() - currentTimeRef.current);
-                    if (diff > 1.5) yt.seekTo(currentTimeRef.current, true);
-                }
-            } catch {}
-        }, 500);
-        return () => clearInterval(interval);
+    // postMessage helper — works as long as the iframe has enablejsapi=1
+    const ytCmd = useCallback((func: string, args: any[] = []) => {
+        iframeRef.current?.contentWindow?.postMessage(
+            JSON.stringify({ event: 'command', func, args }), '*'
+        );
     }, []);
+
+    // Sync loop: play/pause + seek
+    useEffect(() => {
+        // Give the iframe a moment to load before we start sending commands
+        const interval = setInterval(() => {
+            const shouldPlay = isPlayingRef.current;
+
+            // Sync play/pause only when state changes to avoid spam
+            if (shouldPlay !== lastSentPlayState.current) {
+                if (shouldPlay) {
+                    ytCmd('seekTo', [currentTimeRef.current, true]);
+                    ytCmd('playVideo');
+                } else {
+                    ytCmd('pauseVideo');
+                }
+                lastSentPlayState.current = shouldPlay;
+            }
+
+            // Drift correction while playing
+            if (shouldPlay) {
+                ytCmd('seekTo', [currentTimeRef.current, true]);
+            }
+        }, 1000);
+        return () => clearInterval(interval);
+    }, [ytCmd]);
 
     return (
         <div style={{ position: 'relative', paddingBottom: '56.25%', height: 0, overflow: 'hidden', borderRadius: '0 0 16px 16px' }}>
-            <div ref={wrapperRef} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }} />
+            <iframe
+                ref={iframeRef}
+                key={videoId}
+                src={`https://www.youtube.com/embed/${videoId}?enablejsapi=1&mute=1&autoplay=0&controls=1&modestbranding=1&rel=0`}
+                style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', border: 'none' }}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+            />
         </div>
     );
 });
