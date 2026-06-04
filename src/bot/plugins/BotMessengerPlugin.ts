@@ -132,19 +132,17 @@ export class BotMessengerPlugin implements IPlugin {
     }
 
     async onInteractionCreate(interaction: any): Promise<void> {
-        if (!interaction.isChatInputCommand()) return;
         if (!this.context) return;
 
-        if (interaction.commandName === 'send') {
-            await this.handleSend(interaction);
-        } else if (interaction.commandName === 'react') {
-            await this.handleReact(interaction);
-        } else if (interaction.commandName === 'whisper') {
-            await this.handleWhisper(interaction);
-        }
-
-        // Button: user clicking "View Message" on a whisper notification
-        if (interaction.isButton() && interaction.customId === 'whisper_view') {
+        if (interaction.isChatInputCommand()) {
+            if (interaction.commandName === 'send') {
+                await this.handleSend(interaction);
+            } else if (interaction.commandName === 'react') {
+                await this.handleReact(interaction);
+            } else if (interaction.commandName === 'whisper') {
+                await this.handleWhisper(interaction);
+            }
+        } else if (interaction.isButton() && interaction.customId === 'whisper_view') {
             await this.handleWhisperView(interaction);
         }
     }
