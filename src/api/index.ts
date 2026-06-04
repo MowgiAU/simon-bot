@@ -8239,7 +8239,7 @@ app.put('/api/musician/tracks/:trackId', generalUploadLimiter, upload.fields([
         const updateData: any = {};
 
         // Text field updates
-        const { title, description, isPublic: isPublicEdit, artist, album, year, bpm, key: musicKey, genreIds, allowAudioDownload, allowProjectDownload, license } = req.body;
+        const { title, description, isPublic: isPublicEdit, artist, album, year, bpm, key: musicKey, genreIds, allowAudioDownload, allowProjectDownload, license, youtubeUrl } = req.body;
         logger.info(`[PUT track ${trackId}] isPublic=${JSON.stringify(isPublicEdit)} allowAudioDownload=${JSON.stringify(allowAudioDownload)} allowProjectDownload=${JSON.stringify(allowProjectDownload)}`);
         if (title !== undefined) {
             const cleanTitle = sanitizeDisplayName(title);
@@ -8256,6 +8256,7 @@ app.put('/api/musician/tracks/:trackId', generalUploadLimiter, upload.fields([
         if (allowAudioDownload !== undefined) updateData.allowAudioDownload = allowAudioDownload === 'true' || allowAudioDownload === true;
         if (allowProjectDownload !== undefined) updateData.allowProjectDownload = allowProjectDownload === 'true' || allowProjectDownload === true;
         if (license !== undefined) updateData.license = license;
+        if (youtubeUrl !== undefined) updateData.youtubeUrl = youtubeUrl || null;
         // If making private, clear as featured track
         if (updateData.isPublic === false) {
             db.musicianProfile.updateMany({ where: { featuredTrackId: trackId }, data: { featuredTrackId: null } }).catch(() => {});

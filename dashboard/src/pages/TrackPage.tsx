@@ -9,12 +9,12 @@ import { FujiLogo } from '../components/FujiLogo';
 import { showToast } from '../components/Toast';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { assertVerified, handleVerificationError } from '../lib/verificationError';
-import { 
+import {
     Music, Play, Pause, Zap, Clock, Info, Tag, Calendar,
     ArrowLeft, Share2, ExternalLink, Layers, FileAudio,
     Edit3, X, Save, Upload, Download, Heart, ListPlus, Repeat2,
     Activity, Package, ChevronDown, ChevronUp, Trash2, AlignLeft, CheckCircle,
-    SkipBack, SkipForward, Scale, Swords, Users, User, UserPlus
+    SkipBack, SkipForward, Scale, Swords, Users, User, UserPlus, Youtube, Video
 } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { CommentSection } from '../components/CommentSection';
@@ -55,6 +55,7 @@ interface Track {
     lyrics: string | null;
     lyricsSync: Array<{ time: number; text: string }> | null;
     waveformPeaks: number[] | null;
+    youtubeUrl: string | null;
     samples?: TrackSample[];
     profile: {
         id: string;
@@ -119,6 +120,103 @@ const MemoizedArrangement: React.FC<{
     );
 });
 
+// ── YouTube helpers ───────────────────────────────────────────────────────────
+function extractYouTubeId(url: string): string | null {
+    try {
+        const u = new URL(url);
+        if (u.hostname === 'youtu.be') return u.pathname.slice(1).split('?')[0] || null;
+        if (u.hostname.includes('youtube.com')) {
+            if (u.searchParams.get('v')) return u.searchParams.get('v');
+            const m = u.pathname.match(/\/embed\/([^/?]+)/);
+            if (m) return m[1];
+        }
+    } catch {}
+    return null;
+}
+
+declare global {
+    interface Window { YT: any; onYouTubeIframeAPIReady?: () => void; }
+}
+let _ytApiState: 'idle' | 'loading' | 'ready' = 'idle';
+const _ytCallbacks: Array<() => void> = [];
+function loadYouTubeApi(cb: () => void) {
+    if (_ytApiState === 'ready') { cb(); return; }
+    _ytCallbacks.push(cb);
+    if (_ytApiState === 'loading') return;
+    _ytApiState = 'loading';
+    const prev = window.onYouTubeIframeAPIReady;
+    window.onYouTubeIframeAPIReady = () => {
+        _ytApiState = 'ready';
+        _ytCallbacks.forEach(f => f());
+        _ytCallbacks.length = 0;
+        prev?.();
+    };
+    const s = document.createElement('script');
+    s.src = 'https://www.youtube.com/iframe_api';
+    document.head.appendChild(s);
+}
+
+const MemoizedYouTube: React.FC<{
+    videoId: string;
+    trackId: string;
+    player: any;
+    isPlaying: boolean;
+}> = React.memo(({ videoId, trackId, player, isPlaying }) => {
+    const containerRef = useRef<HTMLDivElement>(null);
+    const ytRef = useRef<any>(null);
+    const currentTimeRef = useRef(0);
+    const isPlayingRef = useRef(false);
+
+    // Update refs on every render — no child re-renders triggered
+    const isThisTrack = player.currentTrack?.id === trackId;
+    currentTimeRef.current = isThisTrack ? player.currentTime : 0;
+    isPlayingRef.current = isPlaying && isThisTrack;
+
+    // Mount / unmount the YT player
+    useEffect(() => {
+        let destroyed = false;
+        const init = () => {
+            if (destroyed || !containerRef.current) return;
+            ytRef.current = new window.YT.Player(containerRef.current, {
+                videoId,
+                playerVars: { autoplay: 0, mute: 1, controls: 1, modestbranding: 1, rel: 0, enablejsapi: 1 },
+                events: { onReady: () => ytRef.current?.mute() },
+            });
+        };
+        loadYouTubeApi(init);
+        return () => {
+            destroyed = true;
+            try { ytRef.current?.destroy(); } catch {}
+            ytRef.current = null;
+        };
+    }, [videoId]);
+
+    // Sync loop: play/pause + seek to match the audio player
+    useEffect(() => {
+        const interval = setInterval(() => {
+            const yt = ytRef.current;
+            if (!yt || typeof yt.getPlayerState !== 'function') return;
+            try {
+                const shouldPlay = isPlayingRef.current;
+                const state = yt.getPlayerState(); // 1=playing 2=paused
+                if (shouldPlay && state !== 1 && state !== 3) yt.playVideo();
+                else if (!shouldPlay && state === 1) yt.pauseVideo();
+                if (shouldPlay) {
+                    const diff = Math.abs(yt.getCurrentTime() - currentTimeRef.current);
+                    if (diff > 1.5) yt.seekTo(currentTimeRef.current, true);
+                }
+            } catch {}
+        }, 500);
+        return () => clearInterval(interval);
+    }, []);
+
+    return (
+        <div style={{ position: 'relative', paddingBottom: '56.25%', height: 0, overflow: 'hidden', borderRadius: '0 0 16px 16px' }}>
+            <div ref={containerRef} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }} />
+        </div>
+    );
+});
+
 const LICENSE_LABELS: Record<string, string> = {
     'all-rights-reserved': 'All Rights Reserved',
     'cc0': 'CC0 — Public Domain',
@@ -175,6 +273,9 @@ export const TrackPage: React.FC = () => {
     const [editTrackType, setEditTrackType] = useState('');
     const [editSlug, setEditSlug] = useState('');
     const [editLyrics, setEditLyrics] = useState('');
+    const [editYoutubeUrl, setEditYoutubeUrl] = useState('');
+    // View toggle for tracks with both an arrangement and a YouTube video
+    const [videoView, setVideoView] = useState<'project' | 'video'>('project');
     // Featured plugin modal
     const [activePlugin, setActivePlugin] = useState<{ rawName: string; known: ReturnType<typeof matchPlugin> } | null>(null);
     // Collaborators
@@ -333,6 +434,7 @@ export const TrackPage: React.FC = () => {
         setEditTrackType((freshTrack as any).trackType || '');
         setEditSlug((freshTrack as any).slug || '');
         setEditLyrics((freshTrack as any).lyrics || '');
+        setEditYoutubeUrl((freshTrack as any).youtubeUrl || '');
         setSelectedTrackGenres(freshTrack.genres?.map((g: any) => g.genre?.id || g.genreId || g.id) || []);
         setEditAudioFile(null);
         setEditArtworkFile(null);
@@ -444,6 +546,7 @@ export const TrackPage: React.FC = () => {
             if (editTrackType) formData.append('trackType', editTrackType);
             if (editSlug) formData.append('slug', editSlug);
             formData.append('lyrics', editLyrics);
+            formData.append('youtubeUrl', editYoutubeUrl);
             if (editAudioFile) formData.append('audio', editAudioFile);
             if (editArtworkFile) formData.append('artwork', editArtworkFile);
             if (editProjectFile) formData.append('project', editProjectFile);
@@ -878,15 +981,17 @@ export const TrackPage: React.FC = () => {
                     );
                 })()}
 
-                {/* ═══ FL STUDIO PROJECT SECTION ═══ */}
-                {track.arrangement && (track.arrangement.tracks.some(t => t.clips.length > 0) || track.arrangement.projectInfo) && (
-                    <div style={{ 
+                {/* ═══ FL STUDIO PROJECT / MUSIC VIDEO SECTION ═══ */}
+                {(track.arrangement && (track.arrangement.tracks.some(t => t.clips.length > 0) || track.arrangement.projectInfo)) || track.youtubeUrl ? (
+                    <div style={{
                         marginBottom: '24px', borderRadius: '16px', overflow: 'hidden',
-                        border: '1px solid rgba(242,123,19,0.2)',
-                        background: 'linear-gradient(135deg, rgba(242,123,19,0.06) 0%, rgba(14,18,26,0.95) 50%, rgba(124,58,237,0.04) 100%)',
+                        border: track.youtubeUrl && videoView === 'video' ? '1px solid rgba(255,0,0,0.2)' : '1px solid rgba(242,123,19,0.2)',
+                        background: track.youtubeUrl && videoView === 'video'
+                            ? 'linear-gradient(135deg, rgba(255,0,0,0.06) 0%, rgba(14,18,26,0.95) 100%)'
+                            : 'linear-gradient(135deg, rgba(242,123,19,0.06) 0%, rgba(14,18,26,0.95) 50%, rgba(124,58,237,0.04) 100%)',
                     }}>
                         {/* Section header */}
-                        <div style={{ 
+                        <div style={{
                             padding: isMobile ? '16px 20px' : '20px 28px',
                             borderBottom: '1px solid rgba(255,255,255,0.06)',
                             display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px',
@@ -894,22 +999,63 @@ export const TrackPage: React.FC = () => {
                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                 <div style={{
                                     width: '40px', height: '40px', borderRadius: '10px',
-                                    background: `linear-gradient(135deg, ${colors.primary}, #E65100)`,
+                                    background: track.youtubeUrl && videoView === 'video'
+                                        ? 'linear-gradient(135deg, #ff0000, #cc0000)'
+                                        : `linear-gradient(135deg, ${colors.primary}, #E65100)`,
                                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    boxShadow: `0 4px 16px ${colors.primary}44`,
+                                    boxShadow: track.youtubeUrl && videoView === 'video' ? '0 4px 16px rgba(255,0,0,0.4)' : `0 4px 16px ${colors.primary}44`,
                                 }}>
-                                    <Layers size={20} color="white" />
+                                    {track.youtubeUrl && videoView === 'video' ? <Youtube size={20} color="white" /> : <Layers size={20} color="white" />}
                                 </div>
                                 <div>
-                                    <h2 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700 }}>{track.arrangement.fileType === 'als' ? 'Ableton Project' : 'FL Studio Project'}</h2>
-                                    <p style={{ margin: 0, fontSize: '12px', color: colors.textSecondary }}>
-                                        {track.arrangement.bpm && `${track.arrangement.bpm} BPM`}
-                                        {track.arrangement.bpm && track.arrangement.tracks.length > 0 && ' · '}
-                                        {track.arrangement.tracks.length > 0 && `${track.arrangement.tracks.filter(t => t.clips.length > 0).length} tracks`}
-                                        {track.arrangement.projectInfo && track.arrangement.projectInfo.plugins.length > 0 && ` · ${track.arrangement.projectInfo.plugins.length} plugins`}
-                                    </p>
+                                    {track.youtubeUrl && videoView === 'video' ? (
+                                        <>
+                                            <h2 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700 }}>Music Video</h2>
+                                            <p style={{ margin: 0, fontSize: '12px', color: colors.textSecondary }}>YouTube · muted, synced to audio</p>
+                                        </>
+                                    ) : track.arrangement ? (
+                                        <>
+                                            <h2 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700 }}>{track.arrangement.fileType === 'als' ? 'Ableton Project' : 'FL Studio Project'}</h2>
+                                            <p style={{ margin: 0, fontSize: '12px', color: colors.textSecondary }}>
+                                                {track.arrangement.bpm && `${track.arrangement.bpm} BPM`}
+                                                {track.arrangement.bpm && track.arrangement.tracks.length > 0 && ' · '}
+                                                {track.arrangement.tracks.length > 0 && `${track.arrangement.tracks.filter(t => t.clips.length > 0).length} tracks`}
+                                                {track.arrangement.projectInfo && track.arrangement.projectInfo.plugins.length > 0 && ` · ${track.arrangement.projectInfo.plugins.length} plugins`}
+                                            </p>
+                                        </>
+                                    ) : null}
                                 </div>
                             </div>
+
+                            {/* View toggle — only when both arrangement and YouTube exist */}
+                            {track.arrangement && (track.arrangement.tracks.some(t => t.clips.length > 0) || track.arrangement.projectInfo) && track.youtubeUrl && (
+                                <div style={{ display: 'flex', background: 'rgba(255,255,255,0.04)', borderRadius: '10px', padding: '3px', gap: '2px' }}>
+                                    <button
+                                        onClick={() => setVideoView('project')}
+                                        style={{
+                                            display: 'flex', alignItems: 'center', gap: '6px',
+                                            padding: '6px 14px', borderRadius: '8px', border: videoView === 'project' ? `1px solid ${colors.primary}44` : '1px solid transparent',
+                                            background: videoView === 'project' ? `${colors.primary}18` : 'transparent',
+                                            color: videoView === 'project' ? colors.primary : colors.textTertiary,
+                                            cursor: 'pointer', fontSize: '12px', fontWeight: 600,
+                                        }}
+                                    >
+                                        <Layers size={13} /> Project
+                                    </button>
+                                    <button
+                                        onClick={() => setVideoView('video')}
+                                        style={{
+                                            display: 'flex', alignItems: 'center', gap: '6px',
+                                            padding: '6px 14px', borderRadius: '8px', border: videoView === 'video' ? '1px solid rgba(255,0,0,0.3)' : '1px solid transparent',
+                                            background: videoView === 'video' ? 'rgba(255,0,0,0.12)' : 'transparent',
+                                            color: videoView === 'video' ? '#ff6b6b' : colors.textTertiary,
+                                            cursor: 'pointer', fontSize: '12px', fontWeight: 600,
+                                        }}
+                                    >
+                                        <Youtube size={13} /> Music Video
+                                    </button>
+                                </div>
+                            )}
 
                             {/* Download buttons */}
                             <div style={{ display: 'flex', gap: '8px' }}>
@@ -986,8 +1132,21 @@ export const TrackPage: React.FC = () => {
                             </div>
                         )}
 
+                        {/* Music video view */}
+                        {track.youtubeUrl && videoView === 'video' && (() => {
+                            const vid = extractYouTubeId(track.youtubeUrl);
+                            return vid ? (
+                                <MemoizedYouTube
+                                    videoId={vid}
+                                    trackId={track.id}
+                                    player={player}
+                                    isPlaying={isPlaying}
+                                />
+                            ) : null;
+                        })()}
+
                         {/* Arrangement timeline */}
-                        {track.arrangement.tracks.some(t => t.clips.length > 0) && (
+                        {(!track.youtubeUrl || videoView === 'project') && track.arrangement && track.arrangement.tracks.some(t => t.clips.length > 0) && (
                             <div style={{ padding: isMobile ? '16px 20px' : '20px 28px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
                                 <MemoizedArrangement
                                     track={track}
@@ -1000,8 +1159,8 @@ export const TrackPage: React.FC = () => {
                         )}
 
                         {/* ── Featured Plugins (registry-matched, always visible) ── */}
-                        {(() => {
-                            if (!track.arrangement.projectInfo || pluginRegistry.length === 0) return null;
+                        {(!track.youtubeUrl || videoView === 'project') && (() => {
+                            if (!track.arrangement?.projectInfo || pluginRegistry.length === 0) return null;
                             const seen = new Set<string>();
                             const matched = track.arrangement.projectInfo.plugins.reduce<Array<{ rawName: string; known: NonNullable<ReturnType<typeof matchPlugin>> }>>((acc, name) => {
                                 const known = matchPlugin(name, pluginRegistry);
@@ -1050,7 +1209,7 @@ export const TrackPage: React.FC = () => {
                         {activePlugin && <PluginModal rawName={activePlugin.rawName} known={activePlugin.known} onClose={() => setActivePlugin(null)} />}
 
                         {/* Plugins & Samples (collapsible) — shows unmatched plugins + all samples */}
-                        {track.arrangement.projectInfo && (() => {
+                        {(!track.youtubeUrl || videoView === 'project') && track.arrangement?.projectInfo && (() => {
                             const unmatchedPlugins = pluginRegistry.length > 0
                                 ? track.arrangement.projectInfo.plugins.filter(name => !matchPlugin(name, pluginRegistry))
                                 : track.arrangement.projectInfo.plugins;
@@ -1129,7 +1288,7 @@ export const TrackPage: React.FC = () => {
                         );
                     })()}
                 </div>
-                )}
+                ) : null}
 
                 {/* ═══ TRACK DETAILS (no FLP) ═══ */}
                 {!track.arrangement && (
@@ -1746,6 +1905,26 @@ export const TrackPage: React.FC = () => {
                                     <textarea value={editLyrics} onChange={e => setEditLyrics(e.target.value)} rows={4}
                                         placeholder="Paste lyrics here..."
                                         style={{ width: '100%', padding: '10px 14px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.md, color: 'white', fontSize: '0.95rem', outline: 'none', resize: 'vertical', fontFamily: 'inherit', boxSizing: 'border-box' }} />
+                                </div>
+
+                                {/* YouTube Music Video */}
+                                <div>
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px', fontSize: '0.85rem', color: colors.textSecondary, fontWeight: 600 }}>
+                                        <Youtube size={14} color="#ff4444" /> YouTube Music Video <span style={{ fontWeight: 400, color: colors.textTertiary }}>(optional)</span>
+                                    </label>
+                                    <input
+                                        type="url"
+                                        value={editYoutubeUrl}
+                                        onChange={e => setEditYoutubeUrl(e.target.value)}
+                                        placeholder="https://www.youtube.com/watch?v=..."
+                                        style={{ width: '100%', padding: '10px 14px', backgroundColor: 'rgba(255,255,255,0.05)', border: `1px solid ${editYoutubeUrl && !extractYouTubeId(editYoutubeUrl) ? 'rgba(239,68,68,0.5)' : 'rgba(255,255,255,0.1)'}`, borderRadius: borderRadius.md, color: 'white', fontSize: '0.95rem', outline: 'none', boxSizing: 'border-box' }}
+                                    />
+                                    {editYoutubeUrl && !extractYouTubeId(editYoutubeUrl) && (
+                                        <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#f87171' }}>Invalid YouTube URL</p>
+                                    )}
+                                    {editYoutubeUrl && extractYouTubeId(editYoutubeUrl) && (
+                                        <p style={{ margin: '4px 0 0', fontSize: '12px', color: colors.primary }}>✓ Video ID: {extractYouTubeId(editYoutubeUrl)}</p>
+                                    )}
                                 </div>
 
                                 {/* Collaborators */}

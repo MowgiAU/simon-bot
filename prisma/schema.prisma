@@ -1028,6 +1028,8 @@ model Track {
   lyrics     String? @db.Text
   lyricsSync Json? // Array<{ time: number; text: string }> seconds-based cue list
 
+  youtubeUrl String? // YouTube music video URL
+
   samples TrackSample[]
 
   profile        MusicianProfile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
