@@ -118,11 +118,14 @@ export class SimonBot {
       // Initialize default guild and word filter settings on startup
       await this.initializeDefaults();
 
-      // Login second bot for auto responder if configured
+      // Login second bot for auto responder if configured — wait for ready so channel cache is populated
       if (process.env.SIMON_BOT_TOKEN) {
         this.simonClient = new Client({ intents: [GatewayIntentBits.Guilds] });
-        await this.simonClient.login(process.env.SIMON_BOT_TOKEN);
-        this.logger.info('Simon Bot (auto responder) logged in to Discord');
+        await new Promise<void>((resolve, reject) => {
+          this.simonClient!.once(Events.ClientReady, () => resolve());
+          this.simonClient!.login(process.env.SIMON_BOT_TOKEN!).catch(reject);
+        });
+        this.logger.info('Simon Bot (auto responder) ready');
       }
 
       // Load plugins
