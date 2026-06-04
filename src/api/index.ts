@@ -3462,6 +3462,9 @@ app.get('/api/guilds/:guildId/logs', async (req, res) => {
         'SOCIAL': ['SOCIAL', 'track_favourited', 'track_unfavourited', 'artist_followed', 'artist_unfollowed',
                    'track_reposted', 'track_unreposted'],
         'PLAYLISTS': ['PLAYLISTS', 'playlist_created', 'playlist_deleted', 'playlist_track_added', 'playlist_track_removed'],
+        'STUDIO_GUIDE': ['STUDIO_GUIDE', 'STUDIO_GUIDE_AUTO_RESPONSE', 'STUDIO_GUIDE_PAUSED', 'STUDIO_GUIDE_RESUMED', 'STUDIO_GUIDE_USER_OPTOUT', 'STUDIO_GUIDE_DIRECT_ASK'],
+        'CHANNEL_RULES': ['CHANNEL_RULES', 'message_approved', 'message_rejected', 'rule_triggered', 'review_request'],
+        'FEEDBACK': ['FEEDBACK', 'FEEDBACK_REWARD_GIVEN', 'FEEDBACK_DENIED', 'FEEDBACK_THREAD_CREATED', 'FEEDBACK_APPROVED'],
     };
 
     if (action && action !== 'all') {

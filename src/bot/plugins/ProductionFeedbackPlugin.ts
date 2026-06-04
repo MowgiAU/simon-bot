@@ -414,10 +414,44 @@ export class ProductionFeedbackPlugin implements IPlugin {
                 // Reward with feedback points
                 await this.rewardUser(message.author.id, message.guildId, settings.feedbackPointsReward);
                 // React to indicate success
-                await message.react('✅'); 
+                await message.react('✅');
+            } else if (result.state === 'DENIED' && message.guildId) {
+                await this.context.logAction({
+                    guildId: message.guildId,
+                    actionType: 'FEEDBACK_DENIED',
+                    targetId: message.author.id,
+                    details: {
+                        reason: result.reason,
+                        score: result.score,
+                        content: message.content.slice(0, 500),
+                        threadId: channel.id,
+                        threadName: (channel as ThreadChannel).name,
+                    }
+                });
+
+                if (settings.modLogChannelId) {
+                    try {
+                        const modlogChannel = this.context.client.channels.cache.get(settings.modLogChannelId) as TextChannel | null;
+                        if (modlogChannel) {
+                            const embed = new EmbedBuilder()
+                                .setTitle('❌ Feedback Rejected (AI)')
+                                .setColor(0xED4245)
+                                .addFields(
+                                    { name: 'User', value: `<@${message.author.id}>`, inline: true },
+                                    { name: 'Score', value: `${result.score}/10`, inline: true },
+                                    { name: 'Thread', value: `<#${channel.id}>`, inline: true },
+                                    { name: 'Reason', value: result.reason || 'No reason provided' },
+                                    { name: 'Content', value: message.content.slice(0, 1000) },
+                                )
+                                .setTimestamp();
+                            await modlogChannel.send({ embeds: [embed] });
+                        }
+                    } catch (e) {
+                        this.logger.warn('Failed to post AI rejection to modlog channel', e);
+                    }
+                }
             }
             // UNSURE: queued silently for staff review — no reaction
-            // DENIED: no action
         }
     }
 

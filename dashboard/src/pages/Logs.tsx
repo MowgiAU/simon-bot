@@ -2,31 +2,28 @@ import React, { useEffect, useState } from 'react';
 import { colors, spacing, borderRadius } from '../theme/theme';
 import { useMobile } from '../hooks/useMobile';
 import { showToast } from '../components/Toast';
-import { 
-  ShieldAlert, 
-  Bot, 
-  UserCog, 
-  MessageSquareX, 
-  Coins, 
-  Link, 
-  Skull, 
-  AlertTriangle,
+import {
+  ShieldAlert,
+  Bot,
+  Coins,
   Search,
-  Menu,
   X,
-  MessageSquare,
   Filter,
   XCircle,
   Hash,
-  StickyNote,
   ChevronLeft,
   ChevronRight,
   Users,
   Plus,
   Music,
   MessageCircle,
+  MessageSquare,
   Heart,
-  ListMusic
+  ListMusic,
+  BookOpen,
+  Sliders,
+  Star,
+  StickyNote,
 } from 'lucide-react';
 
 interface LogComment {
@@ -66,88 +63,87 @@ interface ActionLog {
 }
 
 const CATEGORIES = [
-  { id: 'all', label: 'All Logs', icon: <Search size={16} /> },
-  { id: 'MOD', label: 'Moderation', icon: <ShieldAlert size={16} /> },
-  { id: 'AUTOMOD', label: 'AutoMod', icon: <Bot size={16} /> },
-  { id: 'ROLE', label: 'Roles', icon: <UserCog size={16} /> },
-  { id: 'PROFANITY', label: 'Profanity', icon: <MessageSquareX size={16} /> },
-  { id: 'CURRENCY', label: 'Currency', icon: <Coins size={16} /> },
-  { id: 'LINK', label: 'Links', icon: <Link size={16} /> },
-  { id: 'PIRACY', label: 'Piracy', icon: <Skull size={16} /> },
-  { id: 'ERROR', label: 'Errors', icon: <AlertTriangle size={16} /> },
-  { id: 'PROFILES', label: 'Profiles', icon: <Music size={16} /> },
-  { id: 'COMMENTS', label: 'Comments', icon: <MessageCircle size={16} /> },
-  { id: 'SOCIAL', label: 'Social', icon: <Heart size={16} /> },
-  { id: 'PLAYLISTS', label: 'Playlists', icon: <ListMusic size={16} /> },
+  { id: 'all',          label: 'All Logs',      icon: <Search size={16} /> },
+  { id: 'MOD',          label: 'Moderation',    icon: <ShieldAlert size={16} /> },
+  { id: 'AUTOMOD',      label: 'AutoMod',       icon: <Bot size={16} /> },
+  { id: 'CURRENCY',     label: 'Currency',      icon: <Coins size={16} /> },
+  { id: 'PROFILES',     label: 'Profiles',      icon: <Music size={16} /> },
+  { id: 'FEEDBACK',     label: 'Feedback',      icon: <Star size={16} /> },
+  { id: 'COMMENTS',     label: 'Comments',      icon: <MessageCircle size={16} /> },
+  { id: 'SOCIAL',       label: 'Social',        icon: <Heart size={16} /> },
+  { id: 'PLAYLISTS',    label: 'Playlists',     icon: <ListMusic size={16} /> },
+  { id: 'STUDIO_GUIDE', label: 'Studio Guide',  icon: <BookOpen size={16} /> },
+  { id: 'CHANNEL_RULES',label: 'Channel Rules', icon: <Sliders size={16} /> },
 ];
 
-const ACTION_CATEGORY_MAP: Record<string, { label: string; color: string }> = {
+const ACTION_CATEGORY_MAP: Record<string, { label: string; color: string; categoryId: string }> = {
   // Profiles
-  track_uploaded:           { label: 'Profiles',    color: '#818CF8' },
-  track_edited:             { label: 'Profiles',    color: '#818CF8' },
-  track_deleted:            { label: 'Profiles',    color: '#818CF8' },
-  track_status_changed:     { label: 'Profiles',    color: '#818CF8' },
-  profile_updated:          { label: 'Profiles',    color: '#818CF8' },
-  profile_admin_edited:     { label: 'Profiles',    color: '#818CF8' },
-  profile_status_changed:   { label: 'Profiles',    color: '#818CF8' },
-  profile_wiped:            { label: 'Profiles',    color: '#818CF8' },
-  avatar_uploaded:          { label: 'Profiles',    color: '#818CF8' },
-  avatar_admin_uploaded:    { label: 'Profiles',    color: '#818CF8' },
-  battle_created:           { label: 'Profiles',    color: '#818CF8' },
-  battle_updated:           { label: 'Profiles',    color: '#818CF8' },
-  battle_deleted:           { label: 'Profiles',    color: '#818CF8' },
-  FEEDBACK_THREAD_CREATED:  { label: 'Profiles',    color: '#818CF8' },
-  FEEDBACK_APPROVED:        { label: 'Profiles',    color: '#818CF8' },
+  track_uploaded:           { label: 'Profiles',      color: '#818CF8', categoryId: 'PROFILES' },
+  track_edited:             { label: 'Profiles',      color: '#818CF8', categoryId: 'PROFILES' },
+  track_deleted:            { label: 'Profiles',      color: '#818CF8', categoryId: 'PROFILES' },
+  track_status_changed:     { label: 'Profiles',      color: '#818CF8', categoryId: 'PROFILES' },
+  profile_updated:          { label: 'Profiles',      color: '#818CF8', categoryId: 'PROFILES' },
+  profile_admin_edited:     { label: 'Profiles',      color: '#818CF8', categoryId: 'PROFILES' },
+  profile_status_changed:   { label: 'Profiles',      color: '#818CF8', categoryId: 'PROFILES' },
+  profile_wiped:            { label: 'Profiles',      color: '#818CF8', categoryId: 'PROFILES' },
+  avatar_uploaded:          { label: 'Profiles',      color: '#818CF8', categoryId: 'PROFILES' },
+  avatar_admin_uploaded:    { label: 'Profiles',      color: '#818CF8', categoryId: 'PROFILES' },
+  battle_created:           { label: 'Profiles',      color: '#818CF8', categoryId: 'PROFILES' },
+  battle_updated:           { label: 'Profiles',      color: '#818CF8', categoryId: 'PROFILES' },
+  battle_deleted:           { label: 'Profiles',      color: '#818CF8', categoryId: 'PROFILES' },
+  FEEDBACK_THREAD_CREATED:  { label: 'Profiles',      color: '#818CF8', categoryId: 'PROFILES' },
+  FEEDBACK_APPROVED:        { label: 'Profiles',      color: '#818CF8', categoryId: 'PROFILES' },
   // Comments
-  comment_created:          { label: 'Comments',   color: '#60A5FA' },
-  comment_replied:          { label: 'Comments',   color: '#60A5FA' },
-  comment_reacted:          { label: 'Comments',   color: '#60A5FA' },
-  comment_reaction_removed: { label: 'Comments',   color: '#60A5FA' },
-  comment_edited:           { label: 'Comments',   color: '#60A5FA' },
-  comment_deleted:          { label: 'Comments',   color: '#60A5FA' },
+  comment_created:          { label: 'Comments',      color: '#60A5FA', categoryId: 'COMMENTS' },
+  comment_replied:          { label: 'Comments',      color: '#60A5FA', categoryId: 'COMMENTS' },
+  comment_reacted:          { label: 'Comments',      color: '#60A5FA', categoryId: 'COMMENTS' },
+  comment_reaction_removed: { label: 'Comments',      color: '#60A5FA', categoryId: 'COMMENTS' },
+  comment_edited:           { label: 'Comments',      color: '#60A5FA', categoryId: 'COMMENTS' },
+  comment_deleted:          { label: 'Comments',      color: '#60A5FA', categoryId: 'COMMENTS' },
   // Social
-  track_favourited:         { label: 'Social',     color: '#F87171' },
-  track_unfavourited:       { label: 'Social',     color: '#F87171' },
-  track_reposted:           { label: 'Social',     color: '#34D399' },
-  track_unreposted:         { label: 'Social',     color: '#34D399' },
-  artist_followed:          { label: 'Social',     color: '#34D399' },
-  artist_unfollowed:        { label: 'Social',     color: '#34D399' },
+  track_favourited:         { label: 'Social',        color: '#F87171', categoryId: 'SOCIAL' },
+  track_unfavourited:       { label: 'Social',        color: '#F87171', categoryId: 'SOCIAL' },
+  track_reposted:           { label: 'Social',        color: '#34D399', categoryId: 'SOCIAL' },
+  track_unreposted:         { label: 'Social',        color: '#34D399', categoryId: 'SOCIAL' },
+  artist_followed:          { label: 'Social',        color: '#34D399', categoryId: 'SOCIAL' },
+  artist_unfollowed:        { label: 'Social',        color: '#34D399', categoryId: 'SOCIAL' },
   // Playlists
-  playlist_created:         { label: 'Playlists',  color: '#FBBF24' },
-  playlist_deleted:         { label: 'Playlists',  color: '#FBBF24' },
-  playlist_track_added:     { label: 'Playlists',  color: '#FBBF24' },
-  playlist_track_removed:   { label: 'Playlists',  color: '#FBBF24' },
+  playlist_created:         { label: 'Playlists',     color: '#FBBF24', categoryId: 'PLAYLISTS' },
+  playlist_deleted:         { label: 'Playlists',     color: '#FBBF24', categoryId: 'PLAYLISTS' },
+  playlist_track_added:     { label: 'Playlists',     color: '#FBBF24', categoryId: 'PLAYLISTS' },
+  playlist_track_removed:   { label: 'Playlists',     color: '#FBBF24', categoryId: 'PLAYLISTS' },
   // Mod
-  ban:                      { label: 'Mod',        color: '#F87171' },
-  kick:                     { label: 'Mod',        color: '#FB923C' },
-  timeout:                  { label: 'Mod',        color: '#FBBF24' },
-  unban:                    { label: 'Mod',        color: '#34D399' },
-  warn:                     { label: 'Mod',        color: '#FBBF24' },
-  softban:                  { label: 'Mod',        color: '#F87171' },
-  purge:                    { label: 'Mod',        color: '#FB923C' },
+  ban:                      { label: 'Moderation',    color: '#F87171', categoryId: 'MOD' },
+  kick:                     { label: 'Moderation',    color: '#FB923C', categoryId: 'MOD' },
+  timeout:                  { label: 'Moderation',    color: '#FBBF24', categoryId: 'MOD' },
+  unban:                    { label: 'Moderation',    color: '#34D399', categoryId: 'MOD' },
+  warn:                     { label: 'Moderation',    color: '#FBBF24', categoryId: 'MOD' },
+  softban:                  { label: 'Moderation',    color: '#F87171', categoryId: 'MOD' },
+  purge:                    { label: 'Moderation',    color: '#FB923C', categoryId: 'MOD' },
   // AutoMod
-  message_filtered:         { label: 'AutoMod',   color: '#A78BFA' },
-  automod_block:            { label: 'AutoMod',   color: '#A78BFA' },
+  message_filtered:         { label: 'AutoMod',       color: '#A78BFA', categoryId: 'AUTOMOD' },
+  automod_block:            { label: 'AutoMod',       color: '#A78BFA', categoryId: 'AUTOMOD' },
   // Currency
-  item_bought:              { label: 'Currency',  color: '#FBBF24' },
-  transaction:              { label: 'Currency',  color: '#FBBF24' },
+  item_bought:              { label: 'Currency',      color: '#FBBF24', categoryId: 'CURRENCY' },
+  transaction:              { label: 'Currency',      color: '#FBBF24', categoryId: 'CURRENCY' },
   // Studio Guide
-  STUDIO_GUIDE_AUTO_RESPONSE:  { label: 'Studio Guide', color: '#A78BFA' },
-  STUDIO_GUIDE_PAUSED:         { label: 'Studio Guide', color: '#A78BFA' },
-  STUDIO_GUIDE_RESUMED:        { label: 'Studio Guide', color: '#A78BFA' },
-  STUDIO_GUIDE_USER_OPTOUT:    { label: 'Studio Guide', color: '#A78BFA' },
-  STUDIO_GUIDE_DIRECT_ASK:     { label: 'Studio Guide', color: '#A78BFA' },
+  STUDIO_GUIDE_AUTO_RESPONSE: { label: 'Studio Guide', color: '#C084FC', categoryId: 'STUDIO_GUIDE' },
+  STUDIO_GUIDE_PAUSED:        { label: 'Studio Guide', color: '#C084FC', categoryId: 'STUDIO_GUIDE' },
+  STUDIO_GUIDE_RESUMED:       { label: 'Studio Guide', color: '#C084FC', categoryId: 'STUDIO_GUIDE' },
+  STUDIO_GUIDE_USER_OPTOUT:   { label: 'Studio Guide', color: '#C084FC', categoryId: 'STUDIO_GUIDE' },
+  STUDIO_GUIDE_DIRECT_ASK:    { label: 'Studio Guide', color: '#C084FC', categoryId: 'STUDIO_GUIDE' },
   // Channel Rules
-  message_approved:            { label: 'Channel Rules', color: '#34D399' },
-  message_rejected:            { label: 'Channel Rules', color: '#F87171' },
-  rule_triggered:              { label: 'Channel Rules', color: '#FBBF24' },
-  review_request:              { label: 'Channel Rules', color: '#60A5FA' },
+  message_approved:           { label: 'Channel Rules', color: '#34D399', categoryId: 'CHANNEL_RULES' },
+  message_rejected:           { label: 'Channel Rules', color: '#F87171', categoryId: 'CHANNEL_RULES' },
+  rule_triggered:             { label: 'Channel Rules', color: '#FBBF24', categoryId: 'CHANNEL_RULES' },
+  review_request:             { label: 'Channel Rules', color: '#60A5FA', categoryId: 'CHANNEL_RULES' },
   // Feedback
-  FEEDBACK_REWARD_GIVEN:       { label: 'Feedback',     color: '#34D399' },
+  FEEDBACK_REWARD_GIVEN:      { label: 'Feedback',     color: '#34D399', categoryId: 'FEEDBACK' },
+  FEEDBACK_DENIED:            { label: 'Feedback',     color: '#F87171', categoryId: 'FEEDBACK' },
 };
 
-const getCategoryBadge = (action: string): { label: string; color: string } => {
-  return ACTION_CATEGORY_MAP[action] || { label: action, color: '#6B7280' };
+const getCategoryBadge = (action: string): { label: string; color: string; categoryId: string } => {
+  return ACTION_CATEGORY_MAP[action] || { label: action, color: '#6B7280', categoryId: 'all' };
 };
 
 interface LogsProps {
@@ -1110,16 +1106,20 @@ export const Logs: React.FC<LogsProps> = ({ guildId, searchParam }) => {
                                         {(() => {
                                             const badge = getCategoryBadge(log.action);
                                             return (
-                                                <span style={{
-                                                    background: `${badge.color}22`,
-                                                    color: badge.color,
-                                                    border: `1px solid ${badge.color}55`,
-                                                    padding: '2px 8px',
-                                                    borderRadius: 4,
-                                                    fontSize: '11px',
-                                                    fontWeight: 600,
-                                                    display: 'inline-block',
-                                                }}>
+                                                <span
+                                                    onClick={(e) => { e.stopPropagation(); setActiveCategory(badge.categoryId); setPage(1); }}
+                                                    title={`Filter by ${badge.label}`}
+                                                    style={{
+                                                        background: `${badge.color}22`,
+                                                        color: badge.color,
+                                                        border: `1px solid ${badge.color}55`,
+                                                        padding: '2px 8px',
+                                                        borderRadius: 4,
+                                                        fontSize: '11px',
+                                                        fontWeight: 600,
+                                                        display: 'inline-block',
+                                                        cursor: 'pointer',
+                                                    }}>
                                                     {badge.label}
                                                 </span>
                                             );
