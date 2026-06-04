@@ -139,43 +139,62 @@ const MemoizedYouTube: React.FC<{
     trackId: string;
     player: any;
     isPlaying: boolean;
-}> = React.memo(({ videoId, trackId, player, isPlaying }) => {
+    onUserPause: () => void;
+}> = React.memo(({ videoId, trackId, player, isPlaying, onUserPause }) => {
     const iframeRef = useRef<HTMLIFrameElement>(null);
     const currentTimeRef = useRef(0);
     const isPlayingRef = useRef(false);
     const lastSentPlayState = useRef<boolean | null>(null);
+    // Prevents our own programmatic commands from triggering the user-pause handler
+    const programmaticRef = useRef(false);
+    const programmaticTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const isThisTrack = player.currentTrack?.id === trackId;
     currentTimeRef.current = isThisTrack ? player.currentTime : 0;
     isPlayingRef.current = isPlaying && isThisTrack;
 
-    // postMessage helper — works as long as the iframe has enablejsapi=1
-    const ytCmd = useCallback((func: string, args: any[] = []) => {
+    const ytCmd = useCallback((func: string, args: any[] = [], programmatic = false) => {
+        if (programmatic) {
+            programmaticRef.current = true;
+            if (programmaticTimer.current) clearTimeout(programmaticTimer.current);
+            programmaticTimer.current = setTimeout(() => { programmaticRef.current = false; }, 600);
+        }
         iframeRef.current?.contentWindow?.postMessage(
             JSON.stringify({ event: 'command', func, args }), '*'
         );
     }, []);
 
-    // Sync loop: play/pause + seek
+    // Listen for state changes posted back from the YouTube iframe
     useEffect(() => {
-        // Give the iframe a moment to load before we start sending commands
+        const onMessage = (e: MessageEvent) => {
+            if (e.source !== iframeRef.current?.contentWindow) return;
+            let data: any;
+            try { data = typeof e.data === 'string' ? JSON.parse(e.data) : e.data; } catch { return; }
+            if (data?.event !== 'onStateChange') return;
+            if (programmaticRef.current) return; // our command, ignore
+            // 2 = paused by user
+            if (data.info === 2 && isPlayingRef.current) onUserPause();
+        };
+        window.addEventListener('message', onMessage);
+        return () => window.removeEventListener('message', onMessage);
+    }, [onUserPause]);
+
+    // Sync loop: play/pause + drift correction
+    useEffect(() => {
         const interval = setInterval(() => {
             const shouldPlay = isPlayingRef.current;
-
-            // Sync play/pause only when state changes to avoid spam
             if (shouldPlay !== lastSentPlayState.current) {
                 if (shouldPlay) {
-                    ytCmd('seekTo', [currentTimeRef.current, true]);
-                    ytCmd('playVideo');
+                    ytCmd('seekTo', [currentTimeRef.current, true], true);
+                    ytCmd('playVideo', [], true);
                 } else {
-                    ytCmd('pauseVideo');
+                    ytCmd('pauseVideo', [], true);
                 }
                 lastSentPlayState.current = shouldPlay;
             }
-
-            // Drift correction while playing
+            // Drift correction — only seek if playing and gap > 2s
             if (shouldPlay) {
-                ytCmd('seekTo', [currentTimeRef.current, true]);
+                ytCmd('seekTo', [currentTimeRef.current, true], true);
             }
         }, 1000);
         return () => clearInterval(interval);
@@ -1119,6 +1138,7 @@ export const TrackPage: React.FC = () => {
                                     trackId={track.id}
                                     player={player}
                                     isPlaying={isPlaying}
+                                    onUserPause={togglePlay}
                                 />
                             ) : null;
                         })()}
