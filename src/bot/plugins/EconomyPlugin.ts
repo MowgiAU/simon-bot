@@ -756,7 +756,7 @@ export class EconomyPlugin implements IPlugin {
         const paytableLines = sortedSymbols.map(s =>
             `${s.emoji}${s.emoji}${s.emoji} → **${s.multiplier}×** total return (+${((s.multiplier - 1) * 100).toFixed(0)}% profit)`
         );
-        paytableLines.push('✨ Any two matching → **1.25×** (+25% profit)');
+        paytableLines.push('✨ Any two matching → **flat bonus** (5% of bet, min. 5 coins)');
 
         embed
             .addFields({

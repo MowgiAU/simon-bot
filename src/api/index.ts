@@ -4593,8 +4593,9 @@ app.post('/api/slots/spin', async (req, res) => {
             multiplier = sym.multiplier;
             payout = Math.min(bet * multiplier, 5000); // hard cap at 5,000 per spin
         } else if (reels[0] === reels[1] || reels[1] === reels[2] || reels[0] === reels[2]) {
-            multiplier = 1.25; // small win on two matching — keeps players engaged
-            payout = Math.floor(bet * 1.25);
+            const twoMatchBonus = Math.max(Math.round(bet * 0.05), 5);
+            multiplier = 1.25; // sentinel — actual bonus is twoMatchBonus, not a true multiplier
+            payout = bet + twoMatchBonus; // bet returned + flat bonus
         }
 
         const net = payout - bet;

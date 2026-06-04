@@ -518,7 +518,7 @@ export const SlotMachinePage: React.FC = () => {
                           ? isJackpot
                             ? `★ JACKPOT! +${result.net.toLocaleString()} ${currencyEmoji} ★`
                             : result.multiplier === 1.25
-                            ? `Two of a Kind! +${result.net.toLocaleString()} ${currencyEmoji}`
+                            ? `Two of a Kind — you receive ${currencyEmoji} ${result.net.toLocaleString()} bonus`
                             : `Win! +${result.net.toLocaleString()} ${currencyEmoji} — ${result.multiplier}×`
                           : `Lost ${currencyEmoji} ${bet.toLocaleString()}`}
                       </span>
@@ -626,12 +626,12 @@ export const SlotMachinePage: React.FC = () => {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 10px', background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.18)', borderRadius: 8 }}>
                   <span style={{ fontSize: 13, color: 'rgba(148,163,184,0.7)' }}>Any two matching</span>
                   <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontWeight: 800, fontSize: 14, color: '#10B981', fontFamily: '"Courier New",monospace' }}>1.25×</div>
-                    <div style={{ fontSize: 10, color: 'rgba(148,163,184,0.3)', fontFamily: '"Courier New",monospace' }}>+25% profit</div>
+                    <div style={{ fontWeight: 800, fontSize: 14, color: '#10B981', fontFamily: '"Courier New",monospace' }}>+5% bonus</div>
+                    <div style={{ fontSize: 10, color: 'rgba(148,163,184,0.3)', fontFamily: '"Courier New",monospace' }}>minimum +5 coins</div>
                   </div>
                 </div>
                 <div style={{ fontSize: 10, color: 'rgba(148,163,184,0.25)', padding: '4px 2px', lineHeight: 1.5 }}>
-                  Example: bet 100 coins, hit 3× → receive 300 back, net +200
+                  Example: bet 100 → hit 3× → receive 300 back (+200 profit) · bet 10 → two match → receive 5 bonus coins
                 </div>
               </div>
             </div>
@@ -645,7 +645,7 @@ export const SlotMachinePage: React.FC = () => {
                 {[
                   { icon: '🎮', title: 'Getting Started', body: <>Use <code style={{ background: 'rgba(255,255,255,0.08)', padding: '1px 6px', borderRadius: 4, fontSize: 11 }}>/slots</code> in Discord for your link. You need a Discord account linked to your Fuji Studio profile.</> },
                   { icon: '🪙', title: 'Placing a Bet',   body: <>Min bet <b>10 coins</b>, max is the lesser of <b>500 coins</b> or <b>half your balance</b> — you can never lose everything in a single spin.</> },
-                  { icon: '🏆', title: 'Winning',         body: <>Three matching symbols pays the multiplier shown. Two matching pays <b>1.25×</b> — a small profit every time two line up. Wins are capped at <b>5,000 coins</b>.</> },
+                  { icon: '🏆', title: 'Winning',         body: <>Three matching symbols returns the multiplier × your bet (e.g. 3× on a 100-coin bet = +200 profit). Two matching pays a <b>flat bonus of 5% of your bet, minimum 5 coins</b> — the exact amount is always shown on screen. Wins are capped at <b>5,000 coins</b>.</> },
                   { icon: '💬', title: 'Your Coins',      body: <>Wins and losses use your real server balance — the same coins earned from chatting, daily rewards, and the shop. 3-second cooldown between spins.</> },
                   { icon: '🎲', title: 'Fairness',        body: <>All rolls happen server-side before the animation — the outcome is decided when you click Spin, not during the animation.</> },
                 ].map(item => (

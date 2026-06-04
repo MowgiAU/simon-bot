@@ -42,7 +42,7 @@ const SOUND_EVENTS: { key: keyof SlotSounds; label: string; description: string 
   { key: 'spin',     label: 'Spin',         description: 'Plays when the reels start spinning'      },
   { key: 'win',      label: 'Win',          description: 'Plays on a regular win (3 of a kind)'     },
   { key: 'jackpot',  label: 'Jackpot',      description: 'Plays on 💎 or 🔥 wins (high multiplier)' },
-  { key: 'twoMatch', label: 'Two of a Kind',description: 'Plays when two symbols match (coins back)' },
+  { key: 'twoMatch', label: 'Two of a Kind',description: 'Plays when two symbols match (5% bonus, min 5 coins)' },
   { key: 'loss',     label: 'Loss',         description: 'Plays when the spin results in a loss'    },
 ];
 
