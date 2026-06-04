@@ -6405,6 +6405,56 @@ app.get('/api/bot-messenger/:guildId/roles', async (req: any, res) => {
     }
 });
 
+// --- Whisper Endpoints -------------------------------------------------------
+
+app.get('/api/bot-messenger/:guildId/whisper-settings', async (req: any, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+    const { guildId } = req.params;
+    if (!hasDashboardAccess(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
+    try {
+        const settings = await db.whisperSettings.findUnique({ where: { guildId } });
+        res.json(settings ?? { allowedRoleIds: [] });
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to fetch whisper settings' });
+    }
+});
+
+app.put('/api/bot-messenger/:guildId/whisper-settings', async (req: any, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+    const { guildId } = req.params;
+    if (!hasDashboardAccess(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
+    const { allowedRoleIds } = req.body;
+    if (!Array.isArray(allowedRoleIds)) return res.status(400).json({ error: 'allowedRoleIds must be an array' });
+    try {
+        const settings = await db.whisperSettings.upsert({
+            where: { guildId },
+            update: { allowedRoleIds },
+            create: { guildId, allowedRoleIds },
+        });
+        res.json(settings);
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to save whisper settings' });
+    }
+});
+
+app.get('/api/bot-messenger/:guildId/whisper-logs', async (req: any, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+    const { guildId } = req.params;
+    if (!hasDashboardAccess(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
+    const page  = parseInt(req.query.page  ?? '1');
+    const limit = Math.min(parseInt(req.query.limit ?? '50'), 100);
+    const skip  = (page - 1) * limit;
+    try {
+        const [items, total] = await Promise.all([
+            db.whisperLog.findMany({ where: { guildId }, orderBy: { createdAt: 'desc' }, skip, take: limit }),
+            db.whisperLog.count({ where: { guildId } }),
+        ]);
+        res.json({ items, total, pages: Math.ceil(total / limit) });
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to fetch whisper logs' });
+    }
+});
+
 // --- Auto Messages Endpoints -----------------------------------------------
 
 // GET: list all schedules for a guild

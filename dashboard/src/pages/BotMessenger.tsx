@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { colors, spacing, borderRadius } from '../theme/theme';
 import { ChannelSelect } from '../components/ChannelSelect';
+import { RoleSelect } from '../components/RoleSelect';
 import { useAuth } from '../components/AuthProvider';
 import axios from 'axios';
 import EmojiPicker, { EmojiClickData } from 'emoji-picker-react';
@@ -26,6 +27,10 @@ import {
     LayoutList,
     Shield,
     AlertCircle,
+    Lock,
+    Clock,
+    User,
+    CheckCircle,
 } from 'lucide-react';
 
 const API = '';
@@ -1157,7 +1162,7 @@ function ReactionRolesTab({ guildId }: { guildId: string }) {
 export function BotMessengerPage() {
     const { selectedGuild } = useAuth();
     const guildId = selectedGuild?.id || '';
-    const [tab, setTab] = useState<'send' | 'embed' | 'forum' | 'reaction-roles'>('send');
+    const [tab, setTab] = useState<'send' | 'embed' | 'forum' | 'reaction-roles' | 'whisper'>('send');
     const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
     useEffect(() => {
@@ -1352,7 +1357,7 @@ export function BotMessengerPage() {
 
             {/* Tabs */}
             <div style={{ display: 'flex', gap: '4px', marginBottom: spacing.lg, background: colors.surface, borderRadius: borderRadius.md, padding: '4px', width: isMobile ? '100%' : 'fit-content' }}>
-                {([['send', 'Send Message', MessageSquare], ['embed', 'Embed Builder', Code2], ['forum', 'Forum', LayoutList], ['reaction-roles', 'Reaction Roles', Shield]] as const).map(([key, label, Icon]) => (
+                {([['send', 'Send Message', MessageSquare], ['embed', 'Embed Builder', Code2], ['forum', 'Forum', LayoutList], ['reaction-roles', 'Reaction Roles', Shield], ['whisper', 'Whisper', Lock]] as const).map(([key, label, Icon]) => (
                     <button key={key} onClick={() => setTab(key as any)} style={{
                         flex: isMobile ? 1 : undefined,
                         padding: isMobile ? '10px 8px' : '10px 20px', borderRadius: borderRadius.sm, border: 'none', cursor: 'pointer',
@@ -1662,6 +1667,142 @@ export function BotMessengerPage() {
             {tab === 'reaction-roles' && (
                 <ReactionRolesTab guildId={guildId} />
             )}
+
+            {/* ============== WHISPER TAB ============== */}
+            {tab === 'whisper' && (
+                <WhisperTab guildId={guildId} />
+            )}
+        </div>
+    );
+}
+
+// ── Whisper Tab ───────────────────────────────────────────────────────────────
+
+const API_URL = import.meta.env.VITE_API_URL || '';
+
+function WhisperTab({ guildId }: { guildId: string }) {
+    const [allowedRoleIds, setAllowedRoleIds] = useState<string[]>([]);
+    const [saving, setSaving] = useState(false);
+    const [saveMsg, setSaveMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+    const [logs, setLogs] = useState<any[]>([]);
+    const [logsLoading, setLogsLoading] = useState(true);
+    const [page, setPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
+
+    // Load settings
+    useEffect(() => {
+        axios.get(`${API_URL}/api/bot-messenger/${guildId}/whisper-settings`, { withCredentials: true })
+            .then(r => setAllowedRoleIds(r.data.allowedRoleIds ?? []))
+            .catch(() => {});
+    }, [guildId]);
+
+    // Load logs
+    useEffect(() => {
+        setLogsLoading(true);
+        axios.get(`${API_URL}/api/bot-messenger/${guildId}/whisper-logs`, { params: { page, limit: 25 }, withCredentials: true })
+            .then(r => { setLogs(r.data.items ?? []); setTotalPages(r.data.pages ?? 1); })
+            .catch(() => {})
+            .finally(() => setLogsLoading(false));
+    }, [guildId, page]);
+
+    const saveSettings = async () => {
+        setSaving(true);
+        setSaveMsg(null);
+        try {
+            await axios.put(`${API_URL}/api/bot-messenger/${guildId}/whisper-settings`, { allowedRoleIds }, { withCredentials: true });
+            setSaveMsg({ type: 'success', text: 'Saved!' });
+            setTimeout(() => setSaveMsg(null), 3000);
+        } catch {
+            setSaveMsg({ type: 'error', text: 'Failed to save.' });
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const cardStyle: React.CSSProperties = {
+        background: colors.surface,
+        border: `1px solid ${colors.border}`,
+        borderRadius: borderRadius.md,
+        padding: spacing.md,
+    };
+
+    return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.lg }}>
+
+            {/* Settings */}
+            <div style={cardStyle}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: spacing.md }}>
+                    <Lock size={16} color={colors.primary} />
+                    <span style={{ fontWeight: 700, color: colors.textPrimary }}>Who can use /whisper</span>
+                </div>
+                <p style={{ fontSize: '13px', color: colors.textSecondary, margin: '0 0 12px' }}>
+                    Select roles that are allowed to use the <code style={{ background: 'rgba(255,255,255,0.08)', padding: '1px 5px', borderRadius: 4 }}>/whisper</code> command.
+                    Leave empty to require <strong>Manage Guild</strong> permission (admins only).
+                </p>
+                <RoleSelect
+                    guildId={guildId}
+                    value={allowedRoleIds}
+                    onChange={v => setAllowedRoleIds(Array.isArray(v) ? v : [v as string])}
+                    placeholder="Select allowed roles..."
+                    multiple
+                />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: spacing.md }}>
+                    <button onClick={saveSettings} disabled={saving} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 20px', background: colors.primary, color: '#fff', border: 'none', borderRadius: borderRadius.sm, fontWeight: 600, fontSize: '13px', cursor: 'pointer', opacity: saving ? 0.6 : 1 }}>
+                        <CheckCircle size={14} /> {saving ? 'Saving…' : 'Save'}
+                    </button>
+                    {saveMsg && (
+                        <span style={{ fontSize: '13px', color: saveMsg.type === 'success' ? colors.success : colors.error }}>{saveMsg.text}</span>
+                    )}
+                </div>
+            </div>
+
+            {/* Log */}
+            <div style={cardStyle}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: spacing.md }}>
+                    <Clock size={16} color={colors.primary} />
+                    <span style={{ fontWeight: 700, color: colors.textPrimary }}>Whisper History</span>
+                </div>
+
+                {logsLoading ? (
+                    <p style={{ color: colors.textSecondary, fontSize: '13px' }}>Loading…</p>
+                ) : logs.length === 0 ? (
+                    <p style={{ color: colors.textSecondary, fontSize: '13px' }}>No whispers sent yet.</p>
+                ) : (
+                    <>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                            {logs.map(log => (
+                                <div key={log.id} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '8px 16px', padding: '10px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: borderRadius.sm, border: `1px solid ${colors.border}`, fontSize: '13px' }}>
+                                    {/* Sender → Target */}
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+                                        <User size={12} color={colors.textTertiary} style={{ flexShrink: 0 }} />
+                                        <span style={{ color: colors.primary, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{log.senderUsername}</span>
+                                        <span style={{ color: colors.textTertiary, flexShrink: 0 }}>→</span>
+                                        <span style={{ color: colors.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{log.targetUsername}</span>
+                                    </div>
+                                    {/* Content */}
+                                    <div style={{ color: colors.textSecondary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                        "{log.content}"
+                                    </div>
+                                    {/* Meta */}
+                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2, flexShrink: 0 }}>
+                                        <span style={{ fontSize: '11px', color: colors.textTertiary }}>#{log.channelName}</span>
+                                        <span style={{ fontSize: '11px', color: colors.textTertiary }}>{new Date(log.createdAt).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* Pagination */}
+                        {totalPages > 1 && (
+                            <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: spacing.md }}>
+                                <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} style={{ padding: '6px 14px', borderRadius: borderRadius.sm, background: colors.surface, border: `1px solid ${colors.border}`, color: colors.textSecondary, cursor: 'pointer', opacity: page === 1 ? 0.4 : 1 }}>← Prev</button>
+                                <span style={{ padding: '6px 0', fontSize: '13px', color: colors.textSecondary }}>Page {page} of {totalPages}</span>
+                                <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} style={{ padding: '6px 14px', borderRadius: borderRadius.sm, background: colors.surface, border: `1px solid ${colors.border}`, color: colors.textSecondary, cursor: 'pointer', opacity: page === totalPages ? 0.4 : 1 }}>Next →</button>
+                            </div>
+                        )}
+                    </>
+                )}
+            </div>
         </div>
     );
 }

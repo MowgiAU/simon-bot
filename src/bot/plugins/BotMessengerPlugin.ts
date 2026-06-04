@@ -226,6 +226,22 @@ export class BotMessengerPlugin implements IPlugin {
             return;
         }
 
+        // Check configured role permissions (falls back to Manage Guild if none set)
+        if (this.db && interaction.guildId) {
+            try {
+                const settings = await this.db.whisperSettings.findUnique({ where: { guildId: interaction.guildId } });
+                const allowedRoleIds: string[] = settings?.allowedRoleIds ?? [];
+                if (allowedRoleIds.length > 0) {
+                    const memberRoles: string[] = interaction.member?.roles?.cache?.map((r: any) => r.id) ?? [];
+                    const hasRole = allowedRoleIds.some(id => memberRoles.includes(id));
+                    if (!hasRole) {
+                        await interaction.reply({ content: 'You don\'t have permission to use the whisper command.', flags: MessageFlags.Ephemeral });
+                        return;
+                    }
+                }
+            } catch { /* fall through to default permission check */ }
+        }
+
         const senderName = interaction.member?.displayName || interaction.user.username;
 
         const button = new ButtonBuilder()
@@ -246,6 +262,22 @@ export class BotMessengerPlugin implements IPlugin {
                 targetUserId: target.id,
                 senderName,
             });
+
+            // Log to database
+            if (this.db && interaction.guildId) {
+                this.db.whisperLog.create({
+                    data: {
+                        guildId:        interaction.guildId,
+                        channelId:      channel.id,
+                        channelName:    channel.name ?? 'unknown',
+                        senderId:       interaction.user.id,
+                        senderUsername: senderName,
+                        targetId:       target.id,
+                        targetUsername: target.username,
+                        content,
+                    },
+                }).catch(() => {});
+            }
 
             await interaction.reply({
                 content: `Whisper sent to <@${target.id}>.`,

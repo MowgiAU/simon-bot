@@ -3226,3 +3226,31 @@ model DesktopToken {
   @@map("desktop_tokens")
 }
 
+
+
+// ── Whisper Command ──────────────────────────────────────────────────────────
+
+model WhisperSettings {
+  id             String   @id @default(cuid())
+  guildId        String   @unique
+  allowedRoleIds String[] @default([]) // empty = Manage Guild permission only
+  updatedAt      DateTime @updatedAt
+
+  @@map("whisper_settings")
+}
+
+model WhisperLog {
+  id              String   @id @default(cuid())
+  guildId         String
+  channelId       String
+  channelName     String
+  senderId        String
+  senderUsername  String
+  targetId        String
+  targetUsername  String
+  content         String   @db.Text
+  createdAt       DateTime @default(now())
+
+  @@index([guildId, createdAt(sort: Desc)])
+  @@map("whisper_logs")
+}
