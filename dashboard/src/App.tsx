@@ -81,6 +81,7 @@ const BotMessengerPage       = lazy(() => import("./pages/BotMessenger").then(m 
 const PrivateMessagesPage    = lazy(() => import("./pages/PrivateMessages").then(m => ({ default: m.PrivateMessagesPage })));
 const AutoMessagesPage       = lazy(() => import("./pages/AutoMessages").then(m => ({ default: m.AutoMessagesPage })));
 const AutoResponderPage      = lazy(() => import("./pages/AutoResponder").then(m => ({ default: m.AutoResponderPage })));
+const FrontpageEditorialB    = lazy(() => import("./pages/FrontpageEditorialB").then(m => ({ default: m.FrontpageEditorialB })));
 const PausePage              = lazy(() => import("./pages/Pause").then(m => ({ default: m.PausePage })));
 const ServerBoostPage        = lazy(() => import("./pages/ServerBoost").then(m => ({ default: m.ServerBoostPage })));
 const VoiceStatsPage         = lazy(() => import("./pages/VoiceStats").then(m => ({ default: m.VoiceStatsPage })));
@@ -850,6 +851,11 @@ const AppInternal: React.FC = () => {
   // /track → Direct track link (alias for /profile/:user/:track)
   if (currentPath.startsWith('/track')) {
     return <Suspense fallback={<PageSpinner />}><TrackPage /></Suspense>;
+  }
+
+  // Hidden test frontpage — Editorial Variant B (not linked from nav)
+  if (currentPath === '/preview/editorial-b') {
+    return <Suspense fallback={<PageSpinner />}><FrontpageEditorialB /></Suspense>;
   }
 
   // Artist Discovery homepage
