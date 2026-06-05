@@ -3,6 +3,7 @@
  * Used by both TrackPage and BattleEntryPage.
  */
 import React, { useEffect, useMemo, useRef, useCallback, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { colors, borderRadius } from '../theme/theme';
 import { Music, Zap, FileAudio, X, Play, Pause, Download, Layers, Maximize2, Minimize2 } from 'lucide-react';
 
@@ -693,7 +694,7 @@ function deduplicatePlugins(names: string[], registry: KnownPlugin[]): Array<{ r
 
 export const PluginModal: React.FC<{ rawName: string; known: KnownPlugin | undefined; onClose: () => void }> = ({ rawName, known, onClose }) => {
     const label = known?.displayName || rawName;
-    return (
+    return createPortal(
         <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.7)', padding: '24px' }}
             onClick={onClose}>
             <div onClick={e => e.stopPropagation()} style={{ backgroundColor: '#13172a', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.1)', width: '100%', maxWidth: '460px', overflow: 'hidden', boxShadow: '0 32px 80px rgba(0,0,0,0.8)', position: 'relative' }}>
@@ -752,7 +753,8 @@ export const PluginModal: React.FC<{ rawName: string; known: KnownPlugin | undef
                     ) : null}
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };
 
