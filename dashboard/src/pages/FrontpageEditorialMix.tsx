@@ -200,7 +200,7 @@ export const FrontpageEditorialMix: React.FC = () => {
 
                 {/* ══ 3. EDITORIAL GRID — alt_b structure, current frontpage data ══ */}
                 <section style={{ maxWidth: 1280, margin: '0 auto', padding: isMobile ? '28px 16px' : '40px 24px' }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '240px 1fr 240px', gap: 20 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '240px 1fr 240px', gap: 20, alignItems: 'start' }}>
 
                         {/* ── Left: Trending Tracks (current frontpage data) ── */}
                         <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 16, padding: 18 }}>
@@ -341,7 +341,7 @@ export const FrontpageEditorialMix: React.FC = () => {
                                 const change = entry.positionChange;
                                 return (
                                     <div key={track.id ?? i} onClick={() => play(track)} style={{ cursor: 'pointer', position: 'relative' }}>
-                                        <div style={{ position: 'relative', borderRadius: 12, overflow: 'hidden', paddingBottom: '100%', height: 0, marginBottom: 7, background: '#1a1d28' }}>
+                                        <div style={{ position: 'relative', borderRadius: 12, overflow: 'hidden', aspectRatio: '1 / 1', width: '100%', marginBottom: 7, background: '#1a1d28' }}>
                                             {coverSrc(track.coverUrl) && <img src={coverSrc(track.coverUrl)} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />}
                                             <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.8) 0%, transparent 55%)' }} />
                                             {/* Large number */}
