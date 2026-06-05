@@ -507,7 +507,7 @@ const AdminDashboard: React.FC = () => {
         case "spam-guard":
           return <SpamGuardPage />;
         case "muzzle":
-          return <MuzzlePage guildId={guildId} />;
+          return <MuzzlePage guildId={selectedGuild.id} />;
         case "track-announcer":
           return <TrackAnnouncerPage />;
         case "anti-external-forward":
