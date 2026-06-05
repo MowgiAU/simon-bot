@@ -138,7 +138,7 @@ export const FrontpageNeon: React.FC = () => {
                             {battle ? 'Featured Battle' : h2h.length >= 2 ? 'Live H2H Battle' : 'Community Battles'}
                         </span>
                         <h1 style={{ fontSize: isMobile ? 28 : 48, fontWeight: 900, letterSpacing: '-0.02em', margin: '8px 0 0', color: N.text, lineHeight: 1.1 }}>
-                            {battle ? battle.title.toUpperCase() : h2h.length >= 2 ? `${(h2h[0].displayName || h2h[0].username).toUpperCase()} vs ${(h2h[1].displayName || h2h[1].username).toUpperCase()}` : 'DRUM_TECH SHOWDOWN'}
+                            {battle ? (battle.title || "").toUpperCase() : h2h.length >= 2 ? `${(h2h[0].displayName || h2h[0].username || "").toUpperCase()} vs ${(h2h[1].displayName || h2h[1].username || "").toUpperCase()}` : 'DRUM_TECH SHOWDOWN'}
                         </h1>
                     </div>
 
@@ -153,7 +153,7 @@ export const FrontpageNeon: React.FC = () => {
                                         <img src={avatarUrl(h2h[0].avatar, h2h[0].userId)} alt={h2h[0].username} style={{ width: isMobile ? 100 : 160, height: isMobile ? 100 : 160, borderRadius: '50%', border: `3px solid ${N.mint}`, objectFit: 'cover', boxShadow: `0 0 30px ${N.mint}44` }} />
                                     </div>
                                     <div style={{ textAlign: 'center' }}>
-                                        <h3 style={{ fontSize: isMobile ? 18 : 24, fontWeight: 800, color: N.mint, margin: 0, letterSpacing: '-0.01em', fontFamily: 'monospace' }}>{(h2h[0].displayName || h2h[0].username).toUpperCase()}</h3>
+                                        <h3 style={{ fontSize: isMobile ? 18 : 24, fontWeight: 800, color: N.mint, margin: 0, letterSpacing: '-0.01em', fontFamily: 'monospace' }}>{(h2h[0].displayName || h2h[0].username || "").toUpperCase()}</h3>
                                         <p style={{ fontSize: 11, color: N.muted, margin: '4px 0 0', fontFamily: 'monospace', letterSpacing: '0.05em' }}>RANK #{h2h[0].rank ?? 1} • {h2h[0].elo} ELO</p>
                                     </div>
                                 </div>
@@ -179,7 +179,7 @@ export const FrontpageNeon: React.FC = () => {
                                         <img src={avatarUrl(h2h[1].avatar, h2h[1].userId)} alt={h2h[1].username} style={{ width: isMobile ? 100 : 160, height: isMobile ? 100 : 160, borderRadius: '50%', border: `3px solid ${N.magenta}`, objectFit: 'cover', boxShadow: `0 0 30px ${N.magenta}44` }} />
                                     </div>
                                     <div style={{ textAlign: 'center' }}>
-                                        <h3 style={{ fontSize: isMobile ? 18 : 24, fontWeight: 800, color: N.magenta, margin: 0, letterSpacing: '-0.01em', fontFamily: 'monospace' }}>{(h2h[1].displayName || h2h[1].username).toUpperCase()}</h3>
+                                        <h3 style={{ fontSize: isMobile ? 18 : 24, fontWeight: 800, color: N.magenta, margin: 0, letterSpacing: '-0.01em', fontFamily: 'monospace' }}>{(h2h[1].displayName || h2h[1].username || "").toUpperCase()}</h3>
                                         <p style={{ fontSize: 11, color: N.muted, margin: '4px 0 0', fontFamily: 'monospace', letterSpacing: '0.05em' }}>RANK #{h2h[1].rank ?? 2} • {h2h[1].elo} ELO</p>
                                     </div>
                                 </div>
@@ -234,7 +234,7 @@ export const FrontpageNeon: React.FC = () => {
                             <div style={{ flex: 1, minWidth: 0 }}>
                                 <div style={{ marginBottom: 16 }}>
                                     <h3 style={{ fontSize: isMobile ? 22 : 36, fontWeight: 900, letterSpacing: '-0.02em', color: N.text, margin: '0 0 4px', fontFamily: 'monospace' }}>
-                                        {featTrack.title.toUpperCase()}
+                                        {(featTrack.title || "").toUpperCase()}
                                     </h3>
                                     <p style={{ fontSize: 16, fontWeight: 600, color: N.mint, margin: 0, letterSpacing: '-0.01em' }}>
                                         {featTrack.profile?.displayName || featTrack.profile?.username || featTrack.artist}
@@ -273,7 +273,7 @@ export const FrontpageNeon: React.FC = () => {
                             </div>
                             <div style={{ padding: isMobile ? '20px' : '32px', display: 'flex', flexDirection: 'column', gap: 16 }}>
                                 <h3 style={{ fontSize: isMobile ? 24 : 32, fontWeight: 900, color: N.text, margin: 0, fontFamily: 'monospace', letterSpacing: '-0.02em' }}>
-                                    {(featArtist.displayName || featArtist.username).toUpperCase()}
+                                    {(featArtist.displayName || featArtist.username || "").toUpperCase()}
                                 </h3>
                                 {featArtist.bio && (
                                     <p style={{ fontSize: 14, color: N.muted, margin: 0, lineHeight: 1.7 }}>{featArtist.bio.slice(0, 180)}{featArtist.bio.length > 180 ? '…' : ''}</p>
@@ -344,7 +344,7 @@ export const FrontpageNeon: React.FC = () => {
                             {sponsors.map((s: any) => (
                                 <a key={s.id} href={s.websiteUrl ?? '#'} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 10, opacity: 0.4, textDecoration: 'none', transition: 'opacity 0.2s' }}>
                                     {s.logoUrl ? <img src={s.logoUrl} alt={s.name} style={{ height: 24, objectFit: 'contain', filter: 'grayscale(1) brightness(2)' }} /> : null}
-                                    <span style={{ fontSize: 18, fontWeight: 800, color: N.text, letterSpacing: '-0.02em', fontFamily: 'monospace' }}>{s.name.toUpperCase()}</span>
+                                    <span style={{ fontSize: 18, fontWeight: 800, color: N.text, letterSpacing: '-0.02em', fontFamily: 'monospace' }}>{(s.name || "").toUpperCase()}</span>
                                 </a>
                             ))}
                         </div>
