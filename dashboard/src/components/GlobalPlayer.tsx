@@ -1,7 +1,7 @@
 
 import React from 'react';
 import {
-    Play, Heart, Volume2, SkipBack, SkipForward, Shuffle, Repeat, Pause, List, X, Repeat2, ChevronUp, ChevronDown, Maximize2, Music2, AlignLeft
+    Play, Heart, Volume2, SkipBack, SkipForward, Shuffle, Repeat, Pause, List, X, Repeat2, ChevronUp, ChevronDown, Music2, AlignLeft
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { usePlayer } from './PlayerProvider';
@@ -22,7 +22,9 @@ export const GlobalPlayer: React.FC = () => {
     const [isFullscreen, setIsFullscreen] = React.useState(false);
     const [lyricsTab, setLyricsTab] = React.useState<'lyrics' | 'queue'>('lyrics');
     const [lyrics, setLyrics] = React.useState<{ plain: string | null; sync: { time: number; text: string }[] | null }>({ plain: null, sync: null });
+    const [trackInfo, setTrackInfo] = React.useState<any>(null);
     const lyricsTrackId = React.useRef<string | null>(null);
+    const trackInfoId = React.useRef<string | null>(null);
     const activeCueRef = React.useRef<HTMLDivElement>(null);
     const speedMenuRef = React.useRef<HTMLDivElement>(null);
 
@@ -64,7 +66,7 @@ export const GlobalPlayer: React.FC = () => {
             .catch(() => setIsReposted(false));
     }, [player.currentTrack?.id]);
 
-    // Fetch lyrics when track changes and fullscreen is open
+    // Fetch lyrics when track changes
     React.useEffect(() => {
         const id = player.currentTrack?.id;
         if (!id || id === lyricsTrackId.current) return;
@@ -74,6 +76,18 @@ export const GlobalPlayer: React.FC = () => {
             .then(res => setLyrics({ plain: res.data.lyrics ?? null, sync: res.data.lyricsSync ?? null }))
             .catch(() => {});
     }, [player.currentTrack?.id]);
+
+    // Fetch enriched track info when fullscreen opens or track changes
+    React.useEffect(() => {
+        const id = player.currentTrack?.id;
+        if (!id || !isFullscreen) return;
+        if (id === trackInfoId.current) return;
+        trackInfoId.current = id;
+        setTrackInfo(null);
+        axios.get(`/api/tracks/${id}`, { withCredentials: true })
+            .then(res => setTrackInfo(res.data))
+            .catch(() => {});
+    }, [player.currentTrack?.id, isFullscreen]);
 
     // Scroll active lyric cue into view
     React.useEffect(() => {
@@ -134,148 +148,157 @@ export const GlobalPlayer: React.FC = () => {
         <>
             {/* ── Fullscreen Player (mobile only) ── */}
             {isMobile && isFullscreen && (
-                <div style={{
-                    position: 'fixed', inset: 0, zIndex: 2000,
-                    display: 'flex', flexDirection: 'column',
-                    background: t.cover
-                        ? `linear-gradient(to bottom, rgba(10,13,24,0.55) 0%, rgba(10,13,24,0.85) 40%, rgba(10,13,24,0.98) 100%)`
-                        : '#0d1020',
-                    overflow: 'hidden',
-                }}>
+                <div style={{ position: 'fixed', inset: 0, zIndex: 2000, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#0d1020' }}>
                     {/* Blurred cover background */}
-                    {t.cover && (
-                        <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${t.cover})`, backgroundSize: 'cover', backgroundPosition: 'center', filter: 'blur(40px) brightness(0.35)', transform: 'scale(1.1)', zIndex: 0 }} />
-                    )}
+                    {t.cover && <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${t.cover})`, backgroundSize: 'cover', backgroundPosition: 'center', filter: 'blur(48px) brightness(0.3) saturate(1.4)', transform: 'scale(1.15)', zIndex: 0 }} />}
+                    <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(10,13,24,0.5) 0%, rgba(10,13,24,0.7) 35%, rgba(10,13,24,0.96) 70%)', zIndex: 0 }} />
 
-                    <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', height: '100%', paddingBottom: 'env(safe-area-inset-bottom)' }}>
-                        {/* Header */}
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px 8px' }}>
-                            <button onClick={() => setIsFullscreen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.7)', padding: '6px', display: 'flex' }}>
-                                <ChevronDown size={26} />
+                    <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', height: '100%', paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)', overflow: 'hidden' }}>
+                        {/* Header bar */}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 20px 4px', flexShrink: 0 }}>
+                            <button onClick={() => setIsFullscreen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.6)', padding: '8px', display: 'flex', borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.08)' }}>
+                                <ChevronDown size={22} />
                             </button>
-                            <span style={{ fontSize: '12px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)' }}>Now Playing</span>
-                            <div style={{ width: 38 }} />
+                            <div style={{ textAlign: 'center' }}>
+                                <div style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)' }}>Now Playing</div>
+                                {trackInfo?.genre && <div style={{ fontSize: '10px', color: colors.primary, fontWeight: 600, marginTop: '1px' }}>{trackInfo.genre.name}</div>}
+                            </div>
+                            {titleTo ? (
+                                <Link to={titleTo} onClick={() => setIsFullscreen(false)} style={{ background: 'rgba(255,255,255,0.08)', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.6)', padding: '6px 10px', borderRadius: '20px', fontSize: '10px', fontWeight: 700, textDecoration: 'none', whiteSpace: 'nowrap' }}>
+                                    View Track
+                                </Link>
+                            ) : <div style={{ width: 80 }} />}
                         </div>
 
                         {/* Cover art */}
-                        <div style={{ display: 'flex', justifyContent: 'center', padding: '16px 32px' }}>
-                            <div style={{ width: '100%', maxWidth: '280px', aspectRatio: '1', borderRadius: '16px', overflow: 'hidden', backgroundColor: '#1a1e2e', boxShadow: '0 24px 60px rgba(0,0,0,0.6)', flexShrink: 0 }}>
-                                {t.cover
-                                    ? <img src={t.cover} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                    : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Music2 size={64} color="rgba(255,255,255,0.15)" /></div>
-                                }
+                        <div style={{ display: 'flex', justifyContent: 'center', padding: '10px 40px 6px', flexShrink: 0 }}>
+                            <div style={{ width: '100%', maxWidth: '260px', aspectRatio: '1', borderRadius: '18px', overflow: 'hidden', backgroundColor: '#1a1e2e', boxShadow: '0 20px 60px rgba(0,0,0,0.7)', flexShrink: 0 }}>
+                                {t.cover ? <img src={t.cover} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Music2 size={64} color="rgba(255,255,255,0.15)" /></div>}
                             </div>
                         </div>
 
-                        {/* Track info */}
-                        <div style={{ padding: '0 24px 12px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                                <div style={{ fontSize: '20px', fontWeight: 800, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.title}</div>
-                                <div style={{ fontSize: '14px', color: 'rgba(255,255,255,0.55)', marginTop: '3px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.artist}</div>
+                        {/* Track info + actions */}
+                        <div style={{ padding: '4px 24px 0', flexShrink: 0 }}>
+                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ fontSize: '22px', fontWeight: 900, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: 1.2 }}>{t.title}</div>
+                                    <Link to={artistTo} onClick={() => setIsFullscreen(false)} style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', textDecoration: 'none', marginTop: '5px' }}>
+                                        {trackInfo?.profile?.avatar && <img src={trackInfo.profile.avatar} alt="" style={{ width: '20px', height: '20px', borderRadius: '50%', objectFit: 'cover' }} />}
+                                        <span style={{ fontSize: '15px', color: 'rgba(255,255,255,0.6)', fontWeight: 600 }}>{t.artist}</span>
+                                    </Link>
+                                </div>
+                                <div style={{ display: 'flex', gap: '4px', flexShrink: 0, marginTop: '4px' }}>
+                                    <button onClick={toggleFavourite} style={{ background: isFavourited ? 'rgba(239,68,68,0.15)' : 'rgba(255,255,255,0.08)', border: 'none', cursor: 'pointer', color: isFavourited ? '#EF4444' : 'rgba(255,255,255,0.5)', padding: '10px', borderRadius: '50%', display: 'flex' }}>
+                                        <Heart size={22} fill={isFavourited ? '#EF4444' : 'none'} />
+                                    </button>
+                                    <button onClick={toggleRepost} style={{ background: isReposted ? `${colors.primary}22` : 'rgba(255,255,255,0.08)', border: 'none', cursor: 'pointer', color: isReposted ? colors.primary : 'rgba(255,255,255,0.5)', padding: '10px', borderRadius: '50%', display: 'flex' }}>
+                                        <Repeat2 size={22} />
+                                    </button>
+                                </div>
                             </div>
-                            <button onClick={toggleFavourite} style={{ background: 'none', border: 'none', cursor: 'pointer', color: isFavourited ? '#EF4444' : 'rgba(255,255,255,0.5)', padding: '6px', flexShrink: 0 }}>
-                                <Heart size={24} fill={isFavourited ? '#EF4444' : 'none'} />
-                            </button>
+
+                            {/* Stats row */}
+                            {trackInfo && (
+                                <div style={{ display: 'flex', gap: '16px', marginTop: '8px', flexWrap: 'wrap' as const }}>
+                                    {trackInfo.playCount != null && <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)', display: 'flex', alignItems: 'center', gap: '4px' }}><Play size={10} fill="currentColor" />{trackInfo.playCount.toLocaleString()} plays</span>}
+                                    {trackInfo.likeCount != null && <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)', display: 'flex', alignItems: 'center', gap: '4px' }}><Heart size={10} />{trackInfo.likeCount.toLocaleString()} likes</span>}
+                                    {trackInfo.bpm && <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)' }}>{trackInfo.bpm} BPM</span>}
+                                    {trackInfo.key && <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)' }}>{trackInfo.key}</span>}
+                                </div>
+                            )}
+
+                            {/* Description */}
+                            {trackInfo?.description && (
+                                <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.35)', margin: '6px 0 0', lineHeight: 1.5, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any }}>{trackInfo.description}</p>
+                            )}
                         </div>
 
                         {/* Seek bar */}
-                        <div style={{ padding: '0 24px 4px' }}>
+                        <div style={{ padding: '10px 24px 2px', flexShrink: 0 }}>
                             <input type="range" min="0" max={player.duration || 100} value={player.currentTime} onChange={handleSeek}
                                 style={{ width: '100%', accentColor: colors.primary, cursor: 'pointer', height: '4px' }} />
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px' }}>
-                                <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)' }}>{formatTime(player.currentTime)}</span>
-                                <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)' }}>{formatTime(player.duration)}</span>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '3px' }}>
+                                <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)' }}>{formatTime(player.currentTime)}</span>
+                                <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)' }}>{formatTime(player.duration)}</span>
                             </div>
                         </div>
 
                         {/* Transport controls */}
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 24px 16px' }}>
-                            <button onClick={toggleShuffle} style={{ background: 'none', border: 'none', cursor: 'pointer', color: player.isShuffle ? colors.primary : 'rgba(255,255,255,0.45)', padding: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 28px 8px', flexShrink: 0 }}>
+                            <button onClick={toggleShuffle} style={{ background: 'none', border: 'none', cursor: 'pointer', color: player.isShuffle ? colors.primary : 'rgba(255,255,255,0.4)', padding: '8px' }}>
                                 <Shuffle size={22} />
                             </button>
                             <button onClick={prevTrack} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'white', padding: '8px' }}>
-                                <SkipBack size={28} fill="white" />
+                                <SkipBack size={30} fill="white" />
                             </button>
-                            <button onClick={togglePlay} style={{ width: '64px', height: '64px', borderRadius: '50%', backgroundColor: 'white', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 6px 24px rgba(0,0,0,0.4)` }}>
-                                {player.isPlaying ? <Pause size={28} fill="#1a1e2e" color="#1a1e2e" /> : <Play size={28} fill="#1a1e2e" color="#1a1e2e" style={{ marginLeft: '3px' }} />}
+                            <button onClick={togglePlay} style={{ width: '68px', height: '68px', borderRadius: '50%', backgroundColor: 'white', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 6px 28px rgba(0,0,0,0.5), 0 0 0 6px rgba(255,255,255,0.08)` }}>
+                                {player.isPlaying ? <Pause size={30} fill="#1a1e2e" color="#1a1e2e" /> : <Play size={30} fill="#1a1e2e" color="#1a1e2e" style={{ marginLeft: '3px' }} />}
                             </button>
                             <button onClick={nextTrack} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'white', padding: '8px' }}>
-                                <SkipForward size={28} fill="white" />
+                                <SkipForward size={30} fill="white" />
                             </button>
                             <button onClick={() => { if (player.repeatMode === 'none') setRepeatMode('all'); else if (player.repeatMode === 'all') setRepeatMode('one'); else setRepeatMode('none'); }}
-                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: player.repeatMode !== 'none' ? colors.primary : 'rgba(255,255,255,0.45)', padding: '8px', position: 'relative' }}>
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: player.repeatMode !== 'none' ? colors.primary : 'rgba(255,255,255,0.4)', padding: '8px', position: 'relative' }}>
                                 <Repeat size={22} />
                                 {player.repeatMode === 'one' && <span style={{ position: 'absolute', top: '4px', right: '4px', fontSize: '8px', fontWeight: 800, color: colors.primary }}>1</span>}
                             </button>
                         </div>
 
                         {/* Lyrics / Queue tabs */}
-                        {(lyrics.plain || lyrics.sync || player.queue.length > 0) && (
-                            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, margin: '0 16px', borderRadius: '14px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', overflow: 'hidden' }}>
-                                {/* Tab bar */}
-                                <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.07)', flexShrink: 0 }}>
-                                    {(lyrics.plain || lyrics.sync) && (
-                                        <button onClick={() => setLyricsTab('lyrics')} style={{ flex: 1, padding: '10px', background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: 700, color: lyricsTab === 'lyrics' ? colors.primary : 'rgba(255,255,255,0.4)', borderBottom: `2px solid ${lyricsTab === 'lyrics' ? colors.primary : 'transparent'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
-                                            <AlignLeft size={13} /> Lyrics
-                                        </button>
-                                    )}
-                                    <button onClick={() => setLyricsTab('queue')} style={{ flex: 1, padding: '10px', background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: 700, color: lyricsTab === 'queue' ? colors.primary : 'rgba(255,255,255,0.4)', borderBottom: `2px solid ${lyricsTab === 'queue' ? colors.primary : 'transparent'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
-                                        <List size={13} /> Queue
+                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, margin: '0 16px 12px', borderRadius: '14px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', overflow: 'hidden' }}>
+                            <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.07)', flexShrink: 0 }}>
+                                {(lyrics.plain || lyrics.sync) && (
+                                    <button onClick={() => setLyricsTab('lyrics')} style={{ flex: 1, padding: '10px', background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: 700, color: lyricsTab === 'lyrics' ? colors.primary : 'rgba(255,255,255,0.4)', borderBottom: `2px solid ${lyricsTab === 'lyrics' ? colors.primary : 'transparent'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                                        <AlignLeft size={13} /> Lyrics
                                     </button>
-                                </div>
-
-                                {/* Tab content */}
-                                <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px 16px' }}>
-                                    {lyricsTab === 'lyrics' && (
-                                        <>
-                                            {lyrics.sync?.length ? (
-                                                // Time-synced lyrics
-                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                                    {lyrics.sync.map((cue, i) => {
-                                                        const isActive = i === activeCueIndex;
-                                                        return (
-                                                            <div key={i} ref={isActive ? activeCueRef : undefined}
-                                                                onClick={() => seek(cue.time)}
-                                                                style={{ fontSize: isActive ? '16px' : '14px', fontWeight: isActive ? 700 : 400, color: isActive ? '#fff' : 'rgba(255,255,255,0.35)', lineHeight: 1.5, cursor: 'pointer', transition: 'all 0.3s ease', textAlign: 'center', padding: '2px 0' }}>
-                                                                {cue.text}
-                                                            </div>
-                                                        );
-                                                    })}
-                                                </div>
-                                            ) : lyrics.plain ? (
-                                                // Plain text lyrics
-                                                <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.7)', lineHeight: 1.8, whiteSpace: 'pre-wrap', margin: 0, textAlign: 'center' }}>
-                                                    {lyrics.plain}
-                                                </p>
-                                            ) : (
-                                                <div style={{ textAlign: 'center', color: 'rgba(255,255,255,0.25)', fontSize: '13px', paddingTop: '20px' }}>No lyrics available</div>
-                                            )}
-                                        </>
-                                    )}
-                                    {lyricsTab === 'queue' && (
-                                        player.queue.length === 0 ? (
-                                            <div style={{ textAlign: 'center', color: 'rgba(255,255,255,0.25)', fontSize: '13px', paddingTop: '20px' }}>Queue is empty</div>
-                                        ) : player.queue.map((qt: any, idx: number) => {
-                                            const isCurrent = idx === player.currentIndex;
-                                            return (
-                                                <div key={qt.id + idx} onClick={() => jumpToIndex(idx)}
-                                                    style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.05)', cursor: 'pointer' }}>
-                                                    <span style={{ fontSize: '11px', color: isCurrent ? colors.primary : 'rgba(255,255,255,0.3)', width: '18px', textAlign: 'center', flexShrink: 0 }}>{isCurrent ? '▶' : idx + 1}</span>
-                                                    <div style={{ width: '32px', height: '32px', borderRadius: '5px', overflow: 'hidden', backgroundColor: '#0f1320', flexShrink: 0 }}>
-                                                        {(qt.cover || qt.coverUrl) ? <img src={qt.cover || qt.coverUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Music2 size={12} color="rgba(255,255,255,0.2)" /></div>}
-                                                    </div>
-                                                    <div style={{ flex: 1, minWidth: 0 }}>
-                                                        <div style={{ fontSize: '13px', fontWeight: isCurrent ? 700 : 500, color: isCurrent ? '#fff' : 'rgba(255,255,255,0.75)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{qt.title}</div>
-                                                        <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{qt.artist || qt.profile?.displayName || 'Unknown'}</div>
-                                                    </div>
-                                                </div>
-                                            );
-                                        })
-                                    )}
-                                </div>
+                                )}
+                                <button onClick={() => setLyricsTab('queue')} style={{ flex: 1, padding: '10px', background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: 700, color: lyricsTab === 'queue' ? colors.primary : 'rgba(255,255,255,0.4)', borderBottom: `2px solid ${lyricsTab === 'queue' ? colors.primary : 'transparent'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                                    <List size={13} /> Queue ({player.queue.length})
+                                </button>
                             </div>
-                        )}
-                        <div style={{ height: '12px' }} />
+                            <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px 16px' }}>
+                                {lyricsTab === 'lyrics' && (
+                                    lyrics.sync?.length ? (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                            {lyrics.sync.map((cue, i) => {
+                                                const isActive = i === activeCueIndex;
+                                                return (
+                                                    <div key={i} ref={isActive ? activeCueRef : undefined} onClick={() => seek(cue.time)}
+                                                        style={{ fontSize: isActive ? '16px' : '14px', fontWeight: isActive ? 700 : 400, color: isActive ? '#fff' : 'rgba(255,255,255,0.3)', lineHeight: 1.5, cursor: 'pointer', transition: 'all 0.25s ease', textAlign: 'center', padding: '2px 0' }}>
+                                                        {cue.text}
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    ) : lyrics.plain ? (
+                                        <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.65)', lineHeight: 1.8, whiteSpace: 'pre-wrap', margin: 0, textAlign: 'center' }}>{lyrics.plain}</p>
+                                    ) : (
+                                        <div style={{ textAlign: 'center', color: 'rgba(255,255,255,0.2)', fontSize: '13px', paddingTop: '20px' }}>No lyrics available</div>
+                                    )
+                                )}
+                                {lyricsTab === 'queue' && (
+                                    player.queue.length === 0 ? (
+                                        <div style={{ textAlign: 'center', color: 'rgba(255,255,255,0.2)', fontSize: '13px', paddingTop: '20px' }}>Queue is empty</div>
+                                    ) : player.queue.map((qt: any, idx: number) => {
+                                        const isCurrent = idx === player.currentIndex;
+                                        return (
+                                            <div key={qt.id + idx} onClick={() => jumpToIndex(idx)}
+                                                style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.05)', cursor: 'pointer' }}>
+                                                <span style={{ fontSize: '11px', color: isCurrent ? colors.primary : 'rgba(255,255,255,0.3)', width: '18px', textAlign: 'center', flexShrink: 0 }}>{isCurrent ? '▶' : idx + 1}</span>
+                                                <div style={{ width: '36px', height: '36px', borderRadius: '6px', overflow: 'hidden', backgroundColor: '#0f1320', flexShrink: 0 }}>
+                                                    {(qt.cover || qt.coverUrl) ? <img src={qt.cover || qt.coverUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Music2 size={14} color="rgba(255,255,255,0.2)" /></div>}
+                                                </div>
+                                                <div style={{ flex: 1, minWidth: 0 }}>
+                                                    <div style={{ fontSize: '13px', fontWeight: isCurrent ? 700 : 500, color: isCurrent ? '#fff' : 'rgba(255,255,255,0.75)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{qt.title}</div>
+                                                    <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{qt.artist || qt.profile?.displayName || 'Unknown'}</div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })
+                                )}
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}
@@ -416,42 +439,31 @@ export const GlobalPlayer: React.FC = () => {
                 {!isCollapsed && isMobile ? (
                     /* ── MOBILE: 2-row layout ── */
                     <>
-                        {/* Row 1: Cover + title/artist + fav + queue */}
+                        {/* Row 1: Cover + title/artist (tap → fullscreen) + actions */}
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 14px 2px' }}>
-                            <div onClick={() => setIsFullscreen(true)} style={{ width: '40px', height: '40px', backgroundColor: '#0f1320', borderRadius: '6px', overflow: 'hidden', flexShrink: 0, cursor: 'pointer' }}>
-                                {player.currentTrack.cover ? (
-                                    <img src={player.currentTrack.cover} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                ) : (
-                                    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                        <Play size={16} color="rgba(255,255,255,0.2)" />
-                                    </div>
-                                )}
-                            </div>
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                                {titleTo ? (
-                                    <Link to={titleTo} style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: 'white', textDecoration: 'none', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                        {player.currentTrack.title}
-                                    </Link>
-                                ) : (
+                            {/* Tappable left area: cover + text → opens fullscreen */}
+                            <div onClick={() => setIsFullscreen(true)} style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: 0, cursor: 'pointer' }}>
+                                <div style={{ width: '52px', height: '52px', backgroundColor: '#0f1320', borderRadius: '8px', overflow: 'hidden', flexShrink: 0, boxShadow: '0 2px 8px rgba(0,0,0,0.4)' }}>
+                                    {player.currentTrack.cover
+                                        ? <img src={player.currentTrack.cover} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                        : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Music2 size={20} color="rgba(255,255,255,0.2)" /></div>}
+                                </div>
+                                <div style={{ minWidth: 0 }}>
                                     <p style={{ margin: 0, fontSize: '13px', fontWeight: 700, color: 'white', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                         {player.currentTrack.title}
                                     </p>
-                                )}
-                                <Link to={artistTo} style={{ display: 'block', fontSize: '11px', color: '#B9C3CE', textDecoration: 'none', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                    {player.currentTrack.artist}
-                                </Link>
+                                    <p style={{ margin: '2px 0 0', fontSize: '11px', color: '#B9C3CE', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                        {player.currentTrack.artist}
+                                    </p>
+                                </div>
                             </div>
                             <button onClick={toggleFavourite} aria-label={isFavourited ? 'Remove favourite' : 'Add favourite'} style={{ background: 'none', border: 'none', cursor: 'pointer', color: isFavourited ? '#EF4444' : '#B9C3CE', padding: '6px', flexShrink: 0 }}>
-                                <Heart size={18} fill={isFavourited ? '#EF4444' : 'none'} />
+                                <Heart size={20} fill={isFavourited ? '#EF4444' : 'none'} />
                             </button>
-                            <button onClick={toggleRepost} aria-label={isReposted ? 'Remove repost' : 'Repost'} style={{ background: 'none', border: 'none', cursor: 'pointer', color: isReposted ? colors.primary : '#B9C3CE', padding: '6px', flexShrink: 0 }}>
-                                <Repeat2 size={18} />
-                            </button>
-                            <button onClick={() => setShowQueue(q => !q)} aria-label="Toggle queue" style={{ background: 'none', border: 'none', cursor: 'pointer', color: showQueue ? colors.primary : '#B9C3CE', padding: '6px', flexShrink: 0 }}>
-                                <List size={18} />
-                            </button>
-                            <button onClick={() => setIsFullscreen(true)} aria-label="Full screen player" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#B9C3CE', padding: '6px', flexShrink: 0 }}>
-                                <Maximize2 size={18} />
+                            {/* Prominent expand button */}
+                            <button onClick={() => setIsFullscreen(true)} aria-label="Open full screen player"
+                                style={{ background: 'rgba(255,255,255,0.08)', border: 'none', cursor: 'pointer', color: 'white', padding: '8px', flexShrink: 0, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <ChevronUp size={20} />
                             </button>
                             {/* Mobile speed */}
                             <div ref={speedMenuRef} style={{ position: 'relative', flexShrink: 0 }}>
