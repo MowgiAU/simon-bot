@@ -48,6 +48,98 @@ const FOLDERS = [
 const fmt = (iso: string) => new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 const fmtShort = (iso: string) => new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
+// ── Stable sub-components defined OUTSIDE the parent so they are never
+// recreated on each keystroke, which would cause iframes to remount & flicker.
+
+function useProcessedBody(html?: string) {
+    if (!html) return { mainBody: '', quotedBody: '' };
+    const gmailIdx = html.indexOf('class="gmail_quote"');
+    if (gmailIdx !== -1) { const sp = html.lastIndexOf('<div', gmailIdx); if (sp !== -1) return { mainBody: html.substring(0, sp), quotedBody: html.substring(sp) }; }
+    const bqIdx = html.indexOf('<blockquote');
+    if (bqIdx !== -1) return { mainBody: html.substring(0, bqIdx), quotedBody: html.substring(bqIdx) };
+    return { mainBody: html, quotedBody: '' };
+}
+
+const EmailBodyFrame: React.FC<{ html: string }> = ({ html }) => {
+    const frameRef = React.useRef<HTMLIFrameElement>(null);
+    const sanitized = DOMPurify.sanitize(html);
+    const srcdoc = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>html{margin:0;padding:0}body{margin:0;padding:12px 16px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;font-size:14px;line-height:1.6;color:#1a1a1a;word-break:break-word;overflow-x:hidden;background:#fff}a{color:#0066cc}img{max-width:100%;height:auto}p{margin:0 0 10px}blockquote{margin:0 0 10px 16px;padding-left:12px;border-left:3px solid #ccc;color:#555}pre,code{font-family:monospace;font-size:13px;background:#f5f5f5;padding:2px 4px;border-radius:3px}</style></head><body>${sanitized}</body></html>`;
+    React.useEffect(() => {
+        const frame = frameRef.current; if (!frame) return;
+        const onLoad = () => { try { if (frame.contentDocument?.body) frame.style.height = frame.contentDocument.body.scrollHeight + 32 + 'px'; } catch {} };
+        frame.addEventListener('load', onLoad);
+        return () => frame.removeEventListener('load', onLoad);
+    }, [html]);
+    return (
+        <div style={{ borderRadius: 8, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', background: '#fff', margin: '4px 0' }}>
+            <iframe ref={frameRef} srcDoc={srcdoc} sandbox="allow-same-origin" style={{ width: '100%', border: 'none', display: 'block', minHeight: 60, background: '#fff' }} title="Email content" />
+        </div>
+    );
+};
+
+const EditorToolbar: React.FC = () => {
+    const cmd = (c: string) => document.execCommand(c, false, undefined);
+    return (
+        <div style={{ display: 'flex', gap: 4, padding: '6px 10px', background: 'rgba(255,255,255,0.03)', borderBottom: `1px solid rgba(255,255,255,0.08)` }}>
+            {[{ icon: <Bold size={14}/>, c: 'bold' }, { icon: <Italic size={14}/>, c: 'italic' }, { icon: <Underline size={14}/>, c: 'underline' }, { icon: <List size={14}/>, c: 'insertUnorderedList' }].map(({ icon, c }) => (
+                <button key={c} onMouseDown={e => { e.preventDefault(); cmd(c); }} style={{ background: 'none', border: 'none', padding: '4px 6px', cursor: 'pointer', borderRadius: 4, color: colors.textSecondary }}>
+                    {icon}
+                </button>
+            ))}
+        </div>
+    );
+};
+
+const ThreadMessage: React.FC<{ msg: Email; isLast: boolean }> = ({ msg, isLast }) => {
+    const { mainBody, quotedBody } = useProcessedBody(msg.body);
+    const [showQuoted, setShowQuoted] = useState(false);
+    const [collapsed, setCollapsed] = useState(!isLast);
+    return (
+        <div style={{ borderBottom: isLast ? 'none' : `1px solid rgba(255,255,255,0.06)` }}>
+            <div onClick={() => setCollapsed(!collapsed)} style={{ padding: '14px 20px', cursor: 'pointer', display: 'flex', alignItems: 'flex-start', gap: 12, background: collapsed ? 'rgba(255,255,255,0.02)' : 'transparent' }}>
+                <div style={{ width: 36, height: 36, borderRadius: '50%', backgroundColor: colors.primary, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 700, flexShrink: 0 }}>
+                    {msg.from.charAt(0).toUpperCase()}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
+                        <span style={{ fontWeight: 700, fontSize: 13, color: colors.textPrimary }}>{msg.from}</span>
+                        <span style={{ fontSize: 11, color: colors.textTertiary, flexShrink: 0 }}>{fmt(msg.date)}</span>
+                    </div>
+                    <div style={{ fontSize: 11, color: colors.textTertiary }}>to {msg.toEmail || 'me'}</div>
+                    {collapsed && <div style={{ marginTop: 3, color: colors.textSecondary, fontSize: 12, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{mainBody.replace(/<[^>]*>?/gm, ' ').substring(0, 100)}…</div>}
+                </div>
+            </div>
+            {!collapsed && (
+                <div style={{ padding: '0 20px 20px 68px' }}>
+                    {msg.attachments && msg.attachments.length > 0 && (
+                        <div style={{ marginBottom: 12 }}>
+                            {msg.attachments.map((att, i) => {
+                                if (!att.path) return null;
+                                const ext = att.filename.split('.').pop()?.toLowerCase() || '';
+                                const url = `/api/email/attachment/${att.path}`;
+                                if (['jpg','jpeg','png','gif','webp'].includes(ext))
+                                    return <div key={i} style={{ marginBottom: 12 }}><img src={url} alt={att.filename} style={{ maxWidth: '100%', maxHeight: 300, borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)' }} /></div>;
+                                if (['mp3','wav','ogg'].includes(ext))
+                                    return <div key={i} style={{ marginBottom: 12, background: 'rgba(255,255,255,0.03)', padding: 12, borderRadius: 8, border: '1px solid rgba(255,255,255,0.08)' }}><div style={{ fontSize: 12, color: colors.textSecondary, marginBottom: 6 }}>{att.filename}</div><audio controls src={url} style={{ width: '100%' }} /></div>;
+                                return <a key={i} href={url} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 10px', background: 'rgba(255,255,255,0.04)', borderRadius: 6, textDecoration: 'none', color: colors.textSecondary, marginRight: 6, marginBottom: 6, fontSize: 12, border: '1px solid rgba(255,255,255,0.08)' }}><Paperclip size={12} />{att.filename}</a>;
+                            })}
+                        </div>
+                    )}
+                    <EmailBodyFrame html={mainBody} />
+                    {quotedBody && (
+                        <div style={{ marginTop: 12 }}>
+                            <button onClick={() => setShowQuoted(!showQuoted)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 22, height: 22, border: '1px solid rgba(255,255,255,0.1)', borderRadius: 4, background: 'rgba(255,255,255,0.04)', cursor: 'pointer', color: colors.textTertiary }}>
+                                <MoreHorizontal size={12} />
+                            </button>
+                            {showQuoted && <div style={{ marginTop: 10, borderLeft: '2px solid rgba(255,255,255,0.1)', paddingLeft: 10 }}><EmailBodyFrame html={quotedBody} /></div>}
+                        </div>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+};
+
 export const EmailClientPage: React.FC<EmailPageProps> = ({ searchParam }) => {
     const isMobile = useMobile();
     const [view, setView] = useState<'inbox' | 'sent' | 'trash' | 'settings'>('inbox');
@@ -195,95 +287,6 @@ export const EmailClientPage: React.FC<EmailPageProps> = ({ searchParam }) => {
         setComposeData(prev => ({ ...prev, attachments: prev.attachments.filter((_, i) => i !== index) }));
 
     // --- Sub-components ---
-
-    function useProcessedBody(html?: string) {
-        if (!html) return { mainBody: '', quotedBody: '' };
-        const gmailIdx = html.indexOf('class="gmail_quote"');
-        if (gmailIdx !== -1) { const sp = html.lastIndexOf('<div', gmailIdx); if (sp !== -1) return { mainBody: html.substring(0, sp), quotedBody: html.substring(sp) }; }
-        const bqIdx = html.indexOf('<blockquote');
-        if (bqIdx !== -1) return { mainBody: html.substring(0, bqIdx), quotedBody: html.substring(bqIdx) };
-        return { mainBody: html, quotedBody: '' };
-    }
-
-    const EmailBodyFrame = ({ html }: { html: string }) => {
-        const frameRef = React.useRef<HTMLIFrameElement>(null);
-        const sanitized = DOMPurify.sanitize(html);
-        const srcdoc = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>html{margin:0;padding:0}body{margin:0;padding:12px 16px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;font-size:14px;line-height:1.6;color:#1a1a1a;word-break:break-word;overflow-x:hidden;background:#fff}a{color:#0066cc}img{max-width:100%;height:auto}p{margin:0 0 10px}blockquote{margin:0 0 10px 16px;padding-left:12px;border-left:3px solid #ccc;color:#555}pre,code{font-family:monospace;font-size:13px;background:#f5f5f5;padding:2px 4px;border-radius:3px}</style></head><body>${sanitized}</body></html>`;
-        React.useEffect(() => {
-            const frame = frameRef.current; if (!frame) return;
-            const onLoad = () => { try { if (frame.contentDocument?.body) frame.style.height = frame.contentDocument.body.scrollHeight + 32 + 'px'; } catch {} };
-            frame.addEventListener('load', onLoad);
-            return () => frame.removeEventListener('load', onLoad);
-        }, [html]);
-        return (
-            <div style={{ borderRadius: 8, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', background: '#fff', margin: '4px 0' }}>
-                <iframe ref={frameRef} srcDoc={srcdoc} sandbox="allow-same-origin" style={{ width: '100%', border: 'none', display: 'block', minHeight: 60, background: '#fff' }} title="Email content" />
-            </div>
-        );
-    };
-
-    const EditorToolbar = () => {
-        const cmd = (c: string) => document.execCommand(c, false, undefined);
-        return (
-            <div style={{ display: 'flex', gap: 4, padding: '6px 10px', background: 'rgba(255,255,255,0.03)', borderBottom: `1px solid rgba(255,255,255,0.08)` }}>
-                {[{ icon: <Bold size={14}/>, c: 'bold' }, { icon: <Italic size={14}/>, c: 'italic' }, { icon: <Underline size={14}/>, c: 'underline' }, { icon: <List size={14}/>, c: 'insertUnorderedList' }].map(({ icon, c }) => (
-                    <button key={c} onMouseDown={e => { e.preventDefault(); cmd(c); }} style={{ background: 'none', border: 'none', padding: '4px 6px', cursor: 'pointer', borderRadius: 4, color: colors.textSecondary }}>
-                        {icon}
-                    </button>
-                ))}
-            </div>
-        );
-    };
-
-    const ThreadMessage = ({ msg, isLast }: { msg: Email; isLast: boolean }) => {
-        const { mainBody, quotedBody } = useProcessedBody(msg.body);
-        const [showQuoted, setShowQuoted] = useState(false);
-        const [collapsed, setCollapsed] = useState(!isLast);
-        return (
-            <div style={{ borderBottom: isLast ? 'none' : `1px solid rgba(255,255,255,0.06)` }}>
-                <div onClick={() => setCollapsed(!collapsed)} style={{ padding: '14px 20px', cursor: 'pointer', display: 'flex', alignItems: 'flex-start', gap: 12, background: collapsed ? 'rgba(255,255,255,0.02)' : 'transparent' }}>
-                    <div style={{ width: 36, height: 36, borderRadius: '50%', backgroundColor: colors.primary, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 700, flexShrink: 0 }}>
-                        {msg.from.charAt(0).toUpperCase()}
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
-                            <span style={{ fontWeight: 700, fontSize: 13, color: colors.textPrimary }}>{msg.from}</span>
-                            <span style={{ fontSize: 11, color: colors.textTertiary, flexShrink: 0 }}>{fmt(msg.date)}</span>
-                        </div>
-                        <div style={{ fontSize: 11, color: colors.textTertiary }}>to {msg.toEmail || 'me'}</div>
-                        {collapsed && <div style={{ marginTop: 3, color: colors.textSecondary, fontSize: 12, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{mainBody.replace(/<[^>]*>?/gm, ' ').substring(0, 100)}…</div>}
-                    </div>
-                </div>
-                {!collapsed && (
-                    <div style={{ padding: '0 20px 20px 68px' }}>
-                        {msg.attachments && msg.attachments.length > 0 && (
-                            <div style={{ marginBottom: 12 }}>
-                                {msg.attachments.map((att, i) => {
-                                    if (!att.path) return null;
-                                    const ext = att.filename.split('.').pop()?.toLowerCase() || '';
-                                    const url = `/api/email/attachment/${att.path}`;
-                                    if (['jpg','jpeg','png','gif','webp'].includes(ext))
-                                        return <div key={i} style={{ marginBottom: 12 }}><img src={url} alt={att.filename} style={{ maxWidth: '100%', maxHeight: 300, borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)' }} /></div>;
-                                    if (['mp3','wav','ogg'].includes(ext))
-                                        return <div key={i} style={{ marginBottom: 12, background: 'rgba(255,255,255,0.03)', padding: 12, borderRadius: 8, border: '1px solid rgba(255,255,255,0.08)' }}><div style={{ fontSize: 12, color: colors.textSecondary, marginBottom: 6 }}>{att.filename}</div><audio controls src={url} style={{ width: '100%' }} /></div>;
-                                    return <a key={i} href={url} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 10px', background: 'rgba(255,255,255,0.04)', borderRadius: 6, textDecoration: 'none', color: colors.textSecondary, marginRight: 6, marginBottom: 6, fontSize: 12, border: '1px solid rgba(255,255,255,0.08)' }}><Paperclip size={12} />{att.filename}</a>;
-                                })}
-                            </div>
-                        )}
-                        <EmailBodyFrame html={mainBody} />
-                        {quotedBody && (
-                            <div style={{ marginTop: 12 }}>
-                                <button onClick={() => setShowQuoted(!showQuoted)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 22, height: 22, border: '1px solid rgba(255,255,255,0.1)', borderRadius: 4, background: 'rgba(255,255,255,0.04)', cursor: 'pointer', color: colors.textTertiary }}>
-                                    <MoreHorizontal size={12} />
-                                </button>
-                                {showQuoted && <div style={{ marginTop: 10, borderLeft: '2px solid rgba(255,255,255,0.1)', paddingLeft: 10 }}><EmailBodyFrame html={quotedBody} /></div>}
-                            </div>
-                        )}
-                    </div>
-                )}
-            </div>
-        );
-    };
 
     // --- Derived data ---
     const visibleEmails = view === 'inbox' && filterUnread ? emails.filter(e => !e.read) : emails;
