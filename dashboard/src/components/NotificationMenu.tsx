@@ -96,9 +96,9 @@ export const NotificationMenu: React.FC<{ guildId: string }> = ({ guildId }) => 
 
       {isOpen && (
         <>
-          <div 
-            style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999 }} 
-            onClick={() => setIsOpen(false)} 
+          <div
+            style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999 }}
+            onClick={() => setIsOpen(false)}
           />
           <div style={{
             position: 'absolute',
@@ -110,7 +110,7 @@ export const NotificationMenu: React.FC<{ guildId: string }> = ({ guildId }) => 
             borderRadius: '16px',
             border: '1px solid #3E455644',
             boxShadow: '0 12px 48px rgba(0,0,0,0.6)',
-            zIndex: 1000,
+            zIndex: 10000,
             overflowY: 'auto',
             backdropFilter: 'blur(10px)'
           }}>
