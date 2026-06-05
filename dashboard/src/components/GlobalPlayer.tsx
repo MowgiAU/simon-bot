@@ -96,6 +96,17 @@ export const GlobalPlayer: React.FC = () => {
         } catch { /* not logged in */ }
     };
 
+    // Must be before early return to satisfy Rules of Hooks
+    const activeCueIndex = React.useMemo(() => {
+        if (!lyrics.sync?.length) return -1;
+        let idx = -1;
+        for (let i = 0; i < lyrics.sync.length; i++) {
+            if (lyrics.sync[i].time <= player.currentTime) idx = i;
+            else break;
+        }
+        return idx;
+    }, [lyrics.sync, Math.floor(player.currentTime)]);
+
     if (!player.currentTrack) return null;
 
     const formatTime = (time: number) => {
@@ -118,16 +129,6 @@ export const GlobalPlayer: React.FC = () => {
     const titleTo = (t.username && trackSlugOrId) ? `/track/${t.username}/${trackSlugOrId}` : (t.entryRoute || null);
     const artistTo = `/profile/${t.username || t.artist}`;
 
-    // Determine active lyric cue index
-    const activeCueIndex = React.useMemo(() => {
-        if (!lyrics.sync?.length) return -1;
-        let idx = -1;
-        for (let i = 0; i < lyrics.sync.length; i++) {
-            if (lyrics.sync[i].time <= player.currentTime) idx = i;
-            else break;
-        }
-        return idx;
-    }, [lyrics.sync, Math.floor(player.currentTime)]);
 
     return (
         <>
