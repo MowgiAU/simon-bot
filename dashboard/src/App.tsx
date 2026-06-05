@@ -84,6 +84,7 @@ const AutoResponderPage      = lazy(() => import("./pages/AutoResponder").then(m
 const FrontpageStitch        = lazy(() => import("./pages/FrontpageStitch").then(m => ({ default: m.FrontpageStitch })));
 const FrontpageEditorialB    = lazy(() => import("./pages/FrontpageEditorialB").then(m => ({ default: m.FrontpageEditorialB })));
 const FrontpageVHub          = lazy(() => import("./pages/FrontpageVHub").then(m => ({ default: m.FrontpageVHub })));
+const FrontpageEditorialMix  = lazy(() => import("./pages/FrontpageEditorialMix").then(m => ({ default: m.FrontpageEditorialMix })));
 const PausePage              = lazy(() => import("./pages/Pause").then(m => ({ default: m.PausePage })));
 const ServerBoostPage        = lazy(() => import("./pages/ServerBoost").then(m => ({ default: m.ServerBoostPage })));
 const VoiceStatsPage         = lazy(() => import("./pages/VoiceStats").then(m => ({ default: m.VoiceStatsPage })));
@@ -867,6 +868,9 @@ const AppInternal: React.FC = () => {
   }
   if (currentPath === '/preview/alt_c') {
     return <Suspense fallback={<PageSpinner />}><FrontpageVHub /></Suspense>;
+  }
+  if (currentPath === '/preview/alt_d') {
+    return <Suspense fallback={<PageSpinner />}><FrontpageEditorialMix /></Suspense>;
   }
 
   // Artist Discovery homepage
