@@ -307,7 +307,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
                         const statusBg = votingOver ? 'rgba(255,215,0,0.18)' : battle?.status === 'voting' ? 'rgba(251,191,36,0.22)' : battle?.status === 'active' ? 'rgba(52,211,153,0.22)' : 'rgba(96,165,250,0.22)';
                         const statusLabel = votingOver ? 'ENDED' : battle?.status === 'voting' ? 'VOTING' : battle?.status === 'active' ? 'LIVE' : 'UPCOMING';
                         return (
-                    <div style={{ ...panel, height: isMobile ? 'auto' : '400px', minHeight: isMobile ? '300px' : undefined, overflow: 'hidden', gridColumn: isMobile ? undefined : 'span 3', padding: 0, position: 'relative' }}>
+                    <div style={{ ...panel, height: isMobile ? 'auto' : (votingOver ? 'auto' : '400px'), minHeight: isMobile ? '300px' : '400px', overflow: 'hidden', gridColumn: isMobile ? undefined : 'span 3', padding: 0, position: 'relative' }}>
 
                         {/* Banner — full background with strong overlay so label is readable at top */}
                         {bgImg && <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${bgImg})`, backgroundSize: 'cover', backgroundPosition: 'center top' }} />}
@@ -390,8 +390,12 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                                             <img src={entry.coverUrl} alt="" style={{ width: '32px', height: '32px', borderRadius: '5px', objectFit: 'cover', flexShrink: 0, border: `1px solid ${placeColors[i]}44` }} />
                                                         )}
                                                         <div style={{ flex: 1, minWidth: 0 }}>
-                                                            <div style={{ fontSize: '12px', fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.trackTitle}</div>
-                                                            <div style={{ fontSize: '11px', color: placeColors[i], fontWeight: 600 }}>@{entry.username}</div>
+                                                            {entry.trackSlug && entry.username ? (
+                                                                <Link to={`/track/${entry.username}/${entry.trackSlug}`} style={{ fontSize: '12px', fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block', textDecoration: 'none' }} onMouseEnter={e => (e.currentTarget.style.textDecoration = 'underline')} onMouseLeave={e => (e.currentTarget.style.textDecoration = 'none')}>{entry.trackTitle}</Link>
+                                                            ) : (
+                                                                <div style={{ fontSize: '12px', fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.trackTitle}</div>
+                                                            )}
+                                                            <Link to={`/profile/${entry.username}`} style={{ fontSize: '11px', color: placeColors[i], fontWeight: 600, textDecoration: 'none' }} onMouseEnter={e => (e.currentTarget.style.textDecoration = 'underline')} onMouseLeave={e => (e.currentTarget.style.textDecoration = 'none')}>@{entry.username}</Link>
                                                             {placePrize[i] && <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{placePrize[i]!.title || placePrize[i]!.description}</div>}
                                                         </div>
                                                         <button
