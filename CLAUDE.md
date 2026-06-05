@@ -41,7 +41,7 @@ Or `cd dashboard && npm run dev` / `npm run build` / `npm run type-check`.
 
 ### Deployment (production)
 ```bash
-ssh root@143.198.51.52 "cd ~/simon-bot && git pull && npm install && npm run build && npm run dashboard:build && pm2 restart all"
+ssh root@143.198.51.52 "cd ~/simon-bot && git pull && npm install && cd dashboard && npm install && cd .. && npm run build && npm run dashboard:build && pm2 restart all"
 ```
 Dashboard builds consume high RAM — if build is killed, check server swap space.
 
