@@ -310,7 +310,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
                     <div style={{ ...panel, height: isMobile ? 'auto' : (votingOver ? 'auto' : '400px'), minHeight: isMobile ? '300px' : '400px', overflow: 'hidden', gridColumn: isMobile ? undefined : 'span 3', padding: 0, position: 'relative' }}>
 
                         {/* Banner — full background with strong overlay so label is readable at top */}
-                        {bgImg && <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${bgImg})`, backgroundSize: 'cover', backgroundPosition: 'center top' }} />}
+                        {bgImg && <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${bgImg})`, backgroundSize: 'cover', backgroundPosition: 'center top', opacity: votingOver ? 0.2 : 1 }} />}
                         <div style={{ position: 'absolute', inset: 0, background: bgImg
                             ? isMobile
                                 ? 'linear-gradient(to bottom, rgba(10,13,24,0.88) 0%, rgba(10,13,24,0.82) 40%, rgba(10,13,24,0.96) 75%, rgba(10,13,24,1) 100%)'
