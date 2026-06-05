@@ -368,7 +368,11 @@ export class AutoResponderPlugin implements IPlugin {
                         const resolved = this.resolveEmoji(rule.reactionEmoji, msg.guild!);
                         if (resolved) {
                             const sm = await getSimonMsg();
-                            await (sm ?? msg).react(resolved);
+                            if (sm) {
+                                try { await sm.react(resolved); } catch { await msg.react(resolved); }
+                            } else {
+                                await msg.react(resolved);
+                            }
                         }
                     } catch (reactErr: any) {
                         this.logger.warn(`AutoResponder: failed to react with "${rule.reactionEmoji}": ${reactErr?.message}`);
@@ -378,8 +382,16 @@ export class AutoResponderPlugin implements IPlugin {
                 // Send text/embed response if present (only once per message, not when global cooldown active)
                 if (!textResponseSent && !globalCooldownBlocked && (sendPayload.content || sendPayload.embeds)) {
                     const sm = await getSimonMsg();
-                    const sendChannel = sm ? (sm.channel as TextChannel) : (msg.channel as TextChannel);
-                    await sendChannel.send(sendPayload);
+                    if (sm) {
+                        try {
+                            await (sm.channel as TextChannel).send(sendPayload);
+                        } catch {
+                            // Simon bot lacks permission in this channel — fall back to main bot
+                            await (msg.channel as TextChannel).send(sendPayload);
+                        }
+                    } else {
+                        await (msg.channel as TextChannel).send(sendPayload);
+                    }
                     textResponseSent = true;
                 } else if (!rule.reactionEmoji && !(sendPayload.content || sendPayload.embeds)) {
                     // No reaction and no response — skip this rule entirely
