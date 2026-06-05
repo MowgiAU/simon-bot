@@ -29,6 +29,7 @@ export const MuzzlePage: React.FC<MuzzlePageProps> = ({ guildId }) => {
     const [muzzleDuration, setMuzzleDuration]       = useState(10);
     const [muzzleRoleId, setMuzzleRoleId]           = useState('');
     const [logChannelId, setLogChannelId]           = useState('');
+    const [exemptRoleIds, setExemptRoleIds]         = useState<string[]>([]);
     const [loading, setLoading]                     = useState(true);
     const [saving, setSaving]                       = useState(false);
     const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -43,6 +44,7 @@ export const MuzzlePage: React.FC<MuzzlePageProps> = ({ guildId }) => {
                 setMuzzleDuration(d.muzzleDurationMinutes ?? 10);
                 setMuzzleRoleId(d.muzzleRoleId ?? '');
                 setLogChannelId(d.logChannelId ?? '');
+                setExemptRoleIds(d.exemptRoleIds ?? []);
             })
             .catch(() => {})
             .finally(() => setLoading(false));
@@ -57,6 +59,7 @@ export const MuzzlePage: React.FC<MuzzlePageProps> = ({ guildId }) => {
                 muzzleDurationMinutes: muzzleDuration,
                 muzzleRoleId: muzzleRoleId || null,
                 logChannelId: logChannelId || null,
+                exemptRoleIds,
             }, { withCredentials: true });
             setMsg({ type: 'success', text: 'Settings saved!' });
             setTimeout(() => setMsg(null), 3000);
@@ -172,6 +175,19 @@ export const MuzzlePage: React.FC<MuzzlePageProps> = ({ guildId }) => {
                                 Make sure this role is below the bot's role in the hierarchy.
                             </p>
                         </div>
+                    </div>
+                    <div>
+                        <label style={labelStyle}>Exempt Roles <span style={{ fontWeight: 400, color: colors.textTertiary }}>(optional)</span></label>
+                        <RoleSelect
+                            guildId={guildId}
+                            value={exemptRoleIds}
+                            onChange={v => setExemptRoleIds(Array.isArray(v) ? v : [v as string])}
+                            placeholder="Select roles that are never muzzled…"
+                            multiple
+                        />
+                        <p style={{ margin: '5px 0 0', fontSize: 11, color: colors.textTertiary }}>
+                            Users with any of these roles are immune to the muzzle (e.g. Mods, VIPs).
+                        </p>
                     </div>
                     <div>
                         <label style={labelStyle}>Log Channel <span style={{ fontWeight: 400, color: colors.textTertiary }}>(optional)</span></label>

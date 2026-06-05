@@ -16,6 +16,7 @@ interface MuzzleSettings {
     muzzleDurationMinutes: number;
     muzzleRoleId: string | null;
     logChannelId: string | null;
+    exemptRoleIds: string[];
 }
 
 export class MuzzlePlugin implements IPlugin {
@@ -85,6 +86,9 @@ export class MuzzlePlugin implements IPlugin {
         const member = msg.member;
         if (!member) return;
         if (member.roles.cache.has(settings.muzzleRoleId)) return;
+
+        // Skip exempt roles
+        if (settings.exemptRoleIds.length > 0 && settings.exemptRoleIds.some(id => member.roles.cache.has(id))) return;
 
         // Track message timestamps in sliding window
         if (!this.tracker.has(guildId)) this.tracker.set(guildId, new Map());
@@ -168,6 +172,7 @@ export class MuzzlePlugin implements IPlugin {
                 muzzleDurationMinutes: row.muzzleDurationMinutes,
                 muzzleRoleId:          row.muzzleRoleId,
                 logChannelId:          row.logChannelId,
+                exemptRoleIds:         (row.exemptRoleIds as string[]) ?? [],
             } : null;
             this.settingsCache.set(guildId, { settings, expiresAt: Date.now() + 30_000 });
             return settings;
