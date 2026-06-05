@@ -1,7 +1,7 @@
 
 import React from 'react';
 import {
-    Play, Heart, Volume2, SkipBack, SkipForward, Shuffle, Repeat, Pause, List, X, Repeat2, ChevronUp, ChevronDown
+    Play, Heart, Volume2, SkipBack, SkipForward, Shuffle, Repeat, Pause, List, X, Repeat2, ChevronUp, ChevronDown, Maximize2, Music2, AlignLeft
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { usePlayer } from './PlayerProvider';
@@ -19,6 +19,11 @@ export const GlobalPlayer: React.FC = () => {
     const lastCheckedTrackId = React.useRef<string | null>(null);
     const [isMobile, setIsMobile] = React.useState(window.innerWidth < 1024);
     const [isCollapsed, setIsCollapsed] = React.useState(() => localStorage.getItem('player_collapsed') === '1');
+    const [isFullscreen, setIsFullscreen] = React.useState(false);
+    const [lyricsTab, setLyricsTab] = React.useState<'lyrics' | 'queue'>('lyrics');
+    const [lyrics, setLyrics] = React.useState<{ plain: string | null; sync: { time: number; text: string }[] | null }>({ plain: null, sync: null });
+    const lyricsTrackId = React.useRef<string | null>(null);
+    const activeCueRef = React.useRef<HTMLDivElement>(null);
     const speedMenuRef = React.useRef<HTMLDivElement>(null);
 
     const toggleCollapse = () => {
@@ -59,6 +64,22 @@ export const GlobalPlayer: React.FC = () => {
             .catch(() => setIsReposted(false));
     }, [player.currentTrack?.id]);
 
+    // Fetch lyrics when track changes and fullscreen is open
+    React.useEffect(() => {
+        const id = player.currentTrack?.id;
+        if (!id || id === lyricsTrackId.current) return;
+        lyricsTrackId.current = id;
+        setLyrics({ plain: null, sync: null });
+        axios.get(`/api/tracks/${id}/lyrics`, { withCredentials: true })
+            .then(res => setLyrics({ plain: res.data.lyrics ?? null, sync: res.data.lyricsSync ?? null }))
+            .catch(() => {});
+    }, [player.currentTrack?.id]);
+
+    // Scroll active lyric cue into view
+    React.useEffect(() => {
+        activeCueRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+
     const toggleFavourite = async () => {
         if (!player.currentTrack) return;
         try {
@@ -97,8 +118,167 @@ export const GlobalPlayer: React.FC = () => {
     const titleTo = (t.username && trackSlugOrId) ? `/track/${t.username}/${trackSlugOrId}` : (t.entryRoute || null);
     const artistTo = `/profile/${t.username || t.artist}`;
 
+    // Determine active lyric cue index
+    const activeCueIndex = React.useMemo(() => {
+        if (!lyrics.sync?.length) return -1;
+        let idx = -1;
+        for (let i = 0; i < lyrics.sync.length; i++) {
+            if (lyrics.sync[i].time <= player.currentTime) idx = i;
+            else break;
+        }
+        return idx;
+    }, [lyrics.sync, Math.floor(player.currentTime)]);
+
     return (
         <>
+            {/* ── Fullscreen Player (mobile only) ── */}
+            {isMobile && isFullscreen && (
+                <div style={{
+                    position: 'fixed', inset: 0, zIndex: 2000,
+                    display: 'flex', flexDirection: 'column',
+                    background: t.cover
+                        ? `linear-gradient(to bottom, rgba(10,13,24,0.55) 0%, rgba(10,13,24,0.85) 40%, rgba(10,13,24,0.98) 100%)`
+                        : '#0d1020',
+                    overflow: 'hidden',
+                }}>
+                    {/* Blurred cover background */}
+                    {t.cover && (
+                        <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${t.cover})`, backgroundSize: 'cover', backgroundPosition: 'center', filter: 'blur(40px) brightness(0.35)', transform: 'scale(1.1)', zIndex: 0 }} />
+                    )}
+
+                    <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', height: '100%', paddingBottom: 'env(safe-area-inset-bottom)' }}>
+                        {/* Header */}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px 8px' }}>
+                            <button onClick={() => setIsFullscreen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.7)', padding: '6px', display: 'flex' }}>
+                                <ChevronDown size={26} />
+                            </button>
+                            <span style={{ fontSize: '12px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)' }}>Now Playing</span>
+                            <div style={{ width: 38 }} />
+                        </div>
+
+                        {/* Cover art */}
+                        <div style={{ display: 'flex', justifyContent: 'center', padding: '16px 32px' }}>
+                            <div style={{ width: '100%', maxWidth: '280px', aspectRatio: '1', borderRadius: '16px', overflow: 'hidden', backgroundColor: '#1a1e2e', boxShadow: '0 24px 60px rgba(0,0,0,0.6)', flexShrink: 0 }}>
+                                {t.cover
+                                    ? <img src={t.cover} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Music2 size={64} color="rgba(255,255,255,0.15)" /></div>
+                                }
+                            </div>
+                        </div>
+
+                        {/* Track info */}
+                        <div style={{ padding: '0 24px 12px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontSize: '20px', fontWeight: 800, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.title}</div>
+                                <div style={{ fontSize: '14px', color: 'rgba(255,255,255,0.55)', marginTop: '3px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.artist}</div>
+                            </div>
+                            <button onClick={toggleFavourite} style={{ background: 'none', border: 'none', cursor: 'pointer', color: isFavourited ? '#EF4444' : 'rgba(255,255,255,0.5)', padding: '6px', flexShrink: 0 }}>
+                                <Heart size={24} fill={isFavourited ? '#EF4444' : 'none'} />
+                            </button>
+                        </div>
+
+                        {/* Seek bar */}
+                        <div style={{ padding: '0 24px 4px' }}>
+                            <input type="range" min="0" max={player.duration || 100} value={player.currentTime} onChange={handleSeek}
+                                style={{ width: '100%', accentColor: colors.primary, cursor: 'pointer', height: '4px' }} />
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px' }}>
+                                <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)' }}>{formatTime(player.currentTime)}</span>
+                                <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)' }}>{formatTime(player.duration)}</span>
+                            </div>
+                        </div>
+
+                        {/* Transport controls */}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 24px 16px' }}>
+                            <button onClick={toggleShuffle} style={{ background: 'none', border: 'none', cursor: 'pointer', color: player.isShuffle ? colors.primary : 'rgba(255,255,255,0.45)', padding: '8px' }}>
+                                <Shuffle size={22} />
+                            </button>
+                            <button onClick={prevTrack} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'white', padding: '8px' }}>
+                                <SkipBack size={28} fill="white" />
+                            </button>
+                            <button onClick={togglePlay} style={{ width: '64px', height: '64px', borderRadius: '50%', backgroundColor: 'white', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 6px 24px rgba(0,0,0,0.4)` }}>
+                                {player.isPlaying ? <Pause size={28} fill="#1a1e2e" color="#1a1e2e" /> : <Play size={28} fill="#1a1e2e" color="#1a1e2e" style={{ marginLeft: '3px' }} />}
+                            </button>
+                            <button onClick={nextTrack} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'white', padding: '8px' }}>
+                                <SkipForward size={28} fill="white" />
+                            </button>
+                            <button onClick={() => { if (player.repeatMode === 'none') setRepeatMode('all'); else if (player.repeatMode === 'all') setRepeatMode('one'); else setRepeatMode('none'); }}
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: player.repeatMode !== 'none' ? colors.primary : 'rgba(255,255,255,0.45)', padding: '8px', position: 'relative' }}>
+                                <Repeat size={22} />
+                                {player.repeatMode === 'one' && <span style={{ position: 'absolute', top: '4px', right: '4px', fontSize: '8px', fontWeight: 800, color: colors.primary }}>1</span>}
+                            </button>
+                        </div>
+
+                        {/* Lyrics / Queue tabs */}
+                        {(lyrics.plain || lyrics.sync || player.queue.length > 0) && (
+                            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, margin: '0 16px', borderRadius: '14px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', overflow: 'hidden' }}>
+                                {/* Tab bar */}
+                                <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.07)', flexShrink: 0 }}>
+                                    {(lyrics.plain || lyrics.sync) && (
+                                        <button onClick={() => setLyricsTab('lyrics')} style={{ flex: 1, padding: '10px', background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: 700, color: lyricsTab === 'lyrics' ? colors.primary : 'rgba(255,255,255,0.4)', borderBottom: `2px solid ${lyricsTab === 'lyrics' ? colors.primary : 'transparent'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                                            <AlignLeft size={13} /> Lyrics
+                                        </button>
+                                    )}
+                                    <button onClick={() => setLyricsTab('queue')} style={{ flex: 1, padding: '10px', background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: 700, color: lyricsTab === 'queue' ? colors.primary : 'rgba(255,255,255,0.4)', borderBottom: `2px solid ${lyricsTab === 'queue' ? colors.primary : 'transparent'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                                        <List size={13} /> Queue
+                                    </button>
+                                </div>
+
+                                {/* Tab content */}
+                                <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px 16px' }}>
+                                    {lyricsTab === 'lyrics' && (
+                                        <>
+                                            {lyrics.sync?.length ? (
+                                                // Time-synced lyrics
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                                    {lyrics.sync.map((cue, i) => {
+                                                        const isActive = i === activeCueIndex;
+                                                        return (
+                                                            <div key={i} ref={isActive ? activeCueRef : undefined}
+                                                                onClick={() => seek(cue.time)}
+                                                                style={{ fontSize: isActive ? '16px' : '14px', fontWeight: isActive ? 700 : 400, color: isActive ? '#fff' : 'rgba(255,255,255,0.35)', lineHeight: 1.5, cursor: 'pointer', transition: 'all 0.3s ease', textAlign: 'center', padding: '2px 0' }}>
+                                                                {cue.text}
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            ) : lyrics.plain ? (
+                                                // Plain text lyrics
+                                                <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.7)', lineHeight: 1.8, whiteSpace: 'pre-wrap', margin: 0, textAlign: 'center' }}>
+                                                    {lyrics.plain}
+                                                </p>
+                                            ) : (
+                                                <div style={{ textAlign: 'center', color: 'rgba(255,255,255,0.25)', fontSize: '13px', paddingTop: '20px' }}>No lyrics available</div>
+                                            )}
+                                        </>
+                                    )}
+                                    {lyricsTab === 'queue' && (
+                                        player.queue.length === 0 ? (
+                                            <div style={{ textAlign: 'center', color: 'rgba(255,255,255,0.25)', fontSize: '13px', paddingTop: '20px' }}>Queue is empty</div>
+                                        ) : player.queue.map((qt: any, idx: number) => {
+                                            const isCurrent = idx === player.currentIndex;
+                                            return (
+                                                <div key={qt.id + idx} onClick={() => jumpToIndex(idx)}
+                                                    style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.05)', cursor: 'pointer' }}>
+                                                    <span style={{ fontSize: '11px', color: isCurrent ? colors.primary : 'rgba(255,255,255,0.3)', width: '18px', textAlign: 'center', flexShrink: 0 }}>{isCurrent ? '▶' : idx + 1}</span>
+                                                    <div style={{ width: '32px', height: '32px', borderRadius: '5px', overflow: 'hidden', backgroundColor: '#0f1320', flexShrink: 0 }}>
+                                                        {(qt.cover || qt.coverUrl) ? <img src={qt.cover || qt.coverUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Music2 size={12} color="rgba(255,255,255,0.2)" /></div>}
+                                                    </div>
+                                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                                        <div style={{ fontSize: '13px', fontWeight: isCurrent ? 700 : 500, color: isCurrent ? '#fff' : 'rgba(255,255,255,0.75)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{qt.title}</div>
+                                                        <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{qt.artist || qt.profile?.displayName || 'Unknown'}</div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                        <div style={{ height: '12px' }} />
+                    </div>
+                </div>
+            )}
+
             {/* ── Queue Panel ── */}
             {showQueue && (
                 <div style={{
@@ -237,7 +417,7 @@ export const GlobalPlayer: React.FC = () => {
                     <>
                         {/* Row 1: Cover + title/artist + fav + queue */}
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 14px 2px' }}>
-                            <div style={{ width: '40px', height: '40px', backgroundColor: '#0f1320', borderRadius: '6px', overflow: 'hidden', flexShrink: 0 }}>
+                            <div onClick={() => setIsFullscreen(true)} style={{ width: '40px', height: '40px', backgroundColor: '#0f1320', borderRadius: '6px', overflow: 'hidden', flexShrink: 0, cursor: 'pointer' }}>
                                 {player.currentTrack.cover ? (
                                     <img src={player.currentTrack.cover} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                 ) : (
@@ -268,6 +448,9 @@ export const GlobalPlayer: React.FC = () => {
                             </button>
                             <button onClick={() => setShowQueue(q => !q)} aria-label="Toggle queue" style={{ background: 'none', border: 'none', cursor: 'pointer', color: showQueue ? colors.primary : '#B9C3CE', padding: '6px', flexShrink: 0 }}>
                                 <List size={18} />
+                            </button>
+                            <button onClick={() => setIsFullscreen(true)} aria-label="Full screen player" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#B9C3CE', padding: '6px', flexShrink: 0 }}>
+                                <Maximize2 size={18} />
                             </button>
                             {/* Mobile speed */}
                             <div ref={speedMenuRef} style={{ position: 'relative', flexShrink: 0 }}>

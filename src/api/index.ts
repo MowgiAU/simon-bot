@@ -8034,6 +8034,17 @@ app.post('/api/musician/tracks', uploadLimiter, requireDesktopAuth, upload.field
 });
 
 // Save track lyrics (plain text + optional time-synced cues)
+app.get('/api/tracks/:id/lyrics', async (req, res) => {
+    try {
+        const track = await db.track.findUnique({
+            where: { id: req.params.id },
+            select: { lyrics: true, lyricsSync: true },
+        });
+        if (!track) return res.status(404).json({ error: 'Not found' });
+        res.json({ lyrics: track.lyrics ?? null, lyricsSync: track.lyricsSync ?? null });
+    } catch { res.status(500).json({ error: 'Failed' }); }
+});
+
 app.put('/api/musician/tracks/:trackId/lyrics', async (req: any, res) => {
     try {
         const userId = req.session?.user?.id;
