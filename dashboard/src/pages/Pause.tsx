@@ -185,7 +185,7 @@ export const PausePage: React.FC = () => {
             <button
                 onClick={save}
                 disabled={saving}
-                style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 22px', borderRadius: borderRadius.md, backgroundColor: saved ? '#10B981' : colors.primary, color: '#fff', border: 'none', cursor: saving ? 'not-allowed' : 'pointer', fontWeight: 700, fontSize: '14px', opacity: saving ? 0.7 : 1, transition: 'background-color 0.2s' }}>
+                style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 22px', borderRadius: borderRadius.md, backgroundColor: saved ? '#F2780A' : colors.primary, color: '#fff', border: 'none', cursor: saving ? 'not-allowed' : 'pointer', fontWeight: 700, fontSize: '14px', opacity: saving ? 0.7 : 1, transition: 'background-color 0.2s' }}>
                 {saved ? <><Check size={16} /> Saved!</> : <><Save size={16} /> {saving ? 'Saving...' : 'Save Changes'}</>}
             </button>
         </div>

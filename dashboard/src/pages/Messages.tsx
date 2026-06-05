@@ -9,7 +9,7 @@ import { MessageCircle, Search, Plus, Users, Lock, ArrowLeft, X } from 'lucide-r
 const C = {
     bg: '#161925', surface: '#1A1E2E', surfaceLight: '#242A3D',
     border: 'rgba(255,255,255,0.08)', borderLight: 'rgba(255,255,255,0.12)',
-    primary: '#3BA886', primaryGlow: 'rgba(59,168,134,0.15)',
+    primary: '#D4700A', primaryGlow: 'rgba(59,168,134,0.15)',
     text: '#F8FAFC', textSec: '#8B95A5', textTer: '#5C6370',
 };
 
@@ -141,7 +141,7 @@ export const MessagesPage: React.FC = () => {
                                 onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.background = C.surface; }}>
                                 <div style={{ position: 'relative', flexShrink: 0 }}>
                                     {conv.isGroup ? (
-                                        <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'linear-gradient(135deg, #3BA886, #60A5FA)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'linear-gradient(135deg, #D4700A, #60A5FA)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                             <Users size={18} color="white" />
                                         </div>
                                     ) : (

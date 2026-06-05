@@ -98,7 +98,7 @@ const EmbedBuilder: React.FC<{ embed: EmbedData; onChange: (e: EmbedData) => voi
                     style={{ width: 36, height: 32, border: 'none', cursor: 'pointer', background: 'none', padding: 0 }} />
                 <input style={{ ...inputBase, width: '110px', marginBottom: 0 }} value={embed.color}
                     onChange={e => upd({ color: e.target.value })} placeholder="#F59E0B" />
-                {['#F59E0B','#10B981','#3B82F6','#EF4444','#8B5CF6','#EC4899','#FFFFFF'].map(c => (
+                {['#F59E0B','#F2780A','#3B82F6','#EF4444','#8B5CF6','#EC4899','#FFFFFF'].map(c => (
                     <button key={c} onClick={() => upd({ color: c })}
                         style={{ width: 20, height: 20, borderRadius: '50%', background: c, flexShrink: 0,
                             border: embed.color === c ? '2px solid #fff' : '2px solid transparent', cursor: 'pointer' }} />
@@ -311,8 +311,8 @@ export const ServerBoostPage: React.FC = () => {
 
             {msg && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: borderRadius.sm, marginBottom: '16px',
-                    backgroundColor: msg.type === 'success' ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)',
-                    border: `1px solid ${msg.type === 'success' ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)'}`,
+                    backgroundColor: msg.type === 'success' ? 'rgba(242, 120, 10,0.1)' : 'rgba(239,68,68,0.1)',
+                    border: `1px solid ${msg.type === 'success' ? 'rgba(242, 120, 10,0.3)' : 'rgba(239,68,68,0.3)'}`,
                     color: msg.type === 'success' ? colors.primary : '#ef4444', fontSize: '13px', fontWeight: 600 }}>
                     <AlertCircle size={14} /> {msg.text}
                 </div>

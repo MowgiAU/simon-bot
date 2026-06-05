@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
 import { colors, spacing, borderRadius } from '../theme/theme';
@@ -303,8 +303,8 @@ export const ArtistDiscoveryPage: React.FC = () => {
                         const battleDesc = featured?.featuredBattleDescription;
                         const bgImg = battle?.bannerUrl || battle?.cardImageUrl;
                         const votingOver = battle && (battle.status === 'completed' || (battle.votingEnd && new Date(battle.votingEnd) < new Date()));
-                        const statusColor = votingOver ? '#FFD700' : battle?.status === 'voting' ? '#FBBF24' : battle?.status === 'active' ? '#34D399' : '#60A5FA';
-                        const statusBg = votingOver ? 'rgba(255,215,0,0.18)' : battle?.status === 'voting' ? 'rgba(251,191,36,0.22)' : battle?.status === 'active' ? 'rgba(52,211,153,0.22)' : 'rgba(96,165,250,0.22)';
+                        const statusColor = votingOver ? '#FFD700' : battle?.status === 'voting' ? '#FBBF24' : battle?.status === 'active' ? '#F5A04A' : '#60A5FA';
+                        const statusBg = votingOver ? 'rgba(255,215,0,0.18)' : battle?.status === 'voting' ? 'rgba(251,191,36,0.22)' : battle?.status === 'active' ? 'rgba(245, 160, 74,0.22)' : 'rgba(96,165,250,0.22)';
                         const statusLabel = votingOver ? 'ENDED' : battle?.status === 'voting' ? 'VOTING' : battle?.status === 'active' ? 'LIVE' : 'UPCOMING';
                         return (
                     <div style={{ ...panel, height: isMobile ? 'auto' : (votingOver ? 'auto' : '400px'), minHeight: isMobile ? '300px' : '400px', overflow: 'hidden', gridColumn: isMobile ? undefined : 'span 3', padding: 0, position: 'relative' }}>
@@ -361,7 +361,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                             </span>
                                         )}
                                         {battle.status === 'active' && battle.submissionEnd && (
-                                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: '#34D399' }}>
+                                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: '#F5A04A' }}>
                                                 <Timer size={12} />Submissions close {new Date(battle.submissionEnd).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                                             </span>
                                         )}
@@ -653,7 +653,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                         <Swords size={10} color="#EC4899" />
                                         <span style={{ fontSize: '9px', fontWeight: 800, color: '#EC4899', letterSpacing: '0.13em', textTransform: 'uppercase' as const }}>1v1 Arena</span>
                                     </div>
-                                    <span style={{ fontSize: '8px', fontWeight: 800, padding: '2px 5px', borderRadius: '4px', background: 'rgba(52,211,153,0.18)', color: '#34D399', letterSpacing: '0.1em', border: '1px solid rgba(52,211,153,0.3)' }}>NEW</span>
+                                    <span style={{ fontSize: '8px', fontWeight: 800, padding: '2px 5px', borderRadius: '4px', background: 'rgba(245, 160, 74,0.18)', color: '#F5A04A', letterSpacing: '0.1em', border: '1px solid rgba(245, 160, 74,0.3)' }}>NEW</span>
                                 </div>
                                 <div style={{ fontWeight: 900, fontSize: '24px', color: '#fff', lineHeight: 1.05, letterSpacing: '-0.03em' }}>
                                     Producer<br/>vs Producer
@@ -692,7 +692,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                 video:   { icon: <MonitorPlay size={12} />, label: 'Featured Video',   accentColor: colors.primary },
                                 news:    { icon: <Newspaper size={12} />,   label: 'Featured News',    accentColor: '#A78BFA' },
                                 guide:   { icon: <BookOpen size={12} />,    label: 'Featured Guide',   accentColor: '#FBBF24' },
-                                article: { icon: <FileText size={12} />,    label: 'Featured Article', accentColor: '#34D399' },
+                                article: { icon: <FileText size={12} />,    label: 'Featured Article', accentColor: '#F5A04A' },
                             };
                             const tc = typeConfig[contentType] ?? typeConfig.video;
                             const thumbnail = contentType === 'video'
@@ -763,7 +763,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
                             } else if (!hasProfile) {
                                 actionConfig = { label: 'Artist Profile', sublabel: 'Showcase your music', icon: <UserPlus size={18} />, link: '/profile/setup', bgGradient: 'linear-gradient(135deg, #451a03 0%, #1e1b4b 100%)', accentColor: '#FBBF24', buttonText: 'Start Setup' };
                             } else {
-                                actionConfig = { label: 'Share Your Music', sublabel: 'Get discovered', icon: <Upload size={18} />, link: '/my-tracks', bgGradient: 'linear-gradient(135deg, #14532d 0%, #0f172a 100%)', accentColor: '#34D399', buttonText: 'Upload Track' };
+                                actionConfig = { label: 'Share Your Music', sublabel: 'Get discovered', icon: <Upload size={18} />, link: '/my-tracks', bgGradient: 'linear-gradient(135deg, #14532d 0%, #0f172a 100%)', accentColor: '#F5A04A', buttonText: 'Upload Track' };
                             }
                             return (
                                 <div style={{

@@ -73,7 +73,7 @@ export const OAuthDevicePage: React.FC = () => {
         {/* Logo */}
         <div style={{
           width: 56, height: 56, borderRadius: borderRadius.lg,
-          background: 'rgba(16,185,129,0.1)',
+          background: 'rgba(242, 120, 10,0.1)',
           display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
           marginBottom: spacing.lg,
           fontSize: 22, fontWeight: 700, color: colors.primary,

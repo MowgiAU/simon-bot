@@ -196,7 +196,7 @@ const WelcomeScreen: React.FC<{ login: () => void }> = ({ login }) => {
     alignItems: "center", 
     height: "100vh", 
     background: colors.background,
-    backgroundImage: "radial-gradient(circle at 50% 40%, rgba(16, 185, 129, 0.06) 0%, transparent 50%)" 
+    backgroundImage: "radial-gradient(circle at 50% 40%, rgba(242, 120, 10, 0.06) 0%, transparent 50%)" 
   }}>
     <div style={{ 
       background: "rgba(255, 255, 255, 0.03)",
@@ -212,13 +212,13 @@ const WelcomeScreen: React.FC<{ login: () => void }> = ({ login }) => {
       <div style={{ 
         width: "88px", 
         height: "88px", 
-        background: "rgba(16, 185, 129, 0.08)", 
+        background: "rgba(242, 120, 10, 0.08)", 
         borderRadius: "20px", 
         display: "flex", 
         alignItems: "center", 
         justifyContent: "center", 
         margin: "0 auto 28px",
-        border: "1px solid rgba(16, 185, 129, 0.15)"
+        border: "1px solid rgba(242, 120, 10, 0.15)"
       }}>
         <img src={logoUrl} alt="Fuji Studio Logo" style={{ width: "56px", height: "56px", filter: "brightness(0) invert(1)" }} />
       </div>
@@ -246,7 +246,7 @@ const WelcomeScreen: React.FC<{ login: () => void }> = ({ login }) => {
       <button 
         onClick={() => navigate('/login')} 
         style={{ 
-          background: "linear-gradient(135deg, #10B981, #059669)", 
+          background: "linear-gradient(135deg, #F2780A, #C96208)", 
           color: "white", 
           border: "none", 
           padding: "14px 28px", 
@@ -260,16 +260,16 @@ const WelcomeScreen: React.FC<{ login: () => void }> = ({ login }) => {
           gap: "10px",
           width: "100%",
           transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
-          boxShadow: "0 0 20px rgba(16, 185, 129, 0.2)",
+          boxShadow: "0 0 20px rgba(242, 120, 10, 0.2)",
           marginBottom: "12px",
         }}
         onMouseOver={(e: React.MouseEvent<HTMLButtonElement>) => {
           e.currentTarget.style.transform = "translateY(-1px)";
-          e.currentTarget.style.boxShadow = "0 0 30px rgba(16, 185, 129, 0.3)";
+          e.currentTarget.style.boxShadow = "0 0 30px rgba(242, 120, 10, 0.3)";
         }}
         onMouseOut={(e: React.MouseEvent<HTMLButtonElement>) => {
           e.currentTarget.style.transform = "translateY(0)";
-          e.currentTarget.style.boxShadow = "0 0 20px rgba(16, 185, 129, 0.2)";
+          e.currentTarget.style.boxShadow = "0 0 20px rgba(242, 120, 10, 0.2)";
         }}
       >
         Sign In / Create Account
@@ -697,7 +697,7 @@ const AdminDashboard: React.FC = () => {
                     width: "30px", 
                     height: "30px", 
                     borderRadius: "8px", 
-                    background: "rgba(16, 185, 129, 0.08)",
+                    background: "rgba(242, 120, 10, 0.08)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",

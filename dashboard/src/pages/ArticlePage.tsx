@@ -32,7 +32,7 @@ const CATEGORY_CONFIG: Record<string, { icon: React.ReactNode; label: string; co
     news: { icon: <Newspaper size={14} />, label: 'News', color: '#A78BFA' },
     guide: { icon: <BookOpen size={14} />, label: 'Guide', color: '#FBBF24' },
     announcement: { icon: <Megaphone size={14} />, label: 'Announcement', color: '#F472B6' },
-    tutorial: { icon: <GraduationCap size={14} />, label: 'Tutorial', color: '#34D399' },
+    tutorial: { icon: <GraduationCap size={14} />, label: 'Tutorial', color: '#F5A04A' },
 };
 
 export const ArticlePage: React.FC = () => {
@@ -265,7 +265,7 @@ export const ArticlePage: React.FC = () => {
                     .article-content blockquote {
                         border-left: 3px solid ${colors.primary};
                         margin: 20px 0; padding: 16px 24px;
-                        background: rgba(16,185,129,0.06); border-radius: 0 10px 10px 0;
+                        background: rgba(242, 120, 10,0.06); border-radius: 0 10px 10px 0;
                         color: ${colors.textSecondary}; font-style: italic;
                     }
                     .article-content pre {

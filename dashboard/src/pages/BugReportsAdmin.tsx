@@ -23,7 +23,7 @@ interface BugReport {
 const STATUS: Record<string, { label: string; color: string; bg: string; icon: React.ReactNode }> = {
     open:          { label: 'Open',          color: '#f59e0b', bg: 'rgba(245,158,11,0.1)',  icon: <Clock size={13} /> },
     investigating: { label: 'Investigating', color: '#3b82f6', bg: 'rgba(59,130,246,0.1)',  icon: <Eye size={13} /> },
-    resolved:      { label: 'Resolved',      color: '#10b981', bg: 'rgba(16,185,129,0.1)', icon: <CheckCircle size={13} /> },
+    resolved:      { label: 'Resolved',      color: '#F2780A', bg: 'rgba(242, 120, 10,0.1)', icon: <CheckCircle size={13} /> },
     closed:        { label: 'Closed',        color: '#6b7280', bg: 'rgba(107,114,128,0.1)', icon: <XCircle size={13} /> },
 };
 
@@ -195,7 +195,7 @@ export const BugReportsAdmin: React.FC = () => {
                                             <Eye size={12} style={{ verticalAlign: -2, marginRight: 4 }} />Investigating
                                         </button>
                                     )}
-                                    <button onClick={() => updateStatus(selected.id, 'resolved')} disabled={saving} style={{ padding: '7px 14px', borderRadius: borderRadius.sm, border: '1px solid rgba(16,185,129,0.4)', background: 'rgba(16,185,129,0.1)', color: '#10b981', cursor: 'pointer', fontWeight: 600, fontSize: 12, opacity: saving ? 0.5 : 1 }}>
+                                    <button onClick={() => updateStatus(selected.id, 'resolved')} disabled={saving} style={{ padding: '7px 14px', borderRadius: borderRadius.sm, border: '1px solid rgba(242, 120, 10,0.4)', background: 'rgba(242, 120, 10,0.1)', color: '#F2780A', cursor: 'pointer', fontWeight: 600, fontSize: 12, opacity: saving ? 0.5 : 1 }}>
                                         <CheckCircle size={12} style={{ verticalAlign: -2, marginRight: 4 }} />Resolve
                                     </button>
                                     <button onClick={() => updateStatus(selected.id, 'closed')} disabled={saving} style={{ padding: '7px 14px', borderRadius: borderRadius.sm, border: '1px solid rgba(107,114,128,0.4)', background: 'rgba(107,114,128,0.1)', color: '#6b7280', cursor: 'pointer', fontWeight: 600, fontSize: 12, opacity: saving ? 0.5 : 1 }}>
@@ -205,7 +205,7 @@ export const BugReportsAdmin: React.FC = () => {
                             </div>
                         )}
                         {selected.resolvedAt && (
-                            <div style={{ marginTop: 12, padding: '8px 12px', background: 'rgba(16,185,129,0.05)', border: '1px solid rgba(16,185,129,0.15)', borderRadius: borderRadius.sm, fontSize: 12, color: colors.textSecondary }}>
+                            <div style={{ marginTop: 12, padding: '8px 12px', background: 'rgba(242, 120, 10,0.05)', border: '1px solid rgba(242, 120, 10,0.15)', borderRadius: borderRadius.sm, fontSize: 12, color: colors.textSecondary }}>
                                 {selected.status === 'resolved' ? 'Resolved' : 'Closed'} by <strong>{selected.resolvedByName}</strong> on {fmt(selected.resolvedAt)}
                                 {selected.resolutionNote && <><br />{selected.resolutionNote}</>}
                             </div>

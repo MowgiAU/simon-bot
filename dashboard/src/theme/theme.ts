@@ -1,13 +1,13 @@
 /**
  * Theme configuration for Fuji Studio Dashboard
- * Design system: "Glass Midnight" — ultra-dark glassmorphism with vibrant teal accents
+ * Design system: "Glass Midnight" — ultra-dark glassmorphism with vibrant orange accents
  */
 
 export const colors = {
-  // Primary — Vibrant Teal
-  primary: '#10B981',
-  primaryLight: '#34D399',
-  primaryDark: '#059669',
+  // Primary — Vibrant Orange
+  primary: '#F2780A',
+  primaryLight: '#F5A04A',
+  primaryDark: '#C96208',
   
   // Secondary — Cool Slate
   secondary: '#475569',
@@ -48,7 +48,7 @@ export const colors = {
   textTertiary: '#64748B',
   
   // Status
-  success: '#10B981',
+  success: '#F2780A',
   warning: '#F59E0B',
   error: '#EF4444',
   info: '#3B82F6',
@@ -104,8 +104,8 @@ export const shadows = {
   sm: '0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2)',
   md: '0 4px 16px rgba(0, 0, 0, 0.4)',
   lg: '0 12px 40px rgba(0, 0, 0, 0.5)',
-  glow: '0 0 20px rgba(16, 185, 129, 0.15)',
-  glowStrong: '0 0 40px rgba(16, 185, 129, 0.25)',
+  glow: '0 0 20px rgba(242, 120, 10, 0.15)',
+  glowStrong: '0 0 40px rgba(242, 120, 10, 0.25)',
 };
 
 export const borderRadius = {

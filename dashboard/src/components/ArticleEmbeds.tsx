@@ -135,11 +135,11 @@ export const TrackEmbed: React.FC<{ trackPath: string }> = ({ trackPath }) => {
             onMouseEnter={() => setHover(true)}
             onMouseLeave={() => setHover(false)}
             style={{
-                background: `linear-gradient(135deg, ${colors.surface} 0%, rgba(16,185,129,0.04) 100%)`,
+                background: `linear-gradient(135deg, ${colors.surface} 0%, rgba(242, 120, 10,0.04) 100%)`,
                 border: `1px solid ${hover ? colors.primary + '40' : 'rgba(255,255,255,0.08)'}`,
                 borderRadius: '14px', padding: '16px', margin: '20px 0',
                 transition: 'border-color 0.2s, box-shadow 0.2s',
-                boxShadow: hover ? `0 4px 20px rgba(16,185,129,0.08)` : 'none',
+                boxShadow: hover ? `0 4px 20px rgba(242, 120, 10,0.08)` : 'none',
             }}
         >
             <div style={{ display: 'flex', gap: '14px', alignItems: 'center' }}>
@@ -327,7 +327,7 @@ export const ProfileEmbed: React.FC<{ profilePath: string }> = ({ profilePath })
                     borderRadius: '14px', margin: '20px 0',
                     border: `1px solid ${hover ? colors.primary + '40' : 'rgba(255,255,255,0.08)'}`,
                     transition: 'border-color 0.2s, box-shadow 0.2s',
-                    boxShadow: hover ? `0 6px 24px rgba(16,185,129,0.1)` : 'none',
+                    boxShadow: hover ? `0 6px 24px rgba(242, 120, 10,0.1)` : 'none',
                     background: 'linear-gradient(135deg, #1A1E2E 0%, #242C3D 100%)',
                 }}
             >

@@ -24,7 +24,7 @@ interface Section {
 }
 
 const TAG_COLORS: Record<string, { bg: string; color: string }> = {
-    'Website': { bg: 'rgba(16,185,129,0.15)', color: '#34D399' },
+    'Website': { bg: 'rgba(242, 120, 10,0.15)', color: '#F5A04A' },
     'Discord': { bg: 'rgba(88,101,242,0.18)', color: '#818CF8' },
     'Free': { bg: 'rgba(245,158,11,0.15)', color: '#FCD34D' },
 };
@@ -61,7 +61,7 @@ const FeatureCard: React.FC<{ feature: Feature }> = ({ feature }) => (
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px' }}>
             <div style={{
                 width: 40, height: 40, borderRadius: borderRadius.md, flexShrink: 0,
-                background: `rgba(16,185,129,0.12)`,
+                background: `rgba(242, 120, 10,0.12)`,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 color: colors.primary,
             }}>
@@ -338,8 +338,8 @@ export const FeaturesPage: React.FC = () => (
             <div style={{
                 marginTop: 16,
                 padding: '32px 24px',
-                background: `linear-gradient(135deg, rgba(16,185,129,0.12) 0%, rgba(16,185,129,0.04) 100%)`,
-                border: `1px solid rgba(16,185,129,0.2)`,
+                background: `linear-gradient(135deg, rgba(242, 120, 10,0.12) 0%, rgba(242, 120, 10,0.04) 100%)`,
+                border: `1px solid rgba(242, 120, 10,0.2)`,
                 borderRadius: borderRadius.xl,
                 textAlign: 'center',
             }}>

@@ -257,7 +257,7 @@ export const TicketSystemPage: React.FC<Props> = ({ guildId, searchParam }) => {
         switch(p) {
             case 'high': return colors.error;
             case 'medium': return '#f59e0b';
-            case 'low': return '#10b981';
+            case 'low': return '#F2780A';
             default: return '#6b7280';
         }
     };

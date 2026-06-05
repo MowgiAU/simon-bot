@@ -41,7 +41,7 @@ const CATEGORIES = [
     { value: 'news', label: 'News', color: '#A78BFA' },
     { value: 'guide', label: 'Guide', color: '#FBBF24' },
     { value: 'announcement', label: 'Announcement', color: '#F472B6' },
-    { value: 'tutorial', label: 'Tutorial', color: '#34D399' },
+    { value: 'tutorial', label: 'Tutorial', color: '#F5A04A' },
 ];
 
 const STATUSES = [

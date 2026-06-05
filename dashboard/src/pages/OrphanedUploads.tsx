@@ -87,8 +87,8 @@ export const OrphanedUploads: React.FC = () => {
             {message && (
                 <div style={{
                     padding: '10px 14px', borderRadius: borderRadius.md, marginBottom: '16px',
-                    backgroundColor: message.type === 'success' ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)',
-                    border: `1px solid ${message.type === 'success' ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)'}`,
+                    backgroundColor: message.type === 'success' ? 'rgba(242, 120, 10,0.1)' : 'rgba(239,68,68,0.1)',
+                    border: `1px solid ${message.type === 'success' ? 'rgba(242, 120, 10,0.3)' : 'rgba(239,68,68,0.3)'}`,
                     color: message.type === 'success' ? colors.success : colors.error,
                     display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px',
                 }}>

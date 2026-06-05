@@ -165,7 +165,7 @@ export const AdminTicketsPage: React.FC = () => {
                 onClick={() => setSelected(t)}
                 style={{
                   width: '100%', textAlign: 'left',
-                  background: selected?.id === t.id ? 'rgba(16,185,129,0.08)' : 'transparent',
+                  background: selected?.id === t.id ? 'rgba(242, 120, 10,0.08)' : 'transparent',
                   border: 'none', borderBottom: `1px solid rgba(255,255,255,0.04)`,
                   padding: `${spacing.md} ${spacing.lg}`, cursor: 'pointer', color: colors.textPrimary,
                 }}
@@ -208,7 +208,7 @@ export const AdminTicketsPage: React.FC = () => {
                   </button>
                   <button
                     onClick={() => handleStatusToggle(selected)}
-                    style={{ padding: `${spacing.sm} ${spacing.md}`, borderRadius: borderRadius.md, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.8rem', fontWeight: 600, background: selected.status === 'open' ? 'rgba(239,68,68,0.15)' : 'rgba(16,185,129,0.15)', color: selected.status === 'open' ? colors.error : colors.success }}
+                    style={{ padding: `${spacing.sm} ${spacing.md}`, borderRadius: borderRadius.md, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.8rem', fontWeight: 600, background: selected.status === 'open' ? 'rgba(239,68,68,0.15)' : 'rgba(242, 120, 10,0.15)', color: selected.status === 'open' ? colors.error : colors.success }}
                   >
                     {selected.status === 'open' ? <CheckCircle size={14} /> : <Circle size={14} />}
                     {selected.status === 'open' ? 'Close' : 'Reopen'}
@@ -234,7 +234,7 @@ export const AdminTicketsPage: React.FC = () => {
                           {new Date(msg.timestamp).toLocaleString()}
                         </div>
                         <div style={{
-                          background: isFromAdmin ? 'rgba(16,185,129,0.12)' : 'rgba(255,255,255,0.06)',
+                          background: isFromAdmin ? 'rgba(242, 120, 10,0.12)' : 'rgba(255,255,255,0.06)',
                           padding: `${spacing.sm} ${spacing.md}`,
                           borderRadius: borderRadius.lg,
                           color: colors.textPrimary,

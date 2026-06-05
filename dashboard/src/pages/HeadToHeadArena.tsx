@@ -100,7 +100,7 @@ const NEON = {
     cyan: '#00E5FF',
     purple: '#A855F7',
     yellow: '#FFD700',
-    green: '#34D399',
+    green: '#F5A04A',
     red: '#F87171',
     bgDeep: '#0A0E1A',
     bgPanel: 'rgba(15,20,35,0.85)',
@@ -111,7 +111,7 @@ const CATEGORY_COLORS: Record<string, string> = {
     kick:       '#FF3D7F', // pink - punchy
     snare:      '#FFD700', // yellow - sharp
     hat:        '#00E5FF', // cyan - crisp
-    percussion: '#34D399', // green - organic
+    percussion: '#F5A04A', // green - organic
     fx:         '#A855F7', // purple - atmospheric
     bass:       '#5DD4FF', // diamond blue - low end
     melody:     '#FF8A4C', // orange - lead

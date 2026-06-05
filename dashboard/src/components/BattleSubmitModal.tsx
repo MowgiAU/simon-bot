@@ -192,10 +192,10 @@ export const BattleSubmitModal: React.FC<BattleSubmitModalProps> = ({ battleId, 
                                         const sel = tracks.find(t => t.id === selectedTrackId);
                                         if (sel?.projectFileUrl) {
                                             return (
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', backgroundColor: 'rgba(52,211,153,0.08)', border: '1px solid rgba(52,211,153,0.25)', borderRadius: borderRadius.md }}>
-                                                    <Check size={15} color="#34D399" style={{ flexShrink: 0 }} />
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', backgroundColor: 'rgba(245, 160, 74,0.08)', border: '1px solid rgba(245, 160, 74,0.25)', borderRadius: borderRadius.md }}>
+                                                    <Check size={15} color="#F5A04A" style={{ flexShrink: 0 }} />
                                                     <div>
-                                                        <p style={{ margin: 0, fontSize: '12px', fontWeight: 600, color: '#34D399' }}>Project file included</p>
+                                                        <p style={{ margin: 0, fontSize: '12px', fontWeight: 600, color: '#F5A04A' }}>Project file included</p>
                                                         <p style={{ margin: '2px 0 0', fontSize: '11px', color: colors.textSecondary }}>This track already has a project file — no upload needed.</p>
                                                     </div>
                                                 </div>

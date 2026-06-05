@@ -345,7 +345,7 @@ export const ProjectDetailPage: React.FC<Props> = ({ projectId }) => {
               </div>
             ) : (
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{ width: 44, height: 44, borderRadius: borderRadius.md, background: 'rgba(16,185,129,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <div style={{ width: 44, height: 44, borderRadius: borderRadius.md, background: 'rgba(242, 120, 10,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                   <FolderOpen size={22} color={colors.primary} />
                 </div>
                 <div>
@@ -390,14 +390,14 @@ export const ProjectDetailPage: React.FC<Props> = ({ projectId }) => {
                         padding: '10px',
                         borderRadius: borderRadius.md,
                         cursor: 'pointer',
-                        background: isSelected ? 'rgba(16,185,129,0.08)' : 'transparent',
-                        border: `1px solid ${isSelected ? 'rgba(16,185,129,0.25)' : 'transparent'}`,
+                        background: isSelected ? 'rgba(242, 120, 10,0.08)' : 'transparent',
+                        border: `1px solid ${isSelected ? 'rgba(242, 120, 10,0.25)' : 'transparent'}`,
                         marginBottom: 4,
                         transition: 'background 0.12s',
                       }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
-                        <span style={{ fontSize: 10, fontWeight: 700, color: isSelected ? colors.primary : colors.textTertiary, background: isSelected ? 'rgba(16,185,129,0.12)' : 'rgba(255,255,255,0.05)', padding: '1px 6px', borderRadius: borderRadius.sm }}>
+                        <span style={{ fontSize: 10, fontWeight: 700, color: isSelected ? colors.primary : colors.textTertiary, background: isSelected ? 'rgba(242, 120, 10,0.12)' : 'rgba(255,255,255,0.05)', padding: '1px 6px', borderRadius: borderRadius.sm }}>
                           v{v.versionNumber}
                         </span>
                         {v.audioUrl && <Music size={10} color={colors.primary} />}
@@ -497,7 +497,7 @@ export const ProjectDetailPage: React.FC<Props> = ({ projectId }) => {
 
                   {/* Published badge */}
                   {selectedVersion.trackLinks?.[0] && (
-                    <div style={{ marginBottom: 12, display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(16,185,129,0.08)', border: `1px solid rgba(16,185,129,0.2)`, borderRadius: borderRadius.sm, padding: '4px 10px', fontSize: 11, color: colors.primary }}>
+                    <div style={{ marginBottom: 12, display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(242, 120, 10,0.08)', border: `1px solid rgba(242, 120, 10,0.2)`, borderRadius: borderRadius.sm, padding: '4px 10px', fontSize: 11, color: colors.primary }}>
                       <Check size={11} /> Published to: <strong>{selectedVersion.trackLinks[0].track.title}</strong>
                     </div>
                   )}
@@ -507,7 +507,7 @@ export const ProjectDetailPage: React.FC<Props> = ({ projectId }) => {
                       <Download size={13} /> Download ZIP
                     </button>
                     {!selectedVersion.trackLinks?.[0] ? (
-                      <button onClick={() => openPublish(selectedVersion.id)} style={{ ...btn, background: 'rgba(16,185,129,0.08)', color: colors.primary, border: `1px solid rgba(16,185,129,0.2)`, fontSize: '12px' }}>
+                      <button onClick={() => openPublish(selectedVersion.id)} style={{ ...btn, background: 'rgba(242, 120, 10,0.08)', color: colors.primary, border: `1px solid rgba(242, 120, 10,0.2)`, fontSize: '12px' }}>
                         <Link size={13} /> Publish to track
                       </button>
                     ) : (

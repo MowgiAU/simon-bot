@@ -29,7 +29,7 @@ const ED = {
     pink:     '#EC4899',
     text:     '#E2E8F0',
     muted:    '#94A3B8',
-    green:    '#10B981',
+    green:    '#F2780A',
 };
 
 const numberGlowColors = [ED.cyan, ED.purple, ED.green, '#3B82F6', '#F59E0B'];

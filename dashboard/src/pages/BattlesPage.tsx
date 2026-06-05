@@ -37,7 +37,7 @@ const lsGetVote = (entryId: string): number | null => {
 
 const statusConfig: Record<string, { label: string; color: string }> = {
     upcoming:     { label: 'UPCOMING',         color: '#60A5FA' },
-    active:       { label: 'SUBMISSIONS OPEN', color: '#34D399' },
+    active:       { label: 'SUBMISSIONS OPEN', color: '#F5A04A' },
     voting:       { label: 'VOTING LIVE',      color: ACCENT },
     sudden_death: { label: 'SUDDEN DEATH',     color: '#F43F5E' },
     completed:    { label: 'ENDED',            color: '#6B7280' },
@@ -409,7 +409,7 @@ export const BattlesPage: React.FC = () => {
                                 {/* Status badge */}
                                 {(() => {
                                     const votingOver = currentBattle.status === 'completed' || (currentBattle.votingEnd && new Date(currentBattle.votingEnd) < new Date());
-                                    const color = votingOver ? GOLD : currentBattle.status === 'voting' ? ACCENT : '#34D399';
+                                    const color = votingOver ? GOLD : currentBattle.status === 'voting' ? ACCENT : '#F5A04A';
                                     const label = votingOver ? 'Battle Ended' : currentBattle.status === 'voting' ? 'Voting Live' : currentBattle.status === 'active' ? 'Submissions Open' : 'Coming Soon';
                                     return (
                                         <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color, fontWeight: 700, fontSize: '11px', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '10px' }}>
@@ -550,12 +550,12 @@ export const BattlesPage: React.FC = () => {
                 {/* ── SPONSOR STRIP ── */}
                 {globalSponsors.length > 0 && (
                     <div style={{ position: 'relative', overflow: 'hidden', marginTop: '20px' }}>
-                        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg, rgba(16,185,129,0.05) 0%, rgba(16,185,129,0.1) 50%, rgba(16,185,129,0.05) 100%)', pointerEvents: 'none' }} />
-                        <div style={{ borderTop: '1px solid rgba(16,185,129,0.2)', borderBottom: '1px solid rgba(16,185,129,0.2)', padding: '18px 24px', position: 'relative' }}>
+                        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg, rgba(242, 120, 10,0.05) 0%, rgba(242, 120, 10,0.1) 50%, rgba(242, 120, 10,0.05) 100%)', pointerEvents: 'none' }} />
+                        <div style={{ borderTop: '1px solid rgba(242, 120, 10,0.2)', borderBottom: '1px solid rgba(242, 120, 10,0.2)', padding: '18px 24px', position: 'relative' }}>
                             <div style={{ maxWidth: '1300px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '20px', flexWrap: 'wrap' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <div style={{ width: '2px', height: '20px', backgroundColor: '#10B981', borderRadius: '1px' }} />
-                                    <span style={{ fontSize: '9px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.2em', color: '#10B981' }}>{sponsorSectionTitle}</span>
+                                    <div style={{ width: '2px', height: '20px', backgroundColor: '#F2780A', borderRadius: '1px' }} />
+                                    <span style={{ fontSize: '9px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.2em', color: '#F2780A' }}>{sponsorSectionTitle}</span>
                                 </div>
                                 {globalSponsors.map(s => {
                                     const href = appendSponsorRef(s.websiteUrl, '/battles');

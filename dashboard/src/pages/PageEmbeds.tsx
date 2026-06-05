@@ -155,7 +155,7 @@ export const PageEmbedsPage: React.FC = () => {
               {!isEditing && (
                 <div style={rowStyle}>
                   <div style={{ flex: '0 0 140px' }}>
-                    <code style={{ fontSize: '0.8rem', color: colors.primary, background: 'rgba(16,185,129,0.1)', padding: '2px 6px', borderRadius: 4 }}>{path}</code>
+                    <code style={{ fontSize: '0.8rem', color: colors.primary, background: 'rgba(242, 120, 10,0.1)', padding: '2px 6px', borderRadius: 4 }}>{path}</code>
                     {custom && <div style={{ fontSize: '0.7rem', color: colors.textTertiary, marginTop: 2 }}>Custom</div>}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
@@ -188,9 +188,9 @@ export const PageEmbedsPage: React.FC = () => {
 
               {/* Inline edit form */}
               {isEditing && editing && (
-                <div style={{ padding: spacing.lg, background: 'rgba(16,185,129,0.04)', borderTop: `1px solid rgba(16,185,129,0.15)`, borderBottom: `1px solid rgba(16,185,129,0.15)` }}>
+                <div style={{ padding: spacing.lg, background: 'rgba(242, 120, 10,0.04)', borderTop: `1px solid rgba(242, 120, 10,0.15)`, borderBottom: `1px solid rgba(242, 120, 10,0.15)` }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md }}>
-                    <code style={{ fontSize: '0.8rem', color: colors.primary, background: 'rgba(16,185,129,0.1)', padding: '2px 6px', borderRadius: 4 }}>{editing.path}</code>
+                    <code style={{ fontSize: '0.8rem', color: colors.primary, background: 'rgba(242, 120, 10,0.1)', padding: '2px 6px', borderRadius: 4 }}>{editing.path}</code>
                     <span style={{ fontSize: '0.8rem', color: colors.textSecondary }}>— editing embed</span>
                   </div>
 

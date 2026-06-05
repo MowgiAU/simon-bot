@@ -318,7 +318,7 @@ export const SlotMachineSettings: React.FC = () => {
             padding: '8px 20px',
             borderRadius: borderRadius.md,
             border: `1px solid ${tab === t ? colors.primary : colors.border}`,
-            background: tab === t ? `rgba(16,185,129,0.12)` : colors.surface,
+            background: tab === t ? `rgba(242, 120, 10,0.12)` : colors.surface,
             color: tab === t ? colors.primary : colors.textSecondary,
             fontWeight: 600,
             fontSize: '14px',
@@ -336,7 +336,7 @@ export const SlotMachineSettings: React.FC = () => {
           padding: '10px 14px',
           marginBottom: 16,
           borderRadius: borderRadius.md,
-          background: message.ok ? `rgba(16,185,129,0.12)` : `rgba(239,68,68,0.12)`,
+          background: message.ok ? `rgba(242, 120, 10,0.12)` : `rgba(239,68,68,0.12)`,
           border: `1px solid ${message.ok ? colors.primary : colors.error}`,
           color: message.ok ? colors.primary : colors.error,
           fontSize: '14px',
@@ -596,7 +596,7 @@ export const SlotMachineSettings: React.FC = () => {
                   disabled={uploading === key}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px',
-                    background: sounds[key] ? colors.surface : `rgba(16,185,129,0.1)`,
+                    background: sounds[key] ? colors.surface : `rgba(242, 120, 10,0.1)`,
                     border: `1px solid ${sounds[key] ? colors.border : colors.primary}`,
                     borderRadius: borderRadius.md,
                     color: sounds[key] ? colors.textSecondary : colors.primary,
@@ -723,7 +723,7 @@ export const SlotMachineSettings: React.FC = () => {
               {losses.length > 0 && (
                 <button
                   onClick={markAllReturned}
-                  style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', background: 'rgba(16,185,129,0.08)', border: `1px solid rgba(16,185,129,0.3)`, borderRadius: borderRadius.md, color: colors.primary, fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', background: 'rgba(242, 120, 10,0.08)', border: `1px solid rgba(242, 120, 10,0.3)`, borderRadius: borderRadius.md, color: colors.primary, fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}
                 >
                   <Gift size={13} /> Mark all settled
                 </button>
@@ -785,7 +785,7 @@ export const SlotMachineSettings: React.FC = () => {
                     onClick={() => { setReturnTarget(entry); setReturnAmount(String(entry.netLoss)); }}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 5, padding: '6px 10px',
-                      background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.25)',
+                      background: 'rgba(242, 120, 10,0.08)', border: '1px solid rgba(242, 120, 10,0.25)',
                       borderRadius: borderRadius.md, color: colors.primary, fontSize: '12px',
                       fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap',
                     }}
@@ -841,7 +841,7 @@ export const SlotMachineSettings: React.FC = () => {
                 </div>
 
                 {returnMsg && (
-                  <div style={{ marginBottom: 14, padding: '8px 12px', borderRadius: borderRadius.md, background: returnMsg.ok ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)', border: `1px solid ${returnMsg.ok ? colors.primary : colors.error}`, color: returnMsg.ok ? colors.primary : colors.error, fontSize: 13 }}>
+                  <div style={{ marginBottom: 14, padding: '8px 12px', borderRadius: borderRadius.md, background: returnMsg.ok ? 'rgba(242, 120, 10,0.1)' : 'rgba(239,68,68,0.1)', border: `1px solid ${returnMsg.ok ? colors.primary : colors.error}`, color: returnMsg.ok ? colors.primary : colors.error, fontSize: 13 }}>
                     {returnMsg.text}
                   </div>
                 )}

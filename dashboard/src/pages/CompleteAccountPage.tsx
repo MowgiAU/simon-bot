@@ -332,7 +332,7 @@ export const CompleteAccountPage: React.FC = () => {
                         <p style={{ color: colors.textSecondary, margin: '0 0 20px', fontSize: '14px', lineHeight: 1.5 }}>
                             We sent a verification link to <strong style={{ color: colors.textPrimary }}>{email}</strong>. Click the link in the email to verify.
                         </p>
-                        <div style={{ background: 'rgba(16,185,129,0.06)', border: `1px solid rgba(16,185,129,0.15)`, borderRadius: borderRadius.md, padding: '16px', textAlign: 'center', marginBottom: '16px' }}>
+                        <div style={{ background: 'rgba(242, 120, 10,0.06)', border: `1px solid rgba(242, 120, 10,0.15)`, borderRadius: borderRadius.md, padding: '16px', textAlign: 'center', marginBottom: '16px' }}>
                             <Mail size={32} color={colors.primary} style={{ marginBottom: '8px' }} />
                             <p style={{ color: colors.textSecondary, fontSize: '13px', margin: 0 }}>
                                 {emailVerified ? (
@@ -476,7 +476,7 @@ function renderShell(children: React.ReactNode) {
         <div style={{
             minHeight: '100vh',
             background: colors.background,
-            backgroundImage: 'radial-gradient(circle at 50% 30%, rgba(16,185,129,0.05) 0%, transparent 50%)',
+            backgroundImage: 'radial-gradient(circle at 50% 30%, rgba(242, 120, 10,0.05) 0%, transparent 50%)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             padding: '24px',
         }}>
@@ -493,9 +493,9 @@ function renderShell(children: React.ReactNode) {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
                     <div style={{
                         width: '40px', height: '40px',
-                        background: 'rgba(16,185,129,0.08)', borderRadius: '12px',
+                        background: 'rgba(242, 120, 10,0.08)', borderRadius: '12px',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        border: '1px solid rgba(16,185,129,0.15)',
+                        border: '1px solid rgba(242, 120, 10,0.15)',
                     }}>
                         <img src={logoUrl} alt="Fuji" style={{ width: '24px', height: '24px', filter: 'brightness(0) invert(1)' }} />
                     </div>

@@ -55,7 +55,7 @@ function SmallTrackRow({ track, rank, playing, onPlay }: {
     );
 }
 
-const CHART_COLORS = [ACCENT, '#8B5CF6', '#10B981', '#3B82F6', '#F59E0B', ACCENT, '#8B5CF6', '#10B981', '#3B82F6', '#F59E0B'];
+const CHART_COLORS = [ACCENT, '#8B5CF6', '#F2780A', '#3B82F6', '#F59E0B', ACCENT, '#8B5CF6', '#F2780A', '#3B82F6', '#F59E0B'];
 
 // ── page ─────────────────────────────────────────────────────────────────────
 
@@ -350,7 +350,7 @@ export const FrontpageEditorialMix: React.FC = () => {
                                             </span>
                                             {/* Position change badge */}
                                             {change !== null && change !== undefined && (
-                                                <div style={{ position: 'absolute', top: 8, left: 8, display: 'flex', alignItems: 'center', gap: 2, fontSize: 10, fontWeight: 700, color: change > 0 ? '#34D399' : change < 0 ? '#F87171' : 'rgba(255,255,255,0.4)', background: 'rgba(0,0,0,0.55)', borderRadius: 999, padding: '2px 6px' }}>
+                                                <div style={{ position: 'absolute', top: 8, left: 8, display: 'flex', alignItems: 'center', gap: 2, fontSize: 10, fontWeight: 700, color: change > 0 ? '#F5A04A' : change < 0 ? '#F87171' : 'rgba(255,255,255,0.4)', background: 'rgba(0,0,0,0.55)', borderRadius: 999, padding: '2px 6px' }}>
                                                     {change > 0 ? <ArrowUp size={9} /> : change < 0 ? <ArrowDown size={9} /> : <Minus size={9} />}
                                                     {Math.abs(change) || '—'}
                                                 </div>

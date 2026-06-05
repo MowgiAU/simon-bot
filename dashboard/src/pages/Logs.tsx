@@ -97,10 +97,10 @@ const ACTION_CATEGORY_MAP: Record<string, { label: string; color: string; catego
   // Social
   track_favourited:         { label: 'Social',        color: '#F87171', categoryId: 'SOCIAL' },
   track_unfavourited:       { label: 'Social',        color: '#F87171', categoryId: 'SOCIAL' },
-  track_reposted:           { label: 'Social',        color: '#34D399', categoryId: 'SOCIAL' },
-  track_unreposted:         { label: 'Social',        color: '#34D399', categoryId: 'SOCIAL' },
-  artist_followed:          { label: 'Social',        color: '#34D399', categoryId: 'SOCIAL' },
-  artist_unfollowed:        { label: 'Social',        color: '#34D399', categoryId: 'SOCIAL' },
+  track_reposted:           { label: 'Social',        color: '#F5A04A', categoryId: 'SOCIAL' },
+  track_unreposted:         { label: 'Social',        color: '#F5A04A', categoryId: 'SOCIAL' },
+  artist_followed:          { label: 'Social',        color: '#F5A04A', categoryId: 'SOCIAL' },
+  artist_unfollowed:        { label: 'Social',        color: '#F5A04A', categoryId: 'SOCIAL' },
   // Playlists
   playlist_created:         { label: 'Playlists',     color: '#FBBF24', categoryId: 'PLAYLISTS' },
   playlist_deleted:         { label: 'Playlists',     color: '#FBBF24', categoryId: 'PLAYLISTS' },
@@ -110,7 +110,7 @@ const ACTION_CATEGORY_MAP: Record<string, { label: string; color: string; catego
   ban:                      { label: 'Moderation',    color: '#F87171', categoryId: 'MOD' },
   kick:                     { label: 'Moderation',    color: '#FB923C', categoryId: 'MOD' },
   timeout:                  { label: 'Moderation',    color: '#FBBF24', categoryId: 'MOD' },
-  unban:                    { label: 'Moderation',    color: '#34D399', categoryId: 'MOD' },
+  unban:                    { label: 'Moderation',    color: '#F5A04A', categoryId: 'MOD' },
   warn:                     { label: 'Moderation',    color: '#FBBF24', categoryId: 'MOD' },
   softban:                  { label: 'Moderation',    color: '#F87171', categoryId: 'MOD' },
   purge:                    { label: 'Moderation',    color: '#FB923C', categoryId: 'MOD' },
@@ -127,12 +127,12 @@ const ACTION_CATEGORY_MAP: Record<string, { label: string; color: string; catego
   STUDIO_GUIDE_USER_OPTOUT:   { label: 'Studio Guide', color: '#C084FC', categoryId: 'STUDIO_GUIDE' },
   STUDIO_GUIDE_DIRECT_ASK:    { label: 'Studio Guide', color: '#C084FC', categoryId: 'STUDIO_GUIDE' },
   // Channel Rules
-  message_approved:           { label: 'Channel Rules', color: '#34D399', categoryId: 'CHANNEL_RULES' },
+  message_approved:           { label: 'Channel Rules', color: '#F5A04A', categoryId: 'CHANNEL_RULES' },
   message_rejected:           { label: 'Channel Rules', color: '#F87171', categoryId: 'CHANNEL_RULES' },
   rule_triggered:             { label: 'Channel Rules', color: '#FBBF24', categoryId: 'CHANNEL_RULES' },
   review_request:             { label: 'Channel Rules', color: '#60A5FA', categoryId: 'CHANNEL_RULES' },
   // Feedback
-  FEEDBACK_REWARD_GIVEN:      { label: 'Feedback',     color: '#34D399', categoryId: 'FEEDBACK' },
+  FEEDBACK_REWARD_GIVEN:      { label: 'Feedback',     color: '#F5A04A', categoryId: 'FEEDBACK' },
   FEEDBACK_DENIED:            { label: 'Feedback',     color: '#F87171', categoryId: 'FEEDBACK' },
   // Muzzle
   MUZZLE_APPLIED:             { label: 'Moderation',   color: '#F59E0B', categoryId: 'MOD' },
@@ -816,7 +816,7 @@ export const Logs: React.FC<LogsProps> = ({ guildId, searchParam }) => {
                                 const sgMeta: Record<string, { label: string; icon: string; color: string }> = {
                                     STUDIO_GUIDE_AUTO_RESPONSE: { label: 'Auto Response',  icon: '🤖', color: '#A78BFA' },
                                     STUDIO_GUIDE_PAUSED:        { label: 'Guide Paused',   icon: '⏸️', color: '#FBBF24' },
-                                    STUDIO_GUIDE_RESUMED:       { label: 'Guide Resumed',  icon: '▶️', color: '#34D399' },
+                                    STUDIO_GUIDE_RESUMED:       { label: 'Guide Resumed',  icon: '▶️', color: '#F5A04A' },
                                     STUDIO_GUIDE_USER_OPTOUT:   { label: 'User Opted Out', icon: '🙈', color: '#FB923C' },
                                     STUDIO_GUIDE_DIRECT_ASK:    { label: 'Direct Question', icon: '❓', color: '#60A5FA' },
                                 };
@@ -925,13 +925,13 @@ export const Logs: React.FC<LogsProps> = ({ guildId, searchParam }) => {
                                 comment_reaction_removed: { label: 'Reaction Removed',        color: '#9CA3AF' },
                                 track_favourited:         { label: 'Track Favourited',        color: '#F87171' },
                                 track_unfavourited:       { label: 'Track Unfavourited',      color: '#9CA3AF' },
-                                track_reposted:           { label: 'Track Reposted',          color: '#34D399' },
+                                track_reposted:           { label: 'Track Reposted',          color: '#F5A04A' },
                                 track_unreposted:         { label: 'Track Unreposted',        color: '#9CA3AF' },
-                                artist_followed:          { label: 'Artist Followed',         color: '#34D399' },
+                                artist_followed:          { label: 'Artist Followed',         color: '#F5A04A' },
                                 artist_unfollowed:        { label: 'Artist Unfollowed',       color: '#9CA3AF' },
                                 playlist_created:         { label: 'Playlist Created',        color: '#FBBF24' },
                                 playlist_deleted:         { label: 'Playlist Deleted',        color: '#F87171' },
-                                playlist_track_added:     { label: 'Track Added to Playlist', color: '#34D399' },
+                                playlist_track_added:     { label: 'Track Added to Playlist', color: '#F5A04A' },
                                 playlist_track_removed:   { label: 'Track Removed from Playlist', color: '#F87171' },
                             };
                             if (profileActionLabels[log.action]) {
@@ -1004,7 +1004,7 @@ export const Logs: React.FC<LogsProps> = ({ guildId, searchParam }) => {
                             if (['message_approved', 'message_rejected', 'rule_triggered', 'review_request'].includes(log.action)) {
                                 const d = log.details || {};
                                 const crMeta: Record<string, { label: string; color: string }> = {
-                                    message_approved: { label: 'Message Approved', color: '#34D399' },
+                                    message_approved: { label: 'Message Approved', color: '#F5A04A' },
                                     message_rejected: { label: 'Message Rejected', color: '#F87171' },
                                     rule_triggered:   { label: 'Rule Triggered',   color: '#FBBF24' },
                                     review_request:   { label: 'Review Requested', color: '#60A5FA' },
@@ -1030,7 +1030,7 @@ export const Logs: React.FC<LogsProps> = ({ guildId, searchParam }) => {
                                 const d = log.details || {};
                                 return (
                                     <div style={{ fontSize: '13px' }}>
-                                        <div style={{ fontWeight: 600, color: '#34D399' }}>Feedback Reward Given</div>
+                                        <div style={{ fontWeight: 600, color: '#F5A04A' }}>Feedback Reward Given</div>
                                         <div style={{ marginTop: 4, display: 'flex', flexWrap: 'wrap', gap: '4px 16px', color: colors.textSecondary }}>
                                             {d.recipientId  && <span>Recipient: <span style={{ color: colors.textPrimary }}>{d.recipientUsername ?? d.recipientId}</span></span>}
                                             {d.amount       && <span>Amount: <span style={{ color: '#FBBF24', fontWeight: 600 }}>{d.amount} 🪙</span></span>}
@@ -1089,7 +1089,7 @@ export const Logs: React.FC<LogsProps> = ({ guildId, searchParam }) => {
                                 const changesStr = Array.isArray(d.changes) && d.changes.length > 0
                                     ? d.changes.filter((c: string) => c !== 'title').join(', ')
                                     : null;
-                                const statusColors: Record<string, string> = { upcoming: '#60A5FA', active: '#34D399', voting: '#FBBF24', completed: '#6B7280' };
+                                const statusColors: Record<string, string> = { upcoming: '#60A5FA', active: '#F5A04A', voting: '#FBBF24', completed: '#6B7280' };
 
                                 return (
                                     <div style={{ fontSize: '13px' }}>

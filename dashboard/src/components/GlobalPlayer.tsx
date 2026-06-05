@@ -106,7 +106,7 @@ export const GlobalPlayer: React.FC = () => {
                     bottom: playerHeight + bottomOffset,
                     left: 0, right: 0,
                     maxHeight: '55vh',
-                    backgroundColor: 'rgba(22,25,37,0.88)',
+                    backgroundColor: 'rgba(12,14,22,0.60)',
                     backdropFilter: 'blur(20px)',
                     WebkitBackdropFilter: 'blur(20px)',
                     borderTop: '1px solid rgba(255,255,255,0.08)',
@@ -183,7 +183,7 @@ export const GlobalPlayer: React.FC = () => {
             {/* ── Player Bar ── */}
             <footer style={{
                 height: `${playerHeight}px`,
-                backgroundColor: 'rgba(26,30,46,0.75)',
+                backgroundColor: 'rgba(12,14,22,0.55)',
                 backdropFilter: 'blur(20px)',
                 WebkitBackdropFilter: 'blur(20px)',
                 borderTop: '1px solid rgba(255,255,255,0.07)',

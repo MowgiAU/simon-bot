@@ -27,7 +27,7 @@ interface Sample {
 
 const SAMPLE_CATEGORIES = ['kick', 'snare', 'hat', 'percussion', 'fx', 'bass', 'melody', 'chords', 'other'] as const;
 const CATEGORY_COLOR: Record<string, string> = {
-    kick: '#FF3D7F', snare: '#FFD700', hat: '#00E5FF', percussion: '#34D399',
+    kick: '#FF3D7F', snare: '#FFD700', hat: '#00E5FF', percussion: '#F5A04A',
     fx: '#A855F7', bass: '#5DD4FF', melody: '#FF8A4C', chords: '#E879F9', other: '#7A8190',
 };
 interface Settings {

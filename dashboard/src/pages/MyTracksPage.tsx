@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState, useRef, memo } from 'react';
+import React, { useEffect, useState, useRef, memo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { colors, spacing, borderRadius, shadows } from '../theme/theme';
 import { useAuth } from '../components/AuthProvider';
@@ -66,15 +66,15 @@ const fileZoneActive: React.CSSProperties = {
     ...fileZone,
     borderColor: colors.primary,
     borderStyle: 'solid',
-    backgroundColor: 'rgba(16,185,129,0.04)',
+    backgroundColor: 'rgba(242, 120, 10,0.04)',
 };
 
 const fileZoneDragging: React.CSSProperties = {
     ...fileZone,
     borderColor: colors.primary,
     borderStyle: 'solid',
-    backgroundColor: 'rgba(16,185,129,0.1)',
-    boxShadow: '0 0 0 3px rgba(16,185,129,0.15)',
+    backgroundColor: 'rgba(242, 120, 10,0.1)',
+    boxShadow: '0 0 0 3px rgba(242, 120, 10,0.15)',
 };
 
 export const MyTracksPage: React.FC = () => {
@@ -599,7 +599,7 @@ export const MyTracksPage: React.FC = () => {
                     return genre ? (
                         <span key={gId} style={{
                             display: 'inline-flex', alignItems: 'center', gap: '4px',
-                            backgroundColor: 'rgba(16,185,129,0.12)', padding: '3px 10px',
+                            backgroundColor: 'rgba(242, 120, 10,0.12)', padding: '3px 10px',
                             borderRadius: borderRadius.pill, fontSize: '12px', color: colors.primary, fontWeight: 500,
                         }}>
                             {genre.name}
@@ -761,7 +761,7 @@ export const MyTracksPage: React.FC = () => {
 
                 {/* ── Save progress (shown immediately below header when saving) ── */}
                 {saving && uploadStage && (
-                    <div style={{ marginBottom: '16px', padding: '12px 14px', backgroundColor: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: '8px' }}>
+                    <div style={{ marginBottom: '16px', padding: '12px 14px', backgroundColor: 'rgba(242, 120, 10,0.06)', border: '1px solid rgba(242, 120, 10,0.2)', borderRadius: '8px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                             <span style={{ fontSize: '13px', fontWeight: 600, color: colors.primary }}>
                                 {uploadStage === 'uploading' ? `Uploading… ${uploadProgress}%` : uploadStage === 'scanning' ? 'Scanning for viruses…' : 'Saving…'}
@@ -794,7 +794,7 @@ export const MyTracksPage: React.FC = () => {
                     >
                         <div style={{
                             width: '40px', height: '40px', borderRadius: borderRadius.md,
-                            backgroundColor: audioFile ? 'rgba(16,185,129,0.15)' : 'rgba(255,255,255,0.04)',
+                            backgroundColor: audioFile ? 'rgba(242, 120, 10,0.15)' : 'rgba(255,255,255,0.04)',
                             display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
                         }}>
                             <FileAudio size={20} color={audioFile || dragOver === 'audio' ? colors.primary : colors.textTertiary} />
@@ -828,7 +828,7 @@ export const MyTracksPage: React.FC = () => {
                             </div>
                             <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
                                 <button type="button" onClick={() => setShowCropModal(true)}
-                                    style={{ padding: '5px 10px', fontSize: '12px', fontWeight: 600, borderRadius: borderRadius.sm, border: `1px solid ${colors.primary}`, color: colors.primary, backgroundColor: 'rgba(16,185,129,0.08)', cursor: 'pointer' }}>
+                                    style={{ padding: '5px 10px', fontSize: '12px', fontWeight: 600, borderRadius: borderRadius.sm, border: `1px solid ${colors.primary}`, color: colors.primary, backgroundColor: 'rgba(242, 120, 10,0.08)', cursor: 'pointer' }}>
                                     Crop
                                 </button>
                                 <button type="button" onClick={() => artworkInputRef.current?.click()}
@@ -877,7 +877,7 @@ export const MyTracksPage: React.FC = () => {
                     >
                         <div style={{
                             width: '40px', height: '40px', borderRadius: borderRadius.md,
-                            backgroundColor: projectFile ? 'rgba(16,185,129,0.15)' : 'rgba(255,255,255,0.04)',
+                            backgroundColor: projectFile ? 'rgba(242, 120, 10,0.15)' : 'rgba(255,255,255,0.04)',
                             display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
                         }}>
                             <Music size={20} color={projectFile || dragOver === 'project' ? colors.primary : colors.textTertiary} />
@@ -1092,7 +1092,7 @@ export const MyTracksPage: React.FC = () => {
                                                 </div>
                                             </div>
                                             <span style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', padding: '2px 8px', borderRadius: '20px', flexShrink: 0,
-                                                backgroundColor: c.status === 'accepted' ? 'rgba(16,185,129,0.15)' : c.status === 'rejected' ? 'rgba(239,68,68,0.15)' : 'rgba(255,255,255,0.08)',
+                                                backgroundColor: c.status === 'accepted' ? 'rgba(242, 120, 10,0.15)' : c.status === 'rejected' ? 'rgba(239,68,68,0.15)' : 'rgba(255,255,255,0.08)',
                                                 color: c.status === 'accepted' ? colors.success : c.status === 'rejected' ? colors.error : colors.textTertiary,
                                             }}>
                                                 {isEdit ? c.status : 'queued'}
@@ -1208,7 +1208,7 @@ export const MyTracksPage: React.FC = () => {
                 {saving && uploadStage && (
                     <div style={{
                         marginBottom: '20px', padding: '14px 16px',
-                        backgroundColor: 'rgba(16,185,129,0.06)', border: `1px solid rgba(16,185,129,0.2)`,
+                        backgroundColor: 'rgba(242, 120, 10,0.06)', border: `1px solid rgba(242, 120, 10,0.2)`,
                         borderRadius: borderRadius.md,
                     }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
@@ -1335,7 +1335,7 @@ export const MyTracksPage: React.FC = () => {
                             {(track as any).projectLink && (
                                 <span
                                     title={`Synced from project (v${(track as any).projectLink.version?.versionNumber ?? '?'})`}
-                                    style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', padding: '1px 6px', borderRadius: '4px', flexShrink: 0, backgroundColor: 'rgba(16,185,129,0.15)', color: colors.primary, letterSpacing: '0.04em', display: 'inline-flex', alignItems: 'center', gap: '3px' }}
+                                    style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', padding: '1px 6px', borderRadius: '4px', flexShrink: 0, backgroundColor: 'rgba(242, 120, 10,0.15)', color: colors.primary, letterSpacing: '0.04em', display: 'inline-flex', alignItems: 'center', gap: '3px' }}
                                 >
                                     <Disc size={10} /> Project
                                 </span>
@@ -1350,7 +1350,7 @@ export const MyTracksPage: React.FC = () => {
                             </span>
                             <span style={{
                                 fontSize: '11px', padding: '2px 8px', borderRadius: borderRadius.pill,
-                                backgroundColor: track.isPublic ? 'rgba(16,185,129,0.1)' : 'rgba(255,255,255,0.04)',
+                                backgroundColor: track.isPublic ? 'rgba(242, 120, 10,0.1)' : 'rgba(255,255,255,0.04)',
                                 color: track.isPublic ? colors.primary : colors.textTertiary,
                                 fontWeight: 500,
                             }}>
@@ -1424,7 +1424,7 @@ export const MyTracksPage: React.FC = () => {
                 {!isAddingTrack && !editingTrack && tracks.length > 0 && (
                     <button onClick={() => { setBulkMode(m => !m); setSelectedIds(new Set()); }} style={{
                         display: 'flex', alignItems: 'center', gap: '8px', padding: '9px 16px',
-                        backgroundColor: bulkMode ? 'rgba(16,185,129,0.1)' : 'rgba(255,255,255,0.04)',
+                        backgroundColor: bulkMode ? 'rgba(242, 120, 10,0.1)' : 'rgba(255,255,255,0.04)',
                         color: bulkMode ? colors.primary : colors.textSecondary,
                         border: `1px solid ${bulkMode ? colors.primary + '66' : colors.glassBorder}`,
                         borderRadius: borderRadius.md, cursor: 'pointer', fontSize: '13px', fontWeight: 600,
@@ -1448,9 +1448,9 @@ export const MyTracksPage: React.FC = () => {
             {message && (
                 <div style={{
                     padding: '12px 16px', borderRadius: borderRadius.md, marginBottom: '20px',
-                    backgroundColor: message.type === 'success' ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)',
+                    backgroundColor: message.type === 'success' ? 'rgba(242, 120, 10,0.1)' : 'rgba(239,68,68,0.1)',
                     color: message.type === 'success' ? colors.success : colors.error,
-                    border: `1px solid ${message.type === 'success' ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)'}`,
+                    border: `1px solid ${message.type === 'success' ? 'rgba(242, 120, 10,0.3)' : 'rgba(239,68,68,0.3)'}`,
                     fontSize: '13px', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '8px',
                 }}>
                     {message.type === 'error' && <AlertCircle size={16} />}
@@ -1497,11 +1497,11 @@ export const MyTracksPage: React.FC = () => {
 
             {/* ── Pending collab invites ── */}
             {pendingInvites.filter(c => c.status === 'pending').length > 0 && !editingTrack && !isAddingTrack && (
-                <div style={{ ...card, marginBottom: '24px', borderColor: 'rgba(16,185,129,0.3)' }}>
+                <div style={{ ...card, marginBottom: '24px', borderColor: 'rgba(242, 120, 10,0.3)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
                         <Mic2 size={16} color={colors.primary} />
                         <span style={{ fontSize: '14px', fontWeight: 700, color: colors.textPrimary }}>Collaboration Invites</span>
-                        <span style={{ fontSize: '11px', fontWeight: 700, padding: '2px 8px', borderRadius: '20px', backgroundColor: 'rgba(16,185,129,0.15)', color: colors.primary }}>
+                        <span style={{ fontSize: '11px', fontWeight: 700, padding: '2px 8px', borderRadius: '20px', backgroundColor: 'rgba(242, 120, 10,0.15)', color: colors.primary }}>
                             {pendingInvites.filter(c => c.status === 'pending').length}
                         </span>
                     </div>
@@ -1522,7 +1522,7 @@ export const MyTracksPage: React.FC = () => {
                                 </div>
                                 <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
                                     <button onClick={() => handleRespondToInvite(c, 'accepted')}
-                                        style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', borderRadius: borderRadius.sm, border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: 600, backgroundColor: 'rgba(16,185,129,0.15)', color: colors.success }}>
+                                        style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', borderRadius: borderRadius.sm, border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: 600, backgroundColor: 'rgba(242, 120, 10,0.15)', color: colors.success }}>
                                         <Check size={12} /> Accept
                                     </button>
                                     <button onClick={() => handleRespondToInvite(c, 'rejected')}
@@ -1564,7 +1564,7 @@ export const MyTracksPage: React.FC = () => {
                         <div style={{
                             display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap',
                             padding: '12px 16px', marginBottom: '12px',
-                            backgroundColor: 'rgba(16,185,129,0.05)',
+                            backgroundColor: 'rgba(242, 120, 10,0.05)',
                             border: `1px solid ${colors.primary}33`,
                             borderRadius: borderRadius.md,
                         }}>
@@ -1582,7 +1582,7 @@ export const MyTracksPage: React.FC = () => {
                                 <>
                                     <div style={{ width: '1px', height: '20px', backgroundColor: colors.glassBorder, margin: '0 4px' }} />
                                     {/* Visibility */}
-                                    <button onClick={() => bulkSetVisibility(true)} disabled={bulkSaving} style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '6px 12px', fontSize: '12px', fontWeight: 600, borderRadius: borderRadius.sm, border: `1px solid rgba(16,185,129,0.3)`, backgroundColor: 'rgba(16,185,129,0.08)', color: colors.primary, cursor: bulkSaving ? 'not-allowed' : 'pointer', opacity: bulkSaving ? 0.6 : 1 }}>
+                                    <button onClick={() => bulkSetVisibility(true)} disabled={bulkSaving} style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '6px 12px', fontSize: '12px', fontWeight: 600, borderRadius: borderRadius.sm, border: `1px solid rgba(242, 120, 10,0.3)`, backgroundColor: 'rgba(242, 120, 10,0.08)', color: colors.primary, cursor: bulkSaving ? 'not-allowed' : 'pointer', opacity: bulkSaving ? 0.6 : 1 }}>
                                         <Eye size={13} /> Make Public
                                     </button>
                                     <button onClick={() => bulkSetVisibility(false)} disabled={bulkSaving} style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '6px 12px', fontSize: '12px', fontWeight: 600, borderRadius: borderRadius.sm, border: `1px solid ${colors.glassBorder}`, backgroundColor: 'rgba(255,255,255,0.03)', color: colors.textSecondary, cursor: bulkSaving ? 'not-allowed' : 'pointer', opacity: bulkSaving ? 0.6 : 1 }}>
@@ -1590,7 +1590,7 @@ export const MyTracksPage: React.FC = () => {
                                     </button>
                                     <div style={{ width: '1px', height: '20px', backgroundColor: colors.glassBorder, margin: '0 4px' }} />
                                     {/* Downloads */}
-                                    <button onClick={() => bulkSetDownload(true)} disabled={bulkSaving} style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '6px 12px', fontSize: '12px', fontWeight: 600, borderRadius: borderRadius.sm, border: `1px solid rgba(16,185,129,0.3)`, backgroundColor: 'rgba(16,185,129,0.08)', color: colors.primary, cursor: bulkSaving ? 'not-allowed' : 'pointer', opacity: bulkSaving ? 0.6 : 1 }}>
+                                    <button onClick={() => bulkSetDownload(true)} disabled={bulkSaving} style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '6px 12px', fontSize: '12px', fontWeight: 600, borderRadius: borderRadius.sm, border: `1px solid rgba(242, 120, 10,0.3)`, backgroundColor: 'rgba(242, 120, 10,0.08)', color: colors.primary, cursor: bulkSaving ? 'not-allowed' : 'pointer', opacity: bulkSaving ? 0.6 : 1 }}>
                                         <Download size={13} /> Enable Downloads
                                     </button>
                                     <button onClick={() => bulkSetDownload(false)} disabled={bulkSaving} style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '6px 12px', fontSize: '12px', fontWeight: 600, borderRadius: borderRadius.sm, border: `1px solid ${colors.glassBorder}`, backgroundColor: 'rgba(255,255,255,0.03)', color: colors.textSecondary, cursor: bulkSaving ? 'not-allowed' : 'pointer', opacity: bulkSaving ? 0.6 : 1 }}>

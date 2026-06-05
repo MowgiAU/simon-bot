@@ -74,7 +74,7 @@
 }
 
 .stat-change.positive {
-  color: #10B981;
+  color: #F2780A;
 }
 
 /* Main Dashboard Grid */
@@ -172,9 +172,9 @@
 }
 
 .action-button:hover {
-  background: rgba(16, 185, 129, 0.08);
-  border-color: rgba(16, 185, 129, 0.2);
-  color: #10B981;
+  background: rgba(242, 120, 10, 0.08);
+  border-color: rgba(242, 120, 10, 0.2);
+  color: #F2780A;
 }
 
 .action-icon {
@@ -251,8 +251,8 @@
 }
 
 .server-badge {
-  background-color: rgba(16, 185, 129, 0.1);
-  color: #10B981;
+  background-color: rgba(242, 120, 10, 0.1);
+  color: #F2780A;
   padding: 4px 10px;
   border-radius: 9999px;
   font-size: 11px;

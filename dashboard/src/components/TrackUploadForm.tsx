@@ -56,13 +56,13 @@ const fileZone: React.CSSProperties = {
 const fileZoneActive: React.CSSProperties = {
     ...fileZone,
     borderColor: colors.primary, borderStyle: 'solid',
-    backgroundColor: 'rgba(16,185,129,0.04)',
+    backgroundColor: 'rgba(242, 120, 10,0.04)',
 };
 const fileZoneDragging: React.CSSProperties = {
     ...fileZone,
     borderColor: colors.primary, borderStyle: 'solid',
-    backgroundColor: 'rgba(16,185,129,0.1)',
-    boxShadow: '0 0 0 3px rgba(16,185,129,0.15)',
+    backgroundColor: 'rgba(242, 120, 10,0.1)',
+    boxShadow: '0 0 0 3px rgba(242, 120, 10,0.15)',
 };
 
 const keyOptions = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'].flatMap(note => [
@@ -208,7 +208,7 @@ export const TrackUploadForm: React.FC<TrackUploadFormProps> = ({
                         return genre ? (
                             <span key={gId} style={{
                                 display: 'inline-flex', alignItems: 'center', gap: '4px',
-                                backgroundColor: 'rgba(16,185,129,0.12)', padding: '3px 10px',
+                                backgroundColor: 'rgba(242, 120, 10,0.12)', padding: '3px 10px',
                                 borderRadius: borderRadius.pill, fontSize: '12px', color: colors.primary, fontWeight: 500,
                             }}>
                                 {genre.name}
@@ -389,7 +389,7 @@ export const TrackUploadForm: React.FC<TrackUploadFormProps> = ({
                 >
                     <div style={{
                         width: '40px', height: '40px', borderRadius: borderRadius.md,
-                        backgroundColor: audioFile ? 'rgba(16,185,129,0.15)' : 'rgba(255,255,255,0.04)',
+                        backgroundColor: audioFile ? 'rgba(242, 120, 10,0.15)' : 'rgba(255,255,255,0.04)',
                         display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
                     }}>
                         <FileAudio size={20} color={audioFile || dragOver === 'audio' ? colors.primary : colors.textTertiary} />
@@ -416,7 +416,7 @@ export const TrackUploadForm: React.FC<TrackUploadFormProps> = ({
                         </div>
                         <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
                             <button type="button" onClick={() => setShowCropModal(true)}
-                                style={{ padding: '5px 10px', fontSize: '12px', fontWeight: 600, borderRadius: borderRadius.sm, border: `1px solid ${colors.primary}`, color: colors.primary, backgroundColor: 'rgba(16,185,129,0.08)', cursor: 'pointer' }}>
+                                style={{ padding: '5px 10px', fontSize: '12px', fontWeight: 600, borderRadius: borderRadius.sm, border: `1px solid ${colors.primary}`, color: colors.primary, backgroundColor: 'rgba(242, 120, 10,0.08)', cursor: 'pointer' }}>
                                 <Crop size={11} style={{ marginRight: 4, verticalAlign: 'middle' }} />Crop
                             </button>
                             <button type="button" onClick={() => artworkInputRef.current?.click()}
@@ -459,7 +459,7 @@ export const TrackUploadForm: React.FC<TrackUploadFormProps> = ({
                     onDragLeave={() => setDragOver(null)}
                     onDrop={e => { e.preventDefault(); setDragOver(null); const f = e.dataTransfer.files?.[0]; if (f) setProjectFile(f); }}
                 >
-                    <div style={{ width: '40px', height: '40px', borderRadius: borderRadius.md, backgroundColor: projectFile ? 'rgba(16,185,129,0.15)' : 'rgba(255,255,255,0.04)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <div style={{ width: '40px', height: '40px', borderRadius: borderRadius.md, backgroundColor: projectFile ? 'rgba(242, 120, 10,0.15)' : 'rgba(255,255,255,0.04)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                         <Music size={20} color={projectFile || dragOver === 'project' ? colors.primary : colors.textTertiary} />
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
@@ -645,7 +645,7 @@ export const TrackUploadForm: React.FC<TrackUploadFormProps> = ({
             {saving && uploadStage && (
                 <div style={{
                     marginBottom: '20px', padding: '14px 16px',
-                    backgroundColor: 'rgba(16,185,129,0.06)', border: `1px solid rgba(16,185,129,0.2)`,
+                    backgroundColor: 'rgba(242, 120, 10,0.06)', border: `1px solid rgba(242, 120, 10,0.2)`,
                     borderRadius: borderRadius.md,
                 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>

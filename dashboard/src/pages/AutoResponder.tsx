@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { colors, spacing, borderRadius } from '../theme/theme';
 import { ChannelSelect } from '../components/ChannelSelect';
@@ -25,7 +25,7 @@ interface EmbedData {
     timestamp: boolean;
 }
 const defaultEmbed: EmbedData = {
-    title: '', description: '', url: '', color: '#10B981', fields: [], links: [], linkCategories: [],
+    title: '', description: '', url: '', color: '#F2780A', fields: [], links: [], linkCategories: [],
     authorName: '', authorIconUrl: '', authorUrl: '',
     footerText: '', footerIconUrl: '',
     thumbnailUrl: '', imageUrl: '', timestamp: false,
@@ -169,7 +169,7 @@ const EmojiInputWithPicker: React.FC<{
                 placeholder={placeholder} maxLength={maxLength ?? 100}
                 style={{ ...inputBase, flex: 1, ...inputStyle }} />
             <button onClick={openPicker} title="Pick server emoji"
-                style={{ background: pickerPos ? 'rgba(16,185,129,0.15)' : 'rgba(255,255,255,0.06)',
+                style={{ background: pickerPos ? 'rgba(242, 120, 10,0.15)' : 'rgba(255,255,255,0.06)',
                     border: `1px solid ${colors.glassBorder}`, borderRadius: borderRadius.sm,
                     cursor: 'pointer', padding: '6px 8px', display: 'flex', alignItems: 'center',
                     color: pickerPos ? colors.primary : colors.textTertiary, flexShrink: 0 }}>
@@ -265,7 +265,7 @@ const PlaceholderBar: React.FC<{ onInsert: (s: string) => void; guildId?: string
                     }} title="Insert server emoji"
                         style={{ ...btnStyle, fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: '3px',
                             color: pickerPos ? colors.primary : colors.textSecondary,
-                            backgroundColor: pickerPos ? 'rgba(16,185,129,0.12)' : 'rgba(255,255,255,0.06)' }}>
+                            backgroundColor: pickerPos ? 'rgba(242, 120, 10,0.12)' : 'rgba(255,255,255,0.06)' }}>
                         <Smile size={10} /> emoji
                     </button>
                     {pickerPos && (
@@ -322,8 +322,8 @@ const EmbedBuilder: React.FC<{ embed: EmbedData; onChange: (e: EmbedData) => voi
                 <input type="color" value={embed.color} onChange={e => upd({ color: e.target.value })}
                     style={{ width: 36, height: 32, border: 'none', cursor: 'pointer', background: 'none', padding: 0 }} />
                 <input style={{ ...inputBase, width: '110px', marginBottom: 0 }} value={embed.color}
-                    onChange={e => upd({ color: e.target.value })} placeholder="#10B981" />
-                {['#10B981','#3B82F6','#F59E0B','#EF4444','#8B5CF6','#EC4899'].map(c => (
+                    onChange={e => upd({ color: e.target.value })} placeholder="#F2780A" />
+                {['#F2780A','#3B82F6','#F59E0B','#EF4444','#8B5CF6','#EC4899'].map(c => (
                     <button key={c} onClick={() => upd({ color: c })}
                         style={{ width: 20, height: 20, borderRadius: '50%', background: c, flexShrink: 0,
                             border: embed.color === c ? '2px solid #fff' : '2px solid transparent', cursor: 'pointer' }} />
@@ -869,7 +869,7 @@ const RuleCard: React.FC<RuleCardProps> = ({ rule, guildId, categories, onUpdate
                         </span>
                     )}
                     {draft.embedJson && (
-                        <span style={{ fontSize: '10px', color: colors.primary, backgroundColor: 'rgba(16,185,129,0.1)', borderRadius: '999px', padding: '2px 8px' }}>
+                        <span style={{ fontSize: '10px', color: colors.primary, backgroundColor: 'rgba(242, 120, 10,0.1)', borderRadius: '999px', padding: '2px 8px' }}>
                             embed
                         </span>
                     )}

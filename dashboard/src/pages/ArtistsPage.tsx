@@ -11,7 +11,7 @@ import { FujiLogo } from '../components/FujiLogo';
 
 const accentColors = [
     '#2B8C71', '#F27B13', '#A855F7', '#3B82F6', '#EF4444', 
-    '#EAB308', '#EC4899', '#06B6D4', '#8B5CF6', '#10B981'
+    '#EAB308', '#EC4899', '#06B6D4', '#8B5CF6', '#F2780A'
 ];
 
 interface ArtistProfile {

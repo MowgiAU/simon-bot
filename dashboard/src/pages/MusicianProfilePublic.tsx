@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useNavigate } from 'react-router-dom';
 import { colors, spacing, borderRadius } from '../theme/theme';
@@ -1581,7 +1581,7 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                                         </div>
                                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
                                             {[
-                                                { label: 'Wins', value: rating.wins, color: '#34D399' },
+                                                { label: 'Wins', value: rating.wins, color: '#F5A04A' },
                                                 { label: 'Losses', value: rating.losses, color: '#F87171' },
                                                 { label: 'Win%', value: `${winRate}%`, color: cardText },
                                             ].map(s => (

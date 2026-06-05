@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { colors, borderRadius, spacing } from '../theme/theme';
@@ -36,7 +36,7 @@ const lsGetVote = (entryId: string): number | null => {
 
 const statusConfig: Record<string, { label: string; color: string }> = {
     upcoming:  { label: 'UPCOMING',         color: '#60A5FA' },
-    active:    { label: 'SUBMISSIONS OPEN', color: '#34D399' },
+    active:    { label: 'SUBMISSIONS OPEN', color: '#F5A04A' },
     voting:    { label: 'VOTING LIVE',      color: ACCENT },
     completed: { label: 'BATTLE ENDED',     color: '#FFD700' },
 };
@@ -508,7 +508,7 @@ export const BattleDetailPage: React.FC = () => {
                 }
                 .hd-wave { display: flex; align-items: center; gap: 2px; height: 56px; width: 100%; cursor: pointer; padding: 0 2px; }
                 .hd-bar { flex: 1; min-width: 2px; border-radius: 3px; background: linear-gradient(180deg, rgba(43,140,113,0.35) 0%, rgba(43,140,113,0.18) 100%); transform-origin: center; transition: background 0.15s ease; }
-                .hd-wave-playing .hd-bar { background: linear-gradient(180deg, #34D399 0%, rgba(43,140,113,0.7) 100%); animation: hd-bar-pulse 0.9s ease-in-out infinite; }
+                .hd-wave-playing .hd-bar { background: linear-gradient(180deg, #F5A04A 0%, rgba(43,140,113,0.7) 100%); animation: hd-bar-pulse 0.9s ease-in-out infinite; }
 
             `}</style>
 
@@ -1142,8 +1142,8 @@ export const BattleDetailPage: React.FC = () => {
                                                         </div>
                                                     </div>
                                                     {isCurrentlyPlaying && (
-                                                        <div style={{ position: 'absolute', top: '6px', right: '6px', display: 'flex', alignItems: 'center', gap: '3px', padding: '3px 7px', backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: '9999px', fontSize: '9px', fontWeight: 700, color: '#34D399', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                                                            <span style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: '#34D399' }} />
+                                                        <div style={{ position: 'absolute', top: '6px', right: '6px', display: 'flex', alignItems: 'center', gap: '3px', padding: '3px 7px', backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: '9999px', fontSize: '9px', fontWeight: 700, color: '#F5A04A', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                                            <span style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: '#F5A04A' }} />
                                                             Live
                                                         </div>
                                                     )}

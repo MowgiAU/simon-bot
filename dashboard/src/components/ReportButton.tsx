@@ -139,9 +139,9 @@ export const ReportButton: React.FC<ReportButtonProps> = ({ targetType, targetId
                             <div style={{
                                 padding: '8px 10px', borderRadius: borderRadius.sm, marginBottom: '10px',
                                 fontSize: '13px', fontWeight: 600,
-                                backgroundColor: result.type === 'success' ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)',
-                                color: result.type === 'success' ? '#10b981' : '#ef4444',
-                                border: `1px solid ${result.type === 'success' ? 'rgba(16,185,129,0.2)' : 'rgba(239,68,68,0.2)'}`,
+                                backgroundColor: result.type === 'success' ? 'rgba(242, 120, 10,0.1)' : 'rgba(239,68,68,0.1)',
+                                color: result.type === 'success' ? '#F2780A' : '#ef4444',
+                                border: `1px solid ${result.type === 'success' ? 'rgba(242, 120, 10,0.2)' : 'rgba(239,68,68,0.2)'}`,
                             }}>
                                 {result.text}
                             </div>

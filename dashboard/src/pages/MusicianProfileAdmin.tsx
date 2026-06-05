@@ -1299,7 +1299,7 @@ export const MusicianProfileAdmin: React.FC = () => {
                             { id: 'video' as const, icon: <MonitorPlay size={18} />, label: 'Video', color: colors.primary },
                             { id: 'news' as const, icon: <Newspaper size={18} />, label: 'News', color: '#A78BFA' },
                             { id: 'guide' as const, icon: <BookOpen size={18} />, label: 'Guide', color: '#FBBF24' },
-                            { id: 'article' as const, icon: <FileText size={18} />, label: 'Article', color: '#34D399' },
+                            { id: 'article' as const, icon: <FileText size={18} />, label: 'Article', color: '#F5A04A' },
                         ]).map(opt => (
                             <button key={opt.id} onClick={() => setFeaturedContentType(opt.id)}
                                 style={{
@@ -1363,7 +1363,7 @@ export const MusicianProfileAdmin: React.FC = () => {
                         /* Article Selection */
                         <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
                             {featuredArticle && (
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: spacing.md, background: 'rgba(52,211,153,0.06)', border: '1px solid rgba(52,211,153,0.2)', borderRadius: borderRadius.sm }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: spacing.md, background: 'rgba(245, 160, 74,0.06)', border: '1px solid rgba(245, 160, 74,0.2)', borderRadius: borderRadius.sm }}>
                                     {featuredArticle.coverImageUrl && (
                                         <img src={featuredArticle.coverImageUrl} alt="" style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: borderRadius.sm, flexShrink: 0 }} />
                                     )}
@@ -1446,7 +1446,7 @@ export const MusicianProfileAdmin: React.FC = () => {
                     {battleList.length > 0 && (
                         <div style={{ marginBottom: spacing.md, border: '1px solid rgba(255,255,255,0.08)', borderRadius: borderRadius.sm, maxHeight: '260px', overflowY: 'auto' }}>
                             {battleList.map((b: any) => {
-                                const statusColors: Record<string, string> = { voting: '#F97316', sudden_death: '#F43F5E', active: '#34D399', upcoming: '#60A5FA', completed: '#6B7280' };
+                                const statusColors: Record<string, string> = { voting: '#F97316', sudden_death: '#F43F5E', active: '#F5A04A', upcoming: '#60A5FA', completed: '#6B7280' };
                                 const statusLabels: Record<string, string> = { voting: 'VOTING', sudden_death: 'SUDDEN DEATH', active: 'OPEN', upcoming: 'UPCOMING', completed: 'ENDED' };
                                 const sc = statusColors[b.status] || '#6B7280';
                                 const sl = statusLabels[b.status] || b.status.toUpperCase();

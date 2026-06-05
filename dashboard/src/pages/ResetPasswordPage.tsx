@@ -33,7 +33,7 @@ export const ForgotPasswordPage: React.FC = () => {
     const containerStyle: React.CSSProperties = {
         display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh',
         background: colors.background,
-        backgroundImage: 'radial-gradient(circle at 50% 40%, rgba(16, 185, 129, 0.06) 0%, transparent 50%)',
+        backgroundImage: 'radial-gradient(circle at 50% 40%, rgba(242, 120, 10, 0.06) 0%, transparent 50%)',
         padding: spacing.lg,
     };
     const cardStyle: React.CSSProperties = {
@@ -66,9 +66,9 @@ export const ForgotPasswordPage: React.FC = () => {
             <div style={cardStyle}>
                 <div style={{ textAlign: 'center', marginBottom: '28px' }}>
                     <div style={{
-                        width: '72px', height: '72px', background: 'rgba(16, 185, 129, 0.08)',
+                        width: '72px', height: '72px', background: 'rgba(242, 120, 10, 0.08)',
                         borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        margin: '0 auto 16px', border: '1px solid rgba(16, 185, 129, 0.15)',
+                        margin: '0 auto 16px', border: '1px solid rgba(242, 120, 10, 0.15)',
                     }}>
                         <img src={logoUrl} alt="Fuji Studio" style={{ width: '44px', height: '44px', filter: 'brightness(0) invert(1)' }} />
                     </div>
@@ -104,7 +104,7 @@ export const ForgotPasswordPage: React.FC = () => {
                         type="submit"
                         disabled={loading}
                         style={{
-                            padding: '13px', background: 'linear-gradient(135deg, #10B981, #059669)',
+                            padding: '13px', background: 'linear-gradient(135deg, #F2780A, #C96208)',
                             color: '#fff', border: 'none', borderRadius: borderRadius.lg,
                             fontWeight: 700, fontSize: '15px', cursor: loading ? 'wait' : 'pointer',
                             opacity: loading ? 0.7 : 1,
@@ -137,7 +137,7 @@ export const ResetPasswordPage: React.FC = () => {
     const containerStyle: React.CSSProperties = {
         display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh',
         background: colors.background,
-        backgroundImage: 'radial-gradient(circle at 50% 40%, rgba(16, 185, 129, 0.06) 0%, transparent 50%)',
+        backgroundImage: 'radial-gradient(circle at 50% 40%, rgba(242, 120, 10, 0.06) 0%, transparent 50%)',
         padding: spacing.lg,
     };
     const cardStyle: React.CSSProperties = {
@@ -204,9 +204,9 @@ export const ResetPasswordPage: React.FC = () => {
             <div style={cardStyle}>
                 <div style={{ textAlign: 'center', marginBottom: '28px' }}>
                     <div style={{
-                        width: '72px', height: '72px', background: 'rgba(16, 185, 129, 0.08)',
+                        width: '72px', height: '72px', background: 'rgba(242, 120, 10, 0.08)',
                         borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        margin: '0 auto 16px', border: '1px solid rgba(16, 185, 129, 0.15)',
+                        margin: '0 auto 16px', border: '1px solid rgba(242, 120, 10, 0.15)',
                     }}>
                         <img src={logoUrl} alt="Fuji Studio" style={{ width: '44px', height: '44px', filter: 'brightness(0) invert(1)' }} />
                     </div>
@@ -262,7 +262,7 @@ export const ResetPasswordPage: React.FC = () => {
                         type="submit"
                         disabled={loading}
                         style={{
-                            padding: '13px', background: 'linear-gradient(135deg, #10B981, #059669)',
+                            padding: '13px', background: 'linear-gradient(135deg, #F2780A, #C96208)',
                             color: '#fff', border: 'none', borderRadius: borderRadius.lg,
                             fontWeight: 700, fontSize: '15px', cursor: loading ? 'wait' : 'pointer',
                             opacity: loading ? 0.7 : 1,

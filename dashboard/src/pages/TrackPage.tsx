@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { colors, spacing, borderRadius } from '../theme/theme';
 import { usePlayer } from '../components/PlayerProvider';
 import { useAuth } from '../components/AuthProvider';
@@ -808,7 +808,7 @@ export const TrackPage: React.FC = () => {
                                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '20px', justifyContent: isMobile ? 'center' : 'flex-start' }}>
                                         {track.genres.map(g => (
                                             <a key={g.genre.id} href={`/category/${g.genre.slug}`} style={{ backgroundColor: 'rgba(255,255,255,0.06)', color: colors.textSecondary, padding: '4px 12px', borderRadius: '20px', fontSize: '0.8rem', border: '1px solid rgba(255,255,255,0.1)', textDecoration: 'none', cursor: 'pointer', transition: 'background-color 0.15s, color 0.15s, border-color 0.15s' }}
-                                                onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.backgroundColor = 'rgba(16,185,129,0.12)'; (e.currentTarget as HTMLAnchorElement).style.color = colors.primary; (e.currentTarget as HTMLAnchorElement).style.borderColor = 'rgba(16,185,129,0.3)'; }}
+                                                onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.backgroundColor = 'rgba(242, 120, 10,0.12)'; (e.currentTarget as HTMLAnchorElement).style.color = colors.primary; (e.currentTarget as HTMLAnchorElement).style.borderColor = 'rgba(242, 120, 10,0.3)'; }}
                                                 onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.backgroundColor = 'rgba(255,255,255,0.06)'; (e.currentTarget as HTMLAnchorElement).style.color = colors.textSecondary; (e.currentTarget as HTMLAnchorElement).style.borderColor = 'rgba(255,255,255,0.1)'; }}
                                             >
                                                 {g.genre.name}
@@ -1097,7 +1097,7 @@ export const TrackPage: React.FC = () => {
                         {track.projectLink && (
                             <div style={{
                                 padding: isMobile ? '10px 20px' : '10px 28px',
-                                background: 'rgba(16,185,129,0.05)',
+                                background: 'rgba(242, 120, 10,0.05)',
                                 borderBottom: '1px solid rgba(255,255,255,0.06)',
                                 fontSize: '12px',
                                 color: colors.textSecondary,
@@ -1108,7 +1108,7 @@ export const TrackPage: React.FC = () => {
                             }}>
                                 <span style={{
                                     display: 'inline-flex', alignItems: 'center', gap: '4px',
-                                    background: 'rgba(16,185,129,0.12)',
+                                    background: 'rgba(242, 120, 10,0.12)',
                                     color: colors.primary,
                                     padding: '2px 8px', borderRadius: '999px',
                                     fontSize: '10px', fontWeight: 700,
@@ -1639,7 +1639,7 @@ export const TrackPage: React.FC = () => {
                     <div style={{
                         position: 'fixed', top: '20px', right: '20px', zIndex: 10000,
                         padding: '12px 20px', borderRadius: borderRadius.md,
-                        backgroundColor: editMsg.type === 'success' ? '#059669' : '#DC2626',
+                        backgroundColor: editMsg.type === 'success' ? '#C96208' : '#DC2626',
                         color: 'white', fontWeight: 600, fontSize: '0.9rem',
                         boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
                     }}>
@@ -1676,7 +1676,7 @@ export const TrackPage: React.FC = () => {
                                 <div style={{
                                     padding: '10px 16px', borderRadius: borderRadius.md, marginBottom: '16px',
                                     backgroundColor: editMsg.type === 'success' ? 'rgba(5,150,105,0.15)' : 'rgba(220,38,38,0.15)',
-                                    color: editMsg.type === 'success' ? '#34D399' : '#F87171',
+                                    color: editMsg.type === 'success' ? '#F5A04A' : '#F87171',
                                     border: `1px solid ${editMsg.type === 'success' ? 'rgba(5,150,105,0.3)' : 'rgba(220,38,38,0.3)'}`,
                                     fontSize: '0.9rem',
                                 }}>
@@ -1940,7 +1940,7 @@ export const TrackPage: React.FC = () => {
                                                         <div style={{ fontSize: '13px', fontWeight: 600, color: colors.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.profile?.displayName || c.profile?.username}</div>
                                                         <div style={{ fontSize: '11px', color: colors.textTertiary }}>{c.contribution} · {c.category?.replace(/-/g, ' ')}</div>
                                                     </div>
-                                                    <span style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', padding: '2px 8px', borderRadius: '20px', flexShrink: 0, backgroundColor: c.status === 'accepted' ? 'rgba(16,185,129,0.15)' : c.status === 'rejected' ? 'rgba(239,68,68,0.15)' : 'rgba(255,255,255,0.08)', color: c.status === 'accepted' ? '#10b981' : c.status === 'rejected' ? '#f87171' : colors.textTertiary }}>{c.status}</span>
+                                                    <span style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', padding: '2px 8px', borderRadius: '20px', flexShrink: 0, backgroundColor: c.status === 'accepted' ? 'rgba(242, 120, 10,0.15)' : c.status === 'rejected' ? 'rgba(239,68,68,0.15)' : 'rgba(255,255,255,0.08)', color: c.status === 'accepted' ? '#F2780A' : c.status === 'rejected' ? '#f87171' : colors.textTertiary }}>{c.status}</span>
                                                     <button onClick={() => handleRemoveCollaborator(c.id)} style={{ background: 'none', border: 'none', color: colors.textTertiary, cursor: 'pointer', padding: '2px', flexShrink: 0 }}><X size={14} /></button>
                                                 </div>
                                             ))}

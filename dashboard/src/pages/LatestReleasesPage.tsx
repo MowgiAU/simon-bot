@@ -96,7 +96,7 @@ export const LatestReleasesPage: React.FC = () => {
                                         style={{
                                             display: 'flex', alignItems: 'center', gap: '12px',
                                             padding: '10px 12px',
-                                            background: playing ? 'rgba(43,141,113,0.08)' : 'transparent',
+                                            background: playing ? 'rgba(211, 108, 8,0.08)' : 'transparent',
                                             borderRadius: borderRadius.sm,
                                             cursor: 'pointer',
                                             borderLeft: `3px solid ${playing ? colors.primary : 'transparent'}`,

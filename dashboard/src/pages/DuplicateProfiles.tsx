@@ -154,9 +154,9 @@ export const DuplicateProfilesPage: React.FC = () => {
                                             {entry.profiles.map(p => {
                                                 const isWinner = p.id === w.id;
                                                 return (
-                                                    <div key={p.id} style={{ background: colors.background, borderRadius: borderRadius.md, padding: '12px', border: `1px solid ${isWinner ? 'rgba(16,185,129,0.3)' : colors.border}` }}>
+                                                    <div key={p.id} style={{ background: colors.background, borderRadius: borderRadius.md, padding: '12px', border: `1px solid ${isWinner ? 'rgba(242, 120, 10,0.3)' : colors.border}` }}>
                                                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
-                                                            {isWinner && <span style={{ fontSize: '10px', background: 'rgba(16,185,129,0.15)', color: colors.primary, border: '1px solid rgba(16,185,129,0.3)', borderRadius: '99px', padding: '1px 6px', fontWeight: 700 }}>WINNER (kept)</span>}
+                                                            {isWinner && <span style={{ fontSize: '10px', background: 'rgba(242, 120, 10,0.15)', color: colors.primary, border: '1px solid rgba(242, 120, 10,0.3)', borderRadius: '99px', padding: '1px 6px', fontWeight: 700 }}>WINNER (kept)</span>}
                                                             {!isWinner && <span style={{ fontSize: '10px', background: 'rgba(239,68,68,0.1)', color: '#f87171', border: '1px solid rgba(239,68,68,0.25)', borderRadius: '99px', padding: '1px 6px', fontWeight: 700 }}>DUPLICATE (removed)</span>}
                                                         </div>
                                                         {[
@@ -184,7 +184,7 @@ export const DuplicateProfilesPage: React.FC = () => {
                                         </div>
 
                                         {result ? (
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px', borderRadius: borderRadius.md, background: result.ok ? 'rgba(16,185,129,0.08)' : 'rgba(239,68,68,0.08)', border: `1px solid ${result.ok ? 'rgba(16,185,129,0.25)' : 'rgba(239,68,68,0.25)'}` }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px', borderRadius: borderRadius.md, background: result.ok ? 'rgba(242, 120, 10,0.08)' : 'rgba(239,68,68,0.08)', border: `1px solid ${result.ok ? 'rgba(242, 120, 10,0.25)' : 'rgba(239,68,68,0.25)'}` }}>
                                                 {result.ok ? <CheckCircle size={14} color={colors.primary} /> : <AlertTriangle size={14} color="#f87171" />}
                                                 <span style={{ fontSize: '13px', color: result.ok ? colors.primary : '#f87171', fontWeight: 600 }}>{result.msg}</span>
                                             </div>

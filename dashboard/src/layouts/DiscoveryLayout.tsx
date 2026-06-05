@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef, ReactNode } from 'react';
+import React, { useState, useEffect, useRef, ReactNode } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { colors } from '../theme/theme';
 import { Search, Music, Zap, User, LogIn, LogOut, Menu, Home, Mic2, ChevronDown, ExternalLink, Edit3, Upload, Swords, Heart, ListMusic, X, Rss, BarChart3, Settings, MessageCircle, Sparkles, Newspaper, FolderOpen, AlertTriangle } from 'lucide-react';
@@ -111,7 +111,7 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                 href="#main-content"
                 style={{
                     position: 'absolute', top: '-48px', left: '16px', zIndex: 9999,
-                    backgroundColor: '#3BA886', color: 'white', padding: '8px 16px',
+                    backgroundColor: '#D4700A', color: 'white', padding: '8px 16px',
                     borderRadius: '4px', fontWeight: 600, textDecoration: 'none',
                     transition: 'top 0.15s',
                 }}
@@ -123,10 +123,10 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
             {/* Header */}
             <header style={{
                 position: 'fixed', top: 0, left: 0, right: 0,
-                backgroundColor: scrolled ? 'rgba(26,30,46,0.75)' : 'rgba(26,30,46,0.92)',
-                backdropFilter: 'blur(16px)',
-                WebkitBackdropFilter: 'blur(16px)',
-                borderBottom: `1px solid ${scrolled ? 'rgba(255,255,255,0.07)' : 'rgba(255,255,255,0.05)'}`,
+                backgroundColor: scrolled ? 'rgba(12,14,22,0.45)' : 'rgba(12,14,22,0.60)',
+                backdropFilter: 'blur(20px)',
+                WebkitBackdropFilter: 'blur(20px)',
+                borderBottom: `1px solid ${scrolled ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.06)'}`,
                 display: 'flex', flexDirection: 'column', zIndex: 100,
                 transition: 'background-color 0.3s ease, border-color 0.3s ease',
             }}>
@@ -488,7 +488,7 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
             {isMobile && (
                 <nav style={{
                     position: 'fixed', bottom: 0, left: 0, right: 0,
-                    height: '60px', backgroundColor: 'rgba(26,30,46,0.82)',
+                    height: '60px', backgroundColor: 'rgba(12,14,22,0.55)',
                     backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',
                     borderTop: '1px solid rgba(255,255,255,0.08)',
                     display: 'flex', alignItems: 'center', justifyContent: 'space-around',
@@ -651,7 +651,7 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                         borderRadius: '50%',
                         backgroundColor: colors.primary,
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        boxShadow: '0 4px 20px rgba(43,141,113,0.5)',
+                        boxShadow: '0 4px 20px rgba(211, 108, 8,0.5)',
                         zIndex: 201,
                         textDecoration: 'none',
                         transition: 'transform 0.2s, box-shadow 0.2s, bottom 0.25s cubic-bezier(0.4,0,0.2,1)',
@@ -659,11 +659,11 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                     }}
                     onMouseEnter={e => {
                         (e.currentTarget as HTMLElement).style.transform = 'scale(1.1)';
-                        (e.currentTarget as HTMLElement).style.boxShadow = '0 6px 28px rgba(43,141,113,0.7)';
+                        (e.currentTarget as HTMLElement).style.boxShadow = '0 6px 28px rgba(211, 108, 8,0.7)';
                     }}
                     onMouseLeave={e => {
                         (e.currentTarget as HTMLElement).style.transform = 'scale(1)';
-                        (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 20px rgba(43,141,113,0.5)';
+                        (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 20px rgba(211, 108, 8,0.5)';
                     }}
                 >
                     <Upload size={isMobile ? 20 : 22} color="white" />

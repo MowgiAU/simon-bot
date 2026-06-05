@@ -34,7 +34,7 @@ export const DownloadPage: React.FC = () => {
         <div style={{ textAlign: 'center', marginBottom: spacing['3xl'] }}>
           <div style={{
             width: 72, height: 72, borderRadius: borderRadius.lg,
-            background: 'rgba(16,185,129,0.1)',
+            background: 'rgba(242, 120, 10,0.1)',
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
             marginBottom: spacing.xl,
           }}>
@@ -111,7 +111,7 @@ export const DownloadPage: React.FC = () => {
         </div>
 
         {/* Install note */}
-        <div style={{ background: `rgba(16,185,129,0.05)`, border: `1px solid rgba(16,185,129,0.15)`, borderRadius: borderRadius.md, padding: spacing.lg, fontSize: 13, color: colors.textSecondary, lineHeight: 1.6 }}>
+        <div style={{ background: `rgba(242, 120, 10,0.05)`, border: `1px solid rgba(242, 120, 10,0.15)`, borderRadius: borderRadius.md, padding: spacing.lg, fontSize: 13, color: colors.textSecondary, lineHeight: 1.6 }}>
           <strong style={{ color: colors.textPrimary }}>First-time install:</strong> Windows may show a SmartScreen warning. Click <em>More info → Run anyway</em> to proceed. The app is safe — we're working on code signing.
         </div>
       </div>

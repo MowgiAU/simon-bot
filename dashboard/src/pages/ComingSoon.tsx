@@ -13,7 +13,7 @@ export const ComingSoonPage: React.FC = () => {
             alignItems: 'center',
             minHeight: '100vh',
             background: colors.background,
-            backgroundImage: 'radial-gradient(circle at 50% 30%, rgba(16, 185, 129, 0.08) 0%, transparent 60%)',
+            backgroundImage: 'radial-gradient(circle at 50% 30%, rgba(242, 120, 10, 0.08) 0%, transparent 60%)',
             padding: '20px',
         }}>
             <div style={{
@@ -30,13 +30,13 @@ export const ComingSoonPage: React.FC = () => {
                 <div style={{
                     width: '96px',
                     height: '96px',
-                    background: 'rgba(16, 185, 129, 0.08)',
+                    background: 'rgba(242, 120, 10, 0.08)',
                     borderRadius: '24px',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     margin: '0 auto 32px',
-                    border: '1px solid rgba(16, 185, 129, 0.15)',
+                    border: '1px solid rgba(242, 120, 10, 0.15)',
                 }}>
                     <img src={logoUrl} alt="Fuji Studio" style={{ width: '60px', height: '60px', filter: 'brightness(0) invert(1)' }} />
                 </div>
@@ -71,8 +71,8 @@ export const ComingSoonPage: React.FC = () => {
                 </p>
 
                 <div style={{
-                    background: 'rgba(16, 185, 129, 0.06)',
-                    border: '1px solid rgba(16, 185, 129, 0.12)',
+                    background: 'rgba(242, 120, 10, 0.06)',
+                    border: '1px solid rgba(242, 120, 10, 0.12)',
                     borderRadius: '12px',
                     padding: '16px 20px',
                     marginBottom: '32px',
@@ -114,7 +114,7 @@ export const ComingSoonPage: React.FC = () => {
                         href="/login"
                         style={{
                             display: 'block',
-                            background: 'linear-gradient(135deg, #10B981, #059669)',
+                            background: 'linear-gradient(135deg, #F2780A, #C96208)',
                             color: 'white',
                             border: 'none',
                             padding: '14px 28px',
@@ -123,7 +123,7 @@ export const ComingSoonPage: React.FC = () => {
                             borderRadius: '12px',
                             cursor: 'pointer',
                             width: '100%',
-                            boxShadow: '0 0 20px rgba(16, 185, 129, 0.2)',
+                            boxShadow: '0 0 20px rgba(242, 120, 10, 0.2)',
                             textDecoration: 'none',
                             boxSizing: 'border-box',
                             textAlign: 'center' as const,

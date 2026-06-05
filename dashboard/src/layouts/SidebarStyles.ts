@@ -158,7 +158,7 @@ export const SidebarStyles = `
   }
 
   .nav-item.active {
-    background: rgba(16, 185, 129, 0.1);
+    background: rgba(242, 120, 10, 0.1);
     color: ${colors.primary};
     font-weight: 600;
   }

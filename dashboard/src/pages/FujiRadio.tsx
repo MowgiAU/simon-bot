@@ -414,9 +414,9 @@ export const FujiRadioPage: React.FC = () => {
             {/* Now Playing Card */}
             <div style={{
               background: liveState?.online
-                ? `linear-gradient(135deg, ${colors.cardBg} 0%, rgba(16,185,129,0.08) 100%)`
+                ? `linear-gradient(135deg, ${colors.cardBg} 0%, rgba(242, 120, 10,0.08) 100%)`
                 : colors.cardBg,
-              border: `1px solid ${liveState?.online ? 'rgba(16,185,129,0.3)' : colors.border}`,
+              border: `1px solid ${liveState?.online ? 'rgba(242, 120, 10,0.3)' : colors.border}`,
               borderRadius: borderRadius.lg,
               padding: spacing.lg,
               position: 'relative',
@@ -425,14 +425,14 @@ export const FujiRadioPage: React.FC = () => {
               {liveState?.online && (
                 <div style={{
                   position: 'absolute', top: 0, left: 0, right: 0, height: 3,
-                  background: `linear-gradient(90deg, ${colors.primary}, #34D399)`,
+                  background: `linear-gradient(90deg, ${colors.primary}, #F5A04A)`,
                 }} />
               )}
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
                 <div style={{
                   width: 10, height: 10, borderRadius: '50%',
-                  background: liveState?.online ? '#10B981' : colors.tertiary,
-                  boxShadow: liveState?.online ? '0 0 8px rgba(16,185,129,0.6)' : 'none',
+                  background: liveState?.online ? '#F2780A' : colors.tertiary,
+                  boxShadow: liveState?.online ? '0 0 8px rgba(242, 120, 10,0.6)' : 'none',
                   animation: liveState?.online ? 'pulse 2s ease-in-out infinite' : 'none',
                 }} />
                 <span style={{ color: liveState?.online ? colors.primary : colors.textTertiary, fontWeight: 600, fontSize: 13, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
@@ -474,7 +474,7 @@ export const FujiRadioPage: React.FC = () => {
                       <div style={{ height: 4, background: 'rgba(255,255,255,0.08)', borderRadius: 2, overflow: 'hidden' }}>
                         <div style={{
                           height: '100%',
-                          background: `linear-gradient(90deg, ${colors.primary}, #34D399)`,
+                          background: `linear-gradient(90deg, ${colors.primary}, #F5A04A)`,
                           borderRadius: 2,
                           width: `${Math.min(100, ((Date.now() - new Date(liveState.nowPlaying.playedAt).getTime()) / 1000) / liveState.nowPlaying.duration * 100)}%`,
                           transition: 'width 1s linear',
@@ -862,7 +862,7 @@ export const FujiRadioPage: React.FC = () => {
                       display: 'flex', alignItems: 'center', gap: 8,
                       padding: '8px 6px', borderRadius: borderRadius.sm,
                       borderBottom: `1px solid ${colors.border}`,
-                      background: dragOverIndex === i ? 'rgba(16,185,129,0.1)' : dragIndex === i ? 'rgba(255,255,255,0.03)' : 'transparent',
+                      background: dragOverIndex === i ? 'rgba(242, 120, 10,0.1)' : dragIndex === i ? 'rgba(255,255,255,0.03)' : 'transparent',
                       opacity: dragIndex === i ? 0.5 : 1,
                       cursor: 'grab',
                       transition: 'background 0.15s ease',

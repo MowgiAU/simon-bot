@@ -150,7 +150,7 @@ export const PrivateMessagesPage: React.FC = () => {
                                 onClick={() => viewMessages(conv)}>
                                 <div style={{ position: 'relative', flexShrink: 0 }}>
                                     {conv.isGroup ? (
-                                        <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'linear-gradient(135deg, #3BA886, #60A5FA)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'linear-gradient(135deg, #D4700A, #60A5FA)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                             <Users size={16} color="white" />
                                         </div>
                                     ) : conv.participants[0] ? (

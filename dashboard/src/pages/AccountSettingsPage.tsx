@@ -386,7 +386,7 @@ export const AccountSettingsPage: React.FC = () => {
 
                 {/* ── HERO HEADER ── */}
                 <div style={{
-                    background: `linear-gradient(135deg, ${colors.surface} 0%, rgba(16,185,129,0.07) 100%)`,
+                    background: `linear-gradient(135deg, ${colors.surface} 0%, rgba(242, 120, 10,0.07) 100%)`,
                     border: '1px solid rgba(255,255,255,0.07)',
                     borderRadius: borderRadius.xl,
                     padding: '28px 32px',
@@ -398,7 +398,7 @@ export const AccountSettingsPage: React.FC = () => {
                     <div style={{
                         position: 'absolute', top: '-60px', right: '-60px',
                         width: '240px', height: '240px', borderRadius: '50%',
-                        background: 'radial-gradient(circle, rgba(16,185,129,0.10) 0%, transparent 70%)',
+                        background: 'radial-gradient(circle, rgba(242, 120, 10,0.10) 0%, transparent 70%)',
                         pointerEvents: 'none',
                     }} />
 
@@ -428,8 +428,8 @@ export const AccountSettingsPage: React.FC = () => {
                             <div style={{
                                 display: 'flex', alignItems: 'center', gap: '5px',
                                 padding: '5px 11px', borderRadius: borderRadius.pill,
-                                background: emailVerified ? 'rgba(16,185,129,0.12)' : 'rgba(245,158,11,0.12)',
-                                border: `1px solid ${emailVerified ? 'rgba(16,185,129,0.3)' : 'rgba(245,158,11,0.3)'}`,
+                                background: emailVerified ? 'rgba(242, 120, 10,0.12)' : 'rgba(245,158,11,0.12)',
+                                border: `1px solid ${emailVerified ? 'rgba(242, 120, 10,0.3)' : 'rgba(245,158,11,0.3)'}`,
                                 fontSize: '12px', fontWeight: 600,
                                 color: emailVerified ? colors.success : colors.warning,
                             }}>
@@ -439,8 +439,8 @@ export const AccountSettingsPage: React.FC = () => {
                             <div style={{
                                 display: 'flex', alignItems: 'center', gap: '5px',
                                 padding: '5px 11px', borderRadius: borderRadius.pill,
-                                background: totpEnabled ? 'rgba(16,185,129,0.12)' : 'rgba(100,116,139,0.12)',
-                                border: `1px solid ${totpEnabled ? 'rgba(16,185,129,0.3)' : 'rgba(100,116,139,0.25)'}`,
+                                background: totpEnabled ? 'rgba(242, 120, 10,0.12)' : 'rgba(100,116,139,0.12)',
+                                border: `1px solid ${totpEnabled ? 'rgba(242, 120, 10,0.3)' : 'rgba(100,116,139,0.25)'}`,
                                 fontSize: '12px', fontWeight: 600,
                                 color: totpEnabled ? colors.success : colors.textTertiary,
                             }}>
@@ -495,7 +495,7 @@ export const AccountSettingsPage: React.FC = () => {
                         {/* ── Username ── */}
                         <div style={card}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
-                                <div style={{ width: '36px', height: '36px', borderRadius: borderRadius.md, background: 'rgba(16,185,129,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <div style={{ width: '36px', height: '36px', borderRadius: borderRadius.md, background: 'rgba(242, 120, 10,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                     <UserIcon size={17} color={colors.primary} />
                                 </div>
                                 <div>
@@ -653,7 +653,7 @@ export const AccountSettingsPage: React.FC = () => {
                         {/* ── 2FA ── */}
                         <div style={card}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
-                                <div style={{ width: '36px', height: '36px', borderRadius: borderRadius.md, background: totpEnabled ? 'rgba(16,185,129,0.12)' : 'rgba(100,116,139,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <div style={{ width: '36px', height: '36px', borderRadius: borderRadius.md, background: totpEnabled ? 'rgba(242, 120, 10,0.12)' : 'rgba(100,116,139,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                     <ScanLine size={17} color={totpEnabled ? colors.success : colors.textTertiary} />
                                 </div>
                                 <div style={{ flex: 1 }}>
@@ -663,7 +663,7 @@ export const AccountSettingsPage: React.FC = () => {
                                     </p>
                                 </div>
                                 {totpEnabled && (
-                                    <div style={{ padding: '4px 10px', background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.3)', borderRadius: borderRadius.pill, fontSize: '11px', fontWeight: 700, color: colors.success }}>
+                                    <div style={{ padding: '4px 10px', background: 'rgba(242, 120, 10,0.12)', border: '1px solid rgba(242, 120, 10,0.3)', borderRadius: borderRadius.pill, fontSize: '11px', fontWeight: 700, color: colors.success }}>
                                         ACTIVE
                                     </div>
                                 )}
@@ -751,7 +751,7 @@ export const AccountSettingsPage: React.FC = () => {
 
                             {twoFAStep === 'idle' && totpEnabled && (
                                 <div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '14px 16px', background: 'rgba(16,185,129,0.07)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: borderRadius.md, marginBottom: '16px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '14px 16px', background: 'rgba(242, 120, 10,0.07)', border: '1px solid rgba(242, 120, 10,0.2)', borderRadius: borderRadius.md, marginBottom: '16px' }}>
                                         <CheckCircle size={22} color={colors.success} style={{ flexShrink: 0 }} />
                                         <div>
                                             <p style={{ margin: 0, fontSize: '14px', fontWeight: 700, color: colors.success }}>2FA is active</p>

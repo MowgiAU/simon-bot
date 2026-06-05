@@ -36,7 +36,7 @@ const CATEGORY_CONFIG: Record<string, { icon: React.ReactNode; label: string; co
     news:         { icon: <Newspaper size={12} />,     label: 'News',         color: '#A78BFA' },
     guide:        { icon: <BookOpen size={12} />,      label: 'Guide',        color: '#FBBF24' },
     announcement: { icon: <Megaphone size={12} />,     label: 'Announcement', color: '#F472B6' },
-    tutorial:     { icon: <GraduationCap size={12} />, label: 'Tutorial',     color: '#34D399' },
+    tutorial:     { icon: <GraduationCap size={12} />, label: 'Tutorial',     color: '#F5A04A' },
 };
 
 const CATEGORIES = [

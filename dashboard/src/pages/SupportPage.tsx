@@ -206,7 +206,7 @@ export const SupportPage: React.FC = () => {
             )}
             {tickets.map(t => (
               <button key={t.id} onClick={() => { setSelected(t); setShowNewForm(false); }}
-                style={{ width: '100%', textAlign: 'left', background: selected?.id === t.id ? 'rgba(16,185,129,0.08)' : 'transparent', border: 'none', borderBottom: `1px solid rgba(255,255,255,0.04)`, padding: `${spacing.md} ${spacing.lg}`, cursor: 'pointer', color: colors.textPrimary }}>
+                style={{ width: '100%', textAlign: 'left', background: selected?.id === t.id ? 'rgba(242, 120, 10,0.08)' : 'transparent', border: 'none', borderBottom: `1px solid rgba(255,255,255,0.04)`, padding: `${spacing.md} ${spacing.lg}`, cursor: 'pointer', color: colors.textPrimary }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
                   <span style={{ fontWeight: 600, fontSize: '0.9rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 180 }}>{t.subject || t.ownerName || 'Ticket'}</span>
                   <span style={{ fontSize: '0.7rem', color: statusColor(t.status), textTransform: 'uppercase', fontWeight: 700, flexShrink: 0, marginLeft: 4 }}>{t.status}</span>
@@ -273,7 +273,7 @@ export const SupportPage: React.FC = () => {
                           {isMe ? ((user as any).global_name || user.username) : (msg.author.bot ? 'Fuji Studio Staff' : msg.author.username)}
                           {' · '}{new Date(msg.timestamp).toLocaleString()}
                         </div>
-                        <div style={{ background: isMe ? 'rgba(255,255,255,0.06)' : msg.author.bot ? 'rgba(16,185,129,0.12)' : colors.surface, padding: `${spacing.sm} ${spacing.md}`, borderRadius: borderRadius.lg, color: colors.textPrimary, fontSize: '0.9rem', lineHeight: 1.5, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                        <div style={{ background: isMe ? 'rgba(255,255,255,0.06)' : msg.author.bot ? 'rgba(242, 120, 10,0.12)' : colors.surface, padding: `${spacing.sm} ${spacing.md}`, borderRadius: borderRadius.lg, color: colors.textPrimary, fontSize: '0.9rem', lineHeight: 1.5, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
                           {msg.content}
                         </div>
                       </div>

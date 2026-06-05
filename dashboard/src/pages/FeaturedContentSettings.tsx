@@ -55,7 +55,7 @@ const TYPE_OPTIONS: { id: ContentType; icon: React.ReactNode; label: string; des
         icon: <FileText size={20} />,
         label: 'Featured Article',
         description: 'Showcase a published community article on the frontpage.',
-        accentColor: '#34D399',
+        accentColor: '#F5A04A',
     },
 ];
 
@@ -293,7 +293,7 @@ export const FeaturedContentSettings: React.FC = () => {
                         {settings.featuredArticle && (
                             <div style={{
                                 display: 'flex', alignItems: 'center', gap: '12px',
-                                padding: '12px', background: '#34D39910', border: '1px solid #34D39930',
+                                padding: '12px', background: '#F5A04A10', border: '1px solid #F5A04A30',
                                 borderRadius: borderRadius.md,
                             }}>
                                 {settings.featuredArticle.coverImageUrl && (

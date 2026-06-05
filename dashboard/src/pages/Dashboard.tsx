@@ -130,8 +130,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ guildId, onNavigate, acces
           {/* Stats Row */}
           <div className="stats-grid">
             <StatCard icon={MessageSquare} iconColor={colors.highlight} iconBg="rgba(245, 158, 11, 0.1)" label="Messages Today" value={formatNumber(stats?.today?.messageCount || 0)} />
-            <StatCard icon={Mic} iconColor={colors.success} iconBg="rgba(16, 185, 129, 0.1)" label="Voice Today" value={`${Math.round((stats?.today?.voiceMinutes || 0) / 60 * 10) / 10}h`} />
-            <StatCard icon={Users} iconColor={colors.primary} iconBg="rgba(16, 185, 129, 0.1)" label="Online Now" value={stats ? formatNumber(stats.activeMembers) : '-'} />
+            <StatCard icon={Mic} iconColor={colors.success} iconBg="rgba(242, 120, 10, 0.1)" label="Voice Today" value={`${Math.round((stats?.today?.voiceMinutes || 0) / 60 * 10) / 10}h`} />
+            <StatCard icon={Users} iconColor={colors.primary} iconBg="rgba(242, 120, 10, 0.1)" label="Online Now" value={stats ? formatNumber(stats.activeMembers) : '-'} />
             <StatCard icon={UserPlus} iconColor={colors.info} iconBg="rgba(59, 130, 246, 0.1)" label="Total Members" value={stats ? formatNumber(stats.totalMembers) : '-'} />
             {stats?.artistCount !== undefined && (
               <StatCard icon={Music} iconColor="#a78bfa" iconBg="rgba(167, 139, 250, 0.1)" label="Artists" value={formatNumber(stats.artistCount)} />
@@ -280,9 +280,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ guildId, onNavigate, acces
                        <button key={tab}
                          onClick={() => setActiveChartTab(tab)}
                          style={{
-                           background: activeChartTab === tab ? 'rgba(16, 185, 129, 0.1)' : 'transparent',
+                           background: activeChartTab === tab ? 'rgba(242, 120, 10, 0.1)' : 'transparent',
                            color: activeChartTab === tab ? colors.primary : colors.textTertiary,
-                           border: activeChartTab === tab ? '1px solid rgba(16, 185, 129, 0.15)' : '1px solid transparent',
+                           border: activeChartTab === tab ? '1px solid rgba(242, 120, 10, 0.15)' : '1px solid transparent',
                            borderRadius: '8px', padding: '5px 12px', cursor: 'pointer', fontSize: '12px', fontWeight: 500, transition: 'all 0.2s',
                            textTransform: 'capitalize'
                          }}
@@ -378,7 +378,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ guildId, onNavigate, acces
                 {(accessiblePlugins.includes('logger') || accessiblePlugins.includes('moderation')) && (
                 <button 
                   onClick={() => onNavigate('logs')}
-                  style={{ width: '100%', marginTop: '16px', background: 'rgba(16, 185, 129, 0.06)', border: '1px solid rgba(16, 185, 129, 0.12)', borderRadius: '10px', padding: '9px', color: colors.primary, fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}
+                  style={{ width: '100%', marginTop: '16px', background: 'rgba(242, 120, 10, 0.06)', border: '1px solid rgba(242, 120, 10, 0.12)', borderRadius: '10px', padding: '9px', color: colors.primary, fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}
                 >
                   View All Logs
                 </button>
@@ -509,8 +509,8 @@ const StatusRow: React.FC<{ label: string; active?: boolean; onClick?: () => voi
   <div className="info-row" style={{ cursor: onClick ? 'pointer' : undefined }} onClick={onClick}>
     <span className="info-label">{label}</span>
     <span style={{
-      color: active ? '#10b981' : '#ef4444',
-      background: active ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+      color: active ? '#F2780A' : '#ef4444',
+      background: active ? 'rgba(242, 120, 10, 0.1)' : 'rgba(239, 68, 68, 0.1)',
       padding: '2px 10px', borderRadius: '9999px', fontSize: '11px', fontWeight: 600
     }}>
       {active ? 'Active' : 'Off'}

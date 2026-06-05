@@ -502,10 +502,10 @@ export const ProfileEditPage: React.FC = () => {
     ];
 
     const gearCategoryColors: Record<string, string> = {
-        'DAW': 'rgba(16,185,129,0.18)', 'VST / Plugin': 'rgba(6,182,212,0.18)',
+        'DAW': 'rgba(242, 120, 10,0.18)', 'VST / Plugin': 'rgba(6,182,212,0.18)',
         'Monitor': 'rgba(99,102,241,0.18)', 'Synth': 'rgba(245,158,11,0.18)',
         'Keyboard / Controller': 'rgba(245,158,11,0.18)', 'Audio Interface': 'rgba(239,68,68,0.18)',
-        'Microphone': 'rgba(16,185,129,0.18)', 'Hardware': 'rgba(99,102,241,0.18)',
+        'Microphone': 'rgba(242, 120, 10,0.18)', 'Hardware': 'rgba(99,102,241,0.18)',
         'Headphones': 'rgba(6,182,212,0.18)', 'Other': 'rgba(100,116,139,0.18)',
     };
 
@@ -519,9 +519,9 @@ export const ProfileEditPage: React.FC = () => {
                 padding: '12px 20px',
                 background: `linear-gradient(135deg, ${colors.surface}, rgba(17,24,39,0.95))`,
                 backdropFilter: 'blur(12px)',
-                border: `1px solid rgba(16,185,129,0.35)`,
+                border: `1px solid rgba(242, 120, 10,0.35)`,
                 borderRadius: borderRadius.pill,
-                boxShadow: `0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(16,185,129,0.15), ${shadows.glow}`,
+                boxShadow: `0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(242, 120, 10,0.15), ${shadows.glow}`,
             }}>
                 <span style={{ fontSize: '13px', color: colors.textSecondary, whiteSpace: 'nowrap' }}>Unsaved changes</span>
                 <button onClick={handleSave} disabled={saving}
@@ -595,9 +595,9 @@ export const ProfileEditPage: React.FC = () => {
                     position: 'fixed', top: '16px', left: '50%', transform: 'translateX(-50%)',
                     zIndex: 9999, width: 'calc(100% - 32px)', maxWidth: '600px',
                     padding: '12px 16px', borderRadius: borderRadius.md,
-                    backgroundColor: message.type === 'success' ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)',
+                    backgroundColor: message.type === 'success' ? 'rgba(242, 120, 10,0.15)' : 'rgba(239,68,68,0.15)',
                     color: message.type === 'success' ? colors.success : colors.error,
-                    border: `1px solid ${message.type === 'success' ? 'rgba(16,185,129,0.4)' : 'rgba(239,68,68,0.4)'}`,
+                    border: `1px solid ${message.type === 'success' ? 'rgba(242, 120, 10,0.4)' : 'rgba(239,68,68,0.4)'}`,
                     boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
                     backdropFilter: 'blur(8px)',
                     fontSize: '13px', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '8px',
@@ -625,14 +625,14 @@ export const ProfileEditPage: React.FC = () => {
                     {/* Avatar + identity preview card */}
                     <div style={{
                         ...card,
-                        background: `linear-gradient(160deg, ${colors.surface} 0%, rgba(16,185,129,0.05) 100%)`,
+                        background: `linear-gradient(160deg, ${colors.surface} 0%, rgba(242, 120, 10,0.05) 100%)`,
                         display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center',
                         overflow: 'hidden', position: 'relative',
                     }}>
                         {/* BG orb */}
                         <div style={{
                             position: 'absolute', top: '-40px', right: '-40px', width: '150px', height: '150px',
-                            borderRadius: '50%', background: 'radial-gradient(circle, rgba(16,185,129,0.08) 0%, transparent 60%)',
+                            borderRadius: '50%', background: 'radial-gradient(circle, rgba(242, 120, 10,0.08) 0%, transparent 60%)',
                             pointerEvents: 'none',
                         }} />
 
@@ -690,8 +690,8 @@ export const ProfileEditPage: React.FC = () => {
                                 {profile.genres.slice(0, 5).map(g => (
                                     <span key={g.id} style={{
                                         fontSize: '11px', padding: '3px 9px', borderRadius: borderRadius.pill,
-                                        backgroundColor: 'rgba(16,185,129,0.12)', color: colors.primary, fontWeight: 600,
-                                        border: '1px solid rgba(16,185,129,0.2)',
+                                        backgroundColor: 'rgba(242, 120, 10,0.12)', color: colors.primary, fontWeight: 600,
+                                        border: '1px solid rgba(242, 120, 10,0.2)',
                                     }}>
                                         {g.name}
                                     </span>
@@ -731,8 +731,8 @@ export const ProfileEditPage: React.FC = () => {
                                 </span>
                                 <button onClick={handleCopyLink} style={{
                                     display: 'flex', alignItems: 'center', gap: '4px', padding: '5px 10px',
-                                    background: copied ? 'rgba(16,185,129,0.15)' : 'rgba(255,255,255,0.05)',
-                                    border: `1px solid ${copied ? 'rgba(16,185,129,0.3)' : 'rgba(255,255,255,0.08)'}`,
+                                    background: copied ? 'rgba(242, 120, 10,0.15)' : 'rgba(255,255,255,0.05)',
+                                    border: `1px solid ${copied ? 'rgba(242, 120, 10,0.3)' : 'rgba(255,255,255,0.08)'}`,
                                     borderRadius: borderRadius.sm, color: copied ? colors.success : colors.textSecondary,
                                     fontSize: '11px', fontWeight: 600, cursor: 'pointer',
                                 }}>
@@ -997,9 +997,9 @@ export const ProfileEditPage: React.FC = () => {
                             {profile?.genres?.map(g => (
                                 <div key={g.id} style={{
                                     display: 'flex', alignItems: 'center', gap: '5px',
-                                    backgroundColor: 'rgba(16,185,129,0.10)', padding: '4px 10px 4px 12px',
+                                    backgroundColor: 'rgba(242, 120, 10,0.10)', padding: '4px 10px 4px 12px',
                                     borderRadius: borderRadius.pill, fontSize: '12px', color: colors.primary, fontWeight: 600,
-                                    border: '1px solid rgba(16,185,129,0.2)',
+                                    border: '1px solid rgba(242, 120, 10,0.2)',
                                 }}>
                                     {g.name}
                                     <button type="button" onClick={() => removeGenre(g.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', opacity: 0.6, padding: '0 0 0 2px', display: 'flex', lineHeight: 1 }}>
@@ -1121,7 +1121,7 @@ export const ProfileEditPage: React.FC = () => {
                                     { label: 'Midnight Blue', accent: '#3B82F6', card: '#0D1B2A', bg: 'linear-gradient(135deg,#0D1B2A,#162B44)' },
                                     { label: 'Deep Purple',   accent: '#8B5CF6', card: '#1E1B4B', bg: 'linear-gradient(135deg,#1E1B4B,#2D2470)' },
                                     { label: 'Ember',         accent: '#F97316', card: '#1C0F0A', bg: 'linear-gradient(135deg,#1C0F0A,#2E1800)' },
-                                    { label: 'Emerald',       accent: '#10B981', card: '#0A1F17', bg: 'linear-gradient(135deg,#0A1F17,#0D2B1E)' },
+                                    { label: 'Emerald',       accent: '#F2780A', card: '#0A1F17', bg: 'linear-gradient(135deg,#0A1F17,#0D2B1E)' },
                                     { label: 'Rose',          accent: '#EC4899', card: '#1F0A15', bg: 'linear-gradient(135deg,#1F0A15,#2D0D1E)' },
                                     { label: 'Gold',          accent: '#F59E0B', card: '#1A1000', bg: 'linear-gradient(135deg,#1A1000,#241800)' },
                                     { label: 'Arctic',        accent: '#06B6D4', card: '#0C1A1F', bg: 'linear-gradient(135deg,#0C1A1F,#0E2230)' },
@@ -1153,7 +1153,7 @@ export const ProfileEditPage: React.FC = () => {
                         <div style={{ marginBottom: '24px' }}>
                             <p style={{ fontSize: '12px', fontWeight: 600, color: colors.textSecondary, marginBottom: '10px' }}>Accent Colour</p>
                             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '12px' }}>
-                                {['#10B981', '#3B82F6', '#8B5CF6', '#F59E0B', '#EF4444', '#EC4899', '#06B6D4', '#F97316', '#84CC16', '#6366F1'].map(preset => (
+                                {['#F2780A', '#3B82F6', '#8B5CF6', '#F59E0B', '#EF4444', '#EC4899', '#06B6D4', '#F97316', '#84CC16', '#6366F1'].map(preset => (
                                     <button
                                         key={preset}
                                         onClick={() => updateProfile(p => ({ ...p, accentColor: preset }))}
@@ -1180,7 +1180,7 @@ export const ProfileEditPage: React.FC = () => {
                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                 <input
                                     type="color"
-                                    value={profile?.accentColor || '#10B981'}
+                                    value={profile?.accentColor || '#F2780A'}
                                     onChange={e => updateProfile(p => ({ ...p, accentColor: e.target.value }))}
                                     style={{ width: '38px', height: '38px', padding: '2px', borderRadius: borderRadius.sm, border: `1px solid ${colors.glassBorder}`, backgroundColor: colors.surface, cursor: 'pointer' }}
                                 />
@@ -1191,7 +1191,7 @@ export const ProfileEditPage: React.FC = () => {
                                         const v = e.target.value;
                                         if (/^#[0-9A-Fa-f]{0,6}$/.test(v)) updateProfile(p => ({ ...p, accentColor: v }));
                                     }}
-                                    placeholder="#10B981"
+                                    placeholder="#F2780A"
                                     maxLength={7}
                                     style={{ flex: 1, padding: '8px 12px', borderRadius: borderRadius.sm, border: `1px solid ${colors.glassBorder}`, background: colors.surface, color: colors.textPrimary, fontFamily: 'monospace', fontSize: '13px', outline: 'none' }}
                                 />
@@ -1233,9 +1233,9 @@ export const ProfileEditPage: React.FC = () => {
 
                         {/* Preview strip */}
                         {(profile?.accentColor || profile?.cardBgColor) && (
-                            <div style={{ padding: '12px 14px', borderRadius: borderRadius.sm, border: `1px solid ${(profile.accentColor || '#10B981')}44`, backgroundColor: profile.cardBgColor || '#242C3D', display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '24px' }}>
-                                <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: profile.accentColor || '#10B981', flexShrink: 0 }} />
-                                <span style={{ fontSize: '12px', color: profile.accentColor || '#10B981', fontWeight: 600 }}>Preview — your card background and accent colour on your profile.</span>
+                            <div style={{ padding: '12px 14px', borderRadius: borderRadius.sm, border: `1px solid ${(profile.accentColor || '#F2780A')}44`, backgroundColor: profile.cardBgColor || '#242C3D', display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '24px' }}>
+                                <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: profile.accentColor || '#F2780A', flexShrink: 0 }} />
+                                <span style={{ fontSize: '12px', color: profile.accentColor || '#F2780A', fontWeight: 600 }}>Preview — your card background and accent colour on your profile.</span>
                             </div>
                         )}
 

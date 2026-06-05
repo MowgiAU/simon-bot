@@ -175,7 +175,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode; userId?: string
                             {toast.avatar ? (
                                 <img src={toast.avatar} style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} alt="" />
                             ) : (
-                                <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'linear-gradient(135deg, #3BA886, #60A5FA)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color: 'white' }}>
+                                <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'linear-gradient(135deg, #D4700A, #60A5FA)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color: 'white' }}>
                                     {toast.senderName.charAt(0).toUpperCase()}
                                 </div>
                             )}

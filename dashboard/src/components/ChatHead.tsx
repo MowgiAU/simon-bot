@@ -8,10 +8,10 @@ import { ReportButton } from './ReportButton';
 const C = {
     bg: '#161925', surface: '#1A1E2E', surfaceDark: 'rgba(22, 25, 37, 0.98)',
     border: 'rgba(255,255,255,0.08)', borderLight: 'rgba(255,255,255,0.12)',
-    primary: '#3BA886', primaryGlow: 'rgba(59,168,134,0.15)',
+    primary: '#D4700A', primaryGlow: 'rgba(59,168,134,0.15)',
     text: '#F8FAFC', textSec: '#8B95A5', textTer: '#5C6370',
     error: '#F87171', accent: '#60A5FA',
-    bubble: 'rgba(255,255,255,0.05)', bubbleMine: '#3BA886',
+    bubble: 'rgba(255,255,255,0.05)', bubbleMine: '#D4700A',
 };
 
 const avatarUrl = (u: UserResult) => {
@@ -151,7 +151,7 @@ export const ChatHead: React.FC<ChatHeadProps> = ({ convId, index, minimized }) 
                 onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,0.5)'; const cl = e.currentTarget.querySelector('.chat-head-close') as HTMLElement; if (cl) cl.style.opacity = '0'; }}
             >
                 {conv?.isGroup ? (
-                    <div style={{ width: '100%', height: '100%', borderRadius: '50%', background: 'linear-gradient(135deg, #3BA886, #60A5FA)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div style={{ width: '100%', height: '100%', borderRadius: '50%', background: 'linear-gradient(135deg, #D4700A, #60A5FA)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         <Users size={20} color="white" />
                     </div>
                 ) : conv?.participants[0] ? (
@@ -205,7 +205,7 @@ export const ChatHead: React.FC<ChatHeadProps> = ({ convId, index, minimized }) 
             <div style={{ padding: '8px 10px', background: 'rgba(255,255,255,0.04)', display: 'flex', alignItems: 'center', gap: '8px', borderBottom: `1px solid ${C.border}`, flexShrink: 0, cursor: 'pointer' }}
                 onClick={() => minimizeChat(convId)}>
                 {conv?.isGroup ? (
-                    <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'linear-gradient(135deg, #3BA886, #60A5FA)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'linear-gradient(135deg, #D4700A, #60A5FA)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                         <Users size={13} color="white" />
                     </div>
                 ) : conv?.participants[0] ? (

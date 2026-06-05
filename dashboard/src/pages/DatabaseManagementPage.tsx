@@ -162,8 +162,8 @@ export const DatabaseManagementPage: React.FC = () => {
             {message && (
                 <div style={{
                     padding: '12px 16px', marginBottom: '20px', borderRadius: borderRadius.md,
-                    backgroundColor: message.type === 'success' ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)',
-                    border: `1px solid ${message.type === 'success' ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)'}`,
+                    backgroundColor: message.type === 'success' ? 'rgba(242, 120, 10,0.1)' : 'rgba(239,68,68,0.1)',
+                    border: `1px solid ${message.type === 'success' ? 'rgba(242, 120, 10,0.3)' : 'rgba(239,68,68,0.3)'}`,
                     color: message.type === 'success' ? colors.primary : '#FCA5A5',
                     fontSize: '13px',
                 }}>
@@ -214,7 +214,7 @@ export const DatabaseManagementPage: React.FC = () => {
                     disabled={retranscoding}
                     style={{
                         display: 'inline-flex', alignItems: 'center', gap: '8px',
-                        padding: '10px 20px', backgroundColor: 'rgba(43,141,113,0.15)',
+                        padding: '10px 20px', backgroundColor: 'rgba(211, 108, 8,0.15)',
                         color: colors.primary, border: `1px solid ${colors.primary}40`,
                         borderRadius: borderRadius.md, cursor: retranscoding ? 'not-allowed' : 'pointer',
                         fontWeight: 600, fontSize: '13px', opacity: retranscoding ? 0.6 : 1,

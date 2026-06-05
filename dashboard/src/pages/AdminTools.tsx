@@ -94,7 +94,7 @@ const MaintenanceTab: React.FC = () => {
                 </button>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: spacing.md, backgroundColor: 'rgba(16,185,129,0.04)', borderRadius: borderRadius.sm, border: '1px solid rgba(16,185,129,0.15)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: spacing.md, backgroundColor: 'rgba(242, 120, 10,0.04)', borderRadius: borderRadius.sm, border: '1px solid rgba(242, 120, 10,0.15)' }}>
                 <div>
                     <div style={{ fontWeight: 600, fontSize: '14px', marginBottom: '2px' }}>Backfill track storage sizes</div>
                     <div style={{ fontSize: '12px', color: colors.textSecondary }}>Populate <code style={{ fontFamily: 'monospace', fontSize: '11px', color: colors.textSecondary }}>audioFileSizeBytes</code> for tracks uploaded before storage tracking was added. Uses R2 HeadObject for CDN tracks, disk stat for local files. Safe to re-run.</div>

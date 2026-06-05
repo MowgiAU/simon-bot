@@ -31,7 +31,7 @@ interface Report {
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ReactNode; bg: string }> = {
     open: { label: 'Open', color: '#f59e0b', icon: <Clock size={14} />, bg: 'rgba(245,158,11,0.1)' },
     reviewing: { label: 'Reviewing', color: '#3b82f6', icon: <Eye size={14} />, bg: 'rgba(59,130,246,0.1)' },
-    resolved: { label: 'Resolved', color: '#10b981', icon: <CheckCircle size={14} />, bg: 'rgba(16,185,129,0.1)' },
+    resolved: { label: 'Resolved', color: '#F2780A', icon: <CheckCircle size={14} />, bg: 'rgba(242, 120, 10,0.1)' },
     dismissed: { label: 'Dismissed', color: '#6b7280', icon: <XCircle size={14} />, bg: 'rgba(107,114,128,0.1)' },
 };
 
@@ -391,7 +391,7 @@ export const ReportsPage: React.FC = () => {
 
                         {/* Resolution info (if resolved) */}
                         {selectedReport.resolvedAt && (
-                            <div style={{ marginBottom: '16px', padding: '10px 12px', backgroundColor: 'rgba(16,185,129,0.05)', border: '1px solid rgba(16,185,129,0.15)', borderRadius: borderRadius.sm }}>
+                            <div style={{ marginBottom: '16px', padding: '10px 12px', backgroundColor: 'rgba(242, 120, 10,0.05)', border: '1px solid rgba(242, 120, 10,0.15)', borderRadius: borderRadius.sm }}>
                                 <div style={{ fontSize: '12px', color: colors.textTertiary, marginBottom: '4px' }}>
                                     Resolved by <strong style={{ color: colors.textSecondary }}>{selectedReport.resolvedByName}</strong> on {formatDate(selectedReport.resolvedAt)}
                                 </div>
@@ -427,7 +427,7 @@ export const ReportsPage: React.FC = () => {
                                         </button>
                                     )}
                                     <button onClick={() => handleStatusChange(selectedReport.id, 'resolved')} disabled={saving}
-                                        style={{ padding: '8px 16px', borderRadius: borderRadius.sm, border: `1px solid rgba(16,185,129,0.4)`, backgroundColor: 'rgba(16,185,129,0.1)', color: '#10b981', cursor: 'pointer', fontWeight: 600, fontSize: '13px', opacity: saving ? 0.5 : 1 }}>
+                                        style={{ padding: '8px 16px', borderRadius: borderRadius.sm, border: `1px solid rgba(242, 120, 10,0.4)`, backgroundColor: 'rgba(242, 120, 10,0.1)', color: '#F2780A', cursor: 'pointer', fontWeight: 600, fontSize: '13px', opacity: saving ? 0.5 : 1 }}>
                                         <CheckCircle size={13} style={{ verticalAlign: '-2px', marginRight: '4px' }} /> Resolve
                                     </button>
                                     <button onClick={() => handleStatusChange(selectedReport.id, 'dismissed')} disabled={saving}

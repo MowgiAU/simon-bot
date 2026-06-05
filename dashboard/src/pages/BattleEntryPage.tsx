@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { colors, spacing, borderRadius } from '../theme/theme';
 import { usePlayer } from '../components/PlayerProvider';
 import { useAuth } from '../components/AuthProvider';
@@ -859,7 +859,7 @@ export const BattleEntryPage: React.FC = () => {
                                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '20px', justifyContent: isMobile ? 'center' : 'flex-start' }}>
                                             {track.genres.map(g => (
                                                 <a key={g.genre.id} href={`/category/${g.genre.slug}`} style={{ backgroundColor: 'rgba(255,255,255,0.06)', color: colors.textSecondary, padding: '4px 12px', borderRadius: '20px', fontSize: '0.8rem', border: '1px solid rgba(255,255,255,0.1)', textDecoration: 'none', cursor: 'pointer', transition: 'background-color 0.15s, color 0.15s, border-color 0.15s' }}
-                                                    onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.backgroundColor = 'rgba(16,185,129,0.12)'; (e.currentTarget as HTMLAnchorElement).style.color = colors.primary; (e.currentTarget as HTMLAnchorElement).style.borderColor = 'rgba(16,185,129,0.3)'; }}
+                                                    onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.backgroundColor = 'rgba(242, 120, 10,0.12)'; (e.currentTarget as HTMLAnchorElement).style.color = colors.primary; (e.currentTarget as HTMLAnchorElement).style.borderColor = 'rgba(242, 120, 10,0.3)'; }}
                                                     onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.backgroundColor = 'rgba(255,255,255,0.06)'; (e.currentTarget as HTMLAnchorElement).style.color = colors.textSecondary; (e.currentTarget as HTMLAnchorElement).style.borderColor = 'rgba(255,255,255,0.1)'; }}
                                                 >
                                                     {g.genre.name}
@@ -1221,7 +1221,7 @@ export const BattleEntryPage: React.FC = () => {
 
                 {/* Edit Message Banner */}
                 {editMsg && !editing && (
-                    <div style={{ position: 'fixed', top: '20px', right: '20px', zIndex: 10000, padding: '12px 20px', borderRadius: borderRadius.md, backgroundColor: editMsg.type === 'success' ? '#059669' : '#DC2626', color: 'white', fontWeight: 600, fontSize: '0.9rem', boxShadow: '0 4px 20px rgba(0,0,0,0.4)' }}>
+                    <div style={{ position: 'fixed', top: '20px', right: '20px', zIndex: 10000, padding: '12px 20px', borderRadius: borderRadius.md, backgroundColor: editMsg.type === 'success' ? '#C96208' : '#DC2626', color: 'white', fontWeight: 600, fontSize: '0.9rem', boxShadow: '0 4px 20px rgba(0,0,0,0.4)' }}>
                         {editMsg.text}
                     </div>
                 )}
@@ -1238,7 +1238,7 @@ export const BattleEntryPage: React.FC = () => {
                                 <button onClick={() => setEditing(false)} style={{ background: 'none', border: 'none', color: colors.textSecondary, cursor: 'pointer', padding: '4px' }}><X size={24} /></button>
                             </div>
                             {editMsg && (
-                                <div style={{ padding: '10px 16px', borderRadius: borderRadius.md, marginBottom: '16px', backgroundColor: editMsg.type === 'success' ? 'rgba(5,150,105,0.15)' : 'rgba(220,38,38,0.15)', color: editMsg.type === 'success' ? '#34D399' : '#F87171', border: `1px solid ${editMsg.type === 'success' ? 'rgba(5,150,105,0.3)' : 'rgba(220,38,38,0.3)'}`, fontSize: '0.9rem' }}>
+                                <div style={{ padding: '10px 16px', borderRadius: borderRadius.md, marginBottom: '16px', backgroundColor: editMsg.type === 'success' ? 'rgba(5,150,105,0.15)' : 'rgba(220,38,38,0.15)', color: editMsg.type === 'success' ? '#F5A04A' : '#F87171', border: `1px solid ${editMsg.type === 'success' ? 'rgba(5,150,105,0.3)' : 'rgba(220,38,38,0.3)'}`, fontSize: '0.9rem' }}>
                                     {editMsg.text}
                                 </div>
                             )}

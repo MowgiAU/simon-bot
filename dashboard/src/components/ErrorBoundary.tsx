@@ -124,7 +124,7 @@ export class ErrorBoundary extends Component<Props, State> {
       color: 'rgba(255,255,255,0.55)', fontSize: '14px', lineHeight: 1.7, margin: '0 0 24px',
     };
     const btnGreen: React.CSSProperties = {
-      padding: '11px 24px', backgroundColor: '#10b981', color: '#fff',
+      padding: '11px 24px', backgroundColor: '#F2780A', color: '#fff',
       border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: 700, fontSize: '14px',
     };
     const btnGhost: React.CSSProperties = {
@@ -163,7 +163,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
           <div style={{ marginBottom: 20 }}>
             {reportStatus === 'sent' ? (
-              <p style={{ color: '#10b981', fontSize: 14, margin: 0 }}>✓ Report sent — thanks for helping us fix this!</p>
+              <p style={{ color: '#F2780A', fontSize: 14, margin: 0 }}>✓ Report sent — thanks for helping us fix this!</p>
             ) : reportStatus === 'failed' ? (
               <p style={{ color: '#f87171', fontSize: 14, margin: 0 }}>Couldn't send the report. You may not be logged in.</p>
             ) : (

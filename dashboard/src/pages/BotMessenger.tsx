@@ -117,7 +117,7 @@ const defaultEmbed: EmbedData = {
     title: '',
     description: '',
     url: '',
-    color: '#10B981',
+    color: '#F2780A',
     fields: [],
     links: [],
     linkCategories: [],
@@ -467,7 +467,7 @@ const MessageFeed: React.FC<{
                             {reactStatus?.id === msg.id && (
                                 <div style={{
                                     position: 'absolute', bottom: '100%', right: 0, marginBottom: '4px',
-                                    background: reactStatus.ok ? 'rgba(16,185,129,0.9)' : 'rgba(239,68,68,0.9)',
+                                    background: reactStatus.ok ? 'rgba(242, 120, 10,0.9)' : 'rgba(239,68,68,0.9)',
                                     color: '#fff', fontSize: '11px', padding: '3px 8px', borderRadius: '4px',
                                     whiteSpace: 'nowrap', pointerEvents: 'none',
                                 }}>
@@ -742,8 +742,8 @@ const EmbedBuilder: React.FC<{
                 <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm }}>
                     <input type="color" value={embed.color} onChange={e => update({ color: e.target.value })}
                         style={{ width: 40, height: 36, border: 'none', cursor: 'pointer', background: 'none' }} />
-                    <input style={{ ...inputStyle, width: '120px' }} value={embed.color} onChange={e => update({ color: e.target.value })} placeholder="#10B981" />
-                    {['#10B981', '#3B82F6', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'].map(c => (
+                    <input style={{ ...inputStyle, width: '120px' }} value={embed.color} onChange={e => update({ color: e.target.value })} placeholder="#F2780A" />
+                    {['#F2780A', '#3B82F6', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'].map(c => (
                         <button key={c} onClick={() => update({ color: c })}
                             style={{ width: 24, height: 24, borderRadius: '50%', background: c, border: embed.color === c ? '2px solid #fff' : '2px solid transparent', cursor: 'pointer', flexShrink: 0 }} />
                     ))}
@@ -1074,8 +1074,8 @@ function ReactionRolesTab({ guildId }: { guildId: string }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.md }}>
             {msg && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: borderRadius.sm,
-                    backgroundColor: msg.type === 'success' ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)',
-                    border: `1px solid ${msg.type === 'success' ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)'}`,
+                    backgroundColor: msg.type === 'success' ? 'rgba(242, 120, 10,0.1)' : 'rgba(239,68,68,0.1)',
+                    border: `1px solid ${msg.type === 'success' ? 'rgba(242, 120, 10,0.3)' : 'rgba(239,68,68,0.3)'}`,
                     color: msg.type === 'success' ? colors.success : colors.error, fontSize: '13px', fontWeight: 600 }}>
                     <AlertCircle size={14} /> {msg.text}
                 </div>
@@ -1450,7 +1450,7 @@ export function BotMessengerPage() {
                         </div>
 
                         {status && (
-                            <div style={{ padding: '8px 12px', borderRadius: borderRadius.sm, fontSize: '13px', background: status.type === 'success' ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)', color: status.type === 'success' ? colors.success : colors.error }}>
+                            <div style={{ padding: '8px 12px', borderRadius: borderRadius.sm, fontSize: '13px', background: status.type === 'success' ? 'rgba(242, 120, 10,0.15)' : 'rgba(239,68,68,0.15)', color: status.type === 'success' ? colors.success : colors.error }}>
                                 {status.text}
                             </div>
                         )}
@@ -1510,7 +1510,7 @@ export function BotMessengerPage() {
                         </div>
 
                         {embedStatus && (
-                            <div style={{ padding: '8px 12px', borderRadius: borderRadius.sm, fontSize: '13px', marginTop: spacing.sm, background: embedStatus.type === 'success' ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)', color: embedStatus.type === 'success' ? colors.success : colors.error }}>
+                            <div style={{ padding: '8px 12px', borderRadius: borderRadius.sm, fontSize: '13px', marginTop: spacing.sm, background: embedStatus.type === 'success' ? 'rgba(242, 120, 10,0.15)' : 'rgba(239,68,68,0.15)', color: embedStatus.type === 'success' ? colors.success : colors.error }}>
                                 {embedStatus.text}
                             </div>
                         )}
@@ -1573,7 +1573,7 @@ export function BotMessengerPage() {
                                     </button>
                                 </div>
                                 {forumStatus && (
-                                    <div style={{ padding: '8px 12px', borderRadius: borderRadius.sm, fontSize: '13px', background: forumStatus.type === 'success' ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)', color: forumStatus.type === 'success' ? colors.success : colors.error }}>
+                                    <div style={{ padding: '8px 12px', borderRadius: borderRadius.sm, fontSize: '13px', background: forumStatus.type === 'success' ? 'rgba(242, 120, 10,0.15)' : 'rgba(239,68,68,0.15)', color: forumStatus.type === 'success' ? colors.success : colors.error }}>
                                         {forumStatus.text}
                                     </div>
                                 )}
@@ -1645,7 +1645,7 @@ export function BotMessengerPage() {
                                     </button>
                                 </div>
                                 {replyStatus && (
-                                    <div style={{ padding: '8px 12px', borderRadius: borderRadius.sm, fontSize: '13px', background: replyStatus.type === 'success' ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)', color: replyStatus.type === 'success' ? colors.success : colors.error }}>
+                                    <div style={{ padding: '8px 12px', borderRadius: borderRadius.sm, fontSize: '13px', background: replyStatus.type === 'success' ? 'rgba(242, 120, 10,0.15)' : 'rgba(239,68,68,0.15)', color: replyStatus.type === 'success' ? colors.success : colors.error }}>
                                         {replyStatus.text}
                                     </div>
                                 )}

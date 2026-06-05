@@ -61,7 +61,7 @@ export interface ArrangementData {
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 export const TRACK_COLORS = [
-    '#7C3AED', '#2563EB', '#059669', '#D97706',
+    '#7C3AED', '#2563EB', '#C96208', '#D97706',
     '#DC2626', '#7C3AED', '#0891B2', '#65A30D',
 ];
 

@@ -170,7 +170,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             alignItems: 'center', 
             justifyContent: 'center',
             flexShrink: 0,
-            boxShadow: '0 0 16px rgba(16, 185, 129, 0.2)'
+            boxShadow: '0 0 16px rgba(242, 120, 10, 0.2)'
           }}>
             <img src={logoUrl} alt="Fuji Studio" style={{ width: 22, height: 22, filter: 'brightness(0) invert(1)' }} />
           </div>

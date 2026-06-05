@@ -179,7 +179,7 @@ export const ProjectListPage: React.FC = () => {
                   <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flex: 1 }}>
                     <div style={{
                       width: '44px', height: '44px', borderRadius: borderRadius.md,
-                      background: 'rgba(16,185,129,0.1)', display: 'flex',
+                      background: 'rgba(242, 120, 10,0.1)', display: 'flex',
                       alignItems: 'center', justifyContent: 'center', flexShrink: 0,
                     }}>
                       <Music size={22} color={colors.primary} />

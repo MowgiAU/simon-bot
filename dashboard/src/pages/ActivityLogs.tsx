@@ -23,7 +23,7 @@ interface LogsResponse {
 }
 
 const ACTION_COLORS: Record<string, string> = {
-    'auth.login':         '#10b981',
+    'auth.login':         '#F2780A',
     'track.upload':       '#3b82f6',
     'track.edit':         '#6366f1',
     'track.delete':       '#ef4444',

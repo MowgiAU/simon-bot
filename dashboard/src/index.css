@@ -84,14 +84,14 @@ body {
    A11Y: Global focus-visible ring
    ============================================================ */
 :focus-visible {
-  outline: 2px solid #10B981 !important;
+  outline: 2px solid #F2780A !important;
   outline-offset: 2px;
 }
 
 /* Range inputs need a box-shadow ring because outline leaves gaps */
 input[type="range"]:focus-visible {
   outline: none !important;
-  box-shadow: 0 0 0 2px #10B981;
+  box-shadow: 0 0 0 2px #F2780A;
   border-radius: 4px;
 }
 
@@ -157,7 +157,7 @@ input[type="range"]:focus-visible {
 
 .logo-icon {
   font-size: 28px;
-  color: #10B981;
+  color: #F2780A;
   font-weight: 600;
 }
 
@@ -213,8 +213,8 @@ input[type="range"]:focus-visible {
 }
 
 .nav-item.active {
-  background-color: rgba(16, 185, 129, 0.1);
-  color: #10B981;
+  background-color: rgba(242, 120, 10, 0.1);
+  color: #F2780A;
 }
 
 .nav-icon {
@@ -253,11 +253,11 @@ input[type="range"]:focus-visible {
 .battle-description-prose ul,
 .battle-description-prose ol { margin: 0 0 1em 1.4em; }
 .battle-description-prose li { margin-bottom: 0.3em; }
-.battle-description-prose a  { color: #10B981; text-decoration: underline; }
+.battle-description-prose a  { color: #F2780A; text-decoration: underline; }
 .battle-description-prose a:hover { opacity: 0.8; }
 .battle-description-prose strong { color: #F8FAFC; }
 .battle-description-prose blockquote {
-  border-left: 3px solid rgba(16,185,129,0.4);
+  border-left: 3px solid rgba(242, 120, 10,0.4);
   padding: 6px 0 6px 16px;
   margin: 0 0 1em;
   color: #8B95A5;

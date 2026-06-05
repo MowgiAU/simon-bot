@@ -173,7 +173,7 @@ export const ChannelSelect: React.FC<ChannelSelectProps> = ({
         padding: '6px 10px',
         cursor: 'pointer',
         borderRadius: '4px',
-        backgroundColor: selected ? 'rgba(16,185,129,0.15)' : hovered ? 'rgba(255,255,255,0.04)' : 'transparent',
+        backgroundColor: selected ? 'rgba(242, 120, 10,0.15)' : hovered ? 'rgba(255,255,255,0.04)' : 'transparent',
         color: selected ? colors.primary : colors.textPrimary,
         fontSize: '13px',
         gap: '6px',
