@@ -3254,3 +3254,19 @@ model WhisperLog {
   @@index([guildId, createdAt(sort: Desc)])
   @@map("whisper_logs")
 }
+
+// ── Muzzle Plugin ─────────────────────────────────────────────────────────────
+
+model MuzzleSettings {
+  id                    String   @id @default(cuid())
+  guildId               String   @unique
+  enabled               Boolean  @default(true)
+  messageLimit          Int      @default(5)   // messages in window before muzzle
+  windowSeconds         Int      @default(5)   // sliding window in seconds
+  muzzleDurationMinutes Int      @default(10)  // how long to muzzle
+  muzzleRoleId          String?               // role to assign
+  logChannelId          String?               // optional log channel
+  updatedAt             DateTime @updatedAt
+
+  @@map("muzzle_settings")
+}

@@ -44,6 +44,7 @@ import { ServerBoostPlugin } from './plugins/ServerBoostPlugin';
 import { PausePlugin } from './plugins/PausePlugin';
 import { VoiceStatChannelsPlugin } from './plugins/VoiceStatChannelsPlugin';
 import { SpamGuardPlugin } from './plugins/SpamGuardPlugin';
+import { MuzzlePlugin } from './plugins/MuzzlePlugin';
 import { TrackAnnouncerPlugin } from './plugins/TrackAnnouncerPlugin';
 import { HeadToHeadAnnouncerPlugin } from './plugins/HeadToHeadAnnouncerPlugin';
 import { BeatMarketPlugin } from './plugins/BeatMarketPlugin';
@@ -161,6 +162,7 @@ export class SimonBot {
       this.pluginManager.register(new PausePlugin());
       this.pluginManager.register(new VoiceStatChannelsPlugin());
       this.pluginManager.register(new SpamGuardPlugin());
+      this.pluginManager.register(new MuzzlePlugin());
       this.pluginManager.register(new TrackAnnouncerPlugin());
       this.pluginManager.register(new HeadToHeadAnnouncerPlugin());
       this.pluginManager.register(new BeatMarketPlugin());

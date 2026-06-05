@@ -52,6 +52,7 @@ import {
   HardDrive,
   Layers,
   Dices,
+  VolumeX,
 } from 'lucide-react';
 import { AnimatedWrapper } from '../components/AnimatedWrapper';
 import logoUrl from '../assets/logo.svg'; 
@@ -223,6 +224,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
             <button className={`nav-item ${activeSection === 'anti-piracy' ? 'active' : ''}`} onClick={() => onNavigate('anti-piracy')} title={collapsed ? "Anti-Piracy" : ""}>
               <span className="nav-icon"><AnimatedWrapper icon={ShieldOff} size={20} /></span>
               <span className="nav-label">Anti-Piracy</span>
+            </button>
+          )}
+          {permissions.accessiblePlugins.includes('muzzle') && (
+            <button className={`nav-item ${activeSection === 'muzzle' ? 'active' : ''}`} onClick={() => onNavigate('muzzle')} title={collapsed ? "Muzzle" : ""}>
+              <span className="nav-icon"><AnimatedWrapper icon={VolumeX} size={20} /></span>
+              <span className="nav-label">Muzzle</span>
             </button>
           )}
           {permissions.accessiblePlugins.includes('pause') && (

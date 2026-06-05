@@ -4221,7 +4221,7 @@ app.get('/api/guilds/:guildId/my-permissions', async (req, res) => {
         if (isAdmin) {
             return res.json({ 
                 canManagePlugins: true, 
-                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content', 'account-management', 'anti-piracy', 'leveling', 'fuji-radio', 'studio-guide', 'bot-identity', 'bot-messenger', 'booster-color', 'private-messages', 'auto-messages', 'auto-responder', 'server-boost', 'reports', 'articles', 'article-review', 'pause', 'voice-stats', 'spam-guard', 'track-announcer', 'profile-styles', 'academy', 'head-to-head', 'drum-kit', 'bug-reports', 'plugin-registry', 'activity-logs', 'duplicate-profiles', 'projects', 'vote-fraud', 'beat-market', 'slots']
+                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content', 'account-management', 'anti-piracy', 'leveling', 'fuji-radio', 'studio-guide', 'bot-identity', 'bot-messenger', 'booster-color', 'private-messages', 'auto-messages', 'auto-responder', 'server-boost', 'reports', 'articles', 'article-review', 'pause', 'voice-stats', 'spam-guard', 'muzzle', 'track-announcer', 'profile-styles', 'academy', 'head-to-head', 'drum-kit', 'bug-reports', 'plugin-registry', 'activity-logs', 'duplicate-profiles', 'projects', 'vote-fraud', 'beat-market', 'slots']
             });
         }
 
@@ -20790,6 +20790,37 @@ app.get('/api/articles/featured/current', async (req: any, res) => {
     } catch (e: any) {
         logger.error('GET /api/articles/featured/current error', e);
         res.status(500).json({ error: 'Failed to fetch featured article' });
+    }
+});
+
+// --- Muzzle Plugin Routes -----------------------------------------------------
+
+app.get('/api/muzzle/settings/:guildId', async (req: any, res) => {
+    try {
+        const { guildId } = req.params;
+        if (!await checkPluginAccess(guildId, req, 'muzzle')) return res.status(403).json({ error: 'Forbidden' });
+        const settings = await db.muzzleSettings.findUnique({ where: { guildId } });
+        res.json(settings ?? { enabled: false, messageLimit: 5, windowSeconds: 5, muzzleDurationMinutes: 10, muzzleRoleId: null, logChannelId: null });
+    } catch (err) {
+        logger.error('Failed to get muzzle settings', err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+app.put('/api/muzzle/settings/:guildId', async (req: any, res) => {
+    try {
+        const { guildId } = req.params;
+        if (!await checkPluginAccess(guildId, req, 'muzzle')) return res.status(403).json({ error: 'Forbidden' });
+        const { enabled, messageLimit, windowSeconds, muzzleDurationMinutes, muzzleRoleId, logChannelId } = req.body;
+        const settings = await db.muzzleSettings.upsert({
+            where: { guildId },
+            update: { enabled, messageLimit: parseInt(messageLimit), windowSeconds: parseInt(windowSeconds), muzzleDurationMinutes: parseInt(muzzleDurationMinutes), muzzleRoleId: muzzleRoleId || null, logChannelId: logChannelId || null },
+            create: { guildId, enabled, messageLimit: parseInt(messageLimit), windowSeconds: parseInt(windowSeconds), muzzleDurationMinutes: parseInt(muzzleDurationMinutes), muzzleRoleId: muzzleRoleId || null, logChannelId: logChannelId || null },
+        });
+        res.json(settings);
+    } catch (err) {
+        logger.error('Failed to save muzzle settings', err);
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
