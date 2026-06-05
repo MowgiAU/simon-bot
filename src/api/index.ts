@@ -22089,6 +22089,37 @@ app.post('/api/guilds/:guildId/beat-market/seasons/:seasonId/settle', async (req
 // ─── Project Sync Routes ────────────────────────────────────────────────
 registerProjectRoutes(app, db, requireAuth, requireAdmin);
 
+// ─── Push Notification Device Token Routes ──────────────────────────────
+
+/** Register or refresh a device push token for the authenticated user */
+app.post('/api/push/register', requireAuth, async (req: any, res) => {
+    const userId = req.session?.userId;
+    const { token, platform = 'android' } = req.body;
+    if (!token || typeof token !== 'string') return res.status(400).json({ error: 'token required' });
+    try {
+        await db.deviceToken.upsert({
+            where: { token },
+            create: { userId, token, platform },
+            update: { userId, updatedAt: new Date() },
+        });
+        res.json({ ok: true });
+    } catch (e) {
+        res.status(500).json({ error: 'Failed to register token' });
+    }
+});
+
+/** Unregister a device push token (called on logout) */
+app.delete('/api/push/unregister', requireAuth, async (req: any, res) => {
+    const { token } = req.body;
+    if (!token || typeof token !== 'string') return res.status(400).json({ error: 'token required' });
+    try {
+        await db.deviceToken.deleteMany({ where: { token } });
+        res.json({ ok: true });
+    } catch {
+        res.status(500).json({ error: 'Failed to unregister token' });
+    }
+});
+
 const server = app.listen(PORT, async () => {
   logger.info(`API server running on port ${PORT}`);
   // keepAliveTimeout must exceed nginx's proxy_read_timeout (default 60s).

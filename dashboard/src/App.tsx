@@ -1,4 +1,4 @@
-import React, { useState, useEffect, Suspense, lazy } from "react";
+import React, { useState, useEffect, useRef, Suspense, lazy } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./components/AuthProvider";
 import { ResourceProvider } from "./components/ResourceProvider";
@@ -8,6 +8,7 @@ import { ToastContainer } from "./components/Toast";
 import { ChatProvider, useChat } from "./components/ChatProvider";
 import { ChatHead } from "./components/ChatHead";
 import './lib/errorCapture'; // initialise global error listener as side-effect
+import { registerPushNotifications, unregisterPushNotifications } from './services/PushNotificationService';
 import { Sidebar } from "./layouts/Sidebar";
 import { colors } from "./theme/theme";
 import { Info, ArrowRight, ShieldAlert } from "lucide-react";
@@ -1087,7 +1088,20 @@ const ChatHeadContainer: React.FC = () => {
 
 /** Wrapper that reads userId from AuthProvider and passes to ChatProvider */
 const ChatWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user } = useAuth();
+  const { user, logout: authLogout } = useAuth();
+  const navigate = useNavigate();
+  const pushRegistered = useRef(false);
+
+  useEffect(() => {
+    if (user && !pushRegistered.current) {
+      pushRegistered.current = true;
+      registerPushNotifications((path) => navigate(path));
+    }
+    if (!user) {
+      pushRegistered.current = false;
+    }
+  }, [user]);
+
   return (
     <ChatProvider userId={user?.id}>
       {children}
