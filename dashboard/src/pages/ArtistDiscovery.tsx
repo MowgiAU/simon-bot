@@ -445,7 +445,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
                     })()}
 
                     {/* Featured Track/Artist/Playlist — compact card (span 1) */}
-                    <div style={{ ...panel, height: isMobile ? 'auto' : '400px', minHeight: isMobile ? '220px' : undefined, position: 'relative', overflow: 'hidden', padding: 0 }}>
+                    <div style={{ ...panel, height: isMobile ? 'auto' : undefined, minHeight: isMobile ? '220px' : '400px', position: 'relative', overflow: 'hidden', padding: 0 }}>
                         {heroCover && <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${heroCover})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />}
                         <div style={{ position: 'absolute', inset: 0, background: heroCover
                             ? 'linear-gradient(to bottom, rgba(10,13,24,0.3) 0%, rgba(10,13,24,0.5) 35%, rgba(10,13,24,0.96) 100%)'
