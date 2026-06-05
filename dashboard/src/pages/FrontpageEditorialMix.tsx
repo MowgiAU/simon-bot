@@ -200,11 +200,6 @@ export const FrontpageEditorialMix: React.FC = () => {
 
                 {/* ══ 3. EDITORIAL GRID — alt_b structure, current frontpage data ══ */}
                 <section style={{ maxWidth: 1280, margin: '0 auto', padding: isMobile ? '28px 16px' : '40px 24px' }}>
-                    {/* Serif editorial heading */}
-                    <h2 style={{ fontSize: isMobile ? 26 : 36, fontWeight: 800, color: '#fff', margin: '0 0 24px', lineHeight: 1.2 }}>
-                        Community <span style={{ fontStyle: 'italic', color: 'rgba(255,255,255,0.5)' }}>Highlights</span> &amp; News
-                    </h2>
-
                     <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '240px 1fr 240px', gap: 20 }}>
 
                         {/* ── Left: Trending Tracks (current frontpage data) ── */}
@@ -268,13 +263,40 @@ export const FrontpageEditorialMix: React.FC = () => {
 
                                 {/* Article / News highlight */}
                                 <div style={{ background: '#161b22', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 14, padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
-                                    <p style={{ fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.3)', letterSpacing: '0.15em', textTransform: 'uppercase', margin: 0 }}>News Highlights</p>
-                                    <div style={{ borderRadius: 10, overflow: 'hidden', aspectRatio: '16/9', background: 'rgba(255,255,255,0.04)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
-                                        {article?.thumbnailUrl && <img src={article.thumbnailUrl} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: 0.6 }} />}
-                                        <Newspaper size={28} color="rgba(255,255,255,0.2)" style={{ position: 'relative' }} />
-                                    </div>
-                                    <p style={{ fontSize: 13, fontWeight: 700, color: '#fff', margin: 0, lineHeight: 1.4 }}>{article?.title || 'Latest from Fuji Studio'}</p>
-                                    {article?.viewCount !== undefined && <p style={{ fontSize: 11, color: ACCENT, fontWeight: 700, margin: 0 }}>{article.viewCount} views</p>}
+                                    <p style={{ fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.3)', letterSpacing: '0.15em', textTransform: 'uppercase', margin: 0 }}>
+                                        {article ? 'Featured Article' : 'Trending Now'}
+                                    </p>
+                                    {article ? (
+                                        <>
+                                            <div style={{ borderRadius: 10, overflow: 'hidden', paddingBottom: '56.25%', height: 0, background: '#0b0e11', position: 'relative' }}>
+                                                {article.thumbnailUrl
+                                                    ? <img src={article.thumbnailUrl} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                    : <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: `linear-gradient(135deg, ${ACCENT}15, rgba(139,92,246,0.15))` }}><Newspaper size={32} color={ACCENT} style={{ opacity: 0.5 }} /></div>
+                                                }
+                                            </div>
+                                            <p style={{ fontSize: 13, fontWeight: 700, color: '#fff', margin: 0, lineHeight: 1.4 }}>{article.title}</p>
+                                            {article.viewCount !== undefined && <p style={{ fontSize: 11, color: ACCENT, fontWeight: 700, margin: 0 }}>{article.viewCount.toLocaleString()} views</p>}
+                                        </>
+                                    ) : (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1 }}>
+                                            {weeklyChart.slice(0, 4).map((entry: any, i: number) => {
+                                                const t = entry.track ?? entry;
+                                                const playing = isPlaying(t);
+                                                return (
+                                                    <div key={t.id ?? i} onClick={() => play(t)} style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
+                                                        <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.25)', width: 16, textAlign: 'center', flexShrink: 0 }}>{i + 1}</span>
+                                                        <div style={{ width: 38, height: 38, borderRadius: 6, overflow: 'hidden', flexShrink: 0, background: 'rgba(255,255,255,0.06)' }}>
+                                                            {coverSrc(t.coverUrl) && <img src={coverSrc(t.coverUrl)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+                                                        </div>
+                                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                                            <p style={{ fontSize: 12, fontWeight: 600, color: playing ? ACCENT : '#fff', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</p>
+                                                            <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', margin: '1px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.profile?.displayName || t.profile?.username || ''}</p>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -319,10 +341,8 @@ export const FrontpageEditorialMix: React.FC = () => {
                                 const change = entry.positionChange;
                                 return (
                                     <div key={track.id ?? i} onClick={() => play(track)} style={{ cursor: 'pointer', position: 'relative' }}>
-                                        <div style={{ position: 'relative', borderRadius: 12, overflow: 'hidden', aspectRatio: '1', marginBottom: 7 }}>
-                                            <div style={{ width: '100%', height: '100%', background: '#1a1d28' }}>
-                                                {coverSrc(track.coverUrl) && <img src={coverSrc(track.coverUrl)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />}
-                                            </div>
+                                        <div style={{ position: 'relative', borderRadius: 12, overflow: 'hidden', paddingBottom: '100%', height: 0, marginBottom: 7, background: '#1a1d28' }}>
+                                            {coverSrc(track.coverUrl) && <img src={coverSrc(track.coverUrl)} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />}
                                             <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.8) 0%, transparent 55%)' }} />
                                             {/* Large number */}
                                             <span style={{ position: 'absolute', bottom: 2, right: 6, fontSize: 56, fontWeight: 900, lineHeight: 1, color: 'transparent', WebkitTextStroke: `2px ${glowColor}`, textShadow: `0 0 16px ${glowColor}66` }}>
