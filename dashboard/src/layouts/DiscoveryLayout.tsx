@@ -499,7 +499,7 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                         { key: 'artists', label: 'Artists', icon: <Mic2 size={20} />, path: '/artists' },
                         { key: 'charts', label: 'Charts', icon: <BarChart3 size={20} />, path: '/charts' },
                         { key: 'feed', label: 'Feed', icon: <Rss size={20} />, path: '/feed' },
-                        { key: 'profile', label: user ? 'Profile' : 'Log In', icon: user ? <User size={20} /> : <LogIn size={20} />, path: user ? `/profile/${user.profileUsername || user.username}` : null, action: !user ? login : undefined },
+                        { key: 'profile', label: user ? 'Profile' : 'Log In', icon: user ? <User size={20} /> : <LogIn size={20} />, path: user ? `/profile/${user.profileUsername || user.username}` : '/login' },
                     ].map(item => {
                         const isActive = item.path === '/' ? pathname === '/' : item.path ? pathname.startsWith(item.path) : false;
                         const itemStyle: React.CSSProperties = {
