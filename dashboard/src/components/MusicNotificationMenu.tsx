@@ -107,7 +107,7 @@ export const MusicNotificationMenu: React.FC = () => {
                     width: '340px', maxHeight: '420px', overflowY: 'auto',
                     backgroundColor: '#1A1E2E', border: '1px solid rgba(255,255,255,0.1)',
                     borderRadius: '12px', boxShadow: '0 15px 40px rgba(0,0,0,0.5)',
-                    zIndex: 1000, padding: '8px',
+                    zIndex: 1003, padding: '8px',
                 }}>
                     <div style={{ padding: '8px 12px', fontSize: '11px', fontWeight: 'bold', color: '#B9C3CE', textTransform: 'uppercase', letterSpacing: '0.1em', borderBottom: '1px solid rgba(255,255,255,0.06)', marginBottom: '4px' }}>
                         Notifications
