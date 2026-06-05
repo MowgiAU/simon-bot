@@ -1095,7 +1095,31 @@ const requireVerified: RequestHandler = (req: any, res, next) => {
     }
     next();
 };
+// Hardcoded super-admins — IDs in SUPER_ADMIN_USER_IDS bypass all guild checks.
+// Supports Discord user IDs, local DB user IDs, or email addresses (any match).
+const SUPER_ADMIN_IDS: Set<string> = new Set(
+    (process.env.SUPER_ADMIN_USER_IDS || '')
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean)
+);
+
+const isSuperAdmin = (req: any): boolean => {
+    if (SUPER_ADMIN_IDS.size === 0) return false;
+    const u = req.session?.user;
+    if (!u) return false;
+    return (
+        (u.id        && SUPER_ADMIN_IDS.has(String(u.id)))        ||
+        (u._localId  && SUPER_ADMIN_IDS.has(String(u._localId))) ||
+        (u.email     && SUPER_ADMIN_IDS.has(String(u.email)))     ||
+        (u.discordId && SUPER_ADMIN_IDS.has(String(u.discordId)))
+    );
+};
+
 const requireAdmin: RequestHandler = (req, res, next) => {
+    // Hardcoded super-admins always get through
+    if (isSuperAdmin(req)) return next();
+
     // Allow release scripts / CI to authenticate via ADMIN_API_KEY Bearer token
     const adminKey = process.env.ADMIN_API_KEY;
     if (adminKey) {
@@ -2750,6 +2774,9 @@ const hasDashboardAccess = (guildId: string, req: any) => {
 
 // Helper: Check if True Admin (Owner or Administrator perm)
 const isTrueAdmin = (guildId: string, req: any) => {
+    // Hardcoded super-admins are always true admins in every guild
+    if (isSuperAdmin(req)) return true;
+
     // Check mutualAdminGuilds (populated by both Discord OAuth and bot-token email login)
     const mutualAdminGuilds = req.session.mutualAdminGuilds || [];
     if (mutualAdminGuilds.some((g: any) => g.id === guildId)) return true;
