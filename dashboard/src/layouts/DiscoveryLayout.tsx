@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, ReactNode } from 'react';
+﻿import React, { useState, useEffect, useRef, ReactNode } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { colors } from '../theme/theme';
 import { Search, Music, Zap, User, LogIn, LogOut, Menu, Home, Mic2, ChevronDown, ExternalLink, Edit3, Upload, Swords, Heart, ListMusic, X, Rss, BarChart3, Settings, MessageCircle, Sparkles, Newspaper, FolderOpen, AlertTriangle } from 'lucide-react';
@@ -35,12 +35,18 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
     const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+    const [discoverMenuOpen, setDiscoverMenuOpen] = useState(false);
+    const [competeMenuOpen, setCompeteMenuOpen] = useState(false);
     const [isPieMenuOpen, setIsPieMenuOpen] = useState(false);
     const [hasActiveBattle, setHasActiveBattle] = useState(false);
+    const [scrolled, setScrolled] = useState(false);
     const [setupBannerDismissed, setSetupBannerDismissed] = useState(
         () => sessionStorage.getItem('fuji_setup_banner_dismissed') === '1'
     );
     const accountMenuTimeout = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+    const discoverMenuTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const competeMenuTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const mainRef = useRef<HTMLElement>(null);
 
     const openAccountMenu = () => {
         if (accountMenuTimeout.current) clearTimeout(accountMenuTimeout.current);
@@ -49,6 +55,10 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
     const closeAccountMenu = () => {
         accountMenuTimeout.current = setTimeout(() => setAccountMenuOpen(false), 150);
     };
+    const openDiscoverMenu = () => { if (discoverMenuTimeout.current) clearTimeout(discoverMenuTimeout.current); setDiscoverMenuOpen(true); };
+    const closeDiscoverMenu = () => { discoverMenuTimeout.current = setTimeout(() => setDiscoverMenuOpen(false), 150); };
+    const openCompeteMenu = () => { if (competeMenuTimeout.current) clearTimeout(competeMenuTimeout.current); setCompeteMenuOpen(true); };
+    const closeCompeteMenu = () => { competeMenuTimeout.current = setTimeout(() => setCompeteMenuOpen(false), 150); };
     const navigate = useNavigate();
     const { pathname } = useLocation();
     const { user, permissions, dashboardGuilds, logout, login, emailVerified, email } = useAuth();
@@ -74,13 +84,16 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
             .catch(() => {});
     }, []);
 
+    useEffect(() => {
+        const el = mainRef.current;
+        if (!el) return;
+        const onScroll = () => setScrolled(el.scrollTop > 10);
+        el.addEventListener('scroll', onScroll, { passive: true });
+        return () => el.removeEventListener('scroll', onScroll);
+    }, []);
+
     const navItems = [
         { key: 'artists', label: 'ARTISTS', icon: <User size={14} />, path: '/artists' },
-        { key: 'charts', label: 'CHARTS', icon: <BarChart3 size={14} />, path: '/charts' },
-        { key: 'new', label: 'NEW', icon: <Sparkles size={14} />, path: '/new' },
-        { key: 'battles', label: 'BATTLES', icon: <Swords size={14} />, path: '/battles' },
-        { key: 'h2h', label: '1V1', icon: <Swords size={14} />, path: '/arena' },
-        { key: 'feed', label: 'FEED', icon: <Rss size={14} />, path: '/feed' },
         { key: 'articles', label: 'NEWS', icon: <Newspaper size={14} />, path: '/articles' },
     ];
 
@@ -109,8 +122,13 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
             </a>
             {/* Header */}
             <header style={{
-                backgroundColor: '#1A1E2E', borderBottom: '1px solid rgba(255,255,255,0.05)',
-                display: 'flex', flexDirection: 'column', zIndex: 100, flexShrink: 0,
+                position: 'fixed', top: 0, left: 0, right: 0,
+                backgroundColor: scrolled ? 'rgba(26,30,46,0.75)' : 'rgba(26,30,46,0.92)',
+                backdropFilter: 'blur(16px)',
+                WebkitBackdropFilter: 'blur(16px)',
+                borderBottom: `1px solid ${scrolled ? 'rgba(255,255,255,0.07)' : 'rgba(255,255,255,0.05)'}`,
+                display: 'flex', flexDirection: 'column', zIndex: 100,
+                transition: 'background-color 0.3s ease, border-color 0.3s ease',
             }}>
                 {/* Main row */}
                 <div style={{
@@ -138,30 +156,57 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                     </div>
                     {/* Center: nav (desktop only, absolutely centered) */}
                     {!isMobile && (
-                        <nav style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', display: 'flex', backgroundColor: 'rgba(0,0,0,0.2)', padding: '4px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)', zIndex: 1 }}>
+                        <nav style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', display: 'flex', backgroundColor: 'rgba(0,0,0,0.2)', padding: '4px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)', zIndex: 10 }}>
+                            {/* Static nav items */}
                             {navItems.map(item => {
-                                const isBattleHighlight = item.key === 'battles' && hasActiveBattle && activeTab !== 'battles';
                                 const navStyle: React.CSSProperties = {
                                     padding: '6px 16px', borderRadius: '4px',
-                                    backgroundColor: activeTab === item.key ? `${colors.primary}33` : isBattleHighlight ? 'rgba(245,158,11,0.12)' : 'transparent',
-                                    color: activeTab === item.key ? colors.primary : isBattleHighlight ? '#F59E0B' : '#B9C3CE',
+                                    backgroundColor: activeTab === item.key ? `${colors.primary}33` : 'transparent',
+                                    color: activeTab === item.key ? colors.primary : '#B9C3CE',
                                     fontSize: '10px', fontWeight: 'bold',
                                     display: 'flex', alignItems: 'center', gap: '8px',
-                                    position: 'relative' as const,
-                                    opacity: item.comingSoon ? 0.6 : 1,
+                                    textDecoration: 'none', cursor: 'pointer',
                                 };
-                                if (item.comingSoon || !item.path) {
-                                    return <span key={item.key} title="Coming Soon" style={{ ...navStyle, textDecoration: 'line-through', cursor: 'not-allowed' }}>{item.icon} {item.label}</span>;
-                                }
                                 return (
-                                    <Link key={item.key} to={item.path} style={{ ...navStyle, textDecoration: 'none', cursor: 'pointer' }}>
+                                    <Link key={item.key} to={item.path} style={navStyle}>
                                         {item.icon} {item.label}
-                                        {isBattleHighlight && (
-                                            <span className="new-drops-pulse" style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#F59E0B', flexShrink: 0 }} />
-                                        )}
                                     </Link>
                                 );
                             })}
+
+                            {/* DISCOVER submenu (Charts + New) */}
+                            <div style={{ position: 'relative' }} onMouseEnter={openDiscoverMenu} onMouseLeave={closeDiscoverMenu}>
+                                <button style={{ padding: '6px 16px', borderRadius: '4px', background: (activeTab === 'charts' || activeTab === 'new') ? `${colors.primary}33` : 'transparent', color: (activeTab === 'charts' || activeTab === 'new') ? colors.primary : '#B9C3CE', fontSize: '10px', fontWeight: 'bold', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <Sparkles size={14} /> DISCOVER <ChevronDown size={10} style={{ opacity: 0.6 }} />
+                                </button>
+                                {discoverMenuOpen && (
+                                    <div style={{ position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)', marginTop: '4px', backgroundColor: 'rgba(20,24,38,0.95)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', padding: '6px', minWidth: '140px', zIndex: 1000, boxShadow: '0 12px 30px rgba(0,0,0,0.5)', display: 'flex', flexDirection: 'column', gap: '2px' }}
+                                        onMouseEnter={openDiscoverMenu} onMouseLeave={closeDiscoverMenu}>
+                                        <Link to="/charts" onClick={closeDiscoverMenu} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: '6px', color: activeTab === 'charts' ? colors.primary : '#B9C3CE', fontSize: '11px', fontWeight: 600, textDecoration: 'none', backgroundColor: activeTab === 'charts' ? `${colors.primary}22` : 'transparent' }} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.07)'; e.currentTarget.style.color = 'white'; }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = activeTab === 'charts' ? `${colors.primary}22` : 'transparent'; e.currentTarget.style.color = activeTab === 'charts' ? colors.primary : '#B9C3CE'; }}><BarChart3 size={13} /> Charts</Link>
+                                        <Link to="/new" onClick={closeDiscoverMenu} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: '6px', color: activeTab === 'new' ? colors.primary : '#B9C3CE', fontSize: '11px', fontWeight: 600, textDecoration: 'none', backgroundColor: activeTab === 'new' ? `${colors.primary}22` : 'transparent' }} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.07)'; e.currentTarget.style.color = 'white'; }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = activeTab === 'new' ? `${colors.primary}22` : 'transparent'; e.currentTarget.style.color = activeTab === 'new' ? colors.primary : '#B9C3CE'; }}><Sparkles size={13} /> New Drops</Link>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* COMPETE submenu (Battles + 1v1) */}
+                            <div style={{ position: 'relative' }} onMouseEnter={openCompeteMenu} onMouseLeave={closeCompeteMenu}>
+                                <button style={{ padding: '6px 16px', borderRadius: '4px', background: (activeTab === 'battles' || activeTab === 'h2h') ? `${colors.primary}33` : hasActiveBattle ? 'rgba(245,158,11,0.12)' : 'transparent', color: (activeTab === 'battles' || activeTab === 'h2h') ? colors.primary : hasActiveBattle ? '#F59E0B' : '#B9C3CE', fontSize: '10px', fontWeight: 'bold', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', position: 'relative' as const }}>
+                                    <Swords size={14} /> COMPETE <ChevronDown size={10} style={{ opacity: 0.6 }} />
+                                    {hasActiveBattle && activeTab !== 'battles' && activeTab !== 'h2h' && (
+                                        <span className="new-drops-pulse" style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#F59E0B', flexShrink: 0 }} />
+                                    )}
+                                </button>
+                                {competeMenuOpen && (
+                                    <div style={{ position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)', marginTop: '4px', backgroundColor: 'rgba(20,24,38,0.95)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', padding: '6px', minWidth: '140px', zIndex: 1000, boxShadow: '0 12px 30px rgba(0,0,0,0.5)', display: 'flex', flexDirection: 'column', gap: '2px' }}
+                                        onMouseEnter={openCompeteMenu} onMouseLeave={closeCompeteMenu}>
+                                        <Link to="/battles" onClick={closeCompeteMenu} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: '6px', color: activeTab === 'battles' ? colors.primary : '#B9C3CE', fontSize: '11px', fontWeight: 600, textDecoration: 'none', backgroundColor: activeTab === 'battles' ? `${colors.primary}22` : 'transparent' }} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.07)'; e.currentTarget.style.color = 'white'; }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = activeTab === 'battles' ? `${colors.primary}22` : 'transparent'; e.currentTarget.style.color = activeTab === 'battles' ? colors.primary : '#B9C3CE'; }}>
+                                            <Swords size={13} /> Beat Battles
+                                            {hasActiveBattle && <span className="new-drops-pulse" style={{ marginLeft: 'auto', width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#F59E0B' }} />}
+                                        </Link>
+                                        <Link to="/arena" onClick={closeCompeteMenu} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', borderRadius: '6px', color: activeTab === 'h2h' ? colors.primary : '#B9C3CE', fontSize: '11px', fontWeight: 600, textDecoration: 'none', backgroundColor: activeTab === 'h2h' ? `${colors.primary}22` : 'transparent' }} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.07)'; e.currentTarget.style.color = 'white'; }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = activeTab === 'h2h' ? `${colors.primary}22` : 'transparent'; e.currentTarget.style.color = activeTab === 'h2h' ? colors.primary : '#B9C3CE'; }}><Swords size={13} /> 1v1 Arena</Link>
+                                    </div>
+                                )}
+                            </div>
                         </nav>
                     )}
                     {/* Right-side actions */}
@@ -292,6 +337,9 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                 {/* end main row */}
             </header>
 
+            {/* Spacer so fixed header doesn't overlap content */}
+            <div style={{ height: '56px', flexShrink: 0 }} />
+
             <div style={{ flex: 1, display: 'flex', overflow: 'hidden', position: 'relative' }}>
                 {/* Optional Sidebar (Desktop and Mobile Overlay) */}
                 {showSidebar && (
@@ -327,7 +375,8 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                 <main
                     id="main-content"
                     tabIndex={-1}
-                    style={{ 
+                    ref={mainRef}
+                    style={{
                         flex: 1,
                         overflowY: 'auto',
                         backgroundColor: '#161925',
@@ -439,7 +488,8 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
             {isMobile && (
                 <nav style={{
                     position: 'fixed', bottom: 0, left: 0, right: 0,
-                    height: '60px', backgroundColor: '#1A1E2E',
+                    height: '60px', backgroundColor: 'rgba(26,30,46,0.82)',
+                    backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',
                     borderTop: '1px solid rgba(255,255,255,0.08)',
                     display: 'flex', alignItems: 'center', justifyContent: 'space-around',
                     zIndex: 200, paddingBottom: 'env(safe-area-inset-bottom)'

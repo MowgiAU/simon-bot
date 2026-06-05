@@ -92,10 +92,15 @@ interface FeaturedData {
         sponsor: { id: string; name: string; logoUrl: string | null } | null;
         prizes: { place: string; title?: string; description: string }[] | null;
         winner?: {
-            id: string; trackTitle: string; username: string; userId: string;
+            id: string; place: number; trackTitle: string; username: string; userId: string;
             audioUrl: string; coverUrl: string | null;
             trackSlug: string | null; trackId: string | null; points: number;
         } | null;
+        podium?: {
+            id: string; place: number; trackTitle: string; username: string; userId: string;
+            audioUrl: string; coverUrl: string | null;
+            trackSlug: string | null; trackId: string | null; points: number;
+        }[] | null;
     } | null;
     featuredBattleDescription?: string | null;
     globalSponsors?: { id: string; name: string; logoUrl: string | null; websiteUrl: string | null; links: { id: string; url: string; label: string }[] }[];
@@ -371,25 +376,35 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                             ))}
                                         </div>
                                     )}
-                                    {votingOver && battle.winner && (
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: 'rgba(255,215,0,0.08)', border: '1px solid rgba(255,215,0,0.25)', borderRadius: '10px', padding: '10px 14px' }}>
-                                            <Crown size={14} color="#FFD700" style={{ flexShrink: 0 }} />
-                                            {battle.winner.coverUrl && (
-                                                <img src={battle.winner.coverUrl} alt="" style={{ width: '36px', height: '36px', borderRadius: '6px', objectFit: 'cover', flexShrink: 0, border: '1px solid rgba(255,215,0,0.3)' }} />
-                                            )}
-                                            <div style={{ flex: 1, minWidth: 0 }}>
-                                                <div style={{ fontSize: '13px', fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{battle.winner.trackTitle}</div>
-                                                <div style={{ fontSize: '11px', color: '#FFD700', fontWeight: 600 }}>@{battle.winner.username}</div>
-                                                {battle.prizes?.[0] && <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.45)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>🏆 {battle.prizes[0].title || battle.prizes[0].description}</div>}
+                                    {votingOver && (battle.podium ?? (battle.winner ? [battle.winner] : [])).length > 0 && (() => {
+                                        const podium = battle.podium ?? (battle.winner ? [battle.winner] : []);
+                                        const placeColors = ['#FFD700', '#C0C0C0', '#CD7F32'];
+                                        const placeLabels = ['1st', '2nd', '3rd'];
+                                        const placePrize = [battle.prizes?.[0], battle.prizes?.[1], battle.prizes?.[2]];
+                                        return (
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                                {podium.map((entry, i) => (
+                                                    <div key={entry.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', background: i === 0 ? 'rgba(255,215,0,0.08)' : 'rgba(255,255,255,0.04)', border: `1px solid ${i === 0 ? 'rgba(255,215,0,0.25)' : 'rgba(255,255,255,0.08)'}`, borderRadius: '8px', padding: '8px 12px' }}>
+                                                        <span style={{ fontSize: '10px', fontWeight: 700, color: placeColors[i], minWidth: '22px', textAlign: 'center' as const }}>{placeLabels[i]}</span>
+                                                        {entry.coverUrl && (
+                                                            <img src={entry.coverUrl} alt="" style={{ width: '32px', height: '32px', borderRadius: '5px', objectFit: 'cover', flexShrink: 0, border: `1px solid ${placeColors[i]}44` }} />
+                                                        )}
+                                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                                            <div style={{ fontSize: '12px', fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.trackTitle}</div>
+                                                            <div style={{ fontSize: '11px', color: placeColors[i], fontWeight: 600 }}>@{entry.username}</div>
+                                                            {placePrize[i] && <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{placePrize[i]!.title || placePrize[i]!.description}</div>}
+                                                        </div>
+                                                        <button
+                                                            onClick={() => setTrack({ id: entry.id, title: entry.trackTitle, artist: entry.username, username: entry.username, url: entry.audioUrl, cover: entry.coverUrl })}
+                                                            style={{ width: '28px', height: '28px', borderRadius: '50%', backgroundColor: placeColors[i], border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, boxShadow: `0 2px 8px ${placeColors[i]}55` }}
+                                                        >
+                                                            <Play size={11} fill="#1a1a1a" color="#1a1a1a" />
+                                                        </button>
+                                                    </div>
+                                                ))}
                                             </div>
-                                            <button
-                                                onClick={() => setTrack({ id: battle.winner!.id, title: battle.winner!.trackTitle, artist: battle.winner!.username, username: battle.winner!.username, url: battle.winner!.audioUrl, cover: battle.winner!.coverUrl })}
-                                                style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: '#FFD700', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, boxShadow: '0 2px 10px rgba(255,215,0,0.5)' }}
-                                            >
-                                                <Play size={13} fill="#1a1a1a" color="#1a1a1a" />
-                                            </button>
-                                        </div>
-                                    )}
+                                        );
+                                    })()}
                                 </div>
                             ) : (
                                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>

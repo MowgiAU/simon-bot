@@ -9929,32 +9929,42 @@ app.get('/api/discovery/settings', publicCache(120), async (req, res) => {
                         const pts = t.rank === 1 ? 3 : t.rank === 2 ? 2 : 1;
                         points.set(t.entryId, (points.get(t.entryId) ?? 0) + pts * t._count._all);
                     }
-                    // Determine winner entry ID
-                    const winnerEntryId = featuredBattle.winnerEntryId ||
-                        [...points.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+                    // Rank all entries by points, top 3
+                    const sorted = [...points.entries()].sort((a, b) => b[1] - a[1]);
+                    const top3Ids = sorted.slice(0, 3).map(([id]) => id);
+                    // Override #1 with admin-set winner if present
+                    const winnerEntryId = featuredBattle.winnerEntryId || top3Ids[0] || null;
                     if (winnerEntryId) {
-                        const winnerEntry = await db.battleEntry.findUnique({
-                            where: { id: winnerEntryId },
+                        // Ensure winner is at index 0 in our fetch list
+                        const fetchIds = [winnerEntryId, ...top3Ids.filter(id => id !== winnerEntryId)].slice(0, 3);
+                        const entries = await db.battleEntry.findMany({
+                            where: { id: { in: fetchIds } },
                             include: {
                                 track: {
                                     select: { id: true, title: true, slug: true, url: true, coverUrl: true,
                                         profile: { select: { username: true, displayName: true, userId: true } } },
                                 },
                             },
-                        }) as any;
-                        if (winnerEntry) {
-                            featuredBattle.winner = {
-                                id: winnerEntry.id,
-                                trackTitle: winnerEntry.track?.title ?? 'Unknown',
-                                username: winnerEntry.track?.profile?.displayName || winnerEntry.track?.profile?.username || 'Producer',
-                                userId: winnerEntry.track?.profile?.userId ?? winnerEntry.userId,
-                                audioUrl: winnerEntry.track?.url ?? '',
-                                coverUrl: winnerEntry.track?.coverUrl ?? null,
-                                trackSlug: winnerEntry.track?.slug ?? null,
-                                trackId: winnerEntry.track?.id ?? null,
-                                points: points.get(winnerEntryId) ?? 0,
+                        }) as any[];
+                        const entryMap = new Map(entries.map((e: any) => [e.id, e]));
+                        const toEntry = (id: string, place: number) => {
+                            const e = entryMap.get(id);
+                            if (!e) return null;
+                            return {
+                                id: e.id, place,
+                                trackTitle: e.track?.title ?? 'Unknown',
+                                username: e.track?.profile?.displayName || e.track?.profile?.username || 'Producer',
+                                userId: e.track?.profile?.userId ?? e.userId,
+                                audioUrl: e.track?.url ?? '',
+                                coverUrl: e.track?.coverUrl ?? null,
+                                trackSlug: e.track?.slug ?? null,
+                                trackId: e.track?.id ?? null,
+                                points: points.get(id) ?? 0,
                             };
-                        }
+                        };
+                        const podium = fetchIds.map((id, i) => toEntry(id, i + 1)).filter(Boolean);
+                        featuredBattle.winner = podium[0] ?? null;
+                        featuredBattle.podium = podium;
                     }
                 }
                 result.featuredBattle = featuredBattle;
