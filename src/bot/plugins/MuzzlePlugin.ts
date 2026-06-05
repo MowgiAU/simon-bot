@@ -138,6 +138,24 @@ export class MuzzlePlugin implements IPlugin {
         }, durationMs);
         this.activeMuzzles.set(muzzleKey, handle);
 
+        // Log to dashboard audit log
+        if (this.context) {
+            this.context.logAction({
+                guildId:    member.guild.id,
+                actionType: 'MUZZLE_APPLIED',
+                executorId: member.client.user?.id,
+                targetId:   member.id,
+                details: {
+                    username:         member.user.tag,
+                    durationMinutes:  settings.muzzleDurationMinutes,
+                    channelId:        triggerChannel.id,
+                    channelName:      triggerChannel.name,
+                    messageLimit:     settings.messageLimit,
+                    windowSeconds:    settings.windowSeconds,
+                },
+            }).catch(() => {});
+        }
+
         // Log to channel if configured
         if (settings.logChannelId) {
             try {

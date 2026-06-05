@@ -134,6 +134,8 @@ const ACTION_CATEGORY_MAP: Record<string, { label: string; color: string; catego
   // Feedback
   FEEDBACK_REWARD_GIVEN:      { label: 'Feedback',     color: '#34D399', categoryId: 'FEEDBACK' },
   FEEDBACK_DENIED:            { label: 'Feedback',     color: '#F87171', categoryId: 'FEEDBACK' },
+  // Muzzle
+  MUZZLE_APPLIED:             { label: 'Moderation',   color: '#F59E0B', categoryId: 'MOD' },
 };
 
 const getCategoryBadge = (action: string): { label: string; color: string; categoryId: string } => {
@@ -1033,6 +1035,26 @@ export const Logs: React.FC<LogsProps> = ({ guildId, searchParam }) => {
                                             {d.recipientId  && <span>Recipient: <span style={{ color: colors.textPrimary }}>{d.recipientUsername ?? d.recipientId}</span></span>}
                                             {d.amount       && <span>Amount: <span style={{ color: '#FBBF24', fontWeight: 600 }}>{d.amount} 🪙</span></span>}
                                             {d.threadName   && <span>Thread: <span style={{ color: colors.textPrimary }}>{d.threadName}</span></span>}
+                                        </div>
+                                    </div>
+                                );
+                            }
+
+                            // Muzzle
+                            if (log.action === 'MUZZLE_APPLIED') {
+                                const d = log.details || {};
+                                return (
+                                    <div style={{ fontSize: '13px' }}>
+                                        <div style={{ fontWeight: 600, color: '#F59E0B', marginBottom: 6 }}>
+                                            🔇 User Muzzled
+                                        </div>
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 16px', color: colors.textSecondary }}>
+                                            {d.username        && <span>User: <span style={{ color: colors.textPrimary, fontWeight: 600 }}>{d.username}</span></span>}
+                                            {d.durationMinutes && <span>Duration: <span style={{ color: '#FBBF24', fontWeight: 600 }}>{d.durationMinutes}m</span></span>}
+                                            {d.channelName     && <span>Channel: <span style={{ color: colors.textPrimary }}>#{d.channelName}</span></span>}
+                                            {d.messageLimit && d.windowSeconds && (
+                                                <span style={{ color: colors.textTertiary }}>Sent {d.messageLimit}+ messages in {d.windowSeconds}s</span>
+                                            )}
                                         </div>
                                     </div>
                                 );
