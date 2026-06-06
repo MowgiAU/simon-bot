@@ -69,9 +69,10 @@ model User {
   storageQuotaBytes BigInt  @default(1073741824) // 1 GB free tier
   storageTier       String  @default("free")     // "free" | "pro" | "unlimited"
 
-  projects       Project[]
-  desktopTokens  DesktopToken[]
-  deviceTokens   DeviceToken[]
+  projects                 Project[]
+  desktopTokens            DesktopToken[]
+  deviceTokens             DeviceToken[]
+  notificationPreferences  NotificationPreferences?
 
   @@map("users")
 }
@@ -87,6 +88,39 @@ model DeviceToken {
 
   @@index([userId])
   @@map("device_tokens")
+}
+
+model NotificationPreferences {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Social interactions
+  comments         Boolean @default(true)
+  replies          Boolean @default(true)
+  likes            Boolean @default(true)
+  reposts          Boolean @default(true)
+  follows          Boolean @default(true)
+  messages         Boolean @default(true)
+
+  // Feed
+  followedUploads  Boolean @default(true)
+  newTracksGlobal  Boolean @default(false)
+
+  // Battles
+  battleResults    Boolean @default(true)
+  h2hUpdates       Boolean @default(true)
+
+  // News by category
+  newsNews         Boolean @default(true)
+  newsGuide        Boolean @default(true)
+  newsAnnouncement Boolean @default(true)
+  newsTutorial     Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("notification_preferences")
 }
 
 // Guild configuration

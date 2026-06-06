@@ -1,11 +1,28 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { UserCog, Mail, Lock, CheckCircle, XCircle, Send, Eye, EyeOff, Shield, Smartphone, Link2, Unlink, Copy, AlertTriangle, User as UserIcon, AtSign, KeyRound, ScanLine } from 'lucide-react';
+import { UserCog, Mail, Lock, CheckCircle, XCircle, Send, Eye, EyeOff, Shield, Smartphone, Link2, Unlink, Copy, AlertTriangle, User as UserIcon, AtSign, KeyRound, ScanLine, Bell, MessageCircle, Heart, Repeat2, UserPlus, Music, Globe, Swords, Newspaper, BookOpen, Megaphone, GraduationCap } from 'lucide-react';
 import { colors, spacing, borderRadius, shadows } from '../theme/theme';
 import { useAuth } from '../components/AuthProvider';
 import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
 
-type Tab = 'account' | 'security' | 'connections';
+type Tab = 'account' | 'security' | 'connections' | 'notifications';
+
+interface NotifPrefs {
+    comments: boolean;
+    replies: boolean;
+    likes: boolean;
+    reposts: boolean;
+    follows: boolean;
+    messages: boolean;
+    followedUploads: boolean;
+    newTracksGlobal: boolean;
+    battleResults: boolean;
+    h2hUpdates: boolean;
+    newsNews: boolean;
+    newsGuide: boolean;
+    newsAnnouncement: boolean;
+    newsTutorial: boolean;
+}
 
 // â”€â”€â”€ Shared element styles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const inp: React.CSSProperties = {
@@ -95,6 +112,19 @@ export const AccountSettingsPage: React.FC = () => {
     const [confirmEmailMsg, setConfirmEmailMsg] = useState('');
     const [confirmEmailError, setConfirmEmailError] = useState('');
 
+    // Notification preferences state
+    const defaultPrefs: NotifPrefs = {
+        comments: true, replies: true, likes: true, reposts: true, follows: true, messages: true,
+        followedUploads: true, newTracksGlobal: false,
+        battleResults: true, h2hUpdates: true,
+        newsNews: true, newsGuide: true, newsAnnouncement: true, newsTutorial: true,
+    };
+    const [notifPrefs, setNotifPrefs] = useState<NotifPrefs>(defaultPrefs);
+    const [notifLoading, setNotifLoading] = useState(false);
+    const [notifSaving, setNotifSaving] = useState(false);
+    const [notifSaved, setNotifSaved] = useState(false);
+    const [notifError, setNotifError] = useState('');
+
     // Discord linking state
     const [discordLinked, setDiscordLinked] = useState(false);
     const [discordId, setDiscordId] = useState<string | null>(null);
@@ -103,6 +133,19 @@ export const AccountSettingsPage: React.FC = () => {
     const [linkMsg, setLinkMsg] = useState('');
     const [linkError, setLinkError] = useState('');
     const [backupCodesRemaining, setBackupCodesRemaining] = useState(0);
+
+    // Load notification preferences
+    useEffect(() => {
+        if (!user) return;
+        setNotifLoading(true);
+        fetch('/api/user/notification-preferences', { credentials: 'include' })
+            .then(r => r.json())
+            .then(data => {
+                if (data && !data.error) setNotifPrefs(p => ({ ...p, ...data }));
+            })
+            .catch(() => {})
+            .finally(() => setNotifLoading(false));
+    }, [user]);
 
     // Load account details
     useEffect(() => {
@@ -160,6 +203,25 @@ export const AccountSettingsPage: React.FC = () => {
         else if (emailChanged === 'expired') { setConfirmEmailError('This email change link has expired. Please request a new email change.'); }
         else if (emailChanged === 'conflict') { setConfirmEmailError('That email address is already in use by another account.'); }
     }, []);
+
+    const handleSaveNotifPrefs = async () => {
+        setNotifError(''); setNotifSaved(false); setNotifSaving(true);
+        try {
+            const res = await fetch('/api/user/notification-preferences', {
+                method: 'PUT', credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(notifPrefs),
+            });
+            const data = await res.json();
+            if (!res.ok) { setNotifError(data.error || 'Failed to save'); return; }
+            setNotifPrefs(p => ({ ...p, ...data }));
+            setNotifSaved(true);
+            setTimeout(() => setNotifSaved(false), 3000);
+        } catch { setNotifError('Request failed'); }
+        finally { setNotifSaving(false); }
+    };
+
+    const togglePref = (key: keyof NotifPrefs) => setNotifPrefs(p => ({ ...p, [key]: !p[key] }));
 
     const handleChangeUsername = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -340,6 +402,7 @@ export const AccountSettingsPage: React.FC = () => {
         { id: 'account' as Tab, label: 'Account', icon: <UserIcon size={16} />, dot: !emailVerified ? 'warn' : null },
         { id: 'security' as Tab, label: 'Security', icon: <Shield size={16} />, dot: !totpEnabled ? null : 'ok' },
         { id: 'connections' as Tab, label: 'Connections', icon: <Link2 size={16} />, dot: discordLinked ? 'ok' : null },
+        { id: 'notifications' as Tab, label: 'Notifications', icon: <Bell size={16} />, dot: null },
     ];
 
     const tabBtn = (t: typeof tabs[0]): React.CSSProperties => ({
@@ -836,7 +899,105 @@ export const AccountSettingsPage: React.FC = () => {
                     </div>
                 )}
 
+                {/* ═══════════════════ NOTIFICATIONS TAB ═══════════════════ */}
+                {activeTab === 'notifications' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+
+                        {/* Explainer */}
+                        <div style={{ backgroundColor: colors.surface, padding: spacing.md, borderRadius: borderRadius.md, borderLeft: `4px solid ${colors.primary}` }}>
+                            <p style={{ margin: 0, color: colors.textSecondary, fontSize: '13px', lineHeight: 1.6 }}>
+                                Control which push notifications you receive on the Fuji Studio Android app. Changes save immediately when you click Save.
+                            </p>
+                        </div>
+
+                        {notifLoading ? (
+                            <div style={{ textAlign: 'center', padding: '40px', color: colors.textTertiary }}>Loading preferences…</div>
+                        ) : (
+                            <>
+                                {/* ── Social ── */}
+                                <NotifGroup title="Social" icon={<Heart size={16} color={colors.primary} />}>
+                                    <NotifRow icon={<MessageCircle size={15} />} label="Comments" desc="When someone comments on your track or profile" value={notifPrefs.comments} onToggle={() => togglePref('comments')} />
+                                    <NotifRow icon={<MessageCircle size={15} />} label="Replies" desc="When someone replies to your comment" value={notifPrefs.replies} onToggle={() => togglePref('replies')} />
+                                    <NotifRow icon={<Heart size={15} />} label="Likes" desc="When someone likes your track" value={notifPrefs.likes} onToggle={() => togglePref('likes')} />
+                                    <NotifRow icon={<Repeat2 size={15} />} label="Reposts" desc="When someone reposts your track" value={notifPrefs.reposts} onToggle={() => togglePref('reposts')} />
+                                    <NotifRow icon={<UserPlus size={15} />} label="New followers" desc="When someone follows you" value={notifPrefs.follows} onToggle={() => togglePref('follows')} />
+                                    <NotifRow icon={<MessageCircle size={15} />} label="Direct messages" desc="When you receive a new message" value={notifPrefs.messages} onToggle={() => togglePref('messages')} />
+                                </NotifGroup>
+
+                                {/* ── Feed ── */}
+                                <NotifGroup title="Feed" icon={<Music size={16} color={colors.accent} />}>
+                                    <NotifRow icon={<Music size={15} />} label="Uploads from followed artists" desc="When an artist you follow uploads a new track" value={notifPrefs.followedUploads} onToggle={() => togglePref('followedUploads')} />
+                                    <NotifRow icon={<Globe size={15} />} label="All new tracks" desc="Every public track upload (high volume)" value={notifPrefs.newTracksGlobal} onToggle={() => togglePref('newTracksGlobal')} />
+                                </NotifGroup>
+
+                                {/* ── Battles ── */}
+                                <NotifGroup title="Battles" icon={<Swords size={16} color={colors.highlight} />}>
+                                    <NotifRow icon={<Swords size={15} />} label="Beat Battle results" desc="Announcements and winner reveals for Beat Battles you entered" value={notifPrefs.battleResults} onToggle={() => togglePref('battleResults')} />
+                                    <NotifRow icon={<Swords size={15} />} label="1v1 updates" desc="Match found, ready check, and 1v1 results" value={notifPrefs.h2hUpdates} onToggle={() => togglePref('h2hUpdates')} />
+                                </NotifGroup>
+
+                                {/* ── News ── */}
+                                <NotifGroup title="News & Articles" icon={<Newspaper size={16} color="#7289DA" />}>
+                                    <NotifRow icon={<Newspaper size={15} />} label="News" desc="General news posts" value={notifPrefs.newsNews} onToggle={() => togglePref('newsNews')} />
+                                    <NotifRow icon={<Megaphone size={15} />} label="Announcements" desc="Official announcements from the team" value={notifPrefs.newsAnnouncement} onToggle={() => togglePref('newsAnnouncement')} />
+                                    <NotifRow icon={<BookOpen size={15} />} label="Guides" desc="Production tips and how-to guides" value={notifPrefs.newsGuide} onToggle={() => togglePref('newsGuide')} />
+                                    <NotifRow icon={<GraduationCap size={15} />} label="Tutorials" desc="Step-by-step tutorial articles" value={notifPrefs.newsTutorial} onToggle={() => togglePref('newsTutorial')} />
+                                </NotifGroup>
+
+                                {/* Save */}
+                                {notifError && <StatusMsg type="error" text={notifError} />}
+                                {notifSaved && <StatusMsg type="success" text="Notification preferences saved." />}
+                                <button onClick={handleSaveNotifPrefs} disabled={notifSaving} style={primaryBtn(notifSaving)}>
+                                    <Bell size={15} /> {notifSaving ? 'Saving…' : 'Save preferences'}
+                                </button>
+                            </>
+                        )}
+                    </div>
+                )}
+
             </div>
         </DiscoveryLayout>
     );
 };
+
+// ── Notification group + row sub-components ───────────────────────────────────
+
+const NotifGroup: React.FC<{ title: string; icon: React.ReactNode; children: React.ReactNode }> = ({ title, icon, children }) => (
+    <div style={{ background: colors.surface, borderRadius: borderRadius.xl, border: '1px solid rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+            {icon}
+            <span style={{ fontWeight: 700, fontSize: '14px', color: colors.textPrimary }}>{title}</span>
+        </div>
+        <div>{children}</div>
+    </div>
+);
+
+const NotifRow: React.FC<{ icon: React.ReactNode; label: string; desc: string; value: boolean; onToggle: () => void }> = ({ icon, label, desc, value, onToggle }) => (
+    <div
+        onClick={onToggle}
+        style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '14px 20px', cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.04)', transition: 'background 0.12s' }}
+        onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.03)')}
+        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+    >
+        <span style={{ color: colors.textTertiary, flexShrink: 0 }}>{icon}</span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: '14px', fontWeight: 600, color: colors.textPrimary }}>{label}</div>
+            <div style={{ fontSize: '12px', color: colors.textTertiary, marginTop: '2px' }}>{desc}</div>
+        </div>
+        {/* Toggle pill */}
+        <div style={{
+            width: '42px', height: '24px', borderRadius: '12px', flexShrink: 0,
+            background: value ? colors.primary : 'rgba(255,255,255,0.12)',
+            position: 'relative', transition: 'background 0.2s',
+        }}>
+            <div style={{
+                position: 'absolute', top: '3px',
+                left: value ? '21px' : '3px',
+                width: '18px', height: '18px', borderRadius: '50%',
+                background: '#fff',
+                transition: 'left 0.2s',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+            }} />
+        </div>
+    </div>
+);

@@ -4,6 +4,34 @@ import { PushNotifications } from '@capacitor/push-notifications';
 let currentToken: string | null = null;
 let registered = false;
 
+const CHANNELS = [
+    { id: 'social',   name: 'Social',          description: 'Likes, comments, follows, reposts, replies, messages', importance: 3 },
+    { id: 'feed',     name: 'Feed',             description: 'New tracks from artists you follow', importance: 3 },
+    { id: 'battles',  name: 'Battles',          description: 'Beat Battle and 1v1 updates', importance: 4 },
+    { id: 'news',     name: 'News & Articles',  description: 'Published articles and announcements', importance: 3 },
+    { id: 'messages', name: 'Direct Messages',  description: 'Private messages', importance: 4 },
+    { id: 'default',  name: 'General',          description: 'General notifications', importance: 3 },
+] as const;
+
+async function createNotificationChannels(): Promise<void> {
+    if (Capacitor.getPlatform() !== 'android') return;
+    try {
+        for (const ch of CHANNELS) {
+            await PushNotifications.createChannel({
+                id: ch.id,
+                name: ch.name,
+                description: ch.description,
+                importance: ch.importance,
+                sound: 'default',
+                vibration: true,
+                visibility: 1,
+            });
+        }
+    } catch {
+        // Channel creation is best-effort — older Android versions may not support it
+    }
+}
+
 /**
  * Call once after the user is confirmed logged in.
  * Requests permission, registers the device with FCM, and sends the token to
@@ -22,6 +50,7 @@ export async function registerPushNotifications(navigateFn: (path: string) => vo
         return;
     }
 
+    await createNotificationChannels();
     await PushNotifications.register();
 
     PushNotifications.addListener('registration', async ({ value: token }) => {

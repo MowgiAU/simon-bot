@@ -39,6 +39,7 @@ import { MessageEncryption } from '../services/MessageEncryption.js';
 import AdmZip from 'adm-zip';
 import * as otplibAll from 'otplib';
 import { registerProjectRoutes } from './routes/projects.js';
+import { sendPushIfEnabled, sendPushToUsers, sendPushToUsersIfEnabled } from '../services/PushService.js';
 const generateSecret = otplibAll.generateSecret;
 const verifySync = otplibAll.verifySync;
 const generateURI = otplibAll.generateURI;
@@ -7871,6 +7872,48 @@ app.post('/api/musician/tracks', uploadLimiter, requireDesktopAuth, upload.field
         res.json(fullTrack);
         logActivity(req, 'track.upload', fullTrack?.id, 'track', { title: fullTrack?.title, isPublic: _isPublic });
 
+        // Push: notify followers of this artist + global new-track subscribers (fire-and-forget)
+        if (_isPublic && uploaderProfile) {
+            (async () => {
+                try {
+                    const trackUrl = `/track/${uploaderProfile.username}/${track.slug || track.id}`;
+                    const artistName = uploaderProfile.displayName || uploaderProfile.username;
+
+                    // Followers of this artist
+                    const follows = await db.artistFollow.findMany({
+                        where: { artistId: uploaderProfile.id },
+                        select: { followerId: true },
+                    });
+                    const followerUserIds = follows.map((f: any) => f.followerId).filter(Boolean);
+                    if (followerUserIds.length) {
+                        await sendPushToUsersIfEnabled(db, followerUserIds, 'followedUploads', {
+                            title: `${artistName} uploaded a new track`,
+                            body: track.title,
+                            url: trackUrl,
+                            channelId: 'feed',
+                        });
+                    }
+
+                    // Global new-track subscribers (anyone with newTracksGlobal enabled, except the uploader and already-notified followers)
+                    const followerSet = new Set([...followerUserIds, userId]);
+                    const globalPrefUsers = await db.notificationPreferences.findMany({
+                        where: { newTracksGlobal: true, userId: { notIn: [...followerSet] } },
+                        select: { userId: true },
+                    });
+                    const globalUserIds = globalPrefUsers.map((p: any) => p.userId);
+                    if (globalUserIds.length) {
+                        // Already filtered by pref, use sendPushToUsers directly
+                        await sendPushToUsers(db, globalUserIds, {
+                            title: `New track: ${track.title}`,
+                            body: `by ${artistName}`,
+                            url: trackUrl,
+                            channelId: 'feed',
+                        });
+                    }
+                } catch {}
+            })();
+        }
+
         // Queue a Discord track announcement for the bot to pick up (separate PM2 process).
         // Skip when this upload is part of a battle submission \u2014 the BeatBattle plugin
         // will announce it in the battles channel instead.
@@ -13405,6 +13448,22 @@ app.post('/api/beat-battle/admin/battles/:id/announce', requireAdmin, async (req
             return res.status(400).json({ error: announceError });
         }
         res.json({ success: true, message: 'Announcement posted!' });
+
+        // Push to all battle participants
+        (async () => {
+            try {
+                const entries = await db.battleEntry.findMany({ where: { battleId: req.params.id }, select: { userId: true } });
+                const entryUserIds = [...new Set(entries.map((e: any) => e.userId))];
+                if (entryUserIds.length) {
+                    await sendPushToUsersIfEnabled(db, entryUserIds, 'battleResults', {
+                        title: `Beat Battle: ${battle.title}`,
+                        body: battle.status === 'completed' ? 'Results are in — check the winners!' : 'A new round has started!',
+                        url: '/battles',
+                        channelId: 'battles',
+                    });
+                }
+            } catch {}
+        })();
     } catch (e: any) {
         res.status(500).json({ error: 'Internal server error' });
     }
@@ -16448,6 +16507,9 @@ async function runHeadToHeadLifecycle(): Promise<void> {
             });
             consumed.add(a.id);
             consumed.add(candidate.id);
+            // Notify both players they've been matched
+            sendPushIfEnabled(db, a.challengerId, 'h2hUpdates', { title: 'Your 1v1 match is ready!', body: 'Ready up before time runs out.', url: `/1v1/${a.id}`, channelId: 'battles' }).catch(() => {});
+            sendPushIfEnabled(db, candidate.challengerId, 'h2hUpdates', { title: 'Your 1v1 match is ready!', body: 'Ready up before time runs out.', url: `/1v1/${a.id}`, channelId: 'battles' }).catch(() => {});
         }
 
         // 2. Ready-check timeouts
@@ -16562,6 +16624,10 @@ async function runHeadToHeadLifecycle(): Promise<void> {
                     opponentEloAfter:    winnerId === m.opponentId   ? elo.after.winnerElo  : elo.after.loserElo,
                 },
             });
+            // Push result to both players
+            const matchUrl = `/1v1/${m.id}`;
+            sendPushIfEnabled(db, winnerId, 'h2hUpdates', { title: 'You won your 1v1!', body: 'Check your match result.', url: matchUrl, channelId: 'battles' }).catch(() => {});
+            sendPushIfEnabled(db, loserId, 'h2hUpdates', { title: 'Your 1v1 result is in', body: 'Check your match result.', url: matchUrl, channelId: 'battles' }).catch(() => {});
         }
     } catch (e: any) {
         logger.error('H2H lifecycle failed', e);
@@ -17061,6 +17127,7 @@ app.post('/api/comments', requireAuth, requireVerified, async (req: any, res) =>
                         await db.musicNotification.create({
                             data: { userId: parentComment.userId, type: 'reply', title: `${username} replied to your comment`, message: snippet, link, actorId: userId, actorName: username, actorAvatar: avatarUrl },
                         });
+                        sendPushIfEnabled(db, parentComment.userId, 'replies', { title: `${username} replied to your comment`, body: snippet, url: link || undefined, channelId: 'social' }).catch(() => {});
                     }
                 } else {
                     // Top-level comment notification � notify the content owner
@@ -17080,6 +17147,7 @@ app.post('/api/comments', requireAuth, requireVerified, async (req: any, res) =>
                         await db.musicNotification.create({
                             data: { userId: ownerId, type: 'comment', title: `${username} commented`, message: snippet, link, actorId: userId, actorName: username, actorAvatar: avatarUrl },
                         });
+                        sendPushIfEnabled(db, ownerId, 'comments', { title: `${username} commented`, body: snippet, url: link || undefined, channelId: 'social' }).catch(() => {});
                     }
                 }
             } catch {}
@@ -17386,15 +17454,17 @@ app.post('/api/tracks/:trackId/favourite', requireAuth, requireVerified, async (
                 const actorProfile = await db.musicianProfile.findFirst({ where: { userId: { in: [...new Set([userId, canonicalActorId])] } }, select: { avatar: true, displayName: true, username: true } });
                 const username = actorProfile?.displayName || actorProfile?.username || req.session.user.username || 'Someone';
                 const actorAvatar = actorProfile?.avatar || null;
+                const likeLink = `/track/${track.profile.username}/${track.slug || track.id}`;
                 db.musicNotification.create({
                     data: {
                         userId: track.profile.userId, type: 'favourite',
                         title: `${username} liked your track`,
                         message: track.title,
-                        link: `/track/${track.profile.username}/${track.slug || track.id}`,
+                        link: likeLink,
                         actorId: userId, actorName: username, actorAvatar,
                     },
                 }).catch(() => {});
+                sendPushIfEnabled(db, track.profile.userId, 'likes', { title: `${username} liked your track`, body: track.title, url: likeLink, channelId: 'social' }).catch(() => {});
             }
             res.json({ favourited: true });
         }
@@ -17498,15 +17568,17 @@ app.post('/api/tracks/:trackId/repost', requireAuth, requireVerified, async (req
                 const actorProfile = await db.musicianProfile.findFirst({ where: { userId: { in: [...new Set([userId, canonicalRepostId])] } }, select: { avatar: true, displayName: true, username: true } });
                 const username = actorProfile?.displayName || actorProfile?.username || req.session.user.username || 'Someone';
                 const actorAvatar = actorProfile?.avatar || null;
+                const repostLink = `/track/${track.profile.username}/${track.slug || track.id}`;
                 db.musicNotification.create({
                     data: {
                         userId: track.profile.userId, type: 'repost',
                         title: `${username} reposted your track`,
                         message: track.title,
-                        link: `/track/${track.profile.username}/${track.slug || track.id}`,
+                        link: repostLink,
                         actorId: userId, actorName: username, actorAvatar,
                     },
                 }).catch(() => {});
+                sendPushIfEnabled(db, track.profile.userId, 'reposts', { title: `${username} reposted your track`, body: track.title, url: repostLink, channelId: 'social' }).catch(() => {});
             }
             res.json({ reposted: true });
         }
@@ -17594,6 +17666,7 @@ app.post('/api/artists/:artistId/follow', requireAuth, async (req: any, res) => 
                     actorId: followerId, actorName: username, actorAvatar,
                 },
             }).catch(() => {});
+            sendPushIfEnabled(db, artist.userId, 'follows', { title: `${username} followed you`, body: 'You have a new follower!', url: `/profile/${actorProfile?.username || ''}`, channelId: 'social' }).catch(() => {});
             res.json({ following: true });
         }
     } catch (e: any) {
@@ -19518,6 +19591,26 @@ app.post('/api/messages/conversations/:id/messages', requireAuth, async (req: an
             where: { conversationId: convId, archived: true },
             data: { archived: false },
         });
+        // Push notification to other participants
+        (async () => {
+            try {
+                const others = await db.conversationParticipant.findMany({
+                    where: { conversationId: convId, userId: { not: me } },
+                    select: { userId: true },
+                });
+                const senderProfile = await db.musicianProfile.findFirst({
+                    where: { userId: me },
+                    select: { displayName: true, username: true },
+                });
+                const senderName = senderProfile?.displayName || senderProfile?.username || 'Someone';
+                await sendPushToUsersIfEnabled(
+                    db,
+                    others.map(o => o.userId),
+                    'messages',
+                    { title: senderName, body: content.trim().slice(0, 100), url: '/messages', channelId: 'messages' },
+                );
+            } catch {}
+        })();
         res.json({ id: msg.id, senderId: me, content: content.trim(), deleted: false, createdAt: msg.createdAt.toISOString(), editedAt: null });
     } catch (e) {
         logger.error('Send message', e);
@@ -20648,6 +20741,27 @@ app.post('/api/admin/articles', requireAdmin, async (req: any, res) => {
         });
 
         res.status(201).json(article);
+
+        // Push when admin directly publishes on create
+        if (articleStatus === 'published') {
+            (async () => {
+                try {
+                    const cat = article.category || 'news';
+                    const prefKey = cat === 'guide' ? 'newsGuide'
+                        : cat === 'announcement' ? 'newsAnnouncement'
+                        : cat === 'tutorial' ? 'newsTutorial'
+                        : 'newsNews';
+                    const articleUrl = `/article/${article.slug}`;
+                    const prefUsers = await db.notificationPreferences.findMany({ where: { [prefKey]: true }, select: { userId: true } });
+                    if (prefUsers.length) {
+                        await sendPushToUsersIfEnabled(
+                            db, prefUsers.map((p: any) => p.userId), prefKey as any,
+                            { title: article.title, body: article.excerpt || 'New article published', url: articleUrl, channelId: 'news' },
+                        );
+                    }
+                } catch {}
+            })();
+        }
     } catch (e: any) {
         logger.error('POST /api/admin/articles error', e);
         res.status(500).json({ error: 'Failed to create article' });
@@ -20705,6 +20819,27 @@ app.patch('/api/admin/articles/:id', requireAdmin, async (req: any, res) => {
 
         const article = await db.article.update({ where: { id: req.params.id }, data });
         res.json(article);
+
+        // Push new-article notification when transitioning to published
+        if (status === 'published' && existing.status !== 'published') {
+            (async () => {
+                try {
+                    const cat = data.category || existing.category || 'news';
+                    const prefKey = cat === 'guide' ? 'newsGuide'
+                        : cat === 'announcement' ? 'newsAnnouncement'
+                        : cat === 'tutorial' ? 'newsTutorial'
+                        : 'newsNews';
+                    const articleUrl = `/article/${data.slug || existing.slug}`;
+                    const prefUsers = await db.notificationPreferences.findMany({ where: { [prefKey]: true }, select: { userId: true } });
+                    if (prefUsers.length) {
+                        await sendPushToUsersIfEnabled(
+                            db, prefUsers.map((p: any) => p.userId), prefKey as any,
+                            { title: data.title || existing.title, body: data.excerpt || existing.excerpt || 'New article published', url: articleUrl, channelId: 'news' },
+                        );
+                    }
+                } catch {}
+            })();
+        }
     } catch (e: any) {
         logger.error('PATCH /api/admin/articles/:id error', e);
         res.status(500).json({ error: 'Failed to update article' });
@@ -22128,6 +22263,49 @@ app.delete('/api/push/unregister', requireAuth, async (req: any, res) => {
         res.json({ ok: true });
     } catch {
         res.status(500).json({ error: 'Failed to unregister token' });
+    }
+});
+
+// ─── Notification Preferences ────────────────────────────────────────────────
+
+const NOTIF_PREF_KEYS = [
+    'comments', 'replies', 'likes', 'reposts', 'follows', 'messages',
+    'followedUploads', 'newTracksGlobal',
+    'battleResults', 'h2hUpdates',
+    'newsNews', 'newsGuide', 'newsAnnouncement', 'newsTutorial',
+] as const;
+
+/** Get the current user's notification preferences (creates with defaults on first use) */
+app.get('/api/user/notification-preferences', requireAuth, async (req: any, res) => {
+    const userId = req.session?.user?.id || req.session?.userId;
+    try {
+        const prefs = await db.notificationPreferences.upsert({
+            where: { userId },
+            create: { userId },
+            update: {},
+        });
+        res.json(prefs);
+    } catch {
+        res.status(500).json({ error: 'Failed to load preferences' });
+    }
+});
+
+/** Update the current user's notification preferences */
+app.put('/api/user/notification-preferences', requireAuth, async (req: any, res) => {
+    const userId = req.session?.user?.id || req.session?.userId;
+    try {
+        const update: Record<string, boolean> = {};
+        for (const key of NOTIF_PREF_KEYS) {
+            if (typeof req.body[key] === 'boolean') update[key] = req.body[key];
+        }
+        const prefs = await db.notificationPreferences.upsert({
+            where: { userId },
+            create: { userId, ...update },
+            update,
+        });
+        res.json(prefs);
+    } catch {
+        res.status(500).json({ error: 'Failed to save preferences' });
     }
 });
 

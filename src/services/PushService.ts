@@ -26,7 +26,16 @@ export interface PushPayload {
     url?: string;
     /** Extra key/value data attached to the notification */
     data?: Record<string, string>;
+    /** Android notification channel id */
+    channelId?: string;
 }
+
+/** Keys on NotificationPreferences that map to push categories */
+export type NotifPrefKey =
+    | 'comments' | 'replies' | 'likes' | 'reposts' | 'follows' | 'messages'
+    | 'followedUploads' | 'newTracksGlobal'
+    | 'battleResults' | 'h2hUpdates'
+    | 'newsNews' | 'newsGuide' | 'newsAnnouncement' | 'newsTutorial';
 
 /**
  * Send a push notification to all registered devices for a given user.
@@ -62,12 +71,12 @@ export async function sendPushToUser(
                     priority: 'high',
                     notification: {
                         sound: 'default',
+                        channelId: payload.channelId || 'default',
                         clickAction: 'FLUTTER_NOTIFICATION_CLICK',
                     },
                 },
             });
         } catch (err: any) {
-            // FCM returns these codes for tokens that are permanently invalid
             if (
                 err?.code === 'messaging/registration-token-not-registered' ||
                 err?.code === 'messaging/invalid-registration-token'
@@ -83,7 +92,30 @@ export async function sendPushToUser(
 }
 
 /**
- * Send a push notification to multiple users at once.
+ * Send a push notification only if the user has that preference enabled.
+ * Creates the NotificationPreferences row with defaults on first use.
+ */
+export async function sendPushIfEnabled(
+    db: PrismaClient,
+    userId: string,
+    prefKey: NotifPrefKey,
+    payload: PushPayload,
+): Promise<void> {
+    try {
+        const prefs = await db.notificationPreferences.upsert({
+            where: { userId },
+            create: { userId },
+            update: {},
+        });
+        if (!prefs[prefKey]) return;
+        await sendPushToUser(db, userId, payload);
+    } catch {
+        // Never throw — push is best-effort
+    }
+}
+
+/**
+ * Send a push notification to multiple users, respecting individual preferences.
  */
 export async function sendPushToUsers(
     db: PrismaClient,
@@ -91,4 +123,16 @@ export async function sendPushToUsers(
     payload: PushPayload,
 ): Promise<void> {
     await Promise.all(userIds.map(userId => sendPushToUser(db, userId, payload)));
+}
+
+/**
+ * Send a push notification to multiple users, each checked against their preferences.
+ */
+export async function sendPushToUsersIfEnabled(
+    db: PrismaClient,
+    userIds: string[],
+    prefKey: NotifPrefKey,
+    payload: PushPayload,
+): Promise<void> {
+    await Promise.all(userIds.map(userId => sendPushIfEnabled(db, userId, prefKey, payload)));
 }
