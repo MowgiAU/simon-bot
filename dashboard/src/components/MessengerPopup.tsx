@@ -29,6 +29,7 @@ const formatTime = (iso: string) => {
 export const MessengerPopup: React.FC = () => {
     const { user } = useAuth();
     const { conversations, dropdownOpen, setDropdownOpen, openChat, startConversation, archiveChat } = useChat();
+    const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
     const [showNewChat, setShowNewChat] = useState(false);
     const [showArchived, setShowArchived] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
@@ -94,7 +95,14 @@ export const MessengerPopup: React.FC = () => {
     if (!dropdownOpen || !user) return null;
 
     return (
-        <div style={{
+        <div style={isMobile ? {
+            position: 'fixed', top: '60px', left: '8px', right: '8px', width: 'auto', maxHeight: '75vh',
+            background: C.surfaceSolid, borderRadius: '12px',
+            border: `1px solid ${C.borderLight}`,
+            boxShadow: '0 16px 48px rgba(0,0,0,0.55)',
+            display: 'flex', flexDirection: 'column', overflow: 'hidden',
+            zIndex: 1001,
+        } : {
             position: 'absolute', top: '100%', right: 0, marginTop: '6px',
             width: '340px', maxHeight: '480px',
             background: C.surfaceSolid, borderRadius: '12px',
