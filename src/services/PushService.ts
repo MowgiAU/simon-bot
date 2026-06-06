@@ -1,9 +1,10 @@
-import * as admin from 'firebase-admin';
+import { initializeApp, getApps, cert, App } from 'firebase-admin/app';
+import { getMessaging } from 'firebase-admin/messaging';
 import { PrismaClient } from '@prisma/client';
 
-let app: admin.app.App | null = null;
+let app: App | null = null;
 
-function getFirebaseApp(): admin.app.App | null {
+function getFirebaseApp(): App | null {
     if (app) return app;
     const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT;
     if (!serviceAccountJson) {
@@ -12,9 +13,10 @@ function getFirebaseApp(): admin.app.App | null {
     }
     try {
         const serviceAccount = JSON.parse(serviceAccountJson);
-        app = admin.initializeApp({
-            credential: admin.credential.cert(serviceAccount),
-        });
+        // Avoid duplicate app error if module is hot-reloaded
+        app = getApps().length
+            ? getApps()[0]
+            : initializeApp({ credential: cert(serviceAccount) });
         console.info('[PushService] Firebase Admin SDK initialised');
         return app;
     } catch (e) {
@@ -56,7 +58,7 @@ export async function sendPushToUser(
     const tokens = await db.deviceToken.findMany({ where: { userId } });
     if (!tokens.length) return;
 
-    const messaging = admin.messaging(firebaseApp);
+    const messaging = getMessaging(firebaseApp);
     const staleTokens: string[] = [];
 
     await Promise.all(tokens.map(async ({ token }) => {
