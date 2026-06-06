@@ -666,6 +666,31 @@ const resolveSessionUserId = async (req: any): Promise<string | null> => {
     return record?.id || null;
 };
 
+/**
+ * Returns ALL possible userId strings for the session user.
+ * Messaging participant records may be stored under either the Discord snowflake
+ * or the native cuid depending on when they were created, so queries must
+ * check both to correctly find records for linked accounts.
+ */
+function getSessionUserIds(req: any): string[] {
+    const sessionUser = req.session?.user;
+    if (!sessionUser) return [];
+    const ids = new Set<string>();
+    if (sessionUser.id) ids.add(String(sessionUser.id));
+    if (sessionUser._localId) ids.add(String(sessionUser._localId));
+    return [...ids];
+}
+
+/**
+ * For write operations (creating participants, sending messages) prefer the
+ * native cuid (_localId) so new records are always stored consistently.
+ * Falls back to the session id (snowflake) for pure-Discord users.
+ */
+function getCanonicalUserId(req: any): string {
+    const sessionUser = req.session?.user;
+    return sessionUser?._localId || sessionUser?.id || '';
+}
+
 // --- Global Global Middleware ---
 
 // Helper to log administrative actions
@@ -19409,12 +19434,12 @@ app.get('/api/messages/search-users', requireAuth, async (req: any, res) => {
     try {
         const q = (req.query.q as string || '').trim();
         if (q.length < 2) return res.json([]);
-        const me = req.session.user.id;
+        const myIds = getSessionUserIds(req);
         const profiles = await db.musicianProfile.findMany({
             where: {
                 deletedAt: null,
                 status: 'active',
-                userId: { not: me },
+                userId: { notIn: myIds },
                 OR: [
                     { username: { contains: q, mode: 'insensitive' } },
                     { displayName: { contains: q, mode: 'insensitive' } },
@@ -19433,10 +19458,10 @@ app.get('/api/messages/search-users', requireAuth, async (req: any, res) => {
 // List my conversations
 app.get('/api/messages/conversations', requireAuth, async (req: any, res) => {
     try {
-        const me = req.session.user.id;
+        const myIds = getSessionUserIds(req);
         const showArchived = req.query.archived === 'true';
         const participations = await db.conversationParticipant.findMany({
-            where: { userId: me, archived: showArchived },
+            where: { userId: { in: myIds }, archived: showArchived },
             include: {
                 conversation: {
                     include: {
@@ -19448,7 +19473,8 @@ app.get('/api/messages/conversations', requireAuth, async (req: any, res) => {
         });
         const convos = await Promise.all(participations.map(async (p) => {
             const conv = p.conversation;
-            const otherIds = conv.participants.filter(pp => pp.userId !== me).map(pp => pp.userId);
+            const me = p.userId; // use the actual stored userId for this participant
+            const otherIds = conv.participants.filter(pp => !myIds.includes(pp.userId)).map(pp => pp.userId);
             const others = await Promise.all(otherIds.map(async (uid) => {
                 const profile = await db.musicianProfile.findUnique({
                     where: { userId: uid },
@@ -19504,23 +19530,23 @@ app.get('/api/messages/conversations', requireAuth, async (req: any, res) => {
 // Create conversation (1:1 or group)
 app.post('/api/messages/conversations', requireAuth, async (req: any, res) => {
     try {
-        const me = req.session.user.id;
+        const me = getCanonicalUserId(req); // prefer cuid for new records
+        const myIds = getSessionUserIds(req);
         const { participantIds, name, isGroup } = req.body;
         if (!Array.isArray(participantIds) || participantIds.length === 0) return res.status(400).json({ error: 'participantIds required' });
-        // Sanitize � remove self, deduplicate
-        const uniqueIds = [...new Set(participantIds.filter((id: string) => id !== me))] as string[];
+        // Remove self (any known id variant), deduplicate
+        const uniqueIds = [...new Set(participantIds.filter((id: string) => !myIds.includes(id)))] as string[];
         if (uniqueIds.length === 0) return res.status(400).json({ error: 'Need at least one other participant' });
         // Verify all participant IDs are real users
         const validUsers = await db.musicianProfile.findMany({ where: { userId: { in: uniqueIds } }, select: { userId: true } });
         if (validUsers.length !== uniqueIds.length) return res.status(400).json({ error: 'One or more participant IDs are invalid' });
-        // For 1:1, check if conversation already exists
+        // For 1:1, check if conversation already exists (checking all my known ids)
         if (!isGroup && uniqueIds.length === 1) {
             const existing = await db.conversation.findFirst({
                 where: {
                     isGroup: false,
-                    participants: { every: { userId: { in: [me, uniqueIds[0]] } } },
                     AND: [
-                        { participants: { some: { userId: me } } },
+                        { participants: { some: { userId: { in: myIds } } } },
                         { participants: { some: { userId: uniqueIds[0] } } },
                     ],
                 },
@@ -19553,11 +19579,11 @@ app.post('/api/messages/conversations', requireAuth, async (req: any, res) => {
 // Get messages (cursor-based pagination)
 app.get('/api/messages/conversations/:id/messages', requireAuth, async (req: any, res) => {
     try {
-        const me = req.session.user.id;
+        const myIds = getSessionUserIds(req);
         const convId = req.params.id;
-        // Verify participant
-        const participant = await db.conversationParticipant.findUnique({
-            where: { conversationId_userId: { conversationId: convId, userId: me } },
+        // Verify participant (check all known ids)
+        const participant = await db.conversationParticipant.findFirst({
+            where: { conversationId: convId, userId: { in: myIds } },
         });
         if (!participant) return res.status(403).json({ error: 'Not a participant' });
         const conv = await db.conversation.findUnique({ where: { id: convId } });
@@ -19587,26 +19613,27 @@ app.get('/api/messages/conversations/:id/messages', requireAuth, async (req: any
 // Send message
 app.post('/api/messages/conversations/:id/messages', requireAuth, async (req: any, res) => {
     try {
-        const me = req.session.user.id;
+        const myIds = getSessionUserIds(req);
+        const me = getCanonicalUserId(req); // prefer cuid for senderId
         const convId = req.params.id;
         const { content } = req.body;
         if (!content || typeof content !== 'string' || content.trim().length === 0) return res.status(400).json({ error: 'Message content required' });
         if (content.length > 4000) return res.status(400).json({ error: 'Message too long (max 4000 chars)' });
-        const participant = await db.conversationParticipant.findUnique({
-            where: { conversationId_userId: { conversationId: convId, userId: me } },
+        const participant = await db.conversationParticipant.findFirst({
+            where: { conversationId: convId, userId: { in: myIds } },
         });
         if (!participant) return res.status(403).json({ error: 'Not a participant' });
         const conv = await db.conversation.findUnique({ where: { id: convId } });
         if (!conv) return res.status(404).json({ error: 'Not found' });
         const { ciphertext, iv } = msgEnc.encrypt(content.trim(), conv.encryptedKey);
         const msg = await db.privateMessage.create({
-            data: { conversationId: convId, senderId: me, encryptedContent: ciphertext, iv },
+            data: { conversationId: convId, senderId: participant.userId, encryptedContent: ciphertext, iv },
         });
         // Update conversation timestamp
         await db.conversation.update({ where: { id: convId }, data: { updatedAt: new Date() } });
         // Mark sender's own read cursor
         await db.conversationParticipant.update({
-            where: { conversationId_userId: { conversationId: convId, userId: me } },
+            where: { conversationId_userId: { conversationId: convId, userId: participant.userId } },
             data: { lastReadAt: new Date() },
         });
         // Unarchive conversation for all participants when a new message arrives
@@ -19618,11 +19645,11 @@ app.post('/api/messages/conversations/:id/messages', requireAuth, async (req: an
         (async () => {
             try {
                 const others = await db.conversationParticipant.findMany({
-                    where: { conversationId: convId, userId: { not: me } },
+                    where: { conversationId: convId, userId: { notIn: myIds } },
                     select: { userId: true },
                 });
                 const senderProfile = await db.musicianProfile.findFirst({
-                    where: { userId: me },
+                    where: { userId: { in: myIds } },
                     select: { displayName: true, username: true },
                 });
                 const senderName = senderProfile?.displayName || senderProfile?.username || 'Someone';
@@ -19634,7 +19661,7 @@ app.post('/api/messages/conversations/:id/messages', requireAuth, async (req: an
                 );
             } catch {}
         })();
-        res.json({ id: msg.id, senderId: me, content: content.trim(), deleted: false, createdAt: msg.createdAt.toISOString(), editedAt: null });
+        res.json({ id: msg.id, senderId: participant.userId, content: content.trim(), deleted: false, createdAt: msg.createdAt.toISOString(), editedAt: null });
     } catch (e) {
         logger.error('Send message', e);
         res.status(500).json({ error: 'Failed' });
@@ -19644,15 +19671,15 @@ app.post('/api/messages/conversations/:id/messages', requireAuth, async (req: an
 // Delete own message
 app.delete('/api/messages/conversations/:convId/messages/:msgId', requireAuth, async (req: any, res) => {
     try {
-        const me = req.session.user.id;
+        const myIds = getSessionUserIds(req);
         const { convId, msgId } = req.params;
-        const participant = await db.conversationParticipant.findUnique({
-            where: { conversationId_userId: { conversationId: convId, userId: me } },
+        const participant = await db.conversationParticipant.findFirst({
+            where: { conversationId: convId, userId: { in: myIds } },
         });
         if (!participant) return res.status(403).json({ error: 'Not a participant' });
         const msg = await db.privateMessage.findUnique({ where: { id: msgId } });
         if (!msg || msg.conversationId !== convId) return res.status(404).json({ error: 'Not found' });
-        if (msg.senderId !== me) return res.status(403).json({ error: 'Can only delete your own messages' });
+        if (!myIds.includes(msg.senderId)) return res.status(403).json({ error: 'Can only delete your own messages' });
         await db.privateMessage.update({ where: { id: msgId }, data: { deleted: true } });
         res.json({ success: true });
     } catch (e) {
@@ -19664,13 +19691,13 @@ app.delete('/api/messages/conversations/:convId/messages/:msgId', requireAuth, a
 // Mark conversation as read
 app.put('/api/messages/conversations/:id/read', requireAuth, async (req: any, res) => {
     try {
-        const me = req.session.user.id;
-        const participant = await db.conversationParticipant.findUnique({
-            where: { conversationId_userId: { conversationId: req.params.id, userId: me } },
+        const myIds = getSessionUserIds(req);
+        const participant = await db.conversationParticipant.findFirst({
+            where: { conversationId: req.params.id, userId: { in: myIds } },
         });
         if (!participant) return res.status(403).json({ error: 'Not a participant' });
         await db.conversationParticipant.update({
-            where: { conversationId_userId: { conversationId: req.params.id, userId: me } },
+            where: { conversationId_userId: { conversationId: req.params.id, userId: participant.userId } },
             data: { lastReadAt: new Date() },
         });
         res.json({ success: true });
@@ -19683,12 +19710,12 @@ app.put('/api/messages/conversations/:id/read', requireAuth, async (req: any, re
 // Get total unread count (for badge)
 app.get('/api/messages/unread', requireAuth, async (req: any, res) => {
     try {
-        const me = req.session.user.id;
-        const participations = await db.conversationParticipant.findMany({ where: { userId: me, muted: false, archived: false } });
+        const myIds = getSessionUserIds(req);
+        const participations = await db.conversationParticipant.findMany({ where: { userId: { in: myIds }, muted: false, archived: false } });
         let total = 0;
         for (const p of participations) {
             const count = await db.privateMessage.count({
-                where: { conversationId: p.conversationId, createdAt: { gt: p.lastReadAt }, senderId: { not: me }, deleted: false },
+                where: { conversationId: p.conversationId, createdAt: { gt: p.lastReadAt }, senderId: { notIn: myIds }, deleted: false },
             });
             if (count > 0) total++;
         }
@@ -19702,10 +19729,10 @@ app.get('/api/messages/unread', requireAuth, async (req: any, res) => {
 // Update conversation (rename group, mute/unmute)
 app.patch('/api/messages/conversations/:id', requireAuth, async (req: any, res) => {
     try {
-        const me = req.session.user.id;
+        const myIds = getSessionUserIds(req);
         const convId = req.params.id;
-        const participant = await db.conversationParticipant.findUnique({
-            where: { conversationId_userId: { conversationId: convId, userId: me } },
+        const participant = await db.conversationParticipant.findFirst({
+            where: { conversationId: convId, userId: { in: myIds } },
         });
         if (!participant) return res.status(403).json({ error: 'Not a participant' });
         const { name, muted } = req.body;
@@ -19715,14 +19742,14 @@ app.patch('/api/messages/conversations/:id', requireAuth, async (req: any, res) 
         }
         if (muted !== undefined) {
             await db.conversationParticipant.update({
-                where: { conversationId_userId: { conversationId: convId, userId: me } },
+                where: { conversationId_userId: { conversationId: convId, userId: participant.userId } },
                 data: { muted },
             });
         }
         const { archived } = req.body;
         if (archived !== undefined) {
             await db.conversationParticipant.update({
-                where: { conversationId_userId: { conversationId: convId, userId: me } },
+                where: { conversationId_userId: { conversationId: convId, userId: participant.userId } },
                 data: { archived: !!archived },
             });
         }
@@ -19736,14 +19763,14 @@ app.patch('/api/messages/conversations/:id', requireAuth, async (req: any, res) 
 // Add participants to a group chat
 app.post('/api/messages/conversations/:id/participants', requireAuth, async (req: any, res) => {
     try {
-        const me = req.session.user.id;
+        const myIds = getSessionUserIds(req);
         const convId = req.params.id;
         const { userIds } = req.body;
         if (!Array.isArray(userIds) || userIds.length === 0) return res.status(400).json({ error: 'userIds required' });
         const conv = await db.conversation.findUnique({ where: { id: convId }, include: { participants: true } });
         if (!conv) return res.status(404).json({ error: 'Not found' });
         if (!conv.isGroup) return res.status(400).json({ error: 'Cannot add participants to a 1:1 chat' });
-        if (!conv.participants.some(p => p.userId === me)) return res.status(403).json({ error: 'Not a participant' });
+        if (!conv.participants.some(p => myIds.includes(p.userId))) return res.status(403).json({ error: 'Not a participant' });
         const existing = new Set(conv.participants.map(p => p.userId));
         const newIds = userIds.filter((id: string) => !existing.has(id));
         // Verify new user IDs are real users
@@ -19767,13 +19794,15 @@ app.post('/api/messages/conversations/:id/participants', requireAuth, async (req
 // Leave a group conversation
 app.delete('/api/messages/conversations/:id/leave', requireAuth, async (req: any, res) => {
     try {
-        const me = req.session.user.id;
+        const myIds = getSessionUserIds(req);
         const convId = req.params.id;
         const conv = await db.conversation.findUnique({ where: { id: convId }, include: { participants: true } });
         if (!conv) return res.status(404).json({ error: 'Not found' });
         if (!conv.isGroup) return res.status(400).json({ error: 'Cannot leave a 1:1 chat' });
+        const myParticipant = conv.participants.find(p => myIds.includes(p.userId));
+        if (!myParticipant) return res.status(403).json({ error: 'Not a participant' });
         await db.conversationParticipant.delete({
-            where: { conversationId_userId: { conversationId: convId, userId: me } },
+            where: { conversationId_userId: { conversationId: convId, userId: myParticipant.userId } },
         });
         // If no participants remain, delete conversation
         const remaining = await db.conversationParticipant.count({ where: { conversationId: convId } });
@@ -19788,10 +19817,10 @@ app.delete('/api/messages/conversations/:id/leave', requireAuth, async (req: any
 // Get conversation details (participants, metadata)
 app.get('/api/messages/conversations/:id', requireAuth, async (req: any, res) => {
     try {
-        const me = req.session.user.id;
+        const myIds = getSessionUserIds(req);
         const convId = req.params.id;
-        const participant = await db.conversationParticipant.findUnique({
-            where: { conversationId_userId: { conversationId: convId, userId: me } },
+        const participant = await db.conversationParticipant.findFirst({
+            where: { conversationId: convId, userId: { in: myIds } },
         });
         if (!participant) return res.status(403).json({ error: 'Not a participant' });
         const conv = await db.conversation.findUnique({ where: { id: convId }, include: { participants: true } });
