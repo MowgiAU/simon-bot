@@ -22239,17 +22239,20 @@ registerProjectRoutes(app, db, requireAuth, requireAdmin);
 
 /** Register or refresh a device push token for the authenticated user */
 app.post('/api/push/register', requireAuth, async (req: any, res) => {
-    const userId = req.session?.userId;
+    const userId = req.session?.user?.id || req.session?.user?._localId;
     const { token, platform = 'android' } = req.body;
     if (!token || typeof token !== 'string') return res.status(400).json({ error: 'token required' });
+    if (!userId) return res.status(401).json({ error: 'Not authenticated' });
     try {
         await db.deviceToken.upsert({
             where: { token },
             create: { userId, token, platform },
             update: { userId, updatedAt: new Date() },
         });
+        logger.info(`[Push] Registered token for user ${userId} (${platform})`);
         res.json({ ok: true });
     } catch (e) {
+        logger.error('[Push] Failed to register token', e);
         res.status(500).json({ error: 'Failed to register token' });
     }
 });

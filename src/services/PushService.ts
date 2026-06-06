@@ -6,12 +6,16 @@ let app: admin.app.App | null = null;
 function getFirebaseApp(): admin.app.App | null {
     if (app) return app;
     const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT;
-    if (!serviceAccountJson) return null;
+    if (!serviceAccountJson) {
+        console.warn('[PushService] FIREBASE_SERVICE_ACCOUNT not set — push notifications disabled');
+        return null;
+    }
     try {
         const serviceAccount = JSON.parse(serviceAccountJson);
         app = admin.initializeApp({
             credential: admin.credential.cert(serviceAccount),
         });
+        console.info('[PushService] Firebase Admin SDK initialised');
         return app;
     } catch (e) {
         console.error('[PushService] Failed to initialise Firebase Admin SDK:', e);
@@ -76,12 +80,16 @@ export async function sendPushToUser(
                     },
                 },
             });
+            console.info(`[PushService] Sent "${payload.title}" to token …${token.slice(-8)}`);
         } catch (err: any) {
             if (
                 err?.code === 'messaging/registration-token-not-registered' ||
                 err?.code === 'messaging/invalid-registration-token'
             ) {
+                console.warn(`[PushService] Stale token …${token.slice(-8)}, removing`);
                 staleTokens.push(token);
+            } else {
+                console.error(`[PushService] FCM send failed for token …${token.slice(-8)}:`, err?.code || err?.message);
             }
         }
     }));
