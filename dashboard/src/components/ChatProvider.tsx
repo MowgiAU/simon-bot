@@ -88,7 +88,9 @@ export const ChatProvider: React.FC<{ children: React.ReactNode; userId?: string
             initialLoadRef.current = false;
             prevConvosRef.current = data;
             setConversations(data);
-        } catch { /* silent */ }
+        } catch (err: any) {
+            console.error('[ChatProvider] fetchConversations failed:', err?.response?.status, err?.response?.data || err?.message);
+        }
     }, [userId, addToast]);
 
     // Poll conversations
@@ -141,10 +143,15 @@ export const ChatProvider: React.FC<{ children: React.ReactNode; userId?: string
                 isGroup: isGroup || participantIds.length > 1,
                 name: isGroup ? name : undefined,
             }, { withCredentials: true });
+            if (!data?.id) {
+                console.error('[ChatProvider] startConversation: no id in response', data);
+                return null;
+            }
             await fetchConversations();
             openChat(data.id);
             return data.id;
-        } catch {
+        } catch (err: any) {
+            console.error('[ChatProvider] startConversation failed:', err?.response?.status, err?.response?.data || err?.message);
             return null;
         }
     }, [fetchConversations, openChat]);

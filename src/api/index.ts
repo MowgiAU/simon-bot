@@ -649,6 +649,23 @@ const resolveUser = async (userId: string) => {
     }
 };
 
+/**
+ * Resolve the canonical User.id (cuid) from session data.
+ * Discord OAuth sessions store the Discord snowflake as req.session.user.id.
+ * Native sessions store the cuid directly. _localId is the cuid for linked accounts.
+ */
+const resolveSessionUserId = async (req: any): Promise<string | null> => {
+    const sessionUser = req.session?.user;
+    if (!sessionUser) return null;
+    if (sessionUser._localId) return sessionUser._localId;
+    // Try direct lookup — works for both cuid (native) and snowflake (Discord)
+    const record = await db.user.findFirst({
+        where: { OR: [{ id: sessionUser.id }, { discordId: sessionUser.id }] },
+        select: { id: true },
+    });
+    return record?.id || null;
+};
+
 // --- Global Global Middleware ---
 
 // Helper to log administrative actions

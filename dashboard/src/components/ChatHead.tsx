@@ -39,6 +39,7 @@ export const ChatHead: React.FC<ChatHeadProps> = ({ convId, index, minimized }) 
     const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(true);
+    const [sendError, setSendError] = useState<string | null>(null);
     const [participantMap, setParticipantMap] = useState<Record<string, UserResult>>({});
     const [showMenu, setShowMenu] = useState(false);
     const scrollRef = useRef<HTMLDivElement>(null);
@@ -85,12 +86,27 @@ export const ChatHead: React.FC<ChatHeadProps> = ({ convId, index, minimized }) 
         if (!input.trim()) return;
         const content = input.trim();
         setInput('');
-        const temp: Message = { id: `temp-${Date.now()}`, senderId: user!.id, content, deleted: false, createdAt: new Date().toISOString(), editedAt: null };
+        setSendError(null);
+        const tempId = `temp-${Date.now()}`;
+        const temp: Message = { id: tempId, senderId: user!.id, content, deleted: false, createdAt: new Date().toISOString(), editedAt: null };
         setMessages(prev => [...prev, temp]);
         try {
             await axios.post(`/api/messages/conversations/${convId}/messages`, { content }, { withCredentials: true });
             await fetchMessages();
-        } catch { /* silent */ }
+        } catch (err: any) {
+            console.error('[ChatHead] Message send failed:', err?.response?.status, err?.response?.data || err?.message);
+            // Remove the optimistic temp message and restore the input
+            setMessages(prev => prev.filter(m => m.id !== tempId));
+            setInput(content);
+            const status = err?.response?.status;
+            if (status === 401 || status === 403) {
+                setSendError('Not authorized — please refresh and try again.');
+            } else if (status === 404) {
+                setSendError('Conversation not found.');
+            } else {
+                setSendError('Failed to send. Please try again.');
+            }
+        }
     };
 
     const deleteMessage = async (msgId: string) => {
@@ -294,11 +310,16 @@ export const ChatHead: React.FC<ChatHeadProps> = ({ convId, index, minimized }) 
 
             {/* Input */}
             <div style={{ padding: '7px 10px', borderTop: `1px solid ${C.border}`, background: 'rgba(0,0,0,0.1)', flexShrink: 0 }}>
+                {sendError && (
+                    <div style={{ fontSize: '11px', color: C.error, marginBottom: '5px', padding: '4px 6px', background: 'rgba(248,113,113,0.1)', borderRadius: '6px' }}>
+                        {sendError}
+                    </div>
+                )}
                 <div style={{ display: 'flex', gap: '5px', alignItems: 'center' }}>
-                    <input ref={inputRef} value={input} onChange={e => setInput(e.target.value)}
+                    <input ref={inputRef} value={input} onChange={e => { setInput(e.target.value); if (sendError) setSendError(null); }}
                         onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
                         placeholder="Type a message…"
-                        style={{ flex: 1, padding: '7px 9px', background: 'rgba(255,255,255,0.04)', border: `1px solid ${C.border}`, borderRadius: '8px', color: C.text, fontSize: '12px', outline: 'none', boxSizing: 'border-box' }} />
+                        style={{ flex: 1, padding: '7px 9px', background: 'rgba(255,255,255,0.04)', border: `1px solid ${sendError ? C.error : C.border}`, borderRadius: '8px', color: C.text, fontSize: '12px', outline: 'none', boxSizing: 'border-box' }} />
                     <button onClick={sendMessage} disabled={!input.trim()}
                         style={{ width: 30, height: 30, borderRadius: '7px', backgroundColor: input.trim() ? C.primary : 'rgba(255,255,255,0.04)', border: 'none', cursor: input.trim() ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                         <Send size={12} color={input.trim() ? 'white' : C.textTer} />
