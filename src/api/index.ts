@@ -2367,13 +2367,19 @@ app.post('/api/auth/change-username', requireAuth, async (req: any, res) => {
             orderBy: { totalPlays: 'desc' },
         });
         if (mp) {
-            const usernameConflict = await db.musicianProfile.findFirst({
+            // Always sync MusicianProfile username — User.username uniqueness was already verified above,
+            // so any profile-level "conflict" is an orphaned row and should be cleared.
+            const conflict = await db.musicianProfile.findFirst({
                 where: { username: { equals: newUsername, mode: 'insensitive' }, NOT: { id: mp.id } },
+                select: { id: true },
             });
-            if (!usernameConflict) {
-                await db.musicianProfile.update({ where: { id: mp.id }, data: { username: newUsername } });
+            if (conflict) {
+                // Clear the orphaned profile's username so our update isn't blocked
+                await db.musicianProfile.update({ where: { id: conflict.id }, data: { username: conflict.id } });
+                invalidateProfileCache(conflict.id);
             }
-            // Always bust the old and new cache keys regardless
+            await db.musicianProfile.update({ where: { id: mp.id }, data: { username: newUsername } });
+            // Bust all relevant cache keys
             invalidateProfileCache(mp.userId);
             if (mp.username) invalidateProfileCache(mp.username);
             if (oldUsername) invalidateProfileCache(oldUsername);
