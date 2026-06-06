@@ -19459,7 +19459,6 @@ app.get('/api/messages/search-users', requireAuth, async (req: any, res) => {
 app.get('/api/messages/conversations', requireAuth, async (req: any, res) => {
     try {
         const myIds = getSessionUserIds(req);
-        logger.info(`[Msg] list conversations for ids=${JSON.stringify(myIds)}`);
         const showArchived = req.query.archived === 'true';
         const participations = await db.conversationParticipant.findMany({
             where: { userId: { in: myIds }, archived: showArchived },
