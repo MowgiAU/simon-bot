@@ -22239,11 +22239,22 @@ registerProjectRoutes(app, db, requireAuth, requireAdmin);
 
 /** Register or refresh a device push token for the authenticated user */
 app.post('/api/push/register', requireAuth, async (req: any, res) => {
-    const userId = req.session?.user?.id || req.session?.user?._localId;
+    const sessionUser = req.session?.user;
     const { token, platform = 'android' } = req.body;
     if (!token || typeof token !== 'string') return res.status(400).json({ error: 'token required' });
-    if (!userId) return res.status(401).json({ error: 'Not authenticated' });
+    if (!sessionUser) return res.status(401).json({ error: 'Not authenticated' });
     try {
+        // _localId is the native User cuid (present for linked/native accounts).
+        // For Discord-only sessions, id is the Discord snowflake — look up by discordId.
+        let userId: string | null = sessionUser._localId || null;
+        if (!userId) {
+            const userRecord = await db.user.findFirst({
+                where: { OR: [{ id: sessionUser.id }, { discordId: sessionUser.id }] },
+                select: { id: true },
+            });
+            userId = userRecord?.id || null;
+        }
+        if (!userId) return res.status(404).json({ error: 'User account not found' });
         await db.deviceToken.upsert({
             where: { token },
             create: { userId, token, platform },
