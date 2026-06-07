@@ -373,8 +373,17 @@ export const ArrangementViewer: React.FC<{
 }> = React.memo(({ arrangement, duration, currentTimeRef, isPlayingRef, projectFileUrl, projectZipUrl, trackId, zoom, setZoom, samplesMap = EMPTY_SAMPLES_MAP }) => {
     const [selectedClip, setSelectedClip] = React.useState<{ clip: ArrangementClip; color: string } | null>(null);
     const [fullscreen, setFullscreen] = React.useState(false);
+    const [isMobile, setIsMobile] = React.useState(typeof window !== 'undefined' && window.innerWidth < 640);
     const playheadRef = useRef<HTMLDivElement>(null);
     const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+    React.useEffect(() => {
+        const onResize = () => setIsMobile(window.innerWidth < 640);
+        window.addEventListener('resize', onResize);
+        return () => window.removeEventListener('resize', onResize);
+    }, []);
+
+    const labelW = isMobile ? 84 : 140;
 
     // Close fullscreen on Escape
     React.useEffect(() => {
@@ -417,7 +426,7 @@ export const ArrangementViewer: React.FC<{
             if (playheadRef.current) {
                 if (pct > 0) {
                     playheadRef.current.style.display = '';
-                    playheadRef.current.style.left = `calc(140px + (100% - 140px) * ${pct / 100})`;
+                    playheadRef.current.style.left = `calc(${labelW}px + (100% - ${labelW}px) * ${pct / 100})`;
                 } else {
                     playheadRef.current.style.display = 'none';
                 }
@@ -426,8 +435,8 @@ export const ArrangementViewer: React.FC<{
             // Auto-scroll during playback at zoom > 1
             if (isPlaying && scrollContainerRef.current && zoom > 1) {
                 const container = scrollContainerRef.current;
-                const timelineW = container.scrollWidth - 140;
-                const playheadX = (pct / 100) * timelineW + 140;
+                const timelineW = container.scrollWidth - labelW;
+                const playheadX = (pct / 100) * timelineW + labelW;
                 const viewportW = container.clientWidth;
                 if (container.scrollWidth > viewportW + 10) {
                     const maxScroll = container.scrollWidth - viewportW;
@@ -439,7 +448,7 @@ export const ArrangementViewer: React.FC<{
         };
         animFrame = requestAnimationFrame(update);
         return () => cancelAnimationFrame(animFrame);
-    }, [bpm, duration, startBeat, spanBeats, totalBeats, zoom, currentTimeRef, isPlayingRef]);
+    }, [bpm, duration, startBeat, spanBeats, totalBeats, zoom, currentTimeRef, isPlayingRef, labelW]);
 
     useEffect(() => {
         const container = scrollContainerRef.current;
@@ -500,7 +509,7 @@ export const ArrangementViewer: React.FC<{
             const indentPx = depth * 12;
             return (
                 <div key={t.id} style={{ display: 'flex', alignItems: 'center', height: isEmpty ? '28px' : '56px', marginBottom: isEmpty ? '2px' : '4px', opacity: isMuted ? 0.45 : 1 }}>
-                    <div style={{ width: '140px', flexShrink: 0, paddingRight: '12px', paddingLeft: `${indentPx}px`, fontSize: isEmpty ? '0.65rem' : '0.75rem', color: isMuted ? '#6b7280' : (isEmpty ? 'rgba(255,255,255,0.35)' : colors.textSecondary), overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'right', position: 'sticky', left: 0, backgroundColor: 'rgba(10,14,20,0.8)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', zIndex: 5, borderRight: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px' }}>
+                    <div style={{ width: `${labelW}px`, flexShrink: 0, paddingRight: isMobile ? '8px' : '12px', paddingLeft: `${indentPx}px`, fontSize: isMobile ? (isEmpty ? '0.6rem' : '0.68rem') : (isEmpty ? '0.65rem' : '0.75rem'), color: isMuted ? '#6b7280' : (isEmpty ? 'rgba(255,255,255,0.35)' : colors.textSecondary), overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'right', position: 'sticky', left: 0, backgroundColor: 'rgba(10,14,20,0.8)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', zIndex: 5, borderRight: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px' }}>
                         {depth > 0 && <span style={{ color: 'rgba(255,255,255,0.15)', flexShrink: 0 }}>╰</span>}
                         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', fontStyle: isEmpty ? 'italic' : 'normal' }}>{t.name}</span>
                         {isMuted && <span style={{ flexShrink: 0, fontSize: '0.6rem', backgroundColor: 'rgba(255,255,255,0.1)', color: '#9ca3af', padding: '1px 3px', borderRadius: '2px' }}>M</span>}
@@ -535,33 +544,33 @@ export const ArrangementViewer: React.FC<{
                 </div>
             );
         });
-    }, [activeTracks, totalBeats, samplesMap]);
+    }, [activeTracks, totalBeats, samplesMap, labelW, isMobile]);
 
     // Memoize timeline markers
     const markerElements = useMemo(() => markers.map((marker, mi) => {
         const pct = (marker.position / totalBeats) * 100;
         return (
-            <div key={mi} style={{ position: 'absolute', top: 0, bottom: 0, left: `calc(140px + (100% - 140px) * ${pct / 100})`, width: '1px', backgroundColor: '#f59e0b', opacity: 0.25, pointerEvents: 'none', zIndex: 8 }}>
+            <div key={mi} style={{ position: 'absolute', top: 0, bottom: 0, left: `calc(${labelW}px + (100% - ${labelW}px) * ${pct / 100})`, width: '1px', backgroundColor: '#f59e0b', opacity: 0.25, pointerEvents: 'none', zIndex: 8 }}>
                 <div style={{ position: 'absolute', top: '6px', left: '-4px', width: 0, height: 0, borderLeft: '4px solid transparent', borderRight: '4px solid transparent', borderTop: '6px solid #f59e0b' }} />
                 <div style={{ position: 'absolute', top: '2px', left: '6px', fontSize: '0.6rem', color: '#f59e0b', whiteSpace: 'nowrap', fontWeight: 600, pointerEvents: 'none', textShadow: '0 1px 3px rgba(0,0,0,0.9), 0 0 6px rgba(0,0,0,0.8)', letterSpacing: '0.02em', backgroundColor: 'rgba(13,17,23,0.85)', padding: '1px 4px', borderRadius: '2px' }}>{marker.name}</div>
             </div>
         );
-    }), [markers, totalBeats]);
+    }), [markers, totalBeats, labelW]);
 
     const toolbar = (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <Music size={20} color={colors.primary} />
-                <h2 style={{ margin: 0, fontSize: '1.25rem' }}>Playlist</h2>
-                <span style={{ fontSize: '0.8rem', color: colors.textSecondary, backgroundColor: 'rgba(255,255,255,0.05)', padding: '2px 8px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '8px' : '12px' }}>
+                <Music size={isMobile ? 17 : 20} color={colors.primary} />
+                <h2 style={{ margin: 0, fontSize: isMobile ? '1.05rem' : '1.25rem' }}>Playlist</h2>
+                <span style={{ fontSize: isMobile ? '0.7rem' : '0.8rem', color: colors.textSecondary, backgroundColor: 'rgba(255,255,255,0.05)', padding: '2px 8px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
                     {arrangement.bpm} BPM
                 </span>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'rgba(255,255,255,0.05)', padding: '4px 8px', borderRadius: borderRadius.sm, border: '1px solid rgba(255,255,255,0.1)' }}>
-                    <button onClick={() => setZoom(Math.max(1, zoom - 0.5))} style={{ background: 'none', border: 'none', color: zoom <= 1 ? colors.textSecondary : colors.textPrimary, cursor: zoom <= 1 ? 'default' : 'pointer', padding: '2px 8px', fontSize: '1.2rem', fontWeight: 'bold' }}>-</button>
-                    <span style={{ fontSize: '0.75rem', color: colors.textSecondary, minWidth: '40px', textAlign: 'center' }}>{Math.round(zoom * 100)}%</span>
-                    <button onClick={() => setZoom(Math.min(10, zoom + 0.5))} style={{ background: 'none', border: 'none', color: zoom >= 10 ? colors.textSecondary : colors.textPrimary, cursor: zoom >= 10 ? 'default' : 'pointer', padding: '2px 8px', fontSize: '1.2rem', fontWeight: 'bold' }}>+</button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '6px' : '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '4px' : '8px', backgroundColor: 'rgba(255,255,255,0.05)', padding: isMobile ? '3px 6px' : '4px 8px', borderRadius: borderRadius.sm, border: '1px solid rgba(255,255,255,0.1)' }}>
+                    <button onClick={() => setZoom(Math.max(1, zoom - 0.5))} style={{ background: 'none', border: 'none', color: zoom <= 1 ? colors.textSecondary : colors.textPrimary, cursor: zoom <= 1 ? 'default' : 'pointer', padding: '2px 6px', fontSize: '1.1rem', fontWeight: 'bold' }}>-</button>
+                    <span style={{ fontSize: isMobile ? '0.68rem' : '0.75rem', color: colors.textSecondary, minWidth: isMobile ? '34px' : '40px', textAlign: 'center' }}>{Math.round(zoom * 100)}%</span>
+                    <button onClick={() => setZoom(Math.min(10, zoom + 0.5))} style={{ background: 'none', border: 'none', color: zoom >= 10 ? colors.textSecondary : colors.textPrimary, cursor: zoom >= 10 ? 'default' : 'pointer', padding: '2px 6px', fontSize: '1.1rem', fontWeight: 'bold' }}>+</button>
                 </div>
                 <button
                     onClick={() => setFullscreen(f => !f)}
@@ -590,11 +599,11 @@ export const ArrangementViewer: React.FC<{
 
     if (fullscreen) {
         return (
-            <div style={{ position: 'fixed', inset: 0, zIndex: 8000, backgroundColor: '#0B0F19', display: 'flex', flexDirection: 'column', padding: '20px 24px', overflowY: 'auto' }}>
+            <div style={{ position: 'fixed', inset: 0, zIndex: 8000, backgroundColor: '#0B0F19', display: 'flex', flexDirection: 'column', padding: isMobile ? '12px' : '20px 24px', overflowY: 'auto' }}>
                 {viewerContent}
                 <div ref={scrollContainerRef} style={{ flex: 1, overflowX: 'auto', borderRadius: borderRadius.md, border: '1px solid rgba(255,255,255,0.08)', backgroundColor: '#0a0e14', scrollBehavior: 'smooth', ...timelineGridBg }}>
                     <div style={{ width: timelineWidth, minWidth: '100%', position: 'relative', paddingTop: '28px', paddingBottom: '16px', boxSizing: 'border-box' }}>
-                        <div style={{ display: 'flex', marginLeft: '140px', marginBottom: '8px', width: 'calc(100% - 140px)' }}>{beatRuler}</div>
+                        <div style={{ display: 'flex', marginLeft: `${labelW}px`, marginBottom: '8px', width: `calc(100% - ${labelW}px)` }}>{beatRuler}</div>
                         {trackRows}
                         <div ref={playheadRef} style={{ position: 'absolute', top: 0, bottom: 0, width: '2px', backgroundColor: tempoWarning ? '#fbbf24' : colors.primary, boxShadow: tempoWarning ? 'none' : `0 0 14px ${colors.primary}99`, opacity: tempoWarning ? 0.5 : 1, pointerEvents: 'none', zIndex: 10, display: 'none', willChange: 'left' }}>
                             <div style={{ position: 'absolute', top: '-6px', left: '50%', transform: 'translateX(-50%)', width: 0, height: 0, borderLeft: '6px solid transparent', borderRight: '6px solid transparent', borderTop: `6px solid ${tempoWarning ? '#fbbf24' : colors.primary}` }} />
@@ -620,7 +629,7 @@ export const ArrangementViewer: React.FC<{
             <div ref={scrollContainerRef} style={{ overflowX: 'auto', borderRadius: borderRadius.md, border: '1px solid rgba(255,255,255,0.08)', backgroundColor: '#0a0e14', scrollBehavior: 'smooth', ...timelineGridBg }}>
                 <div style={{ width: timelineWidth, minWidth: '100%', position: 'relative', paddingTop: '28px', paddingBottom: '16px', boxSizing: 'border-box' }}>
                     {/* Beat ruler */}
-                    <div style={{ display: 'flex', marginLeft: '140px', marginBottom: '8px', width: 'calc(100% - 140px)' }}>
+                    <div style={{ display: 'flex', marginLeft: `${labelW}px`, marginBottom: '8px', width: `calc(100% - ${labelW}px)` }}>
                         {beatRuler}
                     </div>
                     {/* Track rows */}
