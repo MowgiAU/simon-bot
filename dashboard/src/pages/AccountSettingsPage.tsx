@@ -419,6 +419,7 @@ export const AccountSettingsPage: React.FC = () => {
         transition: 'all 0.15s',
         position: 'relative' as const,
         whiteSpace: 'nowrap' as const,
+        flexShrink: 0,
     });
 
     const primaryBtn = (loading?: boolean, disabled?: boolean): React.CSSProperties => ({
@@ -535,7 +536,9 @@ export const AccountSettingsPage: React.FC = () => {
                     borderRadius: borderRadius.xl,
                     border: '1px solid rgba(255,255,255,0.06)',
                     marginBottom: '20px',
-                    overflow: 'hidden',
+                    overflowX: 'auto',
+                    overflowY: 'hidden',
+                    WebkitOverflowScrolling: 'touch',
                 }}>
                     {tabs.map(t => (
                         <button key={t.id} onClick={() => setActiveTab(t.id)} style={tabBtn(t)}>
