@@ -19,6 +19,7 @@
 
 *   **[Installation Guide](INSTALL.md)**: Steps to set up your own instance (Local & VPS).
 *   **[Plugin Development](src/bot/plugins/README.md)**: How to create new plugins.
+*   **[Server Guide](docs/SERVER_GUIDE.md)**: Public-facing guide for Discord members and website visitors.
 
 ## 🛠️ Tech Stack
 
