@@ -455,6 +455,12 @@ export const ArrangementViewer: React.FC<{
 
     const timelineWidth = `${100 * zoom}%`;
 
+    // Subtle grid-line backdrop behind the timeline — gives the glass clips something to float over
+    const timelineGridBg: React.CSSProperties = {
+        backgroundImage: 'linear-gradient(to right, rgba(255,255,255,0.025) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.025) 1px, transparent 1px)',
+        backgroundSize: '64px 64px',
+    };
+
     // Memoize beat ruler — only changes with zoom or total beat count
     const beatRuler = useMemo(() => {
         const barStep = zoom < 0.3 ? 40 : zoom < 0.6 ? 20 : zoom < 1.5 ? 10 : zoom < 3 ? 4 : zoom < 5 ? 2 : 1;
@@ -462,7 +468,7 @@ export const ArrangementViewer: React.FC<{
         const items = [];
         for (let bar = 1; bar <= totalBars; bar += barStep) {
             items.push(
-                <div key={bar} style={{ position: 'absolute', left: `${((bar - 1) * 4 / totalBeats) * 100}%`, fontSize: '0.65rem', color: 'rgba(255,255,255,0.4)', borderLeft: '1px solid rgba(255,255,255,0.15)', paddingLeft: '4px', paddingBottom: '4px', boxSizing: 'border-box', whiteSpace: 'nowrap' }}>
+                <div key={bar} style={{ position: 'absolute', left: `${((bar - 1) * 4 / totalBeats) * 100}%`, fontSize: '0.65rem', fontFamily: '"JetBrains Mono", monospace', letterSpacing: '0.05em', color: 'rgba(255,255,255,0.4)', borderLeft: '1px solid rgba(255,255,255,0.15)', paddingLeft: '4px', paddingBottom: '4px', boxSizing: 'border-box', whiteSpace: 'nowrap' }}>
                     {bar}
                 </div>
             );
@@ -492,19 +498,22 @@ export const ArrangementViewer: React.FC<{
             const indentPx = depth * 12;
             return (
                 <div key={t.id} style={{ display: 'flex', alignItems: 'center', height: isEmpty ? '24px' : '36px', marginBottom: isEmpty ? '2px' : '4px', opacity: isMuted ? 0.45 : 1 }}>
-                    <div style={{ width: '140px', flexShrink: 0, paddingRight: '12px', paddingLeft: `${indentPx}px`, fontSize: isEmpty ? '0.65rem' : '0.75rem', color: isMuted ? '#6b7280' : (isEmpty ? 'rgba(255,255,255,0.35)' : colors.textSecondary), overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'right', position: 'sticky', left: 0, backgroundColor: '#0d1117', zIndex: 5, borderRight: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px' }}>
+                    <div style={{ width: '140px', flexShrink: 0, paddingRight: '12px', paddingLeft: `${indentPx}px`, fontSize: isEmpty ? '0.65rem' : '0.75rem', color: isMuted ? '#6b7280' : (isEmpty ? 'rgba(255,255,255,0.35)' : colors.textSecondary), overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'right', position: 'sticky', left: 0, backgroundColor: 'rgba(10,14,20,0.8)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', zIndex: 5, borderRight: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px' }}>
                         {depth > 0 && <span style={{ color: 'rgba(255,255,255,0.15)', flexShrink: 0 }}>╰</span>}
                         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', fontStyle: isEmpty ? 'italic' : 'normal' }}>{t.name}</span>
                         {isMuted && <span style={{ flexShrink: 0, fontSize: '0.6rem', backgroundColor: 'rgba(255,255,255,0.1)', color: '#9ca3af', padding: '1px 3px', borderRadius: '2px' }}>M</span>}
+                        {!isEmpty && <div style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: trackColor, boxShadow: isMuted ? 'none' : `0 0 6px ${trackColor}`, flexShrink: 0 }} />}
                     </div>
-                    <div style={{ flex: 1, position: 'relative', height: '100%', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: '3px' }}>
+                    <div style={{ flex: 1, position: 'relative', height: '100%' }}>
                         {t.clips.map((clip) => {
                             const isClickable = (clip.type === 'pattern' && clip.notes && clip.notes.length > 0) || clip.type === 'audio';
                             return (
                                 <div key={clip.id} title={clip.name}
                                     onClick={isClickable ? (e) => { e.stopPropagation(); setSelectedClip({ clip, color: trackColor }); } : undefined}
-                                    style={{ position: 'absolute', left: `${(clip.start / totalBeats) * 100}%`, width: `${(clip.length / totalBeats) * 100}%`, height: '100%', backgroundColor: trackColor + (isMuted ? '20' : '40'), borderRadius: '3px', border: `1px solid ${trackColor}${isMuted ? '44' : '88'}`, boxSizing: 'border-box', minWidth: '3px', overflow: 'hidden', cursor: isClickable ? 'pointer' : 'default', contain: 'layout style paint' }}>
-                                    <div style={{ position: 'absolute', top: '1px', left: '3px', fontSize: '0.55rem', color: trackColor, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 'calc(100% - 6px)', lineHeight: 1, fontWeight: 600, opacity: 0.9 }}>
+                                    onMouseEnter={isClickable ? (e) => { (e.currentTarget as HTMLDivElement).style.backgroundColor = 'rgba(255,255,255,0.09)'; } : undefined}
+                                    onMouseLeave={isClickable ? (e) => { (e.currentTarget as HTMLDivElement).style.backgroundColor = 'rgba(255,255,255,0.05)'; } : undefined}
+                                    style={{ position: 'absolute', left: `${(clip.start / totalBeats) * 100}%`, width: `${(clip.length / totalBeats) * 100}%`, height: 'calc(100% - 6px)', top: '3px', backgroundColor: 'rgba(255,255,255,0.05)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', borderRadius: borderRadius.sm, border: '1px solid rgba(255,255,255,0.1)', borderLeft: `3px solid ${trackColor}${isMuted ? '66' : 'ff'}`, boxSizing: 'border-box', minWidth: '3px', overflow: 'hidden', cursor: isClickable ? 'pointer' : 'default', contain: 'layout style paint', transition: 'background-color 0.15s' }}>
+                                    <div style={{ position: 'absolute', top: '1px', left: '5px', fontSize: '0.55rem', color: trackColor, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 'calc(100% - 8px)', lineHeight: 1, fontWeight: 600, opacity: 0.95 }}>
                                         {clip.name}
                                     </div>
                                     {clip.type === 'pattern' && clip.notes && clip.notes.length > 0 && (
@@ -581,11 +590,13 @@ export const ArrangementViewer: React.FC<{
         return (
             <div style={{ position: 'fixed', inset: 0, zIndex: 8000, backgroundColor: '#0B0F19', display: 'flex', flexDirection: 'column', padding: '20px 24px', overflowY: 'auto' }}>
                 {viewerContent}
-                <div ref={scrollContainerRef} style={{ flex: 1, overflowX: 'auto', borderRadius: borderRadius.md, border: '1px solid rgba(255,255,255,0.08)', backgroundColor: '#0d1117', scrollBehavior: 'smooth' }}>
+                <div ref={scrollContainerRef} style={{ flex: 1, overflowX: 'auto', borderRadius: borderRadius.md, border: '1px solid rgba(255,255,255,0.08)', backgroundColor: '#0a0e14', scrollBehavior: 'smooth', ...timelineGridBg }}>
                     <div style={{ width: timelineWidth, minWidth: '100%', position: 'relative', paddingTop: '28px', paddingBottom: '16px', boxSizing: 'border-box' }}>
                         <div style={{ display: 'flex', marginLeft: '140px', marginBottom: '8px', width: 'calc(100% - 140px)' }}>{beatRuler}</div>
                         {trackRows}
-                        <div ref={playheadRef} style={{ position: 'absolute', top: 0, bottom: 0, width: '2px', backgroundColor: tempoWarning ? '#fbbf24' : '#fff', opacity: tempoWarning ? 0.5 : 0.8, pointerEvents: 'none', zIndex: 10, display: 'none', willChange: 'left' }} />
+                        <div ref={playheadRef} style={{ position: 'absolute', top: 0, bottom: 0, width: '2px', backgroundColor: tempoWarning ? '#fbbf24' : colors.primary, boxShadow: tempoWarning ? 'none' : `0 0 14px ${colors.primary}99`, opacity: tempoWarning ? 0.5 : 1, pointerEvents: 'none', zIndex: 10, display: 'none', willChange: 'left' }}>
+                            <div style={{ position: 'absolute', top: '-6px', left: '50%', transform: 'translateX(-50%)', width: 0, height: 0, borderLeft: '6px solid transparent', borderRight: '6px solid transparent', borderTop: `6px solid ${tempoWarning ? '#fbbf24' : colors.primary}` }} />
+                        </div>
                         {markerElements}
                     </div>
                 </div>
@@ -604,7 +615,7 @@ export const ArrangementViewer: React.FC<{
     return (
         <div style={{ marginTop: '40px', maxWidth: '100%', overflow: 'hidden' }}>
             {viewerContent}
-            <div ref={scrollContainerRef} style={{ overflowX: 'auto', borderRadius: borderRadius.md, border: '1px solid rgba(255,255,255,0.08)', backgroundColor: '#0d1117', scrollBehavior: 'smooth' }}>
+            <div ref={scrollContainerRef} style={{ overflowX: 'auto', borderRadius: borderRadius.md, border: '1px solid rgba(255,255,255,0.08)', backgroundColor: '#0a0e14', scrollBehavior: 'smooth', ...timelineGridBg }}>
                 <div style={{ width: timelineWidth, minWidth: '100%', position: 'relative', paddingTop: '28px', paddingBottom: '16px', boxSizing: 'border-box' }}>
                     {/* Beat ruler */}
                     <div style={{ display: 'flex', marginLeft: '140px', marginBottom: '8px', width: 'calc(100% - 140px)' }}>
@@ -613,7 +624,9 @@ export const ArrangementViewer: React.FC<{
                     {/* Track rows */}
                     {trackRows}
                     {/* Playhead — positioned via rAF, no React re-renders */}
-                    <div ref={playheadRef} style={{ position: 'absolute', top: 0, bottom: 0, width: '2px', backgroundColor: tempoWarning ? '#fbbf24' : '#fff', opacity: tempoWarning ? 0.5 : 0.8, pointerEvents: 'none', zIndex: 10, display: 'none', willChange: 'left' }} />
+                    <div ref={playheadRef} style={{ position: 'absolute', top: 0, bottom: 0, width: '2px', backgroundColor: tempoWarning ? '#fbbf24' : colors.primary, boxShadow: tempoWarning ? 'none' : `0 0 14px ${colors.primary}99`, opacity: tempoWarning ? 0.5 : 1, pointerEvents: 'none', zIndex: 10, display: 'none', willChange: 'left' }}>
+                        <div style={{ position: 'absolute', top: '-6px', left: '50%', transform: 'translateX(-50%)', width: 0, height: 0, borderLeft: '6px solid transparent', borderRight: '6px solid transparent', borderTop: `6px solid ${tempoWarning ? '#fbbf24' : colors.primary}` }} />
+                    </div>
                     {/* Timeline markers */}
                     {markerElements}
                 </div>
