@@ -499,7 +499,7 @@ export const ArrangementViewer: React.FC<{
             const trackColor = isMuted ? '#6b7280' : TRACK_COLORS[ti % TRACK_COLORS.length];
             const indentPx = depth * 12;
             return (
-                <div key={t.id} style={{ display: 'flex', alignItems: 'center', height: isEmpty ? '24px' : '36px', marginBottom: isEmpty ? '2px' : '4px', opacity: isMuted ? 0.45 : 1 }}>
+                <div key={t.id} style={{ display: 'flex', alignItems: 'center', height: isEmpty ? '28px' : '56px', marginBottom: isEmpty ? '2px' : '4px', opacity: isMuted ? 0.45 : 1 }}>
                     <div style={{ width: '140px', flexShrink: 0, paddingRight: '12px', paddingLeft: `${indentPx}px`, fontSize: isEmpty ? '0.65rem' : '0.75rem', color: isMuted ? '#6b7280' : (isEmpty ? 'rgba(255,255,255,0.35)' : colors.textSecondary), overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'right', position: 'sticky', left: 0, backgroundColor: 'rgba(10,14,20,0.8)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', zIndex: 5, borderRight: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px' }}>
                         {depth > 0 && <span style={{ color: 'rgba(255,255,255,0.15)', flexShrink: 0 }}>╰</span>}
                         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', fontStyle: isEmpty ? 'italic' : 'normal' }}>{t.name}</span>
