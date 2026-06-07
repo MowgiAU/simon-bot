@@ -83,7 +83,7 @@ export const ProjectDetailPage: React.FC<Props> = ({ projectId }) => {
   const [audioTime, setAudioTime] = useState(0);
   const [audioDuration, setAudioDuration] = useState(0);
   const [uploadingAudio, setUploadingAudio] = useState(false);
-  const [zoom, setZoom] = useState(1);
+  const [zoom, setZoom] = useState(5.5);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const currentTimeRef = useRef(0);

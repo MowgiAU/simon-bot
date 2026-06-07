@@ -237,7 +237,7 @@ export const TrackPage: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
-    const [zoom, setZoom] = useState(1);
+    const [zoom, setZoom] = useState(5.5);
     const { player, setTrack, togglePlay, seek } = usePlayer();
 
     // Edit state

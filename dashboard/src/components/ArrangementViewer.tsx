@@ -200,7 +200,7 @@ export const PianoRollModal: React.FC<{ clip: ArrangementClip; color: string; on
     const isBlack = (k: number) => [1,3,6,8,10].includes(k % 12);
     const beatLines = [];
     for (let b = 0; b <= Math.ceil(maxPos); b++) beatLines.push(b);
-    return (
+    return createPortal(
         <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 1000, backgroundColor: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
             <div onClick={e => e.stopPropagation()} style={{ backgroundColor: '#0d1117', border: `1px solid ${color}44`, borderRadius: borderRadius.lg, maxWidth: '900px', width: '100%', maxHeight: '80vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: `0 24px 60px rgba(0,0,0,0.7), 0 0 0 1px ${color}22` }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.07)', flexShrink: 0 }}>
@@ -250,7 +250,8 @@ export const PianoRollModal: React.FC<{ clip: ArrangementClip; color: string; on
                     </div>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };
 
@@ -275,7 +276,7 @@ export const SampleInfoModal: React.FC<{ clip: ArrangementClip; color: string; p
         audioRef.current.currentTime = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * audioDuration;
     };
     const fmtTime = (s: number) => `${Math.floor(s / 60)}:${Math.floor(s % 60).toString().padStart(2, '0')}`;
-    return (
+    return createPortal(
         <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 1000, backgroundColor: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
             <div onClick={e => e.stopPropagation()} style={{ backgroundColor: '#0d1117', border: `1px solid ${color}44`, borderRadius: borderRadius.lg, width: '480px', maxWidth: '100%', overflow: 'hidden', boxShadow: `0 24px 60px rgba(0,0,0,0.7), 0 0 0 1px ${color}22` }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.07)', backgroundColor: `${color}18` }}>
@@ -349,7 +350,8 @@ export const SampleInfoModal: React.FC<{ clip: ArrangementClip; color: string; p
                     )}
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };
 
