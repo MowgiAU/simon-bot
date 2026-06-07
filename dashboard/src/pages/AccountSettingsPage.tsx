@@ -66,6 +66,14 @@ export const AccountSettingsPage: React.FC = () => {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const [activeTab, setActiveTab] = useState<Tab>('account');
+    const [isMobile, setIsMobile] = useState(window.innerWidth < 640);
+
+    useEffect(() => {
+        let _rt: ReturnType<typeof setTimeout>;
+        const handleResize = () => { clearTimeout(_rt); _rt = setTimeout(() => setIsMobile(window.innerWidth < 640), 150); };
+        window.addEventListener('resize', handleResize);
+        return () => { clearTimeout(_rt); window.removeEventListener('resize', handleResize); };
+    }, []);
 
     // Password state
     const [currentPassword, setCurrentPassword] = useState('');
@@ -405,7 +413,20 @@ export const AccountSettingsPage: React.FC = () => {
         { id: 'notifications' as Tab, label: 'Notifications', icon: <Bell size={16} />, dot: null },
     ];
 
-    const tabBtn = (t: typeof tabs[0]): React.CSSProperties => ({
+    const tabBtn = (t: typeof tabs[0]): React.CSSProperties => isMobile ? {
+        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '6px',
+        padding: '14px 8px',
+        background: activeTab === t.id ? `${colors.primary}18` : 'transparent',
+        border: 'none',
+        borderBottom: `2px solid ${activeTab === t.id ? colors.primary : 'transparent'}`,
+        borderRadius: '0',
+        color: activeTab === t.id ? colors.primary : colors.textSecondary,
+        fontWeight: activeTab === t.id ? 700 : 500,
+        fontSize: '11px',
+        cursor: 'pointer',
+        transition: 'all 0.15s',
+        position: 'relative' as const,
+    } : {
         display: 'flex', alignItems: 'center', gap: '8px',
         padding: '10px 20px',
         background: activeTab === t.id ? `${colors.primary}18` : 'transparent',
@@ -420,7 +441,7 @@ export const AccountSettingsPage: React.FC = () => {
         position: 'relative' as const,
         whiteSpace: 'nowrap' as const,
         flexShrink: 0,
-    });
+    };
 
     const primaryBtn = (loading?: boolean, disabled?: boolean): React.CSSProperties => ({
         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
@@ -530,26 +551,34 @@ export const AccountSettingsPage: React.FC = () => {
                 {(confirmEmailMsg || confirmEmailError) && <div style={{ height: '16px' }} />}
 
                 {/* ── TAB NAV ── */}
-                <div style={{
+                <div style={isMobile ? {
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(4, 1fr)',
+                    background: colors.surface,
+                    borderRadius: borderRadius.xl,
+                    border: '1px solid rgba(255,255,255,0.06)',
+                    marginBottom: '20px',
+                    overflow: 'hidden',
+                } : {
                     display: 'flex',
                     background: colors.surface,
                     borderRadius: borderRadius.xl,
                     border: '1px solid rgba(255,255,255,0.06)',
                     marginBottom: '20px',
-                    overflowX: 'auto',
-                    overflowY: 'hidden',
-                    WebkitOverflowScrolling: 'touch',
+                    overflow: 'hidden',
                 }}>
                     {tabs.map(t => (
                         <button key={t.id} onClick={() => setActiveTab(t.id)} style={tabBtn(t)}>
                             {t.icon}
-                            {t.label}
-                            {t.dot === 'warn' && (
-                                <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: colors.warning, display: 'inline-block', marginLeft: '2px', boxShadow: `0 0 6px ${colors.warning}` }} />
-                            )}
-                            {t.dot === 'ok' && (
-                                <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: colors.success, display: 'inline-block', marginLeft: '2px', boxShadow: `0 0 6px ${colors.success}` }} />
-                            )}
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                {t.label}
+                                {t.dot === 'warn' && (
+                                    <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: colors.warning, display: 'inline-block', boxShadow: `0 0 6px ${colors.warning}` }} />
+                                )}
+                                {t.dot === 'ok' && (
+                                    <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: colors.success, display: 'inline-block', boxShadow: `0 0 6px ${colors.success}` }} />
+                                )}
+                            </span>
                         </button>
                     ))}
                 </div>
