@@ -132,6 +132,8 @@ export const MyTracksPage: React.FC = () => {
     const [collaborators, setCollaborators] = useState<any[]>([]);
     // Collaborators staged while composing a new upload (not yet saved to DB)
     const [stagedCollabs, setStagedCollabs] = useState<{ profile: any; contribution: string; category: string }[]>([]);
+    // Stems staged while composing a new upload — sent to the track once it's created
+    const [stagedStems, setStagedStems] = useState<{ file: File; label: string }[]>([]);
     const [collabSearch, setCollabSearch] = useState('');
     const [collabSearchResults, setCollabSearchResults] = useState<any[]>([]);
     const [collabSearching, setCollabSearching] = useState(false);
@@ -356,6 +358,13 @@ export const MyTracksPage: React.FC = () => {
                     category: c.category,
                 }, { withCredentials: true }).catch(() => {});
             }
+            // Upload any stems staged while composing this track
+            if (stagedStems.length > 0) {
+                const stemsFormData = new FormData();
+                stagedStems.forEach(s => stemsFormData.append('stems', s.file));
+                stemsFormData.append('labels', JSON.stringify(stagedStems.map(s => s.label.trim() || s.file.name)));
+                await axios.post(`/api/musician/tracks/${res.data.id}/stems`, stemsFormData, { withCredentials: true }).catch(() => {});
+            }
             setTracks([...tracks, res.data]);
             queryClient.invalidateQueries({ queryKey: profileQueryKey });
             // Refresh storage bar after upload
@@ -363,7 +372,7 @@ export const MyTracksPage: React.FC = () => {
             setIsAddingTrack(false);
             setNewTrack({ title: '', description: '', artist: '', album: '', year: '', bpm: '', key: '', allowAudioDownload: true, allowProjectDownload: true, license: 'all-rights-reserved', trackType: 'original' });
             setAudioFile(null); setArtworkFile(null); setProjectFile(null); setArtworkPreviewUrl(null);
-            setSelectedTrackGenres([]); setTosAgreed(false); setNewTrackLyrics(''); setStagedCollabs([]);
+            setSelectedTrackGenres([]); setTosAgreed(false); setNewTrackLyrics(''); setStagedCollabs([]); setStagedStems([]);
             setMessage({ type: 'success', text: 'Track uploaded successfully! It may take a minute to appear on your profile.' });
         } catch (e: any) {
             const errText = e.response?.data?.error
@@ -1180,14 +1189,74 @@ export const MyTracksPage: React.FC = () => {
                     );
                 })()}
 
-                {/* ── Stems (edit only — track must already exist) ── */}
-                {isEdit && editingTrack && (
+                {/* ── Stems ── */}
+                {isEdit && editingTrack ? (
                     <div style={{ marginBottom: '20px' }}>
                         <StemsManager
                             trackId={editingTrack.id}
                             stems={editingTrack.stems || []}
                             onChange={stems => setEditingTrack({ ...editingTrack, stems })}
                         />
+                    </div>
+                ) : (
+                    <div style={{ marginBottom: '20px', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '16px', marginTop: '4px' }}>
+                        <h3 style={{ margin: '0 0 4px', fontSize: '1rem', color: colors.textSecondary }}>Stems</h3>
+                        <p style={{ margin: '0 0 12px', fontSize: '0.8rem', color: colors.textTertiary }}>
+                            Optionally add individually-rendered audio for each track in your project (e.g. Drums, Bass, Lead).
+                            They'll be uploaded once your track is created. Listeners can mute, solo and mix them in a synced player on the track page.
+                        </p>
+
+                        {stagedStems.length > 0 && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '12px' }}>
+                                {stagedStems.map((s, idx) => (
+                                    <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <input
+                                            type="text"
+                                            value={s.label}
+                                            onChange={e => setStagedStems(prev => prev.map((p, i) => i === idx ? { ...p, label: e.target.value } : p))}
+                                            placeholder="Stem name (e.g. Drums)"
+                                            style={{
+                                                flex: 1, padding: '8px 12px', fontSize: '0.85rem',
+                                                backgroundColor: colors.surface, border: `1px solid ${colors.border}`,
+                                                borderRadius: borderRadius.sm, color: colors.textPrimary,
+                                            }}
+                                        />
+                                        <span style={{ fontSize: '0.78rem', color: colors.textTertiary, maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                            {s.file.name}
+                                        </span>
+                                        <button
+                                            onClick={() => setStagedStems(prev => prev.filter((_, i) => i !== idx))}
+                                            style={{ width: '26px', height: '26px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: 'none', color: colors.textTertiary, cursor: 'pointer' }}
+                                        >
+                                            <Trash2 size={13} />
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        <label style={{
+                            display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer',
+                            padding: '10px 14px', backgroundColor: 'rgba(255,255,255,0.03)',
+                            border: '1px dashed rgba(255,255,255,0.15)', borderRadius: borderRadius.md,
+                            color: colors.textSecondary, fontSize: '0.9rem',
+                        }}>
+                            <Upload size={16} />
+                            Add stem audio files (MP3, WAV, FLAC — multiple allowed)
+                            <input
+                                type="file"
+                                multiple
+                                accept=".mp3,.wav,.flac,.ogg,.aiff,.aif,audio/*"
+                                style={{ display: 'none' }}
+                                onChange={e => {
+                                    const files = e.target.files;
+                                    if (files && files.length) {
+                                        setStagedStems(prev => [...prev, ...Array.from(files).map(file => ({ file, label: file.name.replace(/\.[^.]+$/, '') }))]);
+                                    }
+                                    e.target.value = '';
+                                }}
+                            />
+                        </label>
                     </div>
                 )}
 
