@@ -24,6 +24,7 @@ export const StemsManager: React.FC<{
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [reordering, setReordering] = useState(false);
     const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+    const [fileDragOver, setFileDragOver] = useState(false);
 
     const handleFiles = (files: FileList | null) => {
         if (!files || !files.length) return;
@@ -197,14 +198,19 @@ export const StemsManager: React.FC<{
                         </div>
                     )}
 
-                    <label style={{
-                        display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer',
-                        padding: '10px 14px', backgroundColor: 'rgba(255,255,255,0.03)',
-                        border: '1px dashed rgba(255,255,255,0.15)', borderRadius: borderRadius.md,
-                        color: colors.textSecondary, fontSize: '0.9rem',
-                    }}>
+                    <label
+                        onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; setFileDragOver(true); }}
+                        onDragLeave={() => setFileDragOver(false)}
+                        onDrop={e => { e.preventDefault(); setFileDragOver(false); handleFiles(e.dataTransfer.files); }}
+                        style={{
+                            display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer',
+                            padding: '10px 14px', backgroundColor: fileDragOver ? 'rgba(242, 120, 10,0.08)' : 'rgba(255,255,255,0.03)',
+                            border: `1px dashed ${fileDragOver ? colors.primary : 'rgba(255,255,255,0.15)'}`, borderRadius: borderRadius.md,
+                            color: fileDragOver ? colors.primary : colors.textSecondary, fontSize: '0.9rem',
+                        }}
+                    >
                         <Upload size={16} />
-                        Add stem audio files (MP3, WAV, FLAC -- multiple allowed)
+                        {fileDragOver ? 'Drop to add stems' : 'Add stem audio files (MP3, WAV, FLAC -- multiple allowed)'}
                         <input
                             type="file"
                             multiple

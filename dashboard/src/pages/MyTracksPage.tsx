@@ -137,6 +137,7 @@ export const MyTracksPage: React.FC = () => {
     const [stagedStems, setStagedStems] = useState<{ file: File; label: string }[]>([]);
     const [stagedStemsExpanded, setStagedStemsExpanded] = useState(false);
     const [stagedStemDragOverIndex, setStagedStemDragOverIndex] = useState<number | null>(null);
+    const [stagedStemFileDragOver, setStagedStemFileDragOver] = useState(false);
     const [collabSearch, setCollabSearch] = useState('');
     const [collabSearchResults, setCollabSearchResults] = useState<any[]>([]);
     const [collabSearching, setCollabSearching] = useState(false);
@@ -1019,14 +1020,26 @@ export const MyTracksPage: React.FC = () => {
                                     </div>
                                 )}
 
-                                <label style={{
-                                    display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer',
-                                    padding: '10px 14px', backgroundColor: 'rgba(255,255,255,0.03)',
-                                    border: '1px dashed rgba(255,255,255,0.15)', borderRadius: borderRadius.md,
-                                    color: colors.textSecondary, fontSize: '0.9rem',
-                                }}>
+                                <label
+                                    onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; setStagedStemFileDragOver(true); }}
+                                    onDragLeave={() => setStagedStemFileDragOver(false)}
+                                    onDrop={e => {
+                                        e.preventDefault();
+                                        setStagedStemFileDragOver(false);
+                                        const files = e.dataTransfer.files;
+                                        if (files && files.length) {
+                                            setStagedStems(prev => [...prev, ...Array.from(files).map(file => ({ file, label: file.name.replace(/\.[^.]+$/, '') }))]);
+                                        }
+                                    }}
+                                    style={{
+                                        display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer',
+                                        padding: '10px 14px', backgroundColor: stagedStemFileDragOver ? 'rgba(242, 120, 10,0.08)' : 'rgba(255,255,255,0.03)',
+                                        border: `1px dashed ${stagedStemFileDragOver ? colors.primary : 'rgba(255,255,255,0.15)'}`, borderRadius: borderRadius.md,
+                                        color: stagedStemFileDragOver ? colors.primary : colors.textSecondary, fontSize: '0.9rem',
+                                    }}
+                                >
                                     <Upload size={16} />
-                                    Add stem audio files (MP3, WAV, FLAC — multiple allowed)
+                                    {stagedStemFileDragOver ? 'Drop to add stems' : 'Add stem audio files (MP3, WAV, FLAC — multiple allowed)'}
                                     <input
                                         type="file"
                                         multiple

@@ -1333,7 +1333,7 @@ export const TrackPage: React.FC = () => {
                 {/* Stems mixer — synced multi-track playback with mute/solo/volume */}
                 {track.stems && track.stems.length > 0 && (
                     <div style={{ marginBottom: '24px' }}>
-                        <StemsMixer stems={track.stems} trackTitle={track.title} masterUrl={track.url} masterMp3Url={track.mp3Url} />
+                        <StemsMixer stems={track.stems} trackTitle={track.title} masterDuration={track.duration} playerTrack={track} />
                     </div>
                 )}
 
