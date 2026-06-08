@@ -34,6 +34,7 @@ import { runBackup, pgDump } from '../services/DatabaseBackup.js';
 import { softDeleteMiddleware } from '../services/softDelete.js';
 import { retryMiddleware } from '../services/prismaRetry.js';
 import { WaveformExtractor } from '../services/WaveformExtractor.js';
+import { StemProcessor } from '../services/StemProcessor.js';
 import { FileValidator, sanitizeFilename, sanitizeDisplayName } from '../services/FileValidator.js';
 import { MessageEncryption } from '../services/MessageEncryption.js';
 import AdmZip from 'adm-zip';
@@ -210,6 +211,30 @@ const upload = multer({
     } else {
       cb(null, true);
     }
+  }
+});
+
+// Dedicated multer instance for stem uploads — disk storage to a temp dir so
+// StemProcessor (ffmpeg-based) can operate on file paths. Accepts multiple
+// audio files per request under the `stems` field.
+const stemTempDir = path.join(PROJECT_ROOT, 'public/uploads/tmp/stems');
+fs.mkdirSync(stemTempDir, { recursive: true });
+const stemUpload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, stemTempDir),
+    filename: (_req, file, cb) => cb(null, `stem-${Date.now()}-${Math.round(Math.random() * 1e9)}${path.extname(file.originalname)}`),
+  }),
+  limits: { fileSize: 200 * 1024 * 1024, files: 24 },
+  fileFilter: (_req, file, cb) => {
+    const dotIdx = file.originalname.lastIndexOf('.');
+    const ext = dotIdx !== -1 ? file.originalname.toLowerCase().slice(dotIdx) : '';
+    const audioExtensions = ['.mp3', '.wav', '.flac', '.ogg', '.aac', '.m4a', '.wma', '.aiff', '.aif', '.opus', '.webm'];
+    const mimeOk = file.mimetype.startsWith('audio/')
+      || file.mimetype === 'video/webm'
+      || file.mimetype === 'application/ogg'
+      || (file.mimetype === 'application/octet-stream' && audioExtensions.includes(ext));
+    if (mimeOk || audioExtensions.includes(ext)) cb(null, true);
+    else cb(new Error('Only audio files are allowed for stems! Supported formats: MP3, WAV, FLAC, OGG, AAC, M4A, AIFF, OPUS.'));
   }
 });
 
@@ -9556,6 +9581,7 @@ app.get('/api/musician/tracks/:username/:trackSlug', async (req, res) => {
             genres: { include: { genre: true } },
             plays: true,
             samples: true,
+            stems: { orderBy: { order: 'asc' as const } },
             collaborators: {
                 where: { status: 'accepted' },
                 include: { profile: { select: { id: true, userId: true, username: true, displayName: true, avatar: true } } },
@@ -11041,6 +11067,132 @@ app.delete('/api/musician/tracks/:trackId/collaborators/:collaboratorId', requir
         if (!track || (track.profile.userId !== userId && track.profile.userId !== _cIdCollabDel)) return res.status(403).json({ error: 'Forbidden' });
 
         await db.trackCollaborator.deleteMany({ where: { id: collaboratorId, trackId } });
+        res.json({ success: true });
+    } catch (e: any) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// ── Stems: per-track individually-rendered audio for the synced mixer ────────
+
+async function requireTrackOwner(req: any, trackId: string): Promise<{ ok: true; track: any } | { ok: false; status: number; error: string }> {
+    const userId = req.session?.user?.id;
+    if (!userId) return { ok: false, status: 401, error: 'Unauthorized' };
+    const track = await db.track.findUnique({ where: { id: trackId }, include: { profile: true } });
+    if (!track) return { ok: false, status: 404, error: 'Track not found' };
+    const canonicalId = req.session?.user?._localId || userId;
+    if (track.profile.userId !== userId && track.profile.userId !== canonicalId) {
+        return { ok: false, status: 403, error: 'Forbidden' };
+    }
+    return { ok: true, track };
+}
+
+// List a track's stems (owner only — used to populate the edit form;
+// public viewers receive stems already embedded in the track detail response).
+app.get('/api/musician/tracks/:trackId/stems', requireAuth, async (req: any, res) => {
+    try {
+        const { trackId } = req.params;
+        const ownerCheck = await requireTrackOwner(req, trackId);
+        if (!ownerCheck.ok) return res.status(ownerCheck.status).json({ error: ownerCheck.error });
+
+        const stems = await db.trackStem.findMany({ where: { trackId }, orderBy: { order: 'asc' } });
+        res.json(stems);
+    } catch (e: any) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Upload one or more stems (track owner only). Each file becomes a TrackStem row.
+// Optional `labels` field: JSON array of display names, matched by index to `stems` files.
+app.post('/api/musician/tracks/:trackId/stems', generalUploadLimiter, requireAuth, stemUpload.array('stems', 24), async (req: any, res) => {
+    const files = (req.files as Express.Multer.File[]) || [];
+    try {
+        req.socket.setTimeout(0);
+        const { trackId } = req.params;
+        const ownerCheck = await requireTrackOwner(req, trackId);
+        if (!ownerCheck.ok) return res.status(ownerCheck.status).json({ error: ownerCheck.error });
+
+        if (!files.length) return res.status(400).json({ error: 'At least one stem audio file is required' });
+
+        let labels: string[] = [];
+        if (req.body.labels) {
+            try { labels = JSON.parse(req.body.labels); } catch { /* ignore — fall back to filenames */ }
+        }
+
+        await Promise.all(files.map(f => scanFileForViruses(f.path, 'audio')));
+
+        const existingCount = await db.trackStem.count({ where: { trackId } });
+        const created: any[] = [];
+
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            const label = sanitizeDisplayName(labels[i]?.trim() || path.basename(file.originalname, path.extname(file.originalname)));
+            try {
+                const processed = await StemProcessor.process(file.path, file.originalname, label, trackId);
+                const stem = await db.trackStem.create({
+                    data: {
+                        trackId,
+                        label: processed.label,
+                        originalFilename: processed.originalFilename,
+                        url: processed.url,
+                        mp3Url: processed.mp3Url,
+                        peaks: processed.peaks as any,
+                        duration: processed.duration,
+                        order: existingCount + created.length,
+                    },
+                });
+                created.push(stem);
+            } catch (e: any) {
+                logger.warn(`Failed to process stem "${file.originalname}" for track ${trackId}: ${e.message}`);
+                try { if (fs.existsSync(file.path)) fs.unlinkSync(file.path); } catch {}
+            }
+        }
+
+        if (!created.length) return res.status(500).json({ error: 'Failed to process any of the uploaded stems' });
+
+        await logAction('GLOBAL', 'track_stems_uploaded', req.session.user.id, trackId, { count: created.length });
+        res.json({ stems: created });
+    } catch (e: any) {
+        for (const f of files) { try { if (fs.existsSync(f.path)) fs.unlinkSync(f.path); } catch {} }
+        logger.error('Failed to upload stems', e);
+        res.status(500).json({ error: 'Failed to upload stems' });
+    }
+});
+
+// Rename a stem or change its mixer order (track owner only)
+app.patch('/api/musician/tracks/:trackId/stems/:stemId', requireAuth, async (req: any, res) => {
+    try {
+        const { trackId, stemId } = req.params;
+        const ownerCheck = await requireTrackOwner(req, trackId);
+        if (!ownerCheck.ok) return res.status(ownerCheck.status).json({ error: ownerCheck.error });
+
+        const stem = await db.trackStem.findUnique({ where: { id: stemId } });
+        if (!stem || stem.trackId !== trackId) return res.status(404).json({ error: 'Stem not found' });
+
+        const data: Record<string, any> = {};
+        if (typeof req.body.label === 'string' && req.body.label.trim()) data.label = sanitizeDisplayName(req.body.label.trim());
+        if (typeof req.body.order === 'number') data.order = req.body.order;
+
+        const updated = await db.trackStem.update({ where: { id: stemId }, data });
+        res.json(updated);
+    } catch (e: any) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Delete a stem (track owner only)
+app.delete('/api/musician/tracks/:trackId/stems/:stemId', requireAuth, async (req: any, res) => {
+    try {
+        const { trackId, stemId } = req.params;
+        const ownerCheck = await requireTrackOwner(req, trackId);
+        if (!ownerCheck.ok) return res.status(ownerCheck.status).json({ error: ownerCheck.error });
+
+        const stem = await db.trackStem.findUnique({ where: { id: stemId } });
+        if (!stem || stem.trackId !== trackId) return res.status(404).json({ error: 'Stem not found' });
+
+        await db.trackStem.delete({ where: { id: stemId } });
+        await Promise.all([deleteFromStorage(stem.url), deleteFromStorage(stem.mp3Url)]);
+
         res.json({ success: true });
     } catch (e: any) {
         res.status(500).json({ error: 'Internal server error' });

@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
 import { ConfirmModal } from '../components/ConfirmModal';
+import { StemsManager } from '../components/StemsManager';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { User } from 'lucide-react';
 
@@ -203,6 +204,15 @@ export const MyTracksPage: React.FC = () => {
         if (!editingTrack) { setCollaborators([]); setCollabSearch(''); setCollabSearchResults([]); return; }
         axios.get(`/api/musician/tracks/${editingTrack.id}/collaborators`, { withCredentials: true })
             .then(r => setCollaborators(r.data))
+            .catch(() => {});
+    }, [editingTrack?.id]);
+
+    // Load stems when a track is opened for editing — the profile track list omits
+    // them (heavy waveform peaks), so fetch lazily here for the StemsManager.
+    useEffect(() => {
+        if (!editingTrack?.id) return;
+        axios.get(`/api/musician/tracks/${editingTrack.id}/stems`, { withCredentials: true })
+            .then(r => setEditingTrack((prev: any) => prev && prev.id === editingTrack.id ? { ...prev, stems: r.data } : prev))
             .catch(() => {});
     }, [editingTrack?.id]);
 
@@ -1169,6 +1179,17 @@ export const MyTracksPage: React.FC = () => {
                         </div>
                     );
                 })()}
+
+                {/* ── Stems (edit only — track must already exist) ── */}
+                {isEdit && editingTrack && (
+                    <div style={{ marginBottom: '20px' }}>
+                        <StemsManager
+                            trackId={editingTrack.id}
+                            stems={editingTrack.stems || []}
+                            onChange={stems => setEditingTrack({ ...editingTrack, stems })}
+                        />
+                    </div>
+                )}
 
                 {/* ── ToS + AI warning (add only) ── */}
                 {!isEdit && (

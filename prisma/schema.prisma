@@ -1079,6 +1079,7 @@ model Track {
   youtubeUrl String? // YouTube music video URL
 
   samples TrackSample[]
+  stems   TrackStem[]
 
   profile        MusicianProfile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
   isFeaturedIn   MusicianProfile? @relation("FeaturedTrack")
@@ -1170,6 +1171,25 @@ model TrackSample {
 
   @@unique([trackId, originalFilename])
   @@map("track_samples")
+}
+
+// User-uploaded, individually-rendered stems (e.g. "Drums", "Bass", "Lead Synth")
+// for a track — played back together in a synced multi-track mixer on the track page.
+model TrackStem {
+  id               String   @id @default(cuid())
+  trackId          String
+  label            String // User-facing name shown in the mixer (defaults to filename)
+  originalFilename String
+  url              String // OGG R2 CDN URL (or local /uploads/stems/ path if R2 not configured)
+  mp3Url           String? // MP3 fallback for browsers without OGG support
+  peaks            Json? // number[] ~1200 normalised RMS values, 0.0–1.0
+  duration         Float? // Duration in seconds
+  order            Int      @default(0) // Display order in the mixer
+  track            Track    @relation(fields: [trackId], references: [id], onDelete: Cascade)
+  createdAt        DateTime @default(now())
+
+  @@index([trackId, order])
+  @@map("track_stems")
 }
 
 model Genre {

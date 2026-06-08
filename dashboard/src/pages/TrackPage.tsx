@@ -21,6 +21,8 @@ import { CommentSection } from '../components/CommentSection';
 import { AddToPlaylistModal } from '../components/AddToPlaylistModal';
 import { ReportButton } from '../components/ReportButton';
 import { ArrangementViewer, ArrangementData, ProjectInfo, ArrangementClip, NoteData, AutomationPoint, PluginList, usePluginRegistry, matchPlugin, PluginModal } from '../components/ArrangementViewer';
+import { StemsMixer, StemData } from '../components/StemsMixer';
+import { StemsManager } from '../components/StemsManager';
 
 interface TrackSample {
     id: string;
@@ -57,6 +59,7 @@ interface Track {
     waveformPeaks: number[] | null;
     youtubeUrl: string | null;
     samples?: TrackSample[];
+    stems?: StemData[];
     profile: {
         id: string;
         username: string;
@@ -1326,6 +1329,13 @@ export const TrackPage: React.FC = () => {
                     </div>
                 )}
 
+                {/* Stems mixer — synced multi-track playback with mute/solo/volume */}
+                {track.stems && track.stems.length > 0 && (
+                    <div style={{ marginBottom: '24px' }}>
+                        <StemsMixer stems={track.stems} trackTitle={track.title} />
+                    </div>
+                )}
+
                 {/* Comments */}
                 <CommentSection
                     trackId={track.id}
@@ -2026,6 +2036,15 @@ export const TrackPage: React.FC = () => {
                                         </div>
                                     </div>
                                 </div>
+
+                                {/* Stems management */}
+                                {isOwner && track && (
+                                    <StemsManager
+                                        trackId={track.id}
+                                        stems={track.stems || []}
+                                        onChange={stems => setTrackData(d => d ? { ...d, stems } : d)}
+                                    />
+                                )}
 
                                 {/* Action Buttons */}
                                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '8px' }}>
