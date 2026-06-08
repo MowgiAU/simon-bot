@@ -110,6 +110,14 @@ export const StemsMixer: React.FC<{
     const startCtxTimeRef = useRef(0);   // audioContext.currentTime when the stems engine last (re)started
     const startOffsetRef = useRef(0);    // global-player position (seconds) it started shadowing from
     const isPlayingRef = useRef(false);  // is the *stems engine* currently producing audio
+    const muteTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const clearPendingMute = useCallback(() => {
+        if (muteTimeoutRef.current) {
+            clearTimeout(muteTimeoutRef.current);
+            muteTimeoutRef.current = null;
+        }
+    }, []);
 
     const [loading, setLoading] = useState(true);
     const [loadError, setLoadError] = useState<string | null>(null);
@@ -243,13 +251,27 @@ export const StemsMixer: React.FC<{
         startOffsetRef.current = offset;
         isPlayingRef.current = true;
         applyGains();
-    }, [stopSources, applyGains]);
+
+        // Silence the shared <audio> at the exact moment the stems sources begin
+        // producing sound — not a moment sooner — so there's no audible gap
+        // between the full mix cutting out and the stems engine kicking in.
+        // (Restarts for drift-resync skip this: the global player is already muted.)
+        clearPendingMute();
+        if (!playerRef.current.muted) {
+            const delayMs = Math.max(0, (startAt - ctx.currentTime) * 1000);
+            muteTimeoutRef.current = setTimeout(() => {
+                muteTimeoutRef.current = null;
+                setMutedRef.current(true);
+            }, delayMs);
+        }
+    }, [stopSources, applyGains, clearPendingMute]);
 
     const pauseStemsEngine = useCallback(() => {
+        clearPendingMute();
         if (!isPlayingRef.current) return;
         isPlayingRef.current = false;
         stopSources();
-    }, [stopSources]);
+    }, [stopSources, clearPendingMute]);
 
     // Should the stems engine currently be the audible source for this track?
     const stemsShouldDrive = anyActive && isThisTrackCurrent && !loading;
@@ -263,14 +285,19 @@ export const StemsMixer: React.FC<{
         }
     }, [stemsShouldDrive, player.isPlaying, startStemsFrom, pauseStemsEngine]);
 
-    // Mute the shared <audio> element while the stems engine is the audible
-    // source — it keeps playing (silently) purely to drive the shared
+    // The shared <audio> element is silenced while the stems engine is the
+    // audible source — it keeps playing (muted) purely to drive the shared
     // transport clock, so the waveform/arrangement view never pauses or
-    // desyncs. Restore on the way out and on unmount.
+    // desyncs. The mute-on-entry is scheduled inside startStemsFrom to land
+    // exactly when the stems sources start (avoiding an audible gap); here we
+    // only need to restore it immediately on the way out (and on unmount).
     useEffect(() => {
-        setMutedRef.current(stemsShouldDrive);
-    }, [stemsShouldDrive]);
-    useEffect(() => () => { setMutedRef.current(false); }, []);
+        if (!stemsShouldDrive) {
+            clearPendingMute();
+            setMutedRef.current(false);
+        }
+    }, [stemsShouldDrive, clearPendingMute]);
+    useEffect(() => () => { clearPendingMute(); setMutedRef.current(false); }, [clearPendingMute]);
 
     // Periodically resync the stems engine to the global player's position —
     // catches user seeks/scrubs on the master transport while stems are driving.
