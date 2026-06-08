@@ -7,7 +7,8 @@ import {
     Music, Plus, X, ExternalLink, ArrowLeft, Tag, FileAudio,
     Image as ImageIcon, Edit3, Upload, Trash2, Eye, EyeOff, Clock,
     BarChart3, AlertCircle, Check, Save, AlignLeft, Scale, CheckSquare, Square, Download,
-    Users, Search, UserPlus, Mic2, GripVertical, Link as LinkIcon, RefreshCw, Disc
+    Users, Search, UserPlus, Mic2, GripVertical, Link as LinkIcon, RefreshCw, Disc,
+    ChevronDown, ChevronRight, ArrowUp, ArrowDown, Music2
 } from 'lucide-react';
 import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
 import { ConfirmModal } from '../components/ConfirmModal';
@@ -134,6 +135,7 @@ export const MyTracksPage: React.FC = () => {
     const [stagedCollabs, setStagedCollabs] = useState<{ profile: any; contribution: string; category: string }[]>([]);
     // Stems staged while composing a new upload — sent to the track once it's created
     const [stagedStems, setStagedStems] = useState<{ file: File; label: string }[]>([]);
+    const [stagedStemsExpanded, setStagedStemsExpanded] = useState(false);
     const [collabSearch, setCollabSearch] = useState('');
     const [collabSearchResults, setCollabSearchResults] = useState<any[]>([]);
     const [collabSearching, setCollabSearching] = useState(false);
@@ -925,6 +927,138 @@ export const MyTracksPage: React.FC = () => {
                     </p>
                 )}
 
+                {/* ── Stems ── */}
+                {isEdit && editingTrack ? (
+                    <div style={{ marginBottom: '20px' }}>
+                        <StemsManager
+                            trackId={editingTrack.id}
+                            stems={editingTrack.stems || []}
+                            onChange={stems => setEditingTrack({ ...editingTrack, stems })}
+                        />
+                    </div>
+                ) : (
+                    <div style={{ marginBottom: '20px', borderTop: '1px solid rgba(255,255,255,0.08)', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingTop: '16px', paddingBottom: '16px' }}>
+                        <button
+                            type="button"
+                            onClick={() => setStagedStemsExpanded(e => !e)}
+                            style={{
+                                display: 'flex', alignItems: 'center', gap: '8px', width: '100%',
+                                background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left',
+                            }}
+                        >
+                            {stagedStemsExpanded ? <ChevronDown size={18} color={colors.textSecondary} /> : <ChevronRight size={18} color={colors.textSecondary} />}
+                            <Music2 size={16} color={colors.primary} />
+                            <h3 style={{ margin: 0, fontSize: '1rem', color: colors.textSecondary }}>
+                                Stems {stagedStems.length > 0 ? `(${stagedStems.length})` : '(optional)'}
+                            </h3>
+                        </button>
+
+                        {stagedStemsExpanded && (
+                            <div style={{ marginTop: '12px' }}>
+                                <p style={{ margin: '0 0 12px', fontSize: '0.8rem', color: colors.textTertiary }}>
+                                    Optionally add individually-rendered audio for each track in your project (e.g. Drums, Bass, Lead).
+                                    They'll be uploaded once your track is created. Listeners can mute, solo and mix them in a synced
+                                    player on the track page, in the order shown below.
+                                </p>
+
+                                {stagedStems.length > 0 && (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '12px' }}>
+                                        {stagedStems.map((s, idx) => (
+                                            <div key={idx} style={{
+                                                display: 'flex', alignItems: 'center', gap: '8px',
+                                                padding: '8px 12px', backgroundColor: 'rgba(255,255,255,0.03)',
+                                                border: '1px solid rgba(255,255,255,0.08)', borderRadius: borderRadius.md,
+                                            }}>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                                    <button
+                                                        onClick={() => setStagedStems(prev => {
+                                                            if (idx === 0) return prev;
+                                                            const next = [...prev];
+                                                            [next[idx - 1], next[idx]] = [next[idx], next[idx - 1]];
+                                                            return next;
+                                                        })}
+                                                        disabled={idx === 0}
+                                                        title="Move up"
+                                                        style={{
+                                                            width: '20px', height: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                            background: 'transparent', border: 'none', borderRadius: borderRadius.sm,
+                                                            color: idx === 0 ? colors.textTertiary : colors.textSecondary,
+                                                            cursor: idx === 0 ? 'default' : 'pointer', opacity: idx === 0 ? 0.4 : 1,
+                                                        }}
+                                                    >
+                                                        <ArrowUp size={12} />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => setStagedStems(prev => {
+                                                            if (idx === prev.length - 1) return prev;
+                                                            const next = [...prev];
+                                                            [next[idx], next[idx + 1]] = [next[idx + 1], next[idx]];
+                                                            return next;
+                                                        })}
+                                                        disabled={idx === stagedStems.length - 1}
+                                                        title="Move down"
+                                                        style={{
+                                                            width: '20px', height: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                            background: 'transparent', border: 'none', borderRadius: borderRadius.sm,
+                                                            color: idx === stagedStems.length - 1 ? colors.textTertiary : colors.textSecondary,
+                                                            cursor: idx === stagedStems.length - 1 ? 'default' : 'pointer', opacity: idx === stagedStems.length - 1 ? 0.4 : 1,
+                                                        }}
+                                                    >
+                                                        <ArrowDown size={12} />
+                                                    </button>
+                                                </div>
+                                                <input
+                                                    type="text"
+                                                    value={s.label}
+                                                    onChange={e => setStagedStems(prev => prev.map((p, i) => i === idx ? { ...p, label: e.target.value } : p))}
+                                                    placeholder="Stem name (e.g. Drums)"
+                                                    style={{
+                                                        flex: 1, padding: '7px 10px', fontSize: '0.85rem',
+                                                        backgroundColor: colors.surface, border: `1px solid ${colors.border}`,
+                                                        borderRadius: borderRadius.sm, color: colors.textPrimary,
+                                                    }}
+                                                />
+                                                <span style={{ fontSize: '0.78rem', color: colors.textTertiary, maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                    {s.file.name}
+                                                </span>
+                                                <button
+                                                    onClick={() => setStagedStems(prev => prev.filter((_, i) => i !== idx))}
+                                                    style={{ width: '26px', height: '26px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: 'none', color: colors.textTertiary, cursor: 'pointer' }}
+                                                >
+                                                    <Trash2 size={13} />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+
+                                <label style={{
+                                    display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer',
+                                    padding: '10px 14px', backgroundColor: 'rgba(255,255,255,0.03)',
+                                    border: '1px dashed rgba(255,255,255,0.15)', borderRadius: borderRadius.md,
+                                    color: colors.textSecondary, fontSize: '0.9rem',
+                                }}>
+                                    <Upload size={16} />
+                                    Add stem audio files (MP3, WAV, FLAC — multiple allowed)
+                                    <input
+                                        type="file"
+                                        multiple
+                                        accept=".mp3,.wav,.flac,.ogg,.aiff,.aif,audio/*"
+                                        style={{ display: 'none' }}
+                                        onChange={e => {
+                                            const files = e.target.files;
+                                            if (files && files.length) {
+                                                setStagedStems(prev => [...prev, ...Array.from(files).map(file => ({ file, label: file.name.replace(/\.[^.]+$/, '') }))]);
+                                            }
+                                            e.target.value = '';
+                                        }}
+                                    />
+                                </label>
+                            </div>
+                        )}
+                    </div>
+                )}
+
                 {/* ── Metadata grid ── */}
                 <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '16px', marginBottom: '20px' }}>
                     <div style={{ gridColumn: isMobile ? undefined : '1 / -1' }}>
@@ -1188,77 +1322,6 @@ export const MyTracksPage: React.FC = () => {
                         </div>
                     );
                 })()}
-
-                {/* ── Stems ── */}
-                {isEdit && editingTrack ? (
-                    <div style={{ marginBottom: '20px' }}>
-                        <StemsManager
-                            trackId={editingTrack.id}
-                            stems={editingTrack.stems || []}
-                            onChange={stems => setEditingTrack({ ...editingTrack, stems })}
-                        />
-                    </div>
-                ) : (
-                    <div style={{ marginBottom: '20px', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '16px', marginTop: '4px' }}>
-                        <h3 style={{ margin: '0 0 4px', fontSize: '1rem', color: colors.textSecondary }}>Stems</h3>
-                        <p style={{ margin: '0 0 12px', fontSize: '0.8rem', color: colors.textTertiary }}>
-                            Optionally add individually-rendered audio for each track in your project (e.g. Drums, Bass, Lead).
-                            They'll be uploaded once your track is created. Listeners can mute, solo and mix them in a synced player on the track page.
-                        </p>
-
-                        {stagedStems.length > 0 && (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '12px' }}>
-                                {stagedStems.map((s, idx) => (
-                                    <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <input
-                                            type="text"
-                                            value={s.label}
-                                            onChange={e => setStagedStems(prev => prev.map((p, i) => i === idx ? { ...p, label: e.target.value } : p))}
-                                            placeholder="Stem name (e.g. Drums)"
-                                            style={{
-                                                flex: 1, padding: '8px 12px', fontSize: '0.85rem',
-                                                backgroundColor: colors.surface, border: `1px solid ${colors.border}`,
-                                                borderRadius: borderRadius.sm, color: colors.textPrimary,
-                                            }}
-                                        />
-                                        <span style={{ fontSize: '0.78rem', color: colors.textTertiary, maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                            {s.file.name}
-                                        </span>
-                                        <button
-                                            onClick={() => setStagedStems(prev => prev.filter((_, i) => i !== idx))}
-                                            style={{ width: '26px', height: '26px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: 'none', color: colors.textTertiary, cursor: 'pointer' }}
-                                        >
-                                            <Trash2 size={13} />
-                                        </button>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-
-                        <label style={{
-                            display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer',
-                            padding: '10px 14px', backgroundColor: 'rgba(255,255,255,0.03)',
-                            border: '1px dashed rgba(255,255,255,0.15)', borderRadius: borderRadius.md,
-                            color: colors.textSecondary, fontSize: '0.9rem',
-                        }}>
-                            <Upload size={16} />
-                            Add stem audio files (MP3, WAV, FLAC — multiple allowed)
-                            <input
-                                type="file"
-                                multiple
-                                accept=".mp3,.wav,.flac,.ogg,.aiff,.aif,audio/*"
-                                style={{ display: 'none' }}
-                                onChange={e => {
-                                    const files = e.target.files;
-                                    if (files && files.length) {
-                                        setStagedStems(prev => [...prev, ...Array.from(files).map(file => ({ file, label: file.name.replace(/\.[^.]+$/, '') }))]);
-                                    }
-                                    e.target.value = '';
-                                }}
-                            />
-                        </label>
-                    </div>
-                )}
 
                 {/* ── ToS + AI warning (add only) ── */}
                 {!isEdit && (
