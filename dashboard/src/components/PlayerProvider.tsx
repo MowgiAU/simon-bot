@@ -21,6 +21,7 @@ interface PlayerState {
   isShuffle: boolean;
   repeatMode: 'none' | 'one' | 'all';
   playbackRate: number;
+  muted: boolean;
 }
 
 interface PlayerContextType {
@@ -37,6 +38,7 @@ interface PlayerContextType {
   removeFromQueue: (index: number) => void;
   jumpToIndex: (index: number) => void;
   setPlaybackRate: (rate: number) => void;
+  setMuted: (muted: boolean) => void;
 }
 
 const PlayerContext = createContext<PlayerContextType | undefined>(undefined);
@@ -65,6 +67,7 @@ export const PlayerProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     isShuffle: false,
     repeatMode: 'none',
     playbackRate: 1,
+    muted: false,
   });
 
   const [audio] = useState(new Audio());
@@ -113,6 +116,13 @@ export const PlayerProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   React.useEffect(() => {
     audio.volume = player.volume;
   }, [player.volume, audio]);
+
+  // Lets callers (e.g. the stems mixer) silence the shared <audio> element
+  // while keeping it playing — so playback position / visual sync continues
+  // uninterrupted even while a separate engine is the audible source.
+  React.useEffect(() => {
+    audio.muted = player.muted;
+  }, [player.muted, audio]);
 
   React.useEffect(() => {
     if (player.isPlaying) {
@@ -316,11 +326,15 @@ export const PlayerProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     setPlayer(prev => ({ ...prev, playbackRate: rate }));
   };
 
+  const setMuted = (muted: boolean) => {
+    setPlayer(prev => ({ ...prev, muted }));
+  };
+
   return (
     <PlayerContext.Provider value={{ 
       player, setTrack, togglePlay, setVolume, seek,
       nextTrack, prevTrack, toggleShuffle, setRepeatMode,
-      addToQueue, removeFromQueue, jumpToIndex, setPlaybackRate,
+      addToQueue, removeFromQueue, jumpToIndex, setPlaybackRate, setMuted,
     }}>
       {children}
     </PlayerContext.Provider>

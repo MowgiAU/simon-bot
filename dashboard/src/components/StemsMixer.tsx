@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
-import { Play, Pause, Volume2, VolumeX, Headphones, Layers } from 'lucide-react';
+import { Play, Pause, Volume2, VolumeX, Headphones, Layers, Download } from 'lucide-react';
 import { colors, spacing, borderRadius, typography } from '../theme/theme';
 import { usePlayer } from './PlayerProvider';
+import { useAuth } from './AuthProvider';
 
 export interface StemData {
     id: string;
@@ -94,29 +95,24 @@ export const StemsMixer: React.FC<{
     trackTitle: string;
     masterDuration: number;
     playerTrack: any;
-}> = ({ stems, trackTitle, masterDuration, playerTrack }) => {
-    const { player, setTrack, togglePlay: globalTogglePlay, seek: globalSeek } = usePlayer();
+    allowDownload?: boolean;
+}> = ({ stems, trackTitle, masterDuration, playerTrack, allowDownload = true }) => {
+    const { user } = useAuth();
+    const { player, setTrack, togglePlay: globalTogglePlay, seek: globalSeek, setMuted } = usePlayer();
 
-    // Always-fresh refs to the global player API so the mode-handoff effect
-    // (which must only fire on anyActive transitions, not on every player tick)
-    // never closes over stale values.
+    // Always-fresh refs to the global player so effects that must only run on
+    // specific transitions (not on every player tick) never read stale values.
     const playerRef = useRef(player); playerRef.current = player;
-    const setTrackRef = useRef(setTrack); setTrackRef.current = setTrack;
-    const globalTogglePlayRef = useRef(globalTogglePlay); globalTogglePlayRef.current = globalTogglePlay;
-    const globalSeekRef = useRef(globalSeek); globalSeekRef.current = globalSeek;
+    const setMutedRef = useRef(setMuted); setMutedRef.current = setMuted;
 
     const ctxRef = useRef<AudioContext | null>(null);
     const channelsRef = useRef<Map<string, EngineChannel>>(new Map());
-    const startCtxTimeRef = useRef(0);   // audioContext.currentTime when stems playback last (re)started
-    const startOffsetRef = useRef(0);    // stems playback position (seconds) at that start
-    const rafRef = useRef<number | null>(null);
-    const isPlayingRef = useRef(false);  // is the *stems engine* currently playing
+    const startCtxTimeRef = useRef(0);   // audioContext.currentTime when the stems engine last (re)started
+    const startOffsetRef = useRef(0);    // global-player position (seconds) it started shadowing from
+    const isPlayingRef = useRef(false);  // is the *stems engine* currently producing audio
 
     const [loading, setLoading] = useState(true);
     const [loadError, setLoadError] = useState<string | null>(null);
-    const [isPlaying, setIsPlaying] = useState(false);
-    const [currentTime, setCurrentTime] = useState(0);
-    const [stemsDuration, setStemsDuration] = useState(0);
     const [ui, setUi] = useState<Record<string, ChannelUiState>>(() =>
         Object.fromEntries(stems.map(s => [s.id, { muted: false, solo: false, volume: 1 }]))
     );
@@ -124,17 +120,15 @@ export const StemsMixer: React.FC<{
     uiRef.current = ui;
 
     const anySolo = useMemo(() => Object.values(ui).some(c => c.solo), [ui]);
-    // The moment any stem is muted or soloed, we hand playback off from the
-    // global player (full mix) to the individual stems engine — so soloing/
-    // muting actually changes what's audible instead of just attenuating an
+    // The moment any stem is muted or soloed, the stems engine becomes the
+    // audible source (in lockstep with the global player, which keeps running
+    // — muted — purely as the shared transport/clock) — so soloing/muting
+    // actually changes what's audible instead of just attenuating an
     // already-mixed track.
     const anyActive = useMemo(() => Object.values(ui).some(c => c.muted || c.solo), [ui]);
 
     const isThisTrackCurrent = player.currentTrack?.id === playerTrack?.id;
-    const masterDurationLive = (isThisTrackCurrent && player.duration > 0) ? player.duration : masterDuration;
-
-    // Unified transport state — sourced from whichever engine is currently driving audio
-    const duration = anyActive ? (stemsDuration || masterDurationLive) : masterDurationLive;
+    const duration = (isThisTrackCurrent && player.duration > 0) ? player.duration : masterDuration;
 
     // Compute the audible gain for a stem given current mute/solo/volume state,
     // additionally scaled by the global player's volume so the mini player's
@@ -173,7 +167,6 @@ export const StemsMixer: React.FC<{
 
         (async () => {
             try {
-                let maxDuration = 0;
                 for (const stem of stems) {
                     const url = pickStemUrl(stem);
                     const gain = ctx.createGain();
@@ -189,13 +182,11 @@ export const StemsMixer: React.FC<{
                         const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
                         if (cancelled) return;
                         channel.buffer = audioBuffer;
-                        maxDuration = Math.max(maxDuration, audioBuffer.duration);
                     } catch {
                         channel.error = true;
                     }
                 }
                 if (cancelled) return;
-                setStemsDuration(maxDuration);
                 setLoading(false);
             } catch {
                 if (!cancelled) {
@@ -208,7 +199,6 @@ export const StemsMixer: React.FC<{
         return () => {
             cancelled = true;
             isPlayingRef.current = false;
-            if (rafRef.current) cancelAnimationFrame(rafRef.current);
             for (const ch of channelsRef.current.values()) {
                 try { ch.source?.stop(); } catch {}
                 try { ch.gain.disconnect(); } catch {}
@@ -216,11 +206,14 @@ export const StemsMixer: React.FC<{
             channelsRef.current.clear();
             ctx.close().catch(() => {});
             ctxRef.current = null;
+            setMutedRef.current(false);
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [stems.map(s => s.id).join(',')]);
 
-    // ── Stems playback engine (only ever active while anyActive is true) ──────
+    // ── Stems engine — a "shadow" renderer that mirrors the global player's
+    // play/pause/seek state sample-accurately via the Web Audio API, only
+    // while it's the audible source (anyActive && isThisTrackCurrent) ────────
     const stopSources = useCallback(() => {
         for (const ch of channelsRef.current.values()) {
             if (ch.source) {
@@ -234,6 +227,7 @@ export const StemsMixer: React.FC<{
     const startStemsFrom = useCallback((offset: number) => {
         const ctx = ctxRef.current;
         if (!ctx) return;
+        if (ctx.state === 'suspended') ctx.resume();
         stopSources();
         const startAt = ctx.currentTime + 0.05; // small lookahead so all sources start in sync
         for (const ch of channelsRef.current.values()) {
@@ -247,120 +241,69 @@ export const StemsMixer: React.FC<{
         }
         startCtxTimeRef.current = startAt;
         startOffsetRef.current = offset;
+        isPlayingRef.current = true;
         applyGains();
     }, [stopSources, applyGains]);
 
-    const tick = useCallback(() => {
-        const ctx = ctxRef.current;
-        if (!ctx || !isPlayingRef.current) return;
-        const elapsed = Math.max(0, ctx.currentTime - startCtxTimeRef.current);
-        const t = startOffsetRef.current + elapsed;
-        if (t >= duration) {
-            setCurrentTime(duration);
-            setIsPlaying(false);
-            isPlayingRef.current = false;
-            stopSources();
-            startOffsetRef.current = duration;
-            return;
-        }
-        setCurrentTime(t);
-        rafRef.current = requestAnimationFrame(tick);
-    }, [duration, stopSources]);
-
-    const playStems = useCallback((fromOffset?: number) => {
-        const ctx = ctxRef.current;
-        if (!ctx || loading) return;
-        if (ctx.state === 'suspended') ctx.resume();
-        const offset = fromOffset !== undefined ? fromOffset : (currentTime >= duration ? 0 : currentTime);
-        startStemsFrom(offset);
-        isPlayingRef.current = true;
-        setIsPlaying(true);
-        rafRef.current = requestAnimationFrame(tick);
-    }, [loading, currentTime, duration, startStemsFrom, tick]);
-
-    const pauseStems = useCallback((): number => {
-        const ctx = ctxRef.current;
-        if (!ctx || !isPlayingRef.current) return startOffsetRef.current;
-        const elapsed = Math.max(0, ctx.currentTime - startCtxTimeRef.current);
-        const t = Math.min(duration, startOffsetRef.current + elapsed);
+    const pauseStemsEngine = useCallback(() => {
+        if (!isPlayingRef.current) return;
         isPlayingRef.current = false;
-        setIsPlaying(false);
-        if (rafRef.current) cancelAnimationFrame(rafRef.current);
         stopSources();
-        setCurrentTime(t);
-        startOffsetRef.current = t;
-        return t;
-    }, [duration, stopSources]);
+    }, [stopSources]);
 
-    // ── Unified transport — proxies to the global player in full-mix mode, and
-    // to the independent stems engine once any mute/solo is active ────────────
-    const handleTogglePlay = useCallback(() => {
-        if (anyActive) {
-            if (isPlayingRef.current) {
-                pauseStems();
-            } else {
-                // Starting stems playback becomes THE active playback on the site —
-                // silence anything currently playing through the global player first.
-                if (playerRef.current.isPlaying) globalTogglePlayRef.current();
-                playStems();
-            }
-        } else if (isThisTrackCurrent) {
-            globalTogglePlay();
-        } else {
-            setTrack(playerTrack, [playerTrack]);
+    // Should the stems engine currently be the audible source for this track?
+    const stemsShouldDrive = anyActive && isThisTrackCurrent && !loading;
+
+    // Start/stop the shadow engine in lockstep with the global player's play state
+    useEffect(() => {
+        if (stemsShouldDrive && player.isPlaying) {
+            if (!isPlayingRef.current) startStemsFrom(playerRef.current.currentTime);
+        } else if (isPlayingRef.current) {
+            pauseStemsEngine();
         }
-    }, [anyActive, isThisTrackCurrent, globalTogglePlay, setTrack, playerTrack, pauseStems, playStems]);
+    }, [stemsShouldDrive, player.isPlaying, startStemsFrom, pauseStemsEngine]);
+
+    // Mute the shared <audio> element while the stems engine is the audible
+    // source — it keeps playing (silently) purely to drive the shared
+    // transport clock, so the waveform/arrangement view never pauses or
+    // desyncs. Restore on the way out and on unmount.
+    useEffect(() => {
+        setMutedRef.current(stemsShouldDrive);
+    }, [stemsShouldDrive]);
+    useEffect(() => () => { setMutedRef.current(false); }, []);
+
+    // Periodically resync the stems engine to the global player's position —
+    // catches user seeks/scrubs on the master transport while stems are driving.
+    useEffect(() => {
+        if (!(stemsShouldDrive && player.isPlaying)) return;
+        const id = setInterval(() => {
+            const ctx = ctxRef.current;
+            if (!ctx || !isPlayingRef.current) return;
+            const elapsed = Math.max(0, ctx.currentTime - startCtxTimeRef.current);
+            const predicted = startOffsetRef.current + elapsed;
+            if (Math.abs(playerRef.current.currentTime - predicted) > 0.75) {
+                startStemsFrom(playerRef.current.currentTime);
+            }
+        }, 500);
+        return () => clearInterval(id);
+    }, [stemsShouldDrive, player.isPlaying, startStemsFrom]);
+
+    // ── Unified transport — always proxies straight to the shared global
+    // player; the stems engine silently shadows whatever it does ─────────────
+    const handleTogglePlay = useCallback(() => {
+        if (isThisTrackCurrent) globalTogglePlay();
+        else setTrack(playerTrack, [playerTrack]);
+    }, [isThisTrackCurrent, globalTogglePlay, setTrack, playerTrack]);
 
     const handleSeek = useCallback((t: number) => {
         const clamped = Math.max(0, Math.min(duration, t));
-        if (anyActive) {
-            setCurrentTime(clamped);
-            startOffsetRef.current = clamped;
-            if (isPlayingRef.current) startStemsFrom(clamped);
-        } else if (isThisTrackCurrent) {
+        if (isThisTrackCurrent) {
             globalSeek(clamped);
-        }
-    }, [duration, anyActive, isThisTrackCurrent, startStemsFrom, globalSeek]);
-
-    // ── Hand off playback between the global player and the stems engine
-    // whenever mute/solo activation flips, carrying position + play state across ──
-    const prevAnyActiveRef = useRef(anyActive);
-    useEffect(() => {
-        if (anyActive === prevAnyActiveRef.current) return;
-        const enteringStems = anyActive;
-        prevAnyActiveRef.current = anyActive;
-
-        if (enteringStems) {
-            const wasCurrent = playerRef.current.currentTrack?.id === playerTrack?.id;
-            const offset = wasCurrent ? playerRef.current.currentTime : 0;
-            const wasPlaying = wasCurrent && playerRef.current.isPlaying;
-            if (wasPlaying) globalTogglePlayRef.current(); // pause the global player so only one engine is audible
-            startOffsetRef.current = offset;
-            setCurrentTime(offset);
-            if (wasPlaying && !loading) {
-                playStems(offset);
-            } else {
-                isPlayingRef.current = false;
-                setIsPlaying(false);
-            }
         } else {
-            const wasPlaying = isPlayingRef.current;
-            const t = pauseStems();
-            const isCurrent = playerRef.current.currentTrack?.id === playerTrack?.id;
-            if (isCurrent) {
-                globalSeekRef.current(t);
-                if (wasPlaying !== playerRef.current.isPlaying) globalTogglePlayRef.current();
-            } else {
-                setTrackRef.current(playerTrack, [playerTrack]);
-                setTimeout(() => {
-                    globalSeekRef.current(t);
-                    if (!wasPlaying) globalTogglePlayRef.current(); // setTrack auto-plays — pause back if it wasn't playing
-                }, 200);
-            }
-            setCurrentTime(t);
+            setTrack(playerTrack, [playerTrack]);
+            setTimeout(() => globalSeek(clamped), 200);
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [anyActive]);
+    }, [duration, isThisTrackCurrent, globalSeek, setTrack, playerTrack]);
 
     // ── Per-channel control handlers ───────────────────────────────────────────
     const setChannel = (id: string, patch: Partial<ChannelUiState>) => {
@@ -370,9 +313,10 @@ export const StemsMixer: React.FC<{
     const toggleSolo = (id: string) => setChannel(id, { solo: !uiRef.current[id]?.solo });
     const setVolume = (id: string, v: number) => setChannel(id, { volume: v });
 
-    // Unified playback state — sourced from whichever engine is currently driving audio
-    const displayIsPlaying = anyActive ? isPlaying : (isThisTrackCurrent && player.isPlaying);
-    const displayCurrentTime = anyActive ? currentTime : (isThisTrackCurrent ? player.currentTime : currentTime);
+    // Unified playback state — always sourced from the global player (the
+    // stems engine never drives the displayed transport, only the audio output)
+    const displayIsPlaying = isThisTrackCurrent && player.isPlaying;
+    const displayCurrentTime = isThisTrackCurrent ? player.currentTime : 0;
 
     // Master scrubber click → seek
     const scrubberRef = useRef<HTMLDivElement>(null);
@@ -385,7 +329,6 @@ export const StemsMixer: React.FC<{
     };
 
     const progress = duration > 0 ? displayCurrentTime / duration : 0;
-    const playDisabled = anyActive && loading;
 
     return (
         <div style={{
@@ -424,13 +367,12 @@ export const StemsMixer: React.FC<{
             <div style={{ display: 'flex', alignItems: 'center', gap: spacing.md, marginBottom: spacing.lg }}>
                 <button
                     onClick={handleTogglePlay}
-                    disabled={playDisabled}
                     style={{
                         width: '44px', height: '44px', borderRadius: '50%',
-                        border: 'none', cursor: playDisabled ? 'default' : 'pointer',
+                        border: 'none', cursor: 'pointer',
                         background: colors.primary, color: '#0B0F19',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        opacity: playDisabled ? 0.5 : 1, flexShrink: 0,
+                        flexShrink: 0,
                     }}
                 >
                     {displayIsPlaying ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" style={{ marginLeft: '2px' }} />}
@@ -538,6 +480,22 @@ export const StemsMixer: React.FC<{
                                             onChange={e => setVolume(stem.id, parseFloat(e.target.value))}
                                             style={{ width: '90px', accentColor: colors.primary }}
                                         />
+
+                                        {allowDownload && (
+                                            <button
+                                                onClick={() => user ? window.open(`/api/downloads/stem/${stem.id}`, '_blank') : (window.location.href = '/login')}
+                                                title={`Download ${stem.label}`}
+                                                style={{
+                                                    width: '30px', height: '30px', borderRadius: borderRadius.sm,
+                                                    border: `1px solid ${colors.glassBorder}`,
+                                                    background: 'transparent',
+                                                    color: colors.textSecondary,
+                                                    cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                }}
+                                            >
+                                                <Download size={14} />
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
                             );

@@ -102,7 +102,7 @@ export const MyTracksPage: React.FC = () => {
     const [uploadStage, setUploadStage] = useState<'uploading' | 'scanning' | 'converting' | null>(null);
     const [newTrack, setNewTrack] = useState({
         title: '', description: '', artist: '', album: '', year: '', bpm: '', key: '',
-        allowAudioDownload: true, allowProjectDownload: true, license: 'all-rights-reserved',
+        allowAudioDownload: true, allowProjectDownload: true, allowStemsDownload: true, license: 'all-rights-reserved',
         trackType: 'original',
     });
     const [audioFile, setAudioFile] = useState<File | null>(null);
@@ -328,6 +328,7 @@ export const MyTracksPage: React.FC = () => {
         if (newTrack.key) formData.append('key', newTrack.key);
         formData.append('allowAudioDownload', String(newTrack.allowAudioDownload));
         formData.append('allowProjectDownload', String(newTrack.allowProjectDownload));
+        formData.append('allowStemsDownload', String(newTrack.allowStemsDownload));
         formData.append('license', newTrack.license);
         if (newTrack.trackType) formData.append('trackType', newTrack.trackType);
         if (selectedTrackGenres.length > 0) formData.append('genreIds', JSON.stringify(selectedTrackGenres));
@@ -374,7 +375,7 @@ export const MyTracksPage: React.FC = () => {
             // Refresh storage bar after upload
             axios.get('/api/users/me/storage', { withCredentials: true }).then(r => setStorageInfo(r.data)).catch(() => {});
             setIsAddingTrack(false);
-            setNewTrack({ title: '', description: '', artist: '', album: '', year: '', bpm: '', key: '', allowAudioDownload: true, allowProjectDownload: true, license: 'all-rights-reserved', trackType: 'original' });
+            setNewTrack({ title: '', description: '', artist: '', album: '', year: '', bpm: '', key: '', allowAudioDownload: true, allowProjectDownload: true, allowStemsDownload: true, license: 'all-rights-reserved', trackType: 'original' });
             setAudioFile(null); setArtworkFile(null); setProjectFile(null); setArtworkPreviewUrl(null);
             setSelectedTrackGenres([]); setTosAgreed(false); setNewTrackLyrics(''); setStagedCollabs([]); setStagedStems([]);
             setMessage({ type: 'success', text: 'Track uploaded successfully! It may take a minute to appear on your profile.' });
@@ -436,6 +437,7 @@ export const MyTracksPage: React.FC = () => {
             formData.append('isPublic', String(editingTrack.isPublic ?? true));
             formData.append('allowAudioDownload', String(editingTrack.allowAudioDownload ?? true));
             formData.append('allowProjectDownload', String(editingTrack.allowProjectDownload ?? true));
+            formData.append('allowStemsDownload', String(editingTrack.allowStemsDownload ?? true));
             formData.append('license', editingTrack.license || 'all-rights-reserved');
             formData.append('trackType', editingTrack.trackType || 'original');
             if (editingTrack.customSlug?.trim()) formData.append('slug', editingTrack.customSlug.trim());
@@ -1172,6 +1174,11 @@ export const MyTracksPage: React.FC = () => {
                         <input type="checkbox" checked={track.allowProjectDownload ?? true} onChange={e => setField('allowProjectDownload', e.target.checked)}
                             style={{ accentColor: colors.primary, width: '16px', height: '16px' }} />
                         Allow project download
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', color: colors.textPrimary }}>
+                        <input type="checkbox" checked={track.allowStemsDownload ?? true} onChange={e => setField('allowStemsDownload', e.target.checked)}
+                            style={{ accentColor: colors.primary, width: '16px', height: '16px' }} />
+                        Allow stems download
                     </label>
                 </div>
 

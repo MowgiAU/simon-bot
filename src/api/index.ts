@@ -7897,6 +7897,7 @@ app.post('/api/musician/tracks', uploadLimiter, requireDesktopAuth, upload.field
             isPublic: _isPublic,
             allowAudioDownload: req.body.allowAudioDownload !== 'false',
             allowProjectDownload: req.body.allowProjectDownload === 'true',
+            allowStemsDownload: req.body.allowStemsDownload !== 'false',
             ...(req.body.license ? { license: req.body.license } : {}),
             ...(req.body.trackType ? { trackType: req.body.trackType } : {}),
             ...(arrangement ? { arrangement } : {}),
@@ -8248,7 +8249,7 @@ app.patch('/api/musician/tracks/:trackId', async (req: any, res) => {
         const userId = req.session?.user?.id;
         if (!userId) return res.status(401).json({ error: 'Unauthorized' });
         const { trackId } = req.params;
-        const { title, description, isPublic, artist, album, year, bpm, key, genreIds, allowAudioDownload, allowProjectDownload, license, trackType, slug } = req.body;
+        const { title, description, isPublic, artist, album, year, bpm, key, genreIds, allowAudioDownload, allowProjectDownload, allowStemsDownload, license, trackType, slug } = req.body;
 
         // Ownership check
         const track = await db.track.findUnique({ where: { id: trackId }, include: { profile: true } });
@@ -8303,6 +8304,7 @@ app.patch('/api/musician/tracks/:trackId', async (req: any, res) => {
                 ...(key !== undefined && { key: key || null }),
                 ...(allowAudioDownload !== undefined && { allowAudioDownload: allowAudioDownload === 'true' || allowAudioDownload === true }),
                 ...(allowProjectDownload !== undefined && { allowProjectDownload: allowProjectDownload === 'true' || allowProjectDownload === true }),
+                ...(allowStemsDownload !== undefined && { allowStemsDownload: allowStemsDownload === 'true' || allowStemsDownload === true }),
                 ...(license !== undefined && { license }),
                 ...(trackType !== undefined && { trackType }),
             }
@@ -8447,7 +8449,7 @@ app.put('/api/musician/tracks/:trackId', generalUploadLimiter, upload.fields([
         const updateData: any = {};
 
         // Text field updates
-        const { title, description, isPublic: isPublicEdit, artist, album, year, bpm, key: musicKey, genreIds, allowAudioDownload, allowProjectDownload, license, youtubeUrl } = req.body;
+        const { title, description, isPublic: isPublicEdit, artist, album, year, bpm, key: musicKey, genreIds, allowAudioDownload, allowProjectDownload, allowStemsDownload, license, youtubeUrl } = req.body;
         logger.info(`[PUT track ${trackId}] isPublic=${JSON.stringify(isPublicEdit)} allowAudioDownload=${JSON.stringify(allowAudioDownload)} allowProjectDownload=${JSON.stringify(allowProjectDownload)}`);
         if (title !== undefined) {
             const cleanTitle = sanitizeDisplayName(title);
@@ -8463,6 +8465,7 @@ app.put('/api/musician/tracks/:trackId', generalUploadLimiter, upload.fields([
         if (isPublicEdit !== undefined) updateData.isPublic = isPublicEdit === 'true' || isPublicEdit === true;
         if (allowAudioDownload !== undefined) updateData.allowAudioDownload = allowAudioDownload === 'true' || allowAudioDownload === true;
         if (allowProjectDownload !== undefined) updateData.allowProjectDownload = allowProjectDownload === 'true' || allowProjectDownload === true;
+        if (allowStemsDownload !== undefined) updateData.allowStemsDownload = allowStemsDownload === 'true' || allowStemsDownload === true;
         if (license !== undefined) updateData.license = license;
         if (youtubeUrl !== undefined) updateData.youtubeUrl = youtubeUrl || null;
         // If making private, clear as featured track
@@ -9245,6 +9248,46 @@ app.get('/api/tracks/:trackId/download-zip', requireAuth, async (req: any, res) 
         res.setHeader('Content-Disposition', `attachment; filename="${safeName}_loop_package.zip"`);
         res.setHeader('Content-Type', 'application/zip');
         const localPath = path.join(PROJECT_ROOT, 'public', track.projectZipUrl);
+        if (!fs.existsSync(localPath)) return res.status(404).json({ error: 'File not found on server' });
+        fs.createReadStream(localPath).pipe(res);
+    } catch (e: any) {
+        if (!res.headersSent) res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Download an individual stem audio file (gated by the track's allowStemsDownload flag)
+app.get('/api/downloads/stem/:stemId', requireAuth, async (req: any, res) => {
+    try {
+        const { stemId } = req.params;
+        const stem = await db.trackStem.findUnique({
+            where: { id: stemId },
+            include: { track: { select: { id: true, title: true, artist: true, allowStemsDownload: true, isPublic: true, profile: { select: { displayName: true, username: true } } } } }
+        });
+        if (!stem) return res.status(404).json({ error: 'Stem not found' });
+        if (!stem.track.allowStemsDownload) return res.status(403).json({ error: 'Stem downloads are disabled for this track' });
+
+        const artistName = stem.track.artist || stem.track.profile?.displayName || stem.track.profile?.username || '';
+        const titlePart = (stem.track.title || 'track').replace(/[^a-z0-9_\-. ]/gi, '_').trim();
+        const artistPart = artistName.replace(/[^a-z0-9_\-. ]/gi, '_').trim();
+        const labelPart = (stem.label || 'stem').replace(/[^a-z0-9_\-. ]/gi, '_').trim();
+        const baseName = artistPart ? `${titlePart} - ${artistPart} - ${labelPart}` : `${titlePart} - ${labelPart}`;
+        const ext = path.extname(stem.url) || '.ogg';
+        const filename = `${baseName}${ext}`;
+
+        await logDownload(req, 'stem', stem.track.id, filename);
+        logActivity(req, 'track.download', stem.track.id, 'track', { title: stem.track.title, type: 'stem', stemLabel: stem.label });
+
+        res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`);
+
+        if (stem.url.startsWith('http')) {
+            const upstream = await axios.get(stem.url, { responseType: 'stream' });
+            res.setHeader('Content-Type', upstream.headers['content-type'] || 'audio/ogg');
+            if (upstream.headers['content-length']) res.setHeader('Content-Length', upstream.headers['content-length']);
+            upstream.data.pipe(res);
+            return;
+        }
+
+        const localPath = path.join(PROJECT_ROOT, 'public', stem.url);
         if (!fs.existsSync(localPath)) return res.status(404).json({ error: 'File not found on server' });
         fs.createReadStream(localPath).pipe(res);
     } catch (e: any) {

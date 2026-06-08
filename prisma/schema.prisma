@@ -1042,6 +1042,7 @@ model Track {
   isPublic             Boolean @default(true)
   allowAudioDownload   Boolean @default(true)
   allowProjectDownload Boolean @default(true)
+  allowStemsDownload   Boolean @default(true)
   trackType            String  @default("original") // "original" | "remix" | "cover"
   position             Int     @default(0) // display order on profile timeline
 

@@ -205,6 +205,7 @@ export class ProfileService {
                         isPublic: true,
                         allowAudioDownload: true,
                         allowProjectDownload: true,
+                        allowStemsDownload: true,
                         status: true,
                         statusReason: true,
                         bpm: true,

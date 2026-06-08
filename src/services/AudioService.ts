@@ -119,7 +119,7 @@ export class AudioService {
         title: string, url: string, coverUrl?: string, description?: string, lyrics?: string, duration?: number,
         artist?: string, album?: string, year?: number, bpm?: number, key?: string, slug?: string,
         arrangement?: object, projectFileUrl?: string, projectZipUrl?: string,
-        allowAudioDownload?: boolean, allowProjectDownload?: boolean,
+        allowAudioDownload?: boolean, allowProjectDownload?: boolean, allowStemsDownload?: boolean,
         waveformPeaks?: number[], projectFileSizeBytes?: number, audioFileSizeBytes?: number, isPublic?: boolean,
         license?: string, trackType?: string,
     }) {
@@ -159,6 +159,7 @@ export class AudioService {
                 isPublic: data.isPublic ?? true,
                 allowAudioDownload: data.allowAudioDownload ?? true,
                 allowProjectDownload: data.allowProjectDownload ?? true,
+                allowStemsDownload: data.allowStemsDownload ?? true,
                 license: data.license,
                 trackType: data.trackType,
                 arrangement: data.arrangement ?? undefined,

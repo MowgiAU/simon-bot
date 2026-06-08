@@ -54,6 +54,7 @@ interface Track {
     isPublic: boolean;
     allowAudioDownload: boolean;
     allowProjectDownload: boolean;
+    allowStemsDownload: boolean;
     license: string;
     lyrics: string | null;
     lyricsSync: Array<{ time: number; text: string }> | null;
@@ -259,6 +260,7 @@ export const TrackPage: React.FC = () => {
         isPublic: true,
         allowAudioDownload: true,
         allowProjectDownload: true,
+        allowStemsDownload: true,
         license: 'all-rights-reserved'
     });
     const [selectedTrackGenres, setSelectedTrackGenres] = useState<string[]>([]);
@@ -427,6 +429,7 @@ export const TrackPage: React.FC = () => {
             isPublic: freshTrack.isPublic ?? true,
             allowAudioDownload: freshTrack.allowAudioDownload ?? true,
             allowProjectDownload: freshTrack.allowProjectDownload ?? true,
+            allowStemsDownload: freshTrack.allowStemsDownload ?? true,
             license: freshTrack.license || 'all-rights-reserved',
         });
         setEditTrackType((freshTrack as any).trackType || '');
@@ -539,6 +542,7 @@ export const TrackPage: React.FC = () => {
             formData.append('isPublic', String(editForm.isPublic));
             formData.append('allowAudioDownload', String(editForm.allowAudioDownload));
             formData.append('allowProjectDownload', String(editForm.allowProjectDownload));
+            formData.append('allowStemsDownload', String(editForm.allowStemsDownload));
             formData.append('license', editForm.license);
             formData.append('genreIds', JSON.stringify(selectedTrackGenres));
             if (editTrackType) formData.append('trackType', editTrackType);
@@ -1333,7 +1337,7 @@ export const TrackPage: React.FC = () => {
                 {/* Stems mixer — synced multi-track playback with mute/solo/volume */}
                 {track.stems && track.stems.length > 0 && (
                     <div style={{ marginBottom: '24px' }}>
-                        <StemsMixer stems={track.stems} trackTitle={track.title} masterDuration={track.duration} playerTrack={track} />
+                        <StemsMixer stems={track.stems} trackTitle={track.title} masterDuration={track.duration} playerTrack={track} allowDownload={track.allowStemsDownload ?? true} />
                     </div>
                 )}
 
@@ -1861,6 +1865,14 @@ export const TrackPage: React.FC = () => {
                                                 onChange={e => setEditForm(f => ({ ...f, allowProjectDownload: e.target.checked }))}
                                             />
                                             Public: Allow .flp project & ZIP loop package download
+                                        </label>
+                                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.9rem' }}>
+                                            <input
+                                                type="checkbox"
+                                                checked={editForm.allowStemsDownload}
+                                                onChange={e => setEditForm(f => ({ ...f, allowStemsDownload: e.target.checked }))}
+                                            />
+                                            Public: Allow stems download
                                         </label>
                                     </div>
                                 </div>
