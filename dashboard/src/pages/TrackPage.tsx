@@ -37,6 +37,7 @@ interface Track {
     title: string;
     slug: string | null;
     url: string;
+    mp3Url: string | null;
     coverUrl: string | null;
     description: string | null;
     playCount: number;
@@ -1332,7 +1333,7 @@ export const TrackPage: React.FC = () => {
                 {/* Stems mixer — synced multi-track playback with mute/solo/volume */}
                 {track.stems && track.stems.length > 0 && (
                     <div style={{ marginBottom: '24px' }}>
-                        <StemsMixer stems={track.stems} trackTitle={track.title} />
+                        <StemsMixer stems={track.stems} trackTitle={track.title} masterUrl={track.url} masterMp3Url={track.mp3Url} />
                     </div>
                 )}
 

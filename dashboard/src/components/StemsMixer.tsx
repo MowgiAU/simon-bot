@@ -22,10 +22,16 @@ const canPlayOgg = (() => {
     catch { return false; }
 })();
 
-const pickStemUrl = (stem: StemData): string => {
-    if (canPlayOgg) return stem.url || stem.mp3Url || '';
-    return stem.mp3Url || stem.url || '';
+const pickAudioSrc = (url: string, mp3Url?: string | null): string => {
+    if (canPlayOgg) return url || mp3Url || '';
+    return mp3Url || url || '';
 };
+
+const pickStemUrl = (stem: StemData): string => pickAudioSrc(stem.url, stem.mp3Url);
+
+// Special channel id for the original full mix — plays alone by default;
+// muting/soloing any stem hands off playback to the stems instead.
+const MASTER_ID = '__master__';
 
 const formatTime = (s: number) => {
     if (!isFinite(s) || s < 0) s = 0;
@@ -82,7 +88,12 @@ interface EngineChannel {
  * with independent mute/solo/volume controls — something the site's global
  * single-<audio> PlayerProvider cannot do.
  */
-export const StemsMixer: React.FC<{ stems: StemData[]; trackTitle: string }> = ({ stems, trackTitle }) => {
+export const StemsMixer: React.FC<{
+    stems: StemData[];
+    trackTitle: string;
+    masterUrl: string;
+    masterMp3Url?: string | null;
+}> = ({ stems, trackTitle, masterUrl, masterMp3Url }) => {
     const ctxRef = useRef<AudioContext | null>(null);
     const channelsRef = useRef<Map<string, EngineChannel>>(new Map());
     const startCtxTimeRef = useRef(0);   // audioContext.currentTime when playback last (re)started
@@ -102,15 +113,21 @@ export const StemsMixer: React.FC<{ stems: StemData[]; trackTitle: string }> = (
     uiRef.current = ui;
 
     const anySolo = useMemo(() => Object.values(ui).some(c => c.solo), [ui]);
+    // The moment any stem is muted or soloed, we hand playback off from the
+    // master (full mix) to the individual stems — so soloing/muting actually
+    // changes what's audible instead of just attenuating an already-mixed track.
+    const anyActive = useMemo(() => Object.values(ui).some(c => c.muted || c.solo), [ui]);
 
     // Compute the audible gain for a channel given current mute/solo/volume state
     const effectiveGain = useCallback((id: string): number => {
+        if (id === MASTER_ID) return anyActive ? 0 : 1;
+        if (!anyActive) return 0;
         const c = uiRef.current[id];
         if (!c) return 1;
         if (c.muted) return 0;
         if (anySolo && !c.solo) return 0;
         return c.volume;
-    }, [anySolo]);
+    }, [anyActive, anySolo]);
 
     // Apply gain values to all live GainNodes (called whenever mute/solo/volume changes)
     const applyGains = useCallback(() => {
@@ -135,6 +152,32 @@ export const StemsMixer: React.FC<{ stems: StemData[]; trackTitle: string }> = (
         (async () => {
             try {
                 let maxDuration = 0;
+
+                // Master (full mix) channel — audible by default; handed off to the
+                // stems the moment any of them is muted or soloed.
+                {
+                    const url = pickAudioSrc(masterUrl, masterMp3Url);
+                    const gain = ctx.createGain();
+                    gain.connect(ctx.destination);
+                    const channel: EngineChannel = { id: MASTER_ID, buffer: null, gain, source: null, error: false };
+                    channelsRef.current.set(MASTER_ID, channel);
+                    if (!url) {
+                        channel.error = true;
+                    } else {
+                        try {
+                            const res = await fetch(url);
+                            const arrayBuffer = await res.arrayBuffer();
+                            if (cancelled) return;
+                            const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
+                            if (cancelled) return;
+                            channel.buffer = audioBuffer;
+                            maxDuration = Math.max(maxDuration, audioBuffer.duration);
+                        } catch {
+                            channel.error = true;
+                        }
+                    }
+                }
+
                 for (const stem of stems) {
                     const url = pickStemUrl(stem);
                     const gain = ctx.createGain();
@@ -179,7 +222,7 @@ export const StemsMixer: React.FC<{ stems: StemData[]; trackTitle: string }> = (
             ctxRef.current = null;
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [stems.map(s => s.id).join(',')]);
+    }, [stems.map(s => s.id).join(','), masterUrl, masterMp3Url]);
 
     // ── Playback engine ────────────────────────────────────────────────────────
     const stopSources = useCallback(() => {
@@ -301,6 +344,17 @@ export const StemsMixer: React.FC<{ stems: StemData[]; trackTitle: string }> = (
                         Mute, solo and adjust the volume of each stem from “{trackTitle}”
                     </p>
                 </div>
+                {!loadError && (
+                    <span style={{
+                        marginLeft: 'auto', fontSize: '11px', fontWeight: 600, letterSpacing: '0.03em', textTransform: 'uppercase',
+                        padding: '4px 10px', borderRadius: borderRadius.pill,
+                        color: anyActive ? colors.primary : colors.textSecondary,
+                        background: anyActive ? `${colors.primary}1f` : colors.surfaceLight,
+                        border: `1px solid ${anyActive ? colors.primary : colors.glassBorder}`,
+                    }}>
+                        {anyActive ? 'Playing stems' : 'Playing full mix'}
+                    </span>
+                )}
             </div>
 
             {loadError && (
@@ -360,7 +414,7 @@ export const StemsMixer: React.FC<{ stems: StemData[]; trackTitle: string }> = (
                         {stems.map(stem => {
                             const c = ui[stem.id] || { muted: false, solo: false, volume: 1 };
                             const channel = channelsRef.current.get(stem.id);
-                            const audible = !c.muted && (!anySolo || c.solo);
+                            const audible = anyActive && !c.muted && (!anySolo || c.solo);
                             const waveColor = audible ? colors.accent : colors.textTertiary;
 
                             return (
@@ -431,10 +485,17 @@ export const StemsMixer: React.FC<{ stems: StemData[]; trackTitle: string }> = (
                         })}
                     </div>
 
-                    {anySolo && (
+                    {anyActive ? (
                         <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs, marginTop: spacing.md, color: colors.primary, fontSize: '12px' }}>
                             <Headphones size={14} />
-                            Soloing {Object.values(ui).filter(c => c.solo).length} stem(s) — others are silenced
+                            {anySolo
+                                ? `Soloing ${Object.values(ui).filter(c => c.solo).length} stem(s) — the full mix and other stems are silenced`
+                                : 'Playing individual stems — the full mix is silenced while any stem is muted'}
+                        </div>
+                    ) : (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs, marginTop: spacing.md, color: colors.textTertiary, fontSize: '12px' }}>
+                            <Headphones size={14} />
+                            Playing the full mix — mute or solo a stem to switch to individual playback
                         </div>
                     )}
                 </>

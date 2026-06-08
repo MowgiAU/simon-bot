@@ -8,7 +8,7 @@ import {
     Image as ImageIcon, Edit3, Upload, Trash2, Eye, EyeOff, Clock,
     BarChart3, AlertCircle, Check, Save, AlignLeft, Scale, CheckSquare, Square, Download,
     Users, Search, UserPlus, Mic2, GripVertical, Link as LinkIcon, RefreshCw, Disc,
-    ChevronDown, ChevronRight, ArrowUp, ArrowDown, Music2
+    ChevronDown, ChevronRight, Music2
 } from 'lucide-react';
 import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
 import { ConfirmModal } from '../components/ConfirmModal';
@@ -136,6 +136,7 @@ export const MyTracksPage: React.FC = () => {
     // Stems staged while composing a new upload — sent to the track once it's created
     const [stagedStems, setStagedStems] = useState<{ file: File; label: string }[]>([]);
     const [stagedStemsExpanded, setStagedStemsExpanded] = useState(false);
+    const [stagedStemDragOverIndex, setStagedStemDragOverIndex] = useState<number | null>(null);
     const [collabSearch, setCollabSearch] = useState('');
     const [collabSearchResults, setCollabSearchResults] = useState<any[]>([]);
     const [collabSearching, setCollabSearching] = useState(false);
@@ -958,54 +959,40 @@ export const MyTracksPage: React.FC = () => {
                                 <p style={{ margin: '0 0 12px', fontSize: '0.8rem', color: colors.textTertiary }}>
                                     Optionally add individually-rendered audio for each track in your project (e.g. Drums, Bass, Lead).
                                     They'll be uploaded once your track is created. Listeners can mute, solo and mix them in a synced
-                                    player on the track page, in the order shown below.
+                                    player on the track page. Drag the handle to reorder -- that's the order they'll be shown and played in.
                                 </p>
 
                                 {stagedStems.length > 0 && (
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '12px' }}>
                                         {stagedStems.map((s, idx) => (
-                                            <div key={idx} style={{
-                                                display: 'flex', alignItems: 'center', gap: '8px',
-                                                padding: '8px 12px', backgroundColor: 'rgba(255,255,255,0.03)',
-                                                border: '1px solid rgba(255,255,255,0.08)', borderRadius: borderRadius.md,
-                                            }}>
-                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                                                    <button
-                                                        onClick={() => setStagedStems(prev => {
-                                                            if (idx === 0) return prev;
-                                                            const next = [...prev];
-                                                            [next[idx - 1], next[idx]] = [next[idx], next[idx - 1]];
-                                                            return next;
-                                                        })}
-                                                        disabled={idx === 0}
-                                                        title="Move up"
-                                                        style={{
-                                                            width: '20px', height: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                            background: 'transparent', border: 'none', borderRadius: borderRadius.sm,
-                                                            color: idx === 0 ? colors.textTertiary : colors.textSecondary,
-                                                            cursor: idx === 0 ? 'default' : 'pointer', opacity: idx === 0 ? 0.4 : 1,
-                                                        }}
-                                                    >
-                                                        <ArrowUp size={12} />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => setStagedStems(prev => {
-                                                            if (idx === prev.length - 1) return prev;
-                                                            const next = [...prev];
-                                                            [next[idx], next[idx + 1]] = [next[idx + 1], next[idx]];
-                                                            return next;
-                                                        })}
-                                                        disabled={idx === stagedStems.length - 1}
-                                                        title="Move down"
-                                                        style={{
-                                                            width: '20px', height: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                            background: 'transparent', border: 'none', borderRadius: borderRadius.sm,
-                                                            color: idx === stagedStems.length - 1 ? colors.textTertiary : colors.textSecondary,
-                                                            cursor: idx === stagedStems.length - 1 ? 'default' : 'pointer', opacity: idx === stagedStems.length - 1 ? 0.4 : 1,
-                                                        }}
-                                                    >
-                                                        <ArrowDown size={12} />
-                                                    </button>
+                                            <div
+                                                key={idx}
+                                                draggable
+                                                onDragStart={e => { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', String(idx)); }}
+                                                onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setStagedStemDragOverIndex(idx); }}
+                                                onDragLeave={() => setStagedStemDragOverIndex(prev => prev === idx ? null : prev)}
+                                                onDrop={e => {
+                                                    e.preventDefault();
+                                                    const fromIndex = Number(e.dataTransfer.getData('text/plain'));
+                                                    setStagedStemDragOverIndex(null);
+                                                    if (Number.isNaN(fromIndex) || fromIndex === idx) return;
+                                                    setStagedStems(prev => {
+                                                        const next = [...prev];
+                                                        const [moved] = next.splice(fromIndex, 1);
+                                                        next.splice(idx, 0, moved);
+                                                        return next;
+                                                    });
+                                                }}
+                                                onDragEnd={() => setStagedStemDragOverIndex(null)}
+                                                style={{
+                                                    display: 'flex', alignItems: 'center', gap: '8px',
+                                                    padding: '8px 12px', backgroundColor: 'rgba(255,255,255,0.03)',
+                                                    border: `1px solid ${stagedStemDragOverIndex === idx ? colors.primary : 'rgba(255,255,255,0.08)'}`,
+                                                    borderRadius: borderRadius.md,
+                                                }}
+                                            >
+                                                <div title="Drag to reorder" style={{ cursor: 'grab', display: 'flex', alignItems: 'center', color: colors.textTertiary }}>
+                                                    <GripVertical size={16} />
                                                 </div>
                                                 <input
                                                     type="text"

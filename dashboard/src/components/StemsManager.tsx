@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import axios from 'axios';
-import { Upload, Trash2, Loader2, ChevronDown, ChevronRight, ArrowUp, ArrowDown, Music2 } from 'lucide-react';
+import { Upload, Trash2, Loader2, ChevronDown, ChevronRight, GripVertical, Music2 } from 'lucide-react';
 import { colors, borderRadius } from '../theme/theme';
 import { showToast } from './Toast';
 import type { StemData } from './StemsMixer';
@@ -22,7 +22,8 @@ export const StemsManager: React.FC<{
     const [pending, setPending] = useState<{ file: File; label: string }[]>([]);
     const [uploading, setUploading] = useState(false);
     const [deletingId, setDeletingId] = useState<string | null>(null);
-    const [movingId, setMovingId] = useState<string | null>(null);
+    const [reordering, setReordering] = useState(false);
+    const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
     const handleFiles = (files: FileList | null) => {
         if (!files || !files.length) return;
@@ -86,13 +87,28 @@ export const StemsManager: React.FC<{
         }
     };
 
-    const moveStem = async (idx: number, dir: -1 | 1) => {
-        const swapIdx = idx + dir;
-        if (swapIdx < 0 || swapIdx >= stems.length) return;
+    const handleDragStart = (e: React.DragEvent, index: number) => {
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', String(index));
+    };
+
+    const handleDragOver = (e: React.DragEvent, index: number) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        setDragOverIndex(index);
+    };
+
+    const handleDrop = async (e: React.DragEvent, toIndex: number) => {
+        e.preventDefault();
+        const fromIndex = Number(e.dataTransfer.getData('text/plain'));
+        setDragOverIndex(null);
+        if (Number.isNaN(fromIndex) || fromIndex === toIndex) return;
+
         const reordered = [...stems];
-        [reordered[idx], reordered[swapIdx]] = [reordered[swapIdx], reordered[idx]];
+        const [moved] = reordered.splice(fromIndex, 1);
+        reordered.splice(toIndex, 0, moved);
         onChange(reordered);
-        setMovingId(reordered[idx].id);
+        setReordering(true);
         try {
             await Promise.all(reordered.map((s, i) =>
                 axios.patch(`/api/musician/tracks/${trackId}/stems/${s.id}`, { order: i }, { withCredentials: true })
@@ -100,7 +116,7 @@ export const StemsManager: React.FC<{
         } catch (e: any) {
             showToast(e.response?.data?.error || 'Failed to reorder stems', 'error');
         } finally {
-            setMovingId(null);
+            setReordering(false);
         }
     };
 
@@ -125,46 +141,31 @@ export const StemsManager: React.FC<{
                 <div style={{ marginTop: '12px' }}>
                     <p style={{ margin: '0 0 12px', fontSize: '0.8rem', color: colors.textTertiary }}>
                         Upload individually-rendered audio for each track in your project (e.g. Drums, Bass, Lead).
-                        Listeners can mute, solo and mix them in a synced player on the track page, in the order shown below.
+                        Listeners can mute, solo and mix them in a synced player on the track page. Drag the {'☰'} handle to
+                        reorder -- that's the order they'll be shown and played in.
                     </p>
 
                     {stems.length > 0 && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '12px' }}>
                             {stems.map((stem, idx) => (
-                                <div key={stem.id} style={{
-                                    display: 'flex', alignItems: 'center', gap: '8px',
-                                    padding: '8px 12px', backgroundColor: 'rgba(255,255,255,0.03)',
-                                    border: '1px solid rgba(255,255,255,0.08)', borderRadius: borderRadius.md,
-                                }}>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                                        <button
-                                            onClick={() => moveStem(idx, -1)}
-                                            disabled={idx === 0 || movingId !== null}
-                                            title="Move up"
-                                            style={{
-                                                width: '20px', height: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                background: 'transparent', border: 'none', borderRadius: borderRadius.sm,
-                                                color: idx === 0 ? colors.textTertiary : colors.textSecondary,
-                                                cursor: idx === 0 || movingId !== null ? 'default' : 'pointer',
-                                                opacity: idx === 0 ? 0.4 : 1,
-                                            }}
-                                        >
-                                            <ArrowUp size={12} />
-                                        </button>
-                                        <button
-                                            onClick={() => moveStem(idx, 1)}
-                                            disabled={idx === stems.length - 1 || movingId !== null}
-                                            title="Move down"
-                                            style={{
-                                                width: '20px', height: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                background: 'transparent', border: 'none', borderRadius: borderRadius.sm,
-                                                color: idx === stems.length - 1 ? colors.textTertiary : colors.textSecondary,
-                                                cursor: idx === stems.length - 1 || movingId !== null ? 'default' : 'pointer',
-                                                opacity: idx === stems.length - 1 ? 0.4 : 1,
-                                            }}
-                                        >
-                                            <ArrowDown size={12} />
-                                        </button>
+                                <div
+                                    key={stem.id}
+                                    draggable
+                                    onDragStart={e => handleDragStart(e, idx)}
+                                    onDragOver={e => handleDragOver(e, idx)}
+                                    onDragLeave={() => setDragOverIndex(prev => prev === idx ? null : prev)}
+                                    onDrop={e => handleDrop(e, idx)}
+                                    onDragEnd={() => setDragOverIndex(null)}
+                                    style={{
+                                        display: 'flex', alignItems: 'center', gap: '8px',
+                                        padding: '8px 12px', backgroundColor: 'rgba(255,255,255,0.03)',
+                                        border: `1px solid ${dragOverIndex === idx ? colors.primary : 'rgba(255,255,255,0.08)'}`,
+                                        borderRadius: borderRadius.md,
+                                        opacity: reordering ? 0.7 : 1,
+                                    }}
+                                >
+                                    <div title="Drag to reorder" style={{ cursor: 'grab', display: 'flex', alignItems: 'center', color: colors.textTertiary }}>
+                                        <GripVertical size={16} />
                                     </div>
                                     <input
                                         type="text"
