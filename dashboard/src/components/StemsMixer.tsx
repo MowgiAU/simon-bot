@@ -120,12 +120,12 @@ export const StemsMixer: React.FC<{
     uiRef.current = ui;
 
     const anySolo = useMemo(() => Object.values(ui).some(c => c.solo), [ui]);
-    // The moment any stem is muted or soloed, the stems engine becomes the
-    // audible source (in lockstep with the global player, which keeps running
-    // — muted — purely as the shared transport/clock) — so soloing/muting
-    // actually changes what's audible instead of just attenuating an
-    // already-mixed track.
-    const anyActive = useMemo(() => Object.values(ui).some(c => c.muted || c.solo), [ui]);
+    // The moment any stem is muted, soloed, or has its volume nudged off the
+    // default, the stems engine becomes the audible source (in lockstep with
+    // the global player, which keeps running — muted — purely as the shared
+    // transport/clock) — so any per-stem adjustment actually changes what's
+    // audible instead of just attenuating an already-mixed track.
+    const anyActive = useMemo(() => Object.values(ui).some(c => c.muted || c.solo || c.volume !== 1), [ui]);
 
     const isThisTrackCurrent = player.currentTrack?.id === playerTrack?.id;
     const duration = (isThisTrackCurrent && player.duration > 0) ? player.duration : masterDuration;
