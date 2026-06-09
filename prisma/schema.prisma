@@ -3370,6 +3370,7 @@ model UserSession {
   userId       String?
   user         User?          @relation(fields: [userId], references: [id])
   ipHash       String?
+  ipRaw        String?
   userAgent    String?
   country      String?
   events       SessionEvent[]

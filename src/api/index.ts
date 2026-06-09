@@ -15192,6 +15192,7 @@ app.post('/api/analytics/session', async (req: any, res) => {
                 platform,
                 userId: userId ?? undefined,
                 ipHash,
+                ipRaw: ip,
                 userAgent: userAgent ?? (req.headers['user-agent'] as string | undefined) ?? null,
                 country: country ?? null,
             },
