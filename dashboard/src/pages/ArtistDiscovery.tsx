@@ -1,12 +1,13 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
-import { colors, spacing, borderRadius } from '../theme/theme';
+import { colors, spacing, borderRadius, shadows } from '../theme/theme';
 import {
     Play, Plus, Pause, TrendingUp, Swords,
     Activity, Trophy, Users, Timer, ListMusic,
     Star, MonitorPlay, Newspaper, BookOpen, FileText, ExternalLink, Mic2,
-    Flame, Crown, ArrowUp, ArrowDown, Minus, Sparkles, Upload, LogIn, UserPlus
+    Flame, Crown, ArrowUp, ArrowDown, Minus, Sparkles, Upload, LogIn, UserPlus,
+    Music, Zap, MessageCircle, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { usePlayer } from '../components/PlayerProvider';
@@ -15,6 +16,7 @@ import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
 import { FujiLogo } from '../components/FujiLogo';
 import { StyledUsername } from '../components/StyledUsername';
 import { appendSponsorRef, trackSponsorClick } from '../lib/sponsorUtils';
+import { useMobile } from '../hooks/useMobile';
 
 interface ArtistProfile {
     userId: string;
@@ -155,6 +157,7 @@ function generateWaveform(seed: string, bars = 32): number[] {
 
 export const ArtistDiscoveryPage: React.FC = () => {
     const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
+    const isMobileSwipe = useMobile(768);
     const { player, setTrack, togglePlay } = usePlayer();
     const { user } = useAuth();
 
@@ -285,6 +288,624 @@ export const ArtistDiscoveryPage: React.FC = () => {
             document.head.appendChild(style);
         }
     }, []);
+
+    // ─── MOBILE SWIPE LAYOUT (isMobileSwipe = window < 768px) ───────────────────
+    const [mobileCurrentPage, setMobileCurrentPage] = useState(0);
+    const mobileTouchStartX = useRef<number>(0);
+    const mobileTouchDeltaX = useRef<number>(0);
+    const [mobileDragging, setMobileDragging] = useState(false);
+    const [mobileDragOffset, setMobileDragOffset] = useState(0);
+
+    const mobilePageLabels = ['Discover', 'Battle', '1v1 Arena', 'Community'];
+    const MOBILE_PAGES = 4;
+
+    const handleMobileTouchStart = (e: React.TouchEvent) => {
+        mobileTouchStartX.current = e.touches[0].clientX;
+        mobileTouchDeltaX.current = 0;
+        setMobileDragging(true);
+    };
+
+    const handleMobileTouchMove = (e: React.TouchEvent) => {
+        const delta = e.touches[0].clientX - mobileTouchStartX.current;
+        mobileTouchDeltaX.current = delta;
+        // rubber-band cap at ±100px
+        const capped = Math.max(-100, Math.min(100, delta));
+        setMobileDragOffset(capped);
+    };
+
+    const handleMobileTouchEnd = () => {
+        const delta = mobileTouchDeltaX.current;
+        setMobileDragging(false);
+        setMobileDragOffset(0);
+        if (delta < -60 && mobileCurrentPage < MOBILE_PAGES - 1) {
+            setMobileCurrentPage(p => p + 1);
+        } else if (delta > 60 && mobileCurrentPage > 0) {
+            setMobileCurrentPage(p => p - 1);
+        }
+    };
+
+    if (isMobileSwipe) {
+        const battle = featured?.featuredBattle ?? null;
+        const battleVotingOver = battle && (battle.status === 'completed' || (battle.votingEnd && new Date(battle.votingEnd) < new Date()));
+        const battleStatusColor = battleVotingOver ? '#9CA3AF' : battle?.status === 'voting' ? '#FBBF24' : battle?.status === 'active' ? '#4ADE80' : '#60A5FA';
+        const battleStatusBg = battleVotingOver ? 'rgba(156,163,175,0.15)' : battle?.status === 'voting' ? 'rgba(251,191,36,0.18)' : battle?.status === 'active' ? 'rgba(74,222,128,0.18)' : 'rgba(96,165,250,0.18)';
+        const battleStatusLabel = battleVotingOver ? 'ENDED' : battle?.status === 'voting' ? 'VOTING' : battle?.status === 'active' ? 'ACTIVE' : 'UPCOMING';
+
+        const discoverArtistCover = heroCover
+            || (heroType === 'track' && heroTrack?.coverUrl)
+            || (artists[0] ? getAvatarUrl(artists[0].avatar, artists[0].userId) : null);
+        const discoverArtistAvatar = heroType === 'artist' && heroArtist
+            ? getAvatarUrl(heroArtist.avatar ?? null, heroArtist.id)
+            : heroType === 'track' && heroTrack
+            ? getAvatarUrl(heroTrack.profile.avatar, heroTrack.profile.userId)
+            : null;
+        const discoverArtistName = heroType === 'artist'
+            ? (heroArtist?.displayName || heroArtist?.username || '')
+            : heroType === 'track'
+            ? (heroTrack?.profile.displayName || heroTrack?.profile.username || '')
+            : (heroTrack?.profile.displayName || heroTrack?.profile.username || '');
+        const discoverTrackTitle = heroType === 'track' ? (heroTrack?.title ?? '') : (heroArtist?.tracks?.[0]?.title ?? '');
+
+        const trendingList = artists.slice(0, 12);
+
+        const h2hLeft = trendingList[0] ?? null;
+        const h2hRight = trendingList[1] ?? null;
+
+        const containerTranslate = -mobileCurrentPage * 100 + (mobileDragOffset / (window.innerWidth || 390)) * 100;
+
+        return (
+            <DiscoveryLayout activeTab="discover">
+                <style>{`
+                    @keyframes mob-pulse {
+                        0%, 100% { opacity: 1; }
+                        50% { opacity: 0.4; }
+                    }
+                    .mob-page { min-width: 100%; width: 100%; overflow-y: auto; overflow-x: hidden; box-sizing: border-box; -webkit-overflow-scrolling: touch; }
+                    .mob-sponsor-strip { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; -ms-overflow-style: none; }
+                    .mob-sponsor-strip::-webkit-scrollbar { display: none; }
+                    .mob-trending-strip { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; -ms-overflow-style: none; }
+                    .mob-trending-strip::-webkit-scrollbar { display: none; }
+                `}</style>
+
+                {/* Page indicator bar */}
+                <div style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    height: '44px', padding: '0 16px',
+                    backgroundColor: colors.background,
+                    borderBottom: `1px solid ${colors.border}`,
+                    flexShrink: 0,
+                    boxSizing: 'border-box',
+                }}>
+                    <button
+                        onClick={() => setMobileCurrentPage(p => Math.max(0, p - 1))}
+                        style={{ background: 'none', border: 'none', cursor: mobileCurrentPage > 0 ? 'pointer' : 'default', color: mobileCurrentPage > 0 ? colors.textSecondary : 'transparent', padding: '8px', display: 'flex', alignItems: 'center' }}
+                    >
+                        <ChevronLeft size={18} />
+                    </button>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px' }}>
+                        <span style={{ fontSize: '13px', fontWeight: 700, color: colors.textPrimary, letterSpacing: '-0.01em' }}>
+                            {mobilePageLabels[mobileCurrentPage]}
+                        </span>
+                        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                            {mobilePageLabels.map((_, idx) => (
+                                <button
+                                    key={idx}
+                                    onClick={() => setMobileCurrentPage(idx)}
+                                    style={{
+                                        width: idx === mobileCurrentPage ? '20px' : '8px',
+                                        height: '8px',
+                                        borderRadius: borderRadius.pill,
+                                        backgroundColor: idx === mobileCurrentPage ? colors.primary : colors.border,
+                                        border: 'none',
+                                        padding: 0,
+                                        cursor: 'pointer',
+                                        transition: 'width 0.25s ease, background-color 0.2s',
+                                        flexShrink: 0,
+                                    }}
+                                />
+                            ))}
+                        </div>
+                    </div>
+                    <button
+                        onClick={() => setMobileCurrentPage(p => Math.min(MOBILE_PAGES - 1, p + 1))}
+                        style={{ background: 'none', border: 'none', cursor: mobileCurrentPage < MOBILE_PAGES - 1 ? 'pointer' : 'default', color: mobileCurrentPage < MOBILE_PAGES - 1 ? colors.textSecondary : 'transparent', padding: '8px', display: 'flex', alignItems: 'center' }}
+                    >
+                        <ChevronRight size={18} />
+                    </button>
+                </div>
+
+                {/* Swipe container */}
+                <div
+                    style={{ overflow: 'hidden', flex: 1, position: 'relative' }}
+                    onTouchStart={handleMobileTouchStart}
+                    onTouchMove={handleMobileTouchMove}
+                    onTouchEnd={handleMobileTouchEnd}
+                >
+                    <div style={{
+                        display: 'flex',
+                        width: `${MOBILE_PAGES * 100}%`,
+                        height: '100%',
+                        transform: `translateX(${containerTranslate / MOBILE_PAGES}%)`,
+                        transition: mobileDragging ? 'none' : 'transform 0.3s ease',
+                        willChange: 'transform',
+                    }}>
+
+                        {/* ── PAGE 0: Discover ── */}
+                        <div className="mob-page" style={{ padding: '0', display: 'flex', flexDirection: 'column', gap: '0' }}>
+                            {/* Full-bleed hero card */}
+                            <div style={{
+                                position: 'relative',
+                                width: '100%',
+                                height: '260px',
+                                overflow: 'hidden',
+                                flexShrink: 0,
+                                backgroundColor: colors.surface,
+                            }}>
+                                {discoverArtistCover && (
+                                    <div style={{
+                                        position: 'absolute', inset: 0,
+                                        backgroundImage: `url(${discoverArtistCover})`,
+                                        backgroundSize: 'cover', backgroundPosition: 'center',
+                                    }} />
+                                )}
+                                {!discoverArtistCover && (
+                                    <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(135deg, ${colors.surface} 0%, ${colors.surfaceLight} 100%)`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <FujiLogo size={80} color={colors.primary} opacity={0.15} />
+                                    </div>
+                                )}
+                                {/* Gradient overlay */}
+                                <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(11,15,25,0.2) 0%, rgba(11,15,25,0.45) 45%, rgba(11,15,25,0.92) 100%)' }} />
+
+                                {/* Overlay content */}
+                                <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '16px', display: 'flex', alignItems: 'flex-end', gap: '12px' }}>
+                                    {/* Artist avatar */}
+                                    {discoverArtistAvatar && (
+                                        <div style={{ width: '50px', height: '50px', borderRadius: '50%', overflow: 'hidden', border: `2px solid ${colors.primary}`, flexShrink: 0 }}>
+                                            <img src={discoverArtistAvatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                        </div>
+                                    )}
+                                    {!discoverArtistAvatar && (
+                                        <div style={{ width: '50px', height: '50px', borderRadius: '50%', background: `${colors.primary}22`, border: `2px solid ${colors.primary}`, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                            <Music size={22} color={colors.primary} />
+                                        </div>
+                                    )}
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                        {discoverArtistName && (
+                                            <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.65)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: '2px' }}>{discoverArtistName}</div>
+                                        )}
+                                        {discoverTrackTitle && (
+                                            <div style={{ fontSize: '18px', fontWeight: 900, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textShadow: '0 2px 10px rgba(0,0,0,0.5)', letterSpacing: '-0.02em' }}>{discoverTrackTitle}</div>
+                                        )}
+                                        {!discoverTrackTitle && !discoverArtistName && (
+                                            <div style={{ fontSize: '18px', fontWeight: 900, color: '#fff', letterSpacing: '-0.02em' }}>Fuji Studio</div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Play button */}
+                                <button
+                                    onClick={handleHeroPlay}
+                                    style={{
+                                        position: 'absolute', top: '16px', right: '16px',
+                                        width: '52px', height: '52px', borderRadius: '50%',
+                                        backgroundColor: colors.primary,
+                                        border: 'none', cursor: 'pointer',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        boxShadow: `0 4px 20px ${colors.primary}77`,
+                                    }}
+                                >
+                                    {isHeroPlaying
+                                        ? <Pause size={22} fill="#fff" color="#fff" />
+                                        : <Play size={22} fill="#fff" color="#fff" style={{ marginLeft: '2px' }} />
+                                    }
+                                </button>
+
+                                {/* Featured label */}
+                                <div style={{ position: 'absolute', top: '16px', left: '16px' }}>
+                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: colors.primary, background: `${colors.primary}25`, padding: '4px 10px', borderRadius: borderRadius.sm, backdropFilter: 'blur(8px)' }}>
+                                        <Sparkles size={10} />{heroLabel}
+                                    </span>
+                                </div>
+                            </div>
+
+                            {/* Explore link + trending strip */}
+                            <div style={{ padding: '12px 16px 0' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                                    <span style={{ fontSize: '12px', fontWeight: 700, color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Trending Artists</span>
+                                    <Link to="/artists" style={{ fontSize: '11px', color: colors.primary, fontWeight: 600, textDecoration: 'none' }}>See all</Link>
+                                </div>
+                                {trendingList.length > 0 ? (
+                                    <div className="mob-trending-strip">
+                                        {trendingList.map((artist) => (
+                                            <Link
+                                                key={artist.userId}
+                                                to={`/profile/${artist.username}`}
+                                                style={{ textDecoration: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', flexShrink: 0, width: '72px' }}
+                                            >
+                                                <div style={{ width: '48px', height: '48px', borderRadius: '50%', overflow: 'hidden', border: `2px solid ${colors.border}`, flexShrink: 0 }}>
+                                                    <img
+                                                        src={getAvatarUrl(artist.avatar, artist.userId)}
+                                                        alt=""
+                                                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                        onError={(e) => { (e.target as HTMLImageElement).src = `https://cdn.discordapp.com/embed/avatars/0.png`; }}
+                                                    />
+                                                </div>
+                                                <span style={{ fontSize: '11px', fontWeight: 600, color: colors.textSecondary, textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%' }}>
+                                                    {artist.displayName || artist.username}
+                                                </span>
+                                            </Link>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div style={{ padding: '20px', textAlign: 'center', backgroundColor: colors.surface, borderRadius: borderRadius.lg, border: `1px solid ${colors.border}` }}>
+                                        <Music size={28} color={colors.textSecondary} style={{ opacity: 0.2, marginBottom: '8px' }} />
+                                        <p style={{ margin: 0, fontSize: '12px', color: colors.textSecondary }}>No artists yet</p>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Explore button */}
+                            <div style={{ padding: '16px' }}>
+                                <Link to="/artists" style={{
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px',
+                                    padding: '13px', borderRadius: borderRadius.lg,
+                                    backgroundColor: 'transparent',
+                                    border: `1px solid ${colors.border}`,
+                                    color: colors.textPrimary,
+                                    fontSize: '13px', fontWeight: 700, textDecoration: 'none',
+                                }}>
+                                    <TrendingUp size={15} color={colors.primary} />
+                                    Explore Artists
+                                </Link>
+                            </div>
+                        </div>
+
+                        {/* ── PAGE 1: Battle ── */}
+                        <div className="mob-page" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                            {battle ? (
+                                <>
+                                    {/* Status badge */}
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <span style={{
+                                            display: 'inline-flex', alignItems: 'center', gap: '6px',
+                                            padding: '6px 14px', borderRadius: borderRadius.pill,
+                                            backgroundColor: battleStatusBg,
+                                            color: battleStatusColor,
+                                            fontSize: '11px', fontWeight: 700, letterSpacing: '0.08em',
+                                        }}>
+                                            <span style={{ width: '7px', height: '7px', borderRadius: '50%', backgroundColor: 'currentColor', flexShrink: 0, animation: battle.status === 'active' ? 'mob-pulse 1.5s ease infinite' : 'none' }} />
+                                            {battleStatusLabel}
+                                        </span>
+                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: colors.primary, background: `${colors.primary}20`, padding: '4px 10px', borderRadius: borderRadius.sm }}>
+                                            <Swords size={10} />Featured Battle
+                                        </span>
+                                    </div>
+
+                                    {/* Battle hero */}
+                                    <div style={{
+                                        position: 'relative', borderRadius: borderRadius.xl, overflow: 'hidden',
+                                        backgroundColor: colors.surface, border: `1px solid ${colors.border}`,
+                                        boxShadow: shadows.md,
+                                    }}>
+                                        {(battle.bannerUrl || battle.cardImageUrl) && (
+                                            <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${battle.bannerUrl || battle.cardImageUrl})`, backgroundSize: 'cover', backgroundPosition: 'center', opacity: battleVotingOver ? 0.18 : 0.9 }} />
+                                        )}
+                                        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(11,15,25,0.55) 0%, rgba(11,15,25,0.98) 100%)' }} />
+                                        <div style={{ position: 'relative', padding: '20px' }}>
+                                            <h2 style={{ margin: '0 0 8px', fontSize: '24px', fontWeight: 900, color: '#fff', lineHeight: 1.1, letterSpacing: '-0.02em', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any }}>
+                                                {battle.title}
+                                            </h2>
+                                            {featured?.featuredBattleDescription && (
+                                                <p style={{ margin: '0 0 12px', fontSize: '13px', color: 'rgba(255,255,255,0.55)', lineHeight: 1.6, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any }}>
+                                                    {featured.featuredBattleDescription}
+                                                </p>
+                                            )}
+                                            {/* Stats row */}
+                                            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '16px' }}>
+                                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '6px 12px', borderRadius: borderRadius.pill, backgroundColor: 'rgba(255,255,255,0.08)', border: `1px solid ${colors.glassBorder}`, fontSize: '12px', color: colors.textSecondary, fontWeight: 600, minHeight: '44px', boxSizing: 'border-box' }}>
+                                                    <Users size={13} color={colors.primary} />
+                                                    {battle._count?.entries ?? 0} {(battle._count?.entries ?? 0) === 1 ? 'entry' : 'entries'}
+                                                </span>
+                                                {battle.status === 'voting' && battle.votingEnd && (
+                                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '6px 12px', borderRadius: borderRadius.pill, backgroundColor: 'rgba(251,191,36,0.1)', border: '1px solid rgba(251,191,36,0.3)', fontSize: '12px', color: '#FBBF24', fontWeight: 600, minHeight: '44px', boxSizing: 'border-box' }}>
+                                                        <Timer size={13} />Voting ends {new Date(battle.votingEnd).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                                    </span>
+                                                )}
+                                                {battle.status === 'active' && battle.submissionEnd && (
+                                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '6px 12px', borderRadius: borderRadius.pill, backgroundColor: 'rgba(74,222,128,0.1)', border: '1px solid rgba(74,222,128,0.3)', fontSize: '12px', color: '#4ADE80', fontWeight: 600, minHeight: '44px', boxSizing: 'border-box' }}>
+                                                        <Timer size={13} />Submit by {new Date(battle.submissionEnd).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                                    </span>
+                                                )}
+                                            </div>
+
+                                            {/* CTA button */}
+                                            {!battleVotingOver && (
+                                                <Link to={`/battles/${battle.id}`} style={{
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px',
+                                                    padding: '14px', borderRadius: borderRadius.lg,
+                                                    backgroundColor: battle.status === 'voting' ? '#FBBF24' : colors.primary,
+                                                    color: battle.status === 'voting' ? '#0f172a' : '#fff',
+                                                    fontSize: '14px', fontWeight: 700, textDecoration: 'none',
+                                                    boxShadow: battle.status === 'voting' ? '0 4px 20px rgba(251,191,36,0.4)' : `0 4px 20px ${colors.primary}55`,
+                                                    minHeight: '44px',
+                                                }}>
+                                                    {battle.status === 'voting' ? <><Trophy size={15} /> Vote Now</> : <><Swords size={15} /> Submit a Beat</>}
+                                                </Link>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Podium for ended battles */}
+                                    {battleVotingOver && (battle.podium ?? (battle.winner ? [battle.winner] : [])).length > 0 && (() => {
+                                        const podium = battle.podium ?? (battle.winner ? [battle.winner] : []);
+                                        const placeColors = ['#FFD700', '#C0C0C0', '#CD7F32'];
+                                        const placeLabels = ['1st', '2nd', '3rd'];
+                                        return (
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: colors.textSecondary }}>Results</div>
+                                                {podium.map((entry, i) => (
+                                                    <div key={entry.id} style={{
+                                                        display: 'flex', alignItems: 'center', gap: '10px',
+                                                        padding: '12px',
+                                                        backgroundColor: i === 0 ? 'rgba(255,215,0,0.07)' : colors.surface,
+                                                        border: `1px solid ${i === 0 ? 'rgba(255,215,0,0.25)' : colors.border}`,
+                                                        borderRadius: borderRadius.lg,
+                                                        boxShadow: shadows.sm,
+                                                        minHeight: '56px',
+                                                    }}>
+                                                        <span style={{ fontSize: '11px', fontWeight: 800, color: placeColors[i], minWidth: '26px', textAlign: 'center' }}>{placeLabels[i]}</span>
+                                                        {entry.coverUrl && <img src={entry.coverUrl} alt="" style={{ width: '36px', height: '36px', borderRadius: borderRadius.sm, objectFit: 'cover', flexShrink: 0 }} />}
+                                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                                            <div style={{ fontSize: '13px', fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.trackTitle}</div>
+                                                            <div style={{ fontSize: '11px', color: placeColors[i], fontWeight: 600 }}>@{entry.username}</div>
+                                                        </div>
+                                                        <button
+                                                            onClick={() => setTrack({ id: entry.id, title: entry.trackTitle, artist: entry.username, username: entry.username, url: entry.audioUrl, cover: entry.coverUrl })}
+                                                            style={{ width: '36px', height: '36px', borderRadius: '50%', backgroundColor: placeColors[i], border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}
+                                                        >
+                                                            <Play size={13} fill="#1a1a1a" color="#1a1a1a" />
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                                <Link to={`/battles/${battle.id}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '12px', borderRadius: borderRadius.lg, border: `1px solid rgba(255,215,0,0.35)`, backgroundColor: 'rgba(255,215,0,0.08)', color: '#FFD700', fontSize: '13px', fontWeight: 700, textDecoration: 'none', minHeight: '44px' }}>
+                                                    <Trophy size={14} /> Full Results
+                                                </Link>
+                                            </div>
+                                        );
+                                    })()}
+                                </>
+                            ) : (
+                                <div style={{
+                                    flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                                    padding: '40px 24px', gap: '12px', textAlign: 'center',
+                                    backgroundColor: colors.surface, borderRadius: borderRadius.xl, border: `1px solid ${colors.border}`,
+                                    boxShadow: shadows.md,
+                                }}>
+                                    <Swords size={48} color={colors.textSecondary} style={{ opacity: 0.12 }} />
+                                    <p style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: colors.textSecondary }}>No active battle</p>
+                                    <p style={{ margin: 0, fontSize: '13px', color: colors.textTertiary }}>Check back soon</p>
+                                    <Link to="/battles" style={{ fontSize: '13px', color: colors.primary, textDecoration: 'none', fontWeight: 600 }}>View past battles →</Link>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* ── PAGE 2: 1v1 Arena ── */}
+                        <div className="mob-page" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                            {/* Header */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '4px 10px', borderRadius: borderRadius.sm, background: 'rgba(236,72,153,0.18)' }}>
+                                    <Swords size={11} color="#EC4899" />
+                                    <span style={{ fontSize: '10px', fontWeight: 800, color: '#EC4899', letterSpacing: '0.12em', textTransform: 'uppercase' }}>1v1 Arena</span>
+                                </div>
+                                <span style={{ fontSize: '9px', fontWeight: 800, padding: '3px 7px', borderRadius: borderRadius.sm, background: `${colors.primary}18`, color: colors.primary, letterSpacing: '0.1em', border: `1px solid ${colors.primary}30` }}>NEW</span>
+                            </div>
+
+                            <div style={{ fontSize: '24px', fontWeight: 900, color: colors.textPrimary, lineHeight: 1.1, letterSpacing: '-0.03em' }}>
+                                Producer vs Producer
+                            </div>
+                            <p style={{ margin: 0, fontSize: '13px', color: colors.textSecondary, lineHeight: 1.6 }}>
+                                Get matched. Build a beat from a sample pack. Anonymous voters pick the winner.
+                            </p>
+
+                            {/* VS card */}
+                            <div style={{
+                                position: 'relative', borderRadius: borderRadius.xl, overflow: 'hidden',
+                                background: 'linear-gradient(135deg, #1a0f2e 0%, #2a0f3a 50%, #3d0f2e 100%)',
+                                border: '1px solid rgba(139,92,246,0.2)',
+                                padding: '20px', display: 'flex', alignItems: 'center', gap: '0',
+                                boxShadow: shadows.md,
+                            }}>
+                                <div style={{ position: 'absolute', top: '-20%', left: '-10%', width: '50%', height: '140%', background: 'radial-gradient(ellipse, rgba(139,92,246,0.2) 0%, transparent 65%)', pointerEvents: 'none' }} />
+                                <div style={{ position: 'absolute', bottom: '-20%', right: '-10%', width: '50%', height: '140%', background: 'radial-gradient(ellipse, rgba(236,72,153,0.2) 0%, transparent 65%)', pointerEvents: 'none' }} />
+
+                                {/* Left producer */}
+                                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', position: 'relative', zIndex: 1 }}>
+                                    {h2hLeft ? (
+                                        <>
+                                            <div style={{ width: '56px', height: '56px', borderRadius: '50%', overflow: 'hidden', border: '2px solid rgba(139,92,246,0.5)' }}>
+                                                <img src={getAvatarUrl(h2hLeft.avatar, h2hLeft.userId)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={(e) => { (e.target as HTMLImageElement).src = 'https://cdn.discordapp.com/embed/avatars/0.png'; }} />
+                                            </div>
+                                            <span style={{ fontSize: '12px', fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '90px', textAlign: 'center' }}>{h2hLeft.displayName || h2hLeft.username}</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: 'rgba(139,92,246,0.15)', border: '2px solid rgba(139,92,246,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                <Music size={24} color="rgba(139,92,246,0.7)" />
+                                            </div>
+                                            <span style={{ fontSize: '12px', fontWeight: 700, color: 'rgba(255,255,255,0.4)' }}>Producer</span>
+                                        </>
+                                    )}
+                                </div>
+
+                                {/* VS badge */}
+                                <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'linear-gradient(135deg, #8B5CF6, #EC4899)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 4px 14px rgba(139,92,246,0.5)', position: 'relative', zIndex: 1 }}>
+                                    <span style={{ fontSize: '11px', fontWeight: 900, color: '#fff', letterSpacing: '0.05em' }}>VS</span>
+                                </div>
+
+                                {/* Right producer */}
+                                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', position: 'relative', zIndex: 1 }}>
+                                    {h2hRight ? (
+                                        <>
+                                            <div style={{ width: '56px', height: '56px', borderRadius: '50%', overflow: 'hidden', border: '2px solid rgba(236,72,153,0.5)' }}>
+                                                <img src={getAvatarUrl(h2hRight.avatar, h2hRight.userId)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={(e) => { (e.target as HTMLImageElement).src = 'https://cdn.discordapp.com/embed/avatars/0.png'; }} />
+                                            </div>
+                                            <span style={{ fontSize: '12px', fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '90px', textAlign: 'center' }}>{h2hRight.displayName || h2hRight.username}</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: 'rgba(236,72,153,0.15)', border: '2px solid rgba(236,72,153,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                <Music size={24} color="rgba(236,72,153,0.7)" />
+                                            </div>
+                                            <span style={{ fontSize: '12px', fontWeight: 700, color: 'rgba(255,255,255,0.4)' }}>Producer</span>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Champion row */}
+                            {h2hChampion && (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px', borderRadius: borderRadius.lg, backgroundColor: colors.surface, border: '1px solid rgba(251,191,36,0.2)' }}>
+                                    <div style={{ width: '36px', height: '36px', borderRadius: '50%', overflow: 'hidden', flexShrink: 0, border: '1px solid rgba(251,191,36,0.5)' }}>
+                                        {h2hChampion.profile?.avatar
+                                            ? <img src={getAvatarUrl(h2hChampion.profile.avatar, h2hChampion.userId)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={(e) => { (e.target as HTMLImageElement).src = 'https://cdn.discordapp.com/embed/avatars/0.png'; }} />
+                                            : <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg, #8B5CF6, #EC4899)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: 900, color: '#fff' }}>{(h2hChampion.profile?.displayName || h2hChampion.profile?.username || '?')[0].toUpperCase()}</div>
+                                        }
+                                    </div>
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                        <div style={{ fontSize: '10px', color: '#FBBF24', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Reigning Champion</div>
+                                        <div style={{ fontSize: '13px', color: '#fff', fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h2hChampion.profile?.displayName || h2hChampion.profile?.username || 'Anonymous'}</div>
+                                    </div>
+                                    <div style={{ fontSize: '16px', fontWeight: 900, color: '#FBBF24', flexShrink: 0 }}>{h2hChampion.elo} <span style={{ fontSize: '10px', color: colors.textTertiary, fontWeight: 600 }}>ELO</span></div>
+                                </div>
+                            )}
+
+                            {/* Enter Arena CTA */}
+                            <Link to="/arena" style={{
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                                padding: '14px', borderRadius: borderRadius.lg,
+                                background: 'linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%)',
+                                color: '#fff', fontSize: '14px', fontWeight: 700, textDecoration: 'none',
+                                boxShadow: '0 4px 18px rgba(139,92,246,0.45)',
+                                minHeight: '44px',
+                            }}>
+                                <Swords size={15} /> Enter the Arena
+                            </Link>
+                        </div>
+
+                        {/* ── PAGE 3: Community ── */}
+                        <div className="mob-page" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                            {/* Discord CTA card */}
+                            <div style={{
+                                position: 'relative', borderRadius: borderRadius.xl, overflow: 'hidden',
+                                background: 'linear-gradient(135deg, #1e1f3a 0%, #2a1a4a 50%, #1a2f4a 100%)',
+                                border: '1px solid rgba(88,101,242,0.3)',
+                                padding: '24px 20px',
+                                boxShadow: shadows.md,
+                            }}>
+                                <div style={{ position: 'absolute', top: '-30%', left: '-5%', width: '50%', height: '160%', background: 'radial-gradient(ellipse, rgba(88,101,242,0.2) 0%, transparent 65%)', pointerEvents: 'none' }} />
+                                <div style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', opacity: 0.05, pointerEvents: 'none' }}>
+                                    <svg width="100" height="75" viewBox="0 0 71 55" fill="white">
+                                        <path d="M60.1 4.9A58.5 58.5 0 0 0 45.3.7a40.5 40.5 0 0 0-1.8 3.7 54.2 54.2 0 0 0-16.3 0A39.1 39.1 0 0 0 25.4.7 58.4 58.4 0 0 0 10.5 4.9C1.5 18.7-1 32.2.3 45.5a58.9 58.9 0 0 0 17.9 9.1 42.5 42.5 0 0 0 3.7-6 38.3 38.3 0 0 1-5.8-2.8c.5-.4 1-.7 1.4-1.1a41.9 41.9 0 0 0 35.8 0c.5.4 1 .8 1.4 1.1a38.4 38.4 0 0 1-5.8 2.8 42.3 42.3 0 0 0 3.7 6 58.7 58.7 0 0 0 17.9-9.1C72 30.2 68.1 16.8 60.1 4.9ZM23.7 37.3c-3.5 0-6.4-3.2-6.4-7.2s2.8-7.2 6.4-7.2c3.5 0 6.4 3.2 6.4 7.2s-2.9 7.2-6.4 7.2Zm23.6 0c-3.5 0-6.4-3.2-6.4-7.2s2.8-7.2 6.4-7.2c3.5 0 6.4 3.2 6.4 7.2s-2.9 7.2-6.4 7.2Z"/>
+                                    </svg>
+                                </div>
+                                <div style={{ position: 'relative', zIndex: 1 }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
+                                        <div style={{ width: '44px', height: '44px', borderRadius: borderRadius.lg, background: 'rgba(88,101,242,0.2)', border: '1px solid rgba(88,101,242,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                            <svg width="22" height="17" viewBox="0 0 71 55" fill="#5865F2">
+                                                <path d="M60.1 4.9A58.5 58.5 0 0 0 45.3.7a40.5 40.5 0 0 0-1.8 3.7 54.2 54.2 0 0 0-16.3 0A39.1 39.1 0 0 0 25.4.7 58.4 58.4 0 0 0 10.5 4.9C1.5 18.7-1 32.2.3 45.5a58.9 58.9 0 0 0 17.9 9.1 42.5 42.5 0 0 0 3.7-6 38.3 38.3 0 0 1-5.8-2.8c.5-.4 1-.7 1.4-1.1a41.9 41.9 0 0 0 35.8 0c.5.4 1 .8 1.4 1.1a38.4 38.4 0 0 1-5.8 2.8 42.3 42.3 0 0 0 3.7 6 58.7 58.7 0 0 0 17.9-9.1C72 30.2 68.1 16.8 60.1 4.9ZM23.7 37.3c-3.5 0-6.4-3.2-6.4-7.2s2.8-7.2 6.4-7.2c3.5 0 6.4 3.2 6.4 7.2s-2.9 7.2-6.4 7.2Zm23.6 0c-3.5 0-6.4-3.2-6.4-7.2s2.8-7.2 6.4-7.2c3.5 0 6.4 3.2 6.4 7.2s-2.9 7.2-6.4 7.2Z"/>
+                                            </svg>
+                                        </div>
+                                        <div>
+                                            <div style={{ fontSize: '11px', fontWeight: 700, color: '#7289DA', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '2px' }}>Community</div>
+                                            <div style={{ fontSize: '19px', fontWeight: 900, color: colors.textPrimary, lineHeight: 1.1, letterSpacing: '-0.02em' }}>Join 50,000+ FL Studio producers</div>
+                                        </div>
+                                    </div>
+                                    <p style={{ margin: '0 0 16px', fontSize: '13px', color: 'rgba(185,195,210,0.65)', lineHeight: 1.6 }}>
+                                        Share beats, get feedback, enter battles, and connect.
+                                    </p>
+                                    <a
+                                        href="https://discord.gg/flstudio"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '14px', borderRadius: borderRadius.lg, backgroundColor: '#5865F2', color: '#fff', fontSize: '14px', fontWeight: 700, textDecoration: 'none', boxShadow: '0 4px 18px rgba(88,101,242,0.45)', minHeight: '44px' }}
+                                    >
+                                        <svg width="16" height="12" viewBox="0 0 71 55" fill="white"><path d="M60.1 4.9A58.5 58.5 0 0 0 45.3.7a40.5 40.5 0 0 0-1.8 3.7 54.2 54.2 0 0 0-16.3 0A39.1 39.1 0 0 0 25.4.7 58.4 58.4 0 0 0 10.5 4.9C1.5 18.7-1 32.2.3 45.5a58.9 58.9 0 0 0 17.9 9.1 42.5 42.5 0 0 0 3.7-6 38.3 38.3 0 0 1-5.8-2.8c.5-.4 1-.7 1.4-1.1a41.9 41.9 0 0 0 35.8 0c.5.4 1 .8 1.4 1.1a38.4 38.4 0 0 1-5.8 2.8 42.3 42.3 0 0 0 3.7 6 58.7 58.7 0 0 0 17.9-9.1C72 30.2 68.1 16.8 60.1 4.9ZM23.7 37.3c-3.5 0-6.4-3.2-6.4-7.2s2.8-7.2 6.4-7.2c3.5 0 6.4 3.2 6.4 7.2s-2.9 7.2-6.4 7.2Zm23.6 0c-3.5 0-6.4-3.2-6.4-7.2s2.8-7.2 6.4-7.2c3.5 0 6.4 3.2 6.4 7.2s-2.9 7.2-6.4 7.2Z"/></svg>
+                                        Join Discord
+                                    </a>
+                                </div>
+                            </div>
+
+                            {/* Featured content card */}
+                            {(() => {
+                                const contentType = featured?.featuredContentType || 'video';
+                                const thumbnail = contentType === 'video'
+                                    ? (featured?.featuredTutorialThumbnail || getTutorialThumbnail())
+                                    : (discoveryData?.featuredArticle as any)?.coverImageUrl;
+                                const title = contentType === 'video'
+                                    ? (featured?.featuredTutorialTitle || null)
+                                    : ((discoveryData?.featuredArticle as any)?.title || null);
+                                const href = contentType === 'video'
+                                    ? (featured?.featuredTutorialUrl ?? null)
+                                    : ((discoveryData?.featuredArticle as any)?.slug ? `/article/${(discoveryData?.featuredArticle as any).slug}` : null);
+                                if (!title) return null;
+                                return (
+                                    <div style={{ display: 'flex', gap: '12px', padding: '12px', backgroundColor: colors.surface, borderRadius: borderRadius.lg, border: `1px solid ${colors.border}`, boxShadow: shadows.sm, alignItems: 'center', minHeight: '68px' }}>
+                                        {thumbnail && (
+                                            <div style={{ width: '80px', height: '56px', borderRadius: borderRadius.md, overflow: 'hidden', flexShrink: 0 }}>
+                                                <img src={thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                            </div>
+                                        )}
+                                        {!thumbnail && (
+                                            <div style={{ width: '56px', height: '56px', borderRadius: borderRadius.md, backgroundColor: `${colors.primary}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                                {contentType === 'video' ? <MonitorPlay size={22} color={colors.primary} /> : <FileText size={22} color={colors.primary} />}
+                                            </div>
+                                        )}
+                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                            <div style={{ fontSize: '9px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: colors.primary, marginBottom: '4px' }}>{contentType === 'video' ? 'Video' : 'Article'}</div>
+                                            <div style={{ fontSize: '13px', fontWeight: 700, color: colors.textPrimary, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any, lineHeight: 1.4 }}>{title}</div>
+                                        </div>
+                                        {href && (
+                                            contentType === 'video'
+                                                ? <a href={href} target="_blank" rel="noopener noreferrer" style={{ padding: '8px 12px', borderRadius: borderRadius.md, backgroundColor: `${colors.primary}15`, color: colors.primary, fontSize: '11px', fontWeight: 700, textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: 0, minHeight: '44px', display: 'flex', alignItems: 'center' }}>Watch</a>
+                                                : <Link to={href} style={{ padding: '8px 12px', borderRadius: borderRadius.md, backgroundColor: `${colors.primary}15`, color: colors.primary, fontSize: '11px', fontWeight: 700, textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: 0, minHeight: '44px', display: 'flex', alignItems: 'center' }}>Read</Link>
+                                        )}
+                                    </div>
+                                );
+                            })()}
+
+                            {/* Sponsor strip */}
+                            {featured?.globalSponsors && featured.globalSponsors.length > 0 && (
+                                <div>
+                                    <div style={{ fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.15em', color: colors.textTertiary, marginBottom: '10px' }}>
+                                        {featured.globalSponsorTitle || 'Our Partners'}
+                                    </div>
+                                    <div className="mob-sponsor-strip">
+                                        {featured.globalSponsors.map((s: any) => {
+                                            const href = appendSponsorRef(s.websiteUrl, '/');
+                                            const inner = (
+                                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', padding: '10px 16px' }}>
+                                                    {s.logoUrl
+                                                        ? <img src={s.logoUrl} alt={s.name} style={{ height: '24px', maxWidth: '80px', objectFit: 'contain' }} />
+                                                        : <span style={{ fontWeight: 800, fontSize: '12px', color: '#fff' }}>{s.name}</span>
+                                                    }
+                                                </div>
+                                            );
+                                            const style: React.CSSProperties = { textDecoration: 'none', display: 'flex', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.05)', border: `1px solid ${colors.glassBorder}`, borderRadius: borderRadius.lg, flexShrink: 0 };
+                                            return href !== '#'
+                                                ? <a key={s.id} href={href} target="_blank" rel="noopener noreferrer" onClick={() => trackSponsorClick(s.id, 'discover')} style={style}>{inner}</a>
+                                                : <div key={s.id} style={style}>{inner}</div>;
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                    </div>
+                </div>
+            </DiscoveryLayout>
+        );
+    }
+    // ─── END MOBILE SWIPE LAYOUT ─────────────────────────────────────────────────
 
     return (
         <DiscoveryLayout activeTab="discover">
