@@ -171,7 +171,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
     const { data: discoveryData, isLoading: loading } = useQuery({
         queryKey: ['discovery-home'],
         queryFn: async () => {
-            const [profilesRes, tracksRes, chartRes, featuredRes, playlistsRes, articleRes, h2hRes, profileCountRes] = await Promise.all([
+            const [profilesRes, tracksRes, chartRes, featuredRes, playlistsRes, articleRes, h2hRes, profileCountRes, battlesRes] = await Promise.all([
                 axios.get('/api/musician/profiles'),
                 axios.get('/api/musician/leaderboards/tracks', { params: { limit: 12 } }),
                 axios.get('/api/charts/weekly', { params: { limit: 10 } }),
@@ -180,6 +180,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
                 axios.get('/api/articles/featured/current').catch(() => ({ data: null })),
                 axios.get('/api/head-to-head/leaderboard?limit=1').catch(() => ({ data: [] })),
                 axios.get('/api/musician/profiles/count').catch(() => ({ data: { count: 0 } })),
+                axios.get('/api/beat-battle/battles').catch(() => ({ data: [] })),
             ]);
             return {
                 artists: ([...profilesRes.data] as ArtistProfile[]).sort((a, b) => (b.totalPlays || 0) - (a.totalPlays || 0)),
@@ -190,6 +191,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
                 popularPlaylists: playlistsRes.data as PopularPlaylist[],
                 featuredArticle: articleRes.data,
                 h2hChampion: Array.isArray(h2hRes.data) && h2hRes.data.length > 0 ? h2hRes.data[0] : null,
+                allBattles: (Array.isArray(battlesRes.data) ? battlesRes.data : []) as any[],
             };
         },
     });
@@ -197,6 +199,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
     const artists = discoveryData?.artists ?? [];
     const topTracks = discoveryData?.topTracks ?? [];
     const weeklyChart = discoveryData?.weeklyChart ?? [];
+    const allBattles = discoveryData?.allBattles ?? [];
     const featured = discoveryData?.featured ?? null;
     const popularPlaylists = discoveryData?.popularPlaylists ?? [];
     const featuredArticle = discoveryData?.featuredArticle ?? null;
@@ -226,7 +229,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
         topTracks.filter(t => t.id !== heroTrack.id).slice(0, 3).forEach(t => heroTrackList.push({ title: t.title, artist: t.profile.displayName || t.profile.username, coverUrl: t.coverUrl }));
     }
 
-    const heroLabel = featured?.featuredLabel || (heroType === 'artist' ? 'Featured Artist' : heroType === 'playlist' ? 'Hero Playlist' : 'Featured Track');
+    const heroLabel = featured?.featuredLabel || (heroType === 'artist' ? 'Featured Artist' : heroType === 'playlist' ? 'Featured Playlist' : 'Featured Track');
     const heroTitle = heroType === 'artist' ? (heroArtist?.displayName || heroArtist?.username || '')
         : heroType === 'playlist' ? (heroPlaylist?.name || '')
         : (heroTrack?.title || '');
@@ -626,7 +629,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                                 {battle.title}
                                             </h2>
                                             {featured?.featuredBattleDescription && (
-                                                <p style={{ margin: '0 0 12px', fontSize: '13px', color: 'rgba(255,255,255,0.55)', lineHeight: 1.6, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any }}>
+                                                <p style={{ margin: '0 0 14px', fontSize: '14px', color: 'rgba(255,255,255,0.7)', lineHeight: 1.65 }}>
                                                     {featured.featuredBattleDescription}
                                                 </p>
                                             )}
@@ -718,40 +721,49 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                 </div>
                             )}
 
-                            {/* Hot This Week */}
-                            {weeklyChart.length > 0 && (
-                                <div>
-                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-                                        <span style={{ fontSize: '12px', fontWeight: 700, color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Hot This Week</span>
-                                        <Link to="/charts" style={{ fontSize: '11px', color: colors.primary, fontWeight: 600, textDecoration: 'none' }}>Full chart</Link>
-                                    </div>
-                                    {weeklyChart.slice(0, 4).map((entry, i) => (
-                                        <div key={entry.track.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 0', borderBottom: i < 3 ? `1px solid ${colors.border}` : 'none' }}>
-                                            <span style={{ fontSize: '11px', fontWeight: 700, color: colors.textTertiary, width: '16px', flexShrink: 0, textAlign: 'center' }}>{entry.position}</span>
-                                            {entry.track.coverUrl && (
-                                                <div style={{ width: '40px', height: '40px', borderRadius: borderRadius.sm, overflow: 'hidden', flexShrink: 0 }}>
-                                                    <img src={entry.track.coverUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                                </div>
-                                            )}
-                                            <div style={{ flex: 1, minWidth: 0 }}>
-                                                <div style={{ fontSize: '13px', fontWeight: 700, color: colors.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.track.title}</div>
-                                                <div style={{ fontSize: '11px', color: colors.textSecondary }}>{entry.track.profile.displayName || entry.track.profile.username}</div>
-                                            </div>
-                                            {entry.positionChange !== null && (
-                                                <span style={{ fontSize: '10px', fontWeight: 700, color: (entry.positionChange ?? 0) > 0 ? '#4ADE80' : (entry.positionChange ?? 0) < 0 ? '#F87171' : colors.textTertiary, flexShrink: 0 }}>
-                                                    {(entry.positionChange ?? 0) > 0 ? `▲${entry.positionChange}` : (entry.positionChange ?? 0) < 0 ? `▼${Math.abs(entry.positionChange!)}` : '–'}
-                                                </span>
-                                            )}
-                                            <button
-                                                onClick={() => setTrack(entry.track as any, weeklyChart.map(e => e.track) as any[])}
-                                                style={{ width: '34px', height: '34px', borderRadius: '50%', background: `${colors.primary}18`, border: `1px solid ${colors.primary}30`, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
-                                            >
-                                                <Play size={12} fill={colors.primary} color={colors.primary} style={{ marginLeft: '1px' }} />
-                                            </button>
+                            {/* Other Battles */}
+                            {(() => {
+                                const others = allBattles.filter(b => b.id !== battle?.id).slice(0, 5);
+                                if (others.length === 0) return null;
+                                const statusColor = (b: any) => {
+                                    if (b.status === 'completed' || (b.votingEnd && new Date(b.votingEnd) < new Date())) return '#9CA3AF';
+                                    if (b.status === 'voting') return '#FBBF24';
+                                    if (b.status === 'active') return '#4ADE80';
+                                    return '#60A5FA';
+                                };
+                                const statusLabel = (b: any) => {
+                                    if (b.status === 'completed' || (b.votingEnd && new Date(b.votingEnd) < new Date())) return 'Ended';
+                                    if (b.status === 'voting') return 'Voting';
+                                    if (b.status === 'active') return 'Live';
+                                    return 'Upcoming';
+                                };
+                                return (
+                                    <div>
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                                            <span style={{ fontSize: '12px', fontWeight: 700, color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: '0.1em' }}>More Battles</span>
+                                            <Link to="/battles" style={{ fontSize: '11px', color: colors.primary, fontWeight: 600, textDecoration: 'none' }}>All battles</Link>
                                         </div>
-                                    ))}
-                                </div>
-                            )}
+                                        {others.map((b, i) => (
+                                            <Link key={b.id} to={`/battles/${b.id}`} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 0', borderBottom: i < others.length - 1 ? `1px solid ${colors.border}` : 'none', textDecoration: 'none' }}>
+                                                {(b.cardImageUrl || b.bannerUrl) ? (
+                                                    <div style={{ width: '44px', height: '44px', borderRadius: borderRadius.sm, overflow: 'hidden', flexShrink: 0 }}>
+                                                        <img src={b.cardImageUrl || b.bannerUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                    </div>
+                                                ) : (
+                                                    <div style={{ width: '44px', height: '44px', borderRadius: borderRadius.sm, background: `${colors.primary}15`, border: `1px solid ${colors.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                                        <Trophy size={18} color={colors.primary} style={{ opacity: 0.5 }} />
+                                                    </div>
+                                                )}
+                                                <div style={{ flex: 1, minWidth: 0 }}>
+                                                    <div style={{ fontSize: '13px', fontWeight: 700, color: colors.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.title}</div>
+                                                    <div style={{ fontSize: '11px', color: colors.textSecondary }}>{b._count?.entries ?? 0} entries</div>
+                                                </div>
+                                                <span style={{ fontSize: '10px', fontWeight: 700, color: statusColor(b), flexShrink: 0, background: `${statusColor(b)}18`, padding: '3px 8px', borderRadius: borderRadius.pill }}>{statusLabel(b)}</span>
+                                            </Link>
+                                        ))}
+                                    </div>
+                                );
+                            })()}
                         </div>
 
                         {/* ── PAGE 2: 1v1 Arena ── */}
