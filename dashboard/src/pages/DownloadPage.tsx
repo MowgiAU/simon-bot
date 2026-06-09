@@ -130,10 +130,17 @@ export const DownloadPage: React.FC = () => {
         <div style={{ borderTop: `1px solid ${colors.glassBorder}`, marginBottom: spacing['3xl'] }} />
 
         {/* ── Desktop ── */}
-        <div style={{ marginBottom: spacing['3xl'] }}>
+        <div style={{ marginBottom: spacing['3xl'], opacity: 0.45, pointerEvents: 'none', userSelect: 'none' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.lg }}>
-            <Monitor size={20} color={colors.primary} />
+            <Monitor size={20} color={colors.textSecondary} />
             <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: colors.textPrimary }}>Windows Desktop</h2>
+            <span style={{
+              fontSize: 11, fontWeight: 700, color: colors.textSecondary,
+              background: colors.surfaceHover ?? colors.surface,
+              border: `1px solid ${colors.glassBorder}`,
+              borderRadius: borderRadius.sm, padding: '2px 8px',
+              textTransform: 'uppercase', letterSpacing: '0.06em',
+            }}>Work in progress</span>
           </div>
 
           <div style={{
