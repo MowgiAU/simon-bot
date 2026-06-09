@@ -15604,6 +15604,16 @@ if (fs.existsSync(distPath)) {
                     }
                 }
 
+                // ── Download page ──
+                if (req.path === '/download') {
+                    return res.send(ogPage({
+                        title: 'Download Fuji Studio',
+                        description: 'Get the Fuji Studio app on Android. Discover beats, share tracks, and join beat battles — in your pocket.',
+                        url: `${baseUrl}/download`,
+                        image: defaultImage,
+                    }));
+                }
+
                 // ── DB-editable embed override for any other path ──
                 const dbEmbed = await db.pageEmbed.findUnique({ where: { path: req.path } });
                 if (dbEmbed) {
