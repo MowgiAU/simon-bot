@@ -483,6 +483,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
                 <span className="nav-label">Activity Logs</span>
               </button>
             )}
+            {permissions.accessiblePlugins.includes('platform-analytics') && (
+              <button className={`nav-item ${activeSection === 'platform-analytics' ? 'active' : ''}`} onClick={() => onNavigate('platform-analytics')} title={collapsed ? "Platform Analytics" : ""}>
+                <span className="nav-icon"><AnimatedWrapper icon={BarChart2} size={20} /></span>
+                <span className="nav-label">Platform Analytics</span>
+              </button>
+            )}
           </NavGroup>
         )}
 
