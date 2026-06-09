@@ -351,8 +351,6 @@ export const ArtistDiscoveryPage: React.FC = () => {
         const h2hLeft = trendingList[0] ?? null;
         const h2hRight = trendingList[1] ?? null;
 
-        const containerTranslate = -mobileCurrentPage * 100 + (mobileDragOffset / (window.innerWidth || 390)) * 100;
-
         return (
             <DiscoveryLayout activeTab="discover">
                 <style>{`
@@ -360,20 +358,20 @@ export const ArtistDiscoveryPage: React.FC = () => {
                         0%, 100% { opacity: 1; }
                         50% { opacity: 0.4; }
                     }
-                    .mob-page { min-width: 100%; width: 100%; overflow-y: auto; overflow-x: hidden; box-sizing: border-box; -webkit-overflow-scrolling: touch; }
+                    .mob-page { width: 100vw; flex-shrink: 0; overflow-y: auto; overflow-x: hidden; box-sizing: border-box; -webkit-overflow-scrolling: touch; }
                     .mob-sponsor-strip { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; -ms-overflow-style: none; }
                     .mob-sponsor-strip::-webkit-scrollbar { display: none; }
                     .mob-trending-strip { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; -ms-overflow-style: none; }
                     .mob-trending-strip::-webkit-scrollbar { display: none; }
                 `}</style>
 
-                {/* Page indicator bar */}
+                {/* Page indicator bar — fixed below the layout header (56px) */}
                 <div style={{
+                    position: 'fixed', top: 56, left: 0, right: 0, zIndex: 48,
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                     height: '44px', padding: '0 16px',
                     backgroundColor: colors.background,
                     borderBottom: `1px solid ${colors.border}`,
-                    flexShrink: 0,
                     boxSizing: 'border-box',
                 }}>
                     <button
@@ -414,18 +412,17 @@ export const ArtistDiscoveryPage: React.FC = () => {
                     </button>
                 </div>
 
-                {/* Swipe container */}
+                {/* Swipe container — fixed, sitting between indicator bar and bottom nav */}
                 <div
-                    style={{ overflow: 'hidden', flex: 1, position: 'relative' }}
+                    style={{ position: 'fixed', top: 100, left: 0, right: 0, bottom: 60, zIndex: 47, overflow: 'hidden' }}
                     onTouchStart={handleMobileTouchStart}
                     onTouchMove={handleMobileTouchMove}
                     onTouchEnd={handleMobileTouchEnd}
                 >
                     <div style={{
                         display: 'flex',
-                        width: `${MOBILE_PAGES * 100}%`,
                         height: '100%',
-                        transform: `translateX(${containerTranslate / MOBILE_PAGES}%)`,
+                        transform: `translateX(calc(${-mobileCurrentPage * 100}vw + ${mobileDragOffset}px))`,
                         transition: mobileDragging ? 'none' : 'transform 0.3s ease',
                         willChange: 'transform',
                     }}>
