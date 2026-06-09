@@ -212,6 +212,8 @@ export const BeatBattlePage: React.FC = () => {
     // Battle release creation
     const [createReleaseFor, setCreateReleaseFor] = useState<string | null>(null);
     const [releaseForm, setReleaseForm] = useState({ title: '', description: '', releaseType: '' });
+    const [releaseCoverFile, setReleaseCoverFile] = useState<File | null>(null);
+    const [releaseCoverPreview, setReleaseCoverPreview] = useState<string>('');
     const [creatingRelease, setCreatingRelease] = useState(false);
     const [releaseCreated, setReleaseCreated] = useState<{ battleId: string; playlistId: string; playlistName: string } | null>(null);
 
@@ -244,9 +246,17 @@ export const BeatBattlePage: React.FC = () => {
                 }
                 return;
             }
+            // Upload cover art if one was selected
+            if (releaseCoverFile) {
+                const fd = new FormData();
+                fd.append('cover', releaseCoverFile);
+                await fetch(`${API}/api/playlists/${data.playlistId}/cover`, { method: 'POST', credentials: 'include', body: fd }).catch(() => {});
+            }
             setReleaseCreated({ battleId, playlistId: data.playlistId, playlistName: data.playlistName });
             setCreateReleaseFor(null);
             setReleaseForm({ title: '', description: '', releaseType: '' });
+            setReleaseCoverFile(null);
+            setReleaseCoverPreview('');
             await fetchBattles();
         } finally {
             setCreatingRelease(false);
@@ -1334,7 +1344,7 @@ export const BeatBattlePage: React.FC = () => {
                                         ) : (
                                             <>
                                                 <p style={{ fontSize: '12px', color: colors.textSecondary, margin: '0 0 12px' }}>
-                                                    Creates a playlist from all submissions ranked by battle points. You can edit cover art, description, and release type after creation.
+                                                    Creates a playlist from all submissions ranked by battle points. Everything can also be edited on the playlist page after creation.
                                                 </p>
                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                                                     <div>
@@ -1349,15 +1359,34 @@ export const BeatBattlePage: React.FC = () => {
                                                             rows={2} placeholder="Optional description…"
                                                             style={{ width: '100%', padding: '8px 10px', borderRadius: borderRadius.sm, border: `1px solid ${colors.border}`, backgroundColor: colors.surface, color: colors.textPrimary, fontSize: '13px', resize: 'vertical', boxSizing: 'border-box' }} />
                                                     </div>
-                                                    <div>
-                                                        <label style={{ fontSize: '11px', color: colors.textSecondary, display: 'block', marginBottom: '4px' }}>Release type</label>
-                                                        <select value={releaseForm.releaseType} onChange={e => setReleaseForm(f => ({ ...f, releaseType: e.target.value }))}
-                                                            style={{ padding: '8px 10px', borderRadius: borderRadius.sm, border: `1px solid ${colors.border}`, backgroundColor: colors.surface, color: colors.textPrimary, fontSize: '13px' }}>
-                                                            <option value="">Playlist</option>
-                                                            <option value="album">Album</option>
-                                                            <option value="ep">EP</option>
-                                                            <option value="single">Single</option>
-                                                        </select>
+                                                    <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+                                                        <div>
+                                                            <label style={{ fontSize: '11px', color: colors.textSecondary, display: 'block', marginBottom: '4px' }}>Cover art</label>
+                                                            <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '80px', height: '80px', borderRadius: borderRadius.sm, border: `1.5px dashed ${colors.border}`, backgroundColor: colors.surface, cursor: 'pointer', overflow: 'hidden', flexShrink: 0 }}>
+                                                                {releaseCoverPreview
+                                                                    ? <img src={releaseCoverPreview} alt="Cover" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                                    : <Image size={22} color={colors.textSecondary} />}
+                                                                <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => {
+                                                                    const f = e.target.files?.[0];
+                                                                    if (!f) return;
+                                                                    setReleaseCoverFile(f);
+                                                                    setReleaseCoverPreview(URL.createObjectURL(f));
+                                                                }} />
+                                                            </label>
+                                                            {releaseCoverPreview && (
+                                                                <button onClick={() => { setReleaseCoverFile(null); setReleaseCoverPreview(''); }} style={{ marginTop: '4px', background: 'none', border: 'none', fontSize: '10px', color: colors.textSecondary, cursor: 'pointer', padding: 0 }}>Remove</button>
+                                                            )}
+                                                        </div>
+                                                        <div style={{ flex: 1 }}>
+                                                            <label style={{ fontSize: '11px', color: colors.textSecondary, display: 'block', marginBottom: '4px' }}>Release type</label>
+                                                            <select value={releaseForm.releaseType} onChange={e => setReleaseForm(f => ({ ...f, releaseType: e.target.value }))}
+                                                                style={{ padding: '8px 10px', borderRadius: borderRadius.sm, border: `1px solid ${colors.border}`, backgroundColor: colors.surface, color: colors.textPrimary, fontSize: '13px' }}>
+                                                                <option value="">Playlist</option>
+                                                                <option value="album">Album</option>
+                                                                <option value="ep">EP</option>
+                                                                <option value="single">Single</option>
+                                                            </select>
+                                                        </div>
                                                     </div>
                                                     <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
                                                         <button onClick={() => handleCreateRelease(b.id)} disabled={creatingRelease}
