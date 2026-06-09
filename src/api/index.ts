@@ -15612,6 +15612,8 @@ if (fs.existsSync(distPath)) {
                         url: `${baseUrl}/download`,
                         image: 'https://cdn.fujistud.io/brand/app-icon.png',
                         imageAlt: 'Fuji Studio app icon',
+                        imageWidth: '1024',
+                        imageHeight: '1024',
                         cardType: 'summary',
                     }));
                 }
