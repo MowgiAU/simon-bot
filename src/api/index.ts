@@ -15235,7 +15235,7 @@ if (fs.existsSync(distPath)) {
             tags.imageWidth  ? `<meta property="og:image:width" content="${escapeHtml(tags.imageWidth)}" />` : '',
             tags.imageHeight ? `<meta property="og:image:height" content="${escapeHtml(tags.imageHeight)}" />` : '',
             // Twitter / X
-            `<meta name="twitter:card" content="summary_large_image" />`,
+            `<meta name="twitter:card" content="${escapeHtml(tags.cardType || 'summary_large_image')}" />`,
             `<meta name="twitter:site" content="@fujistudio" />`,
             `<meta name="twitter:title" content="${safeTitle}" />`,
             `<meta name="twitter:description" content="${safeDesc}" />`,
@@ -15610,7 +15610,9 @@ if (fs.existsSync(distPath)) {
                         title: 'Download Fuji Studio',
                         description: 'Get the Fuji Studio app on Android. Discover beats, share tracks, and join beat battles — in your pocket.',
                         url: `${baseUrl}/download`,
-                        image: defaultImage,
+                        image: 'https://cdn.fujistud.io/brand/app-icon.png',
+                        imageAlt: 'Fuji Studio app icon',
+                        cardType: 'summary',
                     }));
                 }
 
