@@ -509,9 +509,15 @@ export const ArticleEmbedHydrator: React.FC<{ contentRef: React.RefObject<HTMLDi
             const found: { type: string; url: string; el: HTMLElement }[] = [];
             nodes.forEach(n => {
                 const el = n as HTMLElement;
-                const type = el.getAttribute('data-embed-type')!;
-                const url = el.getAttribute('data-embed-url')!;
-                if (type && url) found.push({ type, url, el });
+                let type = el.getAttribute('data-embed-type')!;
+                let url = el.getAttribute('data-embed-url')!;
+                if (!type || !url) return;
+                // Auto-upgrade: track embeds whose URL looks like a playlist ID/path
+                if (type === 'track' && /^(\/playlists?\/|[a-z0-9]{20,})/.test(url)) {
+                    type = 'playlist';
+                    url = url.replace(/^\/playlists?\//, '').split('/')[0];
+                }
+                found.push({ type, url, el });
             });
             setEmbeds(found);
         }, 0);

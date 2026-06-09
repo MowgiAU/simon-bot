@@ -5,7 +5,7 @@ import {
     Heading2, Heading3, Quote, Code, Link as LinkIcon, Image,
     Youtube, Music, User, AlignLeft, AlignCenter, AlignRight,
     Undo2, Redo2, Minus, Type, Twitter, FileAudio, FolderDown, Sliders,
-    Pencil, Trash2, X, ChevronUp, ChevronDown, GripVertical,
+    Pencil, Trash2, X, ChevronUp, ChevronDown, GripVertical, ListMusic,
 } from 'lucide-react';
 
 interface RichTextEditorProps {
@@ -45,7 +45,7 @@ const ToolbarBtn: React.FC<{
 
 // ── Embed Modal ───────────────────────────────────────────────────────────────
 const EmbedModal: React.FC<{
-    type: 'link' | 'image' | 'video' | 'track' | 'profile' | 'social';
+    type: 'link' | 'image' | 'video' | 'track' | 'profile' | 'social' | 'playlist';
     onInsert: (value: string, extra?: string) => void;
     onClose: () => void;
 }> = ({ type, onInsert, onClose }) => {
@@ -59,6 +59,7 @@ const EmbedModal: React.FC<{
         track: { title: 'Embed Track', placeholder: '/track/username/track-slug', hint: 'Enter a Fuji Studio track URL (e.g. /track/artist/my-song)' },
         profile: { title: 'Embed Profile', placeholder: '/profile/username', hint: 'Enter a Fuji Studio profile URL (e.g. /profile/artist)' },
         social: { title: 'Embed Social Post', placeholder: 'https://twitter.com/user/status/123...', hint: 'Paste a Twitter/X or Instagram post URL' },
+        playlist: { title: 'Embed Playlist', placeholder: '/playlist/playlist-id or full URL', hint: 'Paste a Fuji Studio playlist URL or ID' },
     };
     const cfg = labels[type] || labels.link;
 
@@ -121,7 +122,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ value, onChange,
     const audioInputRef = useRef<HTMLInputElement>(null);
     const projectInputRef = useRef<HTMLInputElement>(null);
     const presetInputRef = useRef<HTMLInputElement>(null);
-    const [embedModal, setEmbedModal] = useState<null | 'link' | 'image' | 'video' | 'track' | 'profile' | 'social'>(null);
+    const [embedModal, setEmbedModal] = useState<null | 'link' | 'image' | 'video' | 'track' | 'profile' | 'social' | 'playlist'>(null);
     const isInternalUpdate = useRef(false);
     const savedRange = useRef<Range | null>(null);
     const [selectedEmbed, setSelectedEmbed] = useState<HTMLElement | null>(null);
@@ -339,16 +340,28 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ value, onChange,
             } else {
                 html = `<div class="article-embed article-video" style="margin:16px 0;"><a href="${url}" target="_blank" rel="noopener noreferrer" style="color:${colors.primary};">${url}</a></div>`;
             }
+        } else if (type === 'playlist') {
+            // Playlist embed — extract ID from URL or use raw value
+            let playlistId = url.trim();
+            try { playlistId = new URL(playlistId).pathname; } catch { /* already a path */ }
+            playlistId = playlistId.replace(/^\/playlists?\//, '').split('/')[0] || playlistId;
+            html = `<div class="article-embed article-playlist" data-embed-type="playlist" data-embed-url="${playlistId}" contenteditable="false" style="background:${colors.surface};border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:16px;margin:16px 0;display:flex;align-items:center;gap:14px;"><div style="width:48px;height:48px;border-radius:8px;background:linear-gradient(135deg,rgba(242, 120, 10,0.3),rgba(242, 120, 10,0.1));display:flex;align-items:center;justify-content:center;flex-shrink:0;"><span style="font-size:20px;">&#127925;</span></div><div style="flex:1;min-width:0;"><div style="color:${colors.textPrimary};font-weight:700;font-size:14px;">Playlist</div><div style="color:${colors.textSecondary};font-size:12px;">Interactive playlist player on publish</div></div><div style="padding:6px 12px;border-radius:8px;background:rgba(255,255,255,0.08);color:${colors.textSecondary};font-size:11px;font-weight:700;white-space:nowrap;">PLAYLIST</div></div>`;
         } else if (type === 'track') {
             // Track embed card placeholder — rendered interactively on article view
             // Strip full domain URLs (e.g. https://fujistud.io/track/...) down to /track/...
             let trackPath = url;
             try { trackPath = new URL(url).pathname; } catch { /* already a path */ }
             if (!trackPath.startsWith('/')) trackPath = `/${trackPath}`;
+            // Auto-detect playlist URLs pasted into track embed
+            if (trackPath.match(/^\/playlists?\//)) {
+                const playlistId = trackPath.replace(/^\/playlists?\//, '').split('/')[0];
+                html = `<div class="article-embed article-playlist" data-embed-type="playlist" data-embed-url="${playlistId}" contenteditable="false" style="background:${colors.surface};border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:16px;margin:16px 0;display:flex;align-items:center;gap:14px;"><div style="width:48px;height:48px;border-radius:8px;background:linear-gradient(135deg,rgba(242, 120, 10,0.3),rgba(242, 120, 10,0.1));display:flex;align-items:center;justify-content:center;flex-shrink:0;"><span style="font-size:20px;">&#127925;</span></div><div style="flex:1;min-width:0;"><div style="color:${colors.textPrimary};font-weight:700;font-size:14px;">Playlist</div><div style="color:${colors.textSecondary};font-size:12px;">Interactive playlist player on publish</div></div><div style="padding:6px 12px;border-radius:8px;background:rgba(255,255,255,0.08);color:${colors.textSecondary};font-size:11px;font-weight:700;white-space:nowrap;">PLAYLIST</div></div>`;
+            } else {
             const parts = trackPath.replace(/^\/track\//, '').split('/');
             const artist = parts[0] || 'artist';
             const trackName = (parts[1] || 'track').replace(/-/g, ' ');
             html = `<div class="article-embed article-track" data-embed-type="track" data-embed-url="${trackPath}" contenteditable="false" style="background:linear-gradient(135deg,${colors.surface} 0%,rgba(242, 120, 10,0.04) 100%);border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:16px;margin:16px 0;display:flex;align-items:center;gap:14px;"><div style="width:48px;height:48px;border-radius:10px;background:linear-gradient(135deg,rgba(242, 120, 10,0.3),rgba(242, 120, 10,0.1));display:flex;align-items:center;justify-content:center;flex-shrink:0;"><span style="font-size:18px;margin-left:2px;">&#9654;</span></div><div style="flex:1;min-width:0;"><div style="color:${colors.textPrimary};font-weight:700;font-size:14px;text-transform:capitalize;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${trackName}</div><div style="color:${colors.textSecondary};font-size:12px;">by ${artist} &middot; Interactive player on publish</div></div><div style="padding:6px 12px;border-radius:8px;background:${colors.primary};color:white;font-size:11px;font-weight:700;white-space:nowrap;">TRACK EMBED</div></div>`;
+            }
         } else if (type === 'profile') {
             let profilePath = url;
             try { profilePath = new URL(url).pathname; } catch { /* already a path */ }
@@ -423,6 +436,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ value, onChange,
                 <ToolbarBtn icon={<Image size={15} />} title="Image from URL" onClick={() => { saveSelection(); setEmbedModal('image'); }} />
                 <ToolbarBtn icon={<Youtube size={15} />} title="Embed Video" onClick={() => { saveSelection(); setEmbedModal('video'); }} />
                 <ToolbarBtn icon={<Music size={15} />} title="Embed Track" onClick={() => { saveSelection(); setEmbedModal('track'); }} />
+                <ToolbarBtn icon={<ListMusic size={15} />} title="Embed Playlist" onClick={() => { saveSelection(); setEmbedModal('playlist'); }} />
                 <ToolbarBtn icon={<User size={15} />} title="Embed Profile" onClick={() => { saveSelection(); setEmbedModal('profile'); }} />
                 <ToolbarBtn icon={<Twitter size={15} />} title="Embed Social Post" onClick={() => { saveSelection(); setEmbedModal('social'); }} />
 
@@ -522,7 +536,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ value, onChange,
                 const typeLabels: Record<string, string> = {
                     track: 'Track', profile: 'Profile', social: 'Social Post',
                     'audio-file': 'Audio', 'project-file': 'Project', 'preset-file': 'Preset',
-                    video: 'Video', link: 'Link', image: 'Image',
+                    video: 'Video', link: 'Link', image: 'Image', playlist: 'Playlist',
                 };
                 const typeLabel = typeLabels[embedType] || 'Embed';
                 const hasPrev = !!selectedEmbed.previousElementSibling;
