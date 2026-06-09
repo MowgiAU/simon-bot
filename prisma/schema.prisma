@@ -73,6 +73,8 @@ model User {
   desktopTokens            DesktopToken[]
   deviceTokens             DeviceToken[]
   notificationPreferences  NotificationPreferences?
+  apkDownloads             ApkDownload[]
+  sessions                 UserSession[]
 
   @@map("users")
 }
@@ -3342,4 +3344,47 @@ model MuzzleSettings {
   updatedAt             DateTime @updatedAt
 
   @@map("muzzle_settings")
+}
+
+// ── Platform Analytics ────────────────────────────────────────────────────────
+
+model ApkDownload {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  ipHash    String
+  ipRaw     String
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  userAgent String?
+
+  @@map("apk_downloads")
+}
+
+model UserSession {
+  id           String         @id @default(cuid())
+  createdAt    DateTime       @default(now())
+  lastSeenAt   DateTime       @updatedAt
+  endedAt      DateTime?
+  durationSecs Int?
+  platform     String         // "desktop" | "mobile_browser" | "android_app"
+  userId       String?
+  user         User?          @relation(fields: [userId], references: [id])
+  ipHash       String?
+  userAgent    String?
+  country      String?
+  events       SessionEvent[]
+
+  @@map("user_sessions")
+}
+
+model SessionEvent {
+  id        String      @id @default(cuid())
+  createdAt DateTime    @default(now())
+  sessionId String
+  session   UserSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  type      String      // "page_view" | "track_play" | "search" | "battle_view" | "profile_view" | "playlist_play" | "battle_submit" | "track_upload" | "download_apk"
+  path      String?
+  metadata  Json?
+
+  @@map("session_events")
 }

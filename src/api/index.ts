@@ -4322,7 +4322,7 @@ app.get('/api/guilds/:guildId/my-permissions', async (req, res) => {
         if (isAdmin) {
             return res.json({ 
                 canManagePlugins: true, 
-                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content', 'account-management', 'anti-piracy', 'leveling', 'fuji-radio', 'studio-guide', 'bot-identity', 'bot-messenger', 'booster-color', 'private-messages', 'auto-messages', 'auto-responder', 'server-boost', 'reports', 'articles', 'article-review', 'pause', 'voice-stats', 'spam-guard', 'muzzle', 'track-announcer', 'profile-styles', 'academy', 'head-to-head', 'drum-kit', 'bug-reports', 'plugin-registry', 'activity-logs', 'duplicate-profiles', 'projects', 'vote-fraud', 'beat-market', 'slots']
+                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content', 'account-management', 'anti-piracy', 'leveling', 'fuji-radio', 'studio-guide', 'bot-identity', 'bot-messenger', 'booster-color', 'private-messages', 'auto-messages', 'auto-responder', 'server-boost', 'reports', 'articles', 'article-review', 'pause', 'voice-stats', 'spam-guard', 'muzzle', 'track-announcer', 'profile-styles', 'academy', 'head-to-head', 'drum-kit', 'bug-reports', 'plugin-registry', 'activity-logs', 'duplicate-profiles', 'projects', 'vote-fraud', 'beat-market', 'slots', 'platform-analytics']
             });
         }
 
@@ -15153,6 +15153,214 @@ app.get('/sitemap-articles.xml', async (req, res) => {
         res.type('application/xml').set('Cache-Control', 'public, max-age=3600').send(xml);
     } catch {
         res.status(500).send('<?xml version="1.0"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"/>');
+    }
+});
+
+// ── Platform Analytics ─────────────────────────────────────────────────────────
+
+const VALID_EVENT_TYPES = [
+    'page_view', 'track_play', 'search', 'battle_view', 'profile_view',
+    'playlist_play', 'battle_submit', 'track_upload', 'download_apk',
+] as const;
+
+/** GET /api/download/apk — track APK download and redirect */
+app.get('/api/download/apk', async (req: any, res) => {
+    try {
+        const ip = ipFromReq(req);
+        const ipHash = crypto.createHash('sha256').update(ip).digest('hex');
+        const userId = req.session?.user?._localId || req.session?.user?.id || null;
+        const ua = (req.headers['user-agent'] as string | undefined) ?? null;
+        db.apkDownload.create({
+            data: { ipHash, ipRaw: ip, userId: userId ?? undefined, userAgent: ua },
+        }).catch((e: unknown) => logger.warn('APK download tracking failed', e));
+    } catch {
+        // non-blocking — never fail the redirect
+    }
+    res.redirect(302, 'https://cdn.fujistud.io/downloads/fuji-studio.apk');
+});
+
+/** POST /api/analytics/session — start a session */
+app.post('/api/analytics/session', async (req: any, res) => {
+    try {
+        const { platform, userAgent, country } = req.body ?? {};
+        if (!platform) return res.status(400).json({ error: 'platform required' });
+        const ip = ipFromReq(req);
+        const ipHash = crypto.createHash('sha256').update(ip).digest('hex');
+        const userId = req.session?.user?._localId || req.session?.user?.id || null;
+        const session = await db.userSession.create({
+            data: {
+                platform,
+                userId: userId ?? undefined,
+                ipHash,
+                userAgent: userAgent ?? (req.headers['user-agent'] as string | undefined) ?? null,
+                country: country ?? null,
+            },
+        });
+        res.json({ sessionId: session.id });
+    } catch (e) {
+        logger.warn('POST /api/analytics/session error', e);
+        res.status(500).json({ error: 'Failed to create session' });
+    }
+});
+
+/** PATCH /api/analytics/session/:id — heartbeat */
+app.patch('/api/analytics/session/:id', async (req: any, res) => {
+    try {
+        const { id } = req.params;
+        const { durationSecs } = req.body ?? {};
+        await db.userSession.update({
+            where: { id },
+            data: { durationSecs: durationSecs != null ? Number(durationSecs) : undefined },
+        });
+        res.json({ ok: true });
+    } catch {
+        res.json({ ok: true });
+    }
+});
+
+/** DELETE /api/analytics/session/:id — end session */
+app.delete('/api/analytics/session/:id', async (req: any, res) => {
+    try {
+        const { id } = req.params;
+        const { durationSecs } = req.body ?? {};
+        await db.userSession.update({
+            where: { id },
+            data: {
+                endedAt: new Date(),
+                durationSecs: durationSecs != null ? Number(durationSecs) : undefined,
+            },
+        });
+        res.json({ ok: true });
+    } catch {
+        res.json({ ok: true });
+    }
+});
+
+/** POST /api/analytics/event — log a session event */
+app.post('/api/analytics/event', async (req: any, res) => {
+    try {
+        const { sessionId, type, path: eventPath, metadata } = req.body ?? {};
+        if (!sessionId || !type) return res.status(400).json({ error: 'sessionId and type required' });
+        if (!VALID_EVENT_TYPES.includes(type)) return res.status(400).json({ error: 'invalid type' });
+        db.sessionEvent.create({
+            data: { sessionId, type, path: eventPath ?? null, metadata: metadata ?? undefined },
+        }).catch((e: unknown) => logger.warn('Session event create failed', e));
+        res.json({ ok: true });
+    } catch (e) {
+        logger.warn('POST /api/analytics/event error', e);
+        res.json({ ok: true });
+    }
+});
+
+/** GET /api/admin/analytics/overview — admin analytics summary */
+app.get('/api/admin/analytics/overview', requireAdmin, async (_req, res) => {
+    try {
+        const now = new Date();
+        const ago7 = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        const ago30 = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        const ago1 = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+
+        // APK downloads
+        const [apkTotal, apkLast7, apkLast30, apkByDayRaw, apkUnique, apkLoggedIn] = await Promise.all([
+            db.apkDownload.count(),
+            db.apkDownload.count({ where: { createdAt: { gte: ago7 } } }),
+            db.apkDownload.count({ where: { createdAt: { gte: ago30 } } }),
+            db.$queryRaw<{ date: Date; count: bigint }[]>`
+                SELECT DATE_TRUNC('day', "createdAt") AS date, COUNT(*) AS count
+                FROM apk_downloads
+                WHERE "createdAt" >= ${ago30}
+                GROUP BY date ORDER BY date ASC
+            `,
+            db.apkDownload.findMany({ where: { createdAt: { gte: ago30 } }, select: { ipHash: true }, distinct: ['ipHash'] }).then(r => r.length),
+            db.apkDownload.count({ where: { userId: { not: null } } }),
+        ]);
+
+        const apkByDay = apkByDayRaw.map(r => ({
+            date: r.date.toISOString().slice(0, 10),
+            count: Number(r.count),
+        }));
+
+        // Sessions
+        const [sessTotal, sessLast7, sessByPlatformRaw, sessAvgDurRaw, sessByDayRaw] = await Promise.all([
+            db.userSession.count(),
+            db.userSession.count({ where: { createdAt: { gte: ago7 } } }),
+            db.userSession.groupBy({ by: ['platform'], _count: { id: true } }),
+            db.userSession.groupBy({ by: ['platform'], _avg: { durationSecs: true }, where: { durationSecs: { not: null } } }),
+            db.$queryRaw<{ date: Date; platform: string; count: bigint }[]>`
+                SELECT DATE_TRUNC('day', "createdAt") AS date, platform, COUNT(*) AS count
+                FROM user_sessions
+                WHERE "createdAt" >= ${ago30}
+                GROUP BY date, platform ORDER BY date ASC
+            `,
+        ]);
+
+        const byPlatform: Record<string, number> = {};
+        for (const r of sessByPlatformRaw) byPlatform[r.platform] = r._count.id;
+
+        const avgDurByPlatform: Record<string, number> = {};
+        for (const r of sessAvgDurRaw) avgDurByPlatform[r.platform] = Math.round(r._avg.durationSecs ?? 0);
+
+        // Build byDay map for sessions
+        const sessDayMap: Record<string, Record<string, number>> = {};
+        for (const r of sessByDayRaw) {
+            const d = r.date.toISOString().slice(0, 10);
+            if (!sessDayMap[d]) sessDayMap[d] = {};
+            sessDayMap[d][r.platform] = Number(r.count);
+        }
+        const sessionsByDay = Object.entries(sessDayMap).map(([date, platforms]) => ({ date, ...platforms }));
+
+        // Events
+        const [eventsLast7, topPagesRaw, byTypeRaw] = await Promise.all([
+            db.sessionEvent.count({ where: { createdAt: { gte: ago7 } } }),
+            db.$queryRaw<{ path: string | null; count: bigint }[]>`
+                SELECT path, COUNT(*) AS count FROM session_events
+                WHERE type = 'page_view' AND path IS NOT NULL
+                GROUP BY path ORDER BY count DESC LIMIT 10
+            `,
+            db.sessionEvent.groupBy({ by: ['type'], _count: { id: true } }),
+        ]);
+
+        const topPages = topPagesRaw.map(r => ({ path: r.path!, count: Number(r.count) }));
+        const byType: Record<string, number> = {};
+        for (const r of byTypeRaw) byType[r.type] = r._count.id;
+
+        // DAU / WAU / MAU (distinct userIds with a session)
+        const [dauRaw, wauRaw, mauRaw] = await Promise.all([
+            db.userSession.findMany({ where: { userId: { not: null }, createdAt: { gte: ago1 } }, select: { userId: true }, distinct: ['userId'] }),
+            db.userSession.findMany({ where: { userId: { not: null }, createdAt: { gte: ago7 } }, select: { userId: true }, distinct: ['userId'] }),
+            db.userSession.findMany({ where: { userId: { not: null }, createdAt: { gte: ago30 } }, select: { userId: true }, distinct: ['userId'] }),
+        ]);
+
+        res.json({
+            apkDownloads: {
+                total: apkTotal,
+                last7Days: apkLast7,
+                last30Days: apkLast30,
+                byDay: apkByDay,
+                uniqueIps: apkUnique,
+                loggedInCount: apkLoggedIn,
+            },
+            sessions: {
+                total: sessTotal,
+                last7Days: sessLast7,
+                byPlatform,
+                avgDurationByPlatform: avgDurByPlatform,
+                byDay: sessionsByDay,
+            },
+            events: {
+                topPages,
+                byType,
+                last7Days: eventsLast7,
+            },
+            users: {
+                dau: dauRaw.length,
+                wau: wauRaw.length,
+                mau: mauRaw.length,
+            },
+        });
+    } catch (e) {
+        logger.error('GET /api/admin/analytics/overview error', e);
+        res.status(500).json({ error: 'Failed to load analytics' });
     }
 });
 
