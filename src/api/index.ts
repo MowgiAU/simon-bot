@@ -10283,6 +10283,31 @@ app.get('/api/discovery/articles/search', requireAdmin, async (req: any, res) =>
     }
 });
 
+// Search public playlists (for admin featured playlist picker)
+app.get('/api/discovery/playlists/search', requireAdmin, async (req: any, res) => {
+    try {
+        const search = (req.query.q || req.query.search) as string;
+        const playlists = await db.playlist.findMany({
+            where: {
+                isPublic: true,
+                deletedAt: null,
+                ...(search ? { name: { contains: search, mode: 'insensitive' as const } } : {}),
+            },
+            orderBy: { totalPlays: 'desc' },
+            take: 20,
+            select: {
+                id: true, name: true, coverUrl: true, releaseType: true, trackCount: true, totalPlays: true,
+                profile: { select: { username: true, displayName: true } },
+                battle: { select: { id: true, title: true } },
+            },
+        });
+        res.json({ playlists });
+    } catch (e: any) {
+        logger.error('GET /api/discovery/playlists/search error', e);
+        res.status(500).json({ error: 'Failed to search playlists' });
+    }
+});
+
 // Search all tracks (for admin featured track picker)
 app.get('/api/discovery/tracks/search', publicCache(60), async (req, res) => {
     try {
@@ -12645,6 +12670,7 @@ app.get('/api/beat-battle/battles/:id', async (req: any, res) => {
                         },
                     },
                 },
+                release: { select: { id: true, name: true, slug: true, coverUrl: true, releaseType: true, trackCount: true } },
             },
         });
 
@@ -13771,6 +13797,71 @@ app.post('/api/beat-battle/admin/battles/:id/recompute-winners', requireAdmin, a
         });
     } catch (e: any) {
         logger.error('Beat Battle: recompute winners failed', e);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// --- Admin: Create official playlist release from a completed battle ---
+app.post('/api/beat-battle/admin/battles/:id/create-release', requireAdmin, async (req: any, res) => {
+    try {
+        const battle = await db.beatBattle.findUnique({
+            where: { id: req.params.id },
+            include: { release: { select: { id: true, name: true } } },
+        });
+        if (!battle) return res.status(404).json({ error: 'Battle not found' });
+        if (battle.release) return res.status(409).json({ error: 'A release already exists for this battle', playlistId: battle.release.id, playlistName: battle.release.name });
+
+        // Fetch entries with trackId, sort by points (same tiebreak as rankedBattleEntries)
+        const rawEntries = await db.battleEntry.findMany({
+            where: { battleId: battle.id, deletedAt: null },
+            select: { trackId: true, userId: true, createdAt: true, votes: { select: { rank: true } } },
+        });
+        const scored = rawEntries.map((e: any) => {
+            let first = 0, second = 0, third = 0;
+            for (const v of e.votes) {
+                if (v.rank === 1) first++;
+                else if (v.rank === 2) second++;
+                else if (v.rank === 3) third++;
+            }
+            return { trackId: e.trackId, points: first * 3 + second * 2 + third * 1, firstVotes: first, secondVotes: second, createdAt: e.createdAt };
+        });
+        scored.sort((a: any, b: any) => {
+            if (b.points !== a.points) return b.points - a.points;
+            if (b.firstVotes !== a.firstVotes) return b.firstVotes - a.firstVotes;
+            if (b.secondVotes !== a.secondVotes) return b.secondVotes - a.secondVotes;
+            return a.createdAt.getTime() - b.createdAt.getTime();
+        });
+
+        const { title, description, releaseType } = req.body;
+        const playlist = await db.playlist.create({
+            data: {
+                userId: req.session.user.id,
+                name: title || `${battle.title} — Official Release`,
+                description: description || battle.miniDescription || null,
+                releaseType: releaseType || null,
+                isPublic: true,
+                battleId: battle.id,
+                trackCount: scored.length,
+                tracks: {
+                    create: scored.map((e: any, i: number) => ({ trackId: e.trackId, position: i })),
+                },
+            },
+            select: { id: true, name: true },
+        });
+
+        await db.actionLog.create({
+            data: {
+                pluginId: 'beat-battle',
+                guildId: battle.guildId,
+                action: 'release_created',
+                executorId: req.session.user.id,
+                details: { battleTitle: battle.title, playlistId: playlist.id, trackCount: scored.length },
+            },
+        }).catch(() => {});
+
+        res.json({ success: true, playlistId: playlist.id, playlistName: playlist.name });
+    } catch (e: any) {
+        logger.error('Beat Battle: create-release failed', e);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
@@ -18329,6 +18420,7 @@ app.get('/api/playlists/:playlistId', async (req: any, res) => {
                     },
                 },
                 profile: { select: { username: true, displayName: true, avatar: true, userId: true } },
+                battle: { select: { id: true, title: true, slug: true, status: true } },
             },
         });
         if (!playlist) return res.status(404).json({ error: 'Playlist not found' });

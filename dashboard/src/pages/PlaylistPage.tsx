@@ -7,7 +7,7 @@ import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
 import { StyledUsername } from '../components/StyledUsername';
 import { FujiLogo } from '../components/FujiLogo';
 import axios from 'axios';
-import { Play, Pause, Trash2, Camera, Share2, Lock, Globe, Clock, Music, Check, Pencil, X, Repeat2 } from 'lucide-react';
+import { Play, Pause, Trash2, Camera, Share2, Lock, Globe, Clock, Music, Check, Pencil, X, Repeat2, Swords } from 'lucide-react';
 
 interface PlaylistTrack {
     id: string;
@@ -38,6 +38,7 @@ interface Playlist {
     createdAt: string;
     updatedAt: string;
     profile?: { username: string; displayName: string | null; avatar: string | null } | null;
+    battle?: { id: string; title: string; slug: string | null; status: string } | null;
     tracks: PlaylistTrack[];
 }
 
@@ -287,6 +288,12 @@ export const PlaylistPage: React.FC = () => {
                                 </span>
                             )}
                         </div>
+                        {playlist.battle && (
+                            <Link to={`/battles/${playlist.battle.slug || playlist.battle.id}`}
+                                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', fontWeight: 600, color: colors.primary, textDecoration: 'none', marginBottom: '8px', padding: '3px 10px', borderRadius: '999px', border: `1px solid ${colors.primary}44`, background: `${colors.primary}12`, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                                <Swords size={11} /> {playlist.battle.title}
+                            </Link>
+                        )}
                         <h1 style={{ fontSize: isMobile ? '2rem' : '2.5rem', fontWeight: 900, margin: '0 0 8px', lineHeight: 1.1 }}>{playlist.name}</h1>
                         {playlist.description && (
                             <p style={{ color: '#B9C3CE', fontSize: '13px', margin: '0 0 12px', lineHeight: 1.5 }}>{playlist.description}</p>

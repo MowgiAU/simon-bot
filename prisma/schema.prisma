@@ -1649,6 +1649,7 @@ model BeatBattle {
   sponsor   BattleSponsor?    @relation(fields: [sponsorId], references: [id])
   entries   BattleEntry[]
   analytics BattleAnalytics[]
+  release   Playlist?         @relation("BattleRelease")
 
   @@index([guildId])
   @@index([status])
@@ -1979,6 +1980,8 @@ model Playlist {
   totalPlays         Int               @default(0)
   tracks             PlaylistTrack[]
   featuredByProfiles MusicianProfile[] @relation("ProfileFeaturedPlaylist")
+  battleId           String?           @unique  // Non-null for battle releases (1:1)
+  battle             BeatBattle?       @relation("BattleRelease", fields: [battleId], references: [id], onDelete: SetNull)
   createdAt          DateTime          @default(now())
   updatedAt          DateTime          @updatedAt
 

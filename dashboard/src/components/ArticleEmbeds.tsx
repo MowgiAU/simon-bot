@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { colors, borderRadius } from '../theme/theme';
 import { usePlayer } from './PlayerProvider';
-import { Play, Pause, Music, User as UserIcon, MapPin, ExternalLink, TrendingUp } from 'lucide-react';
+import { Play, Pause, Music, User as UserIcon, MapPin, ExternalLink, TrendingUp, ListMusic } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 // ── Track Embed ───────────────────────────────────────────────────────────────
@@ -432,6 +432,68 @@ export const ProfileEmbed: React.FC<{ profilePath: string }> = ({ profilePath })
 };
 
 
+// ── Playlist Embed ────────────────────────────────────────────────────────────
+interface PlaylistEmbedData {
+    id: string;
+    name: string;
+    description: string | null;
+    coverUrl: string | null;
+    releaseType: string | null;
+    trackCount: number;
+    totalPlays: number;
+    profile?: { username: string; displayName: string | null } | null;
+    tracks: { position: number; track: { id: string; title: string; url: string; coverUrl: string | null; duration: number | null; profile: { username: string; displayName: string | null } } }[];
+}
+
+export const PlaylistEmbed: React.FC<{ playlistId: string }> = ({ playlistId }) => {
+    const [data, setData] = useState<PlaylistEmbedData | null>(null);
+    const [loading, setLoading] = useState(true);
+    const { player, setTrack, togglePlay } = usePlayer();
+
+    useEffect(() => {
+        axios.get(`/api/playlists/${playlistId}`).then(r => setData(r.data)).catch(() => {}).finally(() => setLoading(false));
+    }, [playlistId]);
+
+    if (loading) return <div style={{ height: 80, borderRadius: borderRadius.md, background: 'rgba(255,255,255,0.04)' }} />;
+    if (!data) return null;
+
+    const isThisPlaying = player.currentTrack && data.tracks.some(t => t.track.id === player.currentTrack?.id);
+    const playAll = () => {
+        const queue = data.tracks.map(t => ({ ...t.track, cover: t.track.coverUrl || '', artist: t.track.profile.displayName || t.track.profile.username }));
+        if (isThisPlaying) togglePlay();
+        else if (queue.length) setTrack(queue[0], queue);
+    };
+
+    const BADGE_COLOR: Record<string, string> = { album: '#7C3AED', ep: '#0369A1', single: '#B45309' };
+
+    return (
+        <Link to={`/playlist/${data.id}`} style={{ textDecoration: 'none', display: 'block' }}>
+            <div style={{ display: 'flex', gap: '14px', alignItems: 'center', padding: '14px 16px', borderRadius: borderRadius.md, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', transition: 'background 0.15s' }}
+                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.07)')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.04)')}>
+                <div style={{ position: 'relative', flexShrink: 0, width: 56, height: 56, borderRadius: '6px', overflow: 'hidden', background: 'rgba(255,255,255,0.08)' }}>
+                    {data.coverUrl
+                        ? <img src={data.coverUrl} alt={data.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ListMusic size={22} color="rgba(255,255,255,0.3)" /></div>}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '2px' }}>
+                        {data.releaseType && (
+                            <span style={{ fontSize: '9px', fontWeight: 700, padding: '2px 6px', borderRadius: '3px', background: BADGE_COLOR[data.releaseType] || colors.primary, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.08em', flexShrink: 0 }}>{data.releaseType}</span>
+                        )}
+                        <span style={{ fontWeight: 700, color: 'white', fontSize: '14px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{data.name}</span>
+                    </div>
+                    {data.profile && <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', marginBottom: '2px' }}>{data.profile.displayName || data.profile.username}</div>}
+                    <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)' }}>{data.trackCount} tracks · {data.totalPlays.toLocaleString()} plays</div>
+                </div>
+                <button onClick={e => { e.preventDefault(); playAll(); }} style={{ flexShrink: 0, width: 36, height: 36, borderRadius: '50%', border: 'none', background: colors.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                    {isThisPlaying && player.isPlaying ? <Pause size={16} color="#fff" /> : <Play size={16} color="#fff" style={{ marginLeft: 2 }} />}
+                </button>
+            </div>
+        </Link>
+    );
+};
+
 // ── Hydrator: replaces static embed divs with interactive React components ───
 import { createPortal } from 'react-dom';
 
@@ -442,7 +504,7 @@ export const ArticleEmbedHydrator: React.FC<{ contentRef: React.RefObject<HTMLDi
         // Small delay to ensure the DOM has been painted with the new content
         const timer = setTimeout(() => {
             if (!contentRef.current) return;
-            const nodes = contentRef.current.querySelectorAll('[data-embed-type="track"], [data-embed-type="profile"]');
+            const nodes = contentRef.current.querySelectorAll('[data-embed-type="track"], [data-embed-type="profile"], [data-embed-type="playlist"]');
             const found: { type: string; url: string; el: HTMLElement }[] = [];
             nodes.forEach(n => {
                 const el = n as HTMLElement;
@@ -458,6 +520,13 @@ export const ArticleEmbedHydrator: React.FC<{ contentRef: React.RefObject<HTMLDi
     return (
         <>
             {embeds.map((embed, i) => {
+                if (embed.type === 'playlist') {
+                    return (
+                        <EmbedPortal key={`playlist-${embed.url}-${i}`} container={embed.el}>
+                            <PlaylistEmbed playlistId={embed.url} />
+                        </EmbedPortal>
+                    );
+                }
                 const Component = embed.type === 'track' ? TrackEmbed : ProfileEmbed;
                 const prop = embed.type === 'track' ? 'trackPath' : 'profilePath';
                 return (

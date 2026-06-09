@@ -14,7 +14,7 @@ import {
     ExternalLink, Award, Archive, Upload, Clock, X, Save,
     Building2, Link2, FileDown, Settings, Gift, Megaphone,
     Image, Loader2, Music, Pause, Download, Search, Crown,
-    FlaskConical, CheckCircle2, ChevronRight, RefreshCw
+    FlaskConical, CheckCircle2, ChevronRight, RefreshCw, Disc3, ListMusic
 } from 'lucide-react';
 
 const API = import.meta.env.VITE_API_URL || '';
@@ -55,6 +55,7 @@ interface Battle {
     sponsor: Sponsor | null;
     entries?: Entry[];
     _count?: { entries: number };
+    release?: { id: string; name: string; slug: string | null; coverUrl: string | null; releaseType: string | null; trackCount: number } | null;
 }
 
 interface Entry {
@@ -208,12 +209,49 @@ export const BeatBattlePage: React.FC = () => {
     const [announcingId, setAnnouncingId] = useState<string | null>(null);
     const [announceMsg, setAnnounceMsg] = useState<{ id: string; ok: boolean; message?: string } | null>(null);
 
+    // Battle release creation
+    const [createReleaseFor, setCreateReleaseFor] = useState<string | null>(null);
+    const [releaseForm, setReleaseForm] = useState({ title: '', description: '', releaseType: '' });
+    const [creatingRelease, setCreatingRelease] = useState(false);
+    const [releaseCreated, setReleaseCreated] = useState<{ battleId: string; playlistId: string; playlistName: string } | null>(null);
+
     const fetchBattles = useCallback(async () => {
         try {
             const res = await fetch(`${API}/api/beat-battle/battles?guildId=${guildId}`, { credentials: 'include' });
             if (res.ok) setBattles(await res.json());
         } catch {}
     }, [guildId]);
+
+    const handleCreateRelease = async (battleId: string) => {
+        setCreatingRelease(true);
+        try {
+            const res = await fetch(`${API}/api/beat-battle/admin/battles/${battleId}/create-release`, {
+                method: 'POST', credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    title: releaseForm.title || undefined,
+                    description: releaseForm.description || undefined,
+                    releaseType: releaseForm.releaseType || undefined,
+                }),
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                if (res.status === 409 && data.playlistId) {
+                    setReleaseCreated({ battleId, playlistId: data.playlistId, playlistName: data.playlistName });
+                    setCreateReleaseFor(null);
+                } else {
+                    alert(data.error || 'Failed to create release');
+                }
+                return;
+            }
+            setReleaseCreated({ battleId, playlistId: data.playlistId, playlistName: data.playlistName });
+            setCreateReleaseFor(null);
+            setReleaseForm({ title: '', description: '', releaseType: '' });
+            await fetchBattles();
+        } finally {
+            setCreatingRelease(false);
+        }
+    };
 
     const fetchSponsors = useCallback(async () => {
         try {
@@ -1248,6 +1286,15 @@ export const BeatBattlePage: React.FC = () => {
                                                 <Trophy size={14} />
                                             </button>
                                         )}
+                                        {b.status === 'completed' && (
+                                            <button
+                                                onClick={() => { setCreateReleaseFor(createReleaseFor === b.id ? null : b.id); setReleaseCreated(null); }}
+                                                style={{ ...btnSecondary, padding: '6px 10px', fontSize: '12px', ...(b.release ? { borderColor: colors.primary, color: colors.primary } : {}) }}
+                                                title={b.release ? `Release: ${b.release.name}` : 'Create official release playlist'}
+                                            >
+                                                <Disc3 size={14} />
+                                            </button>
+                                        )}
                                         <button onClick={() => startEdit(b)} style={{ ...btnSecondary, padding: '6px 10px', fontSize: '12px' }} title="Edit">
                                             <Edit size={14} />
                                         </button>
@@ -1259,6 +1306,81 @@ export const BeatBattlePage: React.FC = () => {
                                         </button>
                                     </div>
                                 </div>
+
+                                {/* Release creation / existing release panel */}
+                                {createReleaseFor === b.id && (
+                                    <div style={{ marginTop: '16px', padding: '16px', backgroundColor: colors.background, borderRadius: borderRadius.md, border: `1px solid ${colors.primary}44` }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                <Disc3 size={16} color={colors.primary} />
+                                                <span style={{ fontWeight: 600, color: colors.textPrimary, fontSize: '14px' }}>
+                                                    {b.release ? 'Official Release' : 'Create Official Release'}
+                                                </span>
+                                            </div>
+                                            <button onClick={() => setCreateReleaseFor(null)} style={{ background: 'none', border: 'none', color: colors.textSecondary, cursor: 'pointer' }}><X size={16} /></button>
+                                        </div>
+                                        {b.release ? (
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                {b.release.coverUrl && <img src={b.release.coverUrl} alt="" style={{ width: '48px', height: '48px', borderRadius: '6px', objectFit: 'cover' }} />}
+                                                <div>
+                                                    <div style={{ fontWeight: 600, color: colors.textPrimary, fontSize: '13px' }}>{b.release.name}</div>
+                                                    <div style={{ fontSize: '11px', color: colors.textSecondary }}>{b.release.trackCount} tracks{b.release.releaseType ? ` · ${b.release.releaseType.toUpperCase()}` : ''}</div>
+                                                </div>
+                                                <a href={`/playlist/${b.release.id}`} target="_blank" rel="noopener noreferrer"
+                                                    style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', borderRadius: borderRadius.sm, border: `1px solid ${colors.primary}44`, color: colors.primary, fontSize: '12px', fontWeight: 600, textDecoration: 'none', background: `${colors.primary}15` }}>
+                                                    <ExternalLink size={12} /> View Playlist
+                                                </a>
+                                            </div>
+                                        ) : (
+                                            <>
+                                                <p style={{ fontSize: '12px', color: colors.textSecondary, margin: '0 0 12px' }}>
+                                                    Creates a playlist from all submissions ranked by battle points. You can edit cover art, description, and release type after creation.
+                                                </p>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                                    <div>
+                                                        <label style={{ fontSize: '11px', color: colors.textSecondary, display: 'block', marginBottom: '4px' }}>Title (leave blank to auto-generate)</label>
+                                                        <input value={releaseForm.title} onChange={e => setReleaseForm(f => ({ ...f, title: e.target.value }))}
+                                                            placeholder={`${b.title} — Official Release`}
+                                                            style={{ width: '100%', padding: '8px 10px', borderRadius: borderRadius.sm, border: `1px solid ${colors.border}`, backgroundColor: colors.surface, color: colors.textPrimary, fontSize: '13px', boxSizing: 'border-box' }} />
+                                                    </div>
+                                                    <div>
+                                                        <label style={{ fontSize: '11px', color: colors.textSecondary, display: 'block', marginBottom: '4px' }}>Description</label>
+                                                        <textarea value={releaseForm.description} onChange={e => setReleaseForm(f => ({ ...f, description: e.target.value }))}
+                                                            rows={2} placeholder="Optional description…"
+                                                            style={{ width: '100%', padding: '8px 10px', borderRadius: borderRadius.sm, border: `1px solid ${colors.border}`, backgroundColor: colors.surface, color: colors.textPrimary, fontSize: '13px', resize: 'vertical', boxSizing: 'border-box' }} />
+                                                    </div>
+                                                    <div>
+                                                        <label style={{ fontSize: '11px', color: colors.textSecondary, display: 'block', marginBottom: '4px' }}>Release type</label>
+                                                        <select value={releaseForm.releaseType} onChange={e => setReleaseForm(f => ({ ...f, releaseType: e.target.value }))}
+                                                            style={{ padding: '8px 10px', borderRadius: borderRadius.sm, border: `1px solid ${colors.border}`, backgroundColor: colors.surface, color: colors.textPrimary, fontSize: '13px' }}>
+                                                            <option value="">Playlist</option>
+                                                            <option value="album">Album</option>
+                                                            <option value="ep">EP</option>
+                                                            <option value="single">Single</option>
+                                                        </select>
+                                                    </div>
+                                                    <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                                                        <button onClick={() => handleCreateRelease(b.id)} disabled={creatingRelease}
+                                                            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: borderRadius.sm, background: colors.primary, color: '#fff', border: 'none', fontWeight: 600, fontSize: '13px', cursor: creatingRelease ? 'not-allowed' : 'pointer', opacity: creatingRelease ? 0.7 : 1 }}>
+                                                            {creatingRelease ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <ListMusic size={14} />}
+                                                            {creatingRelease ? 'Creating…' : 'Create Release'}
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                {releaseCreated?.battleId === b.id && (
+                                                    <div style={{ marginTop: '12px', display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px', borderRadius: borderRadius.sm, backgroundColor: `${colors.success}20`, border: `1px solid ${colors.success}44` }}>
+                                                        <CheckCircle2 size={14} color={colors.success} />
+                                                        <span style={{ fontSize: '12px', color: colors.success, fontWeight: 600 }}>Release created: {releaseCreated.playlistName}</span>
+                                                        <a href={`/playlist/${releaseCreated.playlistId}`} target="_blank" rel="noopener noreferrer"
+                                                            style={{ marginLeft: 'auto', fontSize: '11px', color: colors.primary, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                            <ExternalLink size={11} /> Open
+                                                        </a>
+                                                    </div>
+                                                )}
+                                            </>
+                                        )}
+                                    </div>
+                                )}
 
                                 {/* Analytics Report Inline */}
                                 {analyticsFor === b.id && analyticsReport && (

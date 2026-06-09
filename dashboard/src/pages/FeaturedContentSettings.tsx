@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { colors, spacing, borderRadius } from '../theme/theme';
-import { MonitorPlay, Newspaper, BookOpen, FileText, Save, CheckCircle, AlertCircle, Search, X } from 'lucide-react';
+import { MonitorPlay, Newspaper, BookOpen, FileText, Save, CheckCircle, AlertCircle, Search, X, ListMusic } from 'lucide-react';
 
-type ContentType = 'video' | 'news' | 'guide' | 'article';
+type ContentType = 'video' | 'news' | 'guide' | 'article' | 'playlist';
 
 interface FeaturedArticle {
     id: string;
@@ -16,6 +16,17 @@ interface FeaturedArticle {
     publishedAt: string | null;
 }
 
+interface FeaturedPlaylist {
+    id: string;
+    name: string;
+    coverUrl: string | null;
+    releaseType: string | null;
+    trackCount: number;
+    totalPlays: number;
+    profile?: { username: string; displayName: string | null } | null;
+    battle?: { id: string; title: string } | null;
+}
+
 interface FeaturedSettings {
     featuredContentType: ContentType;
     featuredTutorialUrl: string;
@@ -26,6 +37,8 @@ interface FeaturedSettings {
     featuredTutorialDate: string;
     featuredArticleId: string | null;
     featuredArticle: FeaturedArticle | null;
+    featuredPlaylistId: string | null;
+    featuredPlaylist: FeaturedPlaylist | null;
 }
 
 const TYPE_OPTIONS: { id: ContentType; icon: React.ReactNode; label: string; description: string; accentColor: string }[] = [
@@ -57,6 +70,13 @@ const TYPE_OPTIONS: { id: ContentType; icon: React.ReactNode; label: string; des
         description: 'Showcase a published community article on the frontpage.',
         accentColor: '#F5A04A',
     },
+    {
+        id: 'playlist',
+        icon: <ListMusic size={20} />,
+        label: 'Featured Playlist',
+        description: 'Feature a playlist, album, or EP release on the frontpage.',
+        accentColor: '#22C55E',
+    },
 ];
 
 export const FeaturedContentSettings: React.FC = () => {
@@ -70,6 +90,8 @@ export const FeaturedContentSettings: React.FC = () => {
         featuredTutorialDate: '',
         featuredArticleId: null,
         featuredArticle: null,
+        featuredPlaylistId: null,
+        featuredPlaylist: null,
     });
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -77,6 +99,9 @@ export const FeaturedContentSettings: React.FC = () => {
     const [articleSearch, setArticleSearch] = useState('');
     const [articleResults, setArticleResults] = useState<FeaturedArticle[]>([]);
     const [searchingArticles, setSearchingArticles] = useState(false);
+    const [playlistSearch, setPlaylistSearch] = useState('');
+    const [playlistResults, setPlaylistResults] = useState<FeaturedPlaylist[]>([]);
+    const [searchingPlaylists, setSearchingPlaylists] = useState(false);
 
     useEffect(() => {
         axios.get('/api/discovery/settings').then(r => {
@@ -91,6 +116,8 @@ export const FeaturedContentSettings: React.FC = () => {
                 featuredTutorialDate: d.featuredTutorialDate || '',
                 featuredArticleId: d.featuredArticleId || null,
                 featuredArticle: d.featuredArticle || null,
+                featuredPlaylistId: d.featuredPlaylistId || null,
+                featuredPlaylist: d.featuredPlaylist || null,
             });
         }).catch(() => {}).finally(() => setLoading(false));
     }, []);
@@ -108,6 +135,7 @@ export const FeaturedContentSettings: React.FC = () => {
                 featuredTutorialAuthor: settings.featuredTutorialAuthor || null,
                 featuredTutorialDate: settings.featuredTutorialDate || null,
                 featuredArticleId: settings.featuredArticleId || null,
+                featuredPlaylistId: settings.featuredPlaylistId || null,
             });
             setSaveStatus('ok');
             setTimeout(() => setSaveStatus('idle'), 3000);
@@ -381,6 +409,78 @@ export const FeaturedContentSettings: React.FC = () => {
                         {!settings.featuredArticle && !articleSearch && (
                             <p style={{ margin: 0, fontSize: '12px', color: colors.textTertiary, lineHeight: 1.6 }}>
                                 Search for a published article above to feature it on the frontpage.
+                            </p>
+                        )}
+                    </div>
+                ) : settings.featuredContentType === 'playlist' ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                        {/* Selected playlist preview */}
+                        {settings.featuredPlaylist && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', background: '#22C55E10', border: '1px solid #22C55E30', borderRadius: borderRadius.md }}>
+                                {settings.featuredPlaylist.coverUrl
+                                    ? <img src={settings.featuredPlaylist.coverUrl} alt="" style={{ width: '52px', height: '52px', objectFit: 'cover', borderRadius: '6px', flexShrink: 0 }} />
+                                    : <div style={{ width: '52px', height: '52px', borderRadius: '6px', background: 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><ListMusic size={20} color="rgba(255,255,255,0.3)" /></div>}
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ fontWeight: 700, fontSize: '13px', color: colors.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                        {settings.featuredPlaylist.name}
+                                    </div>
+                                    <div style={{ fontSize: '11px', color: colors.textTertiary, marginTop: '2px' }}>
+                                        {settings.featuredPlaylist.profile?.displayName || settings.featuredPlaylist.profile?.username || 'Unknown'} · {settings.featuredPlaylist.trackCount} tracks
+                                        {settings.featuredPlaylist.releaseType ? ` · ${settings.featuredPlaylist.releaseType.toUpperCase()}` : ''}
+                                        {settings.featuredPlaylist.battle ? ` · from "${settings.featuredPlaylist.battle.title}"` : ''}
+                                    </div>
+                                </div>
+                                <button onClick={() => setSettings(s => ({ ...s, featuredPlaylistId: null, featuredPlaylist: null }))} style={{ background: 'rgba(255,255,255,0.05)', border: 'none', borderRadius: '50%', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: colors.textSecondary, flexShrink: 0 }}><X size={14} /></button>
+                            </div>
+                        )}
+
+                        {/* Playlist search */}
+                        <div>
+                            <label style={labelStyle}>Search Playlists</label>
+                            <div style={{ position: 'relative' }}>
+                                <Search size={14} color={colors.textTertiary} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
+                                <input
+                                    style={{ ...inputStyle, paddingLeft: '34px' }}
+                                    placeholder="Type to search playlists by name…"
+                                    value={playlistSearch}
+                                    onChange={async (e) => {
+                                        const q = e.target.value;
+                                        setPlaylistSearch(q);
+                                        setSearchingPlaylists(true);
+                                        try {
+                                            const res = await axios.get('/api/discovery/playlists/search', { params: { q }, withCredentials: true });
+                                            setPlaylistResults(res.data.playlists || []);
+                                        } catch { setPlaylistResults([]); }
+                                        setSearchingPlaylists(false);
+                                    }}
+                                />
+                            </div>
+                            {searchingPlaylists && <div style={{ fontSize: '12px', color: colors.textTertiary, marginTop: '6px' }}>Searching...</div>}
+                            {playlistResults.length > 0 && (
+                                <div style={{ marginTop: '8px', border: '1px solid rgba(255,255,255,0.08)', borderRadius: borderRadius.md, overflow: 'hidden', maxHeight: '240px', overflowY: 'auto' }}>
+                                    {playlistResults.map(p => (
+                                        <div key={p.id} onClick={() => { setSettings(s => ({ ...s, featuredPlaylistId: p.id, featuredPlaylist: p })); setPlaylistSearch(''); setPlaylistResults([]); }}
+                                            style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', cursor: 'pointer', background: settings.featuredPlaylistId === p.id ? `${colors.primary}10` : 'transparent', borderBottom: '1px solid rgba(255,255,255,0.04)', transition: 'background 0.1s' }}>
+                                            {p.coverUrl
+                                                ? <img src={p.coverUrl} alt="" style={{ width: '38px', height: '38px', objectFit: 'cover', borderRadius: '4px', flexShrink: 0 }} />
+                                                : <div style={{ width: '38px', height: '38px', borderRadius: '4px', background: 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><ListMusic size={14} color="rgba(255,255,255,0.3)" /></div>}
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                <div style={{ fontSize: '13px', fontWeight: 600, color: colors.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
+                                                <div style={{ fontSize: '11px', color: colors.textTertiary }}>
+                                                    {p.profile?.displayName || p.profile?.username || 'Unknown'} · {p.trackCount} tracks
+                                                    {p.releaseType ? ` · ${p.releaseType.toUpperCase()}` : ''}
+                                                    {p.battle ? ` · ${p.battle.title}` : ''}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        {!settings.featuredPlaylist && !playlistSearch && (
+                            <p style={{ margin: 0, fontSize: '12px', color: colors.textTertiary, lineHeight: 1.6 }}>
+                                Search for a playlist above to feature it on the frontpage. Battle releases show up here too.
                             </p>
                         )}
                     </div>
