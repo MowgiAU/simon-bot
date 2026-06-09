@@ -249,7 +249,7 @@ interface ProfileData {
     bannerUrl: string | null;
     bio: string | null;
     location: string | null;
-    primaryGenre: string | null;
+    primaryGenre: { id: string; name: string; slug: string } | string | null;
     totalPlays?: number;
     tracks: { id: string; title: string; coverUrl: string | null }[];
     _count?: { tracks?: number; followers?: number };
@@ -313,7 +313,8 @@ export const ProfileEmbed: React.FC<{ profilePath: string }> = ({ profilePath })
     }
 
     const trackCount = profile._count?.tracks ?? profile.tracks?.length ?? 0;
-    const genre = profile.primaryGenre || profile.genres?.[0]?.genre?.name;
+    const primaryGenreName = typeof profile.primaryGenre === 'object' && profile.primaryGenre !== null ? profile.primaryGenre.name : profile.primaryGenre;
+    const genre = primaryGenreName || profile.genres?.[0]?.genre?.name;
     const secondaryGenres = profile.genres?.filter(g => g.genre.name !== genre).slice(0, 2) || [];
     const avatarUrl = getProfileAvatarUrl(profile.avatar, profile.userId);
 
