@@ -420,7 +420,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
 
                 {/* Swipe container — fixed, sitting between indicator bar and bottom nav */}
                 <div
-                    style={{ position: 'fixed', top: 100, left: 0, right: 0, bottom: 60, zIndex: 47, overflow: 'hidden' }}
+                    style={{ position: 'fixed', top: 100, left: 0, right: 0, bottom: player.currentTrack ? 204 : 60, zIndex: 47, overflow: 'hidden' }}
                     onTouchStart={handleMobileTouchStart}
                     onTouchMove={handleMobileTouchMove}
                     onTouchEnd={handleMobileTouchEnd}
