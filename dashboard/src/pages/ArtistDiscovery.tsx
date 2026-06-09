@@ -298,6 +298,13 @@ export const ArtistDiscoveryPage: React.FC = () => {
     const mobileTouchDeltaX = useRef<number>(0);
     const [mobileDragging, setMobileDragging] = useState(false);
     const [mobileDragOffset, setMobileDragOffset] = useState(0);
+    const [playerCollapsed, setPlayerCollapsed] = useState(() => localStorage.getItem('player_collapsed') !== '0');
+    useEffect(() => {
+        if (!player.currentTrack) return;
+        const tick = () => setPlayerCollapsed(localStorage.getItem('player_collapsed') !== '0');
+        const id = setInterval(tick, 150);
+        return () => clearInterval(id);
+    }, [player.currentTrack]);
 
     const mobilePageLabels = ['Discover', 'Battle', '1v1 Arena', 'Community'];
     const MOBILE_PAGES = 4;
@@ -420,7 +427,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
 
                 {/* Swipe container — fixed, sitting between indicator bar and bottom nav */}
                 <div
-                    style={{ position: 'fixed', top: 100, left: 0, right: 0, bottom: player.currentTrack ? 204 : 60, zIndex: 47, overflow: 'hidden' }}
+                    style={{ position: 'fixed', top: 100, left: 0, right: 0, bottom: player.currentTrack ? (playerCollapsed ? 108 : 164) : 60, zIndex: 47, overflow: 'hidden' }}
                     onTouchStart={handleMobileTouchStart}
                     onTouchMove={handleMobileTouchMove}
                     onTouchEnd={handleMobileTouchEnd}
