@@ -337,8 +337,8 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                 {/* end main row */}
             </header>
 
-            {/* Spacer so fixed header doesn't overlap content */}
-            <div style={{ height: '56px', flexShrink: 0 }} />
+            {/* Spacer so fixed header doesn't overlap content — hidden on mobile where swipe overlay uses position:fixed */}
+            {!isMobile && <div style={{ height: '56px', flexShrink: 0 }} />}
 
             <div style={{ flex: 1, display: 'flex', overflow: 'hidden', position: 'relative' }}>
                 {/* Optional Sidebar (Desktop and Mobile Overlay) */}
