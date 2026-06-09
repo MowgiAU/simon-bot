@@ -32,7 +32,7 @@ export const DownloadPage: React.FC = () => {
     { icon: <Settings size={16} />, text: 'Open Settings → Apps → Special app access → Install unknown apps' },
     { icon: <Smartphone size={16} />, text: 'Select your browser and enable "Allow from this source"' },
     { icon: <Download size={16} />, text: 'Tap the download button above and open the APK when prompted' },
-    { icon: <CheckCircle size={16} />, text: 'Tap Install — you\'re done' },
+    { icon: <CheckCircle size={16} />, text: 'Tap Install and you\'re done' },
   ];
 
   return (
