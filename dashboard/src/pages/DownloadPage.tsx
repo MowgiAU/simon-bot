@@ -13,7 +13,7 @@ interface UpdateManifest {
   };
 }
 
-const ANDROID_APK_URL = 'https://cdn.fujistud.io/downloads/fuji-studio.apk';
+const ANDROID_APK_URL = '/api/download/apk';
 
 export const DownloadPage: React.FC = () => {
   const [manifest, setManifest] = useState<UpdateManifest | null>(null);

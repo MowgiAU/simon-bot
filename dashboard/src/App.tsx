@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, Suspense, lazy } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./components/AuthProvider";
+import { AnalyticsProvider } from "./components/Analytics";
 import { ResourceProvider } from "./components/ResourceProvider";
 import { PlayerProvider } from "./components/PlayerProvider";
 import { GlobalPlayer } from "./components/GlobalPlayer";
@@ -121,6 +122,7 @@ const PageEmbedsPage         = lazy(() => import("./pages/PageEmbeds").then(m =>
 const BeatMarketPage         = lazy(() => import("./pages/BeatMarketPage").then(m => ({ default: m.BeatMarketPage })));
 const SlotMachinePage        = lazy(() => import("./pages/SlotMachinePage").then(m => ({ default: m.SlotMachinePage })));
 const SlotMachineSettings    = lazy(() => import("./pages/SlotMachineSettings").then(m => ({ default: m.SlotMachineSettings })));
+const PlatformAnalytics      = lazy(() => import("./pages/PlatformAnalytics").then(m => ({ default: m.PlatformAnalytics })));
 // ErrorBoundary is imported statically above — NOT lazy. It is the outermost
 
 // Minimal inline spinner used while a lazy chunk loads
@@ -186,7 +188,8 @@ type Section =
   | "bug-reports"
   | "admin-tools"
   | "activity-logs"
-  | "vote-fraud";
+  | "vote-fraud"
+  | "platform-analytics";
 
 const WelcomeScreen: React.FC<{ login: () => void }> = ({ login }) => {
   const navigate = useNavigate();
@@ -552,6 +555,8 @@ const AdminDashboard: React.FC = () => {
           return <ServerStatsPage guildId={selectedGuild.id} />;
         case "page-embeds":
           return <PageEmbedsPage />;
+        case "platform-analytics":
+          return <PlatformAnalytics />;
         default:
           return null;
       }
@@ -1115,12 +1120,14 @@ export const App: React.FC = () => {
     <ErrorBoundary>
       <AuthProvider>
         <PlayerProvider>
-          <ChatWrapper>
-            <AppInternal />
-            <GlobalPlayer />
-            <ToastContainer />
-            <ImpersonationBanner />
-          </ChatWrapper>
+          <AnalyticsProvider>
+            <ChatWrapper>
+              <AppInternal />
+              <GlobalPlayer />
+              <ToastContainer />
+              <ImpersonationBanner />
+            </ChatWrapper>
+          </AnalyticsProvider>
         </PlayerProvider>
       </AuthProvider>
     </ErrorBoundary>
