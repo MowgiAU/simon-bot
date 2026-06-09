@@ -365,6 +365,9 @@ export const ArtistDiscoveryPage: React.FC = () => {
                     .mob-trending-strip::-webkit-scrollbar { display: none; }
                 `}</style>
 
+                {/* Opaque backdrop — covers the DiscoveryLayout's normal-flow content (footer etc.) */}
+                <div style={{ position: 'fixed', top: 56, bottom: 0, left: 0, right: 0, zIndex: 46, backgroundColor: colors.background }} />
+
                 {/* Page indicator bar — fixed below the layout header (56px) */}
                 <div style={{
                     position: 'fixed', top: 56, left: 0, right: 0, zIndex: 48,
@@ -542,7 +545,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
                             </div>
 
                             {/* Explore button */}
-                            <div style={{ padding: '16px' }}>
+                            <div style={{ padding: '12px 16px 0' }}>
                                 <Link to="/artists" style={{
                                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px',
                                     padding: '13px', borderRadius: borderRadius.lg,
@@ -555,6 +558,36 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                     Explore Artists
                                 </Link>
                             </div>
+
+                            {/* Top Tracks */}
+                            {topTracks.length > 0 && (
+                                <div style={{ padding: '16px 16px 12px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                                        <span style={{ fontSize: '12px', fontWeight: 700, color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Top Tracks</span>
+                                        <Link to="/charts" style={{ fontSize: '11px', color: colors.primary, fontWeight: 600, textDecoration: 'none' }}>View chart</Link>
+                                    </div>
+                                    {topTracks.slice(0, 5).map((track, i) => (
+                                        <div key={track.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 0', borderBottom: i < 4 ? `1px solid ${colors.border}` : 'none' }}>
+                                            <span style={{ fontSize: '11px', fontWeight: 700, color: colors.textTertiary, width: '16px', flexShrink: 0, textAlign: 'center' }}>{i + 1}</span>
+                                            {track.coverUrl && (
+                                                <div style={{ width: '40px', height: '40px', borderRadius: borderRadius.sm, overflow: 'hidden', flexShrink: 0 }}>
+                                                    <img src={track.coverUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                </div>
+                                            )}
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                <div style={{ fontSize: '13px', fontWeight: 700, color: colors.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{track.title}</div>
+                                                <div style={{ fontSize: '11px', color: colors.textSecondary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{track.profile.displayName || track.profile.username}</div>
+                                            </div>
+                                            <button
+                                                onClick={() => setTrack(track as any, topTracks as any[])}
+                                                style={{ width: '34px', height: '34px', borderRadius: '50%', background: `${colors.primary}18`, border: `1px solid ${colors.primary}30`, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+                                            >
+                                                <Play size={12} fill={colors.primary} color={colors.primary} style={{ marginLeft: '1px' }} />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
                         </div>
 
                         {/* ── PAGE 1: Battle ── */}
@@ -673,7 +706,7 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                 </>
                             ) : (
                                 <div style={{
-                                    flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
                                     padding: '40px 24px', gap: '12px', textAlign: 'center',
                                     backgroundColor: colors.surface, borderRadius: borderRadius.xl, border: `1px solid ${colors.border}`,
                                     boxShadow: shadows.md,
@@ -682,6 +715,41 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                     <p style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: colors.textSecondary }}>No active battle</p>
                                     <p style={{ margin: 0, fontSize: '13px', color: colors.textTertiary }}>Check back soon</p>
                                     <Link to="/battles" style={{ fontSize: '13px', color: colors.primary, textDecoration: 'none', fontWeight: 600 }}>View past battles →</Link>
+                                </div>
+                            )}
+
+                            {/* Hot This Week */}
+                            {weeklyChart.length > 0 && (
+                                <div>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                                        <span style={{ fontSize: '12px', fontWeight: 700, color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Hot This Week</span>
+                                        <Link to="/charts" style={{ fontSize: '11px', color: colors.primary, fontWeight: 600, textDecoration: 'none' }}>Full chart</Link>
+                                    </div>
+                                    {weeklyChart.slice(0, 4).map((entry, i) => (
+                                        <div key={entry.track.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 0', borderBottom: i < 3 ? `1px solid ${colors.border}` : 'none' }}>
+                                            <span style={{ fontSize: '11px', fontWeight: 700, color: colors.textTertiary, width: '16px', flexShrink: 0, textAlign: 'center' }}>{entry.position}</span>
+                                            {entry.track.coverUrl && (
+                                                <div style={{ width: '40px', height: '40px', borderRadius: borderRadius.sm, overflow: 'hidden', flexShrink: 0 }}>
+                                                    <img src={entry.track.coverUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                </div>
+                                            )}
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                <div style={{ fontSize: '13px', fontWeight: 700, color: colors.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.track.title}</div>
+                                                <div style={{ fontSize: '11px', color: colors.textSecondary }}>{entry.track.profile.displayName || entry.track.profile.username}</div>
+                                            </div>
+                                            {entry.positionChange !== null && (
+                                                <span style={{ fontSize: '10px', fontWeight: 700, color: (entry.positionChange ?? 0) > 0 ? '#4ADE80' : (entry.positionChange ?? 0) < 0 ? '#F87171' : colors.textTertiary, flexShrink: 0 }}>
+                                                    {(entry.positionChange ?? 0) > 0 ? `▲${entry.positionChange}` : (entry.positionChange ?? 0) < 0 ? `▼${Math.abs(entry.positionChange!)}` : '–'}
+                                                </span>
+                                            )}
+                                            <button
+                                                onClick={() => setTrack(entry.track as any, weeklyChart.map(e => e.track) as any[])}
+                                                style={{ width: '34px', height: '34px', borderRadius: '50%', background: `${colors.primary}18`, border: `1px solid ${colors.primary}30`, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+                                            >
+                                                <Play size={12} fill={colors.primary} color={colors.primary} style={{ marginLeft: '1px' }} />
+                                            </button>
+                                        </div>
+                                    ))}
                                 </div>
                             )}
                         </div>
@@ -787,6 +855,33 @@ export const ArtistDiscoveryPage: React.FC = () => {
                             }}>
                                 <Swords size={15} /> Enter the Arena
                             </Link>
+
+                            {/* Top Producers leaderboard */}
+                            {artists.length > 0 && (
+                                <div>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                                        <span style={{ fontSize: '12px', fontWeight: 700, color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Top Producers</span>
+                                        <Link to="/artists" style={{ fontSize: '11px', color: colors.primary, fontWeight: 600, textDecoration: 'none' }}>See all</Link>
+                                    </div>
+                                    {artists.slice(0, 5).map((artist, i) => (
+                                        <Link
+                                            key={artist.userId}
+                                            to={`/profile/${artist.username}`}
+                                            style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 0', borderBottom: i < 4 ? `1px solid ${colors.border}` : 'none', textDecoration: 'none' }}
+                                        >
+                                            <span style={{ fontSize: '11px', fontWeight: 700, color: i === 0 ? '#FFD700' : colors.textTertiary, width: '16px', flexShrink: 0, textAlign: 'center' }}>{i + 1}</span>
+                                            <div style={{ width: '36px', height: '36px', borderRadius: '50%', overflow: 'hidden', border: `2px solid ${i === 0 ? 'rgba(255,215,0,0.4)' : colors.border}`, flexShrink: 0 }}>
+                                                <img src={getAvatarUrl(artist.avatar, artist.userId)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={(e) => { (e.target as HTMLImageElement).src = 'https://cdn.discordapp.com/embed/avatars/0.png'; }} />
+                                            </div>
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                <div style={{ fontSize: '13px', fontWeight: 700, color: colors.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{artist.displayName || artist.username}</div>
+                                                {artist.totalPlays > 0 && <div style={{ fontSize: '11px', color: colors.textSecondary }}>{artist.totalPlays.toLocaleString()} plays</div>}
+                                            </div>
+                                            {i === 0 && <span style={{ fontSize: '14px' }}>👑</span>}
+                                        </Link>
+                                    ))}
+                                </div>
+                            )}
                         </div>
 
                         {/* ── PAGE 3: Community ── */}
@@ -893,6 +988,36 @@ export const ArtistDiscoveryPage: React.FC = () => {
                                                 : <div key={s.id} style={style}>{inner}</div>;
                                         })}
                                     </div>
+                                </div>
+                            )}
+
+                            {/* This Week's Chart — top 3 */}
+                            {weeklyChart.length > 0 && (
+                                <div style={{ backgroundColor: colors.surface, borderRadius: borderRadius.xl, border: `1px solid ${colors.border}`, overflow: 'hidden' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px 8px' }}>
+                                        <span style={{ fontSize: '12px', fontWeight: 700, color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: '0.1em' }}>This Week's Chart</span>
+                                        <Link to="/charts" style={{ fontSize: '11px', color: colors.primary, fontWeight: 600, textDecoration: 'none' }}>Full chart</Link>
+                                    </div>
+                                    {weeklyChart.slice(0, 3).map((entry, i) => (
+                                        <div key={entry.track.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 14px', borderTop: `1px solid ${colors.border}` }}>
+                                            <span style={{ fontSize: '13px', fontWeight: 800, color: i === 0 ? '#FFD700' : colors.textTertiary, width: '18px', flexShrink: 0 }}>{entry.position}</span>
+                                            {entry.track.coverUrl && (
+                                                <div style={{ width: '38px', height: '38px', borderRadius: borderRadius.sm, overflow: 'hidden', flexShrink: 0 }}>
+                                                    <img src={entry.track.coverUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                </div>
+                                            )}
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                <div style={{ fontSize: '13px', fontWeight: 700, color: colors.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.track.title}</div>
+                                                <div style={{ fontSize: '11px', color: colors.textSecondary }}>{entry.track.profile.displayName || entry.track.profile.username}</div>
+                                            </div>
+                                            <button
+                                                onClick={() => setTrack(entry.track as any, weeklyChart.map(e => e.track) as any[])}
+                                                style={{ width: '32px', height: '32px', borderRadius: '50%', background: `${colors.primary}18`, border: `1px solid ${colors.primary}30`, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+                                            >
+                                                <Play size={11} fill={colors.primary} color={colors.primary} style={{ marginLeft: '1px' }} />
+                                            </button>
+                                        </div>
+                                    ))}
                                 </div>
                             )}
                         </div>
