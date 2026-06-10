@@ -78,7 +78,6 @@ export async function sendPushToUser(
                     notification: {
                         sound: 'default',
                         channelId: payload.channelId || 'default',
-                        clickAction: 'FLUTTER_NOTIFICATION_CLICK',
                     },
                 },
             });
