@@ -20,10 +20,11 @@ export const GlobalPlayer: React.FC = () => {
     const [isMobile, setIsMobile] = React.useState(window.innerWidth < 1024);
     const [isCollapsed, setIsCollapsed] = React.useState(() => localStorage.getItem('player_collapsed') === '1');
     const [isFullscreen, setIsFullscreen] = React.useState(false);
-    const [lyricsTab, setLyricsTab] = React.useState<'lyrics' | 'queue'>('lyrics');
+    const [lyricsTab, setLyricsTab] = React.useState<'lyrics' | 'queue'>('queue');
     const [lyrics, setLyrics] = React.useState<{ plain: string | null; sync: { time: number; text: string }[] | null }>({ plain: null, sync: null });
     const [trackInfo, setTrackInfo] = React.useState<any>(null);
     const lyricsTrackId = React.useRef<string | null>(null);
+    const userPickedTab = React.useRef(false);
     const trackInfoId = React.useRef<string | null>(null);
     const activeCueRef = React.useRef<HTMLDivElement>(null);
     const speedMenuRef = React.useRef<HTMLDivElement>(null);
@@ -66,14 +67,23 @@ export const GlobalPlayer: React.FC = () => {
             .catch(() => setIsReposted(false));
     }, [player.currentTrack?.id]);
 
-    // Fetch lyrics when track changes
+    // Fetch lyrics when track changes; default to queue, auto-switch to lyrics only if lyrics exist and user hasn't picked manually
     React.useEffect(() => {
         const id = player.currentTrack?.id;
         if (!id || id === lyricsTrackId.current) return;
         lyricsTrackId.current = id;
+        userPickedTab.current = false;
+        setLyricsTab('queue');
         setLyrics({ plain: null, sync: null });
         axios.get(`/api/tracks/${id}/lyrics`, { withCredentials: true })
-            .then(res => setLyrics({ plain: res.data.lyrics ?? null, sync: res.data.lyricsSync ?? null }))
+            .then(res => {
+                const plain = res.data.lyrics ?? null;
+                const sync = res.data.lyricsSync ?? null;
+                setLyrics({ plain, sync });
+                if ((plain || sync?.length) && !userPickedTab.current) {
+                    setLyricsTab('lyrics');
+                }
+            })
             .catch(() => {});
     }, [player.currentTrack?.id]);
 
@@ -249,11 +259,11 @@ export const GlobalPlayer: React.FC = () => {
                         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, margin: '0 16px 12px', borderRadius: '14px', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', overflow: 'hidden' }}>
                             <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.07)', flexShrink: 0 }}>
                                 {(lyrics.plain || lyrics.sync) && (
-                                    <button onClick={() => setLyricsTab('lyrics')} style={{ flex: 1, padding: '10px', background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: 700, color: lyricsTab === 'lyrics' ? colors.primary : 'rgba(255,255,255,0.4)', borderBottom: `2px solid ${lyricsTab === 'lyrics' ? colors.primary : 'transparent'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                                    <button onClick={() => { userPickedTab.current = true; setLyricsTab('lyrics'); }} style={{ flex: 1, padding: '10px', background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: 700, color: lyricsTab === 'lyrics' ? colors.primary : 'rgba(255,255,255,0.4)', borderBottom: `2px solid ${lyricsTab === 'lyrics' ? colors.primary : 'transparent'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
                                         <AlignLeft size={13} /> Lyrics
                                     </button>
                                 )}
-                                <button onClick={() => setLyricsTab('queue')} style={{ flex: 1, padding: '10px', background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: 700, color: lyricsTab === 'queue' ? colors.primary : 'rgba(255,255,255,0.4)', borderBottom: `2px solid ${lyricsTab === 'queue' ? colors.primary : 'transparent'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                                <button onClick={() => { userPickedTab.current = true; setLyricsTab('queue'); }} style={{ flex: 1, padding: '10px', background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: 700, color: lyricsTab === 'queue' ? colors.primary : 'rgba(255,255,255,0.4)', borderBottom: `2px solid ${lyricsTab === 'queue' ? colors.primary : 'transparent'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
                                     <List size={13} /> Queue ({player.queue.length})
                                 </button>
                             </div>
