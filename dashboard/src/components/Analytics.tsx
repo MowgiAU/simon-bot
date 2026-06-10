@@ -1,10 +1,11 @@
 import React, { createContext, useContext, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
+import { Capacitor } from '@capacitor/core';
 
 // ── Platform detection ───────────────────────────────────────────────────────
 
 function detectPlatform(): string {
-    if (typeof (window as any).Capacitor !== 'undefined') return 'android_app';
+    if (Capacitor.isNativePlatform()) return 'android_app';
     if (/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)) return 'mobile_browser';
     return 'desktop';
 }
