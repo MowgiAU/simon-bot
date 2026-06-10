@@ -41,6 +41,9 @@ interface AnalyticsOverview {
         dau: number;
         wau: number;
         mau: number;
+        dauByPlatform: Record<string, number>;
+        wauByPlatform: Record<string, number>;
+        mauByPlatform: Record<string, number>;
     };
 }
 
@@ -323,6 +326,39 @@ export const PlatformAnalytics: React.FC = () => {
                 <StatCard label="DAU" value={data.users.dau.toLocaleString()} sub="Distinct users — last 24h" icon={<Users size={18} />} />
                 <StatCard label="WAU" value={data.users.wau.toLocaleString()} sub="Distinct users — last 7 days" icon={<Users size={18} />} />
                 <StatCard label="MAU" value={data.users.mau.toLocaleString()} sub="Distinct users — last 30 days" icon={<Users size={18} />} />
+            </div>
+
+            {/* ── Active Users by Platform ── */}
+            <h2 style={{ ...typography.h2, color: colors.textPrimary, marginBottom: spacing.sm }}>Unique Users by Platform</h2>
+            <p style={{ margin: `0 0 ${spacing.lg}`, color: colors.textTertiary, fontSize: typography.small.fontSize }}>
+                A user active on multiple platforms is counted once per platform.
+            </p>
+            <div style={{ background: colors.surface, borderRadius: borderRadius.lg, padding: spacing.xxl, border: `1px solid ${colors.border}`, marginBottom: spacing.xxl, overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <thead>
+                        <tr style={{ borderBottom: `1px solid ${colors.border}` }}>
+                            <th style={{ textAlign: 'left', padding: spacing.sm, color: colors.textSecondary, fontSize: typography.small.fontSize, fontWeight: 600 }}>Platform</th>
+                            <th style={{ textAlign: 'right', padding: spacing.sm, color: colors.textSecondary, fontSize: typography.small.fontSize, fontWeight: 600 }}>DAU</th>
+                            <th style={{ textAlign: 'right', padding: spacing.sm, color: colors.textSecondary, fontSize: typography.small.fontSize, fontWeight: 600 }}>WAU</th>
+                            <th style={{ textAlign: 'right', padding: spacing.sm, color: colors.textSecondary, fontSize: typography.small.fontSize, fontWeight: 600 }}>MAU</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {platformCards.map(({ key, label, Icon }) => (
+                            <tr key={key} style={{ borderBottom: `1px solid ${colors.border}` }}>
+                                <td style={{ padding: spacing.sm, color: colors.textPrimary }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm }}>
+                                        <Icon size={16} color={colors.primary} />
+                                        {label}
+                                    </div>
+                                </td>
+                                <td style={{ textAlign: 'right', padding: spacing.sm, color: colors.textPrimary, fontWeight: 600 }}>{(data.users.dauByPlatform[key] ?? 0).toLocaleString()}</td>
+                                <td style={{ textAlign: 'right', padding: spacing.sm, color: colors.textPrimary, fontWeight: 600 }}>{(data.users.wauByPlatform[key] ?? 0).toLocaleString()}</td>
+                                <td style={{ textAlign: 'right', padding: spacing.sm, color: colors.textPrimary, fontWeight: 600 }}>{(data.users.mauByPlatform[key] ?? 0).toLocaleString()}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
             </div>
         </div>
     );

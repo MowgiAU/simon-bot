@@ -15326,11 +15326,22 @@ app.get('/api/admin/analytics/overview', requireAdmin, async (_req, res) => {
         for (const r of byTypeRaw) byType[r.type] = r._count.id;
 
         // DAU / WAU / MAU (distinct userIds with a session)
-        const [dauRaw, wauRaw, mauRaw] = await Promise.all([
+        const [dauRaw, wauRaw, mauRaw, dauByPlatformRaw, wauByPlatformRaw, mauByPlatformRaw] = await Promise.all([
             db.userSession.findMany({ where: { userId: { not: null }, createdAt: { gte: ago1 } }, select: { userId: true }, distinct: ['userId'] }),
             db.userSession.findMany({ where: { userId: { not: null }, createdAt: { gte: ago7 } }, select: { userId: true }, distinct: ['userId'] }),
             db.userSession.findMany({ where: { userId: { not: null }, createdAt: { gte: ago30 } }, select: { userId: true }, distinct: ['userId'] }),
+            db.userSession.findMany({ where: { userId: { not: null }, createdAt: { gte: ago1 } }, select: { userId: true, platform: true }, distinct: ['userId', 'platform'] }),
+            db.userSession.findMany({ where: { userId: { not: null }, createdAt: { gte: ago7 } }, select: { userId: true, platform: true }, distinct: ['userId', 'platform'] }),
+            db.userSession.findMany({ where: { userId: { not: null }, createdAt: { gte: ago30 } }, select: { userId: true, platform: true }, distinct: ['userId', 'platform'] }),
         ]);
+
+        // Count unique users per platform for each window. A user active on
+        // multiple platforms within a window is counted once per platform.
+        const countUsersByPlatform = (rows: { platform: string }[]): Record<string, number> => {
+            const out: Record<string, number> = {};
+            for (const r of rows) out[r.platform] = (out[r.platform] ?? 0) + 1;
+            return out;
+        };
 
         res.json({
             apkDownloads: {
@@ -15357,6 +15368,9 @@ app.get('/api/admin/analytics/overview', requireAdmin, async (_req, res) => {
                 dau: dauRaw.length,
                 wau: wauRaw.length,
                 mau: mauRaw.length,
+                dauByPlatform: countUsersByPlatform(dauByPlatformRaw),
+                wauByPlatform: countUsersByPlatform(wauByPlatformRaw),
+                mauByPlatform: countUsersByPlatform(mauByPlatformRaw),
             },
         });
     } catch (e) {
