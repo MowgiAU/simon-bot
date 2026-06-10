@@ -9,7 +9,7 @@ import { ToastContainer } from "./components/Toast";
 import { ChatProvider, useChat } from "./components/ChatProvider";
 import { ChatHead } from "./components/ChatHead";
 import './lib/errorCapture'; // initialise global error listener as side-effect
-import { registerPushNotifications, unregisterPushNotifications } from './services/PushNotificationService';
+import { registerPushNotifications, unregisterPushNotifications, initPushNotificationListeners } from './services/PushNotificationService';
 import { Sidebar } from "./layouts/Sidebar";
 import { colors } from "./theme/theme";
 import { Info, ArrowRight, ShieldAlert } from "lucide-react";
@@ -1096,6 +1096,12 @@ const ChatWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, logout: authLogout } = useAuth();
   const navigate = useNavigate();
   const pushRegistered = useRef(false);
+
+  // Register the notification-tap listener immediately on mount so a tap that
+  // launched the app from cold start isn't missed while auth is still loading.
+  useEffect(() => {
+    initPushNotificationListeners((path) => navigate(path));
+  }, []);
 
   useEffect(() => {
     if (user && !pushRegistered.current) {

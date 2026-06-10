@@ -3,6 +3,9 @@ import { PushNotifications } from '@capacitor/push-notifications';
 
 let currentToken: string | null = null;
 let registered = false;
+let listenersInitialised = false;
+let navigateFn: ((path: string) => void) | null = null;
+let pendingUrl: string | null = null;
 
 const CHANNELS = [
     { id: 'social',   name: 'Social',          description: 'Likes, comments, follows, reposts, replies, messages', importance: 3 },
@@ -32,12 +35,56 @@ async function createNotificationChannels(): Promise<void> {
     }
 }
 
+function goToUrl(url: string): void {
+    if (navigateFn) {
+        navigateFn(url);
+    } else {
+        // Router/AuthProvider not ready yet (e.g. cold start) — replay once available
+        pendingUrl = url;
+    }
+}
+
+/**
+ * Registers the push-notification-tap listener as early as possible (app
+ * mount, before login completes). This must happen ASAP so a "tap to open"
+ * action delivered on cold start isn't missed. Safe to call multiple times.
+ */
+export function initPushNotificationListeners(navigate: (path: string) => void): void {
+    navigateFn = navigate;
+    if (pendingUrl) {
+        const url = pendingUrl;
+        pendingUrl = null;
+        navigate(url);
+    }
+
+    if (!Capacitor.isNativePlatform() || listenersInitialised) return;
+    listenersInitialised = true;
+
+    // Notification received while app is in the foreground — Capacitor shows it
+    // automatically based on presentationOptions in capacitor.config.ts
+    PushNotifications.addListener('pushNotificationReceived', (notification) => {
+        console.info('[Push] Received in foreground:', JSON.stringify(notification));
+    });
+
+    // User tapped a notification (cold start, background, or foreground)
+    PushNotifications.addListener('pushNotificationActionPerformed', ({ notification }) => {
+        console.info('[Push] Tapped:', JSON.stringify(notification));
+        const url: string | undefined = notification.data?.url;
+        if (url) {
+            // url is a relative path like "/battles/abc123"
+            goToUrl(url);
+        }
+    });
+}
+
 /**
  * Call once after the user is confirmed logged in.
  * Requests permission, registers the device with FCM, and sends the token to
- * the API. Safe to call multiple times — registers listeners only once.
+ * the API. Safe to call multiple times — registers only once.
  */
-export async function registerPushNotifications(navigateFn: (path: string) => void): Promise<void> {
+export async function registerPushNotifications(navigate: (path: string) => void): Promise<void> {
+    initPushNotificationListeners(navigate);
+
     if (!Capacitor.isNativePlatform()) return;
     if (registered) return;
     registered = true;
@@ -68,21 +115,6 @@ export async function registerPushNotifications(navigateFn: (path: string) => vo
 
     PushNotifications.addListener('registrationError', (err) => {
         console.error('[Push] Registration error:', err.error);
-    });
-
-    // Notification received while app is in the foreground — Capacitor shows it
-    // automatically based on presentationOptions in capacitor.config.ts
-    PushNotifications.addListener('pushNotificationReceived', (_notification) => {
-        // No extra handling needed — the OS displays it via presentationOptions
-    });
-
-    // User tapped a notification
-    PushNotifications.addListener('pushNotificationActionPerformed', ({ notification }) => {
-        const url: string | undefined = notification.data?.url;
-        if (url) {
-            // url is a relative path like "/battles/abc123"
-            navigateFn(url);
-        }
     });
 }
 

@@ -13727,7 +13727,7 @@ app.post('/api/beat-battle/admin/battles/:id/announce', requireAdmin, async (req
                     await sendPushToUsersIfEnabled(db, entryUserIds, 'battleResults', {
                         title: `Beat Battle: ${battle.title}`,
                         body: battle.status === 'completed' ? 'Results are in — check the winners!' : 'A new round has started!',
-                        url: '/battles',
+                        url: `/battles/${battle.id}`,
                         channelId: 'battles',
                     });
                 }
@@ -17065,8 +17065,8 @@ async function runHeadToHeadLifecycle(): Promise<void> {
             consumed.add(a.id);
             consumed.add(candidate.id);
             // Notify both players they've been matched
-            sendPushIfEnabled(db, a.challengerId, 'h2hUpdates', { title: 'Your 1v1 match is ready!', body: 'Ready up before time runs out.', url: `/1v1/${a.id}`, channelId: 'battles' }).catch(() => {});
-            sendPushIfEnabled(db, candidate.challengerId, 'h2hUpdates', { title: 'Your 1v1 match is ready!', body: 'Ready up before time runs out.', url: `/1v1/${a.id}`, channelId: 'battles' }).catch(() => {});
+            sendPushIfEnabled(db, a.challengerId, 'h2hUpdates', { title: 'Your 1v1 match is ready!', body: 'Ready up before time runs out.', url: '/arena', channelId: 'battles' }).catch(() => {});
+            sendPushIfEnabled(db, candidate.challengerId, 'h2hUpdates', { title: 'Your 1v1 match is ready!', body: 'Ready up before time runs out.', url: '/arena', channelId: 'battles' }).catch(() => {});
         }
 
         // 2. Ready-check timeouts
@@ -17182,7 +17182,7 @@ async function runHeadToHeadLifecycle(): Promise<void> {
                 },
             });
             // Push result to both players
-            const matchUrl = `/1v1/${m.id}`;
+            const matchUrl = '/arena';
             sendPushIfEnabled(db, winnerId, 'h2hUpdates', { title: 'You won your 1v1!', body: 'Check your match result.', url: matchUrl, channelId: 'battles' }).catch(() => {});
             sendPushIfEnabled(db, loserId, 'h2hUpdates', { title: 'Your 1v1 result is in', body: 'Check your match result.', url: matchUrl, channelId: 'battles' }).catch(() => {});
         }
@@ -20167,7 +20167,7 @@ app.post('/api/messages/conversations/:id/messages', requireAuth, async (req: an
                     db,
                     others.map(o => o.userId),
                     'messages',
-                    { title: senderName, body: content.trim().slice(0, 100), url: '/messages', channelId: 'messages' },
+                    { title: senderName, body: content.trim().slice(0, 100), url: `/messages?conv=${convId}`, channelId: 'messages' },
                 );
             } catch {}
         })();
