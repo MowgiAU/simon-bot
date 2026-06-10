@@ -17373,14 +17373,15 @@ setInterval(runChartGeneration, 60 * 60 * 1000);
 // GET comments for a track, profile, or battle entry
 app.get('/api/comments', async (req: any, res) => {
     try {
-        const { trackId, profileId, battleEntryId, cursor, limit: rawLimit } = req.query;
-        if (!trackId && !profileId && !battleEntryId) return res.status(400).json({ error: 'trackId, profileId, or battleEntryId is required' });
+        const { trackId, profileId, battleEntryId, articleId, cursor, limit: rawLimit } = req.query;
+        if (!trackId && !profileId && !battleEntryId && !articleId) return res.status(400).json({ error: 'trackId, profileId, battleEntryId, or articleId is required' });
 
         const limit = Math.min(Number(rawLimit) || 50, 100);
         const where: any = { parentId: null }; // top-level only
         if (trackId) where.trackId = trackId;
         if (profileId) where.profileId = profileId;
         if (battleEntryId) where.battleEntryId = battleEntryId;
+        if (articleId) where.articleId = articleId;
 
         const comments = await db.comment.findMany({
             where,
@@ -17559,7 +17560,7 @@ function analyseComment(userId: string, content: string): string | null {
 app.post('/api/comments', requireAuth, requireVerified, async (req: any, res) => {
     try {
         const userId = req.session.user.id;
-        const { content, gifUrl: rawGifUrl, trackId, profileId, battleEntryId, parentId, trackTimestamp } = req.body;
+        const { content, gifUrl: rawGifUrl, trackId, profileId, battleEntryId, articleId, parentId, trackTimestamp } = req.body;
         const gifUrl = validateGifUrl(rawGifUrl);
         if (rawGifUrl && !gifUrl) return res.status(400).json({ error: 'Invalid GIF URL' });
 
@@ -17575,6 +17576,7 @@ app.post('/api/comments', requireAuth, requireVerified, async (req: any, res) =>
         let resolvedTrackId = trackId;
         let resolvedProfileId = profileId;
         let resolvedBattleEntryId = battleEntryId;
+        let resolvedArticleId = articleId;
         // The actual parent stored in the DB. If the client passed a reply's id
         // as parentId, we roll up to the top-level comment so threading stays
         // flat (single reply level) — the user can still "reply to" a reply.
@@ -17584,7 +17586,7 @@ app.post('/api/comments', requireAuth, requireVerified, async (req: any, res) =>
             // Reply — inherit context from parent. If the parent is itself a
             // reply, walk up to the top-level grandparent so we never create
             // nested threads (UI only renders one level of replies).
-            const parent = await db.comment.findUnique({ where: { id: parentId }, select: { trackId: true, profileId: true, battleEntryId: true, parentId: true } });
+            const parent = await db.comment.findUnique({ where: { id: parentId }, select: { trackId: true, profileId: true, battleEntryId: true, articleId: true, parentId: true } });
             if (!parent) return res.status(404).json({ error: 'Parent comment not found' });
             if (parent.parentId) {
                 effectiveParentId = parent.parentId;
@@ -17592,10 +17594,11 @@ app.post('/api/comments', requireAuth, requireVerified, async (req: any, res) =>
             resolvedTrackId = parent.trackId;
             resolvedProfileId = parent.profileId;
             resolvedBattleEntryId = parent.battleEntryId;
+            resolvedArticleId = parent.articleId;
         } else {
-            const targetCount = [resolvedTrackId, resolvedProfileId, resolvedBattleEntryId].filter(Boolean).length;
-            if (targetCount === 0) return res.status(400).json({ error: 'trackId, profileId, or battleEntryId is required' });
-            if (targetCount > 1) return res.status(400).json({ error: 'Specify only one of trackId, profileId, or battleEntryId' });
+            const targetCount = [resolvedTrackId, resolvedProfileId, resolvedBattleEntryId, resolvedArticleId].filter(Boolean).length;
+            if (targetCount === 0) return res.status(400).json({ error: 'trackId, profileId, battleEntryId, or articleId is required' });
+            if (targetCount > 1) return res.status(400).json({ error: 'Specify only one of trackId, profileId, battleEntryId, or articleId' });
         }
 
         // Resolve username and avatar � prefer MusicianProfile over Discord.
@@ -17635,6 +17638,7 @@ app.post('/api/comments', requireAuth, requireVerified, async (req: any, res) =>
                 ...(resolvedTrackId ? { trackId: resolvedTrackId } : {}),
                 ...(resolvedProfileId ? { profileId: resolvedProfileId } : {}),
                 ...(resolvedBattleEntryId ? { battleEntryId: resolvedBattleEntryId } : {}),
+                ...(resolvedArticleId ? { articleId: resolvedArticleId } : {}),
                 ...(effectiveParentId ? { parentId: effectiveParentId } : {}),
                 ...((resolvedTrackId || resolvedBattleEntryId) && trackTimestamp != null && !effectiveParentId ? { trackTimestamp: Number(trackTimestamp) } : {}),
             },
@@ -17653,13 +17657,13 @@ app.post('/api/comments', requireAuth, requireVerified, async (req: any, res) =>
 
         // Action log for audit trail
         const actionType = parentId ? 'comment_replied' : 'comment_created';
-        await logAction('GLOBAL', actionType, userId, resolvedTrackId || resolvedProfileId || resolvedBattleEntryId || comment.id, {
+        await logAction('GLOBAL', actionType, userId, resolvedTrackId || resolvedProfileId || resolvedBattleEntryId || resolvedArticleId || comment.id, {
             username,
             content: (content || '').trim().slice(0, 120),
             ...(parentId ? { parentId } : {}),
         }).catch(() => {});
         logActivity(req, 'comment.post', comment.id, 'comment', {
-            targetId: resolvedTrackId || resolvedProfileId || resolvedBattleEntryId || null,
+            targetId: resolvedTrackId || resolvedProfileId || resolvedBattleEntryId || resolvedArticleId || null,
             snippet: (cleanContent || '').slice(0, 100),
         });
 
@@ -17680,6 +17684,9 @@ app.post('/api/comments', requireAuth, requireVerified, async (req: any, res) =>
                             if (p) link = `/profile/${p.username}`;
                         } else if (resolvedBattleEntryId) {
                             link = `/battles/entry/${resolvedBattleEntryId}`;
+                        } else if (resolvedArticleId) {
+                            const a = await db.article.findUnique({ where: { id: resolvedArticleId }, select: { slug: true } });
+                            if (a) link = `/article/${a.slug}`;
                         }
                         await db.musicNotification.create({
                             data: { userId: parentComment.userId, type: 'reply', title: `${username} replied to your comment`, message: snippet, link, actorId: userId, actorName: username, actorAvatar: avatarUrl },
@@ -17699,6 +17706,9 @@ app.post('/api/comments', requireAuth, requireVerified, async (req: any, res) =>
                     } else if (resolvedBattleEntryId) {
                         const be = await db.battleEntry.findUnique({ where: { id: resolvedBattleEntryId }, select: { userId: true } });
                         if (be) { ownerId = be.userId; link = `/battles/entry/${resolvedBattleEntryId}`; }
+                    } else if (resolvedArticleId) {
+                        const a = await db.article.findUnique({ where: { id: resolvedArticleId }, select: { authorUserId: true, slug: true } });
+                        if (a) { ownerId = a.authorUserId; link = `/article/${a.slug}`; }
                     }
                     if (ownerId && ownerId !== userId) {
                         await db.musicNotification.create({
@@ -17764,8 +17774,8 @@ app.put('/api/comments/:commentId', requireAuth, requireVerified, async (req: an
         await logAction('GLOBAL', 'comment_edited', userId, commentId, {
             previousContent: comment.content?.substring(0, 200),
             newContent: updated.content?.substring(0, 200),
-            targetType: comment.trackId ? 'track' : comment.profileId ? 'profile' : 'battleEntry',
-            targetEntityId: comment.trackId || comment.profileId || comment.battleEntryId,
+            targetType: comment.trackId ? 'track' : comment.profileId ? 'profile' : comment.battleEntryId ? 'battleEntry' : 'article',
+            targetEntityId: comment.trackId || comment.profileId || comment.battleEntryId || comment.articleId,
         }).catch(() => {});
 
         res.json(updated);
@@ -17803,6 +17813,12 @@ app.delete('/api/comments/:commentId', requireAuth, async (req: any, res) => {
             if (battleEntry?.userId === userId) canDelete = true;
         }
 
+        // Check if user is the author of the article this comment is on
+        if (!canDelete && comment.articleId) {
+            const article = await db.article.findUnique({ where: { id: comment.articleId }, select: { authorUserId: true } });
+            if (article?.authorUserId === userId) canDelete = true;
+        }
+
         // Admins can always delete
         if (!canDelete && req.session.mutualAdminGuilds?.length > 0) canDelete = true;
 
@@ -17825,8 +17841,8 @@ app.delete('/api/comments/:commentId', requireAuth, async (req: any, res) => {
         await logAction('GLOBAL', 'comment_deleted', userId, commentId, {
             content: comment.content?.substring(0, 200),
             deletedByOwner: comment.userId === userId,
-            targetType: comment.trackId ? 'track' : comment.profileId ? 'profile' : 'battleEntry',
-            targetEntityId: comment.trackId || comment.profileId || comment.battleEntryId,
+            targetType: comment.trackId ? 'track' : comment.profileId ? 'profile' : comment.battleEntryId ? 'battleEntry' : 'article',
+            targetEntityId: comment.trackId || comment.profileId || comment.battleEntryId || comment.articleId,
         }).catch(() => {});
         logActivity(req, 'comment.delete', commentId, 'comment', { ownComment: comment.userId === userId });
 
@@ -20586,7 +20602,7 @@ app.post('/api/reports', async (req: any, res) => {
             if (!comment) return res.status(404).json({ error: 'Comment not found' });
             reportedUserId = comment.userId;
             reportedName = comment.username;
-            contentSnapshot = { content: comment.content, gifUrl: comment.gifUrl, trackId: comment.trackId, profileId: comment.profileId };
+            contentSnapshot = { content: comment.content, gifUrl: comment.gifUrl, trackId: comment.trackId, profileId: comment.profileId, battleEntryId: comment.battleEntryId, articleId: comment.articleId };
         } else if (targetType === 'message') {
             const message = await db.privateMessage.findUnique({ where: { id: targetId } });
             if (!message) return res.status(404).json({ error: 'Message not found' });

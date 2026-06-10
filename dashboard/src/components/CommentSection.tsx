@@ -38,7 +38,8 @@ interface CommentSectionProps {
     trackId?: string;
     profileId?: string;
     battleEntryId?: string;
-    /** userId that owns the track/profile/entry (for delete permissions) */
+    articleId?: string;
+    /** userId that owns the track/profile/entry/article (for delete permissions) */
     ownerId?: string;
     /** Current playback time in seconds (for timed comments on tracks) */
     currentTrackTime?: number | null;
@@ -248,7 +249,7 @@ const EmojiPicker: React.FC<{ onSelect: (emoji: string) => void; onClose: () => 
 
 // ─── Comment Section ──────────────────────────────────────────────────────
 
-export const CommentSection: React.FC<CommentSectionProps> = ({ trackId, profileId, battleEntryId, ownerId, currentTrackTime, isCurrentTrack, onCommentPosted, onSeek }) => {
+export const CommentSection: React.FC<CommentSectionProps> = ({ trackId, profileId, battleEntryId, articleId, ownerId, currentTrackTime, isCurrentTrack, onCommentPosted, onSeek }) => {
     const { user, mutualAdminGuilds, emailVerified } = useAuth();
     const isAdmin = mutualAdminGuilds.length > 0;
     const [comments, setComments] = useState<Comment[]>([]);
@@ -288,6 +289,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ trackId, profile
             if (trackId) params.set('trackId', trackId);
             if (profileId) params.set('profileId', profileId);
             if (battleEntryId) params.set('battleEntryId', battleEntryId);
+            if (articleId) params.set('articleId', articleId);
             if (cursor) params.set('cursor', cursor);
             params.set('limit', '30');
 
@@ -302,7 +304,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ trackId, profile
         } catch {} finally {
             setLoading(false);
         }
-    }, [trackId, profileId, battleEntryId]);
+    }, [trackId, profileId, battleEntryId, articleId]);
 
     useEffect(() => {
         fetchComments();
@@ -334,6 +336,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ trackId, profile
                 ...(trackId ? { trackId } : {}),
                 ...(profileId ? { profileId } : {}),
                 ...(battleEntryId ? { battleEntryId } : {}),
+                ...(articleId ? { articleId } : {}),
                 ...((trackId || battleEntryId) && isCurrentTrack && currentTrackTime != null && currentTrackTime > 0 ? { trackTimestamp: Math.round(currentTrackTime) } : {}),
             }, { withCredentials: true });
             setComments(prev => [res.data, ...prev]);

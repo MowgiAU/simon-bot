@@ -6,6 +6,7 @@ import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
 import { usePlayer } from '../components/PlayerProvider';
 import { ArticleEmbedHydrator } from '../components/ArticleEmbeds';
 import { StyledUsername } from '../components/StyledUsername';
+import { CommentSection } from '../components/CommentSection';
 import {
     Calendar, Eye, Clock, User, ChevronLeft, Tag,
     Newspaper, BookOpen, Megaphone, GraduationCap, Share2,
@@ -242,6 +243,11 @@ export const ArticlePage: React.FC = () => {
                         ))}
                     </div>
                 )}
+
+                {/* Comments */}
+                <div style={{ marginTop: '40px' }}>
+                    <CommentSection articleId={article.id} ownerId={article.authorUserId || undefined} />
+                </div>
 
                 {/* Article styles */}
                 <style>{`
