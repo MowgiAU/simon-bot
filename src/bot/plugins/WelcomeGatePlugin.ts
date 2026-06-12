@@ -267,9 +267,10 @@ export class WelcomeGatePlugin implements IPlugin {
 
         const member = interaction.member as GuildMember;
 
-        // Test DM access before granting the verified role.
-        // If the user has blocked the bot or has DMs disabled we reject here
-        // rather than verifying them and discovering it later.
+        // Try to send a welcome DM, but don't block verification if it fails —
+        // Discord defaults new members to "DMs from server members" off, which
+        // was incorrectly hard-blocking verification for legitimate members.
+        let dmSent = true;
         try {
             const dmChannel = await member.user.createDM();
             await dmChannel.send({
@@ -278,26 +279,8 @@ export class WelcomeGatePlugin implements IPlugin {
                     .setDescription(`Welcome to **${interaction.guild!.name}**! Your access has been granted.`)
                     .setColor(Colors.Green)],
             });
-        } catch (e: any) {
-            const code = e?.code ?? e?.rawError?.code;
-            if (code === 50007) {
-                await interaction.editReply({
-                    content: [
-                        '❌ **Verification failed — the bot cannot DM you.**',
-                        '',
-                        'This server requires the bot to be able to send you direct messages.',
-                        'To fix this:',
-                        '1. If you have blocked the bot, right-click it → **Unblock**',
-                        '2. Open **User Settings → Privacy & Safety** and enable **"Allow direct messages from server members"**',
-                        '3. Come back here and click **Verify** again',
-                    ].join('\n'),
-                });
-            } else {
-                await interaction.editReply({
-                    content: '❌ **Verification failed** — the bot was unable to DM you. Please enable **"Allow direct messages from server members"** in your Discord Privacy Settings and try again.',
-                });
-            }
-            return;
+        } catch {
+            dmSent = false;
         }
 
         // Perform Role Swap
@@ -308,8 +291,11 @@ export class WelcomeGatePlugin implements IPlugin {
             if (settings.unverifiedRoleId) {
                 await member.roles.remove(settings.unverifiedRoleId);
             }
-            // Welcome DM was already sent above — just confirm in the ephemeral reply
-            await interaction.editReply({ content: '✅ Verification successful! Check your DMs — access has been granted.' });
+            await interaction.editReply({
+                content: dmSent
+                    ? '✅ Verification successful! Check your DMs — access has been granted.'
+                    : '✅ Verification successful! Access has been granted.',
+            });
         } catch (e) {
             this.logger.error('Verification role update failed', e);
             await interaction.editReply({ content: 'Something went wrong while updating your roles. Please contact an admin.' });
