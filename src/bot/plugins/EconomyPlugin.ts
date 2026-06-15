@@ -198,6 +198,9 @@ export class EconomyPlugin implements IPlugin {
         if (!isMatch) return;
 
         if (!message.guild) return;
+        // Recipient on the blocklist: silently ignore the tip and leave the reaction in place
+        // (removing it would hint that something is off).
+        if (message.author && await this.isBlocklisted(message.guild.id, message.author.id)) return;
         // Process tip (1 coin)
         const success = await this.transfer(message.guild.id, user.id, message.author.id, 1, 'TIP', `Tip for message ${message.id}`);
         
@@ -654,6 +657,14 @@ export class EconomyPlugin implements IPlugin {
         }
         if (amount <= 0) {
             return interaction.reply({ content: 'Amount must be greater than zero.', flags: MessageFlags.Ephemeral });
+        }
+
+        // Recipient is on the blocklist: silently do nothing — no transfer and no message
+        // of any kind (not even "transfer failed"), so the blocklist stays invisible.
+        if (await this.isBlocklisted(interaction.guildId, recipient.id)) {
+            await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+            await interaction.deleteReply().catch(() => {});
+            return;
         }
 
         await interaction.deferReply();
