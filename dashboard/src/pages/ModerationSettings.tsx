@@ -6,7 +6,7 @@ import { useMobile } from '../hooks/useMobile';
 import { ChannelSelect } from '../components/ChannelSelect';
 import { RoleSelect } from '../components/RoleSelect';
 import axios from 'axios';
-import { Shield, Save, Check, X, AlertTriangle, MessageSquare, List, FolderOpen } from 'lucide-react';
+import { Shield, Save, Check, X, AlertTriangle, MessageSquare, List, FolderOpen, Ban, UserX } from 'lucide-react';
 import { AnimatedWrapper } from '../components/AnimatedWrapper';
 
 interface ModerationSettings {
@@ -20,6 +20,15 @@ interface ModerationSettings {
     banMessage: string | null;
     timeoutMessage: string | null;
     permissions: Permission[];
+}
+
+interface BlocklistEntry {
+    id: string;
+    userId: string;
+    username: string | null;
+    reason: string | null;
+    addedBy: string | null;
+    createdAt: string;
 }
 
 interface Permission {
@@ -45,6 +54,14 @@ export const ModerationSettingsPage: React.FC = () => {
     
     // UI State for Role Permissions
     const [selectedRoleId, setSelectedRoleId] = useState<string | null>(null);
+
+    // Currency/XP Blocklist State
+    const [blocklist, setBlocklist] = useState<BlocklistEntry[]>([]);
+    const [blocklistLoading, setBlocklistLoading] = useState(true);
+    const [blockQuery, setBlockQuery] = useState('');
+    const [blockResults, setBlockResults] = useState<any[]>([]);
+    const [blockReason, setBlockReason] = useState('');
+    const [selectedBlockUser, setSelectedBlockUser] = useState<any | null>(null);
 
     // Initial Fetch
     useEffect(() => {
@@ -87,6 +104,58 @@ export const ModerationSettingsPage: React.FC = () => {
             setSelectedRoleId(roles[0].id);
         }
     }, [roles, selectedRoleId]);
+
+    // Fetch blocklist
+    useEffect(() => {
+        if (!selectedGuild) return;
+
+        const controller = new AbortController();
+        let isMounted = true;
+
+        const fetchBlocklist = async () => {
+            setBlocklistLoading(true);
+            try {
+                const response = await axios.get(`/api/guilds/${selectedGuild.id}/moderation/blocklist`, {
+                    withCredentials: true,
+                    signal: controller.signal
+                });
+                if (isMounted) setBlocklist(response.data);
+            } catch (err: any) {
+                if (axios.isCancel(err) || err.name === 'AbortError' || !isMounted) return;
+                console.error('Blocklist Load Error:', err);
+            } finally {
+                if (isMounted) setBlocklistLoading(false);
+            }
+        };
+
+        fetchBlocklist();
+        return () => {
+            isMounted = false;
+            controller.abort();
+        };
+    }, [selectedGuild?.id]);
+
+    // Debounced user search for the blocklist add form
+    useEffect(() => {
+        if (!selectedGuild || selectedBlockUser || blockQuery.trim().length < 2) {
+            setBlockResults([]);
+            return;
+        }
+
+        const handle = setTimeout(async () => {
+            try {
+                const res = await axios.get(`/api/guilds/${selectedGuild.id}/moderation/search-users`, {
+                    params: { q: blockQuery },
+                    withCredentials: true
+                });
+                setBlockResults(res.data);
+            } catch {
+                setBlockResults([]);
+            }
+        }, 300);
+
+        return () => clearTimeout(handle);
+    }, [blockQuery, selectedGuild?.id, selectedBlockUser]);
 
     if (loading || resourcesLoading) return <div style={{ color: colors.textSecondary, padding: spacing.xl }}>Loading settings...</div>;
 
@@ -149,6 +218,37 @@ export const ModerationSettingsPage: React.FC = () => {
         } catch (err) {
             console.error('Failed to save permission');
             setMsg({ type: 'error', text: 'Failed to save permission change.' });
+        }
+    };
+
+    const addToBlocklist = async () => {
+        if (!selectedBlockUser || !selectedGuild) return;
+        try {
+            const res = await axios.post(`/api/guilds/${selectedGuild.id}/moderation/blocklist`, {
+                userId: selectedBlockUser.id,
+                username: selectedBlockUser.username,
+                reason: blockReason.trim() || null
+            }, { withCredentials: true });
+
+            setBlocklist(prev => [res.data, ...prev.filter(e => e.userId !== res.data.userId)]);
+            setSelectedBlockUser(null);
+            setBlockQuery('');
+            setBlockResults([]);
+            setBlockReason('');
+        } catch (err) {
+            console.error('Failed to add to blocklist', err);
+            setMsg({ type: 'error', text: 'Failed to add user to blocklist.' });
+        }
+    };
+
+    const removeFromBlocklist = async (userId: string) => {
+        if (!selectedGuild) return;
+        try {
+            await axios.delete(`/api/guilds/${selectedGuild.id}/moderation/blocklist/${userId}`, { withCredentials: true });
+            setBlocklist(prev => prev.filter(e => e.userId !== userId));
+        } catch (err) {
+            console.error('Failed to remove from blocklist', err);
+            setMsg({ type: 'error', text: 'Failed to remove user from blocklist.' });
         }
     };
 
@@ -438,6 +538,99 @@ export const ModerationSettingsPage: React.FC = () => {
                         </div>
                     )}
                 </div>
+            </div>
+
+            {/* Currency & XP Blocklist */}
+            <div style={{ background: 'linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))', border: '1px solid #3E455633', padding: isMobile ? '16px' : '24px', borderRadius: borderRadius.lg, marginTop: '24px' }}>
+                <h2 style={{ marginTop: 0, marginBottom: '20px', borderBottom: `1px solid ${colors.border}`, paddingBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <AnimatedWrapper icon={Ban} size={20} /> Currency & XP Blocklist
+                </h2>
+
+                <div style={{ background: 'linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))', border: '1px solid #3E455633', padding: spacing.md, borderRadius: borderRadius.md, marginBottom: spacing.lg, borderLeft: `4px solid ${colors.primary}` }}>
+                    <p style={{ margin: 0, color: colors.textPrimary, fontSize: isMobile ? '13px' : '15px' }}>
+                        Users added here will silently stop earning or receiving currency and XP. They are never notified that they have been added.
+                    </p>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: '10px', marginBottom: '20px' }}>
+                    <div style={{ flex: 1.5, position: 'relative' }}>
+                        <input
+                            placeholder="Search user by name..."
+                            value={selectedBlockUser ? `${selectedBlockUser.displayName} (${selectedBlockUser.username})` : blockQuery}
+                            onChange={(e) => { setBlockQuery(e.target.value); setSelectedBlockUser(null); }}
+                            style={{ width: '100%', padding: '10px', background: colors.background, border: `1px solid ${colors.border}`, color: colors.textPrimary, borderRadius: borderRadius.sm }}
+                        />
+                        {blockResults.length > 0 && !selectedBlockUser && (
+                            <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 10, marginTop: '4px', background: colors.surface, border: `1px solid ${colors.border}`, borderRadius: borderRadius.sm, maxHeight: '220px', overflowY: 'auto' }}>
+                                {blockResults.map((user) => (
+                                    <div
+                                        key={user.id}
+                                        onClick={() => { setSelectedBlockUser(user); setBlockResults([]); }}
+                                        style={{ padding: '8px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
+                                    >
+                                        {user.avatar ? (
+                                            <img src={`https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`} style={{ width: 20, height: 20, borderRadius: 10 }} alt="" />
+                                        ) : (
+                                            <div style={{ width: 20, height: 20, borderRadius: 10, background: colors.textSecondary }} />
+                                        )}
+                                        <span>{user.displayName} ({user.username})</span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                    <input
+                        placeholder="Reason (optional, internal only)"
+                        value={blockReason}
+                        onChange={(e) => setBlockReason(e.target.value)}
+                        style={{ flex: 1, padding: '10px', background: colors.background, border: `1px solid ${colors.border}`, color: colors.textPrimary, borderRadius: borderRadius.sm }}
+                    />
+                    <button
+                        onClick={addToBlocklist}
+                        disabled={!selectedBlockUser}
+                        style={{
+                            background: colors.primary,
+                            color: colors.textPrimary,
+                            border: 'none',
+                            padding: '10px 24px',
+                            borderRadius: borderRadius.md,
+                            cursor: selectedBlockUser ? 'pointer' : 'not-allowed',
+                            opacity: selectedBlockUser ? 1 : 0.5,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '8px',
+                            width: isMobile ? '100%' : 'auto'
+                        }}
+                    >
+                        <AnimatedWrapper icon={UserX} size={16} /> Add to Blocklist
+                    </button>
+                </div>
+
+                {blocklistLoading ? (
+                    <div style={{ color: colors.textSecondary, padding: spacing.md }}>Loading...</div>
+                ) : blocklist.length === 0 ? (
+                    <div style={{ color: colors.textSecondary, padding: spacing.md, textAlign: 'center' }}>No users on the blocklist.</div>
+                ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        {blocklist.map((entry) => (
+                            <div key={entry.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px', background: colors.background, borderRadius: borderRadius.md, gap: '12px' }}>
+                                <div style={{ minWidth: 0 }}>
+                                    <div style={{ fontWeight: 600, wordBreak: 'break-word' }}>{entry.username || entry.userId}</div>
+                                    {entry.reason && <div style={{ fontSize: '13px', color: colors.textSecondary, wordBreak: 'break-word' }}>{entry.reason}</div>}
+                                    <div style={{ fontSize: '12px', color: colors.textTertiary }}>Added {new Date(entry.createdAt).toLocaleDateString()}</div>
+                                </div>
+                                <button
+                                    onClick={() => removeFromBlocklist(entry.userId)}
+                                    title="Remove from blocklist"
+                                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.error, flexShrink: 0, padding: '4px' }}
+                                >
+                                    <X size={18} />
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                )}
             </div>
         </div>
     );

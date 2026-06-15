@@ -84,6 +84,9 @@ export class LevelingPlugin implements IPlugin {
     // Daily streak tracking (userId-guildId → last date string)
     private streakCache = new Map<string, string>();
 
+    // Cached set of blocklisted userIds per guild (refreshed every 60s)
+    private blocklistCache = new Map<string, { set: Set<string>; expires: number }>();
+
     async initialize(context: IPluginContext): Promise<void> {
         this.client = context.client;
         this.db = context.db;
@@ -307,7 +310,20 @@ export class LevelingPlugin implements IPlugin {
     // Core XP Engine
     // ─────────────────────────────────────────
 
+    private async isBlocklisted(guildId: string, userId: string): Promise<boolean> {
+        let entry = this.blocklistCache.get(guildId);
+        if (!entry || entry.expires < Date.now()) {
+            const rows = await this.db.blocklistedUser.findMany({ where: { guildId }, select: { userId: true } });
+            entry = { set: new Set(rows.map((r: any) => r.userId)), expires: Date.now() + 60_000 };
+            this.blocklistCache.set(guildId, entry);
+        }
+        return entry.set.has(userId);
+    }
+
     private async addXP(userId: string, guildId: string, amount: number, source: string): Promise<void> {
+        // Blocklisted users cannot earn XP (silently no-op)
+        if (await this.isBlocklisted(guildId, userId)) return;
+
         try {
             // Upsert member
             const member = await this.db.member.upsert({
@@ -970,6 +986,7 @@ export class LevelingPlugin implements IPlugin {
 
     private async awardCurrency(guildId: string, userId: string, amount: number, type: string, reason: string): Promise<boolean> {
         if (amount <= 0) return false;
+        if (await this.isBlocklisted(guildId, userId)) return false;
         try {
             await this.db.economyAccount.upsert({
                 where: { guildId_userId: { guildId, userId } },

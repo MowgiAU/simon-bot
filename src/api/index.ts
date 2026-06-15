@@ -4085,6 +4085,85 @@ app.post('/api/guilds/:guildId/moderation/permissions', async (req, res) => {
     }
 });
 
+// --- Currency/XP Blocklist Routes ---
+
+// List blocklisted users
+app.get('/api/guilds/:guildId/moderation/blocklist', async (req, res) => {
+    try {
+        const { guildId } = req.params;
+        if (!await checkPluginAccess(guildId, req, 'moderation')) return res.status(403).json({ error: 'Forbidden' });
+
+        const entries = await db.blocklistedUser.findMany({
+            where: { guildId },
+            orderBy: { createdAt: 'desc' }
+        });
+        res.json(entries);
+    } catch (e) {
+        logger.error('Failed to fetch blocklist', e);
+        res.status(500).json({ error: 'Failed' });
+    }
+});
+
+// Add a user to the blocklist
+app.post('/api/guilds/:guildId/moderation/blocklist', async (req, res) => {
+    try {
+        const { guildId } = req.params;
+        const { userId, username, reason } = req.body;
+        if (!await checkPluginAccess(guildId, req, 'moderation')) return res.status(403).json({ error: 'Forbidden' });
+        if (!userId) return res.status(400).json({ error: 'userId is required' });
+
+        const entry = await db.blocklistedUser.upsert({
+            where: { guildId_userId: { guildId, userId } },
+            update: { username, reason, addedBy: req.session.user.id },
+            create: { guildId, userId, username, reason, addedBy: req.session.user.id }
+        });
+        res.json(entry);
+    } catch (e) {
+        logger.error('Failed to add to blocklist', e);
+        res.status(500).json({ error: 'Failed' });
+    }
+});
+
+// Remove a user from the blocklist
+app.delete('/api/guilds/:guildId/moderation/blocklist/:userId', async (req, res) => {
+    try {
+        const { guildId, userId } = req.params;
+        if (!await checkPluginAccess(guildId, req, 'moderation')) return res.status(403).json({ error: 'Forbidden' });
+
+        await db.blocklistedUser.delete({ where: { guildId_userId: { guildId, userId } } });
+        res.json({ success: true });
+    } catch (e: any) {
+        if (e.code === 'P2025') return res.json({ success: true }); // Already removed
+        logger.error('Failed to remove from blocklist', e);
+        res.status(500).json({ error: 'Failed' });
+    }
+});
+
+// Search guild members (for adding to the blocklist)
+app.get('/api/guilds/:guildId/moderation/search-users', async (req, res) => {
+    try {
+        const { guildId } = req.params;
+        const { q } = req.query;
+        if (!await checkPluginAccess(guildId, req, 'moderation')) return res.status(403).json({ error: 'Forbidden' });
+        if (!q || String(q).length < 2) return res.json([]);
+
+        const searchRes = await axios.get(
+            `https://discord.com/api/v10/guilds/${guildId}/members/search?query=${encodeURIComponent(String(q))}&limit=10`,
+            { headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` } }
+        );
+        const results = searchRes.data.map((member: any) => ({
+            id: member.user.id,
+            username: member.user.username,
+            displayName: member.nick || member.user.global_name || member.user.username,
+            avatar: member.user.avatar
+        }));
+        res.json(results);
+    } catch (e: any) {
+        logger.error('Moderation user search failed', e);
+        res.json([]);
+    }
+});
+
 // Proxy to get channels/roles (Generic)
 app.get('/api/guilds/:guildId/channels', async (req, res) => {
     try {

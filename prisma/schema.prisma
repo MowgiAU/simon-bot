@@ -263,6 +263,20 @@ model ModerationSettings {
   @@map("moderation_settings")
 }
 
+model BlocklistedUser {
+  id        String   @id @default(cuid())
+  guildId   String
+  userId    String
+  username  String? // Denormalized Discord username/tag for dashboard display
+  reason    String?
+  addedBy   String? // Discord ID of mod who added the entry
+  createdAt DateTime @default(now())
+
+  @@unique([guildId, userId])
+  @@index([guildId])
+  @@map("blocklisted_users")
+}
+
 model ModerationPermission {
   id         String @id @default(cuid())
   settingsId String

@@ -52,6 +52,7 @@ export class EconomyPlugin implements IPlugin {
 
     private messageCooldowns = new Map<string, number>();
     private grantExpiryTimer: ReturnType<typeof setInterval> | null = null;
+    private blocklistCache = new Map<string, { set: Set<string>; expires: number }>();
 
     async initialize(context: EconomyContext): Promise<void> {
         this.client = context.client;
@@ -810,7 +811,22 @@ export class EconomyPlugin implements IPlugin {
         return account;
     }
 
+    private async isBlocklisted(guildId: string, userId: string): Promise<boolean> {
+        let entry = this.blocklistCache.get(guildId);
+        if (!entry || entry.expires < Date.now()) {
+            const rows = await this.db.blocklistedUser.findMany({ where: { guildId }, select: { userId: true } });
+            entry = { set: new Set(rows.map((r: any) => r.userId)), expires: Date.now() + 60_000 };
+            this.blocklistCache.set(guildId, entry);
+        }
+        return entry.set.has(userId);
+    }
+
     private async addBalance(guildId: string, userId: string, amount: number, type: string, reason?: string) {
+        // Blocklisted users cannot earn/receive currency (silently no-op)
+        if (amount > 0 && await this.isBlocklisted(guildId, userId)) {
+            return this.getAccount(guildId, userId);
+        }
+
         // Update Account
         const account = await this.db.economyAccount.upsert({
             where: { guildId_userId: { guildId, userId } },
@@ -848,6 +864,9 @@ export class EconomyPlugin implements IPlugin {
     private async transfer(guildId: string, fromId: string, toId: string, amount: number, type: string, reason?: string): Promise<boolean> {
         const fromAccount = await this.getAccount(guildId, fromId);
         if (fromAccount.balance < amount) return false;
+
+        // Blocklisted users cannot receive currency (silently fails like insufficient funds)
+        if (await this.isBlocklisted(guildId, toId)) return false;
 
         // Transactional update
         await this.db.$transaction([
