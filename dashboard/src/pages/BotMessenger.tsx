@@ -42,6 +42,7 @@ interface DiscordMessage {
     id: string;
     content: string;
     author: { id: string; username: string; avatar: string; bot?: boolean; global_name?: string };
+    member?: { nick?: string | null };
     timestamp: string;
     embeds?: any[];
     attachments?: any[];
@@ -283,6 +284,14 @@ const MessageFeed: React.FC<{
     const [reactStatus, setReactStatus] = useState<{ id: string; ok: boolean; msg?: string } | null>(null);
     const feedRef = useRef<HTMLDivElement>(null);
     const intervalRef = useRef<ReturnType<typeof setInterval>>();
+    // Track whether the user is scrolled to (near) the bottom so polling doesn't yank them down
+    const isAtBottomRef = useRef(true);
+
+    const handleScroll = () => {
+        const el = feedRef.current;
+        if (!el) return;
+        isAtBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+    };
 
     const fetchMessages = useCallback(async () => {
         if (!channelId) return;
@@ -295,6 +304,8 @@ const MessageFeed: React.FC<{
     useEffect(() => {
         setMessages([]);
         if (!channelId) return;
+        // When switching channels, start pinned to the bottom
+        isAtBottomRef.current = true;
         setLoading(true);
         fetchMessages().finally(() => setLoading(false));
 
@@ -304,7 +315,11 @@ const MessageFeed: React.FC<{
     }, [channelId, fetchMessages]);
 
     useEffect(() => {
-        if (feedRef.current) feedRef.current.scrollTop = feedRef.current.scrollHeight;
+        // Only auto-scroll to the newest message if the user is already at the bottom.
+        // This lets them scroll up to read history without being pulled back down on each poll.
+        if (isAtBottomRef.current && feedRef.current) {
+            feedRef.current.scrollTop = feedRef.current.scrollHeight;
+        }
     }, [messages]);
 
     const avatarUrl = (author: DiscordMessage['author']) =>
@@ -324,6 +339,7 @@ const MessageFeed: React.FC<{
             </div>
             <div
                 ref={feedRef}
+                onScroll={handleScroll}
                 style={{
                     flex: 1,
                     minHeight: 0,
@@ -353,12 +369,17 @@ const MessageFeed: React.FC<{
                         <div style={{ flex: 1, minWidth: 0 }}>
                             {msg.referenced_message && (
                                 <div style={{ fontSize: '11px', color: colors.textTertiary, marginBottom: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                    <Reply size={10} /> replying to <strong>{msg.referenced_message.author.username}</strong>
+                                    <Reply size={10} /> replying to <strong>{msg.referenced_message.member?.nick || msg.referenced_message.author.global_name || msg.referenced_message.author.username}</strong>
                                 </div>
                             )}
                             <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
                                 <span style={{ fontWeight: 600, color: msg.author.bot ? colors.accent : colors.textPrimary, fontSize: '14px' }}>
-                                    {msg.author.global_name || msg.author.username}
+                                    {msg.member?.nick || msg.author.global_name || msg.author.username}
+                                    {(msg.member?.nick || msg.author.global_name) && (
+                                        <span style={{ color: colors.textTertiary, fontWeight: 400, fontSize: '12px', marginLeft: '6px' }}>
+                                            ({msg.author.username})
+                                        </span>
+                                    )}
                                     {msg.author.bot && <span style={{ background: colors.accent, color: '#fff', fontSize: '10px', padding: '1px 5px', borderRadius: '3px', marginLeft: '5px', verticalAlign: 'middle' }}>BOT</span>}
                                 </span>
                                 <span style={{ color: colors.textTertiary, fontSize: '11px' }}>

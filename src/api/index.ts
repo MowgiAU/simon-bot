@@ -582,6 +582,27 @@ const discordReq = async (method: string, path: string, data?: any, token?: stri
     }
 };
 
+// Cache of server nicknames keyed by `${guildId}:${userId}` (REST message fetches omit member data,
+// so we resolve nicknames separately and cache them to avoid hammering Discord on each poll).
+const memberNickCache = new Map<string, { nick: string | null; timestamp: number }>();
+const MEMBER_NICK_TTL = 5 * 60 * 1000; // 5 minutes
+
+const getMemberNick = async (guildId: string, userId: string): Promise<string | null> => {
+    const key = `${guildId}:${userId}`;
+    const cached = memberNickCache.get(key);
+    if (cached && Date.now() - cached.timestamp < MEMBER_NICK_TTL) return cached.nick;
+    try {
+        const res = await discordReq('GET', `/guilds/${guildId}/members/${userId}`);
+        const nick = res.data?.nick ?? null;
+        memberNickCache.set(key, { nick, timestamp: Date.now() });
+        return nick;
+    } catch {
+        // Member may have left the guild — cache null to avoid repeated lookups
+        memberNickCache.set(key, { nick: null, timestamp: Date.now() });
+        return null;
+    }
+};
+
 // Singleton pattern for Prisma to prevent connection exhaustion in dev
 const globalForPrisma = global as unknown as { prisma: PrismaClient };
 // Extend DATABASE_URL with larger connection pool (default of 3 connections causes pool exhaustion
@@ -6332,7 +6353,28 @@ app.get('/api/bot-messenger/:guildId/messages/:channelId', async (req, res) => {
         if (before) params.before = before;
         const qs = new URLSearchParams(params as any).toString();
         const response = await discordReq('get', `/channels/${channelId}/messages?${qs}`);
-        res.json(response.data);
+
+        // REST message fetches don't include guild member data, so resolve server nicknames
+        // for each unique (non-bot) author and attach them to the message objects.
+        const messages = response.data as any[];
+        const collect = (m: any) => (m?.author && !m.author.bot ? [m.author.id] : []);
+        const uniqueAuthorIds = [...new Set(
+            messages.flatMap(m => [...collect(m), ...collect(m.referenced_message)])
+        )];
+        const nickEntries = await Promise.all(
+            uniqueAuthorIds.map(async (id) => [id, await getMemberNick(guildId, id)] as const)
+        );
+        const nickMap = new Map(nickEntries);
+        const applyNick = (m: any) => {
+            const nick = m?.author ? nickMap.get(m.author.id) : null;
+            if (nick) m.member = { ...(m.member || {}), nick };
+        };
+        for (const m of messages) {
+            applyNick(m);
+            if (m.referenced_message) applyNick(m.referenced_message);
+        }
+
+        res.json(messages);
     } catch (err: any) {
         logger.error('Failed to fetch channel messages', err);
         res.status(err.response?.status || 500).json({ error: 'Failed to fetch messages' });
