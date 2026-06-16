@@ -88,6 +88,7 @@ const FrontpageEditorialB    = lazy(() => import("./pages/FrontpageEditorialB").
 const FrontpageVHub          = lazy(() => import("./pages/FrontpageVHub").then(m => ({ default: m.FrontpageVHub })));
 const FrontpageEditorialMix  = lazy(() => import("./pages/FrontpageEditorialMix").then(m => ({ default: m.FrontpageEditorialMix })));
 const FrontpageNeon          = lazy(() => import("./pages/FrontpageNeon").then(m => ({ default: m.FrontpageNeon })));
+const MobilePreviewNowPlaying = lazy(() => import("./pages/MobilePreviewNowPlaying").then(m => ({ default: m.MobilePreviewNowPlaying })));
 const PausePage              = lazy(() => import("./pages/Pause").then(m => ({ default: m.PausePage })));
 const ServerBoostPage        = lazy(() => import("./pages/ServerBoost").then(m => ({ default: m.ServerBoostPage })));
 const VoiceStatsPage         = lazy(() => import("./pages/VoiceStats").then(m => ({ default: m.VoiceStatsPage })));
@@ -886,6 +887,11 @@ const AppInternal: React.FC = () => {
   }
   if (currentPath === '/preview/alt_e') {
     return <Suspense fallback={<PageSpinner />}><FrontpageNeon /></Suspense>;
+  }
+
+  // Mobile redesign previews (Stitch mockups rebuilt as CSP-safe React) — access by URL only
+  if (currentPath === '/preview/mobile-now-playing') {
+    return <Suspense fallback={<PageSpinner />}><MobilePreviewNowPlaying /></Suspense>;
   }
 
   // Artist Discovery homepage
