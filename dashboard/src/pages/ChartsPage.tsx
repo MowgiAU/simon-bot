@@ -7,6 +7,7 @@ import { usePlayer } from '../components/PlayerProvider';
 import { StyledUsername } from '../components/StyledUsername';
 import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
 import { FujiLogo } from '../components/FujiLogo';
+import { ChartsMobile } from '../components/mobile/ChartsMobile';
 
 interface ChartTrack {
     id: string;
@@ -285,12 +286,12 @@ export const ChartsPage: React.FC = () => {
     const [period, setPeriod] = useState<'daily' | 'weekly' | 'alltime'>('weekly');
     const [chart, setChart] = useState<ChartData | null>(null);
     const [loading, setLoading] = useState(true);
-    const { setTrack } = usePlayer();
-    const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+    const { setTrack, player } = usePlayer();
+    const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
     const [reposts, setReposts] = useState<Record<string, boolean>>({});
 
     useEffect(() => {
-        const h = () => setIsMobile(window.innerWidth < 768);
+        const h = () => setIsMobile(window.innerWidth < 1024);
         window.addEventListener('resize', h);
         return () => window.removeEventListener('resize', h);
     }, []);
@@ -332,7 +333,19 @@ export const ChartsPage: React.FC = () => {
 
     return (
         <DiscoveryLayout activeTab="charts">
-            <div style={{ padding: isMobile ? '16px' : '28px 48px', maxWidth: '1200px', margin: '0 auto' }}>
+            {isMobile ? (
+                <ChartsMobile
+                    entries={entries as any}
+                    period={period}
+                    setPeriod={setPeriod}
+                    reposts={reposts}
+                    onPlay={playFrom}
+                    onRepost={toggleRepost}
+                    playingTrackId={player.currentTrack?.id}
+                    loading={loading}
+                />
+            ) : (
+            <div style={{ padding: '28px 48px', maxWidth: '1200px', margin: '0 auto' }}>
 
                 {/* ─── Header Row ─── */}
                 <div style={{ display: 'flex', alignItems: isMobile ? 'flex-start' : 'center', justifyContent: 'space-between', marginBottom: '20px', flexDirection: isMobile ? 'column' : 'row', gap: '12px' }}>
@@ -467,6 +480,7 @@ export const ChartsPage: React.FC = () => {
                     </>
                 )}
             </div>
+            )}
         </DiscoveryLayout>
     );
 };
