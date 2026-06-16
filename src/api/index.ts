@@ -1099,7 +1099,17 @@ const writeLimiter = rateLimit({
     standardHeaders: true,
     legacyHeaders: false,
     keyGenerator: rlKey,
-    skip: (req: any) => req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS',
+    skip: (req: any) => {
+        if (req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS') return true;
+        // Exempt high-frequency, low-risk writes that ordinary browsing triggers, so they
+        // never trip this anti-abuse limiter (which targets uploads/spam):
+        //  - reposts/check is a read sent as POST (page loads call it with a list of IDs)
+        //  - play-count increments fire as the user listens through pages like Charts
+        const url = req.originalUrl || req.url || '';
+        if (url.includes('/reposts/check')) return true;
+        if (/\/tracks\/[^/]+\/play(\?|$)/.test(url)) return true;
+        return false;
+    },
     message: { error: 'You are doing that too fast. Please wait a moment before trying again.' },
 });
 // Strict limiter for track uploads -- prevents spam and large-file abuse
