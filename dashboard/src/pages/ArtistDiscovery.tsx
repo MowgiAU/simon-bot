@@ -17,6 +17,7 @@ import { FujiLogo } from '../components/FujiLogo';
 import { StyledUsername } from '../components/StyledUsername';
 import { appendSponsorRef, trackSponsorClick } from '../lib/sponsorUtils';
 import { useMobile } from '../hooks/useMobile';
+import { HomeMobile } from '../components/mobile/HomeMobile';
 
 interface ArtistProfile {
     userId: string;
@@ -333,6 +334,14 @@ export const ArtistDiscoveryPage: React.FC = () => {
             setMobileCurrentPage(p => p - 1);
         }
     };
+
+    if (isMobile) {
+        return (
+            <DiscoveryLayout activeTab="discover">
+                <HomeMobile />
+            </DiscoveryLayout>
+        );
+    }
 
     if (isMobileSwipe) {
         const battle = featured?.featuredBattle ?? null;
