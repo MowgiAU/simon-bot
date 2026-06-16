@@ -1,0 +1,501 @@
+<!DOCTYPE html><html class="dark" lang="en"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Artist Profile | Fuji Studio</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "on-primary": "#512300",
+                      "on-secondary-fixed": "#001f26",
+                      "tertiary": "#ffb2b7",
+                      "secondary-fixed": "#acedff",
+                      "primary-fixed-dim": "#ffb689",
+                      "tertiary-fixed-dim": "#ffb2b7",
+                      "on-secondary-container": "#00424e",
+                      "on-surface-variant": "#94A3B8",
+                      "on-surface": "#F8FAFC",
+                      "error-container": "#93000a",
+                      "tertiary-container": "#ff6779",
+                      "on-tertiary-fixed-variant": "#92002a",
+                      "on-error": "#690005",
+                      "error": "#ffb4ab",
+                      "on-tertiary-fixed": "#40000d",
+                      "secondary-container": "#03b5d3",
+                      "primary-fixed": "#ffdbc8",
+                      "surface-variant": "#313540",
+                      "secondary-fixed-dim": "#4cd7f6",
+                      "surface-dim": "#0B0F19",
+                      "inverse-surface": "#dfe2f1",
+                      "inverse-primary": "#984800",
+                      "surface-tint": "#ffb689",
+                      "on-tertiary": "#67001b",
+                      "on-secondary": "#003640",
+                      "surface-container-highest": "#313540",
+                      "on-tertiary-container": "#6b001c",
+                      "on-background": "#F8FAFC",
+                      "secondary": "#4cd7f6",
+                      "on-primary-fixed": "#311300",
+                      "surface-container": "rgba(17,24,39,0.7)",
+                      "surface-bright": "#353944",
+                      "background": "#0B0F19",
+                      "primary-container": "#F2780A",
+                      "surface-container-high": "rgba(17,24,39,0.7)",
+                      "on-primary-container": "#FFFFFF",
+                      "outline": "#a68b7c",
+                      "surface": "#0B0F19",
+                      "on-error-container": "#ffdad6",
+                      "on-secondary-fixed-variant": "#004e5c",
+                      "surface-container-lowest": "#0a0e18",
+                      "primary": "#F2780A",
+                      "outline-variant": "#574236",
+                      "inverse-on-surface": "#2c303b",
+                      "on-primary-fixed-variant": "#733500",
+                      "tertiary-fixed": "#ffdadb",
+                      "surface-container-low": "#171b26"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "stack-md": "1rem",
+                      "container-margin": "1rem",
+                      "stack-sm": "0.5rem",
+                      "stack-lg": "1.5rem",
+                      "gutter": "0.75rem"
+              },
+              "fontFamily": {
+                      "label-sm": [
+                              "Inter"
+                      ],
+                      "headline-md": [
+                              "Inter"
+                      ],
+                      "headline-sm": [
+                              "Inter"
+                      ],
+                      "headline-lg": [
+                              "Inter"
+                      ],
+                      "label-xs": [
+                              "Inter"
+                      ],
+                      "body-md": [
+                              "Inter"
+                      ]
+              },
+              "fontSize": {
+                      "label-sm": [
+                              "12px",
+                              {
+                                      "lineHeight": "18px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "headline-md": [
+                              "20px",
+                              {
+                                      "lineHeight": "28px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "headline-sm": [
+                              "16px",
+                              {
+                                      "lineHeight": "24px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "headline-lg": [
+                              "28px",
+                              {
+                                      "lineHeight": "34px",
+                                      "letterSpacing": "-0.02em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "label-xs": [
+                              "10px",
+                              {
+                                      "lineHeight": "14px",
+                                      "letterSpacing": "0.05em",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "body-md": [
+                              "14px",
+                              {
+                                      "lineHeight": "22.4px",
+                                      "fontWeight": "400"
+                              }
+                      ]
+              }
+            },
+          }
+        }
+    </script>
+<style>
+        body {
+            background-color: theme('colors.background');
+            color: theme('colors.on-background');
+        }
+        
+        .glass-panel {
+            background-color: theme('colors.surface-container-high');
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+        }
+
+        .glow-button {
+            box-shadow: 0 0 20px rgba(242, 120, 10, 0.15);
+        }
+        
+        /* Custom scrollbar for tracks list */
+        ::-webkit-scrollbar {
+            width: 4px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: theme('colors.surface-variant');
+            border-radius: 4px;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="antialiased min-h-screen flex flex-col pt-[72px] pb-[160px] md:pb-[88px] overflow-x-hidden selection:bg-primary-container selection:text-on-primary-container bg-background text-on-background">
+<!-- TopAppBar -->
+<header class="fixed top-0 left-0 w-full z-50 bg-surface/70 backdrop-blur-xl border-b border-white/10 shadow-heavy flex justify-between items-center px-container-margin py-stack-sm">
+<button class="text-on-surface-variant hover:text-on-surface transition-opacity p-2 flex items-center justify-center rounded-full hover:bg-white/5">
+<span class="material-symbols-outlined font-label-sm text-label-sm" style="font-size: 24px;">arrow_back</span>
+</button>
+<h1 class="font-headline-md text-headline-md font-black tracking-tighter text-primary">VaporWave</h1>
+<button class="text-on-surface-variant hover:text-on-surface transition-opacity p-2 flex items-center justify-center rounded-full hover:bg-white/5">
+<span class="material-symbols-outlined font-label-sm text-label-sm" style="font-size: 24px;">more_vert</span>
+</button>
+</header>
+<!-- Main Content Area -->
+<main class="flex-1 w-full max-w-4xl mx-auto px-container-margin md:px-8 pt-stack-sm">
+<!-- Profile Header Section -->
+<section class="relative mb-stack-lg animate-fade-in-up">
+<!-- Banner Image -->
+<div class="h-48 md:h-64 w-full rounded-xl overflow-hidden relative border border-white/10">
+<img alt="Producer studio setup" class="w-full h-full object-cover" data-alt="A moody, high-end music producer's studio setup bathed in vibrant neon cyan and deep orange ambient lighting. The scene features multiple monitors displaying complex audio waveforms on a digital audio workstation, professional studio monitors, and a sprawling MIDI keyboard on a sleek dark desk. The aesthetic is late-night creative immersion with a high-contrast, professional glassmorphic vibe." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDWVyaUm8BpkRAButVDl7frMnWotXg7m_mZNDX-HQsTc4KAtR9xVI1NME-VWzplPBTdD_G3o2xAVNz6tUHO0LFLIT09R2-ghh42ho2w8I4cjWUdaSfMJWPRjBukvyZGkLc9HTUsbQz-pU8W1Rtex9DT2EzxM9uUCN5Juna9HPxYcFor3ZeoJKdB7TpLkUCWGf3V0XEFyqNcE9BZgFvNzdRNia4mNDlH9FBpZ77k8OaoEIthGp_rcoe3znTd7YD2SQW6iCDPIdYY_NQ">
+<div class="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent"></div>
+</div>
+<!-- Avatar & Actions Overlay -->
+<div class="flex flex-col md:flex-row items-center md:items-end justify-between px-4 -mt-16 relative z-10 gap-stack-md">
+<div class="flex flex-col items-center md:items-start">
+<div class="w-32 h-32 rounded-full border-4 border-background overflow-hidden shadow-2xl relative group">
+<img alt="Artist Avatar" class="w-full h-full object-cover" data-alt="A stylized portrait of a young male music producer wearing high-end studio headphones. He is illuminated by striking rim lighting in bright neon orange and deep cyan against a dark navy background. The aesthetic is modern, intense, and fits a premium digital music platform." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDbjLEjAturraWfwCqj7Gb11XU4WfS_KuY76kFm0Sir_mHyO9GpEivxnJ0vocpiKHqmwTW-thIGHYQt8p0Kt9kFAZ-srx_VS4GdmD-hRULJQXdB9cUbCnnfsvP4di1VF_W8DDZUc5LHs2taFNwTA0nvk8baVrwab_iXhJH2YWa0B_dZpu885amlIoKsYj6J8p-E3uj4bL06yZOJmLHCI_mj2pzL7pakQtKrVbz0WYeMU5sV32uhJtamD47hctRfsPsJ3f6tSYSrIfM">
+<div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer">
+<span class="material-symbols-outlined text-white">photo_camera</span>
+</div>
+</div>
+<div class="mt-3 text-center md:text-left">
+<h2 class="font-headline-lg text-headline-lg text-on-background">VaporWave</h2>
+<div class="flex items-center justify-center md:justify-start gap-2 mt-1">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#F43F5E] text-white shadow-[0_0_15px_rgba(244,63,94,0.3)]">
+<span class="material-symbols-outlined text-[14px] mr-1" style="font-variation-settings: 'FILL' 1;">emoji_events</span>
+                                Arena Rank #14
+                            </span>
+<span class="text-on-surface-variant font-label-sm text-label-sm flex items-center">
+<span class="material-symbols-outlined text-[14px] mr-1 text-secondary">verified</span>
+                                Pro Producer
+                            </span>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-3 w-full md:w-auto">
+<button class="flex-1 md:flex-none bg-primary-container hover:bg-primary-container/90 text-on-primary-container font-headline-sm text-headline-sm py-2.5 px-6 rounded-lg transition-colors glow-button flex items-center justify-center gap-2">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">person_add</span>
+                        Follow
+                    </button>
+<button class="flex-1 md:flex-none glass-panel text-on-surface font-headline-sm text-headline-sm py-2.5 px-6 rounded-lg transition-colors flex items-center justify-center gap-2 hover:bg-white/10">
+<span class="material-symbols-outlined">chat_bubble</span>
+                        Message
+                    </button>
+</div>
+</div>
+</section>
+<!-- Stats & Bio Bento Grid -->
+<section class="grid grid-cols-1 md:grid-cols-3 gap-stack-md mb-stack-lg">
+<!-- Stats -->
+<div class="glass-panel rounded-xl p-6 flex flex-col justify-center col-span-1">
+<div class="grid grid-cols-3 gap-4 text-center divide-x divide-white/10">
+<div>
+<div class="font-headline-md text-headline-md text-on-background">12.5k</div>
+<div class="font-label-xs text-label-xs text-on-surface-variant uppercase tracking-wider mt-1">Followers</div>
+</div>
+<div>
+<div class="font-headline-md text-headline-md text-on-background">1.2M</div>
+<div class="font-label-xs text-label-xs text-on-surface-variant uppercase tracking-wider mt-1">Plays</div>
+</div>
+<div>
+<div class="font-headline-md text-headline-md text-on-background">45</div>
+<div class="font-label-xs text-label-xs text-on-surface-variant uppercase tracking-wider mt-1">Tracks</div>
+</div>
+</div>
+</div>
+<!-- Bio & Socials -->
+<div class="glass-panel rounded-xl p-6 col-span-1 md:col-span-2 flex flex-col justify-between">
+<p class="font-body-md text-body-md text-on-surface-variant italic border-l-2 border-primary pl-4 mb-4">
+                    "FL Studio power user. Making beats since 2018. Sound kits available below."
+                </p>
+<div class="flex items-center gap-4 text-on-surface-variant">
+<a class="hover:text-primary transition-colors flex items-center gap-2 font-label-sm text-label-sm" href="#">
+<span class="material-symbols-outlined" style="font-size: 20px;">language</span>
+                        Website
+                    </a>
+<a class="hover:text-primary transition-colors flex items-center gap-2 font-label-sm text-label-sm" href="#">
+<span class="material-symbols-outlined" style="font-size: 20px;">music_note</span>
+                        Spotify
+                    </a>
+<a class="hover:text-primary transition-colors flex items-center gap-2 font-label-sm text-label-sm" href="#">
+<span class="material-symbols-outlined" style="font-size: 20px;">camera_alt</span>
+                        Insta
+                    </a>
+</div>
+</div>
+</section>
+<!-- Content Split Layout -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-stack-lg">
+<!-- Left Column: Featured & Gear -->
+<div class="lg:col-span-1 flex flex-col gap-stack-lg">
+<!-- Featured Track -->
+<section>
+<h3 class="font-headline-sm text-headline-sm text-on-background mb-stack-sm flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary">star</span>
+                        Featured Track
+                    </h3>
+<div class="glass-panel rounded-xl overflow-hidden group cursor-pointer relative">
+<div class="aspect-square w-full relative">
+<img alt="Album Art" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="Abstract 3D rendering of glowing holographic liquid waves shifting through vibrant colors of hot pink, deep purple, and bright cyan. The style is vaporwave meets cyberpunk, suitable for electronic music album cover art. High contrast, dark background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuA30I4d--W0zxYqqdID0Ql2D_YfDEj9uABymzYQgn6xZ7Gg-FZ5VNj8uMnmWN1cEOZC15slArIdeTl7ZX7CLps_H8NrqNsXz0cJ1gpNOcMJQcS7SsWLdZEa_O8K-bKB3ZjGyDhcrfAcragZ94ov2z4J6-V-nQ1K_Wdo4btPtY6cKNACs6ZgfJZCiH65oEDMuE09Vueev4VXU3TK4oSYgHdVNjh-7DeMw8SYBw-t-f-c5Ds0jyaWHa5jUVNSudaAMy7tPr2GCeOeuzE">
+<!-- Play Overlay -->
+<div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+<button class="w-16 h-16 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center glow-button hover:scale-110 transition-transform">
+<span class="material-symbols-outlined" style="font-size: 32px; font-variation-settings: 'FILL' 1;">play_arrow</span>
+</button>
+</div>
+</div>
+<div class="p-4 bg-surface-container-high/90">
+<div class="font-headline-sm text-headline-sm text-on-background truncate">Neon Genesis (Original Mix)</div>
+<div class="font-label-sm text-label-sm text-on-surface-variant flex justify-between mt-1">
+<span>Synthwave</span>
+<span>3:42</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Studio Gear -->
+<section>
+<h3 class="font-headline-sm text-headline-sm text-on-background mb-stack-sm flex items-center gap-2">
+<span class="material-symbols-outlined text-outline">tune</span>
+                        Studio Gear
+                    </h3>
+<div class="flex flex-wrap gap-2">
+<span class="px-3 py-1.5 rounded-md glass-panel font-label-xs text-label-xs text-on-surface flex items-center gap-1.5">
+<span class="w-2 h-2 rounded-full bg-primary"></span>
+                            FL Studio 21
+                        </span>
+<span class="px-3 py-1.5 rounded-md glass-panel font-label-xs text-label-xs text-on-surface flex items-center gap-1.5">
+<span class="w-2 h-2 rounded-full bg-secondary"></span>
+                            KRK Rokit 5
+                        </span>
+<span class="px-3 py-1.5 rounded-md glass-panel font-label-xs text-label-xs text-on-surface flex items-center gap-1.5">
+<span class="w-2 h-2 rounded-full bg-tertiary"></span>
+                            Akai MPK Mini
+                        </span>
+</div>
+</section>
+</div>
+<!-- Right Column: Track List -->
+<div class="lg:col-span-2">
+<div class="flex justify-between items-end mb-stack-sm">
+<h3 class="font-headline-sm text-headline-sm text-on-background flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">queue_music</span>
+                        Recent Tracks
+                    </h3>
+<button class="font-label-sm text-label-sm text-secondary hover:text-primary transition-colors">View All</button>
+</div>
+<div class="flex flex-col gap-2">
+<!-- Track Item 1 -->
+<div class="glass-panel rounded-lg p-3 flex items-center gap-4 hover:bg-white/5 transition-colors group cursor-pointer">
+<div class="relative w-12 h-12 rounded bg-surface-container overflow-hidden flex-shrink-0">
+<img alt="Track art" class="w-full h-full object-cover" data-alt="Minimalist abstract gradient blending dark navy, bright cyan, and subtle orange. Subtle noise texture adds a gritty, analog feel. Suitable for electronic music single artwork." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCVkJLVYwEB5FzZWl4wXHIQaav_unigWqIgP0eVoth7dSYEUvyAeOQnc50Q1y6NFOOjbcjqb69Tij894N_KDE7ENnWsoUJtY_iwxO2uLIQZkjg7kFmjOKEIvi7tzH3vpd5jwQHhZlOSdozFIEnu4PFUVPgi5lHOLZL-abUysH2GBQ6lMcUph8TtULM5bzQjoiMX8oBmXp5oeI_Bm3dH24lvqUIEB__gt2XN4HDGHmzA7Lw082MCbT80dnArn3kEU-1F9aTqSwM-a5M">
+<div class="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-white" style="font-variation-settings: 'FILL' 1;">play_arrow</span>
+</div>
+</div>
+<div class="flex-1 min-w-0">
+<div class="font-headline-sm text-headline-sm text-on-background truncate group-hover:text-primary transition-colors">Cyberdrift</div>
+<div class="font-label-xs text-label-xs text-on-surface-variant flex items-center gap-2 mt-0.5">
+<span>124 BPM</span>
+<span class="w-1 h-1 rounded-full bg-on-surface-variant/50"></span>
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[12px]">play_arrow</span> 45k</span>
+</div>
+</div>
+<div class="hidden sm:flex items-center gap-3">
+<div class="w-24 h-6 bg-cyan-500/20 rounded relative overflow-hidden">
+<div class="absolute inset-y-0 left-0 bg-cyan-500 w-[65%] opacity-40"></div>
+<!-- Decorative waveform lines -->
+<div class="absolute inset-0 flex items-center justify-between px-1 opacity-50">
+<div class="w-0.5 h-full bg-white"></div><div class="w-0.5 h-3/4 bg-white"></div><div class="w-0.5 h-1/2 bg-white"></div><div class="w-0.5 h-full bg-white"></div><div class="w-0.5 h-1/4 bg-white"></div><div class="w-0.5 h-3/4 bg-white"></div><div class="w-0.5 h-1/2 bg-white"></div><div class="w-0.5 h-full bg-white"></div><div class="w-0.5 h-1/4 bg-white"></div><div class="w-0.5 h-3/4 bg-white"></div>
+</div>
+<div class="absolute top-0 bottom-0 left-[65%] w-[2px] bg-white shadow-[0_0_8px_white]"></div>
+</div>
+</div>
+<button class="text-on-surface-variant hover:text-white p-2">
+<span class="material-symbols-outlined">more_horiz</span>
+</button>
+</div>
+<!-- Track Item 2 -->
+<div class="glass-panel rounded-lg p-3 flex items-center gap-4 hover:bg-white/5 transition-colors group cursor-pointer">
+<div class="relative w-12 h-12 rounded bg-surface-container overflow-hidden flex-shrink-0">
+<img alt="Track art" class="w-full h-full object-cover" data-alt="Abstract macro photography of ferrofluid formations under colored gel lights, creating deep black spiky shapes with bright orange highlights. Premium dark aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAQdHwe6bvlRCLpAUgIEYNcs8l92_gfx3_f1dcGU9Fw2gqBClsrAhsP_QRCbSSHtB0PxlcmYWHyyqK62HDNATO-mrSdkRsN0xTrNkoQatIxNlHJqClk8BXKmDIEjp9owMeidbC062MONVeWjr6PjlWGGZ3N7LBPgsIGMeAmHQkZuiOKCLzPw6yIZ0eenbJaF6kaywNgoqI7XrrNsJ-FPgh8Wy3oJKAbAuHjrtcjZxBdkfc6BBHnyiBp-5ebb8hFiNCUgK7nZCvzIbw">
+<div class="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-white" style="font-variation-settings: 'FILL' 1;">play_arrow</span>
+</div>
+</div>
+<div class="flex-1 min-w-0">
+<div class="font-headline-sm text-headline-sm text-on-background truncate group-hover:text-primary transition-colors">Midnight Protocol</div>
+<div class="font-label-xs text-label-xs text-on-surface-variant flex items-center gap-2 mt-0.5">
+<span>140 BPM</span>
+<span class="w-1 h-1 rounded-full bg-on-surface-variant/50"></span>
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[12px]">play_arrow</span> 12k</span>
+</div>
+</div>
+<div class="hidden sm:flex items-center gap-3">
+<div class="w-24 h-6 bg-cyan-500/20 rounded relative overflow-hidden">
+<div class="absolute inset-y-0 left-0 bg-cyan-500 w-[15%] opacity-40"></div>
+<!-- Decorative waveform lines -->
+<div class="absolute inset-0 flex items-center justify-between px-1 opacity-50">
+<div class="w-0.5 h-1/4 bg-white"></div><div class="w-0.5 h-3/4 bg-white"></div><div class="w-0.5 h-full bg-white"></div><div class="w-0.5 h-1/2 bg-white"></div><div class="w-0.5 h-1/4 bg-white"></div><div class="w-0.5 h-full bg-white"></div><div class="w-0.5 h-3/4 bg-white"></div><div class="w-0.5 h-1/2 bg-white"></div><div class="w-0.5 h-1/4 bg-white"></div><div class="w-0.5 h-full bg-white"></div>
+</div>
+<div class="absolute top-0 bottom-0 left-[15%] w-[2px] bg-white shadow-[0_0_8px_white]"></div>
+</div>
+</div>
+<button class="text-on-surface-variant hover:text-white p-2">
+<span class="material-symbols-outlined">more_horiz</span>
+</button>
+</div>
+<!-- Track Item 3 -->
+<div class="glass-panel rounded-lg p-3 flex items-center gap-4 hover:bg-white/5 transition-colors group cursor-pointer">
+<div class="relative w-12 h-12 rounded bg-surface-container overflow-hidden flex-shrink-0">
+<img alt="Track art" class="w-full h-full object-cover" data-alt="A dark, moody close-up of an analog synthesizer circuit board lit by intense red and orange LED lights. Gritty, industrial, late-night studio aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDaTJt8sme91cw8ZXh1S7GHtu4lwra9VTDRGyk0Bpa14peX9kx1etfzjoJ8fJ_9WihPZ15Op5lZzCu1HzmdSNOqCoKQg2bbh7_lt9LLIi4pBFEUPdHyzSOyMWuJRFYEje8WdbByVzWdlHTZjdfeIpZ0Bs4ZStfYQYp4eCei-xnIx3YVr00eLI7jvUsx0FvyLbhT_K6jPuz1Indv-MbtlCTqGCYiGWNejUD46dilUjsGosy-3PIHXL-6sMCX4Q3fZH1y7oDvQk3Dk3M">
+<div class="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-white" style="font-variation-settings: 'FILL' 1;">play_arrow</span>
+</div>
+</div>
+<div class="flex-1 min-w-0">
+<div class="font-headline-sm text-headline-sm text-on-background truncate group-hover:text-primary transition-colors">Analog Dreams</div>
+<div class="font-label-xs text-label-xs text-on-surface-variant flex items-center gap-2 mt-0.5">
+<span>95 BPM</span>
+<span class="w-1 h-1 rounded-full bg-on-surface-variant/50"></span>
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[12px]">play_arrow</span> 8.2k</span>
+</div>
+</div>
+<div class="hidden sm:flex items-center gap-3">
+<div class="w-24 h-6 bg-cyan-500/20 rounded relative overflow-hidden">
+<div class="absolute inset-y-0 left-0 bg-cyan-500 w-[0%] opacity-40"></div>
+<!-- Decorative waveform lines -->
+<div class="absolute inset-0 flex items-center justify-between px-1 opacity-50">
+<div class="w-0.5 h-1/2 bg-white"></div><div class="w-0.5 h-1/4 bg-white"></div><div class="w-0.5 h-3/4 bg-white"></div><div class="w-0.5 h-1/2 bg-white"></div><div class="w-0.5 h-full bg-white"></div><div class="w-0.5 h-1/4 bg-white"></div><div class="w-0.5 h-1/2 bg-white"></div><div class="w-0.5 h-3/4 bg-white"></div><div class="w-0.5 h-1/4 bg-white"></div><div class="w-0.5 h-1/2 bg-white"></div>
+</div>
+<div class="absolute top-0 bottom-0 left-[0%] w-[2px] bg-white shadow-[0_0_8px_white] hidden"></div>
+</div>
+</div>
+<button class="text-on-surface-variant hover:text-white p-2">
+<span class="material-symbols-outlined">more_horiz</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Persistent Mini Player -->
+<div class="fixed bottom-[88px] md:bottom-[72px] left-0 w-full z-40 px-2 md:px-container-margin pointer-events-none">
+<div class="max-w-4xl mx-auto pointer-events-auto">
+<div class="glass-panel rounded-xl p-2 md:p-3 flex items-center gap-3 md:gap-4 shadow-[0_-10px_40px_rgba(0,0,0,0.5)] border border-white/10">
+<div class="w-10 h-10 md:w-12 md:h-12 rounded bg-surface-container overflow-hidden flex-shrink-0">
+<img alt="Now Playing Art" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAd4BBoHIivcmz7OLap2HdIQeKMjeIog0D_GGteQaxFgSOmdYqHVERBEblR5nwuiC529R5a4ynKGFzka5gNn1z3UE8MS7WSEfTquPhIVH7tcEEL8It_vi0ZcHdEZEuNWHxjdTGKjTG3_IxhGsQWAnE2wGvGZZ7g1I0dUg48i4VA-Lox-AQJgGYpiBMod5KwMCuHPXorvdNlcwsLBFgmrR8LRhZdGEw-j_gDU2JGY4xkr1IIZWMw6312yPwCOSN1JSBeI4wLwiBQq4k">
+</div>
+<div class="flex-1 min-w-0">
+<div class="font-headline-sm text-headline-sm text-on-background truncate text-sm md:text-base">Neon Genesis (Original Mix)</div>
+<div class="font-label-xs text-label-xs text-secondary truncate">VaporWave</div>
+</div>
+<!-- Simple Waveform -->
+<div class="hidden md:block flex-1 max-w-[200px] h-6 bg-cyan-500/20 rounded relative overflow-hidden mx-4">
+<div class="absolute inset-y-0 left-0 bg-cyan-500 w-[35%] opacity-40"></div>
+<div class="absolute inset-0 flex items-center justify-between px-1 opacity-50">
+<div class="w-0.5 h-full bg-white"></div><div class="w-0.5 h-3/4 bg-white"></div><div class="w-0.5 h-1/2 bg-white"></div><div class="w-0.5 h-full bg-white"></div><div class="w-0.5 h-1/4 bg-white"></div><div class="w-0.5 h-3/4 bg-white"></div><div class="w-0.5 h-1/2 bg-white"></div><div class="w-0.5 h-full bg-white"></div><div class="w-0.5 h-1/4 bg-white"></div><div class="w-0.5 h-3/4 bg-white"></div><div class="w-0.5 h-full bg-white"></div><div class="w-0.5 h-1/2 bg-white"></div>
+</div>
+<div class="absolute top-0 bottom-0 left-[35%] w-[2px] bg-white shadow-[0_0_8px_white]"></div>
+</div>
+<div class="flex items-center gap-1 md:gap-2">
+<button class="text-on-surface-variant hover:text-white p-1 md:p-2 hidden sm:block">
+<span class="material-symbols-outlined">skip_previous</span>
+</button>
+<button class="w-8 h-8 md:w-10 md:h-10 rounded-full bg-white text-black flex items-center justify-center hover:scale-105 transition-transform">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">pause</span>
+</button>
+<button class="text-on-surface-variant hover:text-white p-1 md:p-2 hidden sm:block">
+<span class="material-symbols-outlined">skip_next</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Floating Upload Button -->
+<button class="fixed bottom-[140px] md:bottom-[100px] right-container-margin z-40 w-14 h-14 bg-primary-container text-on-primary-container rounded-full flex items-center justify-center shadow-heavy glow-button hover:scale-105 transition-transform">
+<span class="material-symbols-outlined" style="font-size: 28px;">upload</span>
+</button>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-2 pb-safe pt-2 bg-surface/70 backdrop-blur-xl border-t border-white/10 shadow-heavy rounded-t-xl h-[72px] md:hidden">
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary transition-colors flex-1 py-1" href="#">
+<span class="material-symbols-outlined mb-1">home</span>
+<span class="font-label-xs text-label-xs">Home</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary transition-colors flex-1 py-1" href="#">
+<span class="material-symbols-outlined mb-1">leaderboard</span>
+<span class="font-label-xs text-label-xs">Charts</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary transition-colors flex-1 py-1" href="#">
+<span class="material-symbols-outlined mb-1">local_fire_department</span>
+<span class="font-label-xs text-label-xs">Battles</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary transition-colors flex-1 py-1" href="#">
+<span class="material-symbols-outlined mb-1">dynamic_feed</span>
+<span class="font-label-xs text-label-xs">Feed</span>
+</a>
+<a class="flex flex-col items-center justify-center text-primary drop-shadow-[0_0_10px_rgba(242,120,10,0.5)] scale-90 transition-transform flex-1 py-1" href="#">
+<span class="material-symbols-outlined mb-1" style="font-variation-settings: 'FILL' 1;">person</span>
+<span class="font-label-xs text-label-xs">Profile</span>
+</a>
+</nav>
+<script>
+(function(){
+  var map={Home:"home.html",Charts:"top-charts.html",Profile:"artist-profile.html",Battles:"index.html",Feed:"index.html"};
+  document.querySelectorAll("nav a").forEach(function(a){
+    var spans=a.querySelectorAll("span");
+    for(var i=0;i<spans.length;i++){var t=(spans[i].textContent||"").trim();if(map[t]){a.setAttribute("href",map[t]);break;}}
+  });
+})();
+</script>
+</body></html>

@@ -1,0 +1,313 @@
+<!DOCTYPE html><html class="dark" lang="en"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Fuji Studio - Now Playing</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                            "on-primary": "#512300",
+                            "on-secondary-fixed": "#001f26",
+                            "tertiary": "#ffb2b7",
+                            "secondary-fixed": "#acedff",
+                            "primary-fixed-dim": "#ffb689",
+                            "tertiary-fixed-dim": "#ffb2b7",
+                            "on-secondary-container": "#00424e",
+                            "on-surface-variant": "#dec1b0",
+                            "on-surface": "#dfe2f1",
+                            "error-container": "#93000a",
+                            "tertiary-container": "#ff6779",
+                            "on-tertiary-fixed-variant": "#92002a",
+                            "on-error": "#690005",
+                            "error": "#ffb4ab",
+                            "on-tertiary-fixed": "#40000d",
+                            "secondary-container": "#03b5d3",
+                            "primary-fixed": "#ffdbc8",
+                            "surface-variant": "#313540",
+                            "secondary-fixed-dim": "#4cd7f6",
+                            "surface-dim": "#0f131d",
+                            "inverse-surface": "#dfe2f1",
+                            "inverse-primary": "#984800",
+                            "surface-tint": "#ffb689",
+                            "on-tertiary": "#67001b",
+                            "on-secondary": "#003640",
+                            "surface-container-highest": "#313540",
+                            "on-tertiary-container": "#6b001c",
+                            "on-background": "#dfe2f1",
+                            "secondary": "#4cd7f6",
+                            "on-primary-fixed": "#311300",
+                            "surface-container": "#1c1f2a",
+                            "surface-bright": "#353944",
+                            "background": "#0f131d",
+                            "primary-container": "#f2780a",
+                            "surface-container-high": "#262a35",
+                            "on-primary-container": "#542500",
+                            "outline": "#a68b7c",
+                            "surface": "#0f131d",
+                            "on-error-container": "#ffdad6",
+                            "on-secondary-fixed-variant": "#004e5c",
+                            "surface-container-lowest": "#0a0e18",
+                            "primary": "#ffb689",
+                            "outline-variant": "#574236",
+                            "inverse-on-surface": "#2c303b",
+                            "on-primary-fixed-variant": "#733500",
+                            "tertiary-fixed": "#ffdadb",
+                            "surface-container-low": "#171b26"
+                    },
+                    "borderRadius": {
+                            "DEFAULT": "0.25rem",
+                            "lg": "0.5rem",
+                            "xl": "0.75rem",
+                            "full": "9999px"
+                    },
+                    "spacing": {
+                            "stack-md": "1rem",
+                            "container-margin": "1rem",
+                            "stack-sm": "0.5rem",
+                            "stack-lg": "1.5rem",
+                            "gutter": "0.75rem"
+                    },
+                    "fontFamily": {
+                            "label-sm": ["Inter"],
+                            "headline-md": ["Inter"],
+                            "headline-sm": ["Inter"],
+                            "headline-lg": ["Inter"],
+                            "label-xs": ["Inter"],
+                            "body-md": ["Inter"]
+                    },
+                    "fontSize": {
+                            "label-sm": ["12px", {"lineHeight": "18px", "fontWeight": "400"}],
+                            "headline-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                            "headline-sm": ["16px", {"lineHeight": "24px", "fontWeight": "600"}],
+                            "headline-lg": ["28px", {"lineHeight": "34px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                            "label-xs": ["10px", {"lineHeight": "14px", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                            "body-md": ["14px", {"lineHeight": "22.4px", "fontWeight": "400"}]
+                    }
+                }
+            }
+        }
+    </script>
+<style>.material-symbols-outlined {
+    font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24
+    }
+.icon-fill {
+    font-variation-settings: "FILL" 1, "wght" 400, "GRAD" 0, "opsz" 24
+    }
+/* Custom scrollbar for webkit */
+::-webkit-scrollbar {
+    width: 4px;
+    height: 4px
+    }
+::-webkit-scrollbar-track {
+    background: transparent
+    }
+::-webkit-scrollbar-thumb {
+    background: #313540;
+    border-radius: 4px
+    }
+/* Glow effects */
+.glow-primary {
+    box-shadow: 0 0 20px rgba(242, 120, 10, 0.25)
+    }
+.glow-play {
+    box-shadow: 0 0 30px rgba(242, 120, 10, 0.4)
+    }
+/* Glass panel */
+.glass-panel {
+    background: rgba(15, 19, 29, 0.7);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border-top: 1px solid rgba(255, 255, 255, 0.1)
+    }
+/* Ambient Background Overlay */
+.ambient-bg {
+    position: fixed;
+    top: -20%;
+    left: -20%;
+    width: 140%;
+    height: 140%;
+    background-image: url(https://lh3.googleusercontent.com/aida-public/AB6AXuC3bXj2ilph52oE1SNf4L_MB44TWPA0VOnAexOgZYSWhoBv-JAjSkAuf2IDD-c4YxHjRQYjWZNe8MUW1WrUVrfecs3FKVj6T4G-QqwDETTjypOZGTnR2AsEYq7i3682p5Odw5U7Q2Y0Wy6kUkDULJgfXP_16_AZZmL1DbeQaWR79OpKDyydm5I5dmG8vAm9ReV9MEEltDhnfj5a95cD-qbfOnvZkYvkYv4KkDWWDW41epupL7H9N3J6cPOqc8bSZP9gxmXtQROCTus);
+    background-size: cover;
+    background-position: center;
+    filter: blur(80px) saturate(1.5) brightness(0.4);
+    z-index: -1;
+    opacity: 0.8;
+    pointer-events: none
+    }
+/* Waveform simulation */
+.waveform-bar {
+    width: 3px;
+    background-color: #06B6D4;
+    border-radius: 2px;
+    display: inline-block;
+    margin: 0 1px
+    }
+.waveform-bar.active {
+    background-color: #F2780A;
+    box-shadow: 0 0 8px rgba(242, 120, 10, 0.5)
+    }
+.waveform-bar.inactive {
+    background-color: rgba(6, 182, 212, 0.3)
+    }</style>
+</head>
+<body class="bg-background text-on-surface antialiased overflow-x-hidden selection:bg-primary-container selection:text-white">
+<!-- Ambient Blurred Background -->
+<div class="ambient-bg" data-alt="A macro shot of vibrant neon fluid dynamics in deep purple, electric cyan, and hot orange. The liquid forms abstract, smooth curves and gradients reminiscent of a sunset. The lighting is emissive and glowing, creating a high-contrast, moody late-night studio atmosphere. The texture is smooth and glassy."></div>
+<!-- Main Container -->
+<main class="min-h-screen flex flex-col relative z-10 w-full max-w-2xl mx-auto pb-8">
+<!-- Header (Dismiss / Title / Share) -->
+<header class="flex justify-between items-center px-container-margin py-stack-md pt-safe sticky top-0 z-50">
+<button aria-label="Dismiss" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/10 transition-colors">
+<span class="material-symbols-outlined text-on-surface text-[28px]">expand_more</span>
+</button>
+<h1 class="font-headline-sm text-headline-sm text-on-surface tracking-wide uppercase opacity-80">Now Playing</h1>
+<button aria-label="Share" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/10 transition-colors">
+<span class="material-symbols-outlined text-on-surface text-[24px]">ios_share</span>
+</button>
+</header>
+<div class="px-container-margin flex flex-col gap-stack-lg flex-1">
+<!-- Album Art -->
+<div class="w-full aspect-square rounded-2xl overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.6)] border border-white/10 relative group">
+<img alt="Neon Sunset Cover Art" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" data-alt="A striking abstract digital artwork featuring a glowing neon sunset over a stylized cyberpunk wireframe landscape. Deep purples, hot pinks, and electric oranges dominate the color palette. The aesthetic is synthwave and retrowave inspired, with high contrast, emissive lighting, and a dark, moody atmosphere perfect for a late-night music production environment." src="https://lh3.googleusercontent.com/aida-public/AB6AXuA9-g8jo1MMvMHOsHpjpSgzP1AcPgiiTVt9K0Zq_QmY4QKtBpoCe9Fa4L0rCuCBxQesJF6VdfVNfiQ9UkuYQfrNBzgHwoSqC7JIiv1E8BS-_DUR8qN4suvCoem9WwZdPL2Ojcw9q0acj9AF5PFyucEuNU2TbNnUwp0EEVuCdddUlLjEfW4-oAgkhqj18iu2E4yHPiN34ZKiREV_QDjl_5OUBrwl4D8y1Ffy0F5o99VmPX0ku_I5aNZzrEbEpWrUDS8F-tVNuqxhgKE">
+<!-- Overlay Gradients -->
+<div class="absolute inset-0 bg-gradient-to-t from-background/80 via-transparent to-transparent pointer-events-none"></div>
+<div class="absolute inset-0 ring-1 ring-inset ring-white/10 rounded-2xl pointer-events-none"></div>
+</div>
+<!-- Track Info & Metadata -->
+<div class="flex flex-col gap-stack-sm">
+<div class="flex justify-between items-start">
+<div class="flex flex-col gap-1">
+<h2 class="font-headline-lg text-headline-lg text-white">Neon Sunset</h2>
+<button class="text-left font-headline-md text-headline-md text-secondary hover:text-secondary-fixed-dim transition-colors w-fit">
+                            AstroBeat
+                        </button>
+</div>
+<button aria-label="Add to favorites" class="w-12 h-12 flex items-center justify-center rounded-full bg-surface-container hover:bg-surface-container-high transition-colors border border-white/5">
+<span class="material-symbols-outlined icon-fill text-primary-container text-[28px] drop-shadow-[0_0_8px_rgba(242,120,10,0.4)]">favorite</span>
+</button>
+</div>
+<!-- Tags & Technical Chips -->
+<div class="flex flex-wrap items-center gap-2 mt-2">
+<span class="px-3 py-1 rounded-full bg-surface-container-high text-on-surface font-label-xs text-label-xs border border-white/5">#Phonk</span>
+<span class="px-3 py-1 rounded-full bg-surface-container-high text-on-surface font-label-xs text-label-xs border border-white/5">#LoFi</span>
+<div class="h-4 w-px bg-white/20 mx-1"></div>
+<span class="px-3 py-1 rounded-sm bg-[#111827] text-secondary font-label-xs text-[11px] border border-[#1E293B] tracking-wider">128 BPM</span>
+<span class="px-3 py-1 rounded-sm bg-[#111827] text-secondary font-label-xs text-[11px] border border-[#1E293B] tracking-wider">Am</span>
+</div>
+</div>
+<!-- Waveform & Progress -->
+<div class="flex flex-col gap-2 mt-2">
+<!-- Interactive Waveform Simulation -->
+<div class="w-full h-16 flex items-center justify-between gap-px cursor-pointer group" id="waveform-container">
+<!-- Javascript will populate bars here to simulate waveform -->
+</div>
+<div class="flex justify-between items-center font-label-sm text-label-sm text-on-surface-variant">
+<span class="text-primary tracking-widest font-medium drop-shadow-[0_0_4px_rgba(242,120,10,0.5)]">1:24</span>
+<span class="tracking-widest">3:45</span>
+</div>
+</div>
+<!-- Playback Controls -->
+<div class="flex items-center justify-center gap-6 py-stack-md">
+<button aria-label="Shuffle" class="w-12 h-12 flex items-center justify-center text-on-surface-variant hover:text-white transition-colors">
+<span class="material-symbols-outlined text-[24px]">shuffle</span>
+</button>
+<button aria-label="Previous" class="w-14 h-14 flex items-center justify-center text-white hover:text-primary transition-colors">
+<span class="material-symbols-outlined icon-fill text-[36px]">skip_previous</span>
+</button>
+<button aria-label="Play/Pause" class="w-20 h-20 flex items-center justify-center rounded-full bg-primary-container text-white glow-play hover:scale-105 active:scale-95 transition-all duration-300">
+<span class="material-symbols-outlined icon-fill text-[40px] ml-1">play_arrow</span>
+</button>
+<button aria-label="Next" class="w-14 h-14 flex items-center justify-center text-white hover:text-primary transition-colors">
+<span class="material-symbols-outlined icon-fill text-[36px]">skip_next</span>
+</button>
+<button aria-label="Repeat" class="w-12 h-12 flex items-center justify-center text-on-surface-variant hover:text-white transition-colors">
+<span class="material-symbols-outlined text-[24px]">repeat</span>
+</button>
+</div>
+<!-- Action Row -->
+<div class="flex justify-around items-center border-y border-white/5 py-4 mt-2">
+<button class="flex flex-col items-center gap-1 text-on-surface-variant hover:text-white transition-colors">
+<span class="material-symbols-outlined text-[24px]">repeat_on</span>
+<span class="font-label-xs text-[9px] uppercase tracking-wider">Repost</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-on-surface-variant hover:text-white transition-colors">
+<span class="material-symbols-outlined text-[24px]">playlist_add</span>
+<span class="font-label-xs text-[9px] uppercase tracking-wider">Playlist</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-on-surface-variant hover:text-white transition-colors">
+<span class="material-symbols-outlined text-[24px]">download</span>
+<span class="font-label-xs text-[9px] uppercase tracking-wider">Download</span>
+</button>
+</div>
+<!-- Stems Mixer (Expandable) -->
+<div class="bg-surface-container/50 border border-white/5 rounded-xl overflow-hidden backdrop-blur-md mt-4">
+<div class="flex justify-between items-center p-4 cursor-pointer hover:bg-white/5 transition-colors">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary text-[20px]">tune</span>
+<h3 class="font-headline-sm text-headline-sm text-white">Stems Mixer</h3>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant">expand_more</span>
+</div>
+</div>
+<!-- Comments Preview -->
+<div class="bg-surface-container/50 border border-white/5 rounded-xl p-4 flex gap-4 mt-2 backdrop-blur-md">
+<div class="w-10 h-10 rounded-full bg-surface-container-high overflow-hidden shrink-0 border border-white/10">
+<img alt="User Avatar" class="w-full h-full object-cover" data-alt="A close up portrait of a young person in a dimly lit environment, illuminated by sharp, colorful neon lights in cyan and magenta. They are wearing headphones, giving off a music producer vibe. The background is dark and out of focus." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAL53aMhJ5Tphko-DNnfOiV6f5054UDPYusn-6qqzuJael-5N3E7kGeDYtK0-zWXsEcbaE2G99bg0qKpx565iEW8DCcDl7ABn6E77WtTAUBxg3OS88gy59TUhkLdK9V4wjm8KaA-29n4qlsDx-0FbK8BRkDL-K6VJM5kLX9o75D89MTbGpnVsULUhYnWNLWKA864TY_5-WLRl0vyEH-1L71IMiSBG2YBnjmrhFU0pDv0XQAQNF8euEVf_GCfnvxjMknGX_Ooc51WWQ">
+</div>
+<div class="flex flex-col flex-1">
+<div class="flex justify-between items-baseline">
+<span class="font-label-sm text-label-sm font-semibold text-secondary">@BassHead99</span>
+<span class="font-label-xs text-label-xs text-on-surface-variant opacity-70">1:24</span>
+</div>
+<p class="font-body-md text-body-md text-white mt-1">Sick bassline right here! The glide is perfect 🔥</p>
+</div>
+</div>
+</div>
+</main>
+<script>
+        // Simple script to generate a fake waveform
+        document.addEventListener('DOMContentLoaded', () => {
+            const container = document.getElementById('waveform-container');
+            const numBars = 80;
+            const progress = 0.35; // 35% played (1:24 / 3:45 approx)
+            
+            for (let i = 0; i < numBars; i++) {
+                const bar = document.createElement('div');
+                // Generate varied heights for waveform aesthetic
+                const height = Math.random() * 80 + 20; 
+                
+                bar.className = `waveform-bar h-[${height}%]`;
+                bar.style.height = `${height}%`;
+                
+                if (i / numBars < progress) {
+                    bar.classList.add('active');
+                } else if (i / numBars === progress) {
+                    // Playhead indicator
+                    bar.style.backgroundColor = '#FFFFFF';
+                    bar.style.width = '2px';
+                    bar.style.height = '100%';
+                    bar.style.boxShadow = '0 0 10px rgba(255,255,255,0.8)';
+                } else {
+                    bar.classList.add('inactive');
+                }
+                
+                container.appendChild(bar);
+            }
+        });
+    </script>
+<script>
+(function(){
+  var map={Home:"home.html",Charts:"top-charts.html",Profile:"artist-profile.html",Battles:"index.html",Feed:"index.html"};
+  document.querySelectorAll("nav a").forEach(function(a){
+    var spans=a.querySelectorAll("span");
+    for(var i=0;i<spans.length;i++){var t=(spans[i].textContent||"").trim();if(map[t]){a.setAttribute("href",map[t]);break;}}
+  });
+})();
+</script>
+</body></html>
