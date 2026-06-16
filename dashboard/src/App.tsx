@@ -89,6 +89,9 @@ const FrontpageVHub          = lazy(() => import("./pages/FrontpageVHub").then(m
 const FrontpageEditorialMix  = lazy(() => import("./pages/FrontpageEditorialMix").then(m => ({ default: m.FrontpageEditorialMix })));
 const FrontpageNeon          = lazy(() => import("./pages/FrontpageNeon").then(m => ({ default: m.FrontpageNeon })));
 const MobilePreviewNowPlaying = lazy(() => import("./pages/MobilePreviewNowPlaying").then(m => ({ default: m.MobilePreviewNowPlaying })));
+const MobilePreviewHome      = lazy(() => import("./pages/MobilePreviewHome").then(m => ({ default: m.MobilePreviewHome })));
+const MobilePreviewCharts    = lazy(() => import("./pages/MobilePreviewCharts").then(m => ({ default: m.MobilePreviewCharts })));
+const MobilePreviewProfile   = lazy(() => import("./pages/MobilePreviewProfile").then(m => ({ default: m.MobilePreviewProfile })));
 const PausePage              = lazy(() => import("./pages/Pause").then(m => ({ default: m.PausePage })));
 const ServerBoostPage        = lazy(() => import("./pages/ServerBoost").then(m => ({ default: m.ServerBoostPage })));
 const VoiceStatsPage         = lazy(() => import("./pages/VoiceStats").then(m => ({ default: m.VoiceStatsPage })));
@@ -892,6 +895,15 @@ const AppInternal: React.FC = () => {
   // Mobile redesign previews (Stitch mockups rebuilt as CSP-safe React) — access by URL only
   if (currentPath === '/preview/mobile-now-playing') {
     return <Suspense fallback={<PageSpinner />}><MobilePreviewNowPlaying /></Suspense>;
+  }
+  if (currentPath === '/preview/mobile-home') {
+    return <Suspense fallback={<PageSpinner />}><MobilePreviewHome /></Suspense>;
+  }
+  if (currentPath === '/preview/mobile-charts') {
+    return <Suspense fallback={<PageSpinner />}><MobilePreviewCharts /></Suspense>;
+  }
+  if (currentPath === '/preview/mobile-profile') {
+    return <Suspense fallback={<PageSpinner />}><MobilePreviewProfile /></Suspense>;
   }
 
   // Artist Discovery homepage
