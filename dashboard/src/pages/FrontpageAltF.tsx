@@ -77,7 +77,7 @@ export const FrontpageAltF: React.FC = () => {
         <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', background: BG, color: TEXT, fontFamily: FONT }}>
             <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
                 {/* Left sidebar */}
-                <aside style={{ width: 256, background: S_LOWEST, borderRight: `1px solid ${BORDER}`, display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
+                <aside style={{ width: 256, background: S_LOWEST, borderRight: `1px solid ${BORDER}`, display: 'flex', flexDirection: 'column', flexShrink: 0, paddingBottom: cur ? 90 : 0 }}>
                     <div style={{ padding: '24px', display: 'flex', alignItems: 'center', gap: 12 }}>
                         <img src="/logo.svg" alt="" style={{ width: 32, height: 32, objectFit: 'contain' }} />
                         <div>
@@ -200,7 +200,7 @@ export const FrontpageAltF: React.FC = () => {
                 </main>
 
                 {/* Right sidebar */}
-                <aside style={{ width: 288, background: BG, borderLeft: `1px solid ${BORDER}`, display: 'flex', flexDirection: 'column', flexShrink: 0, overflowY: 'auto' }}>
+                <aside style={{ width: 288, background: BG, borderLeft: `1px solid ${BORDER}`, display: 'flex', flexDirection: 'column', flexShrink: 0, overflowY: 'auto', paddingBottom: cur ? 90 : 0 }}>
                     <div style={{ padding: '24px 16px', borderBottom: `1px solid ${BORDER}` }}>
                         <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>Community Activity</h3>
                     </div>
@@ -245,40 +245,7 @@ export const FrontpageAltF: React.FC = () => {
                 </aside>
             </div>
 
-            {/* Bottom player bar — only shown while a track is playing */}
-            {cur && (
-            <footer style={{ height: 90, background: S_HIGHEST, borderTop: `1px solid ${BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', flexShrink: 0 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 16, width: '30%', minWidth: 180 }}>
-                    <div style={{ width: 56, height: 56, borderRadius: 6, overflow: 'hidden', background: S_HIGH, flexShrink: 0 }}>{cur.cover && <img src={cur.cover} alt="" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}</div>
-                    <div style={{ minWidth: 0 }}>
-                        <div style={{ fontSize: 14, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{cur.title}</div>
-                        <div style={{ fontSize: 12, color: SUB, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{(cur as any).artist || ''}</div>
-                    </div>
-                    <Heart size={20} color={SUB} style={{ flexShrink: 0 }} />
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, maxWidth: '40%' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 24, marginBottom: 6 }}>
-                        <Shuffle size={20} color={SUB} />
-                        <SkipBack size={22} fill={TEXT} color={TEXT} />
-                        <button onClick={togglePlay} disabled={!cur} style={{ width: 36, height: 36, borderRadius: '50%', background: '#fff', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: cur ? 'pointer' : 'default', opacity: cur ? 1 : 0.4 }}>
-                            {isPlaying ? <Pause size={20} fill="#000" /> : <Play size={20} fill="#000" style={{ marginLeft: 2 }} />}
-                        </button>
-                        <SkipForward size={22} fill={TEXT} color={TEXT} />
-                        <Repeat size={20} color={SUB} />
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', maxWidth: 480 }}>
-                        <span style={{ fontSize: 11, color: SUB, minWidth: 35, textAlign: 'right' }}>{fmt(player.currentTime)}</span>
-                        <div onClick={(e) => { if (player.duration) { const r = e.currentTarget.getBoundingClientRect(); seek(((e.clientX - r.left) / r.width) * player.duration); } }} style={{ height: 4, background: S_VAR, borderRadius: 9999, flex: 1, cursor: 'pointer' }}>
-                            <div style={{ height: '100%', width: `${progress * 100}%`, background: PRIMARY, borderRadius: 9999 }} />
-                        </div>
-                        <span style={{ fontSize: 11, color: SUB, minWidth: 35 }}>{fmt(player.duration)}</span>
-                    </div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 12, width: '30%', minWidth: 180, color: SUB }}>
-                    <Mic size={20} /><ListMusic size={20} /><Volume2 size={20} />
-                </div>
-            </footer>
-            )}
+            {/* No custom player bar here — the global GlobalPlayer (mounted in App) handles playback. */}
         </div>
     );
 };
