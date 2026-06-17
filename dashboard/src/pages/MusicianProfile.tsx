@@ -6,6 +6,8 @@ import axios from 'axios';
 import { User } from 'lucide-react';
 import { MusicianProfilePublic } from './MusicianProfilePublic';
 import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
+import { useMobile } from '../hooks/useMobile';
+import { ProfileMobile } from '../components/mobile/ProfileMobile';
 
 interface ProfileData {
     id?: string;
@@ -20,6 +22,7 @@ export const MusicianProfilePage: React.FC = () => {
     const { user, loading: authLoading } = useAuth();
     const { pathname } = useLocation();
     const navigate = useNavigate();
+    const isMobile = useMobile(1024);
     const [profile, setProfile] = useState<ProfileData | null>(null);
     const [loading, setLoading] = useState(true);
 
@@ -91,6 +94,14 @@ export const MusicianProfilePage: React.FC = () => {
         (!!user.profileUsername && identifier === user.profileUsername) ||
         (!!profile && (profile as any).userId === user.id)
     );
+
+    if (isMobile) {
+        return (
+            <DiscoveryLayout activeTab="profile">
+                <ProfileMobile identifier={identifier} />
+            </DiscoveryLayout>
+        );
+    }
 
     return (
         <DiscoveryLayout activeTab="profile">

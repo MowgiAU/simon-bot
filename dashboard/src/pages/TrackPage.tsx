@@ -3,6 +3,7 @@ import { colors, spacing, borderRadius } from '../theme/theme';
 import { usePlayer } from '../components/PlayerProvider';
 import { useAuth } from '../components/AuthProvider';
 import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
+import { NowPlayingMobile } from '../components/mobile/NowPlayingMobile';
 import axios from 'axios';
 import { StyledUsername } from '../components/StyledUsername';
 import { FujiLogo } from '../components/FujiLogo';
@@ -683,6 +684,14 @@ export const TrackPage: React.FC = () => {
             </div>
         </DiscoveryLayout>
     );
+
+    if (isMobile) {
+        return (
+            <DiscoveryLayout activeTab="discovery">
+                <NowPlayingMobile track={track} />
+            </DiscoveryLayout>
+        );
+    }
 
     const isPlaying = player.currentTrack?.id === track.id && player.isPlaying;
     const formatDuration = (seconds: number) => {
