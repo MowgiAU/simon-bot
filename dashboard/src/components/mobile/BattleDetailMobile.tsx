@@ -5,7 +5,7 @@
  */
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Timer, Music2, FileAudio, Download, Award, Flame, Play, Pause, Crown } from 'lucide-react';
+import { ArrowLeft, Timer, Music2, FileAudio, Download, Award, Flame, Play, Pause, Crown, Check, ExternalLink } from 'lucide-react';
 import { usePlayer } from '../PlayerProvider';
 import { SURFACE, BORDER, PRIMARY, CYAN, TEXT, SUB, BG, waveHeights } from '../../pages/MobilePreviewChrome';
 
@@ -32,9 +32,19 @@ interface Props {
 export const BattleDetailMobile: React.FC<Props> = ({ battle, entries, countdown, statusLabel, statusColor, isVotingPhase, isCompleted, myRanks, votingId, onVote, onDownload, entryPoints }) => {
     const { player, setTrack, togglePlay } = usePlayer();
 
-    const sampleKit: { name: string; url: string }[] = (battle.rulesData || []).flatMap((r: any) => r.samples || []);
-    const ruleLines: string[] = (battle.rulesData || []).map((r: any) => r.text).filter(Boolean);
+    const rulesItems: any[] = battle.rulesData || [];
     const prizes: any[] = battle.prizes || [];
+    const podium = isCompleted
+        ? (() => {
+            const sorted = [...entries].sort((a, b) => entryPoints(b) - entryPoints(a));
+            if (battle.winnerEntryId) {
+                const wi = sorted.findIndex((e: any) => e.id === battle.winnerEntryId);
+                if (wi > 0) { const [w] = sorted.splice(wi, 1); sorted.unshift(w); }
+            }
+            return sorted.slice(0, 3);
+        })()
+        : [];
+    const showLiveDot = battle.status === 'active' || battle.status === 'voting' || battle.status === 'sudden_death';
 
     const playEntry = (e: any) => {
         const id = e.trackId || e.id;
@@ -54,7 +64,7 @@ export const BattleDetailMobile: React.FC<Props> = ({ battle, entries, countdown
                 <Link to="/battles" aria-label="Back" style={{ position: 'absolute', top: 12, left: 12, width: 40, height: 40, borderRadius: '50%', ...glass, display: 'flex', alignItems: 'center', justifyContent: 'center', color: PRIMARY, textDecoration: 'none' }}><ArrowLeft size={22} /></Link>
                 <div style={{ position: 'absolute', top: 16, right: 12, display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end' }}>
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: statusColor, color: '#fff', padding: '4px 12px', borderRadius: 9999, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', boxShadow: `0 0 15px ${statusColor}66` }}>
-                        <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#fff' }} /> {statusLabel}
+                        {showLiveDot && <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#fff' }} />} {statusLabel}
                     </span>
                     {countdown && (
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, ...glass, padding: '6px 10px', borderRadius: 8, fontSize: 12 }}>
@@ -89,37 +99,37 @@ export const BattleDetailMobile: React.FC<Props> = ({ battle, entries, countdown
                     />
                 )}
 
-                {(ruleLines.length > 0 || sampleKit.length > 0) && (
+                {rulesItems.length > 0 && (
                     <div style={{ ...glass, borderRadius: 12, padding: 16, marginBottom: 24 }}>
-                        {ruleLines.length > 0 && (
-                            <>
-                                <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 600 }}>The Rules</h3>
-                                <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                    {ruleLines.map((t, i) => (
-                                        <li key={i} style={{ display: 'flex', gap: 8, fontSize: 12, color: SUB }}><span style={{ color: PRIMARY }}>•</span> {t}</li>
-                                    ))}
-                                </ul>
-                            </>
-                        )}
-                        {sampleKit.length > 0 && (
-                            <div style={{ marginTop: ruleLines.length ? 16 : 0, paddingTop: ruleLines.length ? 16 : 0, borderTop: ruleLines.length ? `1px solid ${BORDER}` : 'none' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                                    <h4 style={{ margin: 0, fontSize: 14, fontWeight: 600, color: CYAN }}>Sample Kit</h4>
-                                    <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>{sampleKit.length} Samples</span>
-                                </div>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                    {sampleKit.map((s, i) => (
-                                        <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 12, borderRadius: 8, background: 'rgba(255,255,255,0.05)', border: `1px solid ${BORDER}` }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
-                                                <FileAudio size={20} color={PRIMARY} style={{ flexShrink: 0 }} />
-                                                <span style={{ fontSize: 12, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.name}</span>
+                        <h3 style={{ margin: '0 0 12px', fontSize: 16, fontWeight: 600 }}>The Rules</h3>
+                        <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 16 }}>
+                            {rulesItems.map((rule, i) => (
+                                <li key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                                    <span style={{ marginTop: 3, flexShrink: 0, width: 16, height: 16, borderRadius: '50%', background: `${PRIMARY}22`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Check size={10} color={PRIMARY} /></span>
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                        {rule.text && <span style={{ fontSize: 13, color: SUB, lineHeight: 1.6 }}>{rule.text}</span>}
+                                        {(rule.links || []).filter((l: any) => l.url && l.label).length > 0 && (
+                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 7 }}>
+                                                {(rule.links || []).filter((l: any) => l.url && l.label).map((l: any, li: number) => (
+                                                    <a key={li} href={l.url.startsWith('http') ? l.url : `https://${l.url}`} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, color: PRIMARY, border: `1px solid ${PRIMARY}30`, padding: '3px 9px', borderRadius: 6, textDecoration: 'none', fontWeight: 600 }}>{l.label} <ExternalLink size={10} /></a>
+                                                ))}
                                             </div>
-                                            <button onClick={() => onDownload(s.url, s.name)} aria-label="Download" style={{ background: 'none', border: 'none', color: CYAN, cursor: 'pointer', display: 'flex', flexShrink: 0 }}><Download size={20} /></button>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
+                                        )}
+                                        {(rule.samples || []).length > 0 && (
+                                            <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                                {(rule.samples || []).map((s: any, si: number) => (
+                                                    <div key={si} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', background: 'rgba(255,255,255,0.05)', borderRadius: 8, border: `1px solid ${BORDER}` }}>
+                                                        <FileAudio size={16} color={PRIMARY} style={{ flexShrink: 0 }} />
+                                                        <span style={{ flex: 1, fontSize: 12, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.name}</span>
+                                                        <button onClick={() => onDownload(s.url, s.name)} aria-label="Download" style={{ background: 'none', border: 'none', color: CYAN, cursor: 'pointer', display: 'flex', flexShrink: 0 }}><Download size={18} /></button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                </li>
+                            ))}
+                        </ul>
                     </div>
                 )}
 
@@ -141,6 +151,32 @@ export const BattleDetailMobile: React.FC<Props> = ({ battle, entries, countdown
                                     </div>
                                 </div>
                             ))}
+                        </div>
+                    </>
+                )}
+
+                {/* Winners podium (completed battles) */}
+                {isCompleted && podium.length > 0 && (
+                    <>
+                        <h3 style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 16, fontWeight: 600, margin: '0 0 4px' }}><Crown size={20} color="#FFD700" /> Winners</h3>
+                        <p style={{ margin: '0 0 12px', fontSize: 12, color: SUB }}>This battle has ended — final podium below.</p>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 24 }}>
+                            {podium.map((e, i) => {
+                                const id = e.trackId || e.id;
+                                const playing = player.currentTrack?.id === id && player.isPlaying;
+                                return (
+                                    <div key={e.id} style={{ ...glass, borderRadius: 12, padding: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: `1px solid ${MEDAL[i]}55`, ...(i === 0 ? { boxShadow: '0 0 15px rgba(242,120,10,0.25)' } : {}) }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+                                            <span style={{ width: 32, height: 32, borderRadius: '50%', background: `${MEDAL[i]}22`, color: MEDAL[i], border: `1px solid ${MEDAL[i]}55`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 13, flexShrink: 0 }}>{i + 1}</span>
+                                            <div style={{ minWidth: 0 }}>
+                                                <h4 style={{ margin: 0, fontSize: 15, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.trackTitle}</h4>
+                                                <span style={{ fontSize: 12, color: SUB }}>{e.username} • {entryPoints(e)} pts</span>
+                                            </div>
+                                        </div>
+                                        <button onClick={() => playEntry(e)} aria-label="Play" style={{ width: 40, height: 40, borderRadius: '50%', background: i === 0 ? PRIMARY : 'rgba(255,255,255,0.1)', border: i === 0 ? 'none' : `1px solid ${BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, color: '#fff' }}>{playing ? <Pause size={18} fill="#fff" /> : <Play size={18} fill="#fff" style={{ marginLeft: 2 }} />}</button>
+                                    </div>
+                                );
+                            })}
                         </div>
                     </>
                 )}
