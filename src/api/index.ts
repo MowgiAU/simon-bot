@@ -1092,10 +1092,13 @@ const authLimiter = rateLimit({
     keyGenerator: ipFromReq,
     message: { error: 'Too many authentication attempts, please try again later.' },
 });
-// Write-only limiter -- only counts POST/PUT/PATCH/DELETE so GETs (page loads) are never blocked
+// Write-only limiter -- only counts POST/PUT/PATCH/DELETE so GETs (page loads) are never blocked.
+// This is a blunt backstop against runaway write loops/bots; abuse-prone vectors have their own
+// dedicated limiters (authLimiter, uploadLimiter, comment limiter). The cap is generous so normal
+// human activity — especially admins toggling many plugin settings — is never throttled.
 const writeLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 100,
+    max: 1000,
     standardHeaders: true,
     legacyHeaders: false,
     keyGenerator: rlKey,
