@@ -75,8 +75,19 @@ export const BattleDetailMobile: React.FC<Props> = ({ battle, entries, countdown
             </section>
 
             <div style={{ maxWidth: 480, margin: '0 auto', padding: '20px 16px 0' }}>
-                {/* Description + rules + sample kit */}
-                {battle.description && <p style={{ fontSize: 14, lineHeight: 1.6, color: SUB, margin: '0 0 20px' }}>{battle.description}</p>}
+                {/* Description (rich HTML — render markup, fix YouTube iframe allow attr) */}
+                {battle.description && (
+                    <div
+                        className="battle-description-prose"
+                        dangerouslySetInnerHTML={{
+                            __html: (battle.description || '').replace(
+                                /<iframe(?![^>]*\ballow\b)([^>]*?)>/gi,
+                                '<iframe$1 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share">'
+                            ),
+                        }}
+                        style={{ fontSize: 14, lineHeight: 1.6, color: SUB, margin: '0 0 20px', overflowWrap: 'anywhere' }}
+                    />
+                )}
 
                 {(ruleLines.length > 0 || sampleKit.length > 0) && (
                     <div style={{ ...glass, borderRadius: 12, padding: 16, marginBottom: 24 }}>
