@@ -245,19 +245,16 @@ export const FrontpageAltF: React.FC = () => {
                 </aside>
             </div>
 
-            {/* Bottom player bar */}
+            {/* Bottom player bar — only shown while a track is playing */}
+            {cur && (
             <footer style={{ height: 90, background: S_HIGHEST, borderTop: `1px solid ${BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', flexShrink: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 16, width: '30%', minWidth: 180 }}>
-                    {cur && (
-                        <>
-                            <div style={{ width: 56, height: 56, borderRadius: 6, overflow: 'hidden', background: S_HIGH, flexShrink: 0 }}>{cur.cover && <img src={cur.cover} alt="" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}</div>
-                            <div style={{ minWidth: 0 }}>
-                                <div style={{ fontSize: 14, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{cur.title}</div>
-                                <div style={{ fontSize: 12, color: SUB, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{(cur as any).artist || ''}</div>
-                            </div>
-                            <Heart size={20} color={SUB} style={{ flexShrink: 0 }} />
-                        </>
-                    )}
+                    <div style={{ width: 56, height: 56, borderRadius: 6, overflow: 'hidden', background: S_HIGH, flexShrink: 0 }}>{cur.cover && <img src={cur.cover} alt="" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}</div>
+                    <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: 14, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{cur.title}</div>
+                        <div style={{ fontSize: 12, color: SUB, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{(cur as any).artist || ''}</div>
+                    </div>
+                    <Heart size={20} color={SUB} style={{ flexShrink: 0 }} />
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, maxWidth: '40%' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 24, marginBottom: 6 }}>
@@ -281,6 +278,7 @@ export const FrontpageAltF: React.FC = () => {
                     <Mic size={20} /><ListMusic size={20} /><Volume2 size={20} />
                 </div>
             </footer>
+            )}
         </div>
     );
 };
