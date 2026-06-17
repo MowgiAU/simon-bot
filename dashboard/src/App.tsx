@@ -89,6 +89,7 @@ const FrontpageVHub          = lazy(() => import("./pages/FrontpageVHub").then(m
 const FrontpageEditorialMix  = lazy(() => import("./pages/FrontpageEditorialMix").then(m => ({ default: m.FrontpageEditorialMix })));
 const FrontpageNeon          = lazy(() => import("./pages/FrontpageNeon").then(m => ({ default: m.FrontpageNeon })));
 const FrontpageAltF          = lazy(() => import("./pages/FrontpageAltF").then(m => ({ default: m.FrontpageAltF })));
+const FrontpageAltFArtist    = lazy(() => import("./pages/FrontpageAltFArtist").then(m => ({ default: m.FrontpageAltFArtist })));
 const MobilePreviewNowPlaying = lazy(() => import("./pages/MobilePreviewNowPlaying").then(m => ({ default: m.MobilePreviewNowPlaying })));
 const MobilePreviewHome      = lazy(() => import("./pages/MobilePreviewHome").then(m => ({ default: m.MobilePreviewHome })));
 const MobilePreviewCharts    = lazy(() => import("./pages/MobilePreviewCharts").then(m => ({ default: m.MobilePreviewCharts })));
@@ -894,6 +895,9 @@ const AppInternal: React.FC = () => {
   }
   if (currentPath === '/preview/alt_f') {
     return <Suspense fallback={<PageSpinner />}><FrontpageAltF /></Suspense>;
+  }
+  if (currentPath === '/preview/alt_f_artist') {
+    return <Suspense fallback={<PageSpinner />}><FrontpageAltFArtist /></Suspense>;
   }
 
   // Mobile redesign previews (Stitch mockups rebuilt as CSP-safe React) — access by URL only

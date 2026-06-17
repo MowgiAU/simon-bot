@@ -9,6 +9,7 @@ import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
 import { usePlayer } from '../components/PlayerProvider';
+import { AltSidebar } from '../components/altshell/AltSidebar';
 import {
     Home, Search, User, Newspaper, BarChart3, Swords, Plus, Library, AudioLines,
     Users, Star, HelpCircle, LogOut, ChevronLeft, ChevronRight, Upload, MessageCircle,
@@ -101,51 +102,8 @@ export const FrontpageAltF: React.FC = () => {
     return (
         <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', background: BG, color: TEXT, fontFamily: FONT }}>
             <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-                {/* Left sidebar */}
-                <aside style={{ width: 256, background: S_LOWEST, borderRight: `1px solid ${BORDER}`, display: 'flex', flexDirection: 'column', flexShrink: 0, paddingBottom: cur ? 90 : 0 }}>
-                    <div style={{ padding: '24px', display: 'flex', alignItems: 'center', gap: 12 }}>
-                        <img src="/fujistudioiconalt.png" alt="Fuji Studio" style={{ width: 32, height: 32, objectFit: 'contain' }} />
-                        <div>
-                            <h1 style={{ margin: 0, fontSize: 18, fontWeight: 900, color: PRIMARY, letterSpacing: '-0.01em' }}>Fuji Studio</h1>
-                            <p style={{ margin: 0, fontSize: 10, color: SUB }}>Preview · Alt F</p>
-                        </div>
-                    </div>
-                    <nav style={{ flex: 1, padding: '0 12px', overflowY: 'auto' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 24 }}>
-                            {navItems.map(({ icon: Icon, label, to, active }) => (
-                                <Link key={label} to={to} style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '12px 16px', borderRadius: 8, textDecoration: 'none', fontWeight: 600, fontSize: 14, color: active ? TEXT : SUB, background: active ? S_CONT : 'transparent' }}>
-                                    <Icon size={20} /> {label}
-                                </Link>
-                            ))}
-                        </div>
-                        <div style={{ padding: '0 8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                            <span style={{ fontSize: 10, color: SUB, textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700 }}>Your Library</span>
-                            <Plus size={18} color={SUB} />
-                        </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                            <Link to="/library" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 16px', borderRadius: 8, textDecoration: 'none', color: SUB, fontSize: 14 }}><Library size={20} color={SECONDARY} /> All Tracks</Link>
-                            <Link to="/library" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 16px', borderRadius: 8, textDecoration: 'none', color: SUB, fontSize: 14 }}><AudioLines size={20} color={PRIMARY} /> Samples</Link>
-                            <Link to="/artists" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 16px', borderRadius: 8, textDecoration: 'none', color: SUB, fontSize: 14 }}><Users size={20} color={TERTIARY} /> Collabs</Link>
-                        </div>
-                        {data && data.playlists.length > 0 && (
-                            <div style={{ marginTop: 24, padding: '0 8px' }}>
-                                <span style={{ fontSize: 10, color: SUB, textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700, display: 'block', marginBottom: 8 }}>Playlists</span>
-                                <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 4 }}>
-                                    {data.playlists.map((pl: any) => (
-                                        <li key={pl.id}><Link to={`/playlist/${pl.id}`} style={{ display: 'block', padding: '4px 8px', color: SUB, fontSize: 14, textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pl.name || pl.title}</Link></li>
-                                    ))}
-                                </ul>
-                            </div>
-                        )}
-                    </nav>
-                    <div style={{ padding: '16px 12px', borderTop: `1px solid ${BORDER}`, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px', borderRadius: 8, background: S_CONT }}><Star size={18} color={PRIMARY} /><span style={{ fontSize: 13, fontWeight: 600 }}>Go Premium</span></div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px', color: SUB }}>
-                            <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}><HelpCircle size={18} /> Support</span>
-                            <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>Logout <LogOut size={18} /></span>
-                        </div>
-                    </div>
-                </aside>
+                {/* Left sidebar (shared component) */}
+                <AltSidebar active="Home" />
 
                 {/* Center */}
                 <main style={{ flex: 1, minWidth: 0, position: 'relative', background: BG, overflowY: 'auto' }}>
