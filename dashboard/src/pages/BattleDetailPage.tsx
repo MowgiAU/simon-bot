@@ -12,6 +12,7 @@ import {
     Download, Music, AlertCircle, Lock,
 } from 'lucide-react';
 import { BattleSubmitModal } from '../components/BattleSubmitModal';
+import { BattleDetailMobile } from '../components/mobile/BattleDetailMobile';
 import { flattenBattleEntry } from '../hooks/useBattleEntry';
 import { appendSponsorRef, trackSponsorClick, trackPromoLinkClick } from '../lib/sponsorUtils';
 
@@ -165,7 +166,7 @@ export const BattleDetailPage: React.FC = () => {
     // so voting entries appear in a fresh random order on every visit/refresh
     // and we don't bias voters toward the first-listed entries.
     const [shuffleSeed] = useState(() => Math.random());
-    const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+    const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
     const [showSubmitModal, setShowSubmitModal] = useState(false);
     const [submitToast, setSubmitToast] = useState(false);
     const [countdown, setCountdown] = useState<{ days: number; hours: number; minutes: number; label: string } | null>(null);
@@ -244,7 +245,7 @@ export const BattleDetailPage: React.FC = () => {
 
     useEffect(() => {
         let _rt: ReturnType<typeof setTimeout>;
-        const onResize = () => { clearTimeout(_rt); _rt = setTimeout(() => setIsMobile(window.innerWidth < 768), 150); };
+        const onResize = () => { clearTimeout(_rt); _rt = setTimeout(() => setIsMobile(window.innerWidth < 1024), 150); };
         window.addEventListener('resize', onResize);
         return () => { clearTimeout(_rt); window.removeEventListener('resize', onResize); };
     }, []);
@@ -437,6 +438,27 @@ export const BattleDetailPage: React.FC = () => {
         seeded.sort((a, b) => a.k - b.k);
         return seeded.map(s => s.e);
     })();
+
+    if (isMobile) {
+        return (
+            <DiscoveryLayout activeTab="battles">
+                <BattleDetailMobile
+                    battle={battle}
+                    entries={sortedEntries}
+                    countdown={countdown}
+                    statusLabel={cfg.label}
+                    statusColor={cfg.color}
+                    isVotingPhase={isVotingPhase}
+                    isCompleted={isCompleted}
+                    myRanks={myRanks}
+                    votingId={votingId}
+                    onVote={vote}
+                    onDownload={forceDownload}
+                    entryPoints={entryPoints}
+                />
+            </DiscoveryLayout>
+        );
+    }
 
     const rules = battle.rules
         ? battle.rules.split('\n').map(r => r.trim()).filter(Boolean)
