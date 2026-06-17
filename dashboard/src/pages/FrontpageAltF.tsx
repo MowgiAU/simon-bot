@@ -86,7 +86,8 @@ export const FrontpageAltF: React.FC = () => {
     const fPlaylist = data?.playlists?.[0] || null;
     const slides: any[] = [];
     if (data?.hero) slides.push({ key: 'track', eyebrow: '#1 This Week', title: trackName(data.hero), subtitle: `Latest: ${data.hero.title}`, bg: data.hero.coverUrl, icon: Play, onAction: () => playTrack(data.hero, [data.hero]), actionLabel: 'Play' });
-    if (fArtist) slides.push({ key: 'artist', eyebrow: 'Featured Artist', title: fArtist.displayName || fArtist.username, subtitle: fArtist.genres?.[0]?.genre?.name || 'Producer', bg: fArtist.bannerUrl || fArtist.avatar, icon: User, to: `/profile/${fArtist.username}`, actionLabel: 'View Artist' });
+    const fArtistTrackCover = fArtist ? (data?.drops || []).find((t: any) => (t.profile?.username || '') === fArtist.username)?.coverUrl : null;
+    if (fArtist) slides.push({ key: 'artist', eyebrow: 'Featured Artist', title: fArtist.displayName || fArtist.username, subtitle: fArtist.genres?.[0]?.genre?.name || 'Producer', bg: fArtist.bannerUrl || fArtistTrackCover || fArtist.avatar, icon: User, to: `/profile/${fArtist.username}`, actionLabel: 'View Artist' });
     if (fBattle) slides.push({ key: 'battle', eyebrow: 'Featured Battle', title: fBattle.title, subtitle: fBattle.subtitle || (fBattle.status === 'completed' ? 'Battle ended' : 'Beat battle'), bg: fBattle.bannerUrl || fBattle.cardImageUrl, icon: Swords, to: `/battles/${fBattle.slug || fBattle.id}`, actionLabel: 'View Battle' });
     if (fPlaylist) slides.push({ key: 'playlist', eyebrow: 'Featured Playlist', title: fPlaylist.name || fPlaylist.title, subtitle: `${fPlaylist.trackCount ?? fPlaylist._count?.tracks ?? fPlaylist.tracks?.length ?? 0} tracks`, bg: fPlaylist.coverUrl || fPlaylist.cover || fPlaylist.tracks?.[0]?.coverUrl, icon: ListMusic, to: `/playlist/${fPlaylist.id}`, actionLabel: 'Open Playlist' });
 
