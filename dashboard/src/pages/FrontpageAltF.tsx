@@ -37,6 +37,7 @@ const navItems = [
 export const FrontpageAltF: React.FC = () => {
     const { player, setTrack, togglePlay, seek } = usePlayer();
     const [data, setData] = useState<{ hero: any; artists: any[]; drops: any[]; battles: any[]; playlists: any[]; activity: any[] } | null>(null);
+    const [slideIdx, setSlideIdx] = useState(0);
 
     useEffect(() => {
         let on = true;
@@ -72,6 +73,25 @@ export const FrontpageAltF: React.FC = () => {
 
     const sectionTitle: React.CSSProperties = { fontSize: 24, fontWeight: 700, color: TEXT, margin: 0, cursor: 'pointer' };
     const card: React.CSSProperties = { background: 'rgba(28,31,42,0.4)', padding: 16, borderRadius: 12, cursor: 'pointer', transition: 'background 0.2s' };
+
+    // ── Featured slider: rotate through track / artist / battle / playlist ──
+    const fBattle = (data?.battles || []).find((b: any) => b.status === 'active' || b.status === 'voting') || data?.battles?.[0] || null;
+    const fArtist = data?.artists?.[0] || null;
+    const fPlaylist = data?.playlists?.[0] || null;
+    const slides: any[] = [];
+    if (data?.hero) slides.push({ key: 'track', eyebrow: '#1 This Week', title: trackName(data.hero), subtitle: `Latest: ${data.hero.title}`, bg: data.hero.coverUrl, icon: Play, onAction: () => playTrack(data.hero, [data.hero]), actionLabel: 'Play' });
+    if (fArtist) slides.push({ key: 'artist', eyebrow: 'Featured Artist', title: fArtist.displayName || fArtist.username, subtitle: fArtist.genres?.[0]?.genre?.name || 'Producer', bg: fArtist.avatar, icon: User, to: `/profile/${fArtist.username}`, actionLabel: 'View Artist' });
+    if (fBattle) slides.push({ key: 'battle', eyebrow: 'Featured Battle', title: fBattle.title, subtitle: fBattle.subtitle || (fBattle.status === 'completed' ? 'Battle ended' : 'Beat battle'), bg: fBattle.cardImageUrl || fBattle.bannerUrl, icon: Swords, to: `/battles/${fBattle.slug || fBattle.id}`, actionLabel: 'View Battle' });
+    if (fPlaylist) slides.push({ key: 'playlist', eyebrow: 'Featured Playlist', title: fPlaylist.name || fPlaylist.title, subtitle: `${fPlaylist.trackCount ?? fPlaylist._count?.tracks ?? fPlaylist.tracks?.length ?? 0} tracks`, bg: fPlaylist.coverUrl || fPlaylist.cover || fPlaylist.tracks?.[0]?.coverUrl, icon: ListMusic, to: `/playlist/${fPlaylist.id}`, actionLabel: 'Open Playlist' });
+
+    useEffect(() => {
+        if (slides.length <= 1) return;
+        const id = setInterval(() => setSlideIdx(i => (i + 1) % slides.length), 6000);
+        return () => clearInterval(id);
+    }, [slides.length]);
+
+    const slide = slides.length ? slides[slideIdx % slides.length] : null;
+    const SlideIcon = slide?.icon;
 
     return (
         <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', background: BG, color: TEXT, fontFamily: FONT }}>
@@ -138,17 +158,29 @@ export const FrontpageAltF: React.FC = () => {
 
                     <div style={{ padding: '0 24px 96px', marginTop: -64, paddingTop: 64 }}>
                         <div style={{ maxWidth: 1400, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 40, paddingTop: 16 }}>
-                            {/* Hero */}
-                            {data?.hero && (
+                            {/* Featured slider — rotates track / artist / battle / playlist */}
+                            {slide && (
                                 <section style={{ position: 'relative', borderRadius: 12, overflow: 'hidden', height: 360 }}>
-                                    {data.hero.coverUrl && <img src={data.hero.coverUrl} alt="" referrerPolicy="no-referrer" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />}
+                                    {slide.bg && <img key={slide.key} src={slide.bg} alt="" referrerPolicy="no-referrer" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />}
                                     <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(to top, ${BG}, rgba(15,19,29,0.4) 50%, transparent), linear-gradient(to right, rgba(15,19,29,0.8), transparent 60%)` }} />
                                     <div style={{ position: 'absolute', bottom: 0, left: 0, padding: 32, width: '100%' }}>
-                                        <span style={{ display: 'inline-block', padding: '4px 12px', background: 'rgba(28,31,42,0.8)', borderRadius: 9999, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 16 }}>#1 This Week</span>
-                                        <h2 style={{ margin: '0 0 8px', fontSize: 56, fontWeight: 900, color: '#fff', letterSpacing: '-0.03em', lineHeight: 1.05 }}>{trackName(data.hero)}</h2>
-                                        <p style={{ margin: '0 0 24px', fontSize: 18, color: SUB }}>Latest: {data.hero.title}</p>
-                                        <button onClick={() => playTrack(data.hero, [data.hero])} style={{ width: 56, height: 56, borderRadius: '50%', background: PRIMARY, border: 'none', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 0 20px rgba(242,120,10,0.4)' }}><Play size={30} fill="#fff" style={{ marginLeft: 3 }} /></button>
+                                        <span style={{ display: 'inline-block', padding: '4px 12px', background: 'rgba(28,31,42,0.8)', borderRadius: 9999, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 16 }}>{slide.eyebrow}</span>
+                                        <h2 style={{ margin: '0 0 8px', fontSize: 56, fontWeight: 900, color: '#fff', letterSpacing: '-0.03em', lineHeight: 1.05, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{slide.title}</h2>
+                                        <p style={{ margin: '0 0 24px', fontSize: 18, color: SUB }}>{slide.subtitle}</p>
+                                        {slide.onAction ? (
+                                            <button onClick={slide.onAction} style={{ width: 56, height: 56, borderRadius: '50%', background: PRIMARY, border: 'none', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 0 20px rgba(242,120,10,0.4)' }}>{SlideIcon && <SlideIcon size={30} fill="#fff" style={{ marginLeft: 3 }} />}</button>
+                                        ) : (
+                                            <Link to={slide.to} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: PRIMARY, color: '#fff', fontWeight: 700, fontSize: 14, padding: '12px 24px', borderRadius: 9999, textDecoration: 'none', boxShadow: '0 0 20px rgba(242,120,10,0.4)' }}>{SlideIcon && <SlideIcon size={20} />} {slide.actionLabel}</Link>
+                                        )}
                                     </div>
+                                    {slides.length > 1 && (
+                                        <div style={{ position: 'absolute', top: 16, right: 16, display: 'flex', gap: 6 }}>
+                                            {slides.map((s, i) => {
+                                                const on = i === (slideIdx % slides.length);
+                                                return <button key={s.key} aria-label={s.eyebrow} onClick={() => setSlideIdx(i)} style={{ width: on ? 22 : 8, height: 8, borderRadius: 9999, background: on ? PRIMARY : 'rgba(255,255,255,0.4)', border: 'none', cursor: 'pointer', transition: 'all 0.3s', padding: 0 }} />;
+                                            })}
+                                        </div>
+                                    )}
                                 </section>
                             )}
 
