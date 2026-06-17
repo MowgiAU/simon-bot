@@ -159,9 +159,9 @@ export const FrontpageAltF: React.FC = () => {
                                         <Link to="/artists" style={{ ...sectionTitle, textDecoration: 'none' }}>Trending Artists</Link>
                                         <Link to="/artists" style={{ color: SUB, fontSize: 12, fontWeight: 700, textTransform: 'uppercase', textDecoration: 'none' }}>Show all</Link>
                                     </div>
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 20 }}>
+                                    <div style={{ display: 'flex', flexWrap: 'nowrap', gap: 20, overflow: 'hidden' }}>
                                         {data.artists.map((a: any) => (
-                                            <Link key={a.id || a.username} to={`/profile/${a.username}`} style={{ ...card, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', textDecoration: 'none', color: TEXT }}>
+                                            <Link key={a.id || a.username} to={`/profile/${a.username}`} style={{ ...card, width: 160, flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', textDecoration: 'none', color: TEXT }}>
                                                 <div style={{ width: '100%', aspectRatio: '1/1', borderRadius: '50%', overflow: 'hidden', marginBottom: 16, boxShadow: '0 8px 24px rgba(0,0,0,0.4)', background: S_HIGH }}>
                                                     {a.avatar && <img src={a.avatar} alt="" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
                                                 </div>
@@ -180,9 +180,9 @@ export const FrontpageAltF: React.FC = () => {
                                         <Link to="/new" style={{ ...sectionTitle, textDecoration: 'none' }}>New Drops</Link>
                                         <Link to="/new" style={{ color: SUB, fontSize: 12, fontWeight: 700, textTransform: 'uppercase', textDecoration: 'none' }}>Show all</Link>
                                     </div>
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 20 }}>
+                                    <div style={{ display: 'flex', flexWrap: 'nowrap', gap: 20, overflow: 'hidden' }}>
                                         {data.drops.map((t: any) => (
-                                            <div key={t.id} onClick={() => playTrack(t, data.drops)} style={card}>
+                                            <div key={t.id} onClick={() => playTrack(t, data.drops)} style={{ ...card, width: 160, flexShrink: 0 }}>
                                                 <div style={{ position: 'relative', aspectRatio: '1/1', borderRadius: 6, overflow: 'hidden', marginBottom: 16, boxShadow: '0 8px 24px rgba(0,0,0,0.4)', background: S_HIGH }}>
                                                     <img src={t.coverUrl} alt="" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                                     <span style={{ position: 'absolute', bottom: 8, right: 8, width: 40, height: 40, borderRadius: '50%', background: PRIMARY, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 16px rgba(0,0,0,0.4)' }}><Play size={22} fill="#fff" color="#fff" style={{ marginLeft: 2 }} /></span>
