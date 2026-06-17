@@ -79,7 +79,7 @@ export const FrontpageAltF: React.FC = () => {
                 {/* Left sidebar */}
                 <aside style={{ width: 256, background: S_LOWEST, borderRight: `1px solid ${BORDER}`, display: 'flex', flexDirection: 'column', flexShrink: 0, paddingBottom: cur ? 90 : 0 }}>
                     <div style={{ padding: '24px', display: 'flex', alignItems: 'center', gap: 12 }}>
-                        <img src="/logo.svg" alt="" style={{ width: 32, height: 32, objectFit: 'contain' }} />
+                        <img src="/fujistudioiconalt.png" alt="Fuji Studio" style={{ width: 32, height: 32, objectFit: 'contain' }} />
                         <div>
                             <h1 style={{ margin: 0, fontSize: 18, fontWeight: 900, color: PRIMARY, letterSpacing: '-0.01em' }}>Fuji Studio</h1>
                             <p style={{ margin: 0, fontSize: 10, color: SUB }}>Preview · Alt F</p>
