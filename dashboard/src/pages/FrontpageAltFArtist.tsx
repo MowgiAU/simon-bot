@@ -9,6 +9,7 @@ import axios from 'axios';
 import { Link, useNavigate } from 'react-router-dom';
 import { usePlayer } from '../components/PlayerProvider';
 import { StyledUsername, StyledAvatar } from '../components/StyledUsername';
+import { CommentSection } from '../components/CommentSection';
 import { AltSidebar, BG, S_CONT, S_HIGH, PRIMARY, SECONDARY, TERTIARY, TEXT, SUB, BORDER, FONT } from '../components/altshell/AltSidebar';
 import {
     ChevronRight, Search, Upload, MessageCircle, Bell, Settings, BadgeCheck, Swords, MapPin,
@@ -30,9 +31,6 @@ export const FrontpageAltFArtist: React.FC = () => {
     const [friends, setFriends] = useState<any[]>([]);
     const [featuredFriendIds, setFeaturedFriendIds] = useState<string[]>([]);
     const [battles, setBattles] = useState<any[]>([]);
-    const [comments, setComments] = useState<any[]>([]);
-    const [newComment, setNewComment] = useState('');
-    const [posting, setPosting] = useState(false);
 
     useEffect(() => {
         let on = true;
@@ -42,7 +40,6 @@ export const FrontpageAltFArtist: React.FC = () => {
             const id = prof.id; const uid = prof.userId;
             axios.get(`/api/artists/${id}/friends`).then(f => { if (on) { setFriends(f.data?.friends || []); setFeaturedFriendIds(f.data?.featuredFriendIds || prof.featuredFriendIds || []); } }).catch(() => {});
             axios.get(`/api/beat-battle/user/${uid}/entries`).then(b => { if (on) setBattles(Array.isArray(b.data) ? b.data : (b.data?.entries || [])); }).catch(() => {});
-            axios.get(`/api/comments?profileId=${id}&limit=30`).then(c => { if (on) setComments(c.data?.comments || []); }).catch(() => {});
         }).catch(() => {});
         return () => { on = false; };
     }, []);
@@ -69,41 +66,8 @@ export const FrontpageAltFArtist: React.FC = () => {
     const open = (t: any) => { if (t?.url) setTrack(mk(t), tracks.map(mk)); else navigate(`/profile/${REF_USER}/${t.slug || t.id}`); };
     const playingId = player.currentTrack?.id;
 
-    const postComment = async () => {
-        const text = newComment.trim();
-        if (!text || !p?.id || posting) return;
-        setPosting(true);
-        try {
-            await axios.post('/api/comments', { content: text, profileId: p.id }, { withCredentials: true });
-            setNewComment('');
-            const r = await axios.get(`/api/comments?profileId=${p.id}&limit=30`);
-            setComments(r.data?.comments || []);
-        } catch (e: any) {
-            const code = e?.response?.status;
-            if (code === 401) navigate('/login');
-            else alert(e?.response?.data?.error || 'Could not post comment.');
-        } finally {
-            setPosting(false);
-        }
-    };
-
     const sectionH: React.CSSProperties = { margin: '0 0 16px', fontSize: 16, fontWeight: 600, color: '#fff' };
 
-    const CommentItem: React.FC<{ c: any; reply?: boolean }> = ({ c, reply }) => (
-        <div style={{ display: 'flex', gap: 12 }}>
-            <div style={{ width: reply ? 28 : 36, height: reply ? 28 : 36, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, background: S_HIGH }}>{c.avatarUrl && <img src={c.avatarUrl} alt="" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}</div>
-            <div style={{ minWidth: 0, flex: 1 }}>
-                <Link to={`/profile/${c.profileUsername || ''}`} style={{ fontSize: 13, fontWeight: 700, color: '#fff', textDecoration: 'none' }}>{c.username || 'User'}</Link>
-                {c.content && <p style={{ margin: '2px 0 0', fontSize: 13, color: SUB, wordBreak: 'break-word' }}>{c.content}</p>}
-                {c.gifUrl && <img src={c.gifUrl} alt="" referrerPolicy="no-referrer" style={{ marginTop: 6, maxWidth: 220, width: '100%', borderRadius: 8, display: 'block' }} />}
-                {(c.replies || []).length > 0 && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 12, paddingLeft: 12, borderLeft: `2px solid ${BORDER}` }}>
-                        {c.replies.map((r: any, i: number) => <CommentItem key={r.id || i} c={r} reply />)}
-                    </div>
-                )}
-            </div>
-        </div>
-    );
 
     const TrackRow: React.FC<{ t: any; repost?: boolean }> = ({ t, repost }) => {
         const on = playingId === t.id;
@@ -262,22 +226,11 @@ export const FrontpageAltFArtist: React.FC = () => {
                                 )}
                             </section>
 
-                            {/* Profile comments */}
+                            {/* Profile comments — full-featured shared component (emoji, GIFs, thumbs, edit, delete, reply) */}
                             <section>
-                                <h3 style={sectionH}><span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><MessageCircle size={18} color={accent} /> Comments{comments.length ? ` (${comments.length})` : ''}</span></h3>
-                                <div style={{ ...glass, borderRadius: 12, padding: 20, display: 'flex', flexDirection: 'column', gap: 18 }}>
-                                    <div style={{ display: 'flex', gap: 12 }}>
-                                        <input
-                                            value={newComment}
-                                            onChange={e => setNewComment(e.target.value)}
-                                            onKeyDown={e => { if (e.key === 'Enter') postComment(); }}
-                                            placeholder="Write a comment…"
-                                            maxLength={500}
-                                            style={{ flex: 1, background: S_CONT, border: `1px solid ${BORDER}`, borderRadius: 8, padding: '10px 14px', color: TEXT, fontSize: 14, outline: 'none' }}
-                                        />
-                                        <button onClick={postComment} disabled={posting || !newComment.trim()} style={{ background: accent, color: '#fff', border: 'none', borderRadius: 8, padding: '0 18px', fontSize: 14, fontWeight: 700, cursor: posting || !newComment.trim() ? 'default' : 'pointer', opacity: posting || !newComment.trim() ? 0.6 : 1 }}>{posting ? '…' : 'Post'}</button>
-                                    </div>
-                                    {comments.length === 0 ? <p style={{ margin: 0, color: SUB, fontSize: 14 }}>No comments yet.</p> : comments.map((c: any, i: number) => <CommentItem key={c.id || i} c={c} />)}
+                                <h3 style={sectionH}><span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><MessageCircle size={18} color={accent} /> Comments</span></h3>
+                                <div style={{ ...glass, borderRadius: 12, padding: 20 }}>
+                                    {p && <CommentSection profileId={p.id} ownerId={p.userId} />}
                                 </div>
                             </section>
                         </div>
