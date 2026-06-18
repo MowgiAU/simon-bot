@@ -96,7 +96,8 @@ export const StemsMixer: React.FC<{
     masterDuration: number;
     playerTrack: any;
     allowDownload?: boolean;
-}> = ({ stems, trackTitle, masterDuration, playerTrack, allowDownload = true }) => {
+    compact?: boolean;
+}> = ({ stems, trackTitle, masterDuration, playerTrack, allowDownload = true, compact = false }) => {
     const { user } = useAuth();
     const { player, setTrack, togglePlay: globalTogglePlay, seek: globalSeek, setMuted } = usePlayer();
 
@@ -447,15 +448,15 @@ export const StemsMixer: React.FC<{
 
                             return (
                                 <div key={stem.id} style={{
-                                    display: 'flex', alignItems: 'center', gap: spacing.md,
+                                    display: 'flex', alignItems: 'center', gap: compact ? spacing.sm : spacing.md,
                                     padding: spacing.md,
                                     background: colors.glass,
                                     border: `1px solid ${colors.glassBorder}`,
                                     borderRadius: borderRadius.md,
                                     opacity: audible ? 1 : 0.55,
                                 }}>
-                                    <div style={{ width: '120px', flexShrink: 0 }}>
-                                        <div style={{ fontSize: '14px', fontWeight: 600, color: colors.textPrimary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                    <div style={{ width: compact ? '80px' : '120px', flexShrink: 0 }}>
+                                        <div style={{ fontSize: compact ? '12px' : '14px', fontWeight: 600, color: colors.textPrimary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                             {stem.label}
                                         </div>
                                         {channel?.error && (
@@ -463,9 +464,9 @@ export const StemsMixer: React.FC<{
                                         )}
                                     </div>
 
-                                    <StemWaveform peaks={stem.peaks} progress={progress} color={waveColor} />
+                                    {!compact && <StemWaveform peaks={stem.peaks} progress={progress} color={waveColor} />}
 
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm, flexShrink: 0 }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm, flexShrink: 0, marginLeft: compact ? 'auto' : undefined }}>
                                         <button
                                             onClick={() => toggleMute(stem.id)}
                                             title="Mute"
@@ -505,7 +506,7 @@ export const StemsMixer: React.FC<{
                                             step={0.01}
                                             value={c.volume}
                                             onChange={e => setVolume(stem.id, parseFloat(e.target.value))}
-                                            style={{ width: '90px', accentColor: colors.primary }}
+                                            style={{ width: compact ? '60px' : '90px', accentColor: colors.primary }}
                                         />
 
                                         {allowDownload && (

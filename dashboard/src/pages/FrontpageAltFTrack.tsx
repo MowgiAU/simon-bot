@@ -492,7 +492,7 @@ export const FrontpageAltFTrack: React.FC = () => {
                     {/* Stems Mixer */}
                     {track.stems?.length > 0 && (
                         <section style={{ ...glass, overflow: 'hidden', flexShrink: 0 }}>
-                            <StemsMixer stems={track.stems} trackTitle={track.title} masterDuration={track.duration} playerTrack={track} allowDownload={track.allowStemsDownload ?? true} />
+                            <StemsMixer stems={track.stems} trackTitle={track.title} masterDuration={track.duration} playerTrack={track} allowDownload={track.allowStemsDownload ?? true} compact />
                         </section>
                     )}
 
