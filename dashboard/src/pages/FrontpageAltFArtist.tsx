@@ -8,12 +8,16 @@ import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { Link, useNavigate } from 'react-router-dom';
 import { usePlayer } from '../components/PlayerProvider';
+import { useAuth } from '../components/AuthProvider';
+import { useChat } from '../components/ChatProvider';
 import { StyledUsername, StyledAvatar } from '../components/StyledUsername';
 import { CommentSection } from '../components/CommentSection';
+import { MusicNotificationMenu } from '../components/MusicNotificationMenu';
+import { MessengerPopup } from '../components/MessengerPopup';
 import { AltSidebar, BG, S_CONT, S_HIGH, PRIMARY, SECONDARY, TERTIARY, TEXT, SUB, BORDER, FONT } from '../components/altshell/AltSidebar';
 import {
-    ChevronRight, Search, Upload, MessageCircle, Bell, Settings, BadgeCheck, Swords, MapPin,
-    UserPlus, Mail, Play, MoreVertical, Heart, Globe, Music, Youtube, Instagram, Headphones, Repeat2, Trophy,
+    ChevronRight, Search, Upload, MessageCircle, Settings, BadgeCheck, Swords, MapPin,
+    UserPlus, UserCheck, Mail, Play, MoreVertical, Globe, Music, Youtube, Instagram, Headphones, Repeat2, Trophy, Edit3,
 } from 'lucide-react';
 
 const REF_USER = 'thomas';
@@ -27,10 +31,18 @@ const socialIcon: Record<string, any> = { website: Globe, spotify: Music, soundc
 export const FrontpageAltFArtist: React.FC = () => {
     const { player, setTrack } = usePlayer();
     const navigate = useNavigate();
+    const { user, mutualAdminGuilds } = useAuth();
+    const { dropdownOpen: messengerOpen, setDropdownOpen: setMessengerOpen, unreadTotal: unreadMsgCount, startConversation } = useChat();
+    const isAdmin = !!(mutualAdminGuilds && mutualAdminGuilds.length > 0);
+
     const [p, setP] = useState<any>(null);
     const [friends, setFriends] = useState<any[]>([]);
     const [featuredFriendIds, setFeaturedFriendIds] = useState<string[]>([]);
     const [battles, setBattles] = useState<any[]>([]);
+    const [isFollowing, setIsFollowing] = useState(false);
+    const [followerCount, setFollowerCount] = useState(0);
+    const [followingCount, setFollowingCount] = useState(0);
+    const [startingChat, setStartingChat] = useState(false);
 
     useEffect(() => {
         let on = true;
@@ -40,34 +52,63 @@ export const FrontpageAltFArtist: React.FC = () => {
             const id = prof.id; const uid = prof.userId;
             axios.get(`/api/artists/${id}/friends`).then(f => { if (on) { setFriends(f.data?.friends || []); setFeaturedFriendIds(f.data?.featuredFriendIds || prof.featuredFriendIds || []); } }).catch(() => {});
             axios.get(`/api/beat-battle/user/${uid}/entries`).then(b => { if (on) setBattles(Array.isArray(b.data) ? b.data : (b.data?.entries || [])); }).catch(() => {});
+            axios.get(`/api/artists/${id}/follower-count`).then(res => { if (on) setFollowerCount(res.data?.count ?? 0); }).catch(() => {});
+            axios.get(`/api/artists/${id}/follow`, { withCredentials: true }).then(res => { if (on) setIsFollowing(res.data?.following ?? false); }).catch(() => {});
+            axios.get(`/api/artists/${id}/following-count`).then(res => { if (on) setFollowingCount(res.data?.count ?? 0); }).catch(() => {});
         }).catch(() => {});
         return () => { on = false; };
     }, []);
+
+    const toggleFollow = async () => {
+        if (!p) return;
+        try {
+            const { data } = await axios.post(`/api/artists/${p.id}/follow`, {}, { withCredentials: true });
+            setIsFollowing(data.following);
+            setFollowerCount(prev => data.following ? prev + 1 : prev - 1);
+        } catch { /* not logged in */ }
+    };
+
+    const startMessage = async () => {
+        if (!p?.userId || startingChat) return;
+        setStartingChat(true);
+        try {
+            await startConversation([p.userId]);
+            setMessengerOpen(true);
+        } catch { /* ignore */ } finally {
+            setStartingChat(false);
+        }
+    };
 
     // ── Theme carry-over ──
     const accent = p?.accentColor || PRIMARY;
     const pageBg = p?.cardBgColor ? `color-mix(in srgb, ${p.cardBgColor} 55%, ${BG})` : BG;
     const glass: React.CSSProperties = { background: p?.cardBgColor ? `color-mix(in srgb, ${p.cardBgColor} 70%, #11141d)` : 'rgba(23,27,38,0.7)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.1)' };
 
-    const tracks: any[] = p?.tracks || [];
+    // Only show public tracks
+    const publicTracks: any[] = (p?.tracks || []).filter((t: any) => t.isPublic !== false);
     const reposts: any[] = p?.reposts || [];
-    const featured = p?.featuredTrack || [...tracks].sort((a, b) => (b.playCount || 0) - (a.playCount || 0))[0] || null;
+    const featured = p?.featuredTrack || [...publicTracks].sort((a, b) => (b.playCount || 0) - (a.playCount || 0))[0] || null;
     const gear = [p?.primaryDAW, ...parseGear(p?.vsts), ...parseGear(p?.hardware)].filter(Boolean);
     const joined = p?.createdAt ? new Date(p.createdAt).getFullYear() : '—';
-    const heroBg = p?.bannerUrl || featured?.coverUrl || [...tracks].find(t => t.coverUrl)?.coverUrl || p?.avatar || null;
+    const heroBg = p?.bannerUrl || featured?.coverUrl || [...publicTracks].find(t => t.coverUrl)?.coverUrl || p?.avatar || null;
     const battleWins = battles.filter((b: any) => b.won || b.placement === 1 || b.rank === 1).length;
-    // Top friends = the ones the user pinned in profile settings, in that order
     const topFriends = featuredFriendIds.length
         ? featuredFriendIds.map(fid => friends.find((f: any) => f.userId === fid || f.profileId === fid || f.discordId === fid)).filter(Boolean).slice(0, 8)
         : friends.slice(0, 8);
-    const arena = p?.h2hRating; // { elo, wins, losses } | null
+    const arena = p?.h2hRating;
+
+    // Own profile: user is viewing their own profile
+    const isOwnProfile = !!user && (
+        user.username === REF_USER ||
+        (user as any).profileUsername === REF_USER ||
+        (!!p && p.userId === user.id)
+    );
 
     const mk = (t: any) => ({ id: t.id, title: t.title, artist: t.artist || p?.displayName || REF_USER, cover: t.coverUrl, url: t.url, profile: { username: REF_USER, displayName: p?.displayName, avatar: p?.avatar } });
-    const open = (t: any) => { if (t?.url) setTrack(mk(t), tracks.map(mk)); else navigate(`/profile/${REF_USER}/${t.slug || t.id}`); };
+    const open = (t: any) => { if (t?.url) setTrack(mk(t), publicTracks.map(mk)); else navigate(`/profile/${REF_USER}/${t.slug || t.id}`); };
     const playingId = player.currentTrack?.id;
 
     const sectionH: React.CSSProperties = { margin: '0 0 16px', fontSize: 16, fontWeight: 600, color: '#fff' };
-
 
     const TrackRow: React.FC<{ t: any; repost?: boolean }> = ({ t, repost }) => {
         const on = playingId === t.id;
@@ -96,7 +137,7 @@ export const FrontpageAltFArtist: React.FC = () => {
 
             <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', height: '100%' }}>
                 {/* Top app bar */}
-                <header style={{ height: 64, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', borderBottom: `1px solid ${BORDER}`, background: 'rgba(15,19,29,0.7)', backdropFilter: 'blur(20px)' }}>
+                <header style={{ height: 64, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', borderBottom: `1px solid ${BORDER}`, background: 'rgba(15,19,29,0.7)', backdropFilter: 'blur(20px)', position: 'relative', zIndex: 50 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 16, flex: 1, minWidth: 0 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: SUB }}>
                             <Link to="/artists" style={{ color: SUB, textDecoration: 'none' }}>Artists</Link><ChevronRight size={16} /><span style={{ color: TEXT }}>{p?.displayName || REF_USER}</span>
@@ -106,9 +147,29 @@ export const FrontpageAltFArtist: React.FC = () => {
                             <input placeholder="Search producers, tracks…" style={{ width: '100%', background: S_CONT, border: `1px solid ${BORDER}`, borderRadius: 9999, padding: '8px 16px 8px 38px', color: TEXT, fontSize: 14, outline: 'none', boxSizing: 'border-box' }} />
                         </div>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <Link to="/my-tracks" style={{ display: 'flex', alignItems: 'center', gap: 8, background: accent, color: '#fff', fontWeight: 700, fontSize: 13, padding: '8px 16px', borderRadius: 9999, textDecoration: 'none' }}><Upload size={18} /> Upload</Link>
-                        <MessageCircle size={20} color={SUB} /><Bell size={20} color={SUB} /><Settings size={20} color={SUB} />
+                        {/* Messages */}
+                        <div style={{ position: 'relative' }}>
+                            <button
+                                onClick={() => setMessengerOpen(!messengerOpen)}
+                                style={{ width: 36, height: 36, borderRadius: '50%', background: messengerOpen ? `${accent}22` : S_CONT, border: messengerOpen ? `1px solid ${accent}55` : `1px solid ${BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: messengerOpen ? accent : SUB, cursor: 'pointer', position: 'relative' }}
+                            >
+                                <MessageCircle size={18} />
+                                {unreadMsgCount > 0 && (
+                                    <span style={{ position: 'absolute', top: -4, right: -4, background: TERTIARY, color: '#fff', fontSize: 10, fontWeight: 700, borderRadius: 9999, minWidth: 16, height: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 3px' }}>{unreadMsgCount > 9 ? '9+' : unreadMsgCount}</span>
+                                )}
+                            </button>
+                            <MessengerPopup />
+                        </div>
+                        {/* Notifications — self-contained (renders own bell icon + popup) */}
+                        <div style={{ position: 'relative' }} onClick={() => setMessengerOpen(false)}>
+                            <MusicNotificationMenu />
+                        </div>
+                        {/* Settings */}
+                        <Link to="/account" style={{ width: 36, height: 36, borderRadius: '50%', background: S_CONT, border: `1px solid ${BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: SUB, textDecoration: 'none' }}>
+                            <Settings size={18} />
+                        </Link>
                     </div>
                 </header>
 
@@ -135,17 +196,33 @@ export const FrontpageAltFArtist: React.FC = () => {
                                         )}
                                     </div>
                                     {p?.location && <p style={{ margin: '0 0 16px', color: accent, fontSize: 16, display: 'flex', alignItems: 'center', gap: 6 }}><MapPin size={18} /> {p.location}</p>}
-                                    <div style={{ display: 'flex', gap: 12 }}>
-                                        <button style={{ display: 'flex', alignItems: 'center', gap: 8, background: accent, color: '#fff', border: 'none', padding: '10px 28px', borderRadius: 8, fontWeight: 600, fontSize: 16, cursor: 'pointer' }}><UserPlus size={20} /> Follow</button>
-                                        <button style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'transparent', color: SECONDARY, border: `1px solid ${SECONDARY}`, padding: '10px 28px', borderRadius: 8, fontWeight: 600, fontSize: 16, cursor: 'pointer' }}><Mail size={20} /> Message</button>
+                                    <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                                        {!isOwnProfile && (
+                                            <button onClick={toggleFollow} style={{ display: 'flex', alignItems: 'center', gap: 8, background: isFollowing ? 'transparent' : accent, color: isFollowing ? accent : '#fff', border: isFollowing ? `1px solid ${accent}` : 'none', padding: '10px 28px', borderRadius: 8, fontWeight: 600, fontSize: 16, cursor: 'pointer', transition: 'all 0.2s' }}>
+                                                {isFollowing ? <><UserCheck size={20} /> Following</> : <><UserPlus size={20} /> Follow</>}
+                                            </button>
+                                        )}
+                                        {!isOwnProfile && user && (
+                                            <button onClick={startMessage} disabled={startingChat} style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'transparent', color: SECONDARY, border: `1px solid ${SECONDARY}`, padding: '10px 28px', borderRadius: 8, fontWeight: 600, fontSize: 16, cursor: startingChat ? 'default' : 'pointer', opacity: startingChat ? 0.6 : 1, transition: 'all 0.2s' }}>
+                                                <Mail size={20} /> Message
+                                            </button>
+                                        )}
+                                        {(isOwnProfile || isAdmin) && (
+                                            <button
+                                                onClick={() => isOwnProfile ? navigate('/profile/edit') : navigate(`/profile/edit?adminTarget=${p?.userId}`)}
+                                                style={{ display: 'flex', alignItems: 'center', gap: 8, background: isAdmin && !isOwnProfile ? 'rgba(255,152,0,0.1)' : `${accent}1A`, color: isAdmin && !isOwnProfile ? '#ff9800' : accent, border: `1px solid ${isAdmin && !isOwnProfile ? 'rgba(255,152,0,0.5)' : `${accent}4D`}`, padding: '10px 24px', borderRadius: 8, fontWeight: 600, fontSize: 15, cursor: 'pointer', transition: 'all 0.2s' }}
+                                            >
+                                                <Edit3 size={18} /> {isAdmin && !isOwnProfile ? 'Edit Profile (Admin)' : 'Edit Profile'}
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
                             </div>
                             <div style={{ ...glass, display: 'flex', textAlign: 'center', borderRadius: 12, padding: 16 }}>
-                                {[[fmtNum(p?.totalPlays), 'Plays'], [String(tracks.length), 'Tracks'], [String(joined), 'Joined']].map(([n, l], i) => (
-                                    <div key={l} style={{ padding: '0 20px', borderLeft: i ? `1px solid ${BORDER}` : 'none' }}>
-                                        <p style={{ margin: 0, fontSize: 28, fontWeight: 700, color: '#fff' }}>{n}</p>
-                                        <p style={{ margin: '4px 0 0', fontSize: 12, color: SUB, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{l}</p>
+                                {[[fmtNum(followerCount), 'Followers'], [fmtNum(followingCount), 'Following'], [fmtNum(p?.totalPlays), 'Plays'], [String(publicTracks.length), 'Tracks'], [String(joined), 'Joined']].map(([n, l], i) => (
+                                    <div key={l} style={{ padding: '0 16px', borderLeft: i ? `1px solid ${BORDER}` : 'none' }}>
+                                        <p style={{ margin: 0, fontSize: 24, fontWeight: 700, color: '#fff' }}>{n}</p>
+                                        <p style={{ margin: '4px 0 0', fontSize: 11, color: SUB, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{l}</p>
                                     </div>
                                 ))}
                             </div>
@@ -176,14 +253,14 @@ export const FrontpageAltFArtist: React.FC = () => {
                                 </section>
                             )}
 
-                            {/* Tracks (all) */}
+                            {/* Public Tracks (private tracks excluded) */}
                             <section>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                                    <h3 style={{ ...sectionH, margin: 0 }}>Tracks ({tracks.length})</h3>
+                                    <h3 style={{ ...sectionH, margin: 0 }}>Tracks ({publicTracks.length})</h3>
                                     <Link to={`/profile/${REF_USER}`} style={{ color: accent, fontSize: 12, textDecoration: 'none' }}>View All</Link>
                                 </div>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                                    {tracks.length === 0 ? <p style={{ color: SUB, fontSize: 14 }}>No tracks yet.</p> : tracks.map(t => <TrackRow key={t.id} t={t} />)}
+                                    {publicTracks.length === 0 ? <p style={{ color: SUB, fontSize: 14 }}>No tracks yet.</p> : publicTracks.map(t => <TrackRow key={t.id} t={t} />)}
                                 </div>
                             </section>
 
@@ -226,7 +303,7 @@ export const FrontpageAltFArtist: React.FC = () => {
                                 )}
                             </section>
 
-                            {/* Profile comments — full-featured shared component (emoji, GIFs, thumbs, edit, delete, reply) */}
+                            {/* Profile comments */}
                             <section>
                                 <h3 style={sectionH}><span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><MessageCircle size={18} color={accent} /> Comments</span></h3>
                                 <div style={{ ...glass, borderRadius: 12, padding: 20 }}>
