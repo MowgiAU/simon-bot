@@ -62,7 +62,7 @@ export const AltSidebar: React.FC<{ active?: string }> = ({ active }) => {
                     <>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
                             <img src="/fujistudioiconalt.png" alt="Fuji Studio" style={{ width: 32, height: 32, objectFit: 'contain', flexShrink: 0 }} />
-                            <img src="/fujitext.svg" alt="Fuji Studio" style={{ height: 18, width: 'auto', filter: `brightness(0) saturate(100%) invert(59%) sepia(68%) saturate(1200%) hue-rotate(357deg) brightness(103%) contrast(97%)` }} />
+                            <img src="/fujitext.svg" alt="Fuji Studio" style={{ height: 18, width: 'auto' }} />
                         </div>
                         <button onClick={toggle} title="Collapse sidebar" style={{ background: 'none', border: 'none', color: SUB, cursor: 'pointer', padding: 4, display: 'flex', alignItems: 'center', flexShrink: 0, opacity: 0.7 }}>
                             <PanelLeftClose size={17} />
