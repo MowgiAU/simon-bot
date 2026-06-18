@@ -116,18 +116,18 @@ export const FrontpageAltF: React.FC = () => {
 
                     <div style={{ flex: 1, display: 'flex', minHeight: 0, overflow: 'hidden' }}>
                     <div style={{ flex: 1, overflowY: 'auto', padding: '0 24px 96px' }}>
-                        <div style={{ maxWidth: 1400, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 40, paddingTop: 16 }}>
+                        <div style={{ maxWidth: 1280, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 40, paddingTop: 16 }}>
                             {/* Featured slider — rotates track / artist / battle / playlist */}
                             {slide && (
                                 <section style={{ position: 'relative', borderRadius: 24, overflow: 'hidden', height: 360 }}>
                                     {slide.bg && <img key={slide.key} src={slide.bg} alt="" referrerPolicy="no-referrer" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />}
-                                    <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(to top, ${BG}, rgba(15,19,29,0.4) 50%, transparent), linear-gradient(to right, rgba(15,19,29,0.8), transparent 60%)` }} />
-                                    <div style={{ position: 'absolute', bottom: 0, left: 0, padding: 32, width: '100%' }}>
-                                        <span style={{ display: 'inline-block', padding: '4px 12px', background: 'rgba(28,31,42,0.8)', borderRadius: 9999, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 16 }}>{slide.eyebrow}</span>
-                                        <h2 style={{ margin: '0 0 8px', fontSize: 56, fontWeight: 900, color: '#fff', letterSpacing: '-0.03em', lineHeight: 1.05, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{slide.title}</h2>
-                                        <p style={{ margin: '0 0 24px', fontSize: 18, color: SUB }}>{slide.subtitle}</p>
+                                    <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(to top, ${BG} 0%, rgba(15,19,29,0.6) 50%, rgba(15,19,29,0.25) 100%)` }} />
+                                    <div style={{ position: 'absolute', bottom: 0, left: 0, width: '100%', padding: '0 40px 40px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', boxSizing: 'border-box' }}>
+                                        <span style={{ display: 'inline-block', padding: '4px 12px', background: 'rgba(28,31,42,0.8)', borderRadius: 9999, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 14 }}>{slide.eyebrow}</span>
+                                        <h2 style={{ margin: '0 0 8px', fontSize: 52, fontWeight: 900, color: '#fff', letterSpacing: '-0.03em', lineHeight: 1.05, maxWidth: 720 }}>{slide.title}</h2>
+                                        <p style={{ margin: '0 0 22px', fontSize: 17, color: SUB }}>{slide.subtitle}</p>
                                         {slide.onAction ? (
-                                            <button onClick={slide.onAction} style={{ width: 56, height: 56, borderRadius: '50%', background: PRIMARY, border: 'none', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 0 20px rgba(242,120,10,0.4)' }}>{SlideIcon && <SlideIcon size={30} fill="#fff" style={{ marginLeft: 3 }} />}</button>
+                                            <button onClick={slide.onAction} style={{ width: 52, height: 52, borderRadius: '50%', background: PRIMARY, border: 'none', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 0 20px rgba(242,120,10,0.4)' }}>{SlideIcon && <SlideIcon size={28} fill="#fff" style={{ marginLeft: 3 }} />}</button>
                                         ) : (
                                             <Link to={slide.to} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: PRIMARY, color: '#fff', fontWeight: 700, fontSize: 14, padding: '12px 24px', borderRadius: 9999, textDecoration: 'none', boxShadow: '0 0 20px rgba(242,120,10,0.4)' }}>{SlideIcon && <SlideIcon size={20} />} {slide.actionLabel}</Link>
                                         )}

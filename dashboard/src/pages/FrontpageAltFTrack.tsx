@@ -179,7 +179,7 @@ export const FrontpageAltFTrack: React.FC = () => {
 
     return shell(
         <div style={{ flex: 1, overflowY: 'auto', paddingBottom: player.currentTrack ? 90 : 0 }}>
-            <div style={{ maxWidth: 1680, margin: '0 auto', padding: '24px 32px', boxSizing: 'border-box', display: 'grid', gridTemplateColumns: '1fr 380px', gap: 24 }}>
+            <div style={{ maxWidth: 1280, margin: '0 auto', padding: '24px 32px', boxSizing: 'border-box', display: 'grid', gridTemplateColumns: '1fr 380px', gap: 24 }}>
 
                 {/* ── LEFT COLUMN ── */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>

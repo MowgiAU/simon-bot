@@ -217,9 +217,49 @@ export const FrontpageAltFArtist: React.FC = () => {
                     </div>
 
                     {/* Body */}
-                    <div style={{ maxWidth: 1280, margin: '0 auto', width: '100%', boxSizing: 'border-box', padding: 24, display: 'flex', gap: 24, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-                        {/* Middle */}
-                        <div style={{ flex: 1, minWidth: 300, display: 'flex', flexDirection: 'column', gap: 32 }}>
+                    <div style={{ maxWidth: 1280, margin: '0 auto', width: '100%', boxSizing: 'border-box', padding: '24px 32px 40px', display: 'grid', gridTemplateColumns: '280px 1fr', gap: 24, alignItems: 'flex-start' }}>
+                        {/* Left column: About, Friends, Gear */}
+                        <aside style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+                            <section>
+                                <h3 style={sectionH}>About</h3>
+                                <div style={{ ...glass, borderRadius: 12, padding: 24 }}>
+                                    <p style={{ margin: 0, fontSize: 14, color: SUB, lineHeight: 1.6 }}>{p?.bio || 'No bio yet.'}</p>
+                                    {p?.showSocialLinks !== false && (p?.socials || []).length > 0 && (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 24 }}>
+                                            {(p.socials || []).map((s: any, i: number) => { const Icon = socialIcon[s.platform] || Globe; return <a key={i} href={s.url} target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 12, color: SECONDARY, fontSize: 14, textDecoration: 'none', textTransform: 'capitalize' }}><Icon size={20} /> {s.platform}</a>; })}
+                                        </div>
+                                    )}
+                                </div>
+                            </section>
+
+                            {p?.showFeaturedFriends !== false && topFriends.length > 0 && (
+                                <section>
+                                    <h3 style={sectionH}>Top Friends</h3>
+                                    <div style={{ ...glass, borderRadius: 12, padding: 24 }}>
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 12 }}>
+                                            {topFriends.map((f: any) => (
+                                                <Link key={f.profileId || f.userId} to={`/profile/${f.username}`} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, textDecoration: 'none', minWidth: 0 }}>
+                                                    <div style={{ width: '100%', aspectRatio: '1 / 1', borderRadius: '50%', overflow: 'hidden', background: S_HIGH, border: `1px solid ${BORDER}` }}>{f.avatar && <img src={f.avatar} alt="" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}</div>
+                                                    <span style={{ fontSize: 11, color: SUB, maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.displayName || f.username}</span>
+                                                </Link>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </section>
+                            )}
+
+                            {p?.showGearSection && gear.length > 0 && (
+                                <section>
+                                    <h3 style={sectionH}>Studio Gear</h3>
+                                    <div style={{ ...glass, borderRadius: 12, padding: 24, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                        {gear.map((g, i) => <span key={i} style={{ background: S_HIGH, color: TEXT, padding: '8px 12px', borderRadius: 8, fontSize: 12, border: `1px solid ${BORDER}`, textAlign: 'center' }}>{g}</span>)}
+                                    </div>
+                                </section>
+                            )}
+                        </aside>
+
+                        {/* Right column: tracks, battles, comments */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
                             {featured && (
                                 <section>
                                     <h3 style={sectionH}>Featured</h3>
@@ -301,47 +341,6 @@ export const FrontpageAltFArtist: React.FC = () => {
                             </section>
                         </div>
 
-                        {/* Right column */}
-                        <aside style={{ width: 320, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 32 }}>
-                            <section>
-                                <h3 style={sectionH}>About</h3>
-                                <div style={{ ...glass, borderRadius: 12, padding: 24 }}>
-                                    <p style={{ margin: 0, fontSize: 14, color: SUB, lineHeight: 1.6 }}>{p?.bio || 'No bio yet.'}</p>
-                                    {p?.showSocialLinks !== false && (p?.socials || []).length > 0 && (
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 24 }}>
-                                            {(p.socials || []).map((s: any, i: number) => { const Icon = socialIcon[s.platform] || Globe; return <a key={i} href={s.url} target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 12, color: SECONDARY, fontSize: 14, textDecoration: 'none', textTransform: 'capitalize' }}><Icon size={20} /> {s.platform}</a>; })}
-                                        </div>
-                                    )}
-                                </div>
-                            </section>
-
-                            {/* Top friends */}
-                            {p?.showFeaturedFriends !== false && topFriends.length > 0 && (
-                                <section>
-                                    <h3 style={sectionH}>Top Friends</h3>
-                                    <div style={{ ...glass, borderRadius: 12, padding: 24 }}>
-                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 12 }}>
-                                            {topFriends.map((f: any) => (
-                                                <Link key={f.profileId || f.userId} to={`/profile/${f.username}`} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, textDecoration: 'none', minWidth: 0 }}>
-                                                    <div style={{ width: '100%', aspectRatio: '1 / 1', borderRadius: '50%', overflow: 'hidden', background: S_HIGH, border: `1px solid ${BORDER}` }}>{f.avatar && <img src={f.avatar} alt="" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}</div>
-                                                    <span style={{ fontSize: 11, color: SUB, maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.displayName || f.username}</span>
-                                                </Link>
-                                            ))}
-                                        </div>
-                                    </div>
-                                </section>
-                            )}
-
-                            {/* Studio gear */}
-                            {p?.showGearSection && gear.length > 0 && (
-                                <section>
-                                    <h3 style={sectionH}>Studio Gear</h3>
-                                    <div style={{ ...glass, borderRadius: 12, padding: 24, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                        {gear.map((g, i) => <span key={i} style={{ background: S_HIGH, color: TEXT, padding: '8px 12px', borderRadius: 8, fontSize: 12, border: `1px solid ${BORDER}`, textAlign: 'center' }}>{g}</span>)}
-                                    </div>
-                                </section>
-                            )}
-                        </aside>
                     </div>
                     {!p && <div style={{ padding: 80, textAlign: 'center', color: SUB }}>Loading…</div>}
                 </div>
