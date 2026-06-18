@@ -12,12 +12,11 @@ import { useAuth } from '../components/AuthProvider';
 import { useChat } from '../components/ChatProvider';
 import { StyledUsername, StyledAvatar } from '../components/StyledUsername';
 import { CommentSection } from '../components/CommentSection';
-import { MusicNotificationMenu } from '../components/MusicNotificationMenu';
-import { MessengerPopup } from '../components/MessengerPopup';
 import { AltSidebar, BG, S_CONT, S_HIGH, PRIMARY, SECONDARY, TERTIARY, TEXT, SUB, BORDER, FONT } from '../components/altshell/AltSidebar';
+import { AltHeader } from '../components/altshell/AltHeader';
 import {
-    ChevronRight, Search, Upload, MessageCircle, Settings, BadgeCheck, Swords, MapPin,
-    UserPlus, UserCheck, Mail, Play, MoreVertical, Globe, Music, Youtube, Instagram, Headphones, Repeat2, Trophy, Edit3,
+    BadgeCheck, Swords, MapPin, Mail,
+    UserPlus, UserCheck, MessageCircle, Play, MoreVertical, Globe, Music, Youtube, Instagram, Headphones, Repeat2, Trophy, Edit3,
 } from 'lucide-react';
 
 const REF_USER = 'thomas';
@@ -136,42 +135,13 @@ export const FrontpageAltFArtist: React.FC = () => {
             <AltSidebar active="Artists" />
 
             <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', height: '100%' }}>
-                {/* Top app bar */}
-                <header style={{ height: 64, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', borderBottom: `1px solid ${BORDER}`, background: 'rgba(15,19,29,0.7)', backdropFilter: 'blur(20px)', position: 'relative', zIndex: 50 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 16, flex: 1, minWidth: 0 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: SUB }}>
-                            <Link to="/artists" style={{ color: SUB, textDecoration: 'none' }}>Artists</Link><ChevronRight size={16} /><span style={{ color: TEXT }}>{p?.displayName || REF_USER}</span>
-                        </div>
-                        <div style={{ position: 'relative', maxWidth: 360, flex: 1 }}>
-                            <Search size={18} color={SUB} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)' }} />
-                            <input placeholder="Search producers, tracks…" style={{ width: '100%', background: S_CONT, border: `1px solid ${BORDER}`, borderRadius: 9999, padding: '8px 16px 8px 38px', color: TEXT, fontSize: 14, outline: 'none', boxSizing: 'border-box' }} />
-                        </div>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <Link to="/my-tracks" style={{ display: 'flex', alignItems: 'center', gap: 8, background: accent, color: '#fff', fontWeight: 700, fontSize: 13, padding: '8px 16px', borderRadius: 9999, textDecoration: 'none' }}><Upload size={18} /> Upload</Link>
-                        {/* Messages */}
-                        <div style={{ position: 'relative' }}>
-                            <button
-                                onClick={() => setMessengerOpen(!messengerOpen)}
-                                style={{ width: 36, height: 36, borderRadius: '50%', background: messengerOpen ? `${accent}22` : S_CONT, border: messengerOpen ? `1px solid ${accent}55` : `1px solid ${BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: messengerOpen ? accent : SUB, cursor: 'pointer', position: 'relative' }}
-                            >
-                                <MessageCircle size={18} />
-                                {unreadMsgCount > 0 && (
-                                    <span style={{ position: 'absolute', top: -4, right: -4, background: TERTIARY, color: '#fff', fontSize: 10, fontWeight: 700, borderRadius: 9999, minWidth: 16, height: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 3px' }}>{unreadMsgCount > 9 ? '9+' : unreadMsgCount}</span>
-                                )}
-                            </button>
-                            <MessengerPopup />
-                        </div>
-                        {/* Notifications — self-contained (renders own bell icon + popup) */}
-                        <div style={{ position: 'relative' }} onClick={() => setMessengerOpen(false)}>
-                            <MusicNotificationMenu />
-                        </div>
-                        {/* Settings */}
-                        <Link to="/account" style={{ width: 36, height: 36, borderRadius: '50%', background: S_CONT, border: `1px solid ${BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: SUB, textDecoration: 'none' }}>
-                            <Settings size={18} />
-                        </Link>
-                    </div>
-                </header>
+                <AltHeader
+                    breadcrumb={[
+                        { label: 'Artists', to: '/artists' },
+                        { label: p?.displayName || REF_USER },
+                    ]}
+                    accent={accent}
+                />
 
                 <div style={{ flex: 1, overflowY: 'auto', paddingBottom: player.currentTrack ? 90 : 0 }}>
                     {/* Hero */}

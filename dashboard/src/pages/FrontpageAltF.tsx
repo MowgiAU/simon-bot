@@ -9,14 +9,12 @@ import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
 import { usePlayer } from '../components/PlayerProvider';
-import { useChat } from '../components/ChatProvider';
-import { MusicNotificationMenu } from '../components/MusicNotificationMenu';
-import { MessengerPopup } from '../components/MessengerPopup';
 import { AltSidebar } from '../components/altshell/AltSidebar';
+import { AltHeader } from '../components/altshell/AltHeader';
 import {
     Home, Search, User, Newspaper, BarChart3, Swords, Plus, Library, AudioLines,
-    Users, Star, HelpCircle, LogOut, ChevronLeft, ChevronRight, Upload, MessageCircle,
-    Settings, Play, Pause, Heart, Shuffle, SkipBack, SkipForward, Repeat, Mic, ListMusic, Volume2, Music,
+    Users, Star, HelpCircle, LogOut, ChevronLeft, ChevronRight,
+    Play, Pause, Heart, Shuffle, SkipBack, SkipForward, Repeat, Mic, ListMusic, Volume2, Music,
 } from 'lucide-react';
 
 // Palette (from the Stitch desktop mockup)
@@ -40,7 +38,6 @@ const navItems = [
 
 export const FrontpageAltF: React.FC = () => {
     const { player, setTrack, togglePlay, seek } = usePlayer();
-    const { dropdownOpen: messengerOpen, setDropdownOpen: setMessengerOpen, unreadTotal: unreadMsgCount } = useChat();
     const [data, setData] = useState<{ hero: any; artists: any[]; drops: any[]; battles: any[]; playlists: any[]; activity: any[] } | null>(null);
     const [slideIdx, setSlideIdx] = useState(0);
 
@@ -111,39 +108,15 @@ export const FrontpageAltF: React.FC = () => {
                 <AltSidebar active="Home" />
 
                 {/* Center */}
-                <main style={{ flex: 1, minWidth: 0, position: 'relative', background: BG, overflowY: 'auto' }}>
-                    <header style={{ position: 'sticky', top: 0, zIndex: 30, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 24px', height: 64, background: 'linear-gradient(to bottom, rgba(15,19,29,0.9), transparent)' }}>
-                        <div style={{ display: 'flex', gap: 8 }}>
+                <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', background: BG, overflow: 'hidden' }}>
+                    <AltHeader
+                        leftSlot={<>
                             <button aria-label="Previous featured" disabled={slides.length <= 1} onClick={() => setSlideIdx(i => (i - 1 + slides.length) % slides.length)} style={{ width: 32, height: 32, borderRadius: '50%', background: S_CONT, border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', color: TEXT, cursor: slides.length > 1 ? 'pointer' : 'default', opacity: slides.length > 1 ? 1 : 0.4 }}><ChevronLeft size={20} /></button>
                             <button aria-label="Next featured" disabled={slides.length <= 1} onClick={() => setSlideIdx(i => (i + 1) % slides.length)} style={{ width: 32, height: 32, borderRadius: '50%', background: S_CONT, border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', color: TEXT, cursor: slides.length > 1 ? 'pointer' : 'default', opacity: slides.length > 1 ? 1 : 0.4 }}><ChevronRight size={20} /></button>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <Link to="/my-tracks" style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#fff', color: BG, fontWeight: 700, fontSize: 13, padding: '8px 16px', borderRadius: 9999, textDecoration: 'none' }}><Upload size={18} /> Upload</Link>
-                            {/* Messages */}
-                            <div style={{ position: 'relative' }}>
-                                <button
-                                    onClick={() => setMessengerOpen(!messengerOpen)}
-                                    style={{ width: 36, height: 36, borderRadius: '50%', background: messengerOpen ? 'rgba(242,120,10,0.15)' : S_CONT, border: messengerOpen ? `1px solid ${PRIMARY}55` : `1px solid ${BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: messengerOpen ? PRIMARY : SUB, cursor: 'pointer', position: 'relative' }}
-                                >
-                                    <MessageCircle size={18} />
-                                    {unreadMsgCount > 0 && (
-                                        <span style={{ position: 'absolute', top: -4, right: -4, background: TERTIARY, color: '#fff', fontSize: 10, fontWeight: 700, borderRadius: 9999, minWidth: 16, height: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 3px' }}>{unreadMsgCount > 9 ? '9+' : unreadMsgCount}</span>
-                                    )}
-                                </button>
-                                <MessengerPopup />
-                            </div>
-                            {/* Notifications — self-contained */}
-                            <div style={{ position: 'relative' }} onClick={() => setMessengerOpen(false)}>
-                                <MusicNotificationMenu />
-                            </div>
-                            {/* Settings */}
-                            <Link to="/account" style={{ width: 36, height: 36, borderRadius: '50%', background: S_CONT, border: `1px solid ${BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: SUB, textDecoration: 'none' }}>
-                                <Settings size={18} />
-                            </Link>
-                        </div>
-                    </header>
+                        </>}
+                    />
 
-                    <div style={{ padding: '0 24px 96px', marginTop: -64, paddingTop: 64 }}>
+                    <div style={{ flex: 1, overflowY: 'auto', padding: '0 24px 96px' }}>
                         <div style={{ maxWidth: 1400, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 40, paddingTop: 16 }}>
                             {/* Featured slider — rotates track / artist / battle / playlist */}
                             {slide && (

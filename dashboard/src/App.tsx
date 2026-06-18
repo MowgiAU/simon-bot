@@ -90,6 +90,10 @@ const FrontpageEditorialMix  = lazy(() => import("./pages/FrontpageEditorialMix"
 const FrontpageNeon          = lazy(() => import("./pages/FrontpageNeon").then(m => ({ default: m.FrontpageNeon })));
 const FrontpageAltF          = lazy(() => import("./pages/FrontpageAltF").then(m => ({ default: m.FrontpageAltF })));
 const FrontpageAltFArtist    = lazy(() => import("./pages/FrontpageAltFArtist").then(m => ({ default: m.FrontpageAltFArtist })));
+const FrontpageAltFCharts    = lazy(() => import("./pages/FrontpageAltFCharts").then(m => ({ default: m.FrontpageAltFCharts })));
+const FrontpageAltFTrack     = lazy(() => import("./pages/FrontpageAltFTrack").then(m => ({ default: m.FrontpageAltFTrack })));
+const FrontpageAltFBattle    = lazy(() => import("./pages/FrontpageAltFBattle").then(m => ({ default: m.FrontpageAltFBattle })));
+const FrontpageAltFBattles   = lazy(() => import("./pages/FrontpageAltFBattles").then(m => ({ default: m.FrontpageAltFBattles })));
 const MobilePreviewNowPlaying = lazy(() => import("./pages/MobilePreviewNowPlaying").then(m => ({ default: m.MobilePreviewNowPlaying })));
 const MobilePreviewHome      = lazy(() => import("./pages/MobilePreviewHome").then(m => ({ default: m.MobilePreviewHome })));
 const MobilePreviewCharts    = lazy(() => import("./pages/MobilePreviewCharts").then(m => ({ default: m.MobilePreviewCharts })));
@@ -898,6 +902,18 @@ const AppInternal: React.FC = () => {
   }
   if (currentPath === '/preview/alt_f_artist') {
     return <Suspense fallback={<PageSpinner />}><FrontpageAltFArtist /></Suspense>;
+  }
+  if (currentPath === '/preview/alt_f_charts') {
+    return <Suspense fallback={<PageSpinner />}><FrontpageAltFCharts /></Suspense>;
+  }
+  if (currentPath === '/preview/alt_f_track') {
+    return <Suspense fallback={<PageSpinner />}><FrontpageAltFTrack /></Suspense>;
+  }
+  if (currentPath === '/preview/alt_f_battle') {
+    return <Suspense fallback={<PageSpinner />}><FrontpageAltFBattle /></Suspense>;
+  }
+  if (currentPath === '/preview/alt_f_battles') {
+    return <Suspense fallback={<PageSpinner />}><FrontpageAltFBattles /></Suspense>;
   }
 
   // Mobile redesign previews (Stitch mockups rebuilt as CSP-safe React) — access by URL only
