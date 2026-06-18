@@ -468,8 +468,8 @@ export const FrontpageAltFTrack: React.FC = () => {
                     </section>
                 </div>
 
-                {/* ── RIGHT COLUMN — sticky, viewport-height ── */}
-                <div style={{ position: 'sticky', top: 0, maxHeight: 'calc(100vh - 130px)', display: 'flex', flexDirection: 'column', gap: 20, overflowY: 'auto' }}>
+                {/* ── RIGHT COLUMN ── */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
 
                     {/* Stems Mixer */}
                     {track.stems?.length > 0 && (
