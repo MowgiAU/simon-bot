@@ -42,18 +42,25 @@ export const FrontpageAltFBattle: React.FC = () => {
     const [joined, setJoined] = useState(false);
 
     useEffect(() => {
-        axios.get('/api/beat-battle/battles').then(r => {
-            const list: any[] = Array.isArray(r.data) ? r.data : r.data?.battles || [];
-            const active = list.find((b: any) => b.status === 'active' || b.status === 'open' || b.status === 'voting') || list[0];
-            if (active?.id) {
-                return axios.get(`/api/beat-battle/battles/${active.slug || active.id}`).then(r2 => {
-                    setBattle(r2.data);
-                    setLoading(false);
-                });
-            }
-            setBattle(active);
+        // Load the Baby Audio battle directly — it has the richest data for preview
+        axios.get('/api/beat-battle/battles/baby-audio-presents').then(r => {
+            setBattle(r.data);
             setLoading(false);
-        }).catch(() => setLoading(false));
+        }).catch(() => {
+            // Fallback: most active battle
+            axios.get('/api/beat-battle/battles').then(r => {
+                const list: any[] = Array.isArray(r.data) ? r.data : r.data?.battles || [];
+                const active = list.find((b: any) => b.status === 'active' || b.status === 'open' || b.status === 'voting') || list[0];
+                if (active?.id) {
+                    return axios.get(`/api/beat-battle/battles/${active.slug || active.id}`).then(r2 => {
+                        setBattle(r2.data);
+                        setLoading(false);
+                    });
+                }
+                setBattle(active);
+                setLoading(false);
+            }).catch(() => setLoading(false));
+        });
     }, []);
 
     const playingId = player.currentTrack?.id;
