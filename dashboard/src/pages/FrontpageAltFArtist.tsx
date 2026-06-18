@@ -39,8 +39,7 @@ export const FrontpageAltFArtist: React.FC = () => {
             const id = prof.id; const uid = prof.userId;
             axios.get(`/api/artists/${id}/friends`).then(f => { if (on) setFriends(f.data?.friends || []); }).catch(() => {});
             axios.get(`/api/beat-battle/user/${uid}/entries`).then(b => { if (on) setBattles(Array.isArray(b.data) ? b.data : (b.data?.entries || [])); }).catch(() => {});
-            const top = prof.featuredTrack || [...(prof.tracks || [])].sort((a: any, b: any) => (b.playCount || 0) - (a.playCount || 0))[0];
-            if (top?.id) axios.get(`/api/comments?trackId=${top.id}&limit=20`).then(c => { if (on) setComments(c.data?.comments || []); }).catch(() => {});
+            axios.get(`/api/comments?profileId=${id}&limit=30`).then(c => { if (on) setComments(c.data?.comments || []); }).catch(() => {});
         }).catch(() => {});
         return () => { on = false; };
     }, []);
@@ -64,6 +63,22 @@ export const FrontpageAltFArtist: React.FC = () => {
     const playingId = player.currentTrack?.id;
 
     const sectionH: React.CSSProperties = { margin: '0 0 16px', fontSize: 16, fontWeight: 600, color: '#fff' };
+
+    const CommentItem: React.FC<{ c: any; reply?: boolean }> = ({ c, reply }) => (
+        <div style={{ display: 'flex', gap: 12 }}>
+            <div style={{ width: reply ? 28 : 36, height: reply ? 28 : 36, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, background: S_HIGH }}>{c.avatarUrl && <img src={c.avatarUrl} alt="" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}</div>
+            <div style={{ minWidth: 0, flex: 1 }}>
+                <Link to={`/profile/${c.profileUsername || ''}`} style={{ fontSize: 13, fontWeight: 700, color: '#fff', textDecoration: 'none' }}>{c.username || 'User'}</Link>
+                {c.content && <p style={{ margin: '2px 0 0', fontSize: 13, color: SUB, wordBreak: 'break-word' }}>{c.content}</p>}
+                {c.gifUrl && <img src={c.gifUrl} alt="" referrerPolicy="no-referrer" style={{ marginTop: 6, maxWidth: 220, width: '100%', borderRadius: 8, display: 'block' }} />}
+                {(c.replies || []).length > 0 && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 12, paddingLeft: 12, borderLeft: `2px solid ${BORDER}` }}>
+                        {c.replies.map((r: any, i: number) => <CommentItem key={r.id || i} c={r} reply />)}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
 
     const TrackRow: React.FC<{ t: any; repost?: boolean }> = ({ t, repost }) => {
         const on = playingId === t.id;
@@ -222,24 +237,11 @@ export const FrontpageAltFArtist: React.FC = () => {
                                 )}
                             </section>
 
-                            {/* Comments (on featured track) */}
+                            {/* Profile comments */}
                             <section>
-                                <h3 style={sectionH}><span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><MessageCircle size={18} color={accent} /> Comments{featured ? ` · ${featured.title}` : ''}</span></h3>
-                                <div style={{ ...glass, borderRadius: 12, padding: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
-                                    {comments.length === 0 ? <p style={{ margin: 0, color: SUB, fontSize: 14 }}>No comments yet.</p> : comments.slice(0, 10).map((c: any, i: number) => {
-                                        const cu = c.user || c.author || c.profile || {};
-                                        const name = cu.displayName || cu.username || c.username || 'User';
-                                        const avatar = cu.avatar || c.avatar;
-                                        return (
-                                            <div key={c.id || i} style={{ display: 'flex', gap: 12 }}>
-                                                <div style={{ width: 32, height: 32, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, background: S_HIGH }}>{avatar && <img src={avatar} alt="" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}</div>
-                                                <div style={{ minWidth: 0 }}>
-                                                    <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#fff' }}>{name}</p>
-                                                    <p style={{ margin: '2px 0 0', fontSize: 13, color: SUB, wordBreak: 'break-word' }}>{c.content || c.text || c.body || ''}</p>
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
+                                <h3 style={sectionH}><span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><MessageCircle size={18} color={accent} /> Comments{comments.length ? ` (${comments.length})` : ''}</span></h3>
+                                <div style={{ ...glass, borderRadius: 12, padding: 20, display: 'flex', flexDirection: 'column', gap: 18 }}>
+                                    {comments.length === 0 ? <p style={{ margin: 0, color: SUB, fontSize: 14 }}>No comments yet.</p> : comments.map((c: any, i: number) => <CommentItem key={c.id || i} c={c} />)}
                                 </div>
                             </section>
                         </div>
@@ -263,10 +265,10 @@ export const FrontpageAltFArtist: React.FC = () => {
                                 <section>
                                     <h3 style={sectionH}>Top Friends</h3>
                                     <div style={{ ...glass, borderRadius: 12, padding: 24 }}>
-                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 12 }}>
                                             {friends.slice(0, 8).map((f: any) => (
-                                                <Link key={f.profileId || f.userId} to={`/profile/${f.username}`} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, textDecoration: 'none' }}>
-                                                    <div style={{ width: 48, height: 48, borderRadius: '50%', overflow: 'hidden', background: S_HIGH, border: `1px solid ${BORDER}` }}>{f.avatar && <img src={f.avatar} alt="" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}</div>
+                                                <Link key={f.profileId || f.userId} to={`/profile/${f.username}`} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, textDecoration: 'none', minWidth: 0 }}>
+                                                    <div style={{ width: '100%', aspectRatio: '1 / 1', borderRadius: '50%', overflow: 'hidden', background: S_HIGH, border: `1px solid ${BORDER}` }}>{f.avatar && <img src={f.avatar} alt="" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}</div>
                                                     <span style={{ fontSize: 11, color: SUB, maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.displayName || f.username}</span>
                                                 </Link>
                                             ))}
