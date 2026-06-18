@@ -153,7 +153,8 @@ export const FrontpageAltFArtist: React.FC = () => {
                     <div style={{ position: 'relative', width: '100%', height: 400, overflow: 'hidden', borderBottom: `1px solid ${BORDER}` }}>
                         {heroBg && <img src={heroBg} alt="" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.5 }} />}
                         <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(to top, ${pageBg}, rgba(15,19,29,0.4), transparent)` }} />
-                        <div style={{ position: 'absolute', bottom: 0, left: 0, width: '100%', padding: 32, display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 24, flexWrap: 'wrap', boxSizing: 'border-box' }}>
+                        <div style={{ position: 'absolute', bottom: 0, left: 0, width: '100%', boxSizing: 'border-box' }}>
+                        <div style={{ maxWidth: 1280, margin: '0 auto', padding: '0 32px 32px', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 24, flexWrap: 'wrap', boxSizing: 'border-box' }}>
                             <div style={{ display: 'flex', alignItems: 'flex-end', gap: 24, minWidth: 0 }}>
                                 <div style={{ position: 'relative', flexShrink: 0 }}>
                                     <StyledAvatar userId={p?.userId}>
@@ -213,6 +214,7 @@ export const FrontpageAltFArtist: React.FC = () => {
                                     ))}
                                 </div>
                             )}
+                        </div>
                         </div>
                     </div>
 
