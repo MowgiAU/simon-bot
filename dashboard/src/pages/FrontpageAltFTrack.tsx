@@ -456,7 +456,7 @@ export const FrontpageAltFTrack: React.FC = () => {
                     )}
 
                     {/* 6. Comments */}
-                    <section style={{ ...glass, overflow: 'hidden' }}>
+                    <section style={{ ...glass, overflow: 'hidden', padding: '0 20px' }}>
                         <CommentSection
                             trackId={track.id}
                             ownerId={track.profile.userId}
