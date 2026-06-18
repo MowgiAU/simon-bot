@@ -78,8 +78,11 @@ export const FrontpageAltFBattle: React.FC = () => {
     const playingId = player.currentTrack?.id;
     const status = battle ? statusBadge(battle) : null;
     const entries: any[] = (battle?.entries || []).sort((a: any, b: any) => (b.voteCount || 0) - (a.voteCount || 0));
-    const rules: string[] = battle?.rulesData?.rules || (battle?.rules ? battle.rules.split('\n').filter(Boolean) : []);
-    const samples: any[] = battle?.rulesData?.samples || [];
+    const rulesArr: any[] = Array.isArray(battle?.rulesData) ? battle.rulesData : [];
+    const rules: string[] = rulesArr.length > 0
+        ? rulesArr.map((r: any) => r.text).filter(Boolean)
+        : (battle?.rules ? battle.rules.split('\n').filter(Boolean) : []);
+    const samples: any[] = rulesArr.flatMap((r: any) => r.samples || []).filter(Boolean);
     const sponsor = battle?.sponsor;
     const description = battle?.description ? stripHtml(battle.description) : (battle?.miniDescription || '');
 
