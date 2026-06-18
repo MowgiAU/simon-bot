@@ -277,6 +277,20 @@ model BlocklistedUser {
   @@map("blocklisted_users")
 }
 
+model CoinDrainer {
+  id        String   @id @default(cuid())
+  guildId   String
+  userId    String
+  username  String?
+  reason    String?
+  addedBy   String?
+  createdAt DateTime @default(now())
+
+  @@unique([guildId, userId])
+  @@index([guildId])
+  @@map("coin_drainers")
+}
+
 model ModerationPermission {
   id         String @id @default(cuid())
   settingsId String

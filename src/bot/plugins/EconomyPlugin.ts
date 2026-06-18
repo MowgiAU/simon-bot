@@ -51,8 +51,10 @@ export class EconomyPlugin implements IPlugin {
     private censor!: WordCensor;
 
     private messageCooldowns = new Map<string, number>();
+    private drainCooldowns = new Map<string, number>();
     private grantExpiryTimer: ReturnType<typeof setInterval> | null = null;
     private blocklistCache = new Map<string, { set: Set<string>; expires: number }>();
+    private drainerCache = new Map<string, { set: Set<string>; expires: number }>();
 
     async initialize(context: EconomyContext): Promise<void> {
         this.client = context.client;
@@ -68,6 +70,7 @@ export class EconomyPlugin implements IPlugin {
 
     async shutdown(): Promise<void> {
         this.messageCooldowns.clear();
+        this.drainCooldowns.clear();
         if (this.grantExpiryTimer) clearInterval(this.grantExpiryTimer);
     }
 
@@ -137,6 +140,13 @@ export class EconomyPlugin implements IPlugin {
         const now = Date.now();
         const lastEarn = this.messageCooldowns.get(message.author.id) || 0;
 
+        // Coin drain: silently subtract coins for activity (separate 60s cooldown)
+        const lastDrain = this.drainCooldowns.get(message.author.id) || 0;
+        if (now - lastDrain >= 60_000 && await this.isDrainer(message.guild.id, message.author.id)) {
+            await this.addBalance(message.guild.id, message.author.id, -settings.messageReward, 'DRAIN', 'Coin drain penalty');
+            this.drainCooldowns.set(message.author.id, now);
+        }
+
         if (now - lastEarn < cooldown) return;
         if (message.content.length < settings.minMessageLength) return;
 
@@ -198,6 +208,10 @@ export class EconomyPlugin implements IPlugin {
         if (!isMatch) return;
 
         if (!message.guild) return;
+        // Reactor on the drain list: silently subtract a coin for reacting
+        if (await this.isDrainer(message.guild.id, user.id)) {
+            await this.addBalance(message.guild.id, user.id, -1, 'DRAIN', 'Coin drain penalty (reaction)');
+        }
         // Recipient on the blocklist: silently ignore the tip and leave the reaction in place
         // (removing it would hint that something is off).
         if (message.author && await this.isBlocklisted(message.guild.id, message.author.id)) return;
@@ -828,6 +842,16 @@ export class EconomyPlugin implements IPlugin {
             const rows = await this.db.blocklistedUser.findMany({ where: { guildId }, select: { userId: true } });
             entry = { set: new Set(rows.map((r: any) => r.userId)), expires: Date.now() + 60_000 };
             this.blocklistCache.set(guildId, entry);
+        }
+        return entry.set.has(userId);
+    }
+
+    private async isDrainer(guildId: string, userId: string): Promise<boolean> {
+        let entry = this.drainerCache.get(guildId);
+        if (!entry || entry.expires < Date.now()) {
+            const rows = await this.db.coinDrainer.findMany({ where: { guildId }, select: { userId: true } });
+            entry = { set: new Set(rows.map((r: any) => r.userId)), expires: Date.now() + 60_000 };
+            this.drainerCache.set(guildId, entry);
         }
         return entry.set.has(userId);
     }

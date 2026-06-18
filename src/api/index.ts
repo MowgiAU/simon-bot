@@ -4173,6 +4173,54 @@ app.delete('/api/guilds/:guildId/moderation/blocklist/:userId', async (req, res)
     }
 });
 
+// -- Coin Drainer List --------------------------------------------------
+
+// List coin drainers
+app.get('/api/guilds/:guildId/moderation/coin-drainers', async (req, res) => {
+    try {
+        const { guildId } = req.params;
+        if (!await checkPluginAccess(guildId, req, 'moderation')) return res.status(403).json({ error: 'Forbidden' });
+        const entries = await db.coinDrainer.findMany({ where: { guildId }, orderBy: { createdAt: 'desc' } });
+        res.json(entries);
+    } catch (e) {
+        logger.error('Failed to fetch coin drainer list', e);
+        res.status(500).json({ error: 'Failed' });
+    }
+});
+
+// Add a user to the coin drainer list
+app.post('/api/guilds/:guildId/moderation/coin-drainers', async (req, res) => {
+    try {
+        const { guildId } = req.params;
+        if (!await checkPluginAccess(guildId, req, 'moderation')) return res.status(403).json({ error: 'Forbidden' });
+        const { userId, username, reason } = req.body;
+        const addedBy = (req.session as any)?.userId;
+        const entry = await db.coinDrainer.upsert({
+            where: { guildId_userId: { guildId, userId } },
+            update: { username, reason, addedBy },
+            create: { guildId, userId, username, reason, addedBy }
+        });
+        res.json(entry);
+    } catch (e) {
+        logger.error('Failed to add to coin drainer list', e);
+        res.status(500).json({ error: 'Failed' });
+    }
+});
+
+// Remove a user from the coin drainer list
+app.delete('/api/guilds/:guildId/moderation/coin-drainers/:userId', async (req, res) => {
+    try {
+        const { guildId, userId } = req.params;
+        if (!await checkPluginAccess(guildId, req, 'moderation')) return res.status(403).json({ error: 'Forbidden' });
+        await db.coinDrainer.delete({ where: { guildId_userId: { guildId, userId } } });
+        res.json({ success: true });
+    } catch (e: any) {
+        if (e.code === 'P2025') return res.json({ success: true });
+        logger.error('Failed to remove from coin drainer list', e);
+        res.status(500).json({ error: 'Failed' });
+    }
+});
+
 // Search guild members (for adding to the blocklist)
 app.get('/api/guilds/:guildId/moderation/search-users', async (req, res) => {
     try {

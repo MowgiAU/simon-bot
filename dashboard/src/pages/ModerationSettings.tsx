@@ -6,7 +6,7 @@ import { useMobile } from '../hooks/useMobile';
 import { ChannelSelect } from '../components/ChannelSelect';
 import { RoleSelect } from '../components/RoleSelect';
 import axios from 'axios';
-import { Shield, Save, Check, X, AlertTriangle, MessageSquare, List, FolderOpen, Ban, UserX } from 'lucide-react';
+import { Shield, Save, Check, X, AlertTriangle, MessageSquare, List, FolderOpen, Ban, UserX, TrendingDown } from 'lucide-react';
 import { AnimatedWrapper } from '../components/AnimatedWrapper';
 
 interface ModerationSettings {
@@ -54,6 +54,14 @@ export const ModerationSettingsPage: React.FC = () => {
     
     // UI State for Role Permissions
     const [selectedRoleId, setSelectedRoleId] = useState<string | null>(null);
+
+    // Coin Drainer State
+    const [drainerList, setDrainerList] = useState<BlocklistEntry[]>([]);
+    const [drainerListLoading, setDrainerListLoading] = useState(true);
+    const [drainQuery, setDrainQuery] = useState('');
+    const [drainResults, setDrainResults] = useState<any[]>([]);
+    const [drainReason, setDrainReason] = useState('');
+    const [selectedDrainUser, setSelectedDrainUser] = useState<any | null>(null);
 
     // Currency/XP Blocklist State
     const [blocklist, setBlocklist] = useState<BlocklistEntry[]>([]);
@@ -157,6 +165,49 @@ export const ModerationSettingsPage: React.FC = () => {
         return () => clearTimeout(handle);
     }, [blockQuery, selectedGuild?.id, selectedBlockUser]);
 
+    // Fetch coin drainer list
+    useEffect(() => {
+        if (!selectedGuild) return;
+        const controller = new AbortController();
+        let isMounted = true;
+        const fetchDrainers = async () => {
+            setDrainerListLoading(true);
+            try {
+                const response = await axios.get(`/api/guilds/${selectedGuild.id}/moderation/coin-drainers`, {
+                    withCredentials: true,
+                    signal: controller.signal
+                });
+                if (isMounted) setDrainerList(response.data);
+            } catch (err: any) {
+                if (axios.isCancel(err) || err.name === 'AbortError' || !isMounted) return;
+            } finally {
+                if (isMounted) setDrainerListLoading(false);
+            }
+        };
+        fetchDrainers();
+        return () => { isMounted = false; controller.abort(); };
+    }, [selectedGuild?.id]);
+
+    // Debounced user search for coin drainer form
+    useEffect(() => {
+        if (!selectedGuild || selectedDrainUser || drainQuery.trim().length < 2) {
+            setDrainResults([]);
+            return;
+        }
+        const handle = setTimeout(async () => {
+            try {
+                const res = await axios.get(`/api/guilds/${selectedGuild.id}/moderation/search-users`, {
+                    params: { q: drainQuery },
+                    withCredentials: true
+                });
+                setDrainResults(res.data);
+            } catch {
+                setDrainResults([]);
+            }
+        }, 300);
+        return () => clearTimeout(handle);
+    }, [drainQuery, selectedGuild?.id, selectedDrainUser]);
+
     if (loading || resourcesLoading) return <div style={{ color: colors.textSecondary, padding: spacing.xl }}>Loading settings...</div>;
 
     const saveGeneral = async () => {
@@ -249,6 +300,34 @@ export const ModerationSettingsPage: React.FC = () => {
         } catch (err) {
             console.error('Failed to remove from blocklist', err);
             setMsg({ type: 'error', text: 'Failed to remove user from blocklist.' });
+        }
+    };
+
+    const addToDrainerList = async () => {
+        if (!selectedDrainUser || !selectedGuild) return;
+        try {
+            const res = await axios.post(`/api/guilds/${selectedGuild.id}/moderation/coin-drainers`, {
+                userId: selectedDrainUser.id,
+                username: selectedDrainUser.username,
+                reason: drainReason.trim() || null
+            }, { withCredentials: true });
+            setDrainerList(prev => [res.data, ...prev.filter(e => e.userId !== res.data.userId)]);
+            setSelectedDrainUser(null);
+            setDrainQuery('');
+            setDrainResults([]);
+            setDrainReason('');
+        } catch (err) {
+            setMsg({ type: 'error', text: 'Failed to add user to coin drainer list.' });
+        }
+    };
+
+    const removeFromDrainerList = async (userId: string) => {
+        if (!selectedGuild) return;
+        try {
+            await axios.delete(`/api/guilds/${selectedGuild.id}/moderation/coin-drainers/${userId}`, { withCredentials: true });
+            setDrainerList(prev => prev.filter(e => e.userId !== userId));
+        } catch (err) {
+            setMsg({ type: 'error', text: 'Failed to remove user from coin drainer list.' });
         }
     };
 
@@ -623,6 +702,99 @@ export const ModerationSettingsPage: React.FC = () => {
                                 <button
                                     onClick={() => removeFromBlocklist(entry.userId)}
                                     title="Remove from blocklist"
+                                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.error, flexShrink: 0, padding: '4px' }}
+                                >
+                                    <X size={18} />
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+
+            {/* Coin Drainer List */}
+            <div style={{ background: 'linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))', border: '1px solid #3E455633', padding: isMobile ? '16px' : '24px', borderRadius: borderRadius.lg, marginTop: '24px' }}>
+                <h2 style={{ marginTop: 0, marginBottom: '20px', borderBottom: `1px solid ${colors.border}`, paddingBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <AnimatedWrapper icon={TrendingDown} size={20} /> Coin Drainer List
+                </h2>
+
+                <div style={{ background: 'linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))', border: '1px solid #3E455633', padding: spacing.md, borderRadius: borderRadius.md, marginBottom: spacing.lg, borderLeft: `4px solid ${colors.error}` }}>
+                    <p style={{ margin: 0, color: colors.textPrimary, fontSize: isMobile ? '13px' : '15px' }}>
+                        Users added here will silently <strong>lose</strong> coins for every message and reaction. They are never notified. The opposite of earning — for the biggest trolls only.
+                    </p>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: '10px', marginBottom: '20px' }}>
+                    <div style={{ flex: 1.5, position: 'relative' }}>
+                        <input
+                            placeholder="Search user by name..."
+                            value={selectedDrainUser ? `${selectedDrainUser.displayName} (${selectedDrainUser.username})` : drainQuery}
+                            onChange={(e) => { setDrainQuery(e.target.value); setSelectedDrainUser(null); }}
+                            style={{ width: '100%', padding: '10px', background: colors.background, border: `1px solid ${colors.border}`, color: colors.textPrimary, borderRadius: borderRadius.sm }}
+                        />
+                        {drainResults.length > 0 && !selectedDrainUser && (
+                            <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 10, marginTop: '4px', background: colors.surface, border: `1px solid ${colors.border}`, borderRadius: borderRadius.sm, maxHeight: '220px', overflowY: 'auto' }}>
+                                {drainResults.map((user) => (
+                                    <div
+                                        key={user.id}
+                                        onClick={() => { setSelectedDrainUser(user); setDrainResults([]); }}
+                                        style={{ padding: '8px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
+                                    >
+                                        {user.avatar ? (
+                                            <img src={`https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`} style={{ width: 20, height: 20, borderRadius: 10 }} alt="" />
+                                        ) : (
+                                            <div style={{ width: 20, height: 20, borderRadius: 10, background: colors.textSecondary }} />
+                                        )}
+                                        <span>{user.displayName} ({user.username})</span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                    <input
+                        placeholder="Reason (optional, internal only)"
+                        value={drainReason}
+                        onChange={(e) => setDrainReason(e.target.value)}
+                        style={{ flex: 1, padding: '10px', background: colors.background, border: `1px solid ${colors.border}`, color: colors.textPrimary, borderRadius: borderRadius.sm }}
+                    />
+                    <button
+                        onClick={addToDrainerList}
+                        disabled={!selectedDrainUser}
+                        style={{
+                            background: colors.error,
+                            color: '#fff',
+                            border: 'none',
+                            padding: '10px 24px',
+                            borderRadius: borderRadius.md,
+                            cursor: selectedDrainUser ? 'pointer' : 'not-allowed',
+                            opacity: selectedDrainUser ? 1 : 0.5,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '8px',
+                            width: isMobile ? '100%' : 'auto'
+                        }}
+                    >
+                        <AnimatedWrapper icon={TrendingDown} size={16} /> Add to Drainer List
+                    </button>
+                </div>
+
+                {drainerListLoading ? (
+                    <div style={{ color: colors.textSecondary, padding: spacing.md }}>Loading...</div>
+                ) : drainerList.length === 0 ? (
+                    <div style={{ color: colors.textSecondary, padding: spacing.md, textAlign: 'center' }}>No users on the drainer list.</div>
+                ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        {drainerList.map((entry) => (
+                            <div key={entry.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px', background: colors.background, borderRadius: borderRadius.md, gap: '12px' }}>
+                                <div style={{ minWidth: 0 }}>
+                                    <div style={{ fontWeight: 600, wordBreak: 'break-word' }}>{entry.username || entry.userId}</div>
+                                    {entry.reason && <div style={{ fontSize: '13px', color: colors.textSecondary, wordBreak: 'break-word' }}>{entry.reason}</div>}
+                                    <div style={{ fontSize: '12px', color: colors.textTertiary }}>Added {new Date(entry.createdAt).toLocaleDateString()}</div>
+                                </div>
+                                <button
+                                    onClick={() => removeFromDrainerList(entry.userId)}
+                                    title="Remove from drainer list"
                                     style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.error, flexShrink: 0, padding: '4px' }}
                                 >
                                     <X size={18} />
