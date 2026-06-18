@@ -455,9 +455,32 @@ export const FrontpageAltFTrack: React.FC = () => {
                         </section>
                     )}
 
-                    {/* 6. Lyrics */}
+                    {/* 6. Comments */}
+                    <section style={{ ...glass, overflow: 'hidden' }}>
+                        <CommentSection
+                            trackId={track.id}
+                            ownerId={track.profile.userId}
+                            currentTrackTime={isThis ? player.currentTime : null}
+                            isCurrentTrack={isThis}
+                            onCommentPosted={refreshTimedComments}
+                            onSeek={(seconds) => { if (isThis) seek(seconds); else { playTrack(); setTimeout(() => seek(seconds), 200); } }}
+                        />
+                    </section>
+                </div>
+
+                {/* ── RIGHT COLUMN — sticky, viewport-height ── */}
+                <div style={{ position: 'sticky', top: 0, maxHeight: 'calc(100vh - 130px)', display: 'flex', flexDirection: 'column', gap: 20, overflowY: 'auto' }}>
+
+                    {/* Stems Mixer */}
+                    {track.stems?.length > 0 && (
+                        <section style={{ ...glass, overflow: 'hidden', flexShrink: 0 }}>
+                            <StemsMixer stems={track.stems} trackTitle={track.title} masterDuration={track.duration} playerTrack={track} allowDownload={track.allowStemsDownload ?? true} compact />
+                        </section>
+                    )}
+
+                    {/* Lyrics */}
                     {(track.lyrics || track.lyricsSync?.length > 0) && (
-                        <section style={{ ...glass, overflow: 'hidden' }}>
+                        <section style={{ ...glass, overflow: 'hidden', flexShrink: 0 }}>
                             <button onClick={() => setLyricsExpanded(e => !e)} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', background: 'none', border: 'none', cursor: 'pointer', color: TEXT }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                     <AlignLeft size={15} color={PRIMARY} />
@@ -484,35 +507,6 @@ export const FrontpageAltFTrack: React.FC = () => {
                             )}
                         </section>
                     )}
-                </div>
-
-                {/* ── RIGHT COLUMN — sticky, viewport-height ── */}
-                <div style={{ position: 'sticky', top: 0, maxHeight: 'calc(100vh - 130px)', display: 'flex', flexDirection: 'column', gap: 20, overflowY: 'auto' }}>
-
-                    {/* Stems Mixer */}
-                    {track.stems?.length > 0 && (
-                        <section style={{ ...glass, overflow: 'hidden', flexShrink: 0 }}>
-                            <StemsMixer stems={track.stems} trackTitle={track.title} masterDuration={track.duration} playerTrack={track} allowDownload={track.allowStemsDownload ?? true} compact />
-                        </section>
-                    )}
-
-                    {/* Community Live Feed / Comments */}
-                    <section style={{ ...glass, display: 'flex', flexDirection: 'column', overflow: 'hidden', flex: 1, minHeight: 400 }}>
-                        <div style={{ padding: '14px 16px', borderBottom: `1px solid rgba(255,255,255,0.1)`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(23,27,38,0.5)', flexShrink: 0 }}>
-                            <h3 style={{ margin: 0, fontSize: 14, fontWeight: 600, color: TEXT }}>Community Live Feed</h3>
-                            <MessageCircle size={18} color={PRIMARY} />
-                        </div>
-                        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
-                            <CommentSection
-                                trackId={track.id}
-                                ownerId={track.profile.userId}
-                                currentTrackTime={isThis ? player.currentTime : null}
-                                isCurrentTrack={isThis}
-                                onCommentPosted={refreshTimedComments}
-                                onSeek={(seconds) => { if (isThis) seek(seconds); else { playTrack(); setTimeout(() => seek(seconds), 200); } }}
-                            />
-                        </div>
-                    </section>
                 </div>
             </div>
         </div>
