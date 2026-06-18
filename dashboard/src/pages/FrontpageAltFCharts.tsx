@@ -117,7 +117,7 @@ export const FrontpageAltFCharts: React.FC = () => {
 
                         {/* Left panel: period selector + top 3 */}
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                            <div style={{ ...glass, borderRadius: 16, padding: '18px 16px' }}>
+                            <div style={{ ...glass, borderRadius: 20, padding: '18px 16px' }}>
                                 <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: SUB, marginBottom: 10, display: 'block' }}>Time Period</span>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                                     {PERIODS.map(p => (
@@ -130,7 +130,7 @@ export const FrontpageAltFCharts: React.FC = () => {
                             </div>
 
                             {entries.length > 0 && (
-                                <div style={{ ...glass, borderRadius: 16, overflow: 'hidden' }}>
+                                <div style={{ ...glass, borderRadius: 20, overflow: 'hidden' }}>
                                     <div style={{ padding: '12px 16px', background: 'rgba(38,42,53,0.5)', borderBottom: `1px solid ${DIVIDER}`, display: 'flex', alignItems: 'center', gap: 8 }}>
                                         <BarChart3 size={13} color={PRIMARY} />
                                         <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: SUB }}>Top Tracks</span>
@@ -171,7 +171,7 @@ export const FrontpageAltFCharts: React.FC = () => {
                             ) : entries.length === 0 ? (
                                 <div style={{ padding: 60, textAlign: 'center', color: SUB }}>No chart data yet.</div>
                             ) : (
-                                <div style={{ ...glass, borderRadius: 16, overflow: 'hidden' }}>
+                                <div style={{ ...glass, borderRadius: 20, overflow: 'hidden' }}>
                                     <div style={{ display: 'grid', gridTemplateColumns: '56px 1fr 160px 100px 100px 100px 48px', gap: 16, padding: '12px 24px', background: 'rgba(38,42,53,0.5)', borderBottom: `1px solid ${DIVIDER}`, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: SUB }}>
                                         <span>Rank</span><span>Track</span><span>Engagement</span><span>Plays</span><span>Period</span><span>Trend</span><span />
                                     </div>

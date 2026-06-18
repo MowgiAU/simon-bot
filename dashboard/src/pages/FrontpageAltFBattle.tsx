@@ -157,7 +157,7 @@ export const FrontpageAltFBattle: React.FC = () => {
 
                                     {/* Prizes */}
                                     {Array.isArray(battle.prizes) && battle.prizes.length > 0 && (
-                                        <div style={{ ...glass, borderRadius: 16, padding: '20px 20px', overflow: 'hidden', position: 'relative' }}>
+                                        <div style={{ ...glass, borderRadius: 20, padding: '20px 20px', overflow: 'hidden', position: 'relative' }}>
                                             <div style={{ position: 'absolute', top: -32, right: -32, width: 100, height: 100, background: `${PRIMARY}10`, borderRadius: '50%', filter: 'blur(24px)' }} />
                                             <h3 style={{ margin: '0 0 20px', fontSize: 15, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
                                                 <Trophy size={16} color={PRIMARY} /> Battle Prizes
@@ -183,7 +183,7 @@ export const FrontpageAltFBattle: React.FC = () => {
                                     )}
 
                                     {/* Timeline */}
-                                    <div style={{ ...glass, borderRadius: 16, padding: '20px 20px' }}>
+                                    <div style={{ ...glass, borderRadius: 20, padding: '20px 20px' }}>
                                         <h3 style={{ margin: '0 0 16px', fontSize: 15, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
                                             <Clock size={16} color={SECONDARY} /> Timeline
                                         </h3>
@@ -202,7 +202,7 @@ export const FrontpageAltFBattle: React.FC = () => {
 
                                     {/* Top entries podium */}
                                     {entries.length >= 2 && (
-                                        <div style={{ ...glass, borderRadius: 16, padding: '20px 20px' }}>
+                                        <div style={{ ...glass, borderRadius: 20, padding: '20px 20px' }}>
                                             <h3 style={{ margin: '0 0 16px', fontSize: 15, fontWeight: 700 }}>
                                                 {status?.label === 'Ended' ? 'Final Podium' : 'Leading Right Now'}
                                             </h3>
@@ -240,7 +240,7 @@ export const FrontpageAltFBattle: React.FC = () => {
 
                                     {/* Sponsor card */}
                                     {sponsor && (
-                                        <div style={{ ...glass, borderRadius: 16, overflow: 'hidden', border: `1px solid ${PRIMARY}22` }}>
+                                        <div style={{ ...glass, borderRadius: 20, overflow: 'hidden', border: `1px solid ${PRIMARY}22` }}>
                                             {sponsor.logoUrl && (
                                                 <div style={{ position: 'relative', height: 160, overflow: 'hidden' }}>
                                                     <img src={sponsor.logoUrl} alt={sponsor.name} referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.6 }} />
@@ -275,46 +275,49 @@ export const FrontpageAltFBattle: React.FC = () => {
 
                                     {/* Challenge + Rules */}
                                     {(fullDescription || rules.length > 0) && (
-                                        <div style={{ ...glass, borderRadius: 16, padding: '20px 24px' }}>
-                                            <div style={{ display: 'grid', gridTemplateColumns: rules.length > 0 && fullDescription ? '1fr 1fr' : '1fr', gap: 28 }}>
-                                                {fullDescription && (
-                                                    <div>
-                                                        <h3 style={{ margin: '0 0 12px', fontSize: 15, fontWeight: 700, color: PRIMARY }}>The Challenge</h3>
-                                                        <p style={{ margin: 0, fontSize: 14, color: SUB, lineHeight: 1.7 }}>{fullDescription}</p>
-                                                    </div>
-                                                )}
-                                                {rules.length > 0 && (
-                                                    <div>
-                                                        <h3 style={{ margin: '0 0 12px', fontSize: 15, fontWeight: 700, color: PRIMARY }}>Battle Rules</h3>
-                                                        <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 10 }}>
-                                                            {rules.map((r: string, i: number) => (
-                                                                <li key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', fontSize: 13, color: TEXT, lineHeight: 1.5 }}>
-                                                                    <CheckCircle size={15} color={SECONDARY} style={{ flexShrink: 0, marginTop: 2 }} />
-                                                                    {r}
-                                                                </li>
-                                                            ))}
-                                                        </ul>
-                                                    </div>
-                                                )}
+                                        <section>
+                                            <h2 style={{ margin: '0 0 16px', fontSize: 20, fontWeight: 700 }}>The Challenge</h2>
+                                            <div style={{ ...glass, borderRadius: 20, padding: '20px 24px' }}>
+                                                <div style={{ display: 'grid', gridTemplateColumns: rules.length > 0 && fullDescription ? '1fr 1fr' : '1fr', gap: 28 }}>
+                                                    {fullDescription && (
+                                                        <div>
+                                                            <p style={{ margin: 0, fontSize: 14, color: SUB, lineHeight: 1.7 }}>{fullDescription}</p>
+                                                        </div>
+                                                    )}
+                                                    {rules.length > 0 && (
+                                                        <div>
+                                                            <h3 style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: SUB }}>Rules</h3>
+                                                            <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                                                {rules.map((r: string, i: number) => (
+                                                                    <li key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', fontSize: 13, color: TEXT, lineHeight: 1.5 }}>
+                                                                        <CheckCircle size={15} color={SECONDARY} style={{ flexShrink: 0, marginTop: 2 }} />
+                                                                        {r}
+                                                                    </li>
+                                                                ))}
+                                                            </ul>
+                                                        </div>
+                                                    )}
+                                                </div>
                                             </div>
-                                        </div>
+                                        </section>
                                     )}
 
                                     {/* Sample kit */}
                                     {samples.length > 0 && (
-                                        <div style={{ ...glass, borderRadius: 16, padding: '20px 24px' }}>
+                                        <section>
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                                                <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
-                                                    <Download size={16} color={SECONDARY} />
+                                                <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                    <Download size={18} color={SECONDARY} />
                                                     {battle.release?.name || 'Sample Kit'}
-                                                    <span style={{ fontWeight: 400, fontSize: 12, color: SUB }}>({samples.length} files)</span>
-                                                </h3>
+                                                    <span style={{ fontWeight: 400, fontSize: 13, color: SUB }}>({samples.length} files)</span>
+                                                </h2>
                                                 {battle.release && (
                                                     <button style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: PRIMARY, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
                                                         <Download size={14} /> Download Full Pack
                                                     </button>
                                                 )}
                                             </div>
+                                        <div style={{ ...glass, borderRadius: 20, padding: '20px 24px' }}>
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                                                 {samples.map((s: any, i: number) => (
                                                     <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: 'rgba(38,42,53,0.3)', borderRadius: 12, border: `1px solid ${DIVIDER}`, transition: 'background 0.15s', cursor: 'default' }}>
@@ -330,15 +333,15 @@ export const FrontpageAltFBattle: React.FC = () => {
                                                 ))}
                                             </div>
                                         </div>
+                                        </section>
                                     )}
 
                                     {/* Entries / Submissions */}
-                                    <div style={{ ...glass, borderRadius: 16, overflow: 'hidden' }}>
-                                        <div style={{ padding: '16px 20px', background: 'rgba(38,42,53,0.5)', borderBottom: `1px solid ${DIVIDER}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>
-                                                Current Submissions
-                                                <span style={{ marginLeft: 8, fontWeight: 400, fontSize: 13, color: SUB }}>({fmtNum(battle._count?.entries || entries.length)} Entries)</span>
-                                            </h3>
+                                    <section>
+                                    <h2 style={{ margin: '0 0 16px', fontSize: 20, fontWeight: 700 }}>Current Submissions</h2>
+                                    <div style={{ ...glass, borderRadius: 20, overflow: 'hidden' }}>
+                                        <div style={{ padding: '12px 20px', background: 'rgba(38,42,53,0.5)', borderBottom: `1px solid ${DIVIDER}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <span style={{ fontSize: 13, color: SUB }}>{fmtNum(battle._count?.entries || entries.length)} entries</span>
                                             <div style={{ display: 'flex', gap: 6 }}>
                                                 <span style={{ padding: '4px 14px', borderRadius: 9999, fontSize: 11, fontWeight: 700, background: S_HIGH, border: `1px solid ${BORDER}`, color: TEXT }}>Hottest</span>
                                                 <span style={{ padding: '4px 14px', borderRadius: 9999, fontSize: 11, fontWeight: 700, background: 'transparent', border: `1px solid ${BORDER}`, color: SUB, cursor: 'pointer' }}>Newest</span>
@@ -397,6 +400,7 @@ export const FrontpageAltFBattle: React.FC = () => {
                                             );
                                         })}
                                     </div>
+                                    </section>
                                 </div>
 
                             </div>

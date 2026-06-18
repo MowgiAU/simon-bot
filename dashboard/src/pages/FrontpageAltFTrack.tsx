@@ -179,70 +179,131 @@ export const FrontpageAltFTrack: React.FC = () => {
 
     return shell(
         <div style={{ flex: 1, overflowY: 'auto', paddingBottom: player.currentTrack ? 90 : 0 }}>
-            <div style={{ maxWidth: 1280, margin: '0 auto', padding: '24px 32px', boxSizing: 'border-box', display: 'grid', gridTemplateColumns: '1fr 380px', gap: 24 }}>
+            <div style={{ maxWidth: 1280, margin: '0 auto', padding: '24px 32px', boxSizing: 'border-box', display: 'grid', gridTemplateColumns: '280px 1fr', gap: 24 }}>
 
-                {/* ── LEFT COLUMN ── */}
+                {/* ── LEFT (280px): artist info, actions, lyrics ── */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
 
-                    {/* 1. Artist mini-card */}
-                    <section style={{ ...glass, padding: '20px 24px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap' }}>
-                            {/* Avatar */}
-                            <div style={{ position: 'relative', flexShrink: 0 }}>
-                                <div style={{ width: 72, height: 72, borderRadius: '50%', overflow: 'hidden', border: '2px solid rgba(255,255,255,0.1)', background: S_HIGH }}>
-                                    {track.profile.avatar
-                                        ? <img src={track.profile.avatar} alt="" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                        : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Music size={28} color={SUB} /></div>}
-                                </div>
-                                {track.profile.isVerified && (
-                                    <div style={{ position: 'absolute', bottom: -2, right: -2, background: PRIMARY, borderRadius: '50%', width: 20, height: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', border: `2px solid ${BG}` }}>
-                                        <BadgeCheck size={12} color="#fff" />
-                                    </div>
-                                )}
+                    {/* Artist card */}
+                    <section style={{ ...glass, borderRadius: 20, overflow: 'hidden' }}>
+                        <div style={{ padding: '14px 18px', borderBottom: `1px solid ${DIVIDER}`, display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <div style={{ width: 48, height: 48, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, background: S_HIGH, border: '2px solid rgba(255,255,255,0.1)' }}>
+                                {track.profile.avatar
+                                    ? <img src={track.profile.avatar} alt="" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Music size={20} color={SUB} /></div>}
                             </div>
-                            {/* Info */}
                             <div style={{ flex: 1, minWidth: 0 }}>
-                                <h3 style={{ margin: '0 0 8px', fontSize: 18, fontWeight: 900, color: '#fff' }}>
+                                <h3 style={{ margin: 0, fontSize: 14, fontWeight: 800, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                     <Link to={`/profile/${track.profile.username}`} style={{ color: '#fff', textDecoration: 'none' }}>{track.profile.displayName || track.profile.username}</Link>
                                 </h3>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                                    {[{ val: fmtNum(track.profile.followerCount), lbl: 'Followers' }, { val: fmtNum(track.profile.totalPlays || track.profile.playCount), lbl: 'Plays' }, { val: fmtNum((track.profile.tracks || []).length || track.profile.trackCount), lbl: 'Tracks' }].map((s, i) => (
-                                        <React.Fragment key={i}>
-                                            {i > 0 && <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.1)' }} />}
-                                            <div>
-                                                <div style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>{s.val}</div>
-                                                <div style={{ fontSize: 10, color: SUB, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{s.lbl}</div>
-                                            </div>
-                                        </React.Fragment>
-                                    ))}
+                                {track.profile.isVerified && <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 2 }}><BadgeCheck size={11} color={PRIMARY} /><span style={{ fontSize: 10, color: PRIMARY, fontWeight: 700 }}>Verified</span></div>}
+                            </div>
+                        </div>
+                        <div style={{ padding: '12px 18px', display: 'flex', justifyContent: 'space-between', borderBottom: `1px solid ${DIVIDER}` }}>
+                            {[{ val: fmtNum(track.profile.followerCount), lbl: 'Followers' }, { val: fmtNum(track.profile.totalPlays || track.profile.playCount), lbl: 'Plays' }, { val: fmtNum((track.profile.tracks || []).length || track.profile.trackCount), lbl: 'Tracks' }].map((s, i) => (
+                                <div key={i} style={{ textAlign: 'center' }}>
+                                    <div style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>{s.val}</div>
+                                    <div style={{ fontSize: 10, color: SUB, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{s.lbl}</div>
                                 </div>
-                            </div>
-                            {/* Actions */}
-                            <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-                                <button onClick={toggleFollow} style={{ display: 'flex', alignItems: 'center', gap: 7, background: following ? 'transparent' : PRIMARY, color: following ? PRIMARY : '#fff', border: following ? `1px solid ${PRIMARY}` : 'none', padding: '8px 20px', borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: 'pointer', transition: 'all 0.2s' }}>
-                                    {following ? <UserCheck size={16} /> : <UserPlus size={16} />} {following ? 'Following' : 'Follow'}
-                                </button>
-                                <button onClick={msgArtist} style={{ display: 'flex', alignItems: 'center', gap: 7, background: 'transparent', color: SECONDARY, border: `1px solid ${SECONDARY}`, padding: '8px 20px', borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
-                                    <MessageCircle size={16} /> Message
-                                </button>
-                            </div>
+                            ))}
+                        </div>
+                        <div style={{ padding: '12px 18px', display: 'flex', gap: 8 }}>
+                            <button onClick={toggleFollow} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: following ? 'transparent' : PRIMARY, color: following ? PRIMARY : '#fff', border: following ? `1px solid ${PRIMARY}` : 'none', padding: '8px 0', borderRadius: 8, fontWeight: 700, fontSize: 12, cursor: 'pointer', transition: 'all 0.2s' }}>
+                                {following ? <UserCheck size={14} /> : <UserPlus size={14} />} {following ? 'Following' : 'Follow'}
+                            </button>
+                            <button onClick={msgArtist} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: 'transparent', color: SECONDARY, border: `1px solid ${SECONDARY}`, padding: '8px 0', borderRadius: 8, fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>
+                                <MessageCircle size={14} /> Message
+                            </button>
                         </div>
                     </section>
 
-                    {/* 2. Album art / Music video — aspect-video */}
-                    <section style={{ ...glass, overflow: 'hidden', position: 'relative', aspectRatio: '16/9' }}>
+                    {/* Track info: actions + metadata + description */}
+                    <section style={{ ...glass, borderRadius: 20, padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                            {[
+                                { icon: <Heart size={14} fill={liked ? '#EF4444' : 'none'} color={liked ? '#EF4444' : SUB} />, label: fmtNum(likeCount), active: liked, activeColor: '#EF4444', onClick: toggleLike },
+                                { icon: <Repeat2 size={14} color={reposted ? PRIMARY : SUB} />, label: fmtNum(repostCount), active: reposted, activeColor: PRIMARY, onClick: handleRepost },
+                                { icon: <Share2 size={14} color={SUB} />, label: 'Share', active: false, activeColor: '#fff', onClick: () => navigator.clipboard.writeText(window.location.href) },
+                                { icon: <ListPlus size={14} color={SUB} />, label: 'Playlist', active: false, activeColor: '#fff', onClick: () => {} },
+                            ].map((btn, i) => (
+                                <button key={i} onClick={btn.onClick} style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', padding: '6px 10px', borderRadius: 8, cursor: 'pointer', fontSize: 11, fontWeight: 700, color: btn.active ? btn.activeColor : SUB, transition: 'all 0.15s' }}>
+                                    {btn.icon} {btn.label}
+                                </button>
+                            ))}
+                        </div>
+                        {Array.isArray(track.battles) && track.battles.length > 0 && (
+                            <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+                                {track.battles.map((b: any) => (
+                                    <span key={b.entryId} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 10px', borderRadius: 9999, background: 'rgba(249,115,22,0.15)', border: '1px solid rgba(249,115,22,0.4)', color: '#F97316', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                        <Swords size={10} /> {b.battleTitle}
+                                    </span>
+                                ))}
+                            </div>
+                        )}
+                        <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+                            {track.bpm && <span style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 9999, background: `${SECONDARY}18`, border: `1px solid ${SECONDARY}33`, fontSize: 11, fontWeight: 600, color: SECONDARY }}><Activity size={10} /> {track.bpm} BPM</span>}
+                            {track.key && <span style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 9999, background: 'rgba(124,58,237,0.12)', border: '1px solid rgba(124,58,237,0.25)', fontSize: 11, fontWeight: 600, color: '#A78BFA' }}><Tag size={10} /> {track.key}</span>}
+                            {track.duration && <span style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 9999, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', fontSize: 11, color: SUB }}><Clock size={10} /> {fmtDur(track.duration)}</span>}
+                            {(track.genres || []).map((g: any) => <span key={g.genre.id} style={{ padding: '3px 8px', borderRadius: 9999, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', fontSize: 11, color: SUB }}>{g.genre.name}</span>)}
+                        </div>
+                        {track.description && (
+                            <div>
+                                <p style={{ margin: 0, fontSize: 12, color: SUB, lineHeight: 1.7, overflow: 'hidden', maxHeight: descExpanded ? 'none' : 60, whiteSpace: 'pre-wrap' }}>{track.description}</p>
+                                {track.description.length > 160 && (
+                                    <button onClick={() => setDescExpanded(e => !e)} style={{ marginTop: 4, background: 'none', border: 'none', color: PRIMARY, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', cursor: 'pointer' }}>
+                                        {descExpanded ? 'Show less' : 'Read More'}
+                                    </button>
+                                )}
+                            </div>
+                        )}
+                    </section>
+
+                    {/* Lyrics */}
+                    {(track.lyrics || track.lyricsSync?.length > 0) && (
+                        <section style={{ ...glass, borderRadius: 20, overflow: 'hidden', flexShrink: 0 }}>
+                            <button onClick={() => setLyricsExpanded(e => !e)} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', background: 'none', border: 'none', cursor: 'pointer', color: TEXT }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <AlignLeft size={14} color={PRIMARY} />
+                                    <span style={{ fontWeight: 700, fontSize: 14 }}>Lyrics</span>
+                                    {track.lyricsSync?.length > 0 && <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 9999, background: `${PRIMARY}22`, border: `1px solid ${PRIMARY}44`, color: PRIMARY, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Synced</span>}
+                                </div>
+                                {lyricsExpanded ? <ChevronUp size={13} color={SUB} /> : <ChevronDown size={13} color={SUB} />}
+                            </button>
+                            {lyricsExpanded && (
+                                <div style={{ padding: '0 18px 16px' }}>
+                                    {track.lyricsSync?.length > 0 ? (
+                                        <div style={{ maxHeight: 280, overflowY: 'auto' }}>
+                                            {track.lyricsSync.map((cue: any, i: number) => (
+                                                <div key={i} onClick={() => { if (isThis) seek(cue.time); else playTrack(); }}
+                                                    style={{ padding: '5px 0', cursor: 'pointer', fontSize: activeLyricIdx === i ? 14 : 12, fontWeight: activeLyricIdx === i ? 700 : 400, color: activeLyricIdx === i ? PRIMARY : SUB, transition: 'all 0.2s', lineHeight: 1.5 }}>
+                                                    {cue.text || <span style={{ opacity: 0.3 }}>♪</span>}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <pre style={{ margin: 0, color: SUB, fontFamily: 'inherit', whiteSpace: 'pre-wrap', lineHeight: 1.8, fontSize: 12 }}>{track.lyrics}</pre>
+                                    )}
+                                </div>
+                            )}
+                        </section>
+                    )}
+                </div>
+
+                {/* ── RIGHT (1fr): media, waveform, stems, timeline, comments ── */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+
+                    {/* Album art / Music video */}
+                    <section style={{ ...glass, borderRadius: 20, overflow: 'hidden', position: 'relative', aspectRatio: '16/9' }}>
                         {showVideo
                             ? <MemoYouTube videoId={youtubeId!} trackId={track.id} player={player} isPlaying={isPlaying} onUserPause={togglePlay} />
                             : <>
                                 {track.coverUrl && <img src={track.coverUrl} alt={track.title} referrerPolicy="no-referrer" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: 0.7 }} />}
                                 <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(10,14,24,0.9) 0%, rgba(10,14,24,0.2) 60%, transparent 100%)' }} />
-                                {/* Centered play button */}
                                 <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                     <button onClick={() => isPlaying ? togglePlay() : playTrack()} style={{ width: 80, height: 80, borderRadius: '50%', background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'transform 0.2s' }}>
                                         {isPlaying ? <Pause size={40} fill="#fff" color="#fff" /> : <Play size={40} fill="#fff" color="#fff" style={{ marginLeft: 4 }} />}
                                     </button>
                                 </div>
-                                {/* Title overlay */}
                                 <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '0 24px 20px', pointerEvents: 'none' }}>
                                     <h2 style={{ margin: 0, fontSize: 28, fontWeight: 700, color: '#fff', letterSpacing: '-0.02em', textShadow: '0 2px 12px rgba(0,0,0,0.8)' }}>{track.title}</h2>
                                     <p style={{ margin: '4px 0 0', color: PRIMARY, fontWeight: 700, fontSize: 13 }}>{(track.genres || []).map((g: any) => g.genre.name).join(' · ').toUpperCase() || 'OFFICIAL RELEASE'}</p>
@@ -251,57 +312,8 @@ export const FrontpageAltFTrack: React.FC = () => {
                         }
                     </section>
 
-                    {/* 3. Action bar + description */}
-                    <section style={{ ...glass, padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
-                            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                                {[
-                                    { icon: <Heart size={15} fill={liked ? '#EF4444' : 'none'} color={liked ? '#EF4444' : SUB} />, label: fmtNum(likeCount), active: liked, activeColor: '#EF4444', onClick: toggleLike },
-                                    { icon: <Repeat2 size={15} color={reposted ? PRIMARY : SUB} />, label: fmtNum(repostCount), active: reposted, activeColor: PRIMARY, onClick: handleRepost },
-                                    { icon: <Share2 size={15} color={SUB} />, label: 'Share', active: false, activeColor: '#fff', onClick: () => navigator.clipboard.writeText(window.location.href) },
-                                    { icon: <ListPlus size={15} color={SUB} />, label: 'Add to Playlist', active: false, activeColor: '#fff', onClick: () => {} },
-                                ].map((btn, i) => (
-                                    <button key={i} onClick={btn.onClick} style={{ display: 'flex', alignItems: 'center', gap: 7, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', padding: '7px 14px', borderRadius: 8, cursor: 'pointer', fontSize: 12, fontWeight: 700, color: btn.active ? btn.activeColor : SUB, transition: 'all 0.15s' }}>
-                                        {btn.icon} {btn.label}
-                                    </button>
-                                ))}
-                            </div>
-                            <button style={{ background: 'none', border: 'none', color: SUB, cursor: 'pointer', opacity: 0.5, display: 'flex', alignItems: 'center', gap: 4, fontSize: 12 }}>
-                                <Flag size={14} /> Report
-                            </button>
-                        </div>
-                        {/* Battle badges */}
-                        {Array.isArray(track.battles) && track.battles.length > 0 && (
-                            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                                {track.battles.map((b: any) => (
-                                    <span key={b.entryId} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 12px', borderRadius: 9999, background: 'rgba(249,115,22,0.15)', border: '1px solid rgba(249,115,22,0.4)', color: '#F97316', fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                                        <Swords size={12} /> {b.battleTitle}
-                                    </span>
-                                ))}
-                            </div>
-                        )}
-                        {/* Metadata chips */}
-                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                            {track.bpm && <span style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 9999, background: `${SECONDARY}18`, border: `1px solid ${SECONDARY}33`, fontSize: 12, fontWeight: 600, color: SECONDARY }}><Activity size={11} /> {track.bpm} BPM</span>}
-                            {track.key && <span style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 9999, background: 'rgba(124,58,237,0.12)', border: '1px solid rgba(124,58,237,0.25)', fontSize: 12, fontWeight: 600, color: '#A78BFA' }}><Tag size={11} /> {track.key}</span>}
-                            {track.duration && <span style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 9999, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', fontSize: 12, color: SUB }}><Clock size={11} /> {fmtDur(track.duration)}</span>}
-                            {(track.genres || []).map((g: any) => <span key={g.genre.id} style={{ padding: '3px 10px', borderRadius: 9999, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', fontSize: 12, color: SUB }}>{g.genre.name}</span>)}
-                        </div>
-                        {/* Description */}
-                        {track.description && (
-                            <div>
-                                <p style={{ margin: 0, fontSize: 13, color: SUB, lineHeight: 1.7, overflow: 'hidden', maxHeight: descExpanded ? 'none' : 66, whiteSpace: 'pre-wrap' }}>{track.description}</p>
-                                {track.description.length > 160 && (
-                                    <button onClick={() => setDescExpanded(e => !e)} style={{ marginTop: 6, background: 'none', border: 'none', color: PRIMARY, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', cursor: 'pointer' }}>
-                                        {descExpanded ? 'Show less' : 'Read More'}
-                                    </button>
-                                )}
-                            </div>
-                        )}
-                    </section>
-
-                    {/* 4. Waveform — Master Channel with transport */}
-                    <section style={{ ...glass, padding: '20px 24px' }}>
+                    {/* Waveform — Master Channel with transport */}
+                    <section style={{ ...glass, borderRadius: 20, padding: '20px 24px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                             <div>
                                 <span style={{ fontSize: 10, fontWeight: 700, color: SUB, textTransform: 'uppercase', letterSpacing: '0.1em', display: 'block', marginBottom: 4 }}>Master Channel</span>
@@ -365,6 +377,13 @@ export const FrontpageAltFTrack: React.FC = () => {
                             </div>
                         )}
                     </section>
+
+                    {/* Stems Mixer */}
+                    {track.stems?.length > 0 && (
+                        <section style={{ ...glass, borderRadius: 20, overflow: 'hidden', flexShrink: 0 }}>
+                            <StemsMixer stems={track.stems} trackTitle={track.title} masterDuration={track.duration} playerTrack={track} allowDownload={track.allowStemsDownload ?? true} compact />
+                        </section>
+                    )}
 
                     {/* 5. FL Project Timeline */}
                     {hasArrangement && (
@@ -447,47 +466,6 @@ export const FrontpageAltFTrack: React.FC = () => {
                             onSeek={(seconds) => { if (isThis) seek(seconds); else { playTrack(); setTimeout(() => seek(seconds), 200); } }}
                         />
                     </section>
-                </div>
-
-                {/* ── RIGHT COLUMN ── */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-
-                    {/* Stems Mixer */}
-                    {track.stems?.length > 0 && (
-                        <section style={{ ...glass, overflow: 'hidden', flexShrink: 0 }}>
-                            <StemsMixer stems={track.stems} trackTitle={track.title} masterDuration={track.duration} playerTrack={track} allowDownload={track.allowStemsDownload ?? true} compact />
-                        </section>
-                    )}
-
-                    {/* Lyrics */}
-                    {(track.lyrics || track.lyricsSync?.length > 0) && (
-                        <section style={{ ...glass, overflow: 'hidden', flexShrink: 0 }}>
-                            <button onClick={() => setLyricsExpanded(e => !e)} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', background: 'none', border: 'none', cursor: 'pointer', color: TEXT }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                    <AlignLeft size={15} color={PRIMARY} />
-                                    <span style={{ fontWeight: 700, fontSize: 14 }}>Lyrics</span>
-                                    {track.lyricsSync?.length > 0 && <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 9999, background: `${PRIMARY}22`, border: `1px solid ${PRIMARY}44`, color: PRIMARY, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Synced</span>}
-                                </div>
-                                {lyricsExpanded ? <ChevronUp size={13} color={SUB} /> : <ChevronDown size={13} color={SUB} />}
-                            </button>
-                            {lyricsExpanded && (
-                                <div style={{ padding: '0 20px 20px' }}>
-                                    {track.lyricsSync?.length > 0 ? (
-                                        <div style={{ maxHeight: 280, overflowY: 'auto' }}>
-                                            {track.lyricsSync.map((cue: any, i: number) => (
-                                                <div key={i} onClick={() => { if (isThis) seek(cue.time); else playTrack(); }}
-                                                    style={{ padding: '5px 0', cursor: 'pointer', fontSize: activeLyricIdx === i ? 15 : 13, fontWeight: activeLyricIdx === i ? 700 : 400, color: activeLyricIdx === i ? PRIMARY : SUB, transition: 'all 0.2s', lineHeight: 1.5 }}>
-                                                    {cue.text || <span style={{ opacity: 0.3 }}>♪</span>}
-                                                </div>
-                                            ))}
-                                        </div>
-                                    ) : (
-                                        <pre style={{ margin: 0, color: SUB, fontFamily: 'inherit', whiteSpace: 'pre-wrap', lineHeight: 1.8, fontSize: 13 }}>{track.lyrics}</pre>
-                                    )}
-                                </div>
-                            )}
-                        </section>
-                    )}
                 </div>
             </div>
         </div>
