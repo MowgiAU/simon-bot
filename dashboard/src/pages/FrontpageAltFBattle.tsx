@@ -103,7 +103,7 @@ export const FrontpageAltFBattle: React.FC = () => {
                                     {battle.description && <p style={{ margin: '0 auto 20px', maxWidth: 640, color: SUB, fontSize: 15, lineHeight: 1.6 }}>{battle.description}</p>}
                                     <div style={{ display: 'flex', justifyContent: 'center', gap: 32, marginBottom: 24, color: SUB, fontSize: 13 }}>
                                         <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Users size={15} /> {fmtNum(battle._count?.entries || entries.length)} entries</span>
-                                        {battle.prizes && <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Trophy size={15} color={PRIMARY} style={{}} /> <span style={{ color: PRIMARY, fontWeight: 700 }}>{battle.prizes}</span></span>}
+                                        {Array.isArray(battle.prizes) && battle.prizes.length > 0 && <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Trophy size={15} color={PRIMARY} /> <span style={{ color: PRIMARY, fontWeight: 700 }}>{battle.prizes.length} prize{battle.prizes.length !== 1 ? 's' : ''}</span></span>}
                                     </div>
                                     {status?.label !== 'Ended' && (
                                         <button onClick={() => setJoined(j => !j)} style={{ padding: '14px 40px', borderRadius: 9999, background: joined ? 'transparent' : PRIMARY, border: joined ? `2px solid ${PRIMARY}` : 'none', color: joined ? PRIMARY : '#fff', fontWeight: 800, fontSize: 15, cursor: 'pointer', boxShadow: joined ? 'none' : `0 0 24px ${PRIMARY}44`, letterSpacing: '0.02em' }}>
@@ -203,10 +203,24 @@ export const FrontpageAltFBattle: React.FC = () => {
                                     )}
 
                                     {/* Prizes */}
-                                    {battle.prizes && (
+                                    {battle.prizes && Array.isArray(battle.prizes) && battle.prizes.length > 0 && (
                                         <div style={{ ...glass, borderRadius: 16, padding: 20 }}>
                                             <h3 style={{ margin: '0 0 16px', fontSize: 15, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}><Trophy size={16} color={PRIMARY} /> Prizes</h3>
-                                            <p style={{ margin: 0, color: SUB, fontSize: 14, lineHeight: 1.6 }}>{battle.prizes}</p>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                                {(battle.prizes as any[]).map((p: any, i: number) => (
+                                                    <div key={i} style={{ display: 'flex', gap: 12, padding: 12, background: `${PRIMARY}0a`, border: `1px solid ${PRIMARY}22`, borderRadius: 10, alignItems: 'flex-start' }}>
+                                                        {p.imageUrl && <img src={p.imageUrl} alt={p.title || p.place} referrerPolicy="no-referrer" style={{ width: 60, height: 60, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />}
+                                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                                                                <span style={{ fontSize: 14 }}>{i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i + 1}`}</span>
+                                                                <span style={{ fontSize: 10, fontWeight: 700, color: SUB, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{p.place}</span>
+                                                            </div>
+                                                            {p.title && <p style={{ margin: '0 0 2px', fontSize: 13, fontWeight: 700, color: TEXT }}>{p.title}</p>}
+                                                            {p.description && <p style={{ margin: 0, fontSize: 12, color: PRIMARY, fontWeight: 600 }}>{p.description}</p>}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
                                         </div>
                                     )}
 

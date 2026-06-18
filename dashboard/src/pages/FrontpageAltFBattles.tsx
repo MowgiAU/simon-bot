@@ -94,7 +94,7 @@ export const FrontpageAltFBattles: React.FC = () => {
                                         {featured.description && <p style={{ margin: '0 auto 20px', maxWidth: 600, color: SUB, fontSize: 15, lineHeight: 1.6 }}>{featured.description.slice(0, 180)}{featured.description.length > 180 ? '…' : ''}</p>}
                                         <div style={{ display: 'flex', justifyContent: 'center', gap: 36, marginBottom: 28, color: SUB, fontSize: 14 }}>
                                             <span style={{ display: 'flex', alignItems: 'center', gap: 7 }}><Users size={15} /> {fmtNum(featured._count?.entries || 0)} entries</span>
-                                            {featured.prizes && <span style={{ display: 'flex', alignItems: 'center', gap: 7 }}><Trophy size={15} color={PRIMARY} /> <span style={{ color: PRIMARY, fontWeight: 700 }}>{featured.prizes}</span></span>}
+                                            {Array.isArray(featured.prizes) && featured.prizes.length > 0 && <span style={{ display: 'flex', alignItems: 'center', gap: 7 }}><Trophy size={15} color={PRIMARY} /> <span style={{ color: PRIMARY, fontWeight: 700 }}>{featured.prizes.length} prize{featured.prizes.length !== 1 ? 's' : ''}</span></span>}
                                         </div>
                                         <div style={{ display: 'flex', justifyContent: 'center', gap: 12 }}>
                                             <button onClick={() => goToBattle(featured)} style={{ padding: '14px 40px', borderRadius: 9999, background: PRIMARY, border: 'none', color: '#fff', fontWeight: 800, fontSize: 15, cursor: 'pointer', boxShadow: `0 0 28px ${PRIMARY}44`, display: 'flex', alignItems: 'center', gap: 8 }}>
