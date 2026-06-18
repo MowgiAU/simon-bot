@@ -28,7 +28,8 @@ function extractYouTubeId(url: string): string | null {
     try { const u = new URL(url); if (u.hostname === 'youtu.be') return u.pathname.slice(1).split('?')[0] || null; if (u.hostname.includes('youtube.com')) { const v = u.searchParams.get('v'); if (v) return v; const m = u.pathname.match(/\/embed\/([^/?]+)/); if (m) return m[1]; } } catch {} return null;
 }
 
-const glass: React.CSSProperties = { background: 'rgba(28,31,42,0.4)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 16 };
+const DIVIDER = 'rgba(87,66,54,0.25)';
+const glass: React.CSSProperties = { background: 'rgba(15,19,29,0.7)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 12px 40px rgba(0,0,0,0.5)', borderRadius: 16 };
 
 const MemoArrangement: React.FC<{ track: any; player: any; isPlaying: boolean; zoom: number; setZoom: (v: number) => void }> = React.memo(({ track, player, isPlaying, zoom, setZoom }) => {
     const samplesMap = useMemo(() => Object.fromEntries((track.samples ?? []).map((s: any) => [s.originalFilename.toLowerCase(), s.peaks])), [track.samples]);
@@ -364,7 +365,7 @@ export const FrontpageAltFTrack: React.FC = () => {
                     {/* 5. FL Project Timeline */}
                     {hasArrangement && (
                         <section style={{ ...glass, overflow: 'hidden' }}>
-                            <div style={{ padding: '14px 20px', borderBottom: `1px solid rgba(255,255,255,0.05)`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(23,27,38,0.5)' }}>
+                            <div style={{ padding: '14px 20px', borderBottom: `1px solid ${DIVIDER}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(38,42,53,0.5)' }}>
                                 <h3 style={{ margin: 0, fontSize: 14, fontWeight: 600, color: TEXT }}>
                                     {track.arrangement?.fileType === 'als' ? 'Ableton' : 'FL Studio'} Project Timeline
                                 </h3>
@@ -374,13 +375,13 @@ export const FrontpageAltFTrack: React.FC = () => {
                                 </div>
                             </div>
                             {track.arrangement.tracks?.some((t: any) => t.clips.length > 0) && (
-                                <div style={{ padding: '16px 20px', borderBottom: `1px solid rgba(255,255,255,0.05)` }}>
+                                <div style={{ padding: '16px 20px', borderBottom: `1px solid ${DIVIDER}` }}>
                                     <MemoArrangement track={track} player={player} isPlaying={isPlaying} zoom={zoom} setZoom={setZoom} />
                                 </div>
                             )}
                             {/* Matched plugins */}
                             {matchedPlugins.length > 0 && (
-                                <div style={{ padding: '14px 20px', borderBottom: `1px solid rgba(255,255,255,0.05)` }}>
+                                <div style={{ padding: '14px 20px', borderBottom: `1px solid ${DIVIDER}` }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
                                         <Zap size={12} color={PRIMARY} />
                                         <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: PRIMARY }}>Plugins Used</span>
@@ -406,7 +407,7 @@ export const FrontpageAltFTrack: React.FC = () => {
                             {/* All plugins + samples collapsible */}
                             {(unmatchedPlugins.length > 0 || track.arrangement.projectInfo?.samples?.length > 0) && (
                                 <>
-                                    <button onClick={() => setPluginsSamplesOpen(o => !o)} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 20px', background: 'none', border: 'none', cursor: 'pointer', color: SUB, borderTop: `1px solid rgba(255,255,255,0.05)` }}>
+                                    <button onClick={() => setPluginsSamplesOpen(o => !o)} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 20px', background: 'none', border: 'none', cursor: 'pointer', color: SUB, borderTop: `1px solid ${DIVIDER}` }}>
                                         <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', display: 'flex', alignItems: 'center', gap: 5 }}><Zap size={11} color={PRIMARY} /> All plugins & samples</span>
                                         {pluginsSamplesOpen ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
                                     </button>

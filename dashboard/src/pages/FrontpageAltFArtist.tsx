@@ -81,7 +81,8 @@ export const FrontpageAltFArtist: React.FC = () => {
     // ── Theme carry-over ──
     const accent = p?.accentColor || PRIMARY;
     const pageBg = p?.cardBgColor ? `color-mix(in srgb, ${p.cardBgColor} 55%, ${BG})` : BG;
-    const glass: React.CSSProperties = { background: p?.cardBgColor ? `color-mix(in srgb, ${p.cardBgColor} 70%, #11141d)` : 'rgba(23,27,38,0.7)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.1)' };
+    const DIVIDER = 'rgba(87,66,54,0.25)';
+    const glass: React.CSSProperties = { background: p?.cardBgColor ? `color-mix(in srgb, ${p.cardBgColor} 70%, #11141d)` : 'rgba(15,19,29,0.7)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 12px 40px rgba(0,0,0,0.5)' };
 
     // Only show public tracks
     const publicTracks: any[] = (p?.tracks || []).filter((t: any) => t.isPublic !== false);
@@ -112,7 +113,9 @@ export const FrontpageAltFArtist: React.FC = () => {
     const TrackRow: React.FC<{ t: any; repost?: boolean }> = ({ t, repost }) => {
         const on = playingId === t.id;
         return (
-            <div onClick={() => open(t)} style={{ ...glass, borderRadius: 6, padding: 8, display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}>
+            <div onClick={() => open(t)} style={{ ...glass, borderRadius: 10, padding: 8, display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', transition: 'border-color 0.2s, transform 0.15s' }}
+                onMouseEnter={ev => { ev.currentTarget.style.borderColor = `${PRIMARY}66`; ev.currentTarget.style.transform = 'translateY(-1px)'; }}
+                onMouseLeave={ev => { ev.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; ev.currentTarget.style.transform = 'translateY(0)'; }}>
                 <div style={{ width: 36, height: 36, borderRadius: 4, overflow: 'hidden', flexShrink: 0, background: S_HIGH, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     {t.coverUrl ? <img src={t.coverUrl} alt="" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <Play size={16} fill={on ? accent : SUB} color={on ? accent : SUB} />}
                 </div>
@@ -268,7 +271,9 @@ export const FrontpageAltFArtist: React.FC = () => {
                                             const title = b.battleTitle || b.battle?.title || b.title || 'Beat Battle';
                                             const slug = b.battleSlug || b.battle?.slug || b.slug;
                                             return (
-                                                <Link key={b.id || i} to={slug ? `/battles/${slug}` : '/battles'} style={{ ...glass, borderRadius: 8, padding: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between', textDecoration: 'none', color: TEXT }}>
+                                                <Link key={b.id || i} to={slug ? `/battles/${slug}` : '/battles'} style={{ ...glass, borderRadius: 12, padding: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between', textDecoration: 'none', color: TEXT, transition: 'border-color 0.2s, transform 0.15s' }}
+                                                    onMouseEnter={ev => { ev.currentTarget.style.borderColor = `${PRIMARY}66`; ev.currentTarget.style.transform = 'translateY(-1px)'; }}
+                                                    onMouseLeave={ev => { ev.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; ev.currentTarget.style.transform = 'translateY(0)'; }}>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
                                                         <Swords size={18} color={won ? '#FFD700' : SUB} />
                                                         <div style={{ minWidth: 0 }}>

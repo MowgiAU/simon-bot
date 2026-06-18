@@ -37,7 +37,8 @@ function statusBadge(battle: any) {
     return { label: 'Ended', color: SUB };
 }
 
-const glass: React.CSSProperties = { background: 'rgba(28,31,42,0.5)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: `1px solid rgba(255,255,255,0.05)` };
+const DIVIDER = 'rgba(87,66,54,0.25)';
+const glass: React.CSSProperties = { background: 'rgba(15,19,29,0.7)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 12px 40px rgba(0,0,0,0.5)' };
 
 export const FrontpageAltFBattle: React.FC = () => {
     const { player, setTrack } = usePlayer();
@@ -231,7 +232,7 @@ export const FrontpageAltFBattle: React.FC = () => {
                                             </div>
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                                                 {samples.map((s: any, i: number) => (
-                                                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: S_CONT, borderRadius: 12, border: `1px solid ${BORDER}`, transition: 'background 0.15s', cursor: 'default' }}>
+                                                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: 'rgba(38,42,53,0.3)', borderRadius: 12, border: `1px solid ${DIVIDER}`, transition: 'background 0.15s', cursor: 'default' }}>
                                                         <div style={{ width: 36, height: 36, borderRadius: '50%', background: `${PRIMARY}18`, border: `1px solid ${PRIMARY}33`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                                                             <Play size={14} color={PRIMARY} style={{ marginLeft: 2 }} />
                                                         </div>
@@ -248,7 +249,7 @@ export const FrontpageAltFBattle: React.FC = () => {
 
                                     {/* Entries / Submissions */}
                                     <div style={{ ...glass, borderRadius: 16, overflow: 'hidden' }}>
-                                        <div style={{ padding: '16px 20px', borderBottom: `1px solid ${BORDER}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <div style={{ padding: '16px 20px', background: 'rgba(38,42,53,0.5)', borderBottom: `1px solid ${DIVIDER}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                             <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>
                                                 Current Submissions
                                                 <span style={{ marginLeft: 8, fontWeight: 400, fontSize: 13, color: SUB }}>({fmtNum(battle._count?.entries || entries.length)} Entries)</span>
@@ -267,7 +268,9 @@ export const FrontpageAltFBattle: React.FC = () => {
                                             const title = e.track?.title || 'Untitled Entry';
                                             const artist = e.track?.profile?.displayName || e.track?.profile?.username || e.track?.artist || 'Unknown';
                                             return (
-                                                <div key={e.id} style={{ padding: '16px 20px', borderBottom: i < entries.length - 1 ? `1px solid ${BORDER}` : 'none', background: on ? `${PRIMARY}08` : 'transparent', transition: 'background 0.15s' }}>
+                                                <div key={e.id} style={{ padding: '16px 20px', borderBottom: i < entries.length - 1 ? `1px solid ${DIVIDER}` : 'none', background: on ? `${PRIMARY}08` : 'transparent', transition: 'background 0.15s' }}
+                                                    onMouseEnter={ev => { if (!on) ev.currentTarget.style.background = 'rgba(38,42,53,0.4)'; }}
+                                                    onMouseLeave={ev => { ev.currentTarget.style.background = on ? `${PRIMARY}08` : 'transparent'; }}>
                                                     <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
                                                         {/* Cover + play */}
                                                         <div style={{ position: 'relative', width: 72, height: 72, borderRadius: 10, overflow: 'hidden', flexShrink: 0, background: S_HIGH, cursor: 'pointer' }} onClick={() => playEntry(e)}>

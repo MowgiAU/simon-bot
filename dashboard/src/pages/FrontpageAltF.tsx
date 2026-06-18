@@ -74,7 +74,8 @@ export const FrontpageAltF: React.FC = () => {
     const progress = player.duration > 0 ? player.currentTime / player.duration : 0;
 
     const sectionTitle: React.CSSProperties = { fontSize: 24, fontWeight: 700, color: TEXT, margin: 0, cursor: 'pointer' };
-    const card: React.CSSProperties = { background: 'rgba(28,31,42,0.4)', padding: 16, borderRadius: 12, cursor: 'pointer', transition: 'background 0.2s' };
+    const DIVIDER = 'rgba(87,66,54,0.25)';
+    const card: React.CSSProperties = { background: 'rgba(15,19,29,0.7)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 12px 40px rgba(0,0,0,0.5)', padding: 16, borderRadius: 16, cursor: 'pointer', transition: 'border-color 0.2s, transform 0.15s' };
 
     // ── Featured slider: rotate through track / artist / battle / playlist ──
     // Prefer items with a wide banner image so the full-bleed hero stays high quality
@@ -120,7 +121,7 @@ export const FrontpageAltF: React.FC = () => {
                         <div style={{ maxWidth: 1400, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 40, paddingTop: 16 }}>
                             {/* Featured slider — rotates track / artist / battle / playlist */}
                             {slide && (
-                                <section style={{ position: 'relative', borderRadius: 12, overflow: 'hidden', height: 360 }}>
+                                <section style={{ position: 'relative', borderRadius: 24, overflow: 'hidden', height: 360 }}>
                                     {slide.bg && <img key={slide.key} src={slide.bg} alt="" referrerPolicy="no-referrer" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />}
                                     <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(to top, ${BG}, rgba(15,19,29,0.4) 50%, transparent), linear-gradient(to right, rgba(15,19,29,0.8), transparent 60%)` }} />
                                     <div style={{ position: 'absolute', bottom: 0, left: 0, padding: 32, width: '100%' }}>
@@ -153,7 +154,9 @@ export const FrontpageAltF: React.FC = () => {
                                     </div>
                                     <div style={{ display: 'flex', flexWrap: 'nowrap', gap: 20, overflow: 'hidden' }}>
                                         {data.artists.map((a: any) => (
-                                            <Link key={a.id || a.username} to={`/profile/${a.username}`} style={{ ...card, width: 160, flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', textDecoration: 'none', color: TEXT }}>
+                                            <Link key={a.id || a.username} to={`/profile/${a.username}`} style={{ ...card, width: 160, flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', textDecoration: 'none', color: TEXT }}
+                                                onMouseEnter={ev => { ev.currentTarget.style.borderColor = `${PRIMARY}66`; ev.currentTarget.style.transform = 'translateY(-2px)'; }}
+                                                onMouseLeave={ev => { ev.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; ev.currentTarget.style.transform = 'translateY(0)'; }}>
                                                 <div style={{ width: '100%', aspectRatio: '1/1', borderRadius: '50%', overflow: 'hidden', marginBottom: 16, boxShadow: '0 8px 24px rgba(0,0,0,0.4)', background: S_HIGH }}>
                                                     {a.avatar && <img src={a.avatar} alt="" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
                                                 </div>
@@ -174,7 +177,9 @@ export const FrontpageAltF: React.FC = () => {
                                     </div>
                                     <div style={{ display: 'flex', flexWrap: 'nowrap', gap: 20, overflow: 'hidden' }}>
                                         {data.drops.map((t: any) => (
-                                            <div key={t.id} onClick={() => playTrack(t, data.drops)} style={{ ...card, width: 160, flexShrink: 0 }}>
+                                            <div key={t.id} onClick={() => playTrack(t, data.drops)} style={{ ...card, width: 160, flexShrink: 0 }}
+                                                onMouseEnter={ev => { ev.currentTarget.style.borderColor = `${PRIMARY}66`; ev.currentTarget.style.transform = 'translateY(-2px)'; }}
+                                                onMouseLeave={ev => { ev.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; ev.currentTarget.style.transform = 'translateY(0)'; }}>
                                                 <div style={{ position: 'relative', aspectRatio: '1/1', borderRadius: 6, overflow: 'hidden', marginBottom: 16, boxShadow: '0 8px 24px rgba(0,0,0,0.4)', background: S_HIGH }}>
                                                     <img src={t.coverUrl} alt="" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                                     <span style={{ position: 'absolute', bottom: 8, right: 8, width: 40, height: 40, borderRadius: '50%', background: PRIMARY, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 16px rgba(0,0,0,0.4)' }}><Play size={22} fill="#fff" color="#fff" style={{ marginLeft: 2 }} /></span>
@@ -204,7 +209,9 @@ export const FrontpageAltF: React.FC = () => {
                                     {data.battles.map((b: any) => {
                                         const live = b.status === 'active' || b.status === 'voting';
                                         return (
-                                            <Link key={b.id} to={`/battles/${b.slug || b.id}`} style={{ position: 'relative', overflow: 'hidden', height: 112, borderRadius: 8, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', padding: 12, textDecoration: 'none', color: '#fff', background: S_CONT }}>
+                                            <Link key={b.id} to={`/battles/${b.slug || b.id}`} style={{ position: 'relative', overflow: 'hidden', height: 112, borderRadius: 12, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', padding: 12, textDecoration: 'none', color: '#fff', background: 'rgba(15,19,29,0.7)', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 8px 24px rgba(0,0,0,0.4)', backdropFilter: 'blur(20px)', transition: 'border-color 0.2s, transform 0.15s' }}
+                                                onMouseEnter={ev => { ev.currentTarget.style.borderColor = `${PRIMARY}66`; ev.currentTarget.style.transform = 'translateY(-2px)'; }}
+                                                onMouseLeave={ev => { ev.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; ev.currentTarget.style.transform = 'translateY(0)'; }}>
                                                 {b.cardImageUrl && <img src={b.cardImageUrl} alt="" referrerPolicy="no-referrer" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />}
                                                 <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.85), rgba(0,0,0,0.2))' }} />
                                                 <div style={{ position: 'relative' }}>

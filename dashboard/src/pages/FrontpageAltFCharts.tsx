@@ -53,7 +53,8 @@ export const FrontpageAltFCharts: React.FC = () => {
     const playEntry = (e: any) => setTrack(mkTrack(e), entries.map(mkTrack));
     const playingId = player.currentTrack?.id;
 
-    const glass: React.CSSProperties = { background: 'rgba(23,27,38,0.7)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', border: `1px solid ${BORDER}` };
+    const DIVIDER = 'rgba(87,66,54,0.25)';
+    const glass: React.CSSProperties = { background: 'rgba(15,19,29,0.7)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 12px 40px rgba(0,0,0,0.5)' };
 
     const Trend: React.FC<{ change: number | null }> = ({ change }) => {
         if (change == null) return <span style={{ color: SUB, fontSize: 11 }}>—</span>;
@@ -142,7 +143,7 @@ export const FrontpageAltFCharts: React.FC = () => {
                         ) : (
                             <div style={{ ...glass, borderRadius: 16, overflow: 'hidden' }}>
                                 {/* Column headers */}
-                                <div style={{ display: 'grid', gridTemplateColumns: '56px 1fr 160px 100px 100px 100px 48px', gap: 16, padding: '12px 24px', borderBottom: `1px solid ${BORDER}`, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: SUB }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: '56px 1fr 160px 100px 100px 100px 48px', gap: 16, padding: '12px 24px', background: 'rgba(38,42,53,0.5)', borderBottom: `1px solid ${DIVIDER}`, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: SUB }}>
                                     <span>Rank</span><span>Track</span><span>Engagement</span><span>Plays</span><span>Period</span><span>Trend</span><span />
                                 </div>
                                 {entries.map((e: any, idx: number) => {
@@ -150,7 +151,9 @@ export const FrontpageAltFCharts: React.FC = () => {
                                     const engagement = Math.min(100, Math.round(((e.playsInPeriod || 0) / Math.max(1, entries[0]?.playsInPeriod || 1)) * 100));
                                     return (
                                         <div key={e.track.id} onClick={() => playEntry(e)}
-                                            style={{ display: 'grid', gridTemplateColumns: '56px 1fr 160px 100px 100px 100px 48px', gap: 16, padding: '14px 24px', alignItems: 'center', cursor: 'pointer', background: on ? `${PRIMARY}0a` : idx === 0 ? `${PRIMARY}05` : 'transparent', borderBottom: idx < entries.length - 1 ? `1px solid ${BORDER}` : 'none', transition: 'background 0.15s' }}>
+                                            style={{ display: 'grid', gridTemplateColumns: '56px 1fr 160px 100px 100px 100px 48px', gap: 16, padding: '14px 24px', alignItems: 'center', cursor: 'pointer', background: on ? `${PRIMARY}0a` : idx === 0 ? `${PRIMARY}05` : 'transparent', borderBottom: idx < entries.length - 1 ? `1px solid ${DIVIDER}` : 'none', transition: 'background 0.15s' }}
+                                            onMouseEnter={ev => { if (!on) ev.currentTarget.style.background = 'rgba(38,42,53,0.4)'; }}
+                                            onMouseLeave={ev => { ev.currentTarget.style.background = on ? `${PRIMARY}0a` : idx === 0 ? `${PRIMARY}05` : 'transparent'; }}>
                                             <span style={{ fontSize: idx < 3 ? 18 : 14, fontWeight: 800, color: rankColor(e.position), fontVariantNumeric: 'tabular-nums', fontStyle: 'italic' }}>{String(e.position).padStart(2, '0')}</span>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
                                                 <div style={{ width: idx === 0 ? 52 : 44, height: idx === 0 ? 52 : 44, borderRadius: 8, overflow: 'hidden', flexShrink: 0, background: S_HIGH, position: 'relative' }}>
