@@ -432,8 +432,8 @@ export const ArrangementViewer: React.FC<{
                 }
             }
 
-            // Auto-scroll during playback at zoom > 1
-            if (isPlaying && scrollContainerRef.current && zoom > 1) {
+            // Auto-scroll during playback to keep playhead centred
+            if (isPlaying && scrollContainerRef.current) {
                 const container = scrollContainerRef.current;
                 const timelineW = container.scrollWidth - labelW;
                 const playheadX = (pct / 100) * timelineW + labelW;
@@ -466,11 +466,23 @@ export const ArrangementViewer: React.FC<{
 
     const timelineWidth = `${100 * zoom}%`;
 
-    // Subtle grid-line backdrop behind the timeline — gives the glass clips something to float over
-    const timelineGridBg: React.CSSProperties = {
-        backgroundImage: 'linear-gradient(to right, rgba(255,255,255,0.025) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.025) 1px, transparent 1px)',
-        backgroundSize: '64px 64px',
-    };
+    // Beat-aligned grid lines — rendered at exact bar positions, same coordinate formula as clips/playhead
+    const gridLines = useMemo(() => {
+        const totalBars = Math.ceil(totalBeats / 4);
+        return Array.from({ length: totalBars + 1 }, (_, i) => {
+            const beat = i * 4;
+            const pct = beat / totalBeats;
+            const isMajor = i % 4 === 0;
+            return (
+                <div key={i} style={{
+                    position: 'absolute', top: 0, bottom: 0, pointerEvents: 'none', zIndex: 1,
+                    left: `calc(${labelW}px + (100% - ${labelW}px) * ${pct})`,
+                    width: '1px',
+                    backgroundColor: isMajor ? 'rgba(255,255,255,0.07)' : 'rgba(255,255,255,0.03)',
+                }} />
+            );
+        });
+    }, [totalBeats, labelW]);
 
     // Memoize beat ruler — only changes with zoom or total beat count
     const beatRuler = useMemo(() => {
@@ -509,11 +521,9 @@ export const ArrangementViewer: React.FC<{
             const indentPx = depth * 12;
             return (
                 <div key={t.id} style={{ display: 'flex', alignItems: 'center', height: isEmpty ? '28px' : '56px', marginBottom: isEmpty ? '2px' : '4px', opacity: isMuted ? 0.45 : 1 }}>
-                    <div style={{ width: `${labelW}px`, flexShrink: 0, paddingRight: isMobile ? '8px' : '12px', paddingLeft: `${indentPx}px`, fontSize: isMobile ? (isEmpty ? '0.6rem' : '0.68rem') : (isEmpty ? '0.65rem' : '0.75rem'), color: isMuted ? '#6b7280' : (isEmpty ? 'rgba(255,255,255,0.35)' : colors.textSecondary), overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'right', position: 'sticky', left: 0, backgroundColor: 'rgba(10,14,20,0.8)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', zIndex: 5, borderRight: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px' }}>
-                        {depth > 0 && <span style={{ color: 'rgba(255,255,255,0.15)', flexShrink: 0 }}>╰</span>}
+                    <div style={{ width: `${labelW}px`, flexShrink: 0, height: '100%', paddingLeft: `${8 + indentPx}px`, paddingRight: '6px', fontSize: isMobile ? '0.63rem' : '0.7rem', fontWeight: isEmpty ? 400 : 500, color: isMuted ? '#4b5563' : (isEmpty ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.72)'), overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'left', position: 'sticky', left: 0, backgroundColor: '#0b0e18', zIndex: 5, borderRight: '1px solid rgba(255,255,255,0.06)', borderLeft: isEmpty ? '2px solid transparent' : `2px solid ${isMuted ? '#374151' : trackColor}`, display: 'flex', alignItems: 'center', gap: '5px', boxSizing: 'border-box' }}>
                         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', fontStyle: isEmpty ? 'italic' : 'normal' }}>{t.name}</span>
-                        {isMuted && <span style={{ flexShrink: 0, fontSize: '0.6rem', backgroundColor: 'rgba(255,255,255,0.1)', color: '#9ca3af', padding: '1px 3px', borderRadius: '2px' }}>M</span>}
-                        {!isEmpty && <div style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: trackColor, boxShadow: isMuted ? 'none' : `0 0 6px ${trackColor}`, flexShrink: 0 }} />}
+                        {isMuted && <span style={{ flexShrink: 0, fontSize: '0.58rem', backgroundColor: 'rgba(255,255,255,0.08)', color: '#6b7280', padding: '1px 3px', borderRadius: '2px' }}>M</span>}
                     </div>
                     <div style={{ flex: 1, position: 'relative', height: '100%' }}>
                         {t.clips.map((clip) => {
@@ -601,8 +611,9 @@ export const ArrangementViewer: React.FC<{
         return (
             <div style={{ position: 'fixed', inset: 0, zIndex: 8000, backgroundColor: '#0B0F19', display: 'flex', flexDirection: 'column', padding: isMobile ? '12px' : '20px 24px', overflowY: 'auto' }}>
                 {viewerContent}
-                <div ref={scrollContainerRef} style={{ flex: 1, overflowX: 'auto', borderRadius: borderRadius.md, border: '1px solid rgba(255,255,255,0.08)', backgroundColor: '#0a0e14', scrollBehavior: 'smooth', ...timelineGridBg }}>
+                <div ref={scrollContainerRef} style={{ flex: 1, overflowX: 'auto', borderRadius: borderRadius.md, border: '1px solid rgba(255,255,255,0.08)', backgroundColor: '#0b0e18', scrollBehavior: 'smooth' }}>
                     <div style={{ width: timelineWidth, minWidth: '100%', position: 'relative', paddingTop: '28px', paddingBottom: '16px', boxSizing: 'border-box' }}>
+                        {gridLines}
                         <div style={{ display: 'flex', marginLeft: `${labelW}px`, marginBottom: '8px', width: `calc(100% - ${labelW}px)` }}>{beatRuler}</div>
                         {trackRows}
                         <div ref={playheadRef} style={{ position: 'absolute', top: 0, bottom: 0, width: '2px', backgroundColor: tempoWarning ? '#fbbf24' : colors.primary, boxShadow: tempoWarning ? 'none' : `0 0 14px ${colors.primary}99`, opacity: tempoWarning ? 0.5 : 1, pointerEvents: 'none', zIndex: 10, display: 'none', willChange: 'left' }}>
@@ -626,19 +637,16 @@ export const ArrangementViewer: React.FC<{
     return (
         <div style={{ marginTop: '40px', maxWidth: '100%', overflow: 'hidden' }}>
             {viewerContent}
-            <div ref={scrollContainerRef} style={{ overflowX: 'auto', borderRadius: borderRadius.md, border: '1px solid rgba(255,255,255,0.08)', backgroundColor: '#0a0e14', scrollBehavior: 'smooth', ...timelineGridBg }}>
+            <div ref={scrollContainerRef} style={{ overflowX: 'auto', borderRadius: borderRadius.md, border: '1px solid rgba(255,255,255,0.08)', backgroundColor: '#0b0e18', scrollBehavior: 'smooth' }}>
                 <div style={{ width: timelineWidth, minWidth: '100%', position: 'relative', paddingTop: '28px', paddingBottom: '16px', boxSizing: 'border-box' }}>
-                    {/* Beat ruler */}
+                    {gridLines}
                     <div style={{ display: 'flex', marginLeft: `${labelW}px`, marginBottom: '8px', width: `calc(100% - ${labelW}px)` }}>
                         {beatRuler}
                     </div>
-                    {/* Track rows */}
                     {trackRows}
-                    {/* Playhead — positioned via rAF, no React re-renders */}
                     <div ref={playheadRef} style={{ position: 'absolute', top: 0, bottom: 0, width: '2px', backgroundColor: tempoWarning ? '#fbbf24' : colors.primary, boxShadow: tempoWarning ? 'none' : `0 0 14px ${colors.primary}99`, opacity: tempoWarning ? 0.5 : 1, pointerEvents: 'none', zIndex: 10, display: 'none', willChange: 'left' }}>
                         <div style={{ position: 'absolute', top: '-6px', left: '50%', transform: 'translateX(-50%)', width: 0, height: 0, borderLeft: '6px solid transparent', borderRight: '6px solid transparent', borderTop: `6px solid ${tempoWarning ? '#fbbf24' : colors.primary}` }} />
                     </div>
-                    {/* Timeline markers */}
                     {markerElements}
                 </div>
             </div>
