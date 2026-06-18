@@ -878,7 +878,10 @@ const AppInternal: React.FC = () => {
     return <Suspense fallback={<PageSpinner />}><TrackPage /></Suspense>;
   }
 
-  // Hidden test frontpages — not linked from nav
+  // ── Design Candidates — not linked from nav, accessible by direct URL only ──
+  // See dashboard/DESIGN_VERSIONS.md for full status, coverage, and migration plan.
+  //
+  // ARCHIVED (rejected, kept for reference only):
   // alt_a = Stitch (dark neon leaderboard)
   // alt_b = Editorial B (magazine/news focus)
   // alt_c = VHub (sidebar hub, deep navy)
@@ -897,6 +900,8 @@ const AppInternal: React.FC = () => {
   if (currentPath === '/preview/alt_e') {
     return <Suspense fallback={<PageSpinner />}><FrontpageNeon /></Suspense>;
   }
+  // ACTIVE CANDIDATE — Alt F desktop suite (Spotify-style sidebar+header shell)
+  // Shell: components/altshell/AltSidebar.tsx + AltHeader.tsx
   if (currentPath === '/preview/alt_f') {
     return <Suspense fallback={<PageSpinner />}><FrontpageAltF /></Suspense>;
   }
