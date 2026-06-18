@@ -1239,56 +1239,6 @@ export const ProfileEditPage: React.FC = () => {
                             </div>
                         )}
 
-                        {/* ── Header Layout ── */}
-                        <div style={{ marginBottom: '24px' }}>
-                            <p style={{ fontSize: '12px', fontWeight: 600, color: colors.textSecondary, marginBottom: '10px' }}>Header Layout</p>
-                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                                {([
-                                    { value: 'left',     label: 'Left-aligned',  desc: 'Avatar left, info right (default)' },
-                                    { value: 'centered', label: 'Centered',      desc: 'Avatar and info stacked centrally' },
-                                    { value: 'minimal',  label: 'Minimal',       desc: 'Compact header, no large banner area' },
-                                ] as const).map(opt => (
-                                    <button key={opt.value}
-                                        onClick={() => updateProfile(p => ({ ...p, headerLayout: opt.value }))}
-                                        title={opt.desc}
-                                        style={{
-                                            padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', border: 'none',
-                                            fontSize: '12px', fontWeight: 600,
-                                            backgroundColor: (profile?.headerLayout || 'left') === opt.value ? `${colors.primary}22` : 'rgba(255,255,255,0.05)',
-                                            color: (profile?.headerLayout || 'left') === opt.value ? colors.primary : colors.textSecondary,
-                                            outline: (profile?.headerLayout || 'left') === opt.value ? `1px solid ${colors.primary}44` : '1px solid rgba(255,255,255,0.08)',
-                                        }}>
-                                        {opt.label}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* ── Track Display Style ── */}
-                        <div style={{ marginBottom: '24px' }}>
-                            <p style={{ fontSize: '12px', fontWeight: 600, color: colors.textSecondary, marginBottom: '10px' }}>Track Display Style</p>
-                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                                {([
-                                    { value: 'list',    label: 'List',    desc: 'Full cards with waveform and metadata (default)' },
-                                    { value: 'cards',   label: 'Cards',   desc: 'Album art grid — visual and compact' },
-                                    { value: 'compact', label: 'Compact', desc: 'Single-line rows, title and duration only' },
-                                ] as const).map(opt => (
-                                    <button key={opt.value}
-                                        onClick={() => updateProfile(p => ({ ...p, trackDisplayStyle: opt.value }))}
-                                        title={opt.desc}
-                                        style={{
-                                            padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', border: 'none',
-                                            fontSize: '12px', fontWeight: 600,
-                                            backgroundColor: (profile?.trackDisplayStyle || 'list') === opt.value ? `${colors.primary}22` : 'rgba(255,255,255,0.05)',
-                                            color: (profile?.trackDisplayStyle || 'list') === opt.value ? colors.primary : colors.textSecondary,
-                                            outline: (profile?.trackDisplayStyle || 'list') === opt.value ? `1px solid ${colors.primary}44` : '1px solid rgba(255,255,255,0.08)',
-                                        }}>
-                                        {opt.label}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-
                         {/* ── Section Visibility ── */}
                         <div>
                             <p style={{ fontSize: '12px', fontWeight: 600, color: colors.textSecondary, marginBottom: '12px' }}>Section Visibility</p>

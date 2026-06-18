@@ -189,13 +189,23 @@ export const FrontpageAltFArtist: React.FC = () => {
                                     <span style={{ position: 'absolute', bottom: -6, right: -6, display: 'flex', alignItems: 'center', gap: 4, background: accent, color: '#fff', padding: '4px 10px', borderRadius: 9999, fontSize: 12, fontWeight: 700, border: `2px solid ${BG}` }}><BadgeCheck size={14} /> Pro</span>
                                 </div>
                                 <div style={{ minWidth: 0, paddingBottom: 8 }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8, flexWrap: 'wrap' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 4, flexWrap: 'wrap' }}>
                                         <StyledUsername userId={p?.userId} style={{ fontSize: 48, fontWeight: 900, color: '#fff', letterSpacing: '-0.02em' }}>{p?.displayName || REF_USER}</StyledUsername>
                                         {p?.showH2HRank && arena && (
                                             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: S_HIGH, color: SUB, padding: '6px 12px', borderRadius: 8, fontSize: 12, border: `1px solid ${BORDER}` }}><Swords size={16} color={TERTIARY} /> Arena {Math.round(arena.elo)}</span>
                                         )}
                                     </div>
-                                    {p?.location && <p style={{ margin: '0 0 16px', color: accent, fontSize: 16, display: 'flex', alignItems: 'center', gap: 6 }}><MapPin size={18} /> {p.location}</p>}
+                                    {/* Genre tags */}
+                                    {(p?.genres || []).length > 0 && (
+                                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
+                                            {(p.genres as any[]).slice(0, 4).map((g: any, i: number) => (
+                                                <span key={i} style={{ background: i === 0 ? `${accent}33` : 'rgba(255,255,255,0.08)', color: i === 0 ? accent : SUB, padding: '3px 10px', borderRadius: 9999, fontSize: 11, fontWeight: 600, border: i === 0 ? `1px solid ${accent}55` : `1px solid ${BORDER}` }}>
+                                                    {g.genre?.name || g.name || g}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    )}
+                                    {p?.location && <p style={{ margin: '0 0 12px', color: SUB, fontSize: 14, display: 'flex', alignItems: 'center', gap: 6 }}><MapPin size={16} /> {p.location}</p>}
                                     <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
                                         {!isOwnProfile && (
                                             <button onClick={toggleFollow} style={{ display: 'flex', alignItems: 'center', gap: 8, background: isFollowing ? 'transparent' : accent, color: isFollowing ? accent : '#fff', border: isFollowing ? `1px solid ${accent}` : 'none', padding: '10px 28px', borderRadius: 8, fontWeight: 600, fontSize: 16, cursor: 'pointer', transition: 'all 0.2s' }}>
@@ -218,14 +228,16 @@ export const FrontpageAltFArtist: React.FC = () => {
                                     </div>
                                 </div>
                             </div>
-                            <div style={{ ...glass, display: 'flex', textAlign: 'center', borderRadius: 12, padding: 16 }}>
-                                {[[fmtNum(followerCount), 'Followers'], [fmtNum(followingCount), 'Following'], [fmtNum(p?.totalPlays), 'Plays'], [String(publicTracks.length), 'Tracks'], [String(joined), 'Joined']].map(([n, l], i) => (
-                                    <div key={l} style={{ padding: '0 16px', borderLeft: i ? `1px solid ${BORDER}` : 'none' }}>
-                                        <p style={{ margin: 0, fontSize: 24, fontWeight: 700, color: '#fff' }}>{n}</p>
-                                        <p style={{ margin: '4px 0 0', fontSize: 11, color: SUB, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{l}</p>
-                                    </div>
-                                ))}
-                            </div>
+                            {p?.showStatsBar !== false && (
+                                <div style={{ ...glass, display: 'flex', textAlign: 'center', borderRadius: 12, padding: 16 }}>
+                                    {[[fmtNum(followerCount), 'Followers'], [fmtNum(p?.totalPlays), 'Plays']].map(([n, l], i) => (
+                                        <div key={l} style={{ padding: '0 20px', borderLeft: i ? `1px solid ${BORDER}` : 'none' }}>
+                                            <p style={{ margin: 0, fontSize: 28, fontWeight: 700, color: '#fff' }}>{n}</p>
+                                            <p style={{ margin: '4px 0 0', fontSize: 12, color: SUB, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{l}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     </div>
 
@@ -318,7 +330,7 @@ export const FrontpageAltFArtist: React.FC = () => {
                                 <h3 style={sectionH}>About</h3>
                                 <div style={{ ...glass, borderRadius: 12, padding: 24 }}>
                                     <p style={{ margin: 0, fontSize: 14, color: SUB, lineHeight: 1.6 }}>{p?.bio || 'No bio yet.'}</p>
-                                    {(p?.socials || []).length > 0 && (
+                                    {p?.showSocialLinks !== false && (p?.socials || []).length > 0 && (
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 24 }}>
                                             {(p.socials || []).map((s: any, i: number) => { const Icon = socialIcon[s.platform] || Globe; return <a key={i} href={s.url} target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 12, color: SECONDARY, fontSize: 14, textDecoration: 'none', textTransform: 'capitalize' }}><Icon size={20} /> {s.platform}</a>; })}
                                         </div>
@@ -327,7 +339,7 @@ export const FrontpageAltFArtist: React.FC = () => {
                             </section>
 
                             {/* Top friends */}
-                            {topFriends.length > 0 && (
+                            {p?.showFeaturedFriends !== false && topFriends.length > 0 && (
                                 <section>
                                     <h3 style={sectionH}>Top Friends</h3>
                                     <div style={{ ...glass, borderRadius: 12, padding: 24 }}>
