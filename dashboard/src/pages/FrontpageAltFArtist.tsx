@@ -28,6 +28,7 @@ export const FrontpageAltFArtist: React.FC = () => {
     const navigate = useNavigate();
     const [p, setP] = useState<any>(null);
     const [friends, setFriends] = useState<any[]>([]);
+    const [featuredFriendIds, setFeaturedFriendIds] = useState<string[]>([]);
     const [battles, setBattles] = useState<any[]>([]);
     const [comments, setComments] = useState<any[]>([]);
     const [newComment, setNewComment] = useState('');
@@ -39,7 +40,7 @@ export const FrontpageAltFArtist: React.FC = () => {
             if (!on) return;
             const prof = r.data; setP(prof);
             const id = prof.id; const uid = prof.userId;
-            axios.get(`/api/artists/${id}/friends`).then(f => { if (on) setFriends(f.data?.friends || []); }).catch(() => {});
+            axios.get(`/api/artists/${id}/friends`).then(f => { if (on) { setFriends(f.data?.friends || []); setFeaturedFriendIds(f.data?.featuredFriendIds || prof.featuredFriendIds || []); } }).catch(() => {});
             axios.get(`/api/beat-battle/user/${uid}/entries`).then(b => { if (on) setBattles(Array.isArray(b.data) ? b.data : (b.data?.entries || [])); }).catch(() => {});
             axios.get(`/api/comments?profileId=${id}&limit=30`).then(c => { if (on) setComments(c.data?.comments || []); }).catch(() => {});
         }).catch(() => {});
@@ -58,6 +59,10 @@ export const FrontpageAltFArtist: React.FC = () => {
     const joined = p?.createdAt ? new Date(p.createdAt).getFullYear() : '—';
     const heroBg = p?.bannerUrl || featured?.coverUrl || [...tracks].find(t => t.coverUrl)?.coverUrl || p?.avatar || null;
     const battleWins = battles.filter((b: any) => b.won || b.placement === 1 || b.rank === 1).length;
+    // Top friends = the ones the user pinned in profile settings, in that order
+    const topFriends = featuredFriendIds.length
+        ? featuredFriendIds.map(fid => friends.find((f: any) => f.userId === fid || f.profileId === fid || f.discordId === fid)).filter(Boolean).slice(0, 8)
+        : friends.slice(0, 8);
     const arena = p?.h2hRating; // { elo, wins, losses } | null
 
     const mk = (t: any) => ({ id: t.id, title: t.title, artist: t.artist || p?.displayName || REF_USER, cover: t.coverUrl, url: t.url, profile: { username: REF_USER, displayName: p?.displayName, avatar: p?.avatar } });
@@ -292,12 +297,12 @@ export const FrontpageAltFArtist: React.FC = () => {
                             </section>
 
                             {/* Top friends */}
-                            {friends.length > 0 && (
+                            {topFriends.length > 0 && (
                                 <section>
                                     <h3 style={sectionH}>Top Friends</h3>
                                     <div style={{ ...glass, borderRadius: 12, padding: 24 }}>
                                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 12 }}>
-                                            {friends.slice(0, 8).map((f: any) => (
+                                            {topFriends.map((f: any) => (
                                                 <Link key={f.profileId || f.userId} to={`/profile/${f.username}`} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, textDecoration: 'none', minWidth: 0 }}>
                                                     <div style={{ width: '100%', aspectRatio: '1 / 1', borderRadius: '50%', overflow: 'hidden', background: S_HIGH, border: `1px solid ${BORDER}` }}>{f.avatar && <img src={f.avatar} alt="" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}</div>
                                                     <span style={{ fontSize: 11, color: SUB, maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.displayName || f.username}</span>
