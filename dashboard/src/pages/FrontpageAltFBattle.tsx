@@ -84,7 +84,8 @@ export const FrontpageAltFBattle: React.FC = () => {
         : (battle?.rules ? battle.rules.split('\n').filter(Boolean) : []);
     const samples: any[] = rulesArr.flatMap((r: any) => r.samples || []).filter(Boolean);
     const sponsor = battle?.sponsor;
-    const description = battle?.description ? stripHtml(battle.description) : (battle?.miniDescription || '');
+    const shortDescription = battle?.miniDescription || '';
+    const fullDescription = battle?.description ? stripHtml(battle.description) : shortDescription;
 
     const mkTrack = (e: any) => ({ id: e.track?.id || e.id, title: e.track?.title || 'Entry', artist: e.track?.profile?.displayName || e.track?.profile?.username || e.track?.artist || 'Unknown', cover: e.track?.coverUrl, url: e.track?.url, profile: e.track?.profile });
     const playEntry = (e: any) => setTrack(mkTrack(e), entries.map(mkTrack));
@@ -128,7 +129,7 @@ export const FrontpageAltFBattle: React.FC = () => {
                                             )}
                                         </div>
                                         <h1 style={{ margin: '0 0 10px', fontSize: 46, fontWeight: 900, color: '#fff', letterSpacing: '-0.03em', lineHeight: 1.05 }}>{battle.title}</h1>
-                                        {description && <p style={{ margin: '0 0 18px', maxWidth: 580, color: 'rgba(223,226,241,0.75)', fontSize: 15, lineHeight: 1.65 }}>{description}</p>}
+                                        {shortDescription && <p style={{ margin: '0 0 18px', maxWidth: 580, color: 'rgba(223,226,241,0.75)', fontSize: 15, lineHeight: 1.65 }}>{shortDescription}</p>}
                                         <div style={{ display: 'flex', alignItems: 'center', gap: 20, color: SUB, fontSize: 13 }}>
                                             <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Users size={14} /> {fmtNum(battle._count?.entries || entries.length)} entries</span>
                                             {Array.isArray(battle.prizes) && battle.prizes.length > 0 && (
@@ -187,13 +188,13 @@ export const FrontpageAltFBattle: React.FC = () => {
                                     )}
 
                                     {/* Challenge + Rules */}
-                                    {(description || rules.length > 0) && (
+                                    {(fullDescription || rules.length > 0) && (
                                         <div style={{ ...glass, borderRadius: 16, padding: '20px 24px' }}>
-                                            <div style={{ display: 'grid', gridTemplateColumns: rules.length > 0 && description ? '1fr 1fr' : '1fr', gap: 28 }}>
-                                                {description && (
+                                            <div style={{ display: 'grid', gridTemplateColumns: rules.length > 0 && fullDescription ? '1fr 1fr' : '1fr', gap: 28 }}>
+                                                {fullDescription && (
                                                     <div>
                                                         <h3 style={{ margin: '0 0 12px', fontSize: 15, fontWeight: 700, color: PRIMARY }}>The Challenge</h3>
-                                                        <p style={{ margin: 0, fontSize: 14, color: SUB, lineHeight: 1.7 }}>{description}</p>
+                                                        <p style={{ margin: 0, fontSize: 14, color: SUB, lineHeight: 1.7 }}>{fullDescription}</p>
                                                     </div>
                                                 )}
                                                 {rules.length > 0 && (
