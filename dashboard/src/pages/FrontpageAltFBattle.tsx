@@ -104,31 +104,38 @@ export const FrontpageAltFBattle: React.FC = () => {
                     ) : (
                         <>
                             {/* ── HERO ── */}
-                            <section style={{ position: 'relative', width: '100%', height: 400, overflow: 'hidden' }}>
-                                {battle.bannerUrl && <img src={battle.bannerUrl} alt="" referrerPolicy="no-referrer" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: 0.25 }} />}
-                                <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg, #0f1a2e 0%, #1a0f05 100%)' }} />
-                                <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(to top, ${BG} 0%, rgba(10,14,24,0.3) 60%, transparent 100%)` }} />
-                                <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '0 48px 40px' }}>
-                                    {/* Status + countdown */}
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-                                        {status && <span style={{ background: `${status.color}22`, border: `1px solid ${status.color}55`, color: status.color, padding: '4px 14px', borderRadius: 9999, fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{status.label}</span>}
-                                        {countdownStr && status?.label !== 'Ended' && (
-                                            <span style={{ color: PRIMARY, fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
-                                                <Clock size={14} /> Ends in {countdownStr}
-                                            </span>
-                                        )}
-                                    </div>
-                                    <h1 style={{ margin: '0 0 10px', fontSize: 48, fontWeight: 900, color: '#fff', letterSpacing: '-0.03em', lineHeight: 1.05 }}>{battle.title}</h1>
-                                    {description && <p style={{ margin: '0 0 18px', maxWidth: 600, color: 'rgba(255,255,255,0.6)', fontSize: 15, lineHeight: 1.6 }}>{description}</p>}
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 24, marginBottom: 24, color: SUB, fontSize: 13 }}>
-                                        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Users size={14} /> {fmtNum(battle._count?.entries || entries.length)} entries</span>
-                                        {Array.isArray(battle.prizes) && battle.prizes.length > 0 && (
-                                            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Trophy size={14} color={PRIMARY} /> <span style={{ color: PRIMARY, fontWeight: 700 }}>{battle.prizes.length} prize{battle.prizes.length !== 1 ? 's' : ''}</span></span>
-                                        )}
-                                        {sponsor && <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Zap size={14} color={SECONDARY} /> <span style={{ color: SECONDARY }}>Sponsored by {sponsor.name}</span></span>}
+                            <section style={{ position: 'relative', width: '100%', minHeight: 380, overflow: 'hidden', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
+                                {/* Background: banner → release cover → gradient fallback */}
+                                {(battle.bannerUrl || battle.release?.coverUrl) ? (
+                                    <img src={battle.bannerUrl || battle.release.coverUrl} alt="" referrerPolicy="no-referrer" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: 0.35 }} />
+                                ) : (
+                                    <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg, #1a2242 0%, #2a1040 50%, #1a0f10 100%)' }} />
+                                )}
+                                {/* Gradient overlay so text pops */}
+                                <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(11,15,25,0.98) 0%, rgba(11,15,25,0.55) 50%, rgba(11,15,25,0.1) 100%)' }} />
+                                {/* Content row: text left, join button right */}
+                                <div style={{ position: 'relative', zIndex: 2, padding: '40px 48px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 24 }}>
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+                                            {status && <span style={{ background: `${status.color}22`, border: `1px solid ${status.color}55`, color: status.color, padding: '4px 14px', borderRadius: 9999, fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{status.label}</span>}
+                                            {countdownStr && status?.label !== 'Ended' && (
+                                                <span style={{ color: PRIMARY, fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                    <Clock size={14} /> Ends in {countdownStr}
+                                                </span>
+                                            )}
+                                        </div>
+                                        <h1 style={{ margin: '0 0 10px', fontSize: 46, fontWeight: 900, color: '#fff', letterSpacing: '-0.03em', lineHeight: 1.05 }}>{battle.title}</h1>
+                                        {description && <p style={{ margin: '0 0 18px', maxWidth: 580, color: 'rgba(223,226,241,0.75)', fontSize: 15, lineHeight: 1.65 }}>{description}</p>}
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 20, color: SUB, fontSize: 13 }}>
+                                            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Users size={14} /> {fmtNum(battle._count?.entries || entries.length)} entries</span>
+                                            {Array.isArray(battle.prizes) && battle.prizes.length > 0 && (
+                                                <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Trophy size={14} color={PRIMARY} /> <span style={{ color: PRIMARY, fontWeight: 700 }}>{battle.prizes.length} prize{battle.prizes.length !== 1 ? 's' : ''}</span></span>
+                                            )}
+                                            {sponsor && <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Zap size={14} color={SECONDARY} /> <span style={{ color: SECONDARY }}>Sponsored by {sponsor.name}</span></span>}
+                                        </div>
                                     </div>
                                     {status?.label !== 'Ended' && (
-                                        <button onClick={() => setJoined(j => !j)} style={{ padding: '13px 36px', borderRadius: 9999, background: joined ? 'transparent' : PRIMARY, border: joined ? `2px solid ${PRIMARY}` : 'none', color: joined ? PRIMARY : BG, fontWeight: 800, fontSize: 15, cursor: 'pointer', boxShadow: joined ? 'none' : `0 0 28px ${PRIMARY}44`, letterSpacing: '0.02em', transition: 'all 0.2s' }}>
+                                        <button onClick={() => setJoined(j => !j)} style={{ flexShrink: 0, padding: '14px 40px', borderRadius: 14, background: joined ? 'transparent' : PRIMARY, border: joined ? `2px solid ${PRIMARY}` : 'none', color: joined ? PRIMARY : BG, fontWeight: 800, fontSize: 15, cursor: 'pointer', boxShadow: joined ? 'none' : `0 0 32px ${PRIMARY}55`, letterSpacing: '0.02em', transition: 'all 0.2s' }}>
                                             {joined ? 'Entry Submitted ✓' : 'Join Battle'}
                                         </button>
                                     )}
@@ -381,17 +388,6 @@ export const FrontpageAltFBattle: React.FC = () => {
                                         </div>
                                     </div>
 
-                                    {/* Upgrade CTA */}
-                                    <div style={{ borderRadius: 16, height: 180, background: `linear-gradient(135deg, ${PRIMARY} 0%, #B45309 100%)`, padding: '20px 20px', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', position: 'relative', overflow: 'hidden', cursor: 'pointer', boxShadow: `0 8px 32px ${PRIMARY}33` }}>
-                                        <div style={{ position: 'absolute', top: 12, right: 12, opacity: 0.15 }}>
-                                            <Zap size={72} color="#fff" />
-                                        </div>
-                                        <h4 style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 900, color: BG }}>Upgrade Your Sound</h4>
-                                        <p style={{ margin: '0 0 14px', fontSize: 12, color: `${BG}cc`, lineHeight: 1.5 }}>Get unlimited access to 1M+ samples and weekly battle kits.</p>
-                                        <button style={{ background: '#fff', color: PRIMARY, padding: '7px 18px', borderRadius: 9999, fontWeight: 800, fontSize: 11, border: 'none', cursor: 'pointer', width: 'fit-content', textTransform: 'uppercase', letterSpacing: '0.06em', boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}>
-                                            Get Pro Access
-                                        </button>
-                                    </div>
                                 </div>
                             </div>
                         </>
