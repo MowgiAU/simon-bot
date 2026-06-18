@@ -120,9 +120,9 @@ export const FrontpageAltFBattle: React.FC = () => {
                                 )}
                                 {/* Gradient overlay so text pops */}
                                 <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(11,15,25,0.98) 0%, rgba(11,15,25,0.55) 50%, rgba(11,15,25,0.1) 100%)' }} />
-                                {/* Content row: text left, join button right */}
-                                <div style={{ position: 'relative', zIndex: 2, padding: '40px 48px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 24 }}>
-                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                {/* Content — constrained + centred */}
+                                <div style={{ position: 'relative', zIndex: 2, width: '100%', boxSizing: 'border-box' }}>
+                                    <div style={{ maxWidth: 1280, margin: '0 auto', padding: '0 32px 40px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 0 }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
                                             {status && <span style={{ background: `${status.color}22`, border: `1px solid ${status.color}55`, color: status.color, padding: '4px 14px', borderRadius: 9999, fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{status.label}</span>}
                                             {countdownStr && status?.label !== 'Ended' && (
@@ -131,21 +131,21 @@ export const FrontpageAltFBattle: React.FC = () => {
                                                 </span>
                                             )}
                                         </div>
-                                        <h1 style={{ margin: '0 0 10px', fontSize: 46, fontWeight: 900, color: '#fff', letterSpacing: '-0.03em', lineHeight: 1.05 }}>{battle.title}</h1>
+                                        <h1 style={{ margin: '0 0 10px', fontSize: 46, fontWeight: 900, color: '#fff', letterSpacing: '-0.03em', lineHeight: 1.05, maxWidth: 720 }}>{battle.title}</h1>
                                         {shortDescription && <p style={{ margin: '0 0 18px', maxWidth: 580, color: 'rgba(223,226,241,0.75)', fontSize: 15, lineHeight: 1.65 }}>{shortDescription}</p>}
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 20, color: SUB, fontSize: 13 }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 20, color: SUB, fontSize: 13, marginBottom: status?.label !== 'Ended' ? 20 : 0 }}>
                                             <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Users size={14} /> {fmtNum(battle._count?.entries || entries.length)} entries</span>
                                             {Array.isArray(battle.prizes) && battle.prizes.length > 0 && (
                                                 <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Trophy size={14} color={PRIMARY} /> <span style={{ color: PRIMARY, fontWeight: 700 }}>{battle.prizes.length} prize{battle.prizes.length !== 1 ? 's' : ''}</span></span>
                                             )}
                                             {sponsor && <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Zap size={14} color={SECONDARY} /> <span style={{ color: SECONDARY }}>Sponsored by {sponsor.name}</span></span>}
                                         </div>
+                                        {status?.label !== 'Ended' && (
+                                            <button onClick={() => setJoined(j => !j)} style={{ padding: '14px 40px', borderRadius: 14, background: joined ? 'transparent' : PRIMARY, border: joined ? `2px solid ${PRIMARY}` : 'none', color: joined ? PRIMARY : BG, fontWeight: 800, fontSize: 15, cursor: 'pointer', boxShadow: joined ? 'none' : `0 0 32px ${PRIMARY}55`, letterSpacing: '0.02em', transition: 'all 0.2s' }}>
+                                                {joined ? 'Entry Submitted ✓' : 'Join Battle'}
+                                            </button>
+                                        )}
                                     </div>
-                                    {status?.label !== 'Ended' && (
-                                        <button onClick={() => setJoined(j => !j)} style={{ flexShrink: 0, padding: '14px 40px', borderRadius: 14, background: joined ? 'transparent' : PRIMARY, border: joined ? `2px solid ${PRIMARY}` : 'none', color: joined ? PRIMARY : BG, fontWeight: 800, fontSize: 15, cursor: 'pointer', boxShadow: joined ? 'none' : `0 0 32px ${PRIMARY}55`, letterSpacing: '0.02em', transition: 'all 0.2s' }}>
-                                            {joined ? 'Entry Submitted ✓' : 'Join Battle'}
-                                        </button>
-                                    )}
                                 </div>
                             </section>
 
