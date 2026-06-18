@@ -30,6 +30,8 @@ export const FrontpageAltFArtist: React.FC = () => {
     const [friends, setFriends] = useState<any[]>([]);
     const [battles, setBattles] = useState<any[]>([]);
     const [comments, setComments] = useState<any[]>([]);
+    const [newComment, setNewComment] = useState('');
+    const [posting, setPosting] = useState(false);
 
     useEffect(() => {
         let on = true;
@@ -61,6 +63,24 @@ export const FrontpageAltFArtist: React.FC = () => {
     const mk = (t: any) => ({ id: t.id, title: t.title, artist: t.artist || p?.displayName || REF_USER, cover: t.coverUrl, url: t.url, profile: { username: REF_USER, displayName: p?.displayName, avatar: p?.avatar } });
     const open = (t: any) => { if (t?.url) setTrack(mk(t), tracks.map(mk)); else navigate(`/profile/${REF_USER}/${t.slug || t.id}`); };
     const playingId = player.currentTrack?.id;
+
+    const postComment = async () => {
+        const text = newComment.trim();
+        if (!text || !p?.id || posting) return;
+        setPosting(true);
+        try {
+            await axios.post('/api/comments', { content: text, profileId: p.id }, { withCredentials: true });
+            setNewComment('');
+            const r = await axios.get(`/api/comments?profileId=${p.id}&limit=30`);
+            setComments(r.data?.comments || []);
+        } catch (e: any) {
+            const code = e?.response?.status;
+            if (code === 401) navigate('/login');
+            else alert(e?.response?.data?.error || 'Could not post comment.');
+        } finally {
+            setPosting(false);
+        }
+    };
 
     const sectionH: React.CSSProperties = { margin: '0 0 16px', fontSize: 16, fontWeight: 600, color: '#fff' };
 
@@ -241,6 +261,17 @@ export const FrontpageAltFArtist: React.FC = () => {
                             <section>
                                 <h3 style={sectionH}><span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><MessageCircle size={18} color={accent} /> Comments{comments.length ? ` (${comments.length})` : ''}</span></h3>
                                 <div style={{ ...glass, borderRadius: 12, padding: 20, display: 'flex', flexDirection: 'column', gap: 18 }}>
+                                    <div style={{ display: 'flex', gap: 12 }}>
+                                        <input
+                                            value={newComment}
+                                            onChange={e => setNewComment(e.target.value)}
+                                            onKeyDown={e => { if (e.key === 'Enter') postComment(); }}
+                                            placeholder="Write a comment…"
+                                            maxLength={500}
+                                            style={{ flex: 1, background: S_CONT, border: `1px solid ${BORDER}`, borderRadius: 8, padding: '10px 14px', color: TEXT, fontSize: 14, outline: 'none' }}
+                                        />
+                                        <button onClick={postComment} disabled={posting || !newComment.trim()} style={{ background: accent, color: '#fff', border: 'none', borderRadius: 8, padding: '0 18px', fontSize: 14, fontWeight: 700, cursor: posting || !newComment.trim() ? 'default' : 'pointer', opacity: posting || !newComment.trim() ? 0.6 : 1 }}>{posting ? '…' : 'Post'}</button>
+                                    </div>
                                     {comments.length === 0 ? <p style={{ margin: 0, color: SUB, fontSize: 14 }}>No comments yet.</p> : comments.map((c: any, i: number) => <CommentItem key={c.id || i} c={c} />)}
                                 </div>
                             </section>
