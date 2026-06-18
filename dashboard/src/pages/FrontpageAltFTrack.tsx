@@ -486,30 +486,32 @@ export const FrontpageAltFTrack: React.FC = () => {
                     )}
                 </div>
 
-                {/* ── RIGHT COLUMN ── */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                {/* ── RIGHT COLUMN — sticky, viewport-height ── */}
+                <div style={{ position: 'sticky', top: 0, maxHeight: 'calc(100vh - 130px)', display: 'flex', flexDirection: 'column', gap: 20, overflowY: 'auto' }}>
 
                     {/* Stems Mixer */}
                     {track.stems?.length > 0 && (
-                        <section style={{ ...glass }}>
+                        <section style={{ ...glass, overflow: 'hidden', flexShrink: 0 }}>
                             <StemsMixer stems={track.stems} trackTitle={track.title} masterDuration={track.duration} playerTrack={track} allowDownload={track.allowStemsDownload ?? true} />
                         </section>
                     )}
 
                     {/* Community Live Feed / Comments */}
-                    <section style={{ ...glass, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                        <div style={{ padding: '14px 16px', borderBottom: `1px solid rgba(255,255,255,0.1)`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(23,27,38,0.5)' }}>
+                    <section style={{ ...glass, display: 'flex', flexDirection: 'column', overflow: 'hidden', flex: 1, minHeight: 400 }}>
+                        <div style={{ padding: '14px 16px', borderBottom: `1px solid rgba(255,255,255,0.1)`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(23,27,38,0.5)', flexShrink: 0 }}>
                             <h3 style={{ margin: 0, fontSize: 14, fontWeight: 600, color: TEXT }}>Community Live Feed</h3>
                             <MessageCircle size={18} color={PRIMARY} />
                         </div>
-                        <CommentSection
-                            trackId={track.id}
-                            ownerId={track.profile.userId}
-                            currentTrackTime={isThis ? player.currentTime : null}
-                            isCurrentTrack={isThis}
-                            onCommentPosted={refreshTimedComments}
-                            onSeek={(seconds) => { if (isThis) seek(seconds); else { playTrack(); setTimeout(() => seek(seconds), 200); } }}
-                        />
+                        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+                            <CommentSection
+                                trackId={track.id}
+                                ownerId={track.profile.userId}
+                                currentTrackTime={isThis ? player.currentTime : null}
+                                isCurrentTrack={isThis}
+                                onCommentPosted={refreshTimedComments}
+                                onSeek={(seconds) => { if (isThis) seek(seconds); else { playTrack(); setTimeout(() => seek(seconds), 200); } }}
+                            />
+                        </div>
                     </section>
                 </div>
             </div>
