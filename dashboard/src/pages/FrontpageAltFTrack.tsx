@@ -17,9 +17,9 @@ import { AltHeader } from '../components/altshell/AltHeader';
 import { useChat } from '../components/ChatProvider';
 import {
     Play, Pause, SkipBack, SkipForward, Heart, Repeat2, Share2, ListPlus, Download,
-    ChevronDown, ChevronUp, AlignLeft, Layers, Zap, FileAudio,
+    ChevronDown, ChevronUp, AlignLeft, Zap, FileAudio,
     Clock, Activity, Tag, Music, UserPlus, UserCheck,
-    MessageCircle, Package, Youtube, ExternalLink, Swords, BadgeCheck, Flag,
+    MessageCircle, Package, ExternalLink, Swords, BadgeCheck, Flag,
 } from 'lucide-react';
 
 const fmtNum = (n?: number) => { n = n || 0; if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M'; if (n >= 1e3) return (n / 1e3).toFixed(1) + 'k'; return String(n); };
@@ -67,7 +67,6 @@ export const FrontpageAltFTrack: React.FC = () => {
     const [reposted, setReposted] = useState(false);
     const [repostCount, setRepostCount] = useState(0);
     const [following, setFollowing] = useState(false);
-    const [videoView, setVideoView] = useState<'project' | 'video'>('video');
     const [zoom, setZoom] = useState(5.5);
     const [pluginsSamplesOpen, setPluginsSamplesOpen] = useState(false);
     const [expandedSamples, setExpandedSamples] = useState(false);
@@ -157,11 +156,8 @@ export const FrontpageAltFTrack: React.FC = () => {
     }, [track, pluginRegistry]);
 
     const hasArrangement = !!(track?.arrangement && (track.arrangement.tracks?.some((t: any) => t.clips.length > 0) || track.arrangement.projectInfo));
-    const hasVideo = !!track?.youtubeUrl;
-    const hasBothViews = hasArrangement && hasVideo;
-    // Default to video if available, else project
-    const activeSection = hasBothViews ? videoView : (hasVideo ? 'video' : 'project');
     const youtubeId = track?.youtubeUrl ? extractYouTubeId(track.youtubeUrl) : null;
+    const showVideo = !!youtubeId;
 
     const shell = (child: React.ReactNode) => (
         <div style={{ height: '100vh', display: 'flex', overflow: 'hidden', background: BG, color: TEXT, fontFamily: FONT }}>
@@ -228,11 +224,10 @@ export const FrontpageAltFTrack: React.FC = () => {
                         </div>
                     </section>
 
-                    {/* 2. Cover / Video — aspect-video */}
+                    {/* 2. Album art / Music video — aspect-video */}
                     <section style={{ ...glass, overflow: 'hidden', position: 'relative', aspectRatio: '16/9' }}>
-                        {/* Background: cover art or YouTube */}
-                        {activeSection === 'video' && youtubeId
-                            ? <MemoYouTube videoId={youtubeId} trackId={track.id} player={player} isPlaying={isPlaying} onUserPause={togglePlay} />
+                        {showVideo
+                            ? <MemoYouTube videoId={youtubeId!} trackId={track.id} player={player} isPlaying={isPlaying} onUserPause={togglePlay} />
                             : <>
                                 {track.coverUrl && <img src={track.coverUrl} alt={track.title} referrerPolicy="no-referrer" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: 0.7 }} />}
                                 <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(10,14,24,0.9) 0%, rgba(10,14,24,0.2) 60%, transparent 100%)' }} />
@@ -242,32 +237,13 @@ export const FrontpageAltFTrack: React.FC = () => {
                                         {isPlaying ? <Pause size={40} fill="#fff" color="#fff" /> : <Play size={40} fill="#fff" color="#fff" style={{ marginLeft: 4 }} />}
                                     </button>
                                 </div>
+                                {/* Title overlay */}
+                                <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '0 24px 20px', pointerEvents: 'none' }}>
+                                    <h2 style={{ margin: 0, fontSize: 28, fontWeight: 700, color: '#fff', letterSpacing: '-0.02em', textShadow: '0 2px 12px rgba(0,0,0,0.8)' }}>{track.title}</h2>
+                                    <p style={{ margin: '4px 0 0', color: PRIMARY, fontWeight: 700, fontSize: 13 }}>{(track.genres || []).map((g: any) => g.genre.name).join(' · ').toUpperCase() || 'OFFICIAL RELEASE'}</p>
+                                </div>
                             </>
                         }
-                        {/* Title overlay at bottom-left (like mockup) */}
-                        {activeSection !== 'video' && (
-                            <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '0 24px 20px', pointerEvents: 'none' }}>
-                                <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
-                                    <div>
-                                        <h2 style={{ margin: 0, fontSize: 28, fontWeight: 700, color: '#fff', letterSpacing: '-0.02em', textShadow: '0 2px 12px rgba(0,0,0,0.8)' }}>{track.title}</h2>
-                                        <p style={{ margin: '4px 0 0', color: PRIMARY, fontWeight: 700, fontSize: 13 }}>{(track.genres || []).map((g: any) => g.genre.name).join(' · ').toUpperCase() || 'OFFICIAL RELEASE'}</p>
-                                    </div>
-                                    <div style={{ display: 'flex', gap: 8 }}>
-                                        {hasBothViews && (
-                                            <button onClick={() => setVideoView(v => v === 'video' ? 'project' : 'video')} style={{ background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '6px 10px', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 600, pointerEvents: 'all' }}>
-                                                <Youtube size={13} /> Video
-                                            </button>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-                        {/* Video mode title */}
-                        {activeSection === 'video' && hasBothViews && (
-                            <button onClick={() => setVideoView('project')} style={{ position: 'absolute', top: 12, right: 12, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '6px 10px', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 600, zIndex: 5 }}>
-                                <Layers size={13} /> Project
-                            </button>
-                        )}
                     </section>
 
                     {/* 3. Action bar + description */}
