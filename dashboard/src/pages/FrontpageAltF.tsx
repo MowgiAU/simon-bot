@@ -11,6 +11,7 @@ import { Link } from 'react-router-dom';
 import { usePlayer } from '../components/PlayerProvider';
 import { AltSidebar } from '../components/altshell/AltSidebar';
 import { AltHeader } from '../components/altshell/AltHeader';
+import { AltActivitySidebar } from '../components/altshell/AltActivitySidebar';
 import {
     Home, Search, User, Newspaper, BarChart3, Swords, Plus, Library, AudioLines,
     Users, Star, HelpCircle, LogOut, ChevronLeft, ChevronRight,
@@ -103,13 +104,9 @@ export const FrontpageAltF: React.FC = () => {
     const SlideIcon = slide?.icon;
 
     return (
-        <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', background: BG, color: TEXT, fontFamily: FONT }}>
-            <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-                {/* Left sidebar (shared component) */}
-                <AltSidebar active="Home" />
-
-                {/* Center */}
-                <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', background: BG, overflow: 'hidden' }}>
+        <div style={{ height: '100vh', display: 'flex', overflow: 'hidden', background: BG, color: TEXT, fontFamily: FONT }}>
+            <AltSidebar active="Home" />
+            <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', background: BG, height: '100%' }}>
                     <AltHeader
                         leftSlot={<>
                             <button aria-label="Previous featured" disabled={slides.length <= 1} onClick={() => setSlideIdx(i => (i - 1 + slides.length) % slides.length)} style={{ width: 32, height: 32, borderRadius: '50%', background: S_CONT, border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', color: TEXT, cursor: slides.length > 1 ? 'pointer' : 'default', opacity: slides.length > 1 ? 1 : 0.4 }}><ChevronLeft size={20} /></button>
@@ -117,6 +114,7 @@ export const FrontpageAltF: React.FC = () => {
                         </>}
                     />
 
+                    <div style={{ flex: 1, display: 'flex', minHeight: 0, overflow: 'hidden' }}>
                     <div style={{ flex: 1, overflowY: 'auto', padding: '0 24px 96px' }}>
                         <div style={{ maxWidth: 1400, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 40, paddingTop: 16 }}>
                             {/* Featured slider — rotates track / artist / battle / playlist */}
@@ -194,57 +192,9 @@ export const FrontpageAltF: React.FC = () => {
                             {!data && <div style={{ padding: 80, textAlign: 'center', color: SUB }}>Loading…</div>}
                         </div>
                     </div>
-                </main>
-
-                {/* Right sidebar */}
-                <aside style={{ width: 288, background: BG, borderLeft: `1px solid ${BORDER}`, display: 'flex', flexDirection: 'column', flexShrink: 0, overflowY: 'auto', paddingBottom: cur ? 90 : 0 }}>
-                    <div style={{ padding: '24px 16px', borderBottom: `1px solid ${BORDER}` }}>
-                        <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>Community Activity</h3>
+                    <AltActivitySidebar />
                     </div>
-                    <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 24 }}>
-                        {data && data.battles.length > 0 && (
-                            <div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}><Swords size={20} color={TERTIARY} /><h4 style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>Battles</h4></div>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                                    {data.battles.map((b: any) => {
-                                        const live = b.status === 'active' || b.status === 'voting';
-                                        return (
-                                            <Link key={b.id} to={`/battles/${b.slug || b.id}`} style={{ position: 'relative', overflow: 'hidden', height: 112, borderRadius: 12, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', padding: 12, textDecoration: 'none', color: '#fff', background: 'rgba(15,19,29,0.7)', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 8px 24px rgba(0,0,0,0.4)', backdropFilter: 'blur(20px)', transition: 'border-color 0.2s, transform 0.15s' }}
-                                                onMouseEnter={ev => { ev.currentTarget.style.borderColor = `${PRIMARY}66`; ev.currentTarget.style.transform = 'translateY(-2px)'; }}
-                                                onMouseLeave={ev => { ev.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; ev.currentTarget.style.transform = 'translateY(0)'; }}>
-                                                {b.cardImageUrl && <img src={b.cardImageUrl} alt="" referrerPolicy="no-referrer" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />}
-                                                <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.85), rgba(0,0,0,0.2))' }} />
-                                                <div style={{ position: 'relative' }}>
-                                                    <span style={{ padding: '2px 6px', borderRadius: 4, fontSize: 9, fontWeight: 700, background: live ? TERTIARY : 'rgba(255,255,255,0.15)', color: '#fff', textTransform: 'uppercase' }}>{live ? 'Live' : (b.status === 'completed' ? 'Ended' : 'Upcoming')}</span>
-                                                    <p style={{ margin: '6px 0 0', fontSize: 14, fontWeight: 700 }}>{b.title}</p>
-                                                </div>
-                                            </Link>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                        )}
-                        {data && data.activity.length > 0 && (
-                            <div>
-                                <h4 style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 700 }}>Recent Activity</h4>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                                    {data.activity.map((t: any) => (
-                                        <Link key={t.id} to={`/profile/${t.profile?.username || ''}`} style={{ display: 'flex', gap: 12, textDecoration: 'none', color: TEXT }}>
-                                            <div style={{ width: 32, height: 32, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, background: S_HIGH }}>{t.profile?.avatar && <img src={t.profile.avatar} alt="" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}</div>
-                                            <div style={{ minWidth: 0 }}>
-                                                <p style={{ margin: 0, fontSize: 13 }}><strong>{trackName(t)}</strong> published a track</p>
-                                                <p style={{ margin: '2px 0 0', fontSize: 11, color: SUB, display: 'flex', alignItems: 'center', gap: 4 }}><Music size={12} /> {t.title}</p>
-                                            </div>
-                                        </Link>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                </aside>
-            </div>
-
-            {/* No custom player bar here — the global GlobalPlayer (mounted in App) handles playback. */}
+            </main>
         </div>
     );
 };

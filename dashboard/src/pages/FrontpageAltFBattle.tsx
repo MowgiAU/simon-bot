@@ -6,6 +6,7 @@ import axios from 'axios';
 import { usePlayer } from '../components/PlayerProvider';
 import { AltSidebar, BG, S_CONT, S_HIGH, PRIMARY, SECONDARY, TERTIARY, TEXT, SUB, BORDER, FONT } from '../components/altshell/AltSidebar';
 import { AltHeader, BreadcrumbItem } from '../components/altshell/AltHeader';
+import { AltActivitySidebar } from '../components/altshell/AltActivitySidebar';
 import {
     Play, Pause, Clock, Users, Trophy, Music, Star, Download,
     Tag, ExternalLink, CheckCircle, ChevronRight, Zap,
@@ -101,6 +102,7 @@ export const FrontpageAltFBattle: React.FC = () => {
             <AltSidebar active="Battles" />
             <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', height: '100%' }}>
                 <AltHeader breadcrumb={breadcrumb} />
+                <div style={{ flex: 1, display: 'flex', minHeight: 0, overflow: 'hidden' }}>
                 <div style={{ flex: 1, overflowY: 'auto', paddingBottom: player.currentTrack ? 90 : 0 }}>
                     {loading ? (
                         <div style={{ padding: 80, textAlign: 'center', color: SUB }}>Loading…</div>
@@ -399,6 +401,8 @@ export const FrontpageAltFBattle: React.FC = () => {
                             </div>
                         </>
                     )}
+                </div>
+                <AltActivitySidebar />
                 </div>
             </main>
         </div>

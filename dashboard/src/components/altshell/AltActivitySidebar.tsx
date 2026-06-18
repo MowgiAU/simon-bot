@@ -1,0 +1,139 @@
+/**
+ * Shared right activity sidebar for the Alt F suite.
+ * Self-fetching — drop it into any Alt F page and it manages its own data.
+ * Collapsible — state persisted in localStorage.
+ * Edit this file once to change the sidebar on every Alt F page.
+ */
+import React, { useEffect, useState } from 'react';
+import axios from 'axios';
+import { Link } from 'react-router-dom';
+import { usePlayer } from '../PlayerProvider';
+import { PanelRightClose, PanelRightOpen, Swords, Music, Activity } from 'lucide-react';
+import {
+    BG, S_CONT, S_HIGH, PRIMARY, SECONDARY, TERTIARY, TEXT, SUB, BORDER, FONT, arr,
+} from './AltSidebar';
+
+const DIVIDER = 'rgba(87,66,54,0.25)';
+const LS_KEY = 'fuji_right_sidebar_collapsed';
+
+export const AltActivitySidebar: React.FC = () => {
+    const { player } = usePlayer();
+    const [battles, setBattles] = useState<any[]>([]);
+    const [activity, setActivity] = useState<any[]>([]);
+    const [collapsed, setCollapsed] = useState(() => {
+        try { return localStorage.getItem(LS_KEY) === 'true'; } catch { return false; }
+    });
+
+    const toggle = () => setCollapsed(c => {
+        const next = !c;
+        try { localStorage.setItem(LS_KEY, String(next)); } catch {}
+        return next;
+    });
+
+    useEffect(() => {
+        axios.get('/api/beat-battle/battles').then(r => setBattles(arr(r.data).slice(0, 3))).catch(() => {});
+        axios.get('/api/discovery/tracks?limit=6').then(r => setActivity(arr(r.data).slice(0, 6))).catch(() => {});
+    }, []);
+
+    const w = collapsed ? 48 : 288;
+    const pb = player.currentTrack ? 90 : 0;
+
+    /* — collapsed strip — */
+    if (collapsed) {
+        return (
+            <aside style={{ width: w, minWidth: w, background: BG, borderLeft: `1px solid ${BORDER}`, display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: 16, paddingBottom: pb, gap: 20, flexShrink: 0, transition: 'width 0.25s ease, min-width 0.25s ease', fontFamily: FONT, overflowX: 'hidden' }}>
+                <button onClick={toggle} title="Expand activity" style={{ background: 'none', border: 'none', cursor: 'pointer', color: SUB, padding: 4, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <PanelRightOpen size={18} />
+                </button>
+                <div title="Battles" style={{ color: TERTIARY, opacity: 0.7, display: 'flex' }}><Swords size={16} /></div>
+                <div title="Activity" style={{ color: SECONDARY, opacity: 0.7, display: 'flex' }}><Activity size={16} /></div>
+            </aside>
+        );
+    }
+
+    /* — expanded sidebar — */
+    return (
+        <aside style={{ width: w, minWidth: w, background: BG, borderLeft: `1px solid ${BORDER}`, display: 'flex', flexDirection: 'column', flexShrink: 0, fontFamily: FONT, color: TEXT, paddingBottom: pb, transition: 'width 0.25s ease, min-width 0.25s ease', overflowX: 'hidden' }}>
+
+            {/* Header */}
+            <div style={{ padding: '20px 16px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: `1px solid ${BORDER}`, flexShrink: 0 }}>
+                <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <Activity size={16} color={SECONDARY} /> Community
+                </h3>
+                <button onClick={toggle} title="Collapse activity" style={{ background: 'none', border: 'none', color: SUB, cursor: 'pointer', padding: 4, display: 'flex', alignItems: 'center', opacity: 0.7 }}>
+                    <PanelRightClose size={17} />
+                </button>
+            </div>
+
+            {/* Content — scrollable */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: 16, display: 'flex', flexDirection: 'column', gap: 28 }}>
+
+                {/* Active Battles */}
+                {battles.length > 0 && (
+                    <section>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+                            <Swords size={14} color={TERTIARY} />
+                            <span style={{ fontSize: 10, color: SUB, textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700 }}>Battles</span>
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                            {battles.map((b: any) => {
+                                const live = b.status === 'active' || b.status === 'voting';
+                                return (
+                                    <Link key={b.id} to={`/battles/${b.slug || b.id}`}
+                                        style={{ position: 'relative', overflow: 'hidden', height: 100, borderRadius: 12, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', padding: '10px 12px', textDecoration: 'none', color: '#fff', background: 'rgba(15,19,29,0.7)', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 8px 24px rgba(0,0,0,0.4)', backdropFilter: 'blur(20px)', transition: 'border-color 0.2s, transform 0.15s' }}
+                                        onMouseEnter={ev => { ev.currentTarget.style.borderColor = `${PRIMARY}66`; ev.currentTarget.style.transform = 'translateY(-2px)'; }}
+                                        onMouseLeave={ev => { ev.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; ev.currentTarget.style.transform = 'translateY(0)'; }}>
+                                        {b.cardImageUrl && (
+                                            <img src={b.cardImageUrl} alt="" referrerPolicy="no-referrer" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+                                        )}
+                                        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.85), rgba(0,0,0,0.15))' }} />
+                                        <div style={{ position: 'relative', zIndex: 1 }}>
+                                            <span style={{ padding: '2px 6px', borderRadius: 4, fontSize: 9, fontWeight: 700, background: live ? TERTIARY : 'rgba(255,255,255,0.15)', color: '#fff', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                                {live ? 'Live' : b.status === 'completed' ? 'Ended' : 'Upcoming'}
+                                            </span>
+                                            <p style={{ margin: '5px 0 0', fontSize: 13, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.title}</p>
+                                        </div>
+                                    </Link>
+                                );
+                            })}
+                        </div>
+                    </section>
+                )}
+
+                {/* Recent Activity */}
+                {activity.length > 0 && (
+                    <section>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+                            <Music size={14} color={SECONDARY} />
+                            <span style={{ fontSize: 10, color: SUB, textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700 }}>Recent Activity</span>
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                            {activity.map((t: any) => (
+                                <Link key={t.id} to={`/profile/${t.profile?.username || ''}`}
+                                    style={{ display: 'flex', gap: 10, textDecoration: 'none', color: TEXT, alignItems: 'flex-start' }}>
+                                    <div style={{ width: 34, height: 34, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, background: S_HIGH }}>
+                                        {t.profile?.avatar && (
+                                            <img src={t.profile.avatar} alt="" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                        )}
+                                    </div>
+                                    <div style={{ minWidth: 0 }}>
+                                        <p style={{ margin: 0, fontSize: 12, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                            {t.profile?.displayName || t.profile?.username || 'Unknown'}
+                                        </p>
+                                        <p style={{ margin: '2px 0 0', fontSize: 11, color: SUB, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 4 }}>
+                                            <Music size={10} /> {t.title}
+                                        </p>
+                                    </div>
+                                </Link>
+                            ))}
+                        </div>
+                    </section>
+                )}
+
+                {battles.length === 0 && activity.length === 0 && (
+                    <div style={{ padding: 32, textAlign: 'center', color: SUB, fontSize: 13 }}>Loading activity…</div>
+                )}
+            </div>
+        </aside>
+    );
+};

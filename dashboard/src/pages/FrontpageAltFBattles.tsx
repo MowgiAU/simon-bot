@@ -9,6 +9,7 @@ import { useNavigate } from 'react-router-dom';
 import { usePlayer } from '../components/PlayerProvider';
 import { AltSidebar, BG, S_LOWEST, S_CONT, S_HIGH, S_HIGHEST, PRIMARY, SECONDARY, TEXT, SUB, BORDER, FONT } from '../components/altshell/AltSidebar';
 import { AltHeader } from '../components/altshell/AltHeader';
+import { AltActivitySidebar } from '../components/altshell/AltActivitySidebar';
 import { Trophy, Users, Clock, Star, ChevronRight, Flame, Music, Award, Play } from 'lucide-react';
 
 const fmtNum = (n?: number) => { n = n || 0; if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M'; if (n >= 1e3) return (n / 1e3).toFixed(1) + 'k'; return String(n); };
@@ -109,6 +110,7 @@ export const FrontpageAltFBattles: React.FC = () => {
             <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', height: '100%' }}>
                 <AltHeader breadcrumb={[{ label: 'Battles' }]} />
 
+                <div style={{ flex: 1, display: 'flex', minHeight: 0, overflow: 'hidden' }}>
                 <div style={{ flex: 1, overflowY: 'auto', paddingBottom: player.currentTrack ? 90 : 0 }}>
                     {loading ? (
                         <div style={{ padding: 80, textAlign: 'center', color: SUB }}>Loading…</div>
@@ -394,6 +396,8 @@ export const FrontpageAltFBattles: React.FC = () => {
                             </div>
                         </>
                     )}
+                </div>
+                <AltActivitySidebar />
                 </div>
             </main>
         </div>

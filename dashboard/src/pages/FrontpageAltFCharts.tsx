@@ -8,6 +8,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { usePlayer } from '../components/PlayerProvider';
 import { AltSidebar, BG, S_CONT, S_HIGH, PRIMARY, SECONDARY, TERTIARY, TEXT, SUB, BORDER, FONT, arr } from '../components/altshell/AltSidebar';
 import { AltHeader } from '../components/altshell/AltHeader';
+import { AltActivitySidebar } from '../components/altshell/AltActivitySidebar';
 import {
     Play, Pause, TrendingUp, TrendingDown, Minus, MoreVertical, Repeat2, Heart, BarChart3,
 } from 'lucide-react';
@@ -71,6 +72,7 @@ export const FrontpageAltFCharts: React.FC = () => {
             <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', height: '100%' }}>
                 <AltHeader breadcrumb={[{ label: 'Charts' }]} />
 
+                <div style={{ flex: 1, display: 'flex', minHeight: 0, overflow: 'hidden' }}>
                 <div style={{ flex: 1, overflowY: 'auto', paddingBottom: player.currentTrack ? 90 : 0 }}>
                     {/* Hero — #1 track */}
                     {hero && (
@@ -184,6 +186,8 @@ export const FrontpageAltFCharts: React.FC = () => {
                             </div>
                         )}
                     </div>
+                </div>
+                <AltActivitySidebar />
                 </div>
             </main>
         </div>

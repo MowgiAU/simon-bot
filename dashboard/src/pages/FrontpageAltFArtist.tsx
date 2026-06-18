@@ -14,6 +14,7 @@ import { StyledUsername, StyledAvatar } from '../components/StyledUsername';
 import { CommentSection } from '../components/CommentSection';
 import { AltSidebar, BG, S_CONT, S_HIGH, PRIMARY, SECONDARY, TERTIARY, TEXT, SUB, BORDER, FONT } from '../components/altshell/AltSidebar';
 import { AltHeader } from '../components/altshell/AltHeader';
+import { AltActivitySidebar } from '../components/altshell/AltActivitySidebar';
 import {
     BadgeCheck, Swords, MapPin, Mail,
     UserPlus, UserCheck, MessageCircle, Play, MoreVertical, Globe, Music, Youtube, Instagram, Headphones, Repeat2, Trophy, Edit3,
@@ -146,6 +147,7 @@ export const FrontpageAltFArtist: React.FC = () => {
                     accent={accent}
                 />
 
+                <div style={{ flex: 1, display: 'flex', minHeight: 0, overflow: 'hidden' }}>
                 <div style={{ flex: 1, overflowY: 'auto', paddingBottom: player.currentTrack ? 90 : 0 }}>
                     {/* Hero */}
                     <div style={{ position: 'relative', width: '100%', height: 400, overflow: 'hidden', borderBottom: `1px solid ${BORDER}` }}>
@@ -342,6 +344,8 @@ export const FrontpageAltFArtist: React.FC = () => {
                         </aside>
                     </div>
                     {!p && <div style={{ padding: 80, textAlign: 'center', color: SUB }}>Loading…</div>}
+                </div>
+                <AltActivitySidebar />
                 </div>
             </main>
         </div>

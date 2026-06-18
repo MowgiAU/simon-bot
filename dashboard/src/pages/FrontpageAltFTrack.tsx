@@ -14,6 +14,7 @@ import { StemsMixer } from '../components/StemsMixer';
 import { ArrangementViewer, usePluginRegistry, matchPlugin, PluginModal, PluginList } from '../components/ArrangementViewer';
 import { AltSidebar, BG, S_CONT, S_HIGH, PRIMARY, SECONDARY, TERTIARY, TEXT, SUB, BORDER, FONT } from '../components/altshell/AltSidebar';
 import { AltHeader } from '../components/altshell/AltHeader';
+import { AltActivitySidebar } from '../components/altshell/AltActivitySidebar';
 import { useChat } from '../components/ChatProvider';
 import {
     Play, Pause, SkipBack, SkipForward, Heart, Repeat2, Share2, ListPlus, Download,
@@ -165,7 +166,10 @@ export const FrontpageAltFTrack: React.FC = () => {
             <AltSidebar active="Tracks" />
             <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', height: '100%' }}>
                 <AltHeader breadcrumb={[{ label: 'Tracks' }, { label: track?.title || '…' }]} />
-                {child}
+                <div style={{ flex: 1, display: 'flex', minHeight: 0, overflow: 'hidden' }}>
+                    {child}
+                    <AltActivitySidebar />
+                </div>
             </main>
         </div>
     );
