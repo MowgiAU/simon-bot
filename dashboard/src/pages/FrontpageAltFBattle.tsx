@@ -111,7 +111,7 @@ export const FrontpageAltFBattle: React.FC = () => {
                     ) : (
                         <>
                             {/* ── HERO ── */}
-                            <section style={{ position: 'relative', width: '100%', minHeight: 380, overflow: 'hidden', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
+                            <section style={{ position: 'relative', width: '100%', height: 400, overflow: 'hidden', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', borderBottom: `1px solid ${BORDER}` }}>
                                 {/* Background: banner → release cover → gradient fallback */}
                                 {(battle.bannerUrl || battle.release?.coverUrl) ? (
                                     <img src={battle.bannerUrl || battle.release.coverUrl} alt="" referrerPolicy="no-referrer" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: 0.35 }} />
