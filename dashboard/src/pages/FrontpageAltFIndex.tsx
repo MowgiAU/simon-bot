@@ -12,7 +12,7 @@ import {
 import { AltHeader } from '../components/altshell/AltHeader';
 import {
     Home, User, BarChart3, Music, Swords, Trophy, Users, Library,
-    Rss, MessageCircle, Heart, List, BookOpen, Zap, Layers, Activity, MessageSquare, FileText,
+    Rss, MessageCircle, Heart, List, BookOpen, Zap, Layers, Activity, MessageSquare, FileText, ListMusic,
 } from 'lucide-react';
 
 const glass: React.CSSProperties = {
@@ -125,6 +125,24 @@ const PAGES = [
         accent: '#ff9f43',
     },
     {
+        label: 'My Playlists',
+        route: '/preview/alt_f_my_playlists',
+        icon: Layers,
+        status: 'approved' as const,
+        desc: 'Auth-gated playlist manager: create, rename, delete. Mosaic cover art, public/private toggle, inline edit.',
+        gradient: 'linear-gradient(135deg, #1a0a2a 0%, #2a1a3a 100%)',
+        accent: '#7C3AED',
+    },
+    {
+        label: 'Playlist Detail',
+        route: '/preview/alt_f_playlist',
+        icon: ListMusic,
+        status: 'approved' as const,
+        desc: 'Playlist view: blurred mosaic hero, Play All, track table with position, cover, BPM, duration.',
+        gradient: 'linear-gradient(135deg, #2a1a3a 0%, #1a1a2a 100%)',
+        accent: SECONDARY,
+    },
+    {
         label: 'Home',
         route: '/preview/alt_f',
         icon: Home,
@@ -140,7 +158,6 @@ const COMING_SOON = [
     { label: 'Favourites', icon: Heart, desc: 'Liked tracks and saved content' },
     { label: 'My Tracks', icon: List, desc: 'Your uploaded tracks and drafts' },
     { label: 'Genres', icon: Music, desc: 'Genre exploration and discovery pages' },
-    { label: 'My Playlists', icon: Layers, desc: 'Create and manage playlists' },
     { label: 'Learn', icon: BookOpen, desc: 'FL Studio tutorials and learning paths' },
 ];
 
