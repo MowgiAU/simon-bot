@@ -12,7 +12,7 @@ import {
 import { AltHeader } from '../components/altshell/AltHeader';
 import {
     Home, User, BarChart3, Music, Swords, Trophy, Users, Library,
-    Rss, MessageCircle, Heart, List, BookOpen, Zap, Layers,
+    Rss, MessageCircle, Heart, List, BookOpen, Zap, Layers, Activity,
 } from 'lucide-react';
 
 const glass: React.CSSProperties = {
@@ -80,6 +80,15 @@ const PAGES = [
         accent: SECONDARY,
     },
     {
+        label: 'Feed',
+        route: '/preview/alt_f_feed',
+        icon: Activity,
+        status: 'approved' as const,
+        desc: 'Activity feed — Discover tab (public events) and Following tab (tracks from followed artists, paginated).',
+        gradient: 'linear-gradient(135deg, #0a2a1a 0%, #1a1a3a 100%)',
+        accent: '#4ade80',
+    },
+    {
         label: 'Home',
         route: '/preview/alt_f',
         icon: Home,
@@ -91,7 +100,6 @@ const PAGES = [
 ];
 
 const COMING_SOON = [
-    { label: 'Feed', icon: Rss, desc: 'Activity feed from followed artists and friends' },
     { label: 'Library', icon: Library, desc: 'Personal track library, playlists, saved content' },
     { label: 'Arena', icon: Zap, desc: 'Head-to-head battle arena and matchups' },
     { label: 'Messages', icon: MessageCircle, desc: 'Direct messages and conversations' },
