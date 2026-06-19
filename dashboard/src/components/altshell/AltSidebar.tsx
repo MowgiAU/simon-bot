@@ -7,6 +7,7 @@ import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
 import { usePlayer } from '../PlayerProvider';
+import { useAltBreakpoint } from './useAltBreakpoint';
 import {
     Home, Search, User, Newspaper, BarChart3, Swords, Plus, Library, AudioLines,
     Users, Star, HelpCircle, LogOut, PanelLeftClose, PanelLeftOpen,
@@ -33,13 +34,62 @@ const LS_KEY = 'fuji_left_sidebar_collapsed';
 export const AltSidebar: React.FC<{ active?: string }> = ({ active }) => {
     const { player } = usePlayer();
     const [playlists, setPlaylists] = useState<any[]>([]);
+    const bp = useAltBreakpoint();
+
     const [collapsed, setCollapsed] = useState(() => {
+        const narrow = typeof window !== 'undefined' && window.innerWidth < 1100;
+        if (narrow) return true;
         try { return localStorage.getItem(LS_KEY) === 'true'; } catch { return false; }
     });
 
+    // Auto-collapse on resize to narrow; restore localStorage preference on widen to lg.
+    useEffect(() => {
+        if (bp !== 'lg') {
+            setCollapsed(true);
+        } else {
+            try { setCollapsed(localStorage.getItem(LS_KEY) === 'true'); } catch {}
+        }
+    }, [bp]);
+
+    // Inject responsive grid overrides once — attribute selectors target inline styles
+    // so no className changes are needed on individual pages.
+    useEffect(() => {
+        if (document.getElementById('altf-responsive')) return;
+        const s = document.createElement('style');
+        s.id = 'altf-responsive';
+        s.textContent = `
+/* ━━ Alt F Responsive Grid (injected by AltSidebar) ━━ */
+/* ① Tablet < 1100px: card grids reduce columns */
+@media (max-width:1099px){
+  [style*="repeat(4, minmax(0, 1fr))"]{grid-template-columns:repeat(2, minmax(0, 1fr))!important}
+  [style*="repeat(4, 1fr)"]{grid-template-columns:repeat(2, 1fr)!important}
+  [style*="repeat(3, 1fr)"]{grid-template-columns:repeat(2, 1fr)!important}
+}
+/* ② Small tablet < 900px: body left-sidebar stacks above content */
+@media (max-width:899px){
+  [style*="280px 1fr"],[style*="300px 1fr"]{grid-template-columns:1fr!important}
+}
+/* ③ Mobile < 550px: 3/2-col → 1-col, tighten padding */
+@media (max-width:549px){
+  [style*="repeat(3, 1fr)"],[style*="repeat(2, 1fr)"]{grid-template-columns:1fr!important}
+  [style*="280px 1fr"],[style*="300px 1fr"]{padding-left:16px!important;padding-right:16px!important}
+}
+/* ④ Track-table rows — min-width forces overflowX:auto parent to scroll
+   rather than cropping columns when viewport is narrow */
+@media (max-width:1099px){
+  [style*="36px 44px 1fr 130px"]{min-width:640px}
+  [style*="40px 44px 1fr 88px"]{min-width:700px}
+  [style*="44px 44px 1fr 110px"]{min-width:680px}
+  [style*="40px 44px 1fr 120px"]{min-width:600px}
+  [style*="36px 44px 1fr 48px"]{min-width:560px}
+}`;
+        document.head.appendChild(s);
+    }, []);
+
     const toggle = () => setCollapsed(c => {
         const next = !c;
-        try { localStorage.setItem(LS_KEY, String(next)); } catch {}
+        // Only persist to localStorage at desktop widths
+        if (bp === 'lg') { try { localStorage.setItem(LS_KEY, String(next)); } catch {} }
         return next;
     });
 
@@ -47,7 +97,8 @@ export const AltSidebar: React.FC<{ active?: string }> = ({ active }) => {
         axios.get('/api/playlists/popular').then(r => setPlaylists(arr(r.data).slice(0, 6))).catch(() => {});
     }, []);
 
-    const w = collapsed ? 64 : 256;
+    // xs always icon-rail to prevent overflow
+    const w = (collapsed || bp === 'xs') ? 64 : 256;
 
     return (
         <aside style={{ width: w, minWidth: w, background: S_LOWEST, borderRight: `1px solid ${BORDER}`, display: 'flex', flexDirection: 'column', flexShrink: 0, fontFamily: FONT, color: TEXT, paddingBottom: player.currentTrack ? 90 : 0, transition: 'width 0.25s ease, min-width 0.25s ease', overflow: 'hidden' }}>

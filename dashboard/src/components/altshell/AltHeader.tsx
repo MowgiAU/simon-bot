@@ -9,6 +9,7 @@ import { useChat } from '../ChatProvider';
 import { MusicNotificationMenu } from '../MusicNotificationMenu';
 import { MessengerPopup } from '../MessengerPopup';
 import { BG, S_CONT, PRIMARY, TERTIARY, TEXT, SUB, BORDER } from './AltSidebar';
+import { useAltBreakpoint } from './useAltBreakpoint';
 import { ChevronRight, Search, Upload, MessageCircle, Settings } from 'lucide-react';
 
 export interface BreadcrumbItem {
@@ -24,6 +25,7 @@ interface AltHeaderProps {
 
 export const AltHeader: React.FC<AltHeaderProps> = ({ breadcrumb = [], leftSlot, accent = PRIMARY }) => {
     const { dropdownOpen: messengerOpen, setDropdownOpen: setMessengerOpen, unreadTotal: unreadMsgCount } = useChat();
+    const bp = useAltBreakpoint();
 
     return (
         <header style={{ height: 64, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', borderBottom: `1px solid ${BORDER}`, background: 'rgba(15,19,29,0.7)', backdropFilter: 'blur(20px)', position: 'relative', zIndex: 50 }}>
@@ -41,17 +43,21 @@ export const AltHeader: React.FC<AltHeaderProps> = ({ breadcrumb = [], leftSlot,
                         ))}
                     </div>
                 )}
-                <div style={{ position: 'relative', maxWidth: 360, flex: 1 }}>
-                    <Search size={18} color={SUB} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)' }} />
-                    <input
-                        placeholder="Search producers, tracks…"
-                        style={{ width: '100%', background: S_CONT, border: `1px solid ${BORDER}`, borderRadius: 9999, padding: '8px 16px 8px 38px', color: TEXT, fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }}
-                    />
-                </div>
+                {/* Hide search at xs; shrink at md */}
+                {bp !== 'xs' && (
+                    <div style={{ position: 'relative', maxWidth: bp === 'md' ? 200 : 360, flex: 1 }}>
+                        <Search size={18} color={SUB} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)' }} />
+                        <input
+                            placeholder="Search producers, tracks…"
+                            style={{ width: '100%', background: S_CONT, border: `1px solid ${BORDER}`, borderRadius: 9999, padding: '8px 16px 8px 38px', color: TEXT, fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }}
+                        />
+                    </div>
+                )}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <Link to="/my-tracks" style={{ display: 'flex', alignItems: 'center', gap: 8, background: accent, color: '#fff', fontWeight: 700, fontSize: 13, padding: '8px 16px', borderRadius: 9999, textDecoration: 'none' }}>
-                    <Upload size={18} /> Upload
+                {/* Upload: icon-only at xs */}
+                <Link to="/my-tracks" style={{ display: 'flex', alignItems: 'center', gap: bp === 'xs' ? 0 : 8, background: accent, color: '#fff', fontWeight: 700, fontSize: 13, padding: bp === 'xs' ? '9px' : '8px 16px', borderRadius: 9999, textDecoration: 'none' }}>
+                    <Upload size={18} />{bp !== 'xs' && ' Upload'}
                 </Link>
                 <div style={{ position: 'relative' }}>
                     <button

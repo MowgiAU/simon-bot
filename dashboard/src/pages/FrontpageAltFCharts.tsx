@@ -172,6 +172,8 @@ export const FrontpageAltFCharts: React.FC = () => {
                                 <div style={{ padding: 60, textAlign: 'center', color: SUB }}>No chart data yet.</div>
                             ) : (
                                 <div style={{ ...glass, borderRadius: 20, overflow: 'hidden' }}>
+                                    {/* Scroll wrapper — prevents cropping on narrow viewports */}
+                                    <div style={{ overflowX: 'auto' }}><div style={{ minWidth: 840 }}>
                                     <div style={{ display: 'grid', gridTemplateColumns: '56px 1fr 160px 100px 100px 100px 48px', gap: 16, padding: '12px 24px', background: 'rgba(38,42,53,0.5)', borderBottom: `1px solid ${DIVIDER}`, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: SUB }}>
                                         <span>Rank</span><span>Track</span><span>Engagement</span><span>Plays</span><span>Period</span><span>Trend</span><span />
                                     </div>
@@ -209,6 +211,7 @@ export const FrontpageAltFCharts: React.FC = () => {
                                             </div>
                                         );
                                     })}
+                                    </div></div>{/* /scroll wrapper */}
                                 </div>
                             )}
                         </div>

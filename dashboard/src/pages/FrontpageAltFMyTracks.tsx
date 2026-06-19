@@ -358,7 +358,7 @@ export const FrontpageAltFMyTracks: React.FC = () => {
                                     </div>
                                 </div>
                             ) : (
-                                <div style={{ ...glass, borderRadius: 20, overflow: 'hidden' }}>
+                                <div style={{ ...glass, borderRadius: 20, overflowX: 'auto' }}>
                                     {/* Table header */}
                                     <div style={{ display: 'grid', gridTemplateColumns: '40px 44px 1fr 88px 46px 54px 64px 112px', gap: 0, padding: '10px 20px', background: 'rgba(38,42,53,0.5)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: SUB, borderBottom: `1px solid ${DIVIDER}`, alignItems: 'center' }}>
                                         <div style={{ textAlign: 'center' }}>#</div>

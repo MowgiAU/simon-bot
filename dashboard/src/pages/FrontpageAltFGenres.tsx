@@ -221,7 +221,7 @@ export const FrontpageAltFGenres: React.FC = () => {
                                         <div style={{ fontSize: 13, color: SUB }}>Be the first to upload one.</div>
                                     </div>
                                 ) : (
-                                    <div style={{ ...glass, borderRadius: 20, overflow: 'hidden' }}>
+                                    <div style={{ ...glass, borderRadius: 20, overflowX: 'auto' }}>
                                         {/* Table header */}
                                         <div style={{ display: 'grid', gridTemplateColumns: '36px 44px 1fr 48px 60px 68px', padding: '10px 20px', background: 'rgba(38,42,53,0.5)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: SUB, borderBottom: `1px solid ${DIVIDER}`, alignItems: 'center' }}>
                                             <div />

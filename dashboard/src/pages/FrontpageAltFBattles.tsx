@@ -351,6 +351,7 @@ export const FrontpageAltFBattles: React.FC = () => {
                                         <section>
                                             <h2 style={{ margin: '0 0 16px', fontSize: 20, fontWeight: 700 }}>Battle History</h2>
                                             <div style={{ ...glass, borderRadius: 20, overflow: 'hidden' }}>
+                                                <div style={{ overflowX: 'auto' }}><div style={{ minWidth: 500 }}>
                                                 {/* Table header */}
                                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 180px 100px 48px', padding: '12px 24px', background: 'rgba(38,42,53,0.5)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: SUB, borderBottom: `1px solid ${DIVIDER}` }}>
                                                     <span>Event Name</span>
@@ -385,6 +386,7 @@ export const FrontpageAltFBattles: React.FC = () => {
                                                         </div>
                                                     );
                                                 })}
+                                                </div></div>{/* /scroll wrapper */}
                                             </div>
                                         </section>
                                     )}

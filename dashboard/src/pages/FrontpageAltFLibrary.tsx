@@ -254,7 +254,7 @@ export const FrontpageAltFLibrary: React.FC = () => {
                                         <div style={{ fontSize: 13, color: SUB }}>Try a different search or genre</div>
                                     </div>
                                 ) : (
-                                    <div style={{ ...glass, borderRadius: 20, overflow: 'hidden' }}>
+                                    <div style={{ ...glass, borderRadius: 20, overflowX: 'auto' }}>
                                         {/* Table header */}
                                         <div style={{ display: 'grid', gridTemplateColumns: '36px 44px 1fr 130px 56px 60px 68px', gap: 0, padding: '10px 20px', background: 'rgba(38,42,53,0.5)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: SUB, borderBottom: `1px solid ${DIVIDER}`, alignItems: 'center' }}>
                                             <div />
