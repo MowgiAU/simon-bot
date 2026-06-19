@@ -77,8 +77,7 @@ export const FrontpageAltF: React.FC = () => {
             axios.get('/api/beat-battle/battles').catch(() => ({ data: [] })),
             axios.get('/api/playlists/popular').catch(() => ({ data: [] })),
             axios.get('/api/discovery/tracks?sort=newest&limit=12').catch(() => ({ data: { tracks: [] } })),
-            axios.get('/api/beat-battle/sponsors').catch(() => ({ data: [] })),
-        ]).then(([cRes, pRes, aRes, bRes, plRes, dRes, sRes]) => {
+        ]).then(([cRes, pRes, aRes, bRes, plRes, dRes]) => {
             const chart = Array.isArray(cRes.data) ? cRes.data[0] : cRes.data;
             setChartEntries(chart?.entries || []);
             setArtists(arr(pRes.data).slice(0, 8));
@@ -87,13 +86,15 @@ export const FrontpageAltF: React.FC = () => {
             setBattles(bBattles);
             setPlaylists(arr(plRes.data));
             setNewDrops((dRes.data?.tracks || arr(dRes.data)).filter((t: any) => t.coverUrl).slice(0, 12));
-            // Merge page sponsors + sponsors embedded on battles, deduplicate by id
-            const pageSponsors: any[] = arr(sRes.data);
-            const battleSponsors: any[] = bBattles.filter((b: any) => b.sponsor).map((b: any) => b.sponsor);
+            // Extract sponsors from battles (inline sponsor field), deduplicate by id
             const seen = new Set<string>();
             const merged: any[] = [];
-            for (const s of [...pageSponsors, ...battleSponsors]) {
-                if (s?.id && !seen.has(s.id)) { seen.add(s.id); merged.push(s); }
+            for (const b of bBattles) {
+                const s = b.sponsor;
+                if (s?.id && s.isActive && s.showOnPage && !seen.has(s.id)) {
+                    seen.add(s.id);
+                    merged.push(s);
+                }
             }
             setSponsors(merged);
             setLoading(false);
