@@ -173,15 +173,23 @@ const PAGES = [
         label: 'Home',
         route: '/preview/alt_f',
         icon: Home,
-        status: 'wip' as const,
-        desc: 'Discovery feed / landing page. Still needs structural work — hero and content TBD.',
+        status: 'approved' as const,
+        desc: 'Discovery landing page — carousel hero, top artists, trending tracks, latest news, new drops, rotating sponsor banner.',
         gradient: 'linear-gradient(135deg, #1a1a1a 0%, #252525 100%)',
-        accent: SUB,
+        accent: PRIMARY,
+    },
+    {
+        label: 'Arena',
+        route: '/preview/alt_f_arena',
+        icon: Zap,
+        status: 'approved' as const,
+        desc: 'Elo-ranked 1v1 producer battles. Leaderboard with tier progression, Enter Arena CTA, how-it-works breakdown.',
+        gradient: 'linear-gradient(135deg, #2a0a1a 0%, #1a0a2a 100%)',
+        accent: '#FF3D7F',
     },
 ];
 
 const COMING_SOON = [
-    { label: 'Arena', icon: Zap, desc: 'Head-to-head battle arena and matchups' },
     { label: 'Learn', icon: BookOpen, desc: 'FL Studio tutorials and learning paths' },
 ];
 
@@ -196,7 +204,7 @@ export const FrontpageAltFIndex: React.FC = () => {
     const navigate = useNavigate();
 
     const built = PAGES;
-    const approvedCount = PAGES.filter(p => p.status !== 'wip').length;
+    const approvedCount = PAGES.filter(p => (p.status as string) !== 'wip').length;
 
     return (
         <div style={{ height: '100vh', display: 'flex', overflow: 'hidden', background: BG, color: TEXT, fontFamily: FONT }}>
