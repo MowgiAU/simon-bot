@@ -89,6 +89,15 @@ const PAGES = [
         accent: '#4ade80',
     },
     {
+        label: 'Library',
+        route: '/preview/alt_f_library',
+        icon: Library,
+        status: 'approved' as const,
+        desc: 'Searchable track browser. Server-side sort + genre filter, client-side search, BPM/duration/plays columns.',
+        gradient: 'linear-gradient(135deg, #1a0a2a 0%, #0a1a2a 100%)',
+        accent: PRIMARY,
+    },
+    {
         label: 'Home',
         route: '/preview/alt_f',
         icon: Home,
@@ -100,7 +109,6 @@ const PAGES = [
 ];
 
 const COMING_SOON = [
-    { label: 'Library', icon: Library, desc: 'Personal track library, playlists, saved content' },
     { label: 'Arena', icon: Zap, desc: 'Head-to-head battle arena and matchups' },
     { label: 'Messages', icon: MessageCircle, desc: 'Direct messages and conversations' },
     { label: 'Favourites', icon: Heart, desc: 'Liked tracks and saved content' },
