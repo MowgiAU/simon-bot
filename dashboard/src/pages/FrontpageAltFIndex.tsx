@@ -187,11 +187,18 @@ const PAGES = [
         gradient: 'linear-gradient(135deg, #2a0a1a 0%, #1a0a2a 100%)',
         accent: '#FF3D7F',
     },
+    {
+        label: 'Learn',
+        route: '/preview/alt_f_learn',
+        icon: BookOpen,
+        status: 'approved' as const,
+        desc: 'Interactive FL Studio academy. 4 learning paths (basics, sound design, mixing, battle skills), built-in DAW simulator lesson player.',
+        gradient: 'linear-gradient(135deg, #0a1a0a 0%, #1a2a10 100%)',
+        accent: '#6FBF40',
+    },
 ];
 
-const COMING_SOON = [
-    { label: 'Learn', icon: BookOpen, desc: 'FL Studio tutorials and learning paths' },
-];
+const COMING_SOON: { label: string; icon: any; desc: string }[] = [];
 
 const STATUS: Record<string, { label: string; color: string }> = {
     reference: { label: 'Reference', color: SECONDARY },

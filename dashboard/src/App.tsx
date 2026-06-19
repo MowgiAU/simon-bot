@@ -107,6 +107,7 @@ const FrontpageAltFMyTracks    = lazy(() => import("./pages/FrontpageAltFMyTrack
 const FrontpageAltFFavourites  = lazy(() => import("./pages/FrontpageAltFFavourites").then(m => ({ default: m.FrontpageAltFFavourites })));
 const FrontpageAltFGenres      = lazy(() => import("./pages/FrontpageAltFGenres").then(m => ({ default: m.FrontpageAltFGenres })));
 const FrontpageAltFArena       = lazy(() => import("./pages/FrontpageAltFArena").then(m => ({ default: m.FrontpageAltFArena })));
+const FrontpageAltFLearn       = lazy(() => import("./pages/FrontpageAltFLearn").then(m => ({ default: m.FrontpageAltFLearn })));
 const MobilePreviewNowPlaying = lazy(() => import("./pages/MobilePreviewNowPlaying").then(m => ({ default: m.MobilePreviewNowPlaying })));
 const MobilePreviewHome      = lazy(() => import("./pages/MobilePreviewHome").then(m => ({ default: m.MobilePreviewHome })));
 const MobilePreviewCharts    = lazy(() => import("./pages/MobilePreviewCharts").then(m => ({ default: m.MobilePreviewCharts })));
@@ -971,6 +972,9 @@ const AppInternal: React.FC = () => {
   }
   if (currentPath === '/preview/alt_f_arena') {
     return <Suspense fallback={<PageSpinner />}><FrontpageAltFArena /></Suspense>;
+  }
+  if (currentPath === '/preview/alt_f_learn') {
+    return <Suspense fallback={<PageSpinner />}><FrontpageAltFLearn /></Suspense>;
   }
 
   // Mobile redesign previews (Stitch mockups rebuilt as CSP-safe React) — access by URL only
