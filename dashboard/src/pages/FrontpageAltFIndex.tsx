@@ -12,7 +12,7 @@ import {
 import { AltHeader } from '../components/altshell/AltHeader';
 import {
     Home, User, BarChart3, Music, Swords, Trophy, Users, Library,
-    Rss, MessageCircle, Heart, List, BookOpen, Zap, Layers, Activity,
+    Rss, MessageCircle, Heart, List, BookOpen, Zap, Layers, Activity, MessageSquare,
 } from 'lucide-react';
 
 const glass: React.CSSProperties = {
@@ -98,6 +98,15 @@ const PAGES = [
         accent: PRIMARY,
     },
     {
+        label: 'Messages',
+        route: '/preview/alt_f_messages',
+        icon: MessageSquare,
+        status: 'approved' as const,
+        desc: 'E2E-encrypted 1:1 and group DMs. Conversation list, chat thread with bubbles, user search, optimistic send.',
+        gradient: 'linear-gradient(135deg, #0a1a2a 0%, #1a2a1a 100%)',
+        accent: SECONDARY,
+    },
+    {
         label: 'Home',
         route: '/preview/alt_f',
         icon: Home,
@@ -110,7 +119,6 @@ const PAGES = [
 
 const COMING_SOON = [
     { label: 'Arena', icon: Zap, desc: 'Head-to-head battle arena and matchups' },
-    { label: 'Messages', icon: MessageCircle, desc: 'Direct messages and conversations' },
     { label: 'Favourites', icon: Heart, desc: 'Liked tracks and saved content' },
     { label: 'My Tracks', icon: List, desc: 'Your uploaded tracks and drafts' },
     { label: 'Genres', icon: Music, desc: 'Genre exploration and discovery pages' },
