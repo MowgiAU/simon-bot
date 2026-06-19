@@ -14,7 +14,7 @@ import { AltHeader } from '../components/altshell/AltHeader';
 import { AltActivitySidebar } from '../components/altshell/AltActivitySidebar';
 import {
     Users, Music, TrendingUp, Play, Pause,
-    ChevronLeft, ChevronRight, ChevronRight as Arrow,
+    ChevronLeft, ChevronRight,
     Newspaper, Flame,
 } from 'lucide-react';
 
@@ -62,24 +62,28 @@ export const FrontpageAltF: React.FC = () => {
     const [articles,     setArticles]     = useState<any[]>([]);
     const [battles,      setBattles]      = useState<any[]>([]);
     const [playlists,    setPlaylists]    = useState<any[]>([]);
+    const [newDrops,     setNewDrops]     = useState<any[]>([]);
     const [hovArtist,    setHovArtist]    = useState<string | null>(null);
     const [hovTrack,     setHovTrack]     = useState<string | null>(null);
+    const [hovDrop,      setHovDrop]      = useState<string | null>(null);
 
     useEffect(() => {
         Promise.all([
             axios.get('/api/charts/weekly').catch(() => ({ data: null })),
-            // sort=popular → order by totalPlays desc so we get the most-played artists
             axios.get('/api/musician/profiles?limit=8&sort=popular').catch(() => ({ data: [] })),
             axios.get('/api/articles?limit=6').catch(() => ({ data: { articles: [] } })),
             axios.get('/api/beat-battle/battles').catch(() => ({ data: [] })),
             axios.get('/api/playlists/popular').catch(() => ({ data: [] })),
-        ]).then(([cRes, pRes, aRes, bRes, plRes]) => {
+            // newest tracks sorted by upload date
+            axios.get('/api/discovery/tracks?sort=newest&limit=12').catch(() => ({ data: { tracks: [] } })),
+        ]).then(([cRes, pRes, aRes, bRes, plRes, dRes]) => {
             const chart = Array.isArray(cRes.data) ? cRes.data[0] : cRes.data;
             setChartEntries(chart?.entries || []);
             setArtists(arr(pRes.data).slice(0, 8));
             setArticles((aRes.data?.articles || arr(aRes.data)).slice(0, 6));
             setBattles(arr(bRes.data));
             setPlaylists(arr(plRes.data));
+            setNewDrops((dRes.data?.tracks || arr(dRes.data)).filter((t: any) => t.coverUrl).slice(0, 12));
             setLoading(false);
         });
     }, []);
@@ -481,61 +485,66 @@ export const FrontpageAltF: React.FC = () => {
                                     )}
                                 </section>
 
-                                {/* Charts table */}
-                                {chartEntries.length > 0 && (
+                                {/* New Drops — 4-column album-art grid */}
+                                {newDrops.length > 0 && (
                                     <section>
                                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-                                            <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>This Week's Charts</h2>
-                                            <button onClick={() => navigate('/preview/alt_f_charts')}
+                                            <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>New Drops</h2>
+                                            <button onClick={() => navigate('/preview/alt_f_library')}
                                                 style={{ background: 'none', border: 'none', color: PRIMARY, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: FONT }}>
-                                                View Full Charts
+                                                View All Tracks
                                             </button>
                                         </div>
-                                        <div style={{ ...glass, borderRadius: 20, overflow: 'hidden' }}>
-                                            <div style={{ display: 'grid', gridTemplateColumns: '48px 44px 1fr 160px 90px 40px', padding: '10px 24px', background: 'rgba(38,42,53,0.5)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: SUB, borderBottom: `1px solid ${DIVIDER}`, alignItems: 'center' }}>
-                                                <span style={{ textAlign: 'center' }}>Rank</span>
-                                                <span />
-                                                <span>Track</span>
-                                                <span>Artist</span>
-                                                <span style={{ textAlign: 'right' }}>Plays</span>
-                                                <span />
-                                            </div>
-                                            {chartEntries.slice(0, 12).map((entry: any, i: number) => {
-                                                const t       = entry.track || {};
-                                                const profile = t.profile || {};
-                                                const rc      = rankCol(i);
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
+                                            {newDrops.map((t: any) => {
+                                                const artist  = t.profile?.displayName || t.profile?.username || t.artist || '';
                                                 const playing = isActivePlaying(t.id);
-                                                const artist  = profile.displayName || profile.username || '—';
-                                                const initials = artist !== '—' ? artist.slice(0, 2).toUpperCase() : '—';
-                                                const avatarColors = [PRIMARY, SECONDARY, '#A78BFA'];
-
+                                                const isHov   = hovDrop === t.id;
                                                 return (
                                                     <div
-                                                        key={t.id || i}
-                                                        onClick={() => playChartEntry(entry)}
-                                                        style={{ display: 'grid', gridTemplateColumns: '48px 44px 1fr 160px 90px 40px', padding: '13px 24px', alignItems: 'center', borderBottom: i < Math.min(chartEntries.length, 12) - 1 ? `1px solid ${DIVIDER}` : 'none', cursor: t.url ? 'pointer' : 'default', transition: 'background 0.15s', background: playing ? `${PRIMARY}08` : 'transparent' }}
-                                                        onMouseEnter={ev => { if (!playing) ev.currentTarget.style.background = 'rgba(38,42,53,0.4)'; }}
-                                                        onMouseLeave={ev => { if (!playing) ev.currentTarget.style.background = 'transparent'; }}
+                                                        key={t.id}
+                                                        onClick={() => {
+                                                            if (!t.url) return;
+                                                            if (player.currentTrack?.id === t.id) { togglePlay(); return; }
+                                                            const q = newDrops.filter((x: any) => x.url).map((x: any) => ({
+                                                                id: x.id, title: x.title,
+                                                                artist: x.profile?.displayName || x.profile?.username || x.artist || '',
+                                                                url: x.url, coverUrl: x.coverUrl,
+                                                            }));
+                                                            const idx = q.findIndex(x => x.id === t.id);
+                                                            setTrack(q[idx] ?? q[0], q);
+                                                        }}
+                                                        onMouseEnter={() => setHovDrop(t.id)}
+                                                        onMouseLeave={() => setHovDrop(null)}
+                                                        style={{ cursor: t.url ? 'pointer' : 'default' }}
                                                     >
-                                                        <span style={{ textAlign: 'center', fontWeight: 900, fontSize: 14, color: rc }}>#{i + 1}</span>
-                                                        <div style={{ width: 36, height: 36, borderRadius: 8, overflow: 'hidden', background: S_HIGH, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                        {/* Square cover art */}
+                                                        <div style={{ position: 'relative', width: '100%', paddingBottom: '100%', borderRadius: 12, overflow: 'hidden', background: S_HIGH, boxShadow: playing ? `0 0 0 2px ${PRIMARY}, 0 8px 24px rgba(0,0,0,0.5)` : '0 4px 16px rgba(0,0,0,0.4)', transition: 'box-shadow 0.2s, transform 0.15s', transform: isHov ? 'translateY(-3px)' : 'translateY(0)' }}>
                                                             {t.coverUrl
-                                                                ? <img src={t.coverUrl} alt="" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                                                : <Music size={14} color={SUB} />}
-                                                        </div>
-                                                        <div style={{ minWidth: 0, paddingRight: 12 }}>
-                                                            <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: playing ? PRIMARY : TEXT, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title || '—'}</p>
-                                                        </div>
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, overflow: 'hidden' }}>
-                                                            <div style={{ width: 28, height: 28, borderRadius: '50%', background: `${avatarColors[i % 3]}22`, border: `1px solid ${avatarColors[i % 3]}44`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 9, fontWeight: 800, color: avatarColors[i % 3], overflow: 'hidden' }}>
-                                                                {profile.avatar
-                                                                    ? <img src={profile.avatar} alt="" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                                                    : initials}
+                                                                ? <img src={t.coverUrl} referrerPolicy="no-referrer" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.4s', transform: isHov ? 'scale(1.06)' : 'scale(1)' }} />
+                                                                : <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Music size={28} color={SUB} /></div>
+                                                            }
+                                                            {/* Play overlay */}
+                                                            <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: (isHov || playing) ? 1 : 0, transition: 'opacity 0.2s' }}>
+                                                                <div style={{ width: 40, height: 40, borderRadius: '50%', background: playing ? PRIMARY : 'rgba(255,255,255,0.9)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.4)' }}>
+                                                                    {playing
+                                                                        ? <Pause size={16} color="#fff" fill="#fff" />
+                                                                        : <Play  size={16} color="#111" fill="#111" style={{ marginLeft: 2 }} />
+                                                                    }
+                                                                </div>
                                                             </div>
-                                                            <span style={{ fontSize: 13, color: TEXT, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{artist}</span>
+                                                            {/* BPM badge */}
+                                                            {t.bpm && (
+                                                                <div style={{ position: 'absolute', bottom: 7, left: 7 }}>
+                                                                    <span style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)', color: SUB, padding: '2px 7px', borderRadius: 6, fontSize: 10, fontWeight: 700 }}>{t.bpm} BPM</span>
+                                                                </div>
+                                                            )}
                                                         </div>
-                                                        <span style={{ fontSize: 13, fontWeight: 700, color: i === 0 ? PRIMARY : TEXT, textAlign: 'right' }}>{fmtNum(t.playCount)}</span>
-                                                        <Arrow size={15} color={SUB} style={{ justifySelf: 'center' }} />
+                                                        {/* Track info below art */}
+                                                        <div style={{ marginTop: 9, paddingLeft: 2 }}>
+                                                            <div style={{ fontSize: 13, fontWeight: 700, color: playing ? PRIMARY : TEXT, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.3 }}>{t.title}</div>
+                                                            {artist && <div style={{ fontSize: 11, color: SUB, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 2 }}>{artist}</div>}
+                                                        </div>
                                                     </div>
                                                 );
                                             })}
