@@ -258,13 +258,14 @@ export const FrontpageAltFIndex: React.FC = () => {
                                 const Icon = page.icon;
                                 const badge = STATUS[page.status];
                                 return (
-                                    <div
+                                    <a
                                         key={page.route}
-                                        onClick={() => navigate(page.route)}
+                                        href={page.route}
                                         style={{
                                             ...glass, borderRadius: 20, overflow: 'hidden',
                                             cursor: 'pointer', display: 'flex', flexDirection: 'column',
                                             transition: 'border-color 0.2s, transform 0.15s',
+                                            textDecoration: 'none', color: 'inherit',
                                         }}
                                         onMouseEnter={ev => { ev.currentTarget.style.borderColor = `${PRIMARY}66`; ev.currentTarget.style.transform = 'translateY(-2px)'; }}
                                         onMouseLeave={ev => { ev.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; ev.currentTarget.style.transform = 'translateY(0)'; }}
@@ -300,7 +301,7 @@ export const FrontpageAltFIndex: React.FC = () => {
                                                 <span style={{ fontSize: 12, color: PRIMARY, fontWeight: 700 }}>Open →</span>
                                             </div>
                                         </div>
-                                    </div>
+                                    </a>
                                 );
                             })}
                         </div>
