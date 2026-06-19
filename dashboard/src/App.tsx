@@ -99,6 +99,8 @@ const FrontpageAltFIndex     = lazy(() => import("./pages/FrontpageAltFIndex").t
 const FrontpageAltFFeed      = lazy(() => import("./pages/FrontpageAltFFeed").then(m => ({ default: m.FrontpageAltFFeed })));
 const FrontpageAltFLibrary   = lazy(() => import("./pages/FrontpageAltFLibrary").then(m => ({ default: m.FrontpageAltFLibrary })));
 const FrontpageAltFMessages  = lazy(() => import("./pages/FrontpageAltFMessages").then(m => ({ default: m.FrontpageAltFMessages })));
+const FrontpageAltFArticles  = lazy(() => import("./pages/FrontpageAltFArticles").then(m => ({ default: m.FrontpageAltFArticles })));
+const FrontpageAltFArticle   = lazy(() => import("./pages/FrontpageAltFArticle").then(m => ({ default: m.FrontpageAltFArticle })));
 const MobilePreviewNowPlaying = lazy(() => import("./pages/MobilePreviewNowPlaying").then(m => ({ default: m.MobilePreviewNowPlaying })));
 const MobilePreviewHome      = lazy(() => import("./pages/MobilePreviewHome").then(m => ({ default: m.MobilePreviewHome })));
 const MobilePreviewCharts    = lazy(() => import("./pages/MobilePreviewCharts").then(m => ({ default: m.MobilePreviewCharts })));
@@ -939,6 +941,12 @@ const AppInternal: React.FC = () => {
   }
   if (currentPath === '/preview/alt_f_messages') {
     return <Suspense fallback={<PageSpinner />}><FrontpageAltFMessages /></Suspense>;
+  }
+  if (currentPath === '/preview/alt_f_articles') {
+    return <Suspense fallback={<PageSpinner />}><FrontpageAltFArticles /></Suspense>;
+  }
+  if (currentPath === '/preview/alt_f_article') {
+    return <Suspense fallback={<PageSpinner />}><FrontpageAltFArticle /></Suspense>;
   }
 
   // Mobile redesign previews (Stitch mockups rebuilt as CSP-safe React) — access by URL only

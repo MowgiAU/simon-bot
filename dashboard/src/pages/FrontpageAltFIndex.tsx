@@ -12,7 +12,7 @@ import {
 import { AltHeader } from '../components/altshell/AltHeader';
 import {
     Home, User, BarChart3, Music, Swords, Trophy, Users, Library,
-    Rss, MessageCircle, Heart, List, BookOpen, Zap, Layers, Activity, MessageSquare,
+    Rss, MessageCircle, Heart, List, BookOpen, Zap, Layers, Activity, MessageSquare, FileText,
 } from 'lucide-react';
 
 const glass: React.CSSProperties = {
@@ -107,6 +107,24 @@ const PAGES = [
         accent: SECONDARY,
     },
     {
+        label: 'Articles',
+        route: '/preview/alt_f_articles',
+        icon: BookOpen,
+        status: 'approved' as const,
+        desc: 'Article archive with featured hero, category filter sidebar, paginated card grid, and article detail reader.',
+        gradient: 'linear-gradient(135deg, #1a2a0a 0%, #2a1a0a 100%)',
+        accent: '#ff9f43',
+    },
+    {
+        label: 'Article Reader',
+        route: '/preview/alt_f_article',
+        icon: FileText,
+        status: 'approved' as const,
+        desc: 'Full reading view: cover hero, author strip, rich-text body, tags, author card, related articles.',
+        gradient: 'linear-gradient(135deg, #2a1a0a 0%, #1a0a0a 100%)',
+        accent: '#ff9f43',
+    },
+    {
         label: 'Home',
         route: '/preview/alt_f',
         icon: Home,
@@ -122,7 +140,6 @@ const COMING_SOON = [
     { label: 'Favourites', icon: Heart, desc: 'Liked tracks and saved content' },
     { label: 'My Tracks', icon: List, desc: 'Your uploaded tracks and drafts' },
     { label: 'Genres', icon: Music, desc: 'Genre exploration and discovery pages' },
-    { label: 'Articles', icon: BookOpen, desc: 'Editorial content, tutorials, news' },
     { label: 'My Playlists', icon: Layers, desc: 'Create and manage playlists' },
     { label: 'Learn', icon: BookOpen, desc: 'FL Studio tutorials and learning paths' },
 ];
