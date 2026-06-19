@@ -42,8 +42,8 @@ export const FrontpageAltFLibrary: React.FC = () => {
     const [tracks, setTracks]         = useState<any[]>([]);
     const [genres, setGenres]         = useState<any[]>([]);
     const [loading, setLoading]       = useState(true);
-    const [loadingMore, setLoadingMore] = useState(false);
     const [total, setTotal]           = useState(0);
+    const [visibleCount, setVisibleCount] = useState(50);
 
     const [sort, setSort]             = useState<SortKey>('newest');
     const [activeGenre, setActiveGenre] = useState<string | null>(null);
@@ -54,7 +54,7 @@ export const FrontpageAltFLibrary: React.FC = () => {
     useEffect(() => {
         let on = true;
         setLoading(true);
-        const params: Record<string, string> = { sort, limit: '50' };
+        const params: Record<string, string> = { sort, limit: '500' };
         if (activeGenre) params.genre = activeGenre;
 
         axios.get('/api/discovery/tracks', { params }).then(r => {
@@ -62,6 +62,7 @@ export const FrontpageAltFLibrary: React.FC = () => {
             const data = arr(r.data);
             setTracks(data);
             setTotal(data.length);
+            setVisibleCount(50);
             setLoading(false);
         }).catch(() => { if (on) { setTracks([]); setLoading(false); } });
 
@@ -75,7 +76,7 @@ export const FrontpageAltFLibrary: React.FC = () => {
     }, []);
 
     // Client-side search filter over already-loaded tracks
-    const displayed = useMemo(() => {
+    const filtered = useMemo(() => {
         const q = search.trim().toLowerCase();
         if (!q) return tracks;
         return tracks.filter(t =>
@@ -85,6 +86,15 @@ export const FrontpageAltFLibrary: React.FC = () => {
             || (t.artist || '').toLowerCase().includes(q)
         );
     }, [tracks, search]);
+
+    // Reset pagination when search changes
+    const prevSearch = React.useRef(search);
+    if (prevSearch.current !== search) {
+        prevSearch.current = search;
+        setVisibleCount(50);
+    }
+
+    const displayed = filtered.slice(0, visibleCount);
 
     const playTrack = (t: any) => {
         if (!t.url) return;
@@ -212,7 +222,7 @@ export const FrontpageAltFLibrary: React.FC = () => {
                                     {[
                                         { label: 'Total Tracks', value: fmtNum(total), color: TEXT },
                                         { label: 'Genres', value: String(genres.length), color: SECONDARY },
-                                        { label: 'Showing', value: search ? `${displayed.length} results` : (activeGenre ? `${displayed.length} in genre` : 'All'), color: PRIMARY },
+                                        { label: 'Showing', value: search ? `${filtered.length} results` : (activeGenre ? `${filtered.length} in genre` : `${visibleCount < total ? visibleCount + '+' : 'All'}`), color: PRIMARY },
                                     ].map(s => (
                                         <div key={s.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                             <span style={{ fontSize: 13, color: SUB }}>{s.label}</span>
@@ -230,7 +240,9 @@ export const FrontpageAltFLibrary: React.FC = () => {
                                     <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>
                                         {search ? `Results for "${search}"` : activeGenre ? activeGenre : 'All Tracks'}
                                     </h2>
-                                    <span style={{ fontSize: 13, color: SUB }}>{displayed.length} track{displayed.length !== 1 ? 's' : ''}</span>
+                                    <span style={{ fontSize: 13, color: SUB }}>
+                                        {search || activeGenre ? `${filtered.length} track${filtered.length !== 1 ? 's' : ''}` : `${total} track${total !== 1 ? 's' : ''}`}
+                                    </span>
                                 </div>
 
                                 {loading ? (
@@ -322,6 +334,18 @@ export const FrontpageAltFLibrary: React.FC = () => {
                                                 </div>
                                             );
                                         })}
+                                    </div>
+                                )}
+
+                                {/* Load More */}
+                                {!loading && visibleCount < filtered.length && (
+                                    <div style={{ textAlign: 'center', marginTop: 24 }}>
+                                        <button
+                                            onClick={() => setVisibleCount(v => v + 50)}
+                                            style={{ padding: '10px 32px', background: S_CONT, border: `1px solid rgba(255,255,255,0.1)`, borderRadius: 10, color: TEXT, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: FONT }}
+                                        >
+                                            Load More ({filtered.length - visibleCount} remaining)
+                                        </button>
                                     </div>
                                 )}
                             </section>

@@ -143,6 +143,15 @@ const PAGES = [
         accent: SECONDARY,
     },
     {
+        label: 'My Tracks',
+        route: '/preview/alt_f_my_tracks',
+        icon: Music,
+        status: 'approved' as const,
+        desc: 'Auth-gated track manager: sort, filter, storage bar, public/private toggle, inline delete confirm.',
+        gradient: 'linear-gradient(135deg, #0a1f0a 0%, #1a1000 100%)',
+        accent: PRIMARY,
+    },
+    {
         label: 'Home',
         route: '/preview/alt_f',
         icon: Home,
@@ -156,8 +165,7 @@ const PAGES = [
 const COMING_SOON = [
     { label: 'Arena', icon: Zap, desc: 'Head-to-head battle arena and matchups' },
     { label: 'Favourites', icon: Heart, desc: 'Liked tracks and saved content' },
-    { label: 'My Tracks', icon: List, desc: 'Your uploaded tracks and drafts' },
-    { label: 'Genres', icon: Music, desc: 'Genre exploration and discovery pages' },
+    { label: 'Genres', icon: List, desc: 'Genre exploration and discovery pages' },
     { label: 'Learn', icon: BookOpen, desc: 'FL Studio tutorials and learning paths' },
 ];
 

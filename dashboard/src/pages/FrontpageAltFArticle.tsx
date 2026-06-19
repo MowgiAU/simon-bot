@@ -7,11 +7,13 @@ import React, { useEffect, useRef, useState } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { ArticleEmbedHydrator } from '../components/ArticleEmbeds';
+import { usePlayer } from '../components/PlayerProvider';
 import {
     AltSidebar, BG, S_CONT, S_HIGH,
     PRIMARY, SECONDARY, TERTIARY, TEXT, SUB, BORDER, FONT,
 } from '../components/altshell/AltSidebar';
 import { AltHeader } from '../components/altshell/AltHeader';
+import { AltActivitySidebar } from '../components/altshell/AltActivitySidebar';
 import { BookOpen, ChevronLeft, Eye, Clock, Calendar, Tag, Share2, Bookmark } from 'lucide-react';
 
 const glass: React.CSSProperties = {
@@ -39,6 +41,7 @@ interface Article {
 
 export const FrontpageAltFArticle: React.FC = () => {
     const navigate = useNavigate();
+    const { player } = usePlayer();
     const slug = new URLSearchParams(window.location.search).get('slug');
     const contentRef = useRef<HTMLDivElement>(null);
 
@@ -85,7 +88,8 @@ export const FrontpageAltFArticle: React.FC = () => {
             <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', height: '100%' }}>
                 <AltHeader breadcrumb={[{ label: 'Articles', to: '/preview/alt_f_articles' }, { label: article?.title || 'Article' }]} />
 
-                <div style={{ flex: 1, overflowY: 'auto' }}>
+                <div style={{ flex: 1, display: 'flex', minHeight: 0, overflow: 'hidden' }}>
+                <div style={{ flex: 1, overflowY: 'auto', paddingBottom: player.currentTrack ? 90 : 0 }}>
                     {loading && (
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 300, color: SUB, fontSize: 14 }}>
                             Loading article…
@@ -274,6 +278,8 @@ export const FrontpageAltFArticle: React.FC = () => {
                             )}
                         </>
                     )}
+                </div>
+                <AltActivitySidebar />
                 </div>
             </main>
         </div>

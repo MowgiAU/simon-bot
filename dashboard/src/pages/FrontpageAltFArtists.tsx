@@ -112,7 +112,7 @@ export const FrontpageAltFArtists: React.FC = () => {
             title: track.title,
             artist: profile.displayName || profile.username,
             url: track.url,
-            coverUrl: track.coverUrl || profile.avatarUrl,
+            coverUrl: track.coverUrl || profile.avatar || profile.avatarUrl,
         });
     };
 
@@ -303,7 +303,7 @@ export const FrontpageAltFArtists: React.FC = () => {
                                                 const profile = f.profile || f;
                                                 const name = profile.displayName || profile.username || f.username;
                                                 const username = profile.username || f.username;
-                                                const avatar = profile.avatarUrl || f.avatarUrl;
+                                                const avatar = profile.avatar || profile.avatarUrl || f.avatar || f.avatarUrl;
                                                 const banner = profile.bannerUrl || f.bannerUrl;
                                                 const plays = profile.totalPlays || f.totalPlays || 0;
                                                 const genreList = (profile.genres || f.genres || []).map((g: any) => g.genre?.name || g.name).filter(Boolean).slice(0, 1);
@@ -402,8 +402,8 @@ export const FrontpageAltFArtists: React.FC = () => {
                                                             <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, transparent 40%, rgba(15,19,29,0.8) 100%)' }} />
                                                             {/* Avatar */}
                                                             <div style={{ position: 'absolute', bottom: -18, left: 16 }}>
-                                                                {profile.avatarUrl
-                                                                    ? <img src={profile.avatarUrl} referrerPolicy="no-referrer" style={{ width: 36, height: 36, borderRadius: '50%', border: `2px solid ${BG}`, objectFit: 'cover', display: 'block' }} />
+                                                                {(profile.avatar || profile.avatarUrl)
+                                                                    ? <img src={profile.avatar || profile.avatarUrl} referrerPolicy="no-referrer" style={{ width: 36, height: 36, borderRadius: '50%', border: `2px solid ${BG}`, objectFit: 'cover', display: 'block' }} />
                                                                     : <div style={{ width: 36, height: 36, borderRadius: '50%', border: `2px solid ${BG}`, background: avatarGradient(profile.username), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 800, color: '#fff' }}>
                                                                         {(name || '?')[0].toUpperCase()}
                                                                     </div>
@@ -425,7 +425,13 @@ export const FrontpageAltFArtists: React.FC = () => {
                                                         {/* Card body */}
                                                         <div style={{ padding: '24px 16px 16px' }}>
                                                             <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</div>
-                                                            <div style={{ fontSize: 12, color: SUB, marginBottom: 10 }}>@{profile.username}</div>
+                                                            <div style={{ fontSize: 12, color: SUB, marginBottom: profile.bio ? 6 : 10 }}>@{profile.username}</div>
+
+                                                            {profile.bio && (
+                                                                <div style={{ fontSize: 12, color: SUB, lineHeight: 1.5, marginBottom: 10, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                                                                    {profile.bio}
+                                                                </div>
+                                                            )}
 
                                                             {genreList.length > 0 && (
                                                                 <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 12 }}>
