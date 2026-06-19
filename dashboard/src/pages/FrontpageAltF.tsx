@@ -3,7 +3,7 @@
  * Mirrors the Battles hub layout: carousel hero, top artists (wall of fame),
  * top tracks (community stats), latest news (upcoming arenas), charts (battle history).
  */
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { usePlayer } from '../components/PlayerProvider';
@@ -13,8 +13,9 @@ import {
 import { AltHeader } from '../components/altshell/AltHeader';
 import { AltActivitySidebar } from '../components/altshell/AltActivitySidebar';
 import {
-    Users, Music, TrendingUp, Play, Pause, ChevronLeft, ChevronRight, ChevronRight as Arrow,
-    Newspaper, BarChart3, User, Swords, ListMusic, Flame, Star,
+    Users, Music, TrendingUp, Play, Pause,
+    ChevronLeft, ChevronRight, ChevronRight as Arrow,
+    Newspaper, Flame,
 } from 'lucide-react';
 
 const fmtNum = (n?: number) => { n = n || 0; if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M'; if (n >= 1e3) return (n / 1e3).toFixed(1) + 'k'; return String(n); };
@@ -44,6 +45,10 @@ function avatarGradient(name = '') {
     return `linear-gradient(135deg, hsl(${h % 360},50%,20%), hsl(${(h + 80) % 360},60%,30%))`;
 }
 
+// Rank medal colours — index 0 = #1
+const MEDAL = ['#FFD700', '#C0C0C0', '#CD7F32'];
+const rankCol = (i: number) => MEDAL[i] ?? SUB;
+
 interface Slide {
     key: string;
     eyebrow: string;
@@ -61,18 +66,21 @@ export const FrontpageAltF: React.FC = () => {
     const { player, setTrack, togglePlay } = usePlayer();
     const waveHeights = useWaveform(12);
 
-    const [loading,       setLoading]       = useState(true);
-    const [slideIdx,      setSlideIdx]      = useState(0);
-    const [artists,       setArtists]       = useState<any[]>([]);
-    const [chartEntries,  setChartEntries]  = useState<any[]>([]);
-    const [articles,      setArticles]      = useState<any[]>([]);
-    const [battles,       setBattles]       = useState<any[]>([]);
-    const [playlists,     setPlaylists]     = useState<any[]>([]);
+    const [loading,      setLoading]      = useState(true);
+    const [slideIdx,     setSlideIdx]     = useState(0);
+    const [artists,      setArtists]      = useState<any[]>([]);
+    const [chartEntries, setChartEntries] = useState<any[]>([]);
+    const [articles,     setArticles]     = useState<any[]>([]);
+    const [battles,      setBattles]      = useState<any[]>([]);
+    const [playlists,    setPlaylists]    = useState<any[]>([]);
+    const [hovArtist,    setHovArtist]    = useState<string | null>(null);
+    const [hovTrack,     setHovTrack]     = useState<string | null>(null);
 
     useEffect(() => {
         Promise.all([
             axios.get('/api/charts/weekly').catch(() => ({ data: null })),
-            axios.get('/api/musician/profiles?limit=8').catch(() => ({ data: [] })),
+            // sort=popular → order by totalPlays desc so we get the most-played artists
+            axios.get('/api/musician/profiles?limit=8&sort=popular').catch(() => ({ data: [] })),
             axios.get('/api/articles?limit=6').catch(() => ({ data: { articles: [] } })),
             axios.get('/api/beat-battle/battles').catch(() => ({ data: [] })),
             axios.get('/api/playlists/popular').catch(() => ({ data: [] })),
@@ -87,9 +95,10 @@ export const FrontpageAltF: React.FC = () => {
         });
     }, []);
 
-    // ── Build carousel slides ──────────────────────────────────────────────
-    const topTrack   = chartEntries[0]?.track || null;
-    const topProfile = chartEntries[0]?.profile || topTrack?.profile || null;
+    // ── Carousel slides ───────────────────────────────────────────────────
+    const topEntry   = chartEntries[0] || null;
+    const topTrack   = topEntry?.track || null;
+    const topProfile = topEntry?.track?.profile || null;
     const fArtist    = artists.find((a: any) => a.bannerUrl) || artists[0] || null;
     const fBattle    = battles.find((b: any) => b.bannerUrl && (b.status === 'active' || b.status === 'open'))
                      || battles.find((b: any) => b.bannerUrl) || battles[0] || null;
@@ -98,25 +107,24 @@ export const FrontpageAltF: React.FC = () => {
     const slides: Slide[] = [];
 
     if (topTrack) {
-        const playTopTrack = () => {
-            if (!topTrack.url) return;
-            const q = chartEntries.slice(0, 20).filter((e: any) => e.track?.url).map((e: any) => ({
-                id: e.track.id, title: e.track.title,
-                artist: e.profile?.displayName || e.profile?.username || '',
-                url: e.track.url, coverUrl: e.track.coverUrl,
-            }));
-            setTrack(q[0], q);
-        };
         slides.push({
             key: 'track',
             eyebrow: '#1 This Week',
             title: topTrack.title,
             subtitle: topProfile?.displayName || topProfile?.username || 'Unknown Artist',
             bg: topTrack.coverUrl || null,
-            stat1Label: 'Plays', stat1Value: fmtNum(topTrack.playCount || chartEntries[0]?.plays),
-            stat2Label: 'Chart', stat2Value: '#1 Trending',
+            stat1Label: 'Plays',  stat1Value: fmtNum(topTrack.playCount),
+            stat2Label: 'Chart',  stat2Value: '#1 Trending',
             actionLabel: 'Play Now',
-            onAction: playTopTrack,
+            onAction: () => {
+                if (!topTrack.url) return;
+                const q = chartEntries.filter((e: any) => e.track?.url).map((e: any) => ({
+                    id: e.track.id, title: e.track.title,
+                    artist: e.track.profile?.displayName || e.track.profile?.username || '',
+                    url: e.track.url, coverUrl: e.track.coverUrl,
+                }));
+                setTrack(q[0], q);
+            },
         });
     }
 
@@ -128,23 +136,22 @@ export const FrontpageAltF: React.FC = () => {
             title: fArtist.displayName || fArtist.username,
             subtitle: genreName,
             bg: fArtist.bannerUrl || fArtist.avatar || null,
-            stat1Label: 'Tracks',   stat1Value: fmtNum(fArtist._count?.tracks || fArtist.trackCount),
-            stat2Label: 'Followers', stat2Value: fmtNum(fArtist._count?.followers || 0),
+            stat1Label: 'Tracks',    stat1Value: fmtNum(fArtist._count?.tracks),
+            stat2Label: 'Total Plays', stat2Value: fmtNum(fArtist.totalPlays),
             actionLabel: 'View Profile',
             onAction: () => navigate(`/profile/${fArtist.username}`),
         });
     }
 
     if (fBattle) {
-        const entries = fBattle._count?.entries || 0;
-        const prize   = fBattle.prizePool || (fBattle.prizes?.[0]?.amount ? `$${fBattle.prizes[0].amount}` : null);
+        const prize = fBattle.prizePool || (fBattle.prizes?.[0]?.amount ? `$${fBattle.prizes[0].amount}` : null);
         slides.push({
             key: 'battle',
             eyebrow: 'Featured Battle',
             title: fBattle.title,
             subtitle: fBattle.status === 'active' ? 'Live Now' : fBattle.status === 'voting' ? 'Voting Open' : 'Beat Battle',
-            bg: fBattle.bannerUrl || fBattle.cardImageUrl || null,
-            stat1Label: 'Entries', stat1Value: fmtNum(entries),
+            bg: fBattle.bannerUrl || null,
+            stat1Label: 'Entries', stat1Value: fmtNum(fBattle._count?.entries),
             stat2Label: 'Prize',   stat2Value: prize || 'Community',
             actionLabel: 'View Battle',
             onAction: () => navigate('/preview/alt_f_battles'),
@@ -152,21 +159,20 @@ export const FrontpageAltF: React.FC = () => {
     }
 
     if (fPlaylist) {
-        const trackCount = fPlaylist.trackCount ?? fPlaylist._count?.tracks ?? fPlaylist.tracks?.length ?? 0;
+        const cnt = fPlaylist.trackCount ?? fPlaylist._count?.tracks ?? fPlaylist.tracks?.length ?? 0;
         slides.push({
             key: 'playlist',
             eyebrow: 'Featured Playlist',
             title: fPlaylist.name || fPlaylist.title,
-            subtitle: `${trackCount} tracks curated by the community`,
+            subtitle: `${cnt} tracks curated by the community`,
             bg: fPlaylist.coverUrl || fPlaylist.tracks?.[0]?.coverUrl || null,
-            stat1Label: 'Tracks', stat1Value: fmtNum(trackCount),
+            stat1Label: 'Tracks', stat1Value: fmtNum(cnt),
             stat2Label: 'Type',   stat2Value: fPlaylist.isPublic === false ? 'Private' : 'Community',
             actionLabel: 'Open Playlist',
             onAction: () => navigate(`/playlist/${fPlaylist.id}`),
         });
     }
 
-    // Auto-advance carousel
     useEffect(() => {
         if (slides.length <= 1) return;
         const id = setInterval(() => setSlideIdx(i => (i + 1) % slides.length), 6000);
@@ -175,10 +181,21 @@ export const FrontpageAltF: React.FC = () => {
 
     const slide = slides.length ? slides[slideIdx % slides.length] : null;
 
-    const isPlaying = (id: string) => player.currentTrack?.id === id && player.isPlaying;
+    const isActivePlaying = (id: string) => player.currentTrack?.id === id && player.isPlaying;
 
-    // ── Top artists — rank colours ────────────────────────────────────────
-    const rankColor = (i: number) => ['#FFD700', '#C0C0C0', '#CD7F32', SUB, SUB, SUB, SUB, SUB][i] ?? SUB;
+    // ── play a chart track ────────────────────────────────────────────────
+    const playChartEntry = (e: any) => {
+        const t = e.track;
+        if (!t?.url) return;
+        if (player.currentTrack?.id === t.id) { togglePlay(); return; }
+        const q = chartEntries.filter((x: any) => x.track?.url).map((x: any) => ({
+            id: x.track.id, title: x.track.title,
+            artist: x.track.profile?.displayName || x.track.profile?.username || '',
+            url: x.track.url, coverUrl: x.track.coverUrl,
+        }));
+        const idx = q.findIndex(x => x.id === t.id);
+        setTrack(q[idx] ?? q[0], q);
+    };
 
     return (
         <div style={{ height: '100vh', display: 'flex', overflow: 'hidden', background: BG, color: TEXT, fontFamily: FONT }}>
@@ -209,12 +226,11 @@ export const FrontpageAltF: React.FC = () => {
 
                     {loading ? (
                         <div style={{ padding: 80, textAlign: 'center', color: SUB }}>Loading…</div>
-                    ) : (
-                    <>
+                    ) : (<>
+
                         {/* ── CAROUSEL HERO — 480px, full-bleed, centred ── */}
                         {slide && (
                             <section style={{ position: 'relative', width: '100%', height: 480, overflow: 'hidden' }}>
-                                {/* Background */}
                                 {slide.bg
                                     ? <img key={slide.key} src={slide.bg} alt="" referrerPolicy="no-referrer"
                                         style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: 0.45 }} />
@@ -222,35 +238,28 @@ export const FrontpageAltF: React.FC = () => {
                                 }
                                 <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(15,19,29,1) 0%, rgba(15,19,29,0.45) 50%, transparent 100%)' }} />
 
-                                {/* Dot indicators */}
                                 {slides.length > 1 && (
                                     <div style={{ position: 'absolute', top: 16, right: 16, display: 'flex', gap: 6, zIndex: 3 }}>
                                         {slides.map((s, i) => {
                                             const on = i === (slideIdx % slides.length);
-                                            return <button key={s.key} aria-label={s.eyebrow} onClick={() => setSlideIdx(i)}
+                                            return <button key={s.key} onClick={() => setSlideIdx(i)}
                                                 style={{ width: on ? 22 : 8, height: 8, borderRadius: 9999, background: on ? PRIMARY : 'rgba(255,255,255,0.35)', border: 'none', cursor: 'pointer', transition: 'all 0.3s', padding: 0 }} />;
                                         })}
                                     </div>
                                 )}
 
-                                {/* Centred content */}
                                 <div style={{ position: 'relative', zIndex: 2, height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '0 40px', textAlign: 'center' }}>
-                                    {/* Eyebrow badge */}
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
                                         <span style={{ background: `${PRIMARY}22`, border: `1px solid ${PRIMARY}55`, color: PRIMARY, padding: '5px 16px', borderRadius: 9999, fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', display: 'flex', alignItems: 'center', gap: 6 }}>
                                             <Flame size={12} fill={PRIMARY} /> {slide.eyebrow}
                                         </span>
                                     </div>
-
-                                    {/* Title */}
                                     <h1 style={{ margin: '0 0 10px', fontSize: 52, fontWeight: 900, color: '#fff', letterSpacing: '-0.03em', lineHeight: 1, textShadow: '0 4px 24px rgba(0,0,0,0.8)', maxWidth: 700 }}>
                                         {slide.title}
                                     </h1>
                                     <p style={{ margin: '0 0 28px', maxWidth: 480, color: 'rgba(159,166,185,0.9)', fontSize: 15, lineHeight: 1.65 }}>
                                         {slide.subtitle}
                                     </p>
-
-                                    {/* Stats pill */}
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 0, background: 'rgba(28,31,42,0.65)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', border: '1px solid rgba(87,66,54,0.35)', borderRadius: 20, padding: '20px 40px', marginBottom: 28 }}>
                                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0 28px 0 0' }}>
                                             <span style={{ fontSize: 10, fontWeight: 700, color: SUB, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4 }}>{slide.stat1Label}</span>
@@ -268,8 +277,6 @@ export const FrontpageAltF: React.FC = () => {
                                             </button>
                                         </div>
                                     </div>
-
-                                    {/* Waveform */}
                                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
                                         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'center', gap: 4, height: 48, overflow: 'hidden', maskImage: 'linear-gradient(to right, transparent, black 15%, black 85%, transparent)' }}>
                                             {waveHeights.map((h, i) => (
@@ -278,90 +285,145 @@ export const FrontpageAltF: React.FC = () => {
                                         </div>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', width: 280, fontSize: 10, fontWeight: 700, color: SUB, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
                                             <span style={{ color: SECONDARY }}>Live on Fuji</span>
-                                            <span>{fmtNum(chartEntries.length * 100 + artists.length * 50)} Tracks</span>
+                                            <span>{fmtNum(chartEntries.length)} Chart Tracks</span>
                                         </div>
                                     </div>
                                 </div>
                             </section>
                         )}
 
-                        {/* ── MAIN BODY: 280px sidebar + 1fr content ── */}
+                        {/* ── BODY GRID ── */}
                         <div style={{ maxWidth: 1280, margin: '24px auto 0', padding: '0 32px 40px', display: 'grid', gridTemplateColumns: '280px 1fr', gap: 28, boxSizing: 'border-box' }}>
 
                             {/* ── LEFT SIDEBAR ── */}
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
 
-                                {/* Top Artists — Wall of Fame equivalent */}
+                                {/* ── TOP ARTISTS ── */}
                                 <div style={{ ...glass, borderRadius: 20, overflow: 'hidden' }}>
-                                    <div style={{ padding: '16px 20px', borderBottom: `1px solid ${DIVIDER}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                            <Users size={16} color={SECONDARY} />
-                                            <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>Top Artists</h3>
+                                    {/* Header */}
+                                    <div style={{ padding: '14px 18px', borderBottom: `1px solid ${DIVIDER}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                                            <Users size={15} color={SECONDARY} />
+                                            <span style={{ fontSize: 14, fontWeight: 700, color: TEXT }}>Top Artists</span>
                                         </div>
-                                        <button onClick={() => navigate('/preview/alt_f_artists')} style={{ background: 'none', border: 'none', color: PRIMARY, fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: FONT }}>View All</button>
+                                        <button onClick={() => navigate('/preview/alt_f_artists')}
+                                            style={{ background: 'none', border: 'none', color: PRIMARY, fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: FONT, padding: 0 }}>
+                                            View All
+                                        </button>
                                     </div>
+
                                     {artists.length === 0 ? (
-                                        <div style={{ padding: 28, textAlign: 'center', color: SUB, fontSize: 13 }}>No artists found.</div>
+                                        <div style={{ padding: '28px 18px', textAlign: 'center', color: SUB, fontSize: 13 }}>No artists found.</div>
                                     ) : artists.slice(0, 5).map((a: any, i: number) => {
-                                        const name = a.displayName || a.username || 'Artist';
-                                        const genre = a.genres?.[0]?.genre?.name || a.genres?.[0]?.name || 'Producer';
-                                        const rc = rankColor(i);
+                                        const name     = a.displayName || a.username || 'Artist';
+                                        const genre    = a.genres?.[0]?.genre?.name || a.genres?.[0]?.name || 'Producer';
+                                        const plays    = fmtNum(a.totalPlays || 0);
                                         const initials = name.slice(0, 2).toUpperCase();
+                                        const rc       = rankCol(i);
+                                        const isHov    = hovArtist === a.username;
+                                        // medal ring: top 3 get a coloured 2px border around avatar
+                                        const ringStyle = i < 3
+                                            ? { outline: `2px solid ${rc}`, outlineOffset: '2px' }
+                                            : {};
+
                                         return (
                                             <div
                                                 key={a.id || a.username}
                                                 onClick={() => navigate(`/profile/${a.username}`)}
-                                                style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 16px', borderBottom: i < 4 ? `1px solid ${DIVIDER}` : 'none', cursor: 'pointer', transition: 'background 0.15s' }}
-                                                onMouseEnter={ev => (ev.currentTarget.style.background = 'rgba(38,42,53,0.5)')}
-                                                onMouseLeave={ev => (ev.currentTarget.style.background = 'transparent')}
+                                                onMouseEnter={() => setHovArtist(a.username)}
+                                                onMouseLeave={() => setHovArtist(null)}
+                                                style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 18px', borderBottom: i < 4 ? `1px solid ${DIVIDER}` : 'none', cursor: 'pointer', background: isHov ? 'rgba(38,42,53,0.55)' : 'transparent', transition: 'background 0.15s' }}
                                             >
+                                                {/* Rank badge */}
+                                                <div style={{ width: 20, flexShrink: 0, textAlign: 'center' }}>
+                                                    {i < 3 ? (
+                                                        <span style={{ fontSize: 14, fontWeight: 900, color: rc, lineHeight: 1 }}>{['🥇','🥈','🥉'][i]}</span>
+                                                    ) : (
+                                                        <span style={{ fontSize: 12, fontWeight: 700, color: SUB }}>{i + 1}</span>
+                                                    )}
+                                                </div>
+
                                                 {/* Avatar */}
-                                                <div style={{ width: 48, height: 48, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, background: a.avatar ? 'transparent' : avatarGradient(name), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800, color: '#fff' }}>
+                                                <div style={{ width: 40, height: 40, borderRadius: '50%', flexShrink: 0, overflow: 'hidden', background: avatarGradient(name), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 800, color: '#fff', ...ringStyle }}>
                                                     {a.avatar
-                                                        ? <img src={a.avatar} alt="" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                        ? <img src={a.avatar} referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                                                         : initials}
                                                 </div>
+
                                                 {/* Name + genre */}
                                                 <div style={{ flex: 1, minWidth: 0 }}>
-                                                    <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: TEXT, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</p>
-                                                    <p style={{ margin: '3px 0 0', fontSize: 11, color: SUB }}>{genre}</p>
+                                                    <div style={{ fontSize: 13, fontWeight: 700, color: TEXT, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</div>
+                                                    <div style={{ fontSize: 11, color: SUB, marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{genre}</div>
                                                 </div>
-                                                {/* Rank */}
+
+                                                {/* Total plays */}
                                                 <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                                                    <p style={{ margin: 0, fontWeight: 900, fontSize: 14, color: rc }}>#{i + 1}</p>
-                                                    <p style={{ margin: '2px 0 0', fontSize: 10, color: SUB }}>{fmtNum(a._count?.tracks || 0)} tracks</p>
+                                                    <div style={{ fontSize: 13, fontWeight: 700, color: i === 0 ? PRIMARY : TEXT }}>{plays}</div>
+                                                    <div style={{ fontSize: 10, color: SUB, marginTop: 1 }}>plays</div>
                                                 </div>
                                             </div>
                                         );
                                     })}
                                 </div>
 
-                                {/* Top Tracks — Community Stats equivalent */}
-                                <div style={{ ...glass, borderRadius: 20, overflow: 'hidden', borderLeft: `4px solid ${PRIMARY}` }}>
-                                    <div style={{ padding: '16px 20px', borderBottom: `1px solid ${DIVIDER}`, display: 'flex', alignItems: 'center', gap: 8 }}>
-                                        <TrendingUp size={14} color={PRIMARY} />
-                                        <h3 style={{ margin: 0, fontSize: 12, fontWeight: 700, color: PRIMARY, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Trending Tracks</h3>
+                                {/* ── TRENDING TRACKS ── */}
+                                <div style={{ ...glass, borderRadius: 20, overflow: 'hidden', borderLeft: `3px solid ${PRIMARY}` }}>
+                                    {/* Header */}
+                                    <div style={{ padding: '14px 18px', borderBottom: `1px solid ${DIVIDER}`, display: 'flex', alignItems: 'center', gap: 7 }}>
+                                        <TrendingUp size={13} color={PRIMARY} />
+                                        <span style={{ fontSize: 11, fontWeight: 800, color: PRIMARY, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Trending Tracks</span>
                                     </div>
+
                                     {chartEntries.length === 0 ? (
-                                        <div style={{ padding: 28, textAlign: 'center', color: SUB, fontSize: 13 }}>No chart data yet.</div>
+                                        <div style={{ padding: '28px 18px', textAlign: 'center', color: SUB, fontSize: 13 }}>No chart data yet.</div>
                                     ) : chartEntries.slice(0, 5).map((entry: any, i: number) => {
-                                        const t = entry.track || {};
-                                        const profile = entry.profile || t.profile || {};
-                                        const rc = rankColor(i);
-                                        const playing = isPlaying(t.id);
+                                        const t       = entry.track || {};
+                                        const profile = t.profile || {};
+                                        const rc      = rankCol(i);
+                                        const playing = isActivePlaying(t.id);
+                                        const isHov   = hovTrack === t.id;
+                                        const artist  = profile.displayName || profile.username || '';
+
                                         return (
                                             <div
                                                 key={t.id || i}
-                                                style={{ display: 'grid', gridTemplateColumns: '22px 1fr auto', alignItems: 'center', padding: '11px 16px', borderBottom: i < 4 ? `1px solid ${DIVIDER}` : 'none', fontSize: 14, gap: 10, cursor: 'pointer', transition: 'background 0.15s' }}
-                                                onMouseEnter={ev => (ev.currentTarget.style.background = 'rgba(38,42,53,0.4)')}
-                                                onMouseLeave={ev => (ev.currentTarget.style.background = 'transparent')}
+                                                onClick={() => playChartEntry(entry)}
+                                                onMouseEnter={() => setHovTrack(t.id)}
+                                                onMouseLeave={() => setHovTrack(null)}
+                                                style={{ display: 'grid', gridTemplateColumns: '22px 40px 1fr 40px', alignItems: 'center', gap: 10, padding: '10px 18px', borderBottom: i < 4 ? `1px solid ${DIVIDER}` : 'none', cursor: t.url ? 'pointer' : 'default', background: playing ? `${PRIMARY}0d` : isHov ? 'rgba(38,42,53,0.55)' : 'transparent', transition: 'background 0.15s' }}
                                             >
-                                                <span style={{ fontWeight: 900, fontSize: 12, color: rc, textAlign: 'center' }}>#{i + 1}</span>
-                                                <div style={{ minWidth: 0 }}>
-                                                    <div style={{ fontSize: 13, fontWeight: 700, color: playing ? PRIMARY : TEXT, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title || '—'}</div>
-                                                    <div style={{ fontSize: 11, color: SUB, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{profile.displayName || profile.username || ''}</div>
+                                                {/* Rank / play button on hover */}
+                                                <div style={{ textAlign: 'center', width: 22 }}>
+                                                    {(isHov || playing) && t.url ? (
+                                                        <div style={{ width: 22, height: 22, borderRadius: '50%', background: playing ? PRIMARY : 'rgba(255,255,255,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                            {playing
+                                                                ? <Pause size={9} color="#fff" fill="#fff" />
+                                                                : <Play size={9} color={TEXT} fill={TEXT} />}
+                                                        </div>
+                                                    ) : (
+                                                        <span style={{ fontSize: i < 3 ? 13 : 12, fontWeight: 900, color: rc, lineHeight: 1 }}>
+                                                            {i + 1}
+                                                        </span>
+                                                    )}
                                                 </div>
-                                                <span style={{ fontSize: 11, color: SUB, textAlign: 'right', flexShrink: 0 }}>{fmtNum(t.playCount || entry.plays)}</span>
+
+                                                {/* Cover art */}
+                                                <div style={{ width: 40, height: 40, borderRadius: 8, overflow: 'hidden', background: S_HIGH, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: playing ? `0 0 0 2px ${PRIMARY}` : i < 3 ? `0 0 0 1.5px ${rc}55` : 'none' }}>
+                                                    {t.coverUrl
+                                                        ? <img src={t.coverUrl} referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                                                        : <Music size={14} color={SUB} />}
+                                                </div>
+
+                                                {/* Title + artist */}
+                                                <div style={{ minWidth: 0 }}>
+                                                    <div style={{ fontSize: 13, fontWeight: playing ? 700 : 600, color: playing ? PRIMARY : TEXT, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title || '—'}</div>
+                                                    {artist && <div style={{ fontSize: 11, color: SUB, marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{artist}</div>}
+                                                </div>
+
+                                                {/* Play count */}
+                                                <div style={{ textAlign: 'right' }}>
+                                                    <div style={{ fontSize: 12, fontWeight: 700, color: i === 0 ? PRIMARY : TEXT }}>{fmtNum(t.playCount)}</div>
+                                                </div>
                                             </div>
                                         );
                                     })}
@@ -371,11 +433,14 @@ export const FrontpageAltF: React.FC = () => {
                             {/* ── RIGHT CONTENT ── */}
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
 
-                                {/* Latest News — Upcoming Arenas equivalent */}
+                                {/* Latest News */}
                                 <section>
                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
                                         <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Latest News</h2>
-                                        <button onClick={() => navigate('/preview/alt_f_articles')} style={{ background: 'none', border: 'none', color: PRIMARY, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: FONT }}>View All Articles</button>
+                                        <button onClick={() => navigate('/preview/alt_f_articles')}
+                                            style={{ background: 'none', border: 'none', color: PRIMARY, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: FONT }}>
+                                            View All Articles
+                                        </button>
                                     </div>
                                     {articles.length === 0 ? (
                                         <div style={{ ...glass, borderRadius: 20, padding: '40px 24px', textAlign: 'center', color: SUB, fontSize: 14 }}>
@@ -387,12 +452,11 @@ export const FrontpageAltF: React.FC = () => {
                                             {articles.slice(0, 4).map((a: any) => (
                                                 <div
                                                     key={a.id}
-                                                    onClick={() => navigate(`/preview/alt_f_article`)}
+                                                    onClick={() => navigate('/preview/alt_f_article')}
                                                     style={{ ...glass, borderRadius: 20, overflow: 'hidden', cursor: 'pointer', display: 'flex', flexDirection: 'column', transition: 'border-color 0.2s, transform 0.15s' }}
                                                     onMouseEnter={ev => { ev.currentTarget.style.borderColor = `${PRIMARY}66`; ev.currentTarget.style.transform = 'translateY(-2px)'; }}
                                                     onMouseLeave={ev => { ev.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; ev.currentTarget.style.transform = 'translateY(0)'; }}
                                                 >
-                                                    {/* Image top */}
                                                     <div style={{ height: 128, position: 'relative', background: S_HIGH, flexShrink: 0, overflow: 'hidden' }}>
                                                         {a.coverImageUrl
                                                             ? <img src={a.coverImageUrl} alt="" referrerPolicy="no-referrer"
@@ -404,7 +468,6 @@ export const FrontpageAltF: React.FC = () => {
                                                             </div>
                                                         }
                                                         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(15,19,29,0.65) 0%, transparent 60%)' }} />
-                                                        {/* Category badge */}
                                                         {a.category && (
                                                             <div style={{ position: 'absolute', top: 10, left: 10 }}>
                                                                 <span style={{ background: 'rgba(15,19,29,0.85)', backdropFilter: 'blur(8px)', border: `1px solid ${SECONDARY}55`, color: SECONDARY, padding: '3px 10px', borderRadius: 9999, fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
@@ -413,8 +476,6 @@ export const FrontpageAltF: React.FC = () => {
                                                             </div>
                                                         )}
                                                     </div>
-
-                                                    {/* Body */}
                                                     <div style={{ padding: '14px 18px 16px', flex: 1, display: 'flex', flexDirection: 'column' }}>
                                                         <h3 style={{ margin: '0 0 8px', fontSize: 14, fontWeight: 800, color: TEXT, lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as const, overflow: 'hidden' }}>
                                                             {a.title}
@@ -435,15 +496,17 @@ export const FrontpageAltF: React.FC = () => {
                                     )}
                                 </section>
 
-                                {/* Charts — Battle History equivalent */}
+                                {/* Charts table */}
                                 {chartEntries.length > 0 && (
                                     <section>
                                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
                                             <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>This Week's Charts</h2>
-                                            <button onClick={() => navigate('/preview/alt_f_charts')} style={{ background: 'none', border: 'none', color: PRIMARY, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: FONT }}>View Full Charts</button>
+                                            <button onClick={() => navigate('/preview/alt_f_charts')}
+                                                style={{ background: 'none', border: 'none', color: PRIMARY, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: FONT }}>
+                                                View Full Charts
+                                            </button>
                                         </div>
                                         <div style={{ ...glass, borderRadius: 20, overflow: 'hidden' }}>
-                                            {/* Table header */}
                                             <div style={{ display: 'grid', gridTemplateColumns: '48px 44px 1fr 160px 90px 40px', padding: '10px 24px', background: 'rgba(38,42,53,0.5)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: SUB, borderBottom: `1px solid ${DIVIDER}`, alignItems: 'center' }}>
                                                 <span style={{ textAlign: 'center' }}>Rank</span>
                                                 <span />
@@ -453,53 +516,40 @@ export const FrontpageAltF: React.FC = () => {
                                                 <span />
                                             </div>
                                             {chartEntries.slice(0, 12).map((entry: any, i: number) => {
-                                                const t = entry.track || {};
-                                                const profile = entry.profile || t.profile || {};
-                                                const rc = rankColor(i);
-                                                const playing = isPlaying(t.id);
-                                                const artistName = profile.displayName || profile.username || '—';
-                                                const initials = artistName !== '—' ? artistName.slice(0, 2).toUpperCase() : '—';
+                                                const t       = entry.track || {};
+                                                const profile = t.profile || {};
+                                                const rc      = rankCol(i);
+                                                const playing = isActivePlaying(t.id);
+                                                const artist  = profile.displayName || profile.username || '—';
+                                                const initials = artist !== '—' ? artist.slice(0, 2).toUpperCase() : '—';
                                                 const avatarColors = [PRIMARY, SECONDARY, '#A78BFA'];
 
                                                 return (
                                                     <div
                                                         key={t.id || i}
-                                                        onClick={() => t.url && setTrack(
-                                                            { id: t.id, title: t.title, artist: artistName, url: t.url, coverUrl: t.coverUrl },
-                                                            chartEntries.filter((e: any) => e.track?.url).map((e: any) => ({
-                                                                id: e.track.id, title: e.track.title,
-                                                                artist: (e.profile || e.track.profile)?.displayName || (e.profile || e.track.profile)?.username || '',
-                                                                url: e.track.url, coverUrl: e.track.coverUrl,
-                                                            }))
-                                                        )}
+                                                        onClick={() => playChartEntry(entry)}
                                                         style={{ display: 'grid', gridTemplateColumns: '48px 44px 1fr 160px 90px 40px', padding: '13px 24px', alignItems: 'center', borderBottom: i < Math.min(chartEntries.length, 12) - 1 ? `1px solid ${DIVIDER}` : 'none', cursor: t.url ? 'pointer' : 'default', transition: 'background 0.15s', background: playing ? `${PRIMARY}08` : 'transparent' }}
                                                         onMouseEnter={ev => { if (!playing) ev.currentTarget.style.background = 'rgba(38,42,53,0.4)'; }}
                                                         onMouseLeave={ev => { if (!playing) ev.currentTarget.style.background = 'transparent'; }}
                                                     >
-                                                        {/* Rank */}
                                                         <span style={{ textAlign: 'center', fontWeight: 900, fontSize: 14, color: rc }}>#{i + 1}</span>
-                                                        {/* Cover */}
                                                         <div style={{ width: 36, height: 36, borderRadius: 8, overflow: 'hidden', background: S_HIGH, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                                             {t.coverUrl
                                                                 ? <img src={t.coverUrl} alt="" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                                                : <Music size={14} color={SUB} />
-                                                            }
+                                                                : <Music size={14} color={SUB} />}
                                                         </div>
-                                                        {/* Track title */}
                                                         <div style={{ minWidth: 0, paddingRight: 12 }}>
                                                             <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: playing ? PRIMARY : TEXT, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title || '—'}</p>
                                                         </div>
-                                                        {/* Artist */}
                                                         <div style={{ display: 'flex', alignItems: 'center', gap: 10, overflow: 'hidden' }}>
                                                             <div style={{ width: 28, height: 28, borderRadius: '50%', background: `${avatarColors[i % 3]}22`, border: `1px solid ${avatarColors[i % 3]}44`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 9, fontWeight: 800, color: avatarColors[i % 3], overflow: 'hidden' }}>
                                                                 {profile.avatar
                                                                     ? <img src={profile.avatar} alt="" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                                                     : initials}
                                                             </div>
-                                                            <span style={{ fontSize: 13, color: TEXT, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{artistName}</span>
+                                                            <span style={{ fontSize: 13, color: TEXT, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{artist}</span>
                                                         </div>
-                                                        {/* Plays */}
-                                                        <span style={{ fontSize: 13, fontWeight: 700, color: i === 0 ? PRIMARY : TEXT, textAlign: 'right' }}>{fmtNum(t.playCount || entry.plays)}</span>
+                                                        <span style={{ fontSize: 13, fontWeight: 700, color: i === 0 ? PRIMARY : TEXT, textAlign: 'right' }}>{fmtNum(t.playCount)}</span>
                                                         <Arrow size={15} color={SUB} style={{ justifySelf: 'center' }} />
                                                     </div>
                                                 );
@@ -513,8 +563,7 @@ export const FrontpageAltF: React.FC = () => {
                                 )}
                             </div>
                         </div>
-                    </>
-                    )}
+                    </>)}
                 </div>
                 <AltActivitySidebar />
                 </div>
