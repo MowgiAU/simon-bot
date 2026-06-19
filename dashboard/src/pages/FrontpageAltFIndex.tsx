@@ -152,6 +152,15 @@ const PAGES = [
         accent: PRIMARY,
     },
     {
+        label: 'Favourites',
+        route: '/preview/alt_f_favourites',
+        icon: Heart,
+        status: 'approved' as const,
+        desc: 'Auth-gated liked tracks list: sort, inline search, play queue, one-click unfavourite.',
+        gradient: 'linear-gradient(135deg, #1a0a0a 0%, #2a0a1a 100%)',
+        accent: TERTIARY,
+    },
+    {
         label: 'Home',
         route: '/preview/alt_f',
         icon: Home,
@@ -164,7 +173,6 @@ const PAGES = [
 
 const COMING_SOON = [
     { label: 'Arena', icon: Zap, desc: 'Head-to-head battle arena and matchups' },
-    { label: 'Favourites', icon: Heart, desc: 'Liked tracks and saved content' },
     { label: 'Genres', icon: List, desc: 'Genre exploration and discovery pages' },
     { label: 'Learn', icon: BookOpen, desc: 'FL Studio tutorials and learning paths' },
 ];

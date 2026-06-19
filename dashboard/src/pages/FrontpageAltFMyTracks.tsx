@@ -17,6 +17,7 @@ import { AltActivitySidebar } from '../components/altshell/AltActivitySidebar';
 import {
     Music, Play, Pause, Globe, Lock, Trash2, Upload,
     SortAsc, Filter, HardDrive, TrendingUp, Eye, Clock,
+    Pencil, Check, X,
 } from 'lucide-react';
 
 const glass: React.CSSProperties = {
@@ -66,6 +67,11 @@ export const FrontpageAltFMyTracks: React.FC = () => {
     const [sort,   setSort]   = useState<SortKey>('newest');
     const [filter, setFilter] = useState<FilterKey>('all');
 
+    const [editId,    setEditId]    = useState<string | null>(null);
+    const [editTitle, setEditTitle] = useState('');
+    const [editBpm,   setEditBpm]   = useState('');
+    const [saving,    setSaving]    = useState(false);
+
     const load = useCallback(() => {
         if (!user?.id) return;
         setLoading(true);
@@ -80,6 +86,29 @@ export const FrontpageAltFMyTracks: React.FC = () => {
     }, [user?.id]);
 
     useEffect(() => { if (!authLoading) load(); }, [authLoading, load]);
+
+    const startEdit = (t: Track) => {
+        setEditId(t.id);
+        setEditTitle(t.title);
+        setEditBpm(t.bpm ? String(t.bpm) : '');
+        setDeleteId(null);
+    };
+
+    const saveEdit = async (id: string) => {
+        const title = editTitle.trim();
+        if (!title) return;
+        setSaving(true);
+        const bpmNum = editBpm.trim() ? parseInt(editBpm, 10) : null;
+        const payload: any = { title };
+        if (bpmNum && !isNaN(bpmNum) && bpmNum > 0) payload.bpm = bpmNum;
+        else if (!editBpm.trim()) payload.bpm = null;
+        setTracks(prev => prev.map(t => t.id === id ? { ...t, title: payload.title, bpm: payload.bpm !== undefined ? payload.bpm : t.bpm } : t));
+        setEditId(null);
+        try {
+            await axios.patch(`/api/musician/tracks/${id}`, payload, { withCredentials: true });
+        } catch { load(); }
+        finally { setSaving(false); }
+    };
 
     const togglePublic = async (track: Track) => {
         if (toggling) return;
@@ -331,7 +360,7 @@ export const FrontpageAltFMyTracks: React.FC = () => {
                             ) : (
                                 <div style={{ ...glass, borderRadius: 20, overflow: 'hidden' }}>
                                     {/* Table header */}
-                                    <div style={{ display: 'grid', gridTemplateColumns: '48px 44px 1fr 90px 54px 64px 80px 72px', gap: 0, padding: '10px 20px', background: 'rgba(38,42,53,0.5)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: SUB, borderBottom: `1px solid ${DIVIDER}`, alignItems: 'center' }}>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '40px 44px 1fr 88px 46px 54px 64px 112px', gap: 0, padding: '10px 20px', background: 'rgba(38,42,53,0.5)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: SUB, borderBottom: `1px solid ${DIVIDER}`, alignItems: 'center' }}>
                                         <div style={{ textAlign: 'center' }}>#</div>
                                         <div />
                                         <div>Title</div>
@@ -343,7 +372,7 @@ export const FrontpageAltFMyTracks: React.FC = () => {
                                         <div style={{ textAlign: 'right' }}>
                                             <Clock size={10} style={{ verticalAlign: 'middle' }} />
                                         </div>
-                                        <div style={{ textAlign: 'right' }}>Visibility</div>
+                                        <div style={{ textAlign: 'right' }}>Actions</div>
                                     </div>
 
                                     {displayed.map((t, i) => {
@@ -351,6 +380,7 @@ export const FrontpageAltFMyTracks: React.FC = () => {
                                         const hovered = hoverId === t.id;
                                         const isLast  = i === displayed.length - 1;
                                         const isDel   = deleteId === t.id;
+                                        const isEdit  = editId === t.id;
                                         const genre   = t.genres?.[0]?.genre?.name;
 
                                         return (
@@ -358,11 +388,11 @@ export const FrontpageAltFMyTracks: React.FC = () => {
                                                 key={t.id}
                                                 onMouseEnter={() => setHoverId(t.id)}
                                                 onMouseLeave={() => setHoverId(null)}
-                                                style={{ display: 'grid', gridTemplateColumns: '48px 44px 1fr 90px 54px 64px 80px 72px', gap: 0, padding: '10px 20px', borderBottom: isLast ? 'none' : `1px solid ${DIVIDER}`, alignItems: 'center', background: playing ? `${PRIMARY}08` : hovered ? 'rgba(38,42,53,0.35)' : 'transparent', transition: 'background 0.1s' }}
+                                                style={{ display: 'grid', gridTemplateColumns: '40px 44px 1fr 88px 46px 54px 64px 112px', gap: 0, padding: '10px 20px', borderBottom: isLast ? 'none' : `1px solid ${DIVIDER}`, alignItems: 'center', background: playing ? `${PRIMARY}08` : hovered ? 'rgba(38,42,53,0.35)' : 'transparent', transition: 'background 0.1s' }}
                                             >
                                                 {/* Position / play */}
                                                 <div style={{ textAlign: 'center' }}>
-                                                    {hovered && t.url ? (
+                                                    {hovered && t.url && !isEdit && !isDel ? (
                                                         <button onClick={() => handlePlay(t)} style={{ width: 22, height: 22, background: 'none', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
                                                             {playing ? <Pause size={14} color={PRIMARY} fill={PRIMARY} /> : <Play size={14} color={TEXT} fill={TEXT} />}
                                                         </button>
@@ -372,20 +402,36 @@ export const FrontpageAltFMyTracks: React.FC = () => {
                                                 </div>
 
                                                 {/* Cover */}
-                                                <div onClick={() => handlePlay(t)} style={{ cursor: t.url ? 'pointer' : 'default' }}>
+                                                <div onClick={() => !isEdit && !isDel && handlePlay(t)} style={{ cursor: t.url && !isEdit ? 'pointer' : 'default' }}>
                                                     {t.coverUrl
                                                         ? <img src={t.coverUrl} referrerPolicy="no-referrer" style={{ width: 36, height: 36, borderRadius: 6, objectFit: 'cover', display: 'block' }} />
                                                         : <div style={{ width: 36, height: 36, borderRadius: 6, background: S_HIGH, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Music size={14} color={SUB} /></div>
                                                     }
                                                 </div>
 
-                                                {/* Title + metadata + delete confirm */}
+                                                {/* Title cell — shows normal view, edit form, or delete confirm */}
                                                 <div style={{ minWidth: 0, paddingRight: 8 }}>
                                                     {isDel ? (
                                                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                                             <span style={{ fontSize: 13, color: TERTIARY, fontWeight: 600 }}>Delete "{t.title}"?</span>
                                                             <button onClick={() => deleteTrack(t.id)} style={{ padding: '3px 10px', background: TERTIARY, border: 'none', borderRadius: 5, color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: FONT }}>Delete</button>
                                                             <button onClick={() => setDeleteId(null)} style={{ padding: '3px 10px', background: S_HIGH, border: 'none', borderRadius: 5, color: SUB, fontSize: 11, cursor: 'pointer', fontFamily: FONT }}>Cancel</button>
+                                                        </div>
+                                                    ) : isEdit ? (
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                            <input
+                                                                value={editTitle}
+                                                                onChange={e => setEditTitle(e.target.value)}
+                                                                onKeyDown={e => { if (e.key === 'Enter') saveEdit(t.id); if (e.key === 'Escape') setEditId(null); }}
+                                                                autoFocus
+                                                                style={{ flex: 1, minWidth: 0, padding: '5px 10px', background: S_HIGH, border: `1px solid ${PRIMARY}66`, borderRadius: 6, color: TEXT, fontSize: 13, fontFamily: FONT, outline: 'none' }}
+                                                            />
+                                                            <input
+                                                                value={editBpm}
+                                                                onChange={e => setEditBpm(e.target.value.replace(/\D/g, ''))}
+                                                                placeholder="BPM"
+                                                                style={{ width: 56, padding: '5px 8px', background: S_HIGH, border: `1px solid ${BORDER}`, borderRadius: 6, color: TEXT, fontSize: 13, fontFamily: FONT, outline: 'none' }}
+                                                            />
                                                         </div>
                                                     ) : (
                                                         <>
@@ -397,49 +443,68 @@ export const FrontpageAltFMyTracks: React.FC = () => {
 
                                                 {/* Genre */}
                                                 <div>
-                                                    {genre && !isDel && (
+                                                    {genre && !isDel && !isEdit && (
                                                         <span style={{ padding: '3px 7px', borderRadius: 4, background: `${SECONDARY}15`, border: `1px solid ${SECONDARY}30`, fontSize: 10, color: SECONDARY, fontWeight: 600, whiteSpace: 'nowrap' }}>{genre}</span>
                                                     )}
                                                 </div>
 
                                                 {/* BPM */}
                                                 <div style={{ textAlign: 'center', fontSize: 12, color: t.bpm ? TEXT : `${SUB}66`, fontWeight: t.bpm ? 600 : 400 }}>
-                                                    {!isDel && (t.bpm || '—')}
+                                                    {!isDel && !isEdit && (t.bpm || '—')}
                                                 </div>
 
                                                 {/* Plays */}
                                                 <div style={{ textAlign: 'center', fontSize: 12, color: SUB, fontVariantNumeric: 'tabular-nums' }}>
-                                                    {!isDel && fmtNum(t.playCount)}
+                                                    {!isDel && !isEdit && fmtNum(t.playCount)}
                                                 </div>
 
                                                 {/* Duration */}
                                                 <div style={{ textAlign: 'right', fontSize: 12, color: SUB, fontVariantNumeric: 'tabular-nums' }}>
-                                                    {!isDel && fmtDur(t.duration)}
+                                                    {!isDel && !isEdit && fmtDur(t.duration)}
                                                 </div>
 
-                                                {/* Visibility toggle + delete */}
+                                                {/* Actions: visibility + edit + delete  |  save + cancel when editing */}
                                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}>
-                                                    {!isDel && (
+                                                    {isEdit ? (
                                                         <>
+                                                            <button onClick={() => saveEdit(t.id)} disabled={saving || !editTitle.trim()} title="Save" style={{ width: 28, height: 28, borderRadius: 6, background: `${PRIMARY}22`, border: `1px solid ${PRIMARY}55`, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: PRIMARY }}>
+                                                                <Check size={13} />
+                                                            </button>
+                                                            <button onClick={() => setEditId(null)} title="Cancel" style={{ width: 28, height: 28, borderRadius: 6, background: 'none', border: `1px solid ${BORDER}`, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: SUB }}>
+                                                                <X size={13} />
+                                                            </button>
+                                                        </>
+                                                    ) : !isDel ? (
+                                                        <>
+                                                            {/* Visibility toggle — icon only to save space */}
                                                             <button
                                                                 onClick={() => togglePublic(t)}
                                                                 disabled={!!toggling}
                                                                 title={t.isPublic ? 'Make private' : 'Make public'}
-                                                                style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 8px', borderRadius: 6, border: `1px solid ${t.isPublic ? SECONDARY + '44' : BORDER}`, background: t.isPublic ? `${SECONDARY}12` : 'transparent', color: t.isPublic ? SECONDARY : SUB, cursor: 'pointer', fontSize: 10, fontWeight: 700, fontFamily: FONT, transition: 'all 0.15s', whiteSpace: 'nowrap' }}
+                                                                style={{ width: 28, height: 28, borderRadius: 6, border: `1px solid ${t.isPublic ? SECONDARY + '44' : BORDER}`, background: t.isPublic ? `${SECONDARY}12` : 'transparent', color: t.isPublic ? SECONDARY : SUB, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s', flexShrink: 0 }}
                                                             >
-                                                                {t.isPublic ? <><Globe size={10} /> Pub</> : <><Lock size={10} /> Priv</>}
+                                                                {t.isPublic ? <Globe size={12} /> : <Lock size={12} />}
+                                                            </button>
+                                                            <button
+                                                                onClick={() => startEdit(t)}
+                                                                title="Edit track"
+                                                                style={{ width: 28, height: 28, borderRadius: 6, background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: `${SUB}66`, transition: 'all 0.15s', flexShrink: 0 }}
+                                                                onMouseEnter={e => { e.currentTarget.style.background = `${SECONDARY}1a`; e.currentTarget.style.color = SECONDARY; }}
+                                                                onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = `${SUB}66`; }}
+                                                            >
+                                                                <Pencil size={12} />
                                                             </button>
                                                             <button
                                                                 onClick={() => setDeleteId(t.id)}
                                                                 title="Delete track"
-                                                                style={{ width: 26, height: 26, borderRadius: 6, background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: `${SUB}66`, transition: 'all 0.15s', flexShrink: 0 }}
+                                                                style={{ width: 28, height: 28, borderRadius: 6, background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: `${SUB}66`, transition: 'all 0.15s', flexShrink: 0 }}
                                                                 onMouseEnter={e => { e.currentTarget.style.background = `${TERTIARY}1a`; e.currentTarget.style.color = TERTIARY; }}
                                                                 onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = `${SUB}66`; }}
                                                             >
                                                                 <Trash2 size={12} />
                                                             </button>
                                                         </>
-                                                    )}
+                                                    ) : null}
                                                 </div>
                                             </div>
                                         );
