@@ -21,15 +21,6 @@ import {
 const fmtNum = (n?: number) => { n = n || 0; if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M'; if (n >= 1e3) return (n / 1e3).toFixed(1) + 'k'; return String(n); };
 const fmtDate = (s?: string) => { if (!s) return ''; return new Date(s).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' }); };
 
-function useWaveform(n = 12) {
-    const [heights, setHeights] = useState(() => Array.from({ length: n }, () => 30 + Math.random() * 70));
-    useEffect(() => {
-        const id = setInterval(() => setHeights(Array.from({ length: n }, () => 30 + Math.random() * 70)), 400);
-        return () => clearInterval(id);
-    }, [n]);
-    return heights;
-}
-
 const glass: React.CSSProperties = {
     background: 'rgba(15,19,29,0.7)',
     backdropFilter: 'blur(20px)',
@@ -64,8 +55,6 @@ interface Slide {
 export const FrontpageAltF: React.FC = () => {
     const navigate = useNavigate();
     const { player, setTrack, togglePlay } = usePlayer();
-    const waveHeights = useWaveform(12);
-
     const [loading,      setLoading]      = useState(true);
     const [slideIdx,     setSlideIdx]     = useState(0);
     const [artists,      setArtists]      = useState<any[]>([]);
@@ -248,44 +237,40 @@ export const FrontpageAltF: React.FC = () => {
                                     </div>
                                 )}
 
-                                <div style={{ position: 'relative', zIndex: 2, height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '0 40px', textAlign: 'center' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
-                                        <span style={{ background: `${PRIMARY}22`, border: `1px solid ${PRIMARY}55`, color: PRIMARY, padding: '5px 16px', borderRadius: 9999, fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', display: 'flex', alignItems: 'center', gap: 6 }}>
-                                            <Flame size={12} fill={PRIMARY} /> {slide.eyebrow}
-                                        </span>
+                                <div style={{ position: 'relative', zIndex: 2, height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0 40px', textAlign: 'center' }}>
+                                    {/* Eyebrow + title + subtitle — centred in the upper portion */}
+                                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', paddingBottom: 120 }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
+                                            <span style={{ background: `${PRIMARY}22`, border: `1px solid ${PRIMARY}55`, color: PRIMARY, padding: '5px 16px', borderRadius: 9999, fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                <Flame size={12} fill={PRIMARY} /> {slide.eyebrow}
+                                            </span>
+                                        </div>
+                                        <h1 style={{ margin: '0 0 10px', fontSize: 52, fontWeight: 900, color: '#fff', letterSpacing: '-0.03em', lineHeight: 1, textShadow: '0 4px 24px rgba(0,0,0,0.8)', maxWidth: 700 }}>
+                                            {slide.title}
+                                        </h1>
+                                        <p style={{ margin: 0, maxWidth: 480, color: 'rgba(159,166,185,0.9)', fontSize: 15, lineHeight: 1.65 }}>
+                                            {slide.subtitle}
+                                        </p>
                                     </div>
-                                    <h1 style={{ margin: '0 0 10px', fontSize: 52, fontWeight: 900, color: '#fff', letterSpacing: '-0.03em', lineHeight: 1, textShadow: '0 4px 24px rgba(0,0,0,0.8)', maxWidth: 700 }}>
-                                        {slide.title}
-                                    </h1>
-                                    <p style={{ margin: '0 0 28px', maxWidth: 480, color: 'rgba(159,166,185,0.9)', fontSize: 15, lineHeight: 1.65 }}>
-                                        {slide.subtitle}
-                                    </p>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 0, background: 'rgba(28,31,42,0.65)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', border: '1px solid rgba(87,66,54,0.35)', borderRadius: 20, padding: '20px 40px', marginBottom: 28 }}>
-                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0 28px 0 0' }}>
-                                            <span style={{ fontSize: 10, fontWeight: 700, color: SUB, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4 }}>{slide.stat1Label}</span>
-                                            <span style={{ fontSize: 20, fontWeight: 700, color: PRIMARY }}>{slide.stat1Value}</span>
-                                        </div>
-                                        <div style={{ width: 1, height: 48, background: 'rgba(87,66,54,0.5)' }} />
-                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0 28px' }}>
-                                            <span style={{ fontSize: 10, fontWeight: 700, color: SUB, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4 }}>{slide.stat2Label}</span>
-                                            <span style={{ fontSize: 20, fontWeight: 700, color: TEXT }}>{slide.stat2Value}</span>
-                                        </div>
-                                        <div style={{ width: 1, height: 48, background: 'rgba(87,66,54,0.5)' }} />
-                                        <div style={{ padding: '0 0 0 28px' }}>
-                                            <button onClick={slide.onAction} style={{ padding: '14px 36px', borderRadius: 12, background: PRIMARY, border: 'none', color: '#fff', fontWeight: 800, fontSize: 15, cursor: 'pointer', boxShadow: `0 0 24px ${PRIMARY}55`, letterSpacing: '-0.01em', fontFamily: FONT }}>
-                                                {slide.actionLabel}
-                                            </button>
-                                        </div>
-                                    </div>
-                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-                                        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'center', gap: 4, height: 48, overflow: 'hidden', maskImage: 'linear-gradient(to right, transparent, black 15%, black 85%, transparent)' }}>
-                                            {waveHeights.map((h, i) => (
-                                                <div key={i} style={{ width: 6, height: `${h}%`, background: SECONDARY, borderRadius: '3px 3px 0 0', transition: 'height 0.4s ease-in-out', flexShrink: 0 }} />
-                                            ))}
-                                        </div>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', width: 280, fontSize: 10, fontWeight: 700, color: SUB, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                                            <span style={{ color: SECONDARY }}>Live on Fuji</span>
-                                            <span>{fmtNum(chartEntries.length)} Chart Tracks</span>
+
+                                    {/* Stats pill — pinned 32px from bottom, always same position */}
+                                    <div style={{ position: 'absolute', bottom: 32, left: 0, right: 0, display: 'flex', justifyContent: 'center' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 0, background: 'rgba(28,31,42,0.65)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', border: '1px solid rgba(87,66,54,0.35)', borderRadius: 20, padding: '20px 40px' }}>
+                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0 28px 0 0' }}>
+                                                <span style={{ fontSize: 10, fontWeight: 700, color: SUB, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4 }}>{slide.stat1Label}</span>
+                                                <span style={{ fontSize: 20, fontWeight: 700, color: PRIMARY }}>{slide.stat1Value}</span>
+                                            </div>
+                                            <div style={{ width: 1, height: 48, background: 'rgba(87,66,54,0.5)' }} />
+                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0 28px' }}>
+                                                <span style={{ fontSize: 10, fontWeight: 700, color: SUB, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4 }}>{slide.stat2Label}</span>
+                                                <span style={{ fontSize: 20, fontWeight: 700, color: TEXT }}>{slide.stat2Value}</span>
+                                            </div>
+                                            <div style={{ width: 1, height: 48, background: 'rgba(87,66,54,0.5)' }} />
+                                            <div style={{ padding: '0 0 0 28px' }}>
+                                                <button onClick={slide.onAction} style={{ padding: '14px 36px', borderRadius: 12, background: PRIMARY, border: 'none', color: '#fff', fontWeight: 800, fontSize: 15, cursor: 'pointer', boxShadow: `0 0 24px ${PRIMARY}55`, letterSpacing: '-0.01em', fontFamily: FONT }}>
+                                                    {slide.actionLabel}
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -367,7 +352,7 @@ export const FrontpageAltF: React.FC = () => {
                                 </div>
 
                                 {/* ── TRENDING TRACKS ── */}
-                                <div style={{ ...glass, borderRadius: 20, overflow: 'hidden', borderLeft: `3px solid ${PRIMARY}` }}>
+                                <div style={{ ...glass, borderRadius: 20, overflow: 'hidden' }}>
                                     {/* Header */}
                                     <div style={{ padding: '14px 18px', borderBottom: `1px solid ${DIVIDER}`, display: 'flex', alignItems: 'center', gap: 7 }}>
                                         <TrendingUp size={13} color={PRIMARY} />
