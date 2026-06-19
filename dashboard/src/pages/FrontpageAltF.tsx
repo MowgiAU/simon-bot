@@ -15,7 +15,7 @@ import { AltActivitySidebar } from '../components/altshell/AltActivitySidebar';
 import {
     Users, Music, TrendingUp, Play, Pause,
     ChevronLeft, ChevronRight,
-    Newspaper, Flame,
+    Newspaper, Flame, Award, ExternalLink,
 } from 'lucide-react';
 
 const fmtNum = (n?: number) => { n = n || 0; if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M'; if (n >= 1e3) return (n / 1e3).toFixed(1) + 'k'; return String(n); };
@@ -63,6 +63,8 @@ export const FrontpageAltF: React.FC = () => {
     const [battles,      setBattles]      = useState<any[]>([]);
     const [playlists,    setPlaylists]    = useState<any[]>([]);
     const [newDrops,     setNewDrops]     = useState<any[]>([]);
+    const [sponsors,     setSponsors]     = useState<any[]>([]);
+    const [sponsorIdx,   setSponsorIdx]   = useState(0);
     const [hovArtist,    setHovArtist]    = useState<string | null>(null);
     const [hovTrack,     setHovTrack]     = useState<string | null>(null);
     const [hovDrop,      setHovDrop]      = useState<string | null>(null);
@@ -74,19 +76,36 @@ export const FrontpageAltF: React.FC = () => {
             axios.get('/api/articles?limit=6').catch(() => ({ data: { articles: [] } })),
             axios.get('/api/beat-battle/battles').catch(() => ({ data: [] })),
             axios.get('/api/playlists/popular').catch(() => ({ data: [] })),
-            // newest tracks sorted by upload date
             axios.get('/api/discovery/tracks?sort=newest&limit=12').catch(() => ({ data: { tracks: [] } })),
-        ]).then(([cRes, pRes, aRes, bRes, plRes, dRes]) => {
+            axios.get('/api/beat-battle/sponsors').catch(() => ({ data: [] })),
+        ]).then(([cRes, pRes, aRes, bRes, plRes, dRes, sRes]) => {
             const chart = Array.isArray(cRes.data) ? cRes.data[0] : cRes.data;
             setChartEntries(chart?.entries || []);
             setArtists(arr(pRes.data).slice(0, 8));
             setArticles((aRes.data?.articles || arr(aRes.data)).slice(0, 6));
-            setBattles(arr(bRes.data));
+            const bBattles = arr(bRes.data);
+            setBattles(bBattles);
             setPlaylists(arr(plRes.data));
             setNewDrops((dRes.data?.tracks || arr(dRes.data)).filter((t: any) => t.coverUrl).slice(0, 12));
+            // Merge page sponsors + sponsors embedded on battles, deduplicate by id
+            const pageSponsors: any[] = arr(sRes.data);
+            const battleSponsors: any[] = bBattles.filter((b: any) => b.sponsor).map((b: any) => b.sponsor);
+            const seen = new Set<string>();
+            const merged: any[] = [];
+            for (const s of [...pageSponsors, ...battleSponsors]) {
+                if (s?.id && !seen.has(s.id)) { seen.add(s.id); merged.push(s); }
+            }
+            setSponsors(merged);
             setLoading(false);
         });
     }, []);
+
+    // Auto-advance sponsor carousel
+    useEffect(() => {
+        if (sponsors.length <= 1) return;
+        const id = setInterval(() => setSponsorIdx(i => (i + 1) % sponsors.length), 6000);
+        return () => clearInterval(id);
+    }, [sponsors.length]);
 
     // ── Carousel slides ───────────────────────────────────────────────────
     const topEntry   = chartEntries[0] || null;
@@ -280,6 +299,77 @@ export const FrontpageAltF: React.FC = () => {
                                 </div>
                             </section>
                         )}
+
+                        {/* ── SPONSOR BANNER ── */}
+                        {sponsors.length > 0 && (() => {
+                            const sp = sponsors[sponsorIdx % sponsors.length];
+                            return (
+                                <section style={{ maxWidth: 1280, margin: '24px auto 0', padding: '0 32px', boxSizing: 'border-box' }}>
+                                    <div style={{
+                                        ...glass,
+                                        borderRadius: 20,
+                                        background: `linear-gradient(to right, ${S_CONT}, ${S_HIGH}, ${S_CONT})`,
+                                        overflow: 'hidden',
+                                    }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 32, padding: '20px 28px', flexWrap: 'wrap' }}>
+                                            {/* Logo + name */}
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0 }}>
+                                                {sp.logoUrl
+                                                    ? <img src={sp.logoUrl} alt={sp.name} style={{ width: 48, height: 48, borderRadius: 10, objectFit: 'contain', background: S_CONT }} />
+                                                    : <div style={{ width: 48, height: 48, borderRadius: 10, background: `${PRIMARY}22`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                        <Award size={22} color={PRIMARY} />
+                                                      </div>
+                                                }
+                                                <div>
+                                                    <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: PRIMARY, marginBottom: 2 }}>Premium Partner</div>
+                                                    <div style={{ fontSize: 16, fontWeight: 800, color: TEXT }}>{sp.name}</div>
+                                                </div>
+                                            </div>
+
+                                            {/* Divider */}
+                                            <div style={{ width: 1, height: 40, background: BORDER, flexShrink: 0 }} />
+
+                                            {/* Description */}
+                                            {sp.description && (
+                                                <p style={{ margin: 0, color: SUB, fontSize: 13, lineHeight: 1.5, flex: 1, minWidth: 160 }}>
+                                                    {sp.description}
+                                                </p>
+                                            )}
+
+                                            {/* CTA buttons */}
+                                            <div style={{ display: 'flex', gap: 10, flexShrink: 0, flexWrap: 'wrap' }}>
+                                                {sp.links && sp.links.length > 0
+                                                    ? sp.links.map((lnk: any) => (
+                                                        <a key={lnk.id} href={lnk.url} target="_blank" rel="noopener noreferrer"
+                                                            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 10, background: PRIMARY, color: '#000', fontSize: 13, fontWeight: 700, textDecoration: 'none' }}>
+                                                            <ExternalLink size={13} />
+                                                            {lnk.label}
+                                                        </a>
+                                                    ))
+                                                    : sp.websiteUrl && (
+                                                        <a href={sp.websiteUrl} target="_blank" rel="noopener noreferrer"
+                                                            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 10, background: PRIMARY, color: '#000', fontSize: 13, fontWeight: 700, textDecoration: 'none' }}>
+                                                            <ExternalLink size={13} />
+                                                            Visit Site
+                                                        </a>
+                                                    )
+                                                }
+                                            </div>
+
+                                            {/* Dot indicators (only when >1 sponsor) */}
+                                            {sponsors.length > 1 && (
+                                                <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginLeft: 'auto' }}>
+                                                    {sponsors.map((_: any, i: number) => (
+                                                        <button key={i} onClick={() => setSponsorIdx(i)}
+                                                            style={{ width: i === sponsorIdx % sponsors.length ? 20 : 6, height: 6, borderRadius: 3, background: i === sponsorIdx % sponsors.length ? PRIMARY : `${SUB}55`, border: 'none', cursor: 'pointer', padding: 0, transition: 'all 0.3s' }} />
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </section>
+                            );
+                        })()}
 
                         {/* ── BODY GRID ── */}
                         <div style={{ maxWidth: 1280, margin: '24px auto 0', padding: '0 32px 40px', display: 'grid', gridTemplateColumns: '280px 1fr', gap: 28, boxSizing: 'border-box' }}>
