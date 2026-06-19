@@ -3,9 +3,10 @@
  * Full reading view: cover hero, author strip, rich-text content body.
  * No sidebar — reading-focused single-column layout.
  */
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
+import { ArticleEmbedHydrator } from '../components/ArticleEmbeds';
 import {
     AltSidebar, BG, S_CONT, S_HIGH,
     PRIMARY, SECONDARY, TERTIARY, TEXT, SUB, BORDER, FONT,
@@ -39,6 +40,7 @@ interface Article {
 export const FrontpageAltFArticle: React.FC = () => {
     const navigate = useNavigate();
     const slug = new URLSearchParams(window.location.search).get('slug');
+    const contentRef = useRef<HTMLDivElement>(null);
 
     const [article, setArticle] = useState<Article | null>(null);
     const [loading, setLoading] = useState(true);
@@ -187,6 +189,8 @@ export const FrontpageAltFArticle: React.FC = () => {
                             <div style={{ maxWidth: 760, margin: '0 auto', padding: '48px 32px 64px', boxSizing: 'border-box' }}>
                                 {article.content ? (
                                     <div
+                                        ref={contentRef}
+                                        className="article-content"
                                         dangerouslySetInnerHTML={{ __html: article.content }}
                                         style={{
                                             fontSize: 16, lineHeight: 1.8, color: 'rgba(223,226,241,0.9)',
@@ -198,6 +202,25 @@ export const FrontpageAltFArticle: React.FC = () => {
                                         <p style={{ fontSize: 16, lineHeight: 1.8, color: 'rgba(223,226,241,0.9)' }}>{article.excerpt}</p>
                                     )
                                 )}
+
+                                <ArticleEmbedHydrator contentRef={contentRef} articleContent={article.content || ''} />
+
+                                <style>{`
+                                    .article-content h2 { font-size: 24px; font-weight: 700; margin: 32px 0 16px; color: #dfe2f1; letter-spacing: -0.01em; }
+                                    .article-content h3 { font-size: 20px; font-weight: 600; margin: 28px 0 12px; color: #dfe2f1; }
+                                    .article-content p { margin: 12px 0; }
+                                    .article-content img { max-width: 100%; border-radius: 10px; margin: 20px 0; }
+                                    .article-content a { color: ${PRIMARY}; text-decoration: underline; text-underline-offset: 2px; }
+                                    .article-content a:hover { opacity: 0.85; }
+                                    .article-content blockquote { border-left: 3px solid ${PRIMARY}; margin: 20px 0; padding: 16px 24px; background: ${PRIMARY}0a; border-radius: 0 10px 10px 0; color: ${SUB}; font-style: italic; }
+                                    .article-content pre { background: #1c1f2a; padding: 20px; border-radius: 10px; font-family: 'JetBrains Mono', monospace; font-size: 13px; overflow-x: auto; margin: 20px 0; border: 1px solid rgba(255,255,255,0.06); line-height: 1.5; }
+                                    .article-content code { background: rgba(255,255,255,0.06); padding: 2px 6px; border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 0.9em; }
+                                    .article-content pre code { background: transparent; padding: 0; }
+                                    .article-content hr { border: none; border-top: 1px solid rgba(255,255,255,0.08); margin: 32px 0; }
+                                    .article-content ul, .article-content ol { padding-left: 28px; margin: 12px 0; }
+                                    .article-content li { margin: 6px 0; }
+                                    .article-content iframe, .article-content .article-video { border-radius: 12px; overflow: hidden; max-width: 100%; margin: 20px 0; }
+                                `}</style>
 
                                 {/* Tags */}
                                 {article.tags && article.tags.length > 0 && (
