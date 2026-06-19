@@ -161,6 +161,15 @@ const PAGES = [
         accent: TERTIARY,
     },
     {
+        label: 'Genres',
+        route: '/preview/alt_f_genres',
+        icon: List,
+        status: 'approved' as const,
+        desc: 'Genre discovery hub: 3-col card grid with colour-coded cards, sub-genre chips, track count. Click to browse genre tracks.',
+        gradient: 'linear-gradient(135deg, #0a1a2a 0%, #1a0a3a 100%)',
+        accent: '#a78bfa',
+    },
+    {
         label: 'Home',
         route: '/preview/alt_f',
         icon: Home,
@@ -173,7 +182,6 @@ const PAGES = [
 
 const COMING_SOON = [
     { label: 'Arena', icon: Zap, desc: 'Head-to-head battle arena and matchups' },
-    { label: 'Genres', icon: List, desc: 'Genre exploration and discovery pages' },
     { label: 'Learn', icon: BookOpen, desc: 'FL Studio tutorials and learning paths' },
 ];
 

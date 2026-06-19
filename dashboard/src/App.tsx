@@ -105,6 +105,7 @@ const FrontpageAltFMyPlaylists = lazy(() => import("./pages/FrontpageAltFMyPlayl
 const FrontpageAltFPlaylist    = lazy(() => import("./pages/FrontpageAltFPlaylist").then(m => ({ default: m.FrontpageAltFPlaylist })));
 const FrontpageAltFMyTracks    = lazy(() => import("./pages/FrontpageAltFMyTracks").then(m => ({ default: m.FrontpageAltFMyTracks })));
 const FrontpageAltFFavourites  = lazy(() => import("./pages/FrontpageAltFFavourites").then(m => ({ default: m.FrontpageAltFFavourites })));
+const FrontpageAltFGenres      = lazy(() => import("./pages/FrontpageAltFGenres").then(m => ({ default: m.FrontpageAltFGenres })));
 const MobilePreviewNowPlaying = lazy(() => import("./pages/MobilePreviewNowPlaying").then(m => ({ default: m.MobilePreviewNowPlaying })));
 const MobilePreviewHome      = lazy(() => import("./pages/MobilePreviewHome").then(m => ({ default: m.MobilePreviewHome })));
 const MobilePreviewCharts    = lazy(() => import("./pages/MobilePreviewCharts").then(m => ({ default: m.MobilePreviewCharts })));
@@ -963,6 +964,9 @@ const AppInternal: React.FC = () => {
   }
   if (currentPath === '/preview/alt_f_favourites') {
     return <Suspense fallback={<PageSpinner />}><FrontpageAltFFavourites /></Suspense>;
+  }
+  if (currentPath === '/preview/alt_f_genres') {
+    return <Suspense fallback={<PageSpinner />}><FrontpageAltFGenres /></Suspense>;
   }
 
   // Mobile redesign previews (Stitch mockups rebuilt as CSP-safe React) — access by URL only
