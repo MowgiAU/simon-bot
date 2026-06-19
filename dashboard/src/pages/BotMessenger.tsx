@@ -31,6 +31,10 @@ import {
     Clock,
     User,
     CheckCircle,
+    Paperclip,
+    FileAudio,
+    FileImage,
+    File,
 } from 'lucide-react';
 
 const API = '';
@@ -1197,6 +1201,8 @@ export function BotMessengerPage() {
     const [message, setMessage] = useState('');
     const [replyTo, setReplyTo] = useState<DiscordMessage | null>(null);
     const [selectedSticker, setSelectedSticker] = useState<DiscordSticker | null>(null);
+    const [attachments, setAttachments] = useState<File[]>([]);
+    const fileInputRef = useRef<HTMLInputElement>(null);
     const [showEmoji, setShowEmoji] = useState(false);
     const [showStickers, setShowStickers] = useState(false);
     const [sending, setSending] = useState(false);
@@ -1243,20 +1249,33 @@ export function BotMessengerPage() {
 
     const handleSendMessage = async () => {
         if (!channelId) return;
-        if (!message.trim() && !selectedSticker) return;
+        if (!message.trim() && !selectedSticker && attachments.length === 0) return;
         setSending(true);
         clearStatus();
         try {
-            await axios.post(`${API}/api/bot-messenger/${guildId}/send`, {
-                channelId,
-                content: message.trim() || undefined,
-                replyTo: replyTo?.id || undefined,
-                stickerId: selectedSticker?.id || undefined,
-                useSimon: sendBot === 'simon',
-            }, { withCredentials: true });
+            if (attachments.length > 0) {
+                const fd = new FormData();
+                fd.append('payload_json', JSON.stringify({
+                    channelId,
+                    content: message.trim() || undefined,
+                    replyTo: replyTo?.id || undefined,
+                    useSimon: sendBot === 'simon',
+                }));
+                attachments.forEach(f => fd.append('files', f));
+                await axios.post(`${API}/api/bot-messenger/${guildId}/send-with-files`, fd, { withCredentials: true });
+            } else {
+                await axios.post(`${API}/api/bot-messenger/${guildId}/send`, {
+                    channelId,
+                    content: message.trim() || undefined,
+                    replyTo: replyTo?.id || undefined,
+                    stickerId: selectedSticker?.id || undefined,
+                    useSimon: sendBot === 'simon',
+                }, { withCredentials: true });
+            }
             setMessage('');
             setReplyTo(null);
             setSelectedSticker(null);
+            setAttachments([]);
             setStatus({ type: 'success', text: 'Message sent!' });
             setTimeout(() => setStatus(null), 3000);
         } catch (err: any) {
@@ -1428,6 +1447,49 @@ export function BotMessengerPage() {
                             </div>
                         )}
 
+                        {/* Attachment previews */}
+                        {attachments.length > 0 && (
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', padding: '10px 12px', background: colors.background, borderRadius: borderRadius.sm, border: `1px solid ${colors.border}` }}>
+                                {attachments.map((file, i) => {
+                                    const isImage = file.type.startsWith('image/');
+                                    const isAudio = file.type.startsWith('audio/');
+                                    const previewUrl = isImage ? URL.createObjectURL(file) : null;
+                                    const sizeMB = (file.size / 1024 / 1024).toFixed(1);
+                                    return (
+                                        <div key={i} style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', background: colors.surface, border: `1px solid ${colors.border}`, borderRadius: borderRadius.sm, padding: '8px', maxWidth: '140px' }}>
+                                            <button onClick={() => setAttachments(prev => prev.filter((_, idx) => idx !== i))}
+                                                style={{ position: 'absolute', top: -6, right: -6, background: colors.error, border: 'none', borderRadius: '50%', width: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0 }}>
+                                                <X size={10} color="#fff" />
+                                            </button>
+                                            {isImage && previewUrl ? (
+                                                <img src={previewUrl} alt={file.name} style={{ width: 80, height: 60, objectFit: 'cover', borderRadius: '4px' }} />
+                                            ) : isAudio ? (
+                                                <FileAudio size={32} color={colors.primary} />
+                                            ) : (
+                                                <File size={32} color={colors.textSecondary} />
+                                            )}
+                                            <div style={{ fontSize: '11px', color: colors.textSecondary, textAlign: 'center', wordBreak: 'break-all', maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.name}</div>
+                                            <div style={{ fontSize: '10px', color: colors.textTertiary }}>{sizeMB} MB</div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+
+                        {/* Hidden file input */}
+                        <input
+                            ref={fileInputRef}
+                            type="file"
+                            multiple
+                            accept="image/*,audio/*,video/*,.pdf,.txt,.zip,.mp3,.wav,.flac,.ogg,.aac,.m4a"
+                            style={{ display: 'none' }}
+                            onChange={e => {
+                                const picked = Array.from(e.target.files || []);
+                                setAttachments(prev => [...prev, ...picked].slice(0, 10));
+                                e.target.value = '';
+                            }}
+                        />
+
                         {/* Message input */}
                         <div>
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -1453,6 +1515,14 @@ export function BotMessengerPage() {
                                 style={{ ...btnSecondary, padding: '6px 10px' }} title="Stickers">
                                 <Sticker size={16} />
                             </button>
+                            <button
+                                onClick={() => fileInputRef.current?.click()}
+                                title="Attach files (images, audio, video, documents)"
+                                style={{ ...btnSecondary, padding: '6px 10px', color: attachments.length > 0 ? colors.primary : undefined, borderColor: attachments.length > 0 ? colors.primary : undefined }}
+                            >
+                                <Paperclip size={16} />
+                                {attachments.length > 0 && <span style={{ fontSize: '11px', fontWeight: 700 }}>{attachments.length}</span>}
+                            </button>
                             <div style={{ flex: 1 }} />
                             {/* Bot selector */}
                             <div style={{ display: 'flex', background: 'rgba(255,255,255,0.04)', borderRadius: '8px', padding: '2px', border: '1px solid rgba(255,255,255,0.08)' }}>
@@ -1462,8 +1532,8 @@ export function BotMessengerPage() {
                                     </button>
                                 ))}
                             </div>
-                            <button onClick={handleSendMessage} disabled={sending || (!message.trim() && !selectedSticker) || !channelId}
-                                style={{ ...btnPrimary, opacity: sending || (!message.trim() && !selectedSticker) || !channelId ? 0.5 : 1 }}>
+                            <button onClick={handleSendMessage} disabled={sending || (!message.trim() && !selectedSticker && attachments.length === 0) || !channelId}
+                                style={{ ...btnPrimary, opacity: sending || (!message.trim() && !selectedSticker && attachments.length === 0) || !channelId ? 0.5 : 1 }}>
                                 <Send size={16} /> {sending ? 'Sending...' : 'Send'}
                             </button>
                             {showEmoji && <EmojiPickerPopup guildId={guildId} onSelect={val => { setMessage(m => m + val); setShowEmoji(false); }} onClose={() => setShowEmoji(false)} />}
@@ -1476,7 +1546,7 @@ export function BotMessengerPage() {
                             </div>
                         )}
 
-                        <div style={{ fontSize: '11px', color: colors.textTertiary }}>Ctrl+Enter to send</div>
+                        <div style={{ fontSize: '11px', color: colors.textTertiary }}>Ctrl+Enter to send · Max 10 files, 25 MB each</div>
                     </div>
                 </div>
             )}

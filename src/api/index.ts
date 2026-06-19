@@ -238,6 +238,13 @@ const stemUpload = multer({
   }
 });
 
+// Memory-storage multer for bot messenger attachments — files are forwarded
+// directly to Discord and never written to disk.
+const attachmentUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 25 * 1024 * 1024, files: 10 },
+});
+
 app.set('trust proxy', 1); // Trust nginx proxy for secure cookies
 const logger = new Logger('API');
 
@@ -6469,6 +6476,47 @@ app.post('/api/bot-messenger/:guildId/send', async (req, res) => {
     } catch (err: any) {
         logger.error('Failed to send message via messenger', err);
         res.status(err.response?.status || 500).json({ error: err.response?.data?.message || 'Failed to send message' });
+    }
+});
+
+// Send a message with file attachments (multipart/form-data → forwarded to Discord)
+app.post('/api/bot-messenger/:guildId/send-with-files', attachmentUpload.array('files', 10), async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+    const { guildId } = req.params;
+    if (!hasDashboardAccess(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
+
+    let parsed: any = {};
+    try { parsed = JSON.parse(req.body.payload_json || '{}'); } catch { return res.status(400).json({ error: 'Invalid payload_json' }); }
+
+    const { channelId, content, replyTo, useSimon } = parsed;
+    if (!channelId) return res.status(400).json({ error: 'channelId is required' });
+
+    const files = (req.files || []) as Express.Multer.File[];
+    if (files.length === 0 && !content?.trim()) return res.status(400).json({ error: 'Must provide content or at least one file' });
+
+    try {
+        const fd = new FormData();
+        const msgPayload: any = {};
+        if (content?.trim()) msgPayload.content = content.trim();
+        if (replyTo) msgPayload.message_reference = { message_id: replyTo, fail_if_not_exists: false };
+        // Declare attachments so Discord knows the filenames
+        msgPayload.attachments = files.map((f, i) => ({ id: i, filename: f.originalname }));
+        fd.append('payload_json', JSON.stringify(msgPayload));
+
+        files.forEach((f, i) => {
+            fd.append(`files[${i}]`, f.buffer, { filename: f.originalname, contentType: f.mimetype });
+        });
+
+        const token = useSimon && process.env.SIMON_BOT_TOKEN ? process.env.SIMON_BOT_TOKEN : process.env.DISCORD_TOKEN;
+        const response = await axios.post(
+            `https://discord.com/api/v10/channels/${channelId}/messages`,
+            fd,
+            { headers: { Authorization: `Bot ${token}`, ...fd.getHeaders() }, maxContentLength: Infinity, maxBodyLength: Infinity }
+        );
+        res.json(response.data);
+    } catch (err: any) {
+        logger.error('Failed to send message with files', err);
+        res.status(err.response?.status || 500).json({ error: err.response?.data?.message || 'Failed to send' });
     }
 });
 
