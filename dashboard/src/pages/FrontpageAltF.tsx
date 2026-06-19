@@ -243,7 +243,7 @@ export const FrontpageAltF: React.FC = () => {
 
                         {/* ── CAROUSEL HERO — 480px, full-bleed, centred ── */}
                         {slide && (
-                            <section style={{ position: 'relative', width: '100%', height: 480, overflow: 'hidden' }}>
+                            <section style={{ position: 'relative', width: '100%', height: 480, minHeight: 480, flexShrink: 0, overflow: 'hidden' }}>
                                 {slide.bg
                                     ? <img key={slide.key} src={slide.bg} alt="" referrerPolicy="no-referrer"
                                         style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: 0.45 }} />
@@ -332,7 +332,7 @@ export const FrontpageAltF: React.FC = () => {
 
                                             {/* Description */}
                                             {sp.description && (
-                                                <p style={{ margin: 0, color: SUB, fontSize: 13, lineHeight: 1.5, flex: 1, minWidth: 160 }}>
+                                                <p style={{ margin: 0, color: SUB, fontSize: 13, lineHeight: 1.5, flex: 1, minWidth: 160, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' } as React.CSSProperties}>
                                                     {sp.description}
                                                 </p>
                                             )}
@@ -586,7 +586,7 @@ export const FrontpageAltF: React.FC = () => {
                                                 View All Tracks
                                             </button>
                                         </div>
-                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 14 }}>
                                             {newDrops.map((t: any) => {
                                                 const artist  = t.profile?.displayName || t.profile?.username || t.artist || '';
                                                 const playing = isActivePlaying(t.id);
@@ -607,7 +607,7 @@ export const FrontpageAltF: React.FC = () => {
                                                         }}
                                                         onMouseEnter={() => setHovDrop(t.id)}
                                                         onMouseLeave={() => setHovDrop(null)}
-                                                        style={{ cursor: t.url ? 'pointer' : 'default' }}
+                                                        style={{ cursor: t.url ? 'pointer' : 'default', minWidth: 0 }}
                                                     >
                                                         {/* Square cover art */}
                                                         <div style={{ position: 'relative', width: '100%', paddingBottom: '100%', borderRadius: 12, overflow: 'hidden', background: S_HIGH, boxShadow: playing ? `0 0 0 2px ${PRIMARY}, 0 8px 24px rgba(0,0,0,0.5)` : '0 4px 16px rgba(0,0,0,0.4)', transition: 'box-shadow 0.2s, transform 0.15s', transform: isHov ? 'translateY(-3px)' : 'translateY(0)' }}>
