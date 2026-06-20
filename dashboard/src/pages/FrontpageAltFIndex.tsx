@@ -23,9 +23,10 @@ const SECTIONS: { title: string; pages: Page[] }[] = [
     {
         title: 'Core',
         pages: [
-            { label: 'Home',           route: '/preview/alt_f',        icon: Home,        accent: PRIMARY },
-            { label: 'Artist Profile', route: '/preview/alt_f_artist', icon: User,        accent: '#F2C50A' },
-            { label: 'Track Detail',   route: '/preview/alt_f_track',  icon: Music,       accent: PRIMARY },
+            { label: 'Home',           route: '/preview/alt_f',          icon: Home,          accent: PRIMARY },
+            { label: 'Artist Profile', route: '/preview/alt_f_artist',   icon: User,          accent: '#F2C50A' },
+            { label: 'Track Detail',   route: '/preview/alt_f_track',    icon: Music,         accent: PRIMARY },
+            { label: 'Messages',       route: '/preview/alt_f_messages', icon: MessageSquare, accent: SECONDARY },
         ],
     },
     {
@@ -33,6 +34,7 @@ const SECTIONS: { title: string; pages: Page[] }[] = [
         pages: [
             { label: 'Battles Hub',   route: '/preview/alt_f_battles', icon: Trophy, accent: SECONDARY, reference: true },
             { label: 'Battle Detail', route: '/preview/alt_f_battle',  icon: Swords, accent: TERTIARY },
+            { label: 'Arena',         route: '/preview/alt_f_arena',   icon: Zap,    accent: '#FF3D7F' },
         ],
     },
     {
@@ -45,9 +47,7 @@ const SECTIONS: { title: string; pages: Page[] }[] = [
     {
         title: 'Community',
         pages: [
-            { label: 'Arena',    route: '/preview/alt_f_arena',    icon: Zap,         accent: '#FF3D7F' },
-            { label: 'Messages', route: '/preview/alt_f_messages', icon: MessageSquare, accent: SECONDARY },
-            { label: 'Learn',    route: '/preview/alt_f_learn',    icon: BookOpen,    accent: '#6FBF40' },
+            { label: 'Learn', route: '/preview/alt_f_learn', icon: BookOpen, accent: '#6FBF40' },
         ],
     },
     {
