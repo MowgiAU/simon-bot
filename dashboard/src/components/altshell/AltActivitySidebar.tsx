@@ -8,6 +8,7 @@ import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
 import { usePlayer } from '../PlayerProvider';
+import { useAltBreakpoint } from './useAltBreakpoint';
 import { PanelRightClose, PanelRightOpen, Swords, Music, Activity } from 'lucide-react';
 import {
     BG, S_CONT, S_HIGH, PRIMARY, SECONDARY, TERTIARY, TEXT, SUB, BORDER, FONT, arr,
@@ -20,13 +21,26 @@ export const AltActivitySidebar: React.FC = () => {
     const { player } = usePlayer();
     const [battles, setBattles] = useState<any[]>([]);
     const [activity, setActivity] = useState<any[]>([]);
+    const bp = useAltBreakpoint();
+
     const [collapsed, setCollapsed] = useState(() => {
+        const narrow = typeof window !== 'undefined' && window.innerWidth < 1100;
+        if (narrow) return true;
         try { return localStorage.getItem(LS_KEY) === 'true'; } catch { return false; }
     });
 
+    // Mirror left sidebar: auto-collapse on narrow resize, restore preference at lg.
+    useEffect(() => {
+        if (bp !== 'lg') {
+            setCollapsed(true);
+        } else {
+            try { setCollapsed(localStorage.getItem(LS_KEY) === 'true'); } catch {}
+        }
+    }, [bp]);
+
     const toggle = () => setCollapsed(c => {
         const next = !c;
-        try { localStorage.setItem(LS_KEY, String(next)); } catch {}
+        if (bp === 'lg') { try { localStorage.setItem(LS_KEY, String(next)); } catch {} }
         return next;
     });
 
