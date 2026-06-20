@@ -19136,7 +19136,7 @@ app.get('/api/activity/public', async (_req: any, res) => {
     try {
         const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000); // last 7 days
 
-        const [recentTracks, recentFollows, recentBattleEntries, recentFavourites] = await Promise.all([
+        const [recentTracks, recentFollows, recentBattleEntries, recentFavourites, recentComments] = await Promise.all([
             db.track.findMany({
                 where: { isPublic: true, status: 'active', createdAt: { gte: since } },
                 orderBy: { createdAt: 'desc' },
@@ -19160,6 +19160,26 @@ app.get('/api/activity/public', async (_req: any, res) => {
                 orderBy: { createdAt: 'desc' },
                 take: 10,
                 include: { track: { select: { id: true, title: true, coverUrl: true, profile: { select: { username: true, displayName: true } } } } },
+            }),
+            db.comment.findMany({
+                where: {
+                    createdAt: { gte: since },
+                    deletedAt: null,
+                    parentId: null,
+                    OR: [
+                        { track: { isPublic: true, status: 'active' } },
+                        { profileId: { not: null } },
+                        { battleEntryId: { not: null } },
+                    ],
+                },
+                orderBy: { createdAt: 'desc' },
+                take: 10,
+                select: {
+                    id: true, userId: true, username: true, avatarUrl: true, content: true,
+                    trackId: true, profileId: true, battleEntryId: true, createdAt: true,
+                    track: { select: { id: true, title: true, coverUrl: true, profile: { select: { username: true } } } },
+                    profile: { select: { id: true, username: true, displayName: true } },
+                },
             }),
         ]);
 
@@ -19213,10 +19233,63 @@ app.get('/api/activity/public', async (_req: any, res) => {
             });
         }
 
+        for (const c of recentComments) {
+            let target: any = null;
+            let targetType = 'post';
+            if (c.track) {
+                target = { id: c.track.id, title: c.track.title, coverUrl: c.track.coverUrl, artistUsername: c.track.profile?.username };
+                targetType = 'track';
+            } else if (c.profile) {
+                target = { id: c.profile.id, name: c.profile.displayName || c.profile.username, username: c.profile.username };
+                targetType = 'profile';
+            } else if (c.battleEntryId) {
+                targetType = 'battle';
+            }
+            items.push({
+                type: 'comment',
+                actorId: c.userId,
+                actorName: c.username,
+                actorAvatar: c.avatarUrl,
+                content: c.content,
+                target,
+                targetType,
+                createdAt: c.createdAt,
+            });
+        }
+
         // Sort by date descending and return top 20
         items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
         res.json(items.slice(0, 20));
     } catch (e: any) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// ─── Recent comments for sidebar ────────────────────────────────────────
+app.get('/api/comments/recent', async (_req: any, res) => {
+    try {
+        const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+        const comments = await db.comment.findMany({
+            where: {
+                createdAt: { gte: since },
+                deletedAt: null,
+                parentId: null,
+                OR: [
+                    { track: { isPublic: true, status: 'active' } },
+                    { profileId: { not: null } },
+                ],
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 6,
+            select: {
+                id: true, userId: true, username: true, avatarUrl: true,
+                content: true, trackId: true, profileId: true, createdAt: true,
+                track: { select: { id: true, title: true, coverUrl: true } },
+                profile: { select: { id: true, username: true, displayName: true } },
+            },
+        });
+        res.json(comments);
+    } catch {
         res.status(500).json({ error: 'Internal server error' });
     }
 });

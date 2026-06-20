@@ -14,7 +14,7 @@ import { AltHeader } from '../components/altshell/AltHeader';
 import { AltActivitySidebar } from '../components/altshell/AltActivitySidebar';
 import {
     Play, Pause, Heart, Repeat2, UserPlus, Swords, Music,
-    Rss, Users, TrendingUp, ChevronDown, Lock,
+    Rss, Users, TrendingUp, ChevronDown, Lock, MessageCircle,
 } from 'lucide-react';
 
 const glass: React.CSSProperties = {
@@ -56,13 +56,14 @@ function Avatar({ src, name, size = 36 }: { src?: string | null; name?: string; 
 }
 
 const TYPE_ICONS: Record<string, { icon: any; color: string; label: string }> = {
-    track_upload:  { icon: Music,    color: PRIMARY,   label: 'New Track'     },
-    follow:        { icon: UserPlus, color: SECONDARY,  label: 'Follow'       },
-    battle_entry:  { icon: Swords,   color: TERTIARY,   label: 'Battle Entry' },
-    favourite:     { icon: Heart,    color: '#ff6779',  label: 'Liked'        },
+    track_upload:  { icon: Music,          color: PRIMARY,    label: 'New Track'     },
+    follow:        { icon: UserPlus,        color: SECONDARY,  label: 'Follow'        },
+    battle_entry:  { icon: Swords,          color: TERTIARY,   label: 'Battle Entry'  },
+    favourite:     { icon: Heart,           color: '#ff6779',  label: 'Liked'         },
+    comment:       { icon: MessageCircle,   color: '#a78bfa',  label: 'Comment'       },
 };
 
-const FILTERS = ['All', 'Music', 'Battles', 'Follows'] as const;
+const FILTERS = ['All', 'Music', 'Battles', 'Follows', 'Comments'] as const;
 type Filter = typeof FILTERS[number];
 const TABS = ['Discover', 'Following'] as const;
 type Tab = typeof TABS[number];
@@ -72,6 +73,7 @@ const filterMatch = (type: string, filter: Filter): boolean => {
     if (filter === 'Music') return type === 'track_upload' || type === 'favourite';
     if (filter === 'Battles') return type === 'battle_entry';
     if (filter === 'Follows') return type === 'follow';
+    if (filter === 'Comments') return type === 'comment';
     return true;
 };
 
@@ -84,15 +86,18 @@ function ActivityCard({ item, onPlay, isPlaying }: { item: any; onPlay: (item: a
     const isFav = item.type === 'favourite';
     const isFollow = item.type === 'follow';
     const isBattle = item.type === 'battle_entry';
+    const isComment = item.type === 'comment';
+    const hasBody = isTrack || isBattle || isComment;
     const navigate = useNavigate();
 
+    const commentTarget = isComment
+        ? (item.targetType === 'track' ? item.target?.title : item.targetType === 'profile' ? item.target?.name : 'a battle entry')
+        : null;
+
     return (
-        <div style={{
-            ...glass, borderRadius: 20, overflow: 'hidden',
-            transition: 'border-color 0.2s',
-        }}>
+        <div style={{ ...glass, borderRadius: 20, overflow: 'hidden', transition: 'border-color 0.2s' }}>
             {/* Card header row */}
-            <div style={{ padding: '14px 20px', display: 'flex', alignItems: 'center', gap: 12, borderBottom: isTrack || isBattle ? `1px solid ${DIVIDER}` : 'none' }}>
+            <div style={{ padding: '14px 20px', display: 'flex', alignItems: 'center', gap: 12, borderBottom: hasBody ? `1px solid ${DIVIDER}` : 'none' }}>
                 <div style={{ position: 'relative', flexShrink: 0 }}>
                     <Avatar src={item.actorAvatar} name={item.actorName} size={38} />
                     <div style={{ position: 'absolute', bottom: -2, right: -2, width: 16, height: 16, borderRadius: '50%', background: `${meta.color}22`, border: `1px solid ${meta.color}55`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -107,6 +112,7 @@ function ActivityCard({ item, onPlay, isPlaying }: { item: any; onPlay: (item: a
                         {isFav && <><span style={{ color: SUB }}> liked </span><span style={{ fontWeight: 700, color: TEXT }}>{item.target?.title}</span></>}
                         {isFollow && <><span style={{ color: SUB }}> followed </span><span style={{ fontWeight: 700, color: SECONDARY }}>{item.target?.name}</span></>}
                         {isBattle && <><span style={{ color: SUB }}> entered a battle with </span><span style={{ fontWeight: 700, color: TEXT }}>{item.target?.title || 'a track'}</span></>}
+                        {isComment && <><span style={{ color: SUB }}> commented on </span><span style={{ fontWeight: 700, color: TEXT }}>{commentTarget || 'a post'}</span></>}
                     </div>
                 </div>
 
@@ -151,6 +157,18 @@ function ActivityCard({ item, onPlay, isPlaying }: { item: any; onPlay: (item: a
                     <Swords size={14} color={TERTIARY} />
                     <span style={{ fontSize: 13, color: SUB }}>Submitted to a battle — </span>
                     <span style={{ fontSize: 13, color: TERTIARY, fontWeight: 700, cursor: 'pointer' }} onClick={() => navigate('/preview/alt_f_battle')}>View Battle →</span>
+                </div>
+            )}
+
+            {/* Comment body */}
+            {isComment && item.content && (
+                <div style={{ padding: '10px 20px 14px', display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                    {item.target?.coverUrl && (
+                        <img src={item.target.coverUrl} referrerPolicy="no-referrer" style={{ width: 36, height: 36, borderRadius: 6, objectFit: 'cover', flexShrink: 0, marginTop: 2 }} />
+                    )}
+                    <p style={{ margin: 0, fontSize: 13, color: SUB, lineHeight: 1.5, fontStyle: 'italic' }}>
+                        "{item.content.length > 140 ? item.content.slice(0, 140) + '…' : item.content}"
+                    </p>
                 </div>
             )}
         </div>
