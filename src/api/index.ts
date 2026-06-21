@@ -10409,7 +10409,20 @@ app.get('/api/genre-posts', async (req: any, res) => {
             return { ...rest, userVote: votes?.[0]?.type ?? null };
         });
 
-        res.json({ posts: result, hasMore, nextCursor: hasMore ? posts[posts.length - 1]?.id : null });
+        // Deduplicate track posts when spanning multiple genres — a track tagged
+        // with N genres creates N GenrePost rows; only show it once per feed.
+        const multiGenre = allGenres || genreIds.length > 1;
+        const finalResult = multiGenre ? (() => {
+            const seen = new Set<string>();
+            return result.filter((p: any) => {
+                if (!p.trackId) return true;
+                if (seen.has(p.trackId)) return false;
+                seen.add(p.trackId);
+                return true;
+            });
+        })() : result;
+
+        res.json({ posts: finalResult, hasMore, nextCursor: hasMore ? posts[posts.length - 1]?.id : null });
     } catch (e: any) {
         logger.error('Genre posts feed error', { message: e.message });
         res.status(500).json({ error: 'Internal server error' });
