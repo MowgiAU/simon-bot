@@ -5,7 +5,7 @@
  */
 import React, { useEffect, useState, useCallback } from 'react';
 import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { usePlayer } from '../components/PlayerProvider';
 import {
     AltSidebar, BG, S_CONT, S_HIGH, S_LOWEST,
@@ -59,7 +59,6 @@ function MosaicCover({ playlist, size = 80 }: { playlist: Playlist; size?: numbe
 
 export const FrontpageAltFMyPlaylists: React.FC = () => {
     const { player } = usePlayer();
-    const navigate = useNavigate();
 
     const [playlists, setPlaylists] = useState<Playlist[]>([]);
     const [loading, setLoading]     = useState(true);
@@ -265,9 +264,9 @@ export const FrontpageAltFMyPlaylists: React.FC = () => {
                                                 style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 20px', borderBottom: isLast ? 'none' : `1px solid ${DIVIDER}` }}
                                             >
                                                 {/* Cover mosaic */}
-                                                <div style={{ cursor: 'pointer', flexShrink: 0 }} onClick={() => navigate(`/preview/alt_f_playlist?id=${pl.id}`)}>
+                                                <Link to={`/preview/alt_f_playlist?id=${pl.id}`} style={{ flexShrink: 0 }}>
                                                     <MosaicCover playlist={pl} size={52} />
-                                                </div>
+                                                </Link>
 
                                                 {/* Info / inline edit */}
                                                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -284,12 +283,12 @@ export const FrontpageAltFMyPlaylists: React.FC = () => {
                                                             <button onClick={() => setEditingId(null)} style={{ background: S_HIGH, border: 'none', borderRadius: 6, padding: '6px 8px', cursor: 'pointer', display: 'flex', color: SUB }}><X size={14} /></button>
                                                         </div>
                                                     ) : (
-                                                        <div
-                                                            style={{ fontSize: 14, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'pointer' }}
-                                                            onClick={() => navigate(`/preview/alt_f_playlist?id=${pl.id}`)}
+                                                        <Link
+                                                            to={`/preview/alt_f_playlist?id=${pl.id}`}
+                                                            style={{ fontSize: 14, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block', textDecoration: 'none', color: 'inherit' }}
                                                         >
                                                             {pl.name}
-                                                        </div>
+                                                        </Link>
                                                     )}
                                                     {!isEditing && (
                                                         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 3 }}>
@@ -319,10 +318,10 @@ export const FrontpageAltFMyPlaylists: React.FC = () => {
                                                     </div>
                                                 ) : !isEditing ? (
                                                     <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-                                                        <button onClick={() => navigate(`/preview/alt_f_playlist?id=${pl.id}`)} title="Open" style={{ width: 28, height: 28, borderRadius: 6, background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: SUB, transition: 'all 0.1s' }}
-                                                            onMouseEnter={e => { e.currentTarget.style.background = S_HIGH; e.currentTarget.style.color = TEXT; }}
-                                                            onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = SUB; }}
-                                                        ><Play size={13} /></button>
+                                                        <Link to={`/preview/alt_f_playlist?id=${pl.id}`} title="Open" style={{ width: 28, height: 28, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', color: SUB, transition: 'all 0.1s', textDecoration: 'none' }}
+                                                            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = S_HIGH; (e.currentTarget as HTMLElement).style.color = TEXT; }}
+                                                            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'none'; (e.currentTarget as HTMLElement).style.color = SUB; }}
+                                                        ><Play size={13} /></Link>
                                                         <button onClick={() => { setEditingId(pl.id); setEditDraft(pl.name); }} title="Rename" style={{ width: 28, height: 28, borderRadius: 6, background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: SUB, transition: 'all 0.1s' }}
                                                             onMouseEnter={e => { e.currentTarget.style.background = S_HIGH; e.currentTarget.style.color = TEXT; }}
                                                             onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = SUB; }}

@@ -50,6 +50,7 @@ interface Slide {
     stat1Label: string; stat1Value: string;
     stat2Label: string; stat2Value: string;
     actionLabel: string;
+    href?: string;
     onAction: () => void;
 }
 
@@ -210,6 +211,7 @@ export const FrontpageAltF: React.FC = () => {
             stat1Label: 'Tracks',    stat1Value: fmtNum(fArtist._count?.tracks),
             stat2Label: 'Total Plays', stat2Value: fmtNum(fArtist.totalPlays),
             actionLabel: 'View Profile',
+            href: `/profile/${fArtist.username}`,
             onAction: () => navigate(`/profile/${fArtist.username}`),
         });
     }
@@ -225,6 +227,7 @@ export const FrontpageAltF: React.FC = () => {
             stat1Label: 'Entries', stat1Value: fmtNum(fBattle._count?.entries),
             stat2Label: 'Prize',   stat2Value: prize || 'Community',
             actionLabel: 'View Battle',
+            href: '/preview/alt_f_battles',
             onAction: () => navigate('/preview/alt_f_battles'),
         });
     }
@@ -240,6 +243,7 @@ export const FrontpageAltF: React.FC = () => {
             stat1Label: 'Tracks', stat1Value: fmtNum(cnt),
             stat2Label: 'Type',   stat2Value: fPlaylist.isPublic === false ? 'Private' : 'Community',
             actionLabel: 'Open Playlist',
+            href: `/playlist/${fPlaylist.id}`,
             onAction: () => navigate(`/playlist/${fPlaylist.id}`),
         });
     }
@@ -349,9 +353,15 @@ export const FrontpageAltF: React.FC = () => {
                                             </div>
                                             <div style={{ width: 1, height: 48, background: 'rgba(87,66,54,0.5)' }} />
                                             <div style={{ padding: '0 0 0 28px' }}>
-                                                <button onClick={slide.onAction} style={{ padding: '14px 36px', borderRadius: 12, background: PRIMARY, border: 'none', color: '#fff', fontWeight: 800, fontSize: 15, cursor: 'pointer', boxShadow: `0 0 24px ${PRIMARY}55`, letterSpacing: '-0.01em', fontFamily: FONT }}>
-                                                    {slide.actionLabel}
-                                                </button>
+                                                {slide.href ? (
+                                                    <Link to={slide.href} style={{ padding: '14px 36px', borderRadius: 12, background: PRIMARY, color: '#fff', fontWeight: 800, fontSize: 15, boxShadow: `0 0 24px ${PRIMARY}55`, letterSpacing: '-0.01em', fontFamily: FONT, textDecoration: 'none', display: 'inline-block' }}>
+                                                        {slide.actionLabel}
+                                                    </Link>
+                                                ) : (
+                                                    <button onClick={slide.onAction} style={{ padding: '14px 36px', borderRadius: 12, background: PRIMARY, border: 'none', color: '#fff', fontWeight: 800, fontSize: 15, cursor: 'pointer', boxShadow: `0 0 24px ${PRIMARY}55`, letterSpacing: '-0.01em', fontFamily: FONT }}>
+                                                        {slide.actionLabel}
+                                                    </button>
+                                                )}
                                             </div>
                                         </div>
                                     </div>
@@ -444,10 +454,10 @@ export const FrontpageAltF: React.FC = () => {
                                             <Users size={15} color={SECONDARY} />
                                             <span style={{ fontSize: 14, fontWeight: 700, color: TEXT }}>Top Artists</span>
                                         </div>
-                                        <button onClick={() => navigate('/preview/alt_f_artists')}
-                                            style={{ background: 'none', border: 'none', color: PRIMARY, fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: FONT, padding: 0 }}>
+                                        <Link to="/preview/alt_f_artists"
+                                            style={{ color: PRIMARY, fontSize: 11, fontWeight: 700, fontFamily: FONT, textDecoration: 'none' }}>
                                             View All
-                                        </button>
+                                        </Link>
                                     </div>
 
                                     {artists.length === 0 ? (
@@ -465,12 +475,12 @@ export const FrontpageAltF: React.FC = () => {
                                             : {};
 
                                         return (
-                                            <div
+                                            <Link
                                                 key={a.id || a.username}
-                                                onClick={() => navigate(`/profile/${a.username}`)}
+                                                to={`/profile/${a.username}`}
                                                 onMouseEnter={() => setHovArtist(a.username)}
                                                 onMouseLeave={() => setHovArtist(null)}
-                                                style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 18px', borderBottom: i < 4 ? `1px solid ${DIVIDER}` : 'none', cursor: 'pointer', background: isHov ? 'rgba(38,42,53,0.55)' : 'transparent', transition: 'background 0.15s' }}
+                                                style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 18px', borderBottom: i < 4 ? `1px solid ${DIVIDER}` : 'none', background: isHov ? 'rgba(38,42,53,0.55)' : 'transparent', transition: 'background 0.15s', textDecoration: 'none', color: 'inherit' }}
                                             >
                                                 {/* Rank badge */}
                                                 <div style={{ width: 20, flexShrink: 0, textAlign: 'center' }}>
@@ -499,7 +509,7 @@ export const FrontpageAltF: React.FC = () => {
                                                     <div style={{ fontSize: 13, fontWeight: 700, color: i === 0 ? PRIMARY : TEXT }}>{plays}</div>
                                                     <div style={{ fontSize: 10, color: SUB, marginTop: 1 }}>plays</div>
                                                 </div>
-                                            </div>
+                                            </Link>
                                         );
                                     })}
                                 </div>
@@ -575,10 +585,10 @@ export const FrontpageAltF: React.FC = () => {
                                 <section>
                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
                                         <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Latest News</h2>
-                                        <button onClick={() => navigate('/preview/alt_f_articles')}
-                                            style={{ background: 'none', border: 'none', color: PRIMARY, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: FONT }}>
+                                        <Link to="/preview/alt_f_articles"
+                                            style={{ color: PRIMARY, fontSize: 12, fontWeight: 600, fontFamily: FONT, textDecoration: 'none' }}>
                                             View All Articles
-                                        </button>
+                                        </Link>
                                     </div>
                                     {articles.length === 0 ? (
                                         <div style={{ ...glass, borderRadius: 20, padding: '40px 24px', textAlign: 'center', color: SUB, fontSize: 14 }}>
@@ -588,12 +598,12 @@ export const FrontpageAltF: React.FC = () => {
                                     ) : (
                                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 18 }}>
                                             {articles.slice(0, 4).map((a: any) => (
-                                                <div
+                                                <Link
                                                     key={a.id}
-                                                    onClick={() => navigate('/preview/alt_f_article')}
-                                                    style={{ ...glass, borderRadius: 20, overflow: 'hidden', cursor: 'pointer', display: 'flex', flexDirection: 'column', transition: 'border-color 0.2s, transform 0.15s' }}
-                                                    onMouseEnter={ev => { ev.currentTarget.style.borderColor = `${PRIMARY}66`; ev.currentTarget.style.transform = 'translateY(-2px)'; }}
-                                                    onMouseLeave={ev => { ev.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; ev.currentTarget.style.transform = 'translateY(0)'; }}
+                                                    to="/preview/alt_f_article"
+                                                    style={{ ...glass, borderRadius: 20, overflow: 'hidden', display: 'flex', flexDirection: 'column', transition: 'border-color 0.2s, transform 0.15s', textDecoration: 'none', color: 'inherit' }}
+                                                    onMouseEnter={ev => { (ev.currentTarget as HTMLElement).style.borderColor = `${PRIMARY}66`; (ev.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'; }}
+                                                    onMouseLeave={ev => { (ev.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.1)'; (ev.currentTarget as HTMLElement).style.transform = 'translateY(0)'; }}
                                                 >
                                                     <div style={{ height: 128, position: 'relative', background: S_HIGH, flexShrink: 0, overflow: 'hidden' }}>
                                                         {a.coverImageUrl
@@ -628,7 +638,7 @@ export const FrontpageAltF: React.FC = () => {
                                                             <span>{fmtDate(a.publishedAt)}</span>
                                                         </div>
                                                     </div>
-                                                </div>
+                                                </Link>
                                             ))}
                                         </div>
                                     )}

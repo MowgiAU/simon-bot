@@ -5,7 +5,7 @@
  */
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { usePlayer } from '../components/PlayerProvider';
 import {
     AltSidebar, BG, S_CONT, S_HIGH,
@@ -71,7 +71,6 @@ function MosaicHero({ playlist }: { playlist: Playlist }) {
 
 export const FrontpageAltFPlaylist: React.FC = () => {
     const { player, setTrack, togglePlay } = usePlayer();
-    const navigate = useNavigate();
     const id = new URLSearchParams(window.location.search).get('id');
 
     const [playlist, setPlaylist] = useState<Playlist | null>(null);
@@ -130,9 +129,9 @@ export const FrontpageAltFPlaylist: React.FC = () => {
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 300, gap: 12 }}>
                             <ListMusic size={36} color={SUB} />
                             <div style={{ fontSize: 16, fontWeight: 600 }}>Playlist not found</div>
-                            <button onClick={() => navigate('/preview/alt_f_my_playlists')} style={{ padding: '8px 20px', background: S_CONT, border: `1px solid ${BORDER}`, borderRadius: 8, color: TEXT, cursor: 'pointer', fontSize: 13, fontFamily: FONT, display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <Link to="/preview/alt_f_my_playlists" style={{ padding: '8px 20px', background: S_CONT, border: `1px solid ${BORDER}`, borderRadius: 8, color: TEXT, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6, textDecoration: 'none' }}>
                                 <ChevronLeft size={14} /> My Playlists
-                            </button>
+                            </Link>
                         </div>
                     )}
 
@@ -313,7 +312,7 @@ export const FrontpageAltFPlaylist: React.FC = () => {
                                         <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: TERTIARY, flexShrink: 0 }}>Battle</div>
                                         <div style={{ flex: 1, fontSize: 14, fontWeight: 600 }}>{playlist.battle.title}</div>
                                         <span style={{ fontSize: 11, padding: '3px 10px', borderRadius: 9999, background: `${SECONDARY}15`, color: SECONDARY, fontWeight: 700 }}>{playlist.battle.status}</span>
-                                        <button onClick={() => navigate(`/preview/alt_f_battle`)} style={{ background: 'none', border: `1px solid ${BORDER}`, borderRadius: 8, padding: '6px 14px', color: SUB, cursor: 'pointer', fontSize: 12, fontFamily: FONT }}>View Battle</button>
+                                        <Link to="/preview/alt_f_battle" style={{ background: 'none', border: `1px solid ${BORDER}`, borderRadius: 8, padding: '6px 14px', color: SUB, fontSize: 12, textDecoration: 'none', display: 'inline-block' }}>View Battle</Link>
                                     </div>
                                 )}
                             </div>

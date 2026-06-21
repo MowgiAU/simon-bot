@@ -4,7 +4,6 @@
  */
 import React, { useEffect, useState, useCallback } from 'react';
 import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
 import { usePlayer } from '../components/PlayerProvider';
 import {
     AltSidebar, BG, S_CONT, S_HIGH, S_HIGHEST,
@@ -90,7 +89,6 @@ function ActivityCard({ item, onPlay, isPlaying }: { item: any; onPlay: (item: a
     const isBattle = item.type === 'battle_entry';
     const isComment = item.type === 'comment';
     const hasBody = isTrack || isBattle || isComment;
-    const navigate = useNavigate();
 
     const commentTarget = isComment
         ? (item.targetType === 'track' ? item.target?.title : item.targetType === 'profile' ? item.target?.name : 'a battle entry')
@@ -131,9 +129,9 @@ function ActivityCard({ item, onPlay, isPlaying }: { item: any; onPlay: (item: a
 
             {/* Track preview body */}
             {isTrack && item.target && (
-                <div
-                    style={{ padding: '12px 20px 14px', display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer' }}
-                    onClick={() => navigate('/preview/alt_f_track')}
+                <Link
+                    to="/preview/alt_f_track"
+                    style={{ padding: '12px 20px 14px', display: 'flex', alignItems: 'center', gap: 14, textDecoration: 'none', color: 'inherit' }}
                 >
                     {item.target.coverUrl && (
                         <div style={{ position: 'relative', flexShrink: 0 }}>
@@ -150,7 +148,7 @@ function ActivityCard({ item, onPlay, isPlaying }: { item: any; onPlay: (item: a
                     >
                         {isPlaying ? <Pause size={14} color={PRIMARY} /> : <Play size={14} fill="#fff" color="#fff" />}
                     </button>
-                </div>
+                </Link>
             )}
 
             {/* Battle entry body */}
@@ -158,7 +156,7 @@ function ActivityCard({ item, onPlay, isPlaying }: { item: any; onPlay: (item: a
                 <div style={{ padding: '10px 20px 14px', display: 'flex', alignItems: 'center', gap: 12 }}>
                     <Swords size={14} color={TERTIARY} />
                     <span style={{ fontSize: 13, color: SUB }}>Submitted to a battle — </span>
-                    <span style={{ fontSize: 13, color: TERTIARY, fontWeight: 700, cursor: 'pointer' }} onClick={() => navigate('/preview/alt_f_battle')}>View Battle →</span>
+                    <Link to="/preview/alt_f_battle" style={{ fontSize: 13, color: TERTIARY, fontWeight: 700, textDecoration: 'none' }}>View Battle →</Link>
                 </div>
             )}
 
@@ -180,7 +178,6 @@ function ActivityCard({ item, onPlay, isPlaying }: { item: any; onPlay: (item: a
 // ── Following feed track item ──────────────────────────────────────────────
 
 function TrackFeedCard({ track, onPlay, isPlaying }: { track: any; onPlay: (t: any) => void; isPlaying: boolean }) {
-    const navigate = useNavigate();
     const genres = (track.genres || []).map((g: any) => g.genre?.name).filter(Boolean).slice(0, 2);
     const isRepost = !!track.repostedBy;
 
@@ -203,9 +200,9 @@ function TrackFeedCard({ track, onPlay, isPlaying }: { track: any; onPlay: (t: a
                     </div>
 
                     {/* Track preview */}
-                    <div
-                        style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', cursor: 'pointer' }}
-                        onClick={() => navigate('/preview/alt_f_track')}
+                    <Link
+                        to="/preview/alt_f_track"
+                        style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', textDecoration: 'none', color: 'inherit' }}
                     >
                         {track.coverUrl && (
                             <img src={track.coverUrl} referrerPolicy="no-referrer" style={{ width: 56, height: 56, borderRadius: 10, objectFit: 'cover', flexShrink: 0 }} />
@@ -219,7 +216,7 @@ function TrackFeedCard({ track, onPlay, isPlaying }: { track: any; onPlay: (t: a
                                 {track.duration && <span style={{ padding: '2px 7px', borderRadius: 4, background: 'rgba(255,255,255,0.05)', fontSize: 10, color: SUB }}>{fmtDur(track.duration)}</span>}
                             </div>
                         </div>
-                    </div>
+                    </Link>
 
                     {/* Engagement row */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 20, paddingTop: 8, borderTop: `1px solid ${DIVIDER}` }}>
@@ -310,7 +307,6 @@ function GenrePostFeedCard({ post, onVote }: { post: any; onVote: (id: string, t
 
 export const FrontpageAltFFeed: React.FC = () => {
     const { player, setTrack, togglePlay } = usePlayer();
-    const navigate = useNavigate();
 
     const [tab, setTab] = useState<Tab>('Discover');
     const [filter, setFilter] = useState<Filter>('All');
@@ -515,11 +511,11 @@ export const FrontpageAltFFeed: React.FC = () => {
                                             const trackId = t.id || t.track?.id;
                                             const isPlaying = isCurrentlyPlaying(trackId);
                                             return (
-                                                <div key={trackId || i}
-                                                    style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 16px', cursor: 'pointer', transition: 'background 0.15s' }}
-                                                    onMouseEnter={ev => (ev.currentTarget.style.background = 'rgba(38,42,53,0.4)')}
-                                                    onMouseLeave={ev => (ev.currentTarget.style.background = 'transparent')}
-                                                    onClick={() => navigate('/preview/alt_f_track')}
+                                                <Link key={trackId || i}
+                                                    to="/preview/alt_f_track"
+                                                    style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 16px', transition: 'background 0.15s', textDecoration: 'none', color: 'inherit' }}
+                                                    onMouseEnter={ev => ((ev.currentTarget as HTMLElement).style.background = 'rgba(38,42,53,0.4)')}
+                                                    onMouseLeave={ev => ((ev.currentTarget as HTMLElement).style.background = 'transparent')}
                                                 >
                                                     <span style={{ fontSize: 11, fontWeight: 700, color: i < 3 ? PRIMARY : SUB, width: 16, flexShrink: 0, textAlign: 'center' }}>{i + 1}</span>
                                                     {cover
@@ -531,7 +527,7 @@ export const FrontpageAltFFeed: React.FC = () => {
                                                         <div style={{ fontSize: 11, color: SUB, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{artist}</div>
                                                     </div>
                                                     {isPlaying && <div style={{ width: 6, height: 6, borderRadius: '50%', background: PRIMARY, flexShrink: 0 }} />}
-                                                </div>
+                                                </Link>
                                             );
                                         })}
                                     </div>
@@ -671,9 +667,9 @@ export const FrontpageAltFFeed: React.FC = () => {
                                             <Users size={32} color={SUB} style={{ marginBottom: 12 }} />
                                             <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}>Your feed is empty</div>
                                             <div style={{ fontSize: 13, color: SUB, marginBottom: 20 }}>Follow some artists to see their music here</div>
-                                            <button onClick={() => navigate('/preview/alt_f_artists')} style={{ padding: '10px 28px', borderRadius: 10, background: PRIMARY, border: 'none', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: FONT }}>
+                                            <Link to="/preview/alt_f_artists" style={{ display: 'inline-block', padding: '10px 28px', borderRadius: 10, background: PRIMARY, color: '#fff', fontSize: 13, fontWeight: 700, textDecoration: 'none' }}>
                                                 Discover Artists
-                                            </button>
+                                            </Link>
                                         </div>
                                     ) : (
                                         <>

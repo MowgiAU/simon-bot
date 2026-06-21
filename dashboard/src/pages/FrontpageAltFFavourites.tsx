@@ -5,7 +5,7 @@
  */
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { usePlayer } from '../components/PlayerProvider';
 import { useAuth } from '../components/AuthProvider';
 import {
@@ -53,7 +53,6 @@ interface Track {
 export const FrontpageAltFFavourites: React.FC = () => {
     const { player, setTrack: playTrack, togglePlay } = usePlayer();
     const { user, loading: authLoading } = useAuth();
-    const navigate = useNavigate();
 
     const [tracks,   setTracks]   = useState<Track[]>([]);
     const [loading,  setLoading]  = useState(true);
@@ -245,12 +244,12 @@ export const FrontpageAltFFavourites: React.FC = () => {
                                     Find new tracks to love in the Library or browse by artist.
                                 </p>
                                 <div style={{ display: 'flex', gap: 8 }}>
-                                    <button onClick={() => navigate('/preview/alt_f_library')} style={{ flex: 1, padding: '9px', background: PRIMARY, borderRadius: 8, color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', border: 'none', fontFamily: FONT }}>
+                                    <Link to="/preview/alt_f_library" style={{ flex: 1, padding: '9px', background: PRIMARY, borderRadius: 8, color: '#fff', fontSize: 12, fontWeight: 700, textDecoration: 'none', textAlign: 'center' }}>
                                         Library
-                                    </button>
-                                    <button onClick={() => navigate('/preview/alt_f_artists')} style={{ flex: 1, padding: '9px', background: S_CONT, borderRadius: 8, color: TEXT, fontSize: 12, fontWeight: 600, cursor: 'pointer', border: `1px solid rgba(255,255,255,0.08)`, fontFamily: FONT }}>
+                                    </Link>
+                                    <Link to="/preview/alt_f_artists" style={{ flex: 1, padding: '9px', background: S_CONT, borderRadius: 8, color: TEXT, fontSize: 12, fontWeight: 600, border: `1px solid rgba(255,255,255,0.08)`, textDecoration: 'none', textAlign: 'center' }}>
                                         Artists
-                                    </button>
+                                    </Link>
                                 </div>
                             </div>
                         </div>
@@ -289,9 +288,9 @@ export const FrontpageAltFFavourites: React.FC = () => {
                                     <Heart size={36} color={SUB} style={{ marginBottom: 14 }} />
                                     <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 6 }}>No liked tracks yet</div>
                                     <div style={{ fontSize: 13, color: SUB, marginBottom: 20 }}>Heart tracks while listening to save them here.</div>
-                                    <button onClick={() => navigate('/preview/alt_f_library')} style={{ padding: '9px 24px', background: PRIMARY, border: 'none', borderRadius: 9, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: FONT }}>
+                                    <Link to="/preview/alt_f_library" style={{ padding: '9px 24px', background: PRIMARY, borderRadius: 9, color: '#fff', fontSize: 13, fontWeight: 700, textDecoration: 'none', display: 'inline-block' }}>
                                         Browse Library
-                                    </button>
+                                    </Link>
                                 </div>
                             ) : displayed.length === 0 ? (
                                 <div style={{ ...glass, borderRadius: 20, padding: '48px 24px', textAlign: 'center' }}>

@@ -4,7 +4,7 @@
  */
 import React, { useEffect, useState, useMemo } from 'react';
 import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { usePlayer } from '../components/PlayerProvider';
 import {
     AltSidebar, BG, S_LOWEST, S_CONT, S_HIGH, S_HIGHEST,
@@ -46,7 +46,6 @@ type SortKey = typeof SORTS[number]['key'];
 
 export const FrontpageAltFArtists: React.FC = () => {
     const { player, setTrack } = usePlayer();
-    const navigate = useNavigate();
 
     const [profiles, setProfiles] = useState<any[]>([]);
     const [featured, setFeatured] = useState<any[]>([]);
@@ -101,8 +100,6 @@ export const FrontpageAltFArtists: React.FC = () => {
         }
         return list;
     }, [sorted, activeGenre, search]);
-
-    const goToArtist = () => navigate('/preview/alt_f_artist');
 
     const playTopTrack = (profile: any) => {
         const track = profile.tracks?.[0];
@@ -309,16 +306,17 @@ export const FrontpageAltFArtists: React.FC = () => {
                                                 const genreList = (profile.genres || f.genres || []).map((g: any) => g.genre?.name || g.name).filter(Boolean).slice(0, 1);
                                                 const rankColors = [PRIMARY, SECONDARY, TERTIARY, SUB];
                                                 return (
-                                                    <div
+                                                    <Link
                                                         key={profile.id || i}
-                                                        onClick={goToArtist}
+                                                        to="/preview/alt_f_artist"
                                                         style={{
                                                             ...glass, borderRadius: 20, overflow: 'hidden',
-                                                            cursor: 'pointer', display: 'flex', flexDirection: 'column',
+                                                            display: 'flex', flexDirection: 'column',
                                                             transition: 'border-color 0.2s, transform 0.15s',
+                                                            textDecoration: 'none', color: 'inherit',
                                                         }}
-                                                        onMouseEnter={ev => { ev.currentTarget.style.borderColor = `${PRIMARY}66`; ev.currentTarget.style.transform = 'translateY(-2px)'; }}
-                                                        onMouseLeave={ev => { ev.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; ev.currentTarget.style.transform = 'translateY(0)'; }}
+                                                        onMouseEnter={ev => { (ev.currentTarget as HTMLElement).style.borderColor = `${PRIMARY}66`; (ev.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'; }}
+                                                        onMouseLeave={ev => { (ev.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.1)'; (ev.currentTarget as HTMLElement).style.transform = 'translateY(0)'; }}
                                                     >
                                                         {/* Banner / avatar top */}
                                                         <div style={{ height: 72, position: 'relative', background: banner ? 'transparent' : avatarGradient(username || String(i)) }}>
@@ -351,7 +349,7 @@ export const FrontpageAltFArtists: React.FC = () => {
                                                             )}
                                                             <div style={{ marginTop: 10, fontSize: 11, color: SUB }}>{fmtNum(plays)} plays</div>
                                                         </div>
-                                                    </div>
+                                                    </Link>
                                                 );
                                             })}
                                         </div>
@@ -383,16 +381,17 @@ export const FrontpageAltFArtists: React.FC = () => {
                                                 const topTrack = profile.tracks?.[0];
                                                 const hasTrack = !!topTrack?.url;
                                                 return (
-                                                    <div
+                                                    <Link
                                                         key={profile.id}
-                                                        onClick={goToArtist}
+                                                        to="/preview/alt_f_artist"
                                                         style={{
                                                             ...glass, borderRadius: 20, overflow: 'hidden',
-                                                            cursor: 'pointer', display: 'flex', flexDirection: 'column',
+                                                            display: 'flex', flexDirection: 'column',
                                                             transition: 'border-color 0.2s, transform 0.15s',
+                                                            textDecoration: 'none', color: 'inherit',
                                                         }}
-                                                        onMouseEnter={ev => { ev.currentTarget.style.borderColor = `${PRIMARY}66`; ev.currentTarget.style.transform = 'translateY(-2px)'; }}
-                                                        onMouseLeave={ev => { ev.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; ev.currentTarget.style.transform = 'translateY(0)'; }}
+                                                        onMouseEnter={ev => { (ev.currentTarget as HTMLElement).style.borderColor = `${PRIMARY}66`; (ev.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'; }}
+                                                        onMouseLeave={ev => { (ev.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.1)'; (ev.currentTarget as HTMLElement).style.transform = 'translateY(0)'; }}
                                                     >
                                                         {/* Banner top */}
                                                         <div style={{ height: 68, position: 'relative', background: profile.bannerUrl ? 'transparent' : avatarGradient(profile.username) }}>
@@ -450,7 +449,7 @@ export const FrontpageAltFArtists: React.FC = () => {
                                                                 </span>
                                                             </div>
                                                         </div>
-                                                    </div>
+                                                    </Link>
                                                 );
                                             })}
                                         </div>

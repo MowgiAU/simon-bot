@@ -5,7 +5,7 @@
  */
 import React, { useEffect, useState, useRef } from 'react';
 import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { usePlayer } from '../components/PlayerProvider';
 import { AltSidebar, BG, S_LOWEST, S_CONT, S_HIGH, S_HIGHEST, PRIMARY, SECONDARY, TEXT, SUB, BORDER, FONT } from '../components/altshell/AltSidebar';
 import { AltHeader } from '../components/altshell/AltHeader';
@@ -69,7 +69,6 @@ const glass: React.CSSProperties = {
 const DIVIDER = 'rgba(87,66,54,0.25)';
 
 export const FrontpageAltFBattles: React.FC = () => {
-    const navigate = useNavigate();
     const { player } = usePlayer();
     const [battles, setBattles] = useState<any[]>([]);
     const [archive, setArchive] = useState<any[]>([]);
@@ -94,8 +93,6 @@ export const FrontpageAltFBattles: React.FC = () => {
     const topEntries: any[] = archive
         .flatMap((b: any) => (b.entries || []).slice(0, 1).map((e: any) => ({ ...e, battleTitle: b.title })))
         .slice(0, 5);
-
-    const goToBattle = () => navigate('/preview/alt_f_battle');
 
     const featuredStatus = featured ? battleStatus(featured) : null;
     const featuredPrize = featured ? formatPrize(featured) : null;
@@ -172,9 +169,9 @@ export const FrontpageAltFBattles: React.FC = () => {
                                             </div>
                                             <div style={{ width: 1, height: 48, background: 'rgba(87,66,54,0.5)' }} />
                                             <div style={{ padding: '0 0 0 28px' }}>
-                                                <button onClick={goToBattle} style={{ padding: '14px 36px', borderRadius: 12, background: PRIMARY, border: 'none', color: '#fff', fontWeight: 800, fontSize: 15, cursor: 'pointer', boxShadow: `0 0 24px ${PRIMARY}55`, letterSpacing: '-0.01em' }}>
+                                                <Link to="/preview/alt_f_battle" style={{ padding: '14px 36px', borderRadius: 12, background: PRIMARY, color: '#fff', fontWeight: 800, fontSize: 15, boxShadow: `0 0 24px ${PRIMARY}55`, letterSpacing: '-0.01em', textDecoration: 'none', display: 'inline-block' }}>
                                                     Join Battle
-                                                </button>
+                                                </Link>
                                             </div>
                                         </div>
 
@@ -299,10 +296,10 @@ export const FrontpageAltFBattles: React.FC = () => {
                                                     const desc = b.description ? stripHtml(b.description) : '';
                                                     const genres: string[] = (b.genres || []).map((g: any) => typeof g === 'string' ? g : g.name || g.genre?.name).filter(Boolean);
                                                     return (
-                                                        <div key={b.id} onClick={goToBattle}
-                                                            style={{ ...glass, borderRadius: 20, overflow: 'hidden', cursor: 'pointer', transition: 'border-color 0.2s, transform 0.15s', display: 'flex', flexDirection: 'column', border: '1px solid rgba(255,255,255,0.1)' }}
-                                                            onMouseEnter={ev => { ev.currentTarget.style.borderColor = `${PRIMARY}66`; ev.currentTarget.style.transform = 'translateY(-2px)'; }}
-                                                            onMouseLeave={ev => { ev.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; ev.currentTarget.style.transform = 'translateY(0)'; }}>
+                                                        <Link key={b.id} to="/preview/alt_f_battle"
+                                                            style={{ ...glass, borderRadius: 20, overflow: 'hidden', transition: 'border-color 0.2s, transform 0.15s', display: 'flex', flexDirection: 'column', border: '1px solid rgba(255,255,255,0.1)', textDecoration: 'none', color: 'inherit' }}
+                                                            onMouseEnter={ev => { (ev.currentTarget as HTMLElement).style.borderColor = `${PRIMARY}66`; (ev.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'; }}
+                                                            onMouseLeave={ev => { (ev.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.1)'; (ev.currentTarget as HTMLElement).style.transform = 'translateY(0)'; }}>
                                                             {/* Image top */}
                                                             <div style={{ height: 128, position: 'relative', background: S_HIGH, flexShrink: 0, overflow: 'hidden' }}>
                                                                 {b.bannerUrl
@@ -339,7 +336,7 @@ export const FrontpageAltFBattles: React.FC = () => {
                                                                     {prize && <span style={{ color: PRIMARY, fontWeight: 700 }}>{prize}</span>}
                                                                 </div>
                                                             </div>
-                                                        </div>
+                                                        </Link>
                                                     );
                                                 })}
                                             </div>
@@ -366,10 +363,10 @@ export const FrontpageAltFBattles: React.FC = () => {
                                                     const winnerColor = [PRIMARY, SECONDARY, '#A78BFA'][i % 3];
                                                     const prize = formatPrize(b);
                                                     return (
-                                                        <div key={b.id} onClick={goToBattle}
-                                                            style={{ display: 'grid', gridTemplateColumns: '1fr 180px 100px 48px', padding: '14px 24px', alignItems: 'center', borderBottom: i < Math.min(archive.length, 12) - 1 ? `1px solid ${DIVIDER}` : 'none', cursor: 'pointer', transition: 'background 0.15s' }}
-                                                            onMouseEnter={ev => (ev.currentTarget.style.background = 'rgba(38,42,53,0.4)')}
-                                                            onMouseLeave={ev => (ev.currentTarget.style.background = 'transparent')}>
+                                                        <Link key={b.id} to="/preview/alt_f_battle"
+                                                            style={{ display: 'grid', gridTemplateColumns: '1fr 180px 100px 48px', padding: '14px 24px', alignItems: 'center', borderBottom: i < Math.min(archive.length, 12) - 1 ? `1px solid ${DIVIDER}` : 'none', transition: 'background 0.15s', textDecoration: 'none', color: 'inherit' }}
+                                                            onMouseEnter={ev => ((ev.currentTarget as HTMLElement).style.background = 'rgba(38,42,53,0.4)')}
+                                                            onMouseLeave={ev => ((ev.currentTarget as HTMLElement).style.background = 'transparent')}>
                                                             {/* Battle name + date */}
                                                             <div style={{ minWidth: 0 }}>
                                                                 <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: TEXT, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.title}</p>
@@ -383,7 +380,7 @@ export const FrontpageAltFBattles: React.FC = () => {
                                                             {/* Prize or entries */}
                                                             <span style={{ fontSize: 13, fontWeight: 700, color: prize ? PRIMARY : TEXT }}>{prize || fmtNum(b._count?.entries || 0)}</span>
                                                             <ChevronRight size={15} color={SUB} />
-                                                        </div>
+                                                        </Link>
                                                     );
                                                 })}
                                                 </div></div>{/* /scroll wrapper */}

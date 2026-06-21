@@ -5,7 +5,7 @@
  */
 import React, { useEffect, useState, useMemo, useRef } from 'react';
 import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { usePlayer } from '../components/PlayerProvider';
 import {
     AltSidebar, BG, S_CONT, S_HIGH,
@@ -37,7 +37,6 @@ type SortKey = typeof SORTS[number]['key'];
 
 export const FrontpageAltFLibrary: React.FC = () => {
     const { player, setTrack, togglePlay } = usePlayer();
-    const navigate = useNavigate();
 
     const [tracks, setTracks]         = useState<any[]>([]);
     const [genres, setGenres]         = useState<any[]>([]);
@@ -274,12 +273,12 @@ export const FrontpageAltFLibrary: React.FC = () => {
                                             const isLast = i === displayed.length - 1;
 
                                             return (
-                                                <div
+                                                <Link
                                                     key={t.id}
-                                                    style={{ display: 'grid', gridTemplateColumns: '36px 44px 1fr 130px 56px 60px 68px', gap: 0, padding: '10px 20px', borderBottom: isLast ? 'none' : `1px solid ${DIVIDER}`, alignItems: 'center', cursor: 'pointer', transition: 'background 0.15s', background: playing ? `${PRIMARY}08` : 'transparent' }}
-                                                    onMouseEnter={ev => { if (!playing) ev.currentTarget.style.background = 'rgba(38,42,53,0.35)'; }}
-                                                    onMouseLeave={ev => { if (!playing) ev.currentTarget.style.background = 'transparent'; }}
-                                                    onClick={() => navigate('/preview/alt_f_track')}
+                                                    to="/preview/alt_f_track"
+                                                    style={{ display: 'grid', gridTemplateColumns: '36px 44px 1fr 130px 56px 60px 68px', gap: 0, padding: '10px 20px', borderBottom: isLast ? 'none' : `1px solid ${DIVIDER}`, alignItems: 'center', transition: 'background 0.15s', background: playing ? `${PRIMARY}08` : 'transparent', textDecoration: 'none', color: 'inherit' }}
+                                                    onMouseEnter={ev => { if (!playing) (ev.currentTarget as HTMLElement).style.background = 'rgba(38,42,53,0.35)'; }}
+                                                    onMouseLeave={ev => { if (!playing) (ev.currentTarget as HTMLElement).style.background = 'transparent'; }}
                                                 >
                                                     {/* Play button */}
                                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -331,7 +330,7 @@ export const FrontpageAltFLibrary: React.FC = () => {
                                                     <div style={{ textAlign: 'right', fontSize: 12, color: SUB }}>
                                                         {fmtNum(t.playCount)}
                                                     </div>
-                                                </div>
+                                                </Link>
                                             );
                                         })}
                                     </div>
