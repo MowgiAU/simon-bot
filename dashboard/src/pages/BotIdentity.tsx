@@ -29,7 +29,7 @@ export const BotIdentityPage: React.FC = () => {
         try {
             const [mainRes, radioRes] = await Promise.all([
                 axios.get('/api/bot/identity', { withCredentials: true }),
-                axios.get('/api/bot/radio-identity', { withCredentials: true }),
+                axios.get('/api/bot/simon-identity', { withCredentials: true }),
             ]);
             setSettings(mainRes.data);
             setRadioSettings({ username: radioRes.data.username || '', avatarUrl: radioRes.data.avatarUrl || '' });
@@ -51,8 +51,8 @@ export const BotIdentityPage: React.FC = () => {
 
     const handleRadioSave = async () => {
         try {
-            await axios.post('/api/bot/radio-identity', radioSettings, { withCredentials: true });
-            showToast('Radio bot identity saved! Changes apply within 30 seconds.', 'success');
+            await axios.post('/api/bot/simon-identity', radioSettings, { withCredentials: true });
+            showToast('Simon Bot identity saved! Changes apply within 30 seconds.', 'success');
         } catch (e) {
             showToast('Failed to save radio bot settings', 'error');
         }
@@ -155,25 +155,25 @@ export const BotIdentityPage: React.FC = () => {
                 )}
             </div>
 
-            {/* ── Radio Bot ── */}
+            {/* ── Simon Bot (Secondary) ── */}
             <div style={{ display: 'flex', alignItems: 'center', marginBottom: '24px', justifyContent: 'space-between', marginTop: '16px' }}>
                 <div style={{ display: 'flex', alignItems: 'center' }}>
                     <Radio size={32} color={colors.primary} style={{ marginRight: '16px' }} />
                     <div>
-                        <h2 style={{ margin: 0 }}>Radio Bot</h2>
-                        <p style={{ margin: '4px 0 0', color: colors.textSecondary }}>Customize the secondary radio bot's appearance.</p>
+                        <h2 style={{ margin: 0 }}>Simon Bot</h2>
+                        <p style={{ margin: '4px 0 0', color: colors.textSecondary }}>Secondary bot used for auto-responder and messaging. ID: 1319457675645419530</p>
                     </div>
                 </div>
                 <button
                     onClick={handleRadioSave}
                     style={{ padding: '10px 20px', background: colors.primary, color: 'white', border: 'none', borderRadius: borderRadius.md, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
                 >
-                    <Save size={18} /> Save Radio Bot
+                    <Save size={18} /> Save Simon Bot
                 </button>
             </div>
 
             <div style={{ background: 'linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))', border: '1px solid #3E455633', padding: spacing.md, borderRadius: borderRadius.md, marginBottom: spacing.lg, borderLeft: `4px solid ${colors.primary}` }}>
-                <p style={{ margin: 0, color: colors.textPrimary, fontSize: isMobile ? '13px' : '14px', lineHeight: '1.5' }}>The radio bot sits in voice channels and streams music. It doesn't have a presence status — only username and avatar apply. Changes take effect within 30 seconds.</p>
+                <p style={{ margin: 0, color: colors.textPrimary, fontSize: isMobile ? '13px' : '14px', lineHeight: '1.5' }}>Simon Bot handles auto-responses and bot messaging. It doesn't have a configurable presence status — only username and avatar apply. Changes take effect within 30 seconds.</p>
             </div>
 
             <div style={sectionStyle}>
@@ -192,7 +192,7 @@ export const BotIdentityPage: React.FC = () => {
                 {radioSettings.avatarUrl && (
                     <div style={{ marginTop: '10px' }}>
                         <p style={{ fontSize: '12px', color: colors.textSecondary }}>Preview:</p>
-                        <img src={radioSettings.avatarUrl} alt="Radio Avatar Preview" style={{ width: '100px', height: '100px', borderRadius: '50%', objectFit: 'cover' }} onError={(e) => (e.target as HTMLImageElement).style.display = 'none'} />
+                        <img src={radioSettings.avatarUrl} alt="Simon Bot Avatar Preview" style={{ width: '100px', height: '100px', borderRadius: '50%', objectFit: 'cover' }} onError={(e) => (e.target as HTMLImageElement).style.display = 'none'} />
                     </div>
                 )}
             </div>

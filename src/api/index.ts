@@ -6135,6 +6135,36 @@ app.post('/api/bot/radio-identity', requireAdmin, async (req: any, res) => {
     }
 });
 
+// --- Simon Bot (Secondary) Identity Routes ---
+app.get('/api/bot/simon-identity', async (req: any, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+    try {
+        let settings = await db.botSettings.findUnique({ where: { botId: 'simon' } });
+        if (!settings) {
+            settings = await db.botSettings.create({ data: { botId: 'simon', status: 'online', activityType: 'PLAYING' } });
+        }
+        res.json(settings);
+    } catch (e) {
+        logger.error('Failed to fetch Simon Bot identity', e);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
+app.post('/api/bot/simon-identity', requireAdmin, async (req: any, res) => {
+    try {
+        const { username, avatarUrl } = req.body;
+        const settings = await db.botSettings.upsert({
+            where: { botId: 'simon' },
+            create: { botId: 'simon', status: 'online', activityType: 'PLAYING', username, avatarUrl },
+            update: { username, avatarUrl }
+        });
+        res.json(settings);
+    } catch (e) {
+        logger.error('Failed to update Simon Bot identity', e);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
 
 
 // ==========================================

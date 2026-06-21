@@ -127,6 +127,8 @@ export class SimonBot {
           this.simonClient!.login(process.env.SIMON_BOT_TOKEN!).catch(reject);
         });
         this.logger.info('Simon Bot (auto responder) ready');
+        this.simonIdentityInterval = setInterval(() => this.updateSimonIdentity(), 30_000);
+        this.updateSimonIdentity();
       }
 
       // Load plugins
@@ -341,6 +343,35 @@ export class SimonBot {
           }
       } catch (e) {
           this.logger.error('Failed to update bot identity', e);
+      }
+  }
+
+  private async updateSimonIdentity(): Promise<void> {
+      if (!this.simonClient?.isReady()) return;
+      try {
+          const settings = await this.db.botSettings.findUnique({ where: { botId: 'simon' } });
+          if (!settings) return;
+
+          if (settings.username && settings.username !== this.simonClient.user?.username) {
+              try {
+                  await this.simonClient.user?.setUsername(settings.username);
+                  this.logger.info(`Updated Simon Bot username to: ${settings.username}`);
+              } catch (e) {
+                  this.logger.error('Failed to set Simon Bot username (rate limit?)', e);
+              }
+          }
+
+          if (settings.avatarUrl && settings.avatarUrl !== this.lastProcessedSimonAvatarUrl) {
+              try {
+                  await this.simonClient.user?.setAvatar(settings.avatarUrl);
+                  this.lastProcessedSimonAvatarUrl = settings.avatarUrl;
+                  this.logger.info('Updated Simon Bot avatar');
+              } catch (e) {
+                  this.logger.error('Failed to set Simon Bot avatar', e);
+              }
+          }
+      } catch (e) {
+          this.logger.error('Failed to update Simon Bot identity', e);
       }
   }
 
@@ -693,6 +724,8 @@ export class SimonBot {
   }
 
   private simonClient: Client | null = null;
+  private simonIdentityInterval: ReturnType<typeof setInterval> | null = null;
+  private lastProcessedSimonAvatarUrl: string | null = null;
   private pluginCache = new Map<string, boolean>();
   private lastProcessedAvatarUrl: string | null = null;
   private lastPresenceSignature: string = '';
@@ -964,6 +997,7 @@ export class SimonBot {
     }
 
     // Disconnect from Discord
+    if (this.simonIdentityInterval) clearInterval(this.simonIdentityInterval);
     this.simonClient?.destroy();
     this.client.destroy();
 
