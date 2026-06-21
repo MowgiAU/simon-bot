@@ -3,9 +3,9 @@
  * Mirrors the Battles hub layout: carousel hero, top artists (wall of fame),
  * top tracks (community stats), latest news (upcoming arenas), charts (battle history).
  */
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { usePlayer } from '../components/PlayerProvider';
 import {
     AltSidebar, BG, S_CONT, S_HIGH, PRIMARY, SECONDARY, TERTIARY, TEXT, SUB, BORDER, FONT, arr,
@@ -16,6 +16,7 @@ import {
     Users, Music, TrendingUp, Play, Pause,
     ChevronLeft, ChevronRight,
     Newspaper, Flame, Award, ExternalLink,
+    ArrowUp, ArrowDown, MessageSquare, Hash, Clock, Zap,
 } from 'lucide-react';
 
 const fmtNum = (n?: number) => { n = n || 0; if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M'; if (n >= 1e3) return (n / 1e3).toFixed(1) + 'k'; return String(n); };
@@ -55,19 +56,26 @@ interface Slide {
 export const FrontpageAltF: React.FC = () => {
     const navigate = useNavigate();
     const { player, setTrack, togglePlay } = usePlayer();
-    const [loading,      setLoading]      = useState(true);
-    const [slideIdx,     setSlideIdx]     = useState(0);
-    const [artists,      setArtists]      = useState<any[]>([]);
-    const [chartEntries, setChartEntries] = useState<any[]>([]);
-    const [articles,     setArticles]     = useState<any[]>([]);
-    const [battles,      setBattles]      = useState<any[]>([]);
-    const [playlists,    setPlaylists]    = useState<any[]>([]);
-    const [newDrops,     setNewDrops]     = useState<any[]>([]);
-    const [sponsors,     setSponsors]     = useState<any[]>([]);
-    const [sponsorIdx,   setSponsorIdx]   = useState(0);
-    const [hovArtist,    setHovArtist]    = useState<string | null>(null);
-    const [hovTrack,     setHovTrack]     = useState<string | null>(null);
-    const [hovDrop,      setHovDrop]      = useState<string | null>(null);
+    const [loading,            setLoading]            = useState(true);
+    const [slideIdx,           setSlideIdx]           = useState(0);
+    const [artists,            setArtists]            = useState<any[]>([]);
+    const [chartEntries,       setChartEntries]       = useState<any[]>([]);
+    const [articles,           setArticles]           = useState<any[]>([]);
+    const [battles,            setBattles]            = useState<any[]>([]);
+    const [playlists,          setPlaylists]          = useState<any[]>([]);
+    const [sponsors,           setSponsors]           = useState<any[]>([]);
+    const [sponsorIdx,         setSponsorIdx]         = useState(0);
+    const [hovArtist,          setHovArtist]          = useState<string | null>(null);
+    const [hovTrack,           setHovTrack]           = useState<string | null>(null);
+    // Genre feed
+    const [genrePosts,         setGenrePosts]         = useState<any[]>([]);
+    const [genreFeedSort,      setGenreFeedSort]      = useState<'hot' | 'new' | 'top'>('hot');
+    const [genreFeedLoading,   setGenreFeedLoading]   = useState(true);
+    const [genreFeedHasMore,   setGenreFeedHasMore]   = useState(false);
+    const [genreFeedCursor,    setGenreFeedCursor]    = useState<string | null>(null);
+    const [genreHasSubs,       setGenreHasSubs]       = useState(false);
+    const [genreVotes,         setGenreVotes]         = useState<Record<string, 'up' | 'down' | null>>({});
+    const genreFeedRef = useRef<AbortController | null>(null);
 
     useEffect(() => {
         Promise.all([
@@ -76,8 +84,7 @@ export const FrontpageAltF: React.FC = () => {
             axios.get('/api/articles?limit=6').catch(() => ({ data: { articles: [] } })),
             axios.get('/api/beat-battle/battles').catch(() => ({ data: [] })),
             axios.get('/api/playlists/popular').catch(() => ({ data: [] })),
-            axios.get('/api/discovery/tracks?sort=newest&limit=12').catch(() => ({ data: { tracks: [] } })),
-        ]).then(([cRes, pRes, aRes, bRes, plRes, dRes]) => {
+        ]).then(([cRes, pRes, aRes, bRes, plRes]) => {
             const chart = Array.isArray(cRes.data) ? cRes.data[0] : cRes.data;
             setChartEntries(chart?.entries || []);
             setArtists(arr(pRes.data).slice(0, 8));
@@ -85,7 +92,6 @@ export const FrontpageAltF: React.FC = () => {
             const bBattles = arr(bRes.data);
             setBattles(bBattles);
             setPlaylists(arr(plRes.data));
-            setNewDrops((dRes.data?.tracks || arr(dRes.data)).filter((t: any) => t.coverUrl).slice(0, 12));
             // Extract sponsors from battles (inline sponsor field), deduplicate by id
             const seen = new Set<string>();
             const merged: any[] = [];
@@ -107,6 +113,58 @@ export const FrontpageAltF: React.FC = () => {
         const id = setInterval(() => setSponsorIdx(i => (i + 1) % sponsors.length), 6000);
         return () => clearInterval(id);
     }, [sponsors.length]);
+
+    // Genre feed fetch
+    const fetchGenreFeed = useCallback(async (sort: 'hot' | 'new' | 'top', cursor?: string | null, append = false) => {
+        if (genreFeedRef.current) genreFeedRef.current.abort();
+        const ac = new AbortController();
+        genreFeedRef.current = ac;
+        if (!append) setGenreFeedLoading(true);
+        try {
+            // Try subscribed first (only on initial load, not sort changes that come after)
+            let res = await axios.get('/api/genre-posts', { params: { feed: 'subscribed', sort, limit: 20, ...(cursor ? { cursor } : {}) }, signal: ac.signal });
+            let hasSubs = false;
+            if (res.data.posts.length > 0 || res.data.hasSubscriptions !== false) {
+                hasSubs = true;
+            } else {
+                // Fallback: show all genres
+                res = await axios.get('/api/genre-posts', { params: { feed: 'all', sort, limit: 20, ...(cursor ? { cursor } : {}) }, signal: ac.signal });
+            }
+            setGenreHasSubs(hasSubs);
+            setGenrePosts(prev => append ? [...prev, ...res.data.posts] : res.data.posts);
+            setGenreFeedHasMore(res.data.hasMore);
+            setGenreFeedCursor(res.data.nextCursor);
+            // Merge user votes into local vote state
+            const voteMap: Record<string, 'up' | 'down' | null> = {};
+            for (const p of res.data.posts) voteMap[p.id] = p.userVote;
+            setGenreVotes(prev => ({ ...prev, ...voteMap }));
+        } catch (e: any) {
+            if (e.name !== 'CanceledError' && e.code !== 'ERR_CANCELED') {
+                setGenrePosts([]);
+            }
+        } finally {
+            setGenreFeedLoading(false);
+        }
+    }, []);
+
+    useEffect(() => { fetchGenreFeed(genreFeedSort, null, false); }, [genreFeedSort, fetchGenreFeed]);
+
+    const handleGenreVote = async (postId: string, type: 'up' | 'down') => {
+        const current = genreVotes[postId];
+        const newVote = current === type ? null : type;
+        setGenreVotes(prev => ({ ...prev, [postId]: newVote }));
+        setGenrePosts(prev => prev.map(p => {
+            if (p.id !== postId) return p;
+            const wasUp = current === 'up'; const wasDown = current === 'down';
+            const isUp = newVote === 'up'; const isDown = newVote === 'down';
+            const upDelta = (isUp ? 1 : 0) - (wasUp ? 1 : 0);
+            const downDelta = (isDown ? 1 : 0) - (wasDown ? 1 : 0);
+            return { ...p, upvotes: p.upvotes + upDelta, downvotes: p.downvotes + downDelta, score: p.score + upDelta - downDelta };
+        }));
+        try {
+            if (newVote) await axios.post(`/api/genre-posts/${postId}/vote`, { type: newVote });
+        } catch { /* revert on error */ fetchGenreFeed(genreFeedSort, null, false); }
+    };
 
     // ── Carousel slides ───────────────────────────────────────────────────
     const topEntry   = chartEntries[0] || null;
@@ -576,72 +634,166 @@ export const FrontpageAltF: React.FC = () => {
                                     )}
                                 </section>
 
-                                {/* New Drops — 4-column album-art grid */}
-                                {newDrops.length > 0 && (
-                                    <section>
-                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-                                            <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>New Drops</h2>
-                                            <button onClick={() => navigate('/preview/alt_f_library')}
-                                                style={{ background: 'none', border: 'none', color: PRIMARY, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: FONT }}>
-                                                View All Tracks
-                                            </button>
+                                {/* ── GENRE FEED ── */}
+                                <section>
+                                    {/* Header row */}
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                            <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>
+                                                {genreHasSubs ? 'Your Genres' : 'Community Feed'}
+                                            </h2>
+                                            {!genreHasSubs && (
+                                                <span style={{ fontSize: 11, color: SUB, background: S_HIGH, padding: '3px 10px', borderRadius: 9999 }}>All genres</span>
+                                            )}
                                         </div>
-                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 14 }}>
-                                            {newDrops.map((t: any) => {
-                                                const artist  = t.profile?.displayName || t.profile?.username || t.artist || '';
-                                                const playing = isActivePlaying(t.id);
-                                                const isHov   = hovDrop === t.id;
+                                        <Link to="/preview/alt_f_genres"
+                                            style={{ color: PRIMARY, fontSize: 12, fontWeight: 600, textDecoration: 'none' }}>
+                                            Browse Genres →
+                                        </Link>
+                                    </div>
+
+                                    {/* Sort tabs */}
+                                    <div style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
+                                        {(['hot', 'new', 'top'] as const).map(s => (
+                                            <button key={s} onClick={() => setGenreFeedSort(s)}
+                                                style={{ padding: '6px 14px', borderRadius: 9999, border: 'none', fontFamily: FONT, fontSize: 12, fontWeight: 700, cursor: 'pointer', background: genreFeedSort === s ? PRIMARY : S_HIGH, color: genreFeedSort === s ? '#fff' : SUB, transition: 'all 0.15s', display: 'flex', alignItems: 'center', gap: 5 }}>
+                                                {s === 'hot' && <Flame size={11} />}
+                                                {s === 'new' && <Clock size={11} />}
+                                                {s === 'top' && <Zap size={11} />}
+                                                {s.charAt(0).toUpperCase() + s.slice(1)}
+                                            </button>
+                                        ))}
+                                    </div>
+
+                                    {/* Posts */}
+                                    {genreFeedLoading && genrePosts.length === 0 ? (
+                                        <div style={{ padding: '40px 0', textAlign: 'center', color: SUB, fontSize: 13 }}>Loading…</div>
+                                    ) : genrePosts.length === 0 ? (
+                                        <div style={{ ...glass, borderRadius: 16, padding: '40px 24px', textAlign: 'center' }}>
+                                            <Hash size={32} color={SUB} style={{ marginBottom: 12 }} />
+                                            <div style={{ color: TEXT, fontWeight: 700, marginBottom: 6 }}>No posts yet</div>
+                                            <div style={{ color: SUB, fontSize: 13, marginBottom: 16 }}>Be the first to post in a genre community.</div>
+                                            <Link to="/preview/alt_f_genres"
+                                                style={{ padding: '8px 20px', background: PRIMARY, color: '#fff', borderRadius: 10, textDecoration: 'none', fontSize: 13, fontWeight: 700 }}>
+                                                Explore Genres
+                                            </Link>
+                                        </div>
+                                    ) : (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                            {genrePosts.map((post: any) => {
+                                                const voteDir = genreVotes[post.id] ?? post.userVote;
+                                                const trackUrl = post.track?.mp3Url || post.track?.url;
+                                                const isPlaying = player.currentTrack?.id === post.track?.id && player.isPlaying;
+                                                const timeAgo = (() => {
+                                                    const diff = Date.now() - new Date(post.createdAt).getTime();
+                                                    const h = Math.floor(diff / 3_600_000);
+                                                    if (h < 1) return `${Math.floor(diff / 60_000)}m`;
+                                                    if (h < 24) return `${h}h`;
+                                                    return `${Math.floor(h / 24)}d`;
+                                                })();
                                                 return (
-                                                    <div
-                                                        key={t.id}
-                                                        onClick={() => {
-                                                            if (!t.url) return;
-                                                            if (player.currentTrack?.id === t.id) { togglePlay(); return; }
-                                                            const q = newDrops.filter((x: any) => x.url).map((x: any) => ({
-                                                                id: x.id, title: x.title,
-                                                                artist: x.profile?.displayName || x.profile?.username || x.artist || '',
-                                                                url: x.url, coverUrl: x.coverUrl,
-                                                            }));
-                                                            const idx = q.findIndex(x => x.id === t.id);
-                                                            setTrack(q[idx] ?? q[0], q);
-                                                        }}
-                                                        onMouseEnter={() => setHovDrop(t.id)}
-                                                        onMouseLeave={() => setHovDrop(null)}
-                                                        style={{ cursor: t.url ? 'pointer' : 'default', minWidth: 0 }}
-                                                    >
-                                                        {/* Square cover art */}
-                                                        <div style={{ position: 'relative', width: '100%', paddingBottom: '100%', borderRadius: 12, overflow: 'hidden', background: S_HIGH, boxShadow: playing ? `0 0 0 2px ${PRIMARY}, 0 8px 24px rgba(0,0,0,0.5)` : '0 4px 16px rgba(0,0,0,0.4)', transition: 'box-shadow 0.2s, transform 0.15s', transform: isHov ? 'translateY(-3px)' : 'translateY(0)' }}>
-                                                            {t.coverUrl
-                                                                ? <img src={t.coverUrl} referrerPolicy="no-referrer" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.4s', transform: isHov ? 'scale(1.06)' : 'scale(1)' }} />
-                                                                : <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Music size={28} color={SUB} /></div>
-                                                            }
-                                                            {/* Play overlay */}
-                                                            <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: (isHov || playing) ? 1 : 0, transition: 'opacity 0.2s' }}>
-                                                                <div style={{ width: 40, height: 40, borderRadius: '50%', background: playing ? PRIMARY : 'rgba(255,255,255,0.9)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.4)' }}>
-                                                                    {playing
-                                                                        ? <Pause size={16} color="#fff" fill="#fff" />
-                                                                        : <Play  size={16} color="#111" fill="#111" style={{ marginLeft: 2 }} />
-                                                                    }
-                                                                </div>
+                                                    <div key={post.id} style={{ ...glass, borderRadius: 14, display: 'flex', gap: 0, overflow: 'hidden', transition: 'border-color 0.15s' }}
+                                                        onMouseEnter={ev => ev.currentTarget.style.borderColor = `${PRIMARY}44`}
+                                                        onMouseLeave={ev => ev.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'}>
+
+                                                        {/* Vote column */}
+                                                        <div style={{ width: 52, flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '14px 0', gap: 4, background: 'rgba(0,0,0,0.2)' }}>
+                                                            <button onClick={() => handleGenreVote(post.id, 'up')}
+                                                                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, borderRadius: 4, color: voteDir === 'up' ? PRIMARY : SUB, display: 'flex' }}>
+                                                                <ArrowUp size={16} fill={voteDir === 'up' ? PRIMARY : 'none'} />
+                                                            </button>
+                                                            <span style={{ fontSize: 12, fontWeight: 800, color: voteDir === 'up' ? PRIMARY : voteDir === 'down' ? SECONDARY : TEXT, lineHeight: 1 }}>
+                                                                {post.score ?? 0}
+                                                            </span>
+                                                            <button onClick={() => handleGenreVote(post.id, 'down')}
+                                                                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, borderRadius: 4, color: voteDir === 'down' ? SECONDARY : SUB, display: 'flex' }}>
+                                                                <ArrowDown size={16} fill={voteDir === 'down' ? SECONDARY : 'none'} />
+                                                            </button>
+                                                        </div>
+
+                                                        {/* Main content */}
+                                                        <div style={{ flex: 1, minWidth: 0, padding: '12px 16px' }}>
+                                                            {/* Meta row */}
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
+                                                                <Link to={`/preview/alt_f_genres/${post.genre?.slug}`}
+                                                                    style={{ fontSize: 11, fontWeight: 700, color: PRIMARY, background: `${PRIMARY}18`, padding: '2px 9px', borderRadius: 9999, textDecoration: 'none', letterSpacing: '0.02em' }}>
+                                                                    {post.genre?.name}
+                                                                </Link>
+                                                                <span style={{ fontSize: 11, color: SUB }}>
+                                                                    posted by <strong style={{ color: TEXT }}>{post.username}</strong>
+                                                                </span>
+                                                                <span style={{ fontSize: 11, color: SUB }}>{timeAgo}</span>
                                                             </div>
-                                                            {/* BPM badge */}
-                                                            {t.bpm && (
-                                                                <div style={{ position: 'absolute', bottom: 7, left: 7 }}>
-                                                                    <span style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)', color: SUB, padding: '2px 7px', borderRadius: 6, fontSize: 10, fontWeight: 700 }}>{t.bpm} BPM</span>
+
+                                                            {/* Title */}
+                                                            <Link to={`/preview/alt_f_genre_post/${post.id}`}
+                                                                style={{ display: 'block', fontSize: 15, fontWeight: 700, color: TEXT, textDecoration: 'none', marginBottom: post.track ? 10 : 0, lineHeight: 1.4 }}
+                                                                onMouseEnter={ev => (ev.currentTarget.style.color = PRIMARY)}
+                                                                onMouseLeave={ev => (ev.currentTarget.style.color = TEXT)}>
+                                                                {post.title}
+                                                            </Link>
+
+                                                            {/* Track mini-player */}
+                                                            {post.track && (
+                                                                <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: S_HIGH, borderRadius: 10, padding: '8px 12px', marginBottom: 4 }}>
+                                                                    {post.track.coverUrl && (
+                                                                        <img src={post.track.coverUrl} referrerPolicy="no-referrer" style={{ width: 36, height: 36, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }} />
+                                                                    )}
+                                                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                                                        <div style={{ fontSize: 12, fontWeight: 700, color: isPlaying ? PRIMARY : TEXT, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{post.track.title}</div>
+                                                                        <div style={{ fontSize: 11, color: SUB }}>{post.track.profile?.displayName || post.track.profile?.username || ''}</div>
+                                                                    </div>
+                                                                    {trackUrl && (
+                                                                        <button onClick={() => {
+                                                                            if (player.currentTrack?.id === post.track.id) { togglePlay(); return; }
+                                                                            setTrack({ id: post.track.id, title: post.track.title, artist: post.track.profile?.displayName || post.track.profile?.username || '', url: trackUrl, coverUrl: post.track.coverUrl }, []);
+                                                                        }}
+                                                                            style={{ width: 32, height: 32, borderRadius: '50%', background: isPlaying ? PRIMARY : 'rgba(255,255,255,0.12)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
+                                                                            {isPlaying
+                                                                                ? <Pause size={12} color="#fff" fill="#fff" />
+                                                                                : <Play  size={12} color={TEXT} fill={TEXT} style={{ marginLeft: 1 }} />}
+                                                                        </button>
+                                                                    )}
                                                                 </div>
                                                             )}
-                                                        </div>
-                                                        {/* Track info below art */}
-                                                        <div style={{ marginTop: 9, paddingLeft: 2 }}>
-                                                            <div style={{ fontSize: 13, fontWeight: 700, color: playing ? PRIMARY : TEXT, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.3 }}>{t.title}</div>
-                                                            {artist && <div style={{ fontSize: 11, color: SUB, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 2 }}>{artist}</div>}
+
+                                                            {/* Footer row */}
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 8 }}>
+                                                                <Link to={`/preview/alt_f_genre_post/${post.id}`}
+                                                                    style={{ display: 'flex', alignItems: 'center', gap: 5, color: SUB, fontSize: 11, fontWeight: 600, textDecoration: 'none' }}
+                                                                    onMouseEnter={ev => (ev.currentTarget.style.color = TEXT)}
+                                                                    onMouseLeave={ev => (ev.currentTarget.style.color = SUB)}>
+                                                                    <MessageSquare size={12} />
+                                                                    {post.commentCount ?? 0} comments
+                                                                </Link>
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 );
                                             })}
+
+                                            {/* Load more */}
+                                            {genreFeedHasMore && (
+                                                <button onClick={() => fetchGenreFeed(genreFeedSort, genreFeedCursor, true)}
+                                                    disabled={genreFeedLoading}
+                                                    style={{ padding: '10px 24px', borderRadius: 10, background: S_HIGH, border: `1px solid ${BORDER}`, color: TEXT, fontFamily: FONT, fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: genreFeedLoading ? 0.5 : 1 }}>
+                                                    {genreFeedLoading ? 'Loading…' : 'Load more'}
+                                                </button>
+                                            )}
                                         </div>
-                                    </section>
-                                )}
+                                    )}
+
+                                    {/* Subscribe nudge when showing all genres */}
+                                    {!genreHasSubs && genrePosts.length > 0 && (
+                                        <div style={{ marginTop: 16, padding: '12px 16px', background: `${PRIMARY}0d`, border: `1px solid ${PRIMARY}33`, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                                            <span style={{ fontSize: 12, color: SUB }}>Subscribe to genres to see a personalised feed.</span>
+                                            <Link to="/preview/alt_f_genres"
+                                                style={{ fontSize: 12, fontWeight: 700, color: PRIMARY, textDecoration: 'none', flexShrink: 0 }}>
+                                                Browse Genres →
+                                            </Link>
+                                        </div>
+                                    )}
+                                </section>
 
                                 {!slide && chartEntries.length === 0 && articles.length === 0 && (
                                     <div style={{ padding: 60, textAlign: 'center', color: SUB, fontSize: 14 }}>Nothing to show yet.</div>

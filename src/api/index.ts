@@ -10355,11 +10355,14 @@ app.get('/api/genre-posts', async (req: any, res) => {
         const userId = req.session?.user?.id || null;
 
         let genreIds: string[] = [];
+        let allGenres = false;
         if (feed === 'subscribed') {
-            if (!userId) return res.json({ posts: [], hasMore: false, nextCursor: null });
+            if (!userId) return res.json({ posts: [], hasMore: false, nextCursor: null, hasSubscriptions: false });
             const subs = await db.genreSubscription.findMany({ where: { userId }, select: { genreId: true } });
             genreIds = subs.map((s: any) => s.genreId);
-            if (genreIds.length === 0) return res.json({ posts: [], hasMore: false, nextCursor: null });
+            if (genreIds.length === 0) return res.json({ posts: [], hasMore: false, nextCursor: null, hasSubscriptions: false });
+        } else if (feed === 'all') {
+            allGenres = true;
         } else if (groupId) {
             const group = await (db as any).genreGroup.findUnique({
                 where: { id: groupId as string },
@@ -10373,10 +10376,10 @@ app.get('/api/genre-posts', async (req: any, res) => {
         } else if (genreId) {
             genreIds = [genreId as string];
         } else {
-            return res.status(400).json({ error: 'genreId, genreIds, groupId, or feed=subscribed required' });
+            return res.status(400).json({ error: 'genreId, genreIds, groupId, feed=subscribed, or feed=all required' });
         }
 
-        const where: any = { genreId: { in: genreIds }, deletedAt: null };
+        const where: any = allGenres ? { deletedAt: null } : { genreId: { in: genreIds }, deletedAt: null };
 
         if (sort === 'top') {
             const periodMap: Record<string, number> = { day: 1, week: 7, month: 30, alltime: 36500 };
