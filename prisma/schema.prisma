@@ -1125,6 +1125,7 @@ model Track {
   radioHistories RadioHistory[]
   collaborators  TrackCollaborator[]
   projectLink    ProjectTrackLink?
+  genrePosts     GenrePost[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1238,6 +1239,8 @@ model Genre {
   profiles           ProfileGenre[]
   tracks             TrackGenre[]
   primaryForProfiles MusicianProfile[] @relation("PrimaryGenre")
+  subscriptions      GenreSubscription[]
+  posts              GenrePost[]
 
   // Head-to-Head
   h2hSamplePools H2HSamplePool[] @relation("H2HSamplePoolGenre")
@@ -1269,6 +1272,72 @@ model TrackGenre {
   @@id([trackId, genreId])
   @@index([genreId])
   @@map("track_genres")
+}
+
+model GenreSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  genreId   String
+  createdAt DateTime @default(now())
+
+  genre Genre @relation(fields: [genreId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, genreId])
+  @@index([userId])
+  @@index([genreId])
+  @@map("genre_subscriptions")
+}
+
+model GenrePost {
+  id        String  @id @default(cuid())
+  genreId   String
+  userId    String
+  username  String
+  avatarUrl String?
+
+  type     String  @default("discussion") // "discussion" | "track"
+  title    String
+  body     String? @db.Text
+  imageUrl String?
+
+  trackId String? // FK to Track; set only for auto-created track posts
+
+  upvotes      Int   @default(0)
+  downvotes    Int   @default(0)
+  score        Int   @default(0) // upvotes - downvotes (denormalized)
+  hotScore     Float @default(0) // Reddit hot algorithm score, stored for fast ORDER BY
+  commentCount Int   @default(0) // denormalized; incremented on comment creation
+
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  genre    Genre           @relation(fields: [genreId], references: [id], onDelete: Cascade)
+  track    Track?          @relation(fields: [trackId], references: [id], onDelete: SetNull)
+  votes    GenrePostVote[]
+  comments Comment[]
+
+  @@index([genreId, hotScore(sort: Desc)])
+  @@index([genreId, createdAt(sort: Desc)])
+  @@index([genreId, score(sort: Desc)])
+  @@index([userId])
+  @@index([trackId])
+  @@map("genre_posts")
+}
+
+model GenrePostVote {
+  id     String @id @default(cuid())
+  userId String
+  postId String
+  type   String // "up" | "down"
+
+  createdAt DateTime @default(now())
+
+  post GenrePost @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, postId])
+  @@index([postId])
+  @@map("genre_post_votes")
 }
 
 model DiscoverySettings {
@@ -1869,6 +1938,7 @@ model Comment {
   profileId     String? // Comment on a musician profile
   battleEntryId String? // Comment on a battle entry
   articleId     String? // Comment on an article
+  genrePostId   String? // Comment on a genre post
 
   // Self-referential reply thread (one level deep)
   parentId String?
@@ -1880,6 +1950,7 @@ model Comment {
   profile     MusicianProfile? @relation(fields: [profileId], references: [id], onDelete: Cascade)
   battleEntry BattleEntry?     @relation(fields: [battleEntryId], references: [id], onDelete: Cascade)
   article     Article?         @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  genrePost   GenrePost?       @relation(fields: [genrePostId], references: [id], onDelete: Cascade)
   parent      Comment?         @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
   replies     Comment[]        @relation("CommentReplies")
   likes       CommentLike[]
@@ -1890,6 +1961,7 @@ model Comment {
   @@index([profileId])
   @@index([battleEntryId])
   @@index([articleId])
+  @@index([genrePostId])
   @@index([userId])
   @@index([parentId])
   @@map("comments")

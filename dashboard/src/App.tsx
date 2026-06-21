@@ -106,6 +106,7 @@ const FrontpageAltFPlaylist    = lazy(() => import("./pages/FrontpageAltFPlaylis
 const FrontpageAltFMyTracks    = lazy(() => import("./pages/FrontpageAltFMyTracks").then(m => ({ default: m.FrontpageAltFMyTracks })));
 const FrontpageAltFFavourites  = lazy(() => import("./pages/FrontpageAltFFavourites").then(m => ({ default: m.FrontpageAltFFavourites })));
 const FrontpageAltFGenres      = lazy(() => import("./pages/FrontpageAltFGenres").then(m => ({ default: m.FrontpageAltFGenres })));
+const FrontpageAltFGenrePost   = lazy(() => import("./pages/FrontpageAltFGenrePost").then(m => ({ default: m.FrontpageAltFGenrePost })));
 const FrontpageAltFArena       = lazy(() => import("./pages/FrontpageAltFArena").then(m => ({ default: m.FrontpageAltFArena })));
 const FrontpageAltFLearn       = lazy(() => import("./pages/FrontpageAltFLearn").then(m => ({ default: m.FrontpageAltFLearn })));
 const MobilePreviewNowPlaying = lazy(() => import("./pages/MobilePreviewNowPlaying").then(m => ({ default: m.MobilePreviewNowPlaying })));
@@ -969,6 +970,9 @@ const AppInternal: React.FC = () => {
   }
   if (currentPath === '/preview/alt_f_genres') {
     return <Suspense fallback={<PageSpinner />}><FrontpageAltFGenres /></Suspense>;
+  }
+  if (currentPath.startsWith('/preview/alt_f_genre_post')) {
+    return <Suspense fallback={<PageSpinner />}><FrontpageAltFGenrePost /></Suspense>;
   }
   if (currentPath === '/preview/alt_f_arena') {
     return <Suspense fallback={<PageSpinner />}><FrontpageAltFArena /></Suspense>;

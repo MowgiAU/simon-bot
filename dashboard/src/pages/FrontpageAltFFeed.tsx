@@ -15,7 +15,9 @@ import { AltActivitySidebar } from '../components/altshell/AltActivitySidebar';
 import {
     Play, Pause, Heart, Repeat2, UserPlus, Swords, Music,
     Rss, Users, TrendingUp, ChevronDown, Lock, MessageCircle,
+    Flame, Clock, ChevronUp, FileText,
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 const glass: React.CSSProperties = {
     background: 'rgba(15,19,29,0.7)',
@@ -65,7 +67,7 @@ const TYPE_ICONS: Record<string, { icon: any; color: string; label: string }> = 
 
 const FILTERS = ['All', 'Music', 'Battles', 'Follows', 'Comments'] as const;
 type Filter = typeof FILTERS[number];
-const TABS = ['Discover', 'Following'] as const;
+const TABS = ['Discover', 'Following', 'Genres'] as const;
 type Tab = typeof TABS[number];
 
 const filterMatch = (type: string, filter: Filter): boolean => {
@@ -244,6 +246,66 @@ function TrackFeedCard({ track, onPlay, isPlaying }: { track: any; onPlay: (t: a
     );
 }
 
+// ── Genre post card (for Genres tab) ─────────────────────────────────────
+function genreAccent(name: string): string {
+    let h = 5381;
+    for (const c of name) h = (h * 33 ^ c.charCodeAt(0)) >>> 0;
+    return `hsl(${h % 360},60%,65%)`;
+}
+
+function GenrePostFeedCard({ post, onVote }: { post: any; onVote: (id: string, t: 'up' | 'down') => void }) {
+    const { player, setTrack, togglePlay } = usePlayer();
+    const [hov, setHov] = useState(false);
+    const isPlaying = post.track && player.currentTrack?.id === post.track.id && player.isPlaying;
+    const playTrack = () => {
+        if (!post.track?.url) return;
+        if (player.currentTrack?.id === post.track.id) { togglePlay(); return; }
+        setTrack({ id: post.track.id, title: post.track.title, artist: post.track.profile?.displayName || post.username, url: post.track.url, coverUrl: post.track.coverUrl }, []);
+    };
+    const accent = post.genre ? genreAccent(post.genre.name) : PRIMARY;
+    return (
+        <div onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
+            style={{ ...glass, borderRadius: 14, padding: '14px 16px', display: 'flex', gap: 12, borderColor: hov ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.1)', transition: 'border-color 0.15s' }}>
+            {/* Vote */}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, minWidth: 36, paddingTop: 2 }}>
+                <button onClick={() => onVote(post.id, 'up')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: post.userVote === 'up' ? PRIMARY : SUB, padding: 2, display: 'flex' }}><ChevronUp size={16} /></button>
+                <span style={{ fontSize: 12, fontWeight: 700, color: post.score > 0 ? PRIMARY : post.score < 0 ? TERTIARY : SUB }}>{post.score}</span>
+                <button onClick={() => onVote(post.id, 'down')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: post.userVote === 'down' ? TERTIARY : SUB, padding: 2, display: 'flex' }}><ChevronDown size={16} /></button>
+            </div>
+            {/* Content */}
+            <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                    {post.genre && <span style={{ background: `${accent}18`, border: `1px solid ${accent}44`, color: accent, padding: '1px 7px', borderRadius: 9999, fontSize: 10, fontWeight: 700 }}>{post.genre.name}</span>}
+                    <span style={{ fontSize: 11, color: SUB }}>{post.type === 'track' ? '🎵 Track' : '💬 Discussion'}</span>
+                </div>
+                <Link to={`/preview/alt_f_genre_post/${post.id}`} style={{ textDecoration: 'none' }}>
+                    <p style={{ margin: '0 0 6px', fontSize: 14, fontWeight: 700, color: TEXT, cursor: 'pointer' }}
+                        onMouseEnter={e => (e.currentTarget.style.color = PRIMARY)} onMouseLeave={e => (e.currentTarget.style.color = TEXT)}>
+                        {post.title}
+                    </p>
+                </Link>
+                {post.type === 'track' && post.track && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: S_CONT, borderRadius: 8, padding: '6px 10px', marginBottom: 6, border: `1px solid ${BORDER}` }}>
+                        <div style={{ width: 28, height: 28, borderRadius: 5, overflow: 'hidden', flexShrink: 0, background: S_HIGH, position: 'relative', cursor: post.track.url ? 'pointer' : 'default' }} onClick={playTrack}>
+                            {post.track.coverUrl ? <img src={post.track.coverUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}><Music size={12} color={SUB} /></div>}
+                            {post.track.url && <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{isPlaying ? <Pause size={10} color="#fff" fill="#fff" /> : <Play size={10} color="#fff" fill="#fff" />}</div>}
+                        </div>
+                        <span style={{ fontSize: 12, fontWeight: 600, color: TEXT, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{post.track.title}</span>
+                    </div>
+                )}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 11, color: SUB }}>
+                    <span style={{ fontWeight: 600, color: TEXT }}>{post.username}</span>
+                    <span>·</span>
+                    <span>{timeAgo(post.createdAt)}</span>
+                    <Link to={`/preview/alt_f_genre_post/${post.id}`} style={{ display: 'flex', alignItems: 'center', gap: 3, color: SUB, textDecoration: 'none', marginLeft: 'auto' }}>
+                        <MessageCircle size={11} /> {post.commentCount}
+                    </Link>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 // ── Main page ──────────────────────────────────────────────────────────────
 
 export const FrontpageAltFFeed: React.FC = () => {
@@ -264,6 +326,14 @@ export const FrontpageAltFFeed: React.FC = () => {
     const [feedCursor, setFeedCursor] = useState<string | null>(null);
     const [feedError, setFeedError] = useState<'unauth' | 'empty' | null>(null);
 
+    // Genres tab data
+    const [genrePosts, setGenrePosts] = useState<any[]>([]);
+    const [genrePostsLoading, setGenrePostsLoading] = useState(false);
+    const [genrePostsError, setGenrePostsError] = useState<'unauth' | 'empty' | null>(null);
+    const [genreHasMore, setGenreHasMore] = useState(false);
+    const [genreCursor, setGenreCursor] = useState<string | null>(null);
+    const [genreSort, setGenreSort] = useState<'hot' | 'new' | 'top'>('hot');
+
     // Trending sidebar
     const [trending, setTrending] = useState<any[]>([]);
 
@@ -277,6 +347,33 @@ export const FrontpageAltFFeed: React.FC = () => {
             setPublicLoading(false);
         });
     }, []);
+
+    const loadGenreFeed = useCallback(async (sort: 'hot' | 'new' | 'top', cursor?: string | null) => {
+        setGenrePostsLoading(true);
+        try {
+            const r = await axios.get('/api/genre-posts', { params: { feed: 'subscribed', sort, ...(cursor ? { cursor } : {}) }, withCredentials: true });
+            if (!cursor) {
+                setGenrePosts(arr(r.data.posts));
+                setGenrePostsError(r.data.posts.length === 0 ? 'empty' : null);
+            } else {
+                setGenrePosts(prev => [...prev, ...arr(r.data.posts)]);
+            }
+            setGenreHasMore(r.data.hasMore);
+            setGenreCursor(r.data.nextCursor);
+        } catch (e: any) {
+            if (e.response?.status === 401) setGenrePostsError('unauth');
+            else setGenrePostsError('empty');
+        } finally {
+            setGenrePostsLoading(false);
+        }
+    }, []);
+
+    const handleGenreVote = async (postId: string, type: 'up' | 'down') => {
+        try {
+            const r = await axios.post(`/api/genre-posts/${postId}/vote`, { type }, { withCredentials: true });
+            setGenrePosts(prev => prev.map(p => p.id === postId ? { ...p, score: r.data.score, upvotes: r.data.upvotes, downvotes: r.data.downvotes, userVote: r.data.userVote } : p));
+        } catch {}
+    };
 
     const loadFollowingFeed = useCallback(async (cursor?: string | null) => {
         setFeedLoading(true);
@@ -304,7 +401,18 @@ export const FrontpageAltFFeed: React.FC = () => {
         if (tab === 'Following' && feedTracks.length === 0 && !feedLoading) {
             loadFollowingFeed();
         }
+        if (tab === 'Genres' && genrePosts.length === 0 && !genrePostsLoading) {
+            loadGenreFeed(genreSort);
+        }
     }, [tab]);
+
+    useEffect(() => {
+        if (tab === 'Genres') {
+            setGenrePosts([]);
+            loadGenreFeed(genreSort);
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [genreSort]);
 
     const playTrack = (t: any) => {
         const track = t.target ? t.target : t;
@@ -347,8 +455,11 @@ export const FrontpageAltFFeed: React.FC = () => {
                                 {/* Tab switcher */}
                                 <div style={{ display: 'flex', background: 'rgba(28,31,42,0.8)', backdropFilter: 'blur(12px)', padding: 4, borderRadius: 12, border: `1px solid ${BORDER}`, gap: 2 }}>
                                     {TABS.map(t => (
-                                        <button key={t} onClick={() => setTab(t)} style={{ padding: '9px 22px', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 700, fontFamily: FONT, background: tab === t ? PRIMARY : 'transparent', color: tab === t ? '#fff' : SUB, transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: 6 }}>
-                                            {t === 'Following' && <Users size={13} />}{t === 'Discover' && <Rss size={13} />}{t}
+                                        <button key={t} onClick={() => setTab(t)} style={{ padding: '9px 18px', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 700, fontFamily: FONT, background: tab === t ? PRIMARY : 'transparent', color: tab === t ? '#fff' : SUB, transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                            {t === 'Following' && <Users size={13} />}
+                                            {t === 'Discover' && <Rss size={13} />}
+                                            {t === 'Genres' && <Music size={13} />}
+                                            {t}
                                         </button>
                                     ))}
                                 </div>
@@ -477,6 +588,61 @@ export const FrontpageAltFFeed: React.FC = () => {
                                                 />
                                             ))}
                                         </div>
+                                    )}
+                                </section>
+                            )}
+
+                            {/* GENRES TAB */}
+                            {tab === 'Genres' && (
+                                <section>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                                        <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Your Genre Feed</h2>
+                                        <div style={{ display: 'flex', gap: 4 }}>
+                                            {(['hot', 'new', 'top'] as const).map(s => (
+                                                <button key={s} onClick={() => setGenreSort(s)}
+                                                    style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 12px', borderRadius: 6, border: 'none', cursor: 'pointer', fontFamily: FONT, fontSize: 12, fontWeight: 700, background: genreSort === s ? PRIMARY : S_CONT, color: genreSort === s ? '#fff' : SUB }}>
+                                                    {s === 'hot' && <Flame size={11} />}
+                                                    {s === 'new' && <Clock size={11} />}
+                                                    {s === 'top' && <TrendingUp size={11} />}
+                                                    {s.charAt(0).toUpperCase() + s.slice(1)}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {genrePostsLoading && genrePosts.length === 0 ? (
+                                        <div style={{ ...glass, borderRadius: 20, padding: '48px 24px', textAlign: 'center', color: SUB }}>Loading genre feed…</div>
+                                    ) : genrePostsError === 'unauth' ? (
+                                        <div style={{ ...glass, borderRadius: 20, padding: '48px 24px', textAlign: 'center' }}>
+                                            <Lock size={32} color={SUB} style={{ marginBottom: 12 }} />
+                                            <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}>Sign in to see genre posts</div>
+                                            <div style={{ fontSize: 13, color: SUB }}>Join genres to follow their feeds</div>
+                                        </div>
+                                    ) : genrePostsError === 'empty' ? (
+                                        <div style={{ ...glass, borderRadius: 20, padding: '48px 24px', textAlign: 'center' }}>
+                                            <Music size={32} color={SUB} style={{ marginBottom: 12 }} />
+                                            <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}>No genre posts yet</div>
+                                            <div style={{ fontSize: 13, color: SUB, marginBottom: 20 }}>Subscribe to genres to see posts from them here</div>
+                                            <Link to="/preview/alt_f_genres" style={{ display: 'inline-block', padding: '10px 28px', borderRadius: 10, background: PRIMARY, color: '#fff', fontSize: 13, fontWeight: 700, textDecoration: 'none' }}>
+                                                Explore Genres
+                                            </Link>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                                {genrePosts.map((p: any) => (
+                                                    <GenrePostFeedCard key={p.id} post={p} onVote={handleGenreVote} />
+                                                ))}
+                                            </div>
+                                            {genreHasMore && (
+                                                <div style={{ marginTop: 16, textAlign: 'center' }}>
+                                                    <button onClick={() => loadGenreFeed(genreSort, genreCursor)} disabled={genrePostsLoading}
+                                                        style={{ padding: '10px 28px', borderRadius: 10, background: 'transparent', border: `1px solid ${BORDER}`, color: SUB, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: FONT, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                                                        <ChevronDown size={14} /> {genrePostsLoading ? 'Loading…' : 'Load more'}
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </>
                                     )}
                                 </section>
                             )}

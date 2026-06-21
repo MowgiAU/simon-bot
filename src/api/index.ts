@@ -8265,6 +8265,25 @@ app.post('/api/musician/tracks', uploadLimiter, requireDesktopAuth, upload.field
             })();
         }
 
+        // Auto-create GenrePost rows so the track appears in genre feeds (fire-and-forget, forward-only)
+        if (_isPublic && fullTrack && uploaderProfile) {
+            const taggedGenreIds = (fullTrack.genres ?? []).map((tg: any) => tg.genreId).filter(Boolean);
+            if (taggedGenreIds.length > 0) {
+                db.genrePost.createMany({
+                    data: taggedGenreIds.map((gid: string) => ({
+                        genreId: gid,
+                        userId,
+                        username: uploaderProfile.displayName || uploaderProfile.username || 'Unknown',
+                        avatarUrl: uploaderProfile.avatar || null,
+                        type: 'track',
+                        title: track.title,
+                        trackId: track.id,
+                    })),
+                    skipDuplicates: true,
+                }).catch((err: any) => logger.warn(`[GenrePost] Failed to create genre posts: ${err.message}`));
+            }
+        }
+
         // Queue a Discord track announcement for the bot to pick up (separate PM2 process).
         // Skip when this upload is part of a battle submission \u2014 the BeatBattle plugin
         // will announce it in the battles channel instead.
@@ -10230,7 +10249,8 @@ app.get('/api/musician/genres', publicCache(300), async (req, res) => {
                 _count: {
                     select: {
                         profiles: true,
-                        tracks: true
+                        tracks: true,
+                        subscriptions: true,
                     }
                 },
                 children: true
@@ -10276,6 +10296,229 @@ app.delete('/api/musician/genres/:id', requireAdmin, async (req, res) => {
         res.status(500).json({ error: 'Internal server error' });
     }
 });
+
+// ===== Genre Community (Subscriptions + Posts) =====
+
+// Subscribe to a genre
+app.post('/api/genre-subscriptions/:genreId', requireAuth, async (req: any, res) => {
+    try {
+        const userId = req.session.user.id;
+        const { genreId } = req.params;
+        const genre = await db.genre.findUnique({ where: { id: genreId } });
+        if (!genre) return res.status(404).json({ error: 'Genre not found' });
+        await db.genreSubscription.upsert({
+            where: { userId_genreId: { userId, genreId } },
+            update: {},
+            create: { userId, genreId },
+        });
+        res.json({ subscribed: true, genreId });
+    } catch (e: any) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Unsubscribe from a genre
+app.delete('/api/genre-subscriptions/:genreId', requireAuth, async (req: any, res) => {
+    try {
+        const userId = req.session.user.id;
+        const { genreId } = req.params;
+        await db.genreSubscription.deleteMany({ where: { userId, genreId } });
+        res.json({ subscribed: false, genreId });
+    } catch (e: any) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Get my subscribed genre IDs
+app.get('/api/genre-subscriptions', requireAuth, async (req: any, res) => {
+    try {
+        const userId = req.session.user.id;
+        const subs = await db.genreSubscription.findMany({ where: { userId }, select: { genreId: true } });
+        res.json({ genreIds: subs.map((s: any) => s.genreId) });
+    } catch (e: any) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Helper: compute hot score (Reddit algorithm)
+function computeHotScore(score: number, createdAt: Date): number {
+    const ageHours = (Date.now() - createdAt.getTime()) / 3_600_000;
+    if (score === 0) return 0;
+    return score / Math.pow(ageHours + 2, 1.8);
+}
+
+// Get genre posts feed (or personalised subscribed feed)
+app.get('/api/genre-posts', async (req: any, res) => {
+    try {
+        const { genreId, feed, sort = 'hot', cursor, period = 'week' } = req.query;
+        const limit = Math.min(Number(req.query.limit) || 25, 50);
+        const userId = req.session?.user?.id || null;
+
+        let genreIds: string[] = [];
+        if (feed === 'subscribed') {
+            if (!userId) return res.json({ posts: [], hasMore: false, nextCursor: null });
+            const subs = await db.genreSubscription.findMany({ where: { userId }, select: { genreId: true } });
+            genreIds = subs.map((s: any) => s.genreId);
+            if (genreIds.length === 0) return res.json({ posts: [], hasMore: false, nextCursor: null });
+        } else if (genreId) {
+            genreIds = [genreId as string];
+        } else {
+            return res.status(400).json({ error: 'genreId or feed=subscribed required' });
+        }
+
+        const where: any = { genreId: { in: genreIds }, deletedAt: null };
+
+        if (sort === 'top') {
+            const periodMap: Record<string, number> = { day: 1, week: 7, month: 30, alltime: 36500 };
+            const days = periodMap[period as string] ?? 7;
+            where.createdAt = { gte: new Date(Date.now() - days * 86_400_000) };
+        }
+
+        const orderBy: any = sort === 'new' ? { createdAt: 'desc' } : sort === 'top' ? { score: 'desc' } : { hotScore: 'desc' };
+
+        const posts = await db.genrePost.findMany({
+            where,
+            orderBy,
+            take: limit + 1,
+            ...(cursor ? { cursor: { id: cursor as string }, skip: 1 } : {}),
+            include: {
+                genre: { select: { id: true, name: true, slug: true } },
+                track: { select: { id: true, title: true, slug: true, coverUrl: true, url: true, mp3Url: true, duration: true, waveformPeaks: true, profile: { select: { username: true, displayName: true } } } },
+                votes: userId ? { where: { userId }, select: { type: true } } : false,
+            },
+        });
+
+        const hasMore = posts.length > limit;
+        if (hasMore) posts.pop();
+
+        const result = posts.map((p: any) => {
+            const { votes, ...rest } = p;
+            return { ...rest, userVote: votes?.[0]?.type ?? null };
+        });
+
+        res.json({ posts: result, hasMore, nextCursor: hasMore ? posts[posts.length - 1]?.id : null });
+    } catch (e: any) {
+        logger.error('Genre posts feed error', { message: e.message });
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Get single genre post
+app.get('/api/genre-posts/:postId', async (req: any, res) => {
+    try {
+        const { postId } = req.params;
+        const userId = req.session?.user?.id || null;
+        const post = await db.genrePost.findUnique({
+            where: { id: postId, deletedAt: null },
+            include: {
+                genre: { select: { id: true, name: true, slug: true } },
+                track: { select: { id: true, title: true, slug: true, coverUrl: true, url: true, mp3Url: true, duration: true, waveformPeaks: true, profile: { select: { username: true, displayName: true } } } },
+                votes: userId ? { where: { userId }, select: { type: true } } : false,
+            },
+        });
+        if (!post) return res.status(404).json({ error: 'Post not found' });
+        const { votes, ...rest } = post as any;
+        res.json({ ...rest, userVote: votes?.[0]?.type ?? null });
+    } catch (e: any) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Genre post rate limiter: 5 posts per 10 minutes
+const genrePostLimiter = rateLimit({ windowMs: 10 * 60 * 1000, max: 5, keyGenerator: (req: any) => req.session?.user?.id || req.ip });
+
+// Create a discussion genre post
+app.post('/api/genre-posts', requireAuth, requireVerified, genrePostLimiter, async (req: any, res) => {
+    try {
+        const userId = req.session.user.id;
+        const { genreId, title, body, imageUrl } = req.body;
+        if (!genreId || !title?.trim()) return res.status(400).json({ error: 'genreId and title are required' });
+        if (title.length > 300) return res.status(400).json({ error: 'Title must be 300 characters or fewer' });
+        if (body && body.length > 10000) return res.status(400).json({ error: 'Body must be 10,000 characters or fewer' });
+        const genre = await db.genre.findUnique({ where: { id: genreId } });
+        if (!genre) return res.status(404).json({ error: 'Genre not found' });
+
+        const canonicalId = req.session.user._localId || userId;
+        let username = req.session.user.username || 'Unknown';
+        let avatarUrl: string | null = null;
+        const profile = await db.musicianProfile.findFirst({
+            where: { OR: [{ userId: canonicalId }, { userId }] },
+            select: { avatar: true, displayName: true, username: true },
+        });
+        if (profile) {
+            username = profile.displayName || profile.username || username;
+            avatarUrl = profile.avatar || null;
+        }
+
+        const post = await db.genrePost.create({
+            data: { genreId, userId, username, avatarUrl, type: 'discussion', title: title.trim(), body: body?.trim() || null, imageUrl: imageUrl || null },
+            include: { genre: { select: { id: true, name: true, slug: true } } },
+        });
+        res.json({ ...post, userVote: null });
+    } catch (e: any) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Vote on a genre post
+app.post('/api/genre-posts/:postId/vote', requireAuth, async (req: any, res) => {
+    try {
+        const userId = req.session.user.id;
+        const { postId } = req.params;
+        const { type } = req.body; // "up" | "down"
+        if (type !== 'up' && type !== 'down') return res.status(400).json({ error: 'type must be "up" or "down"' });
+
+        const post = await db.genrePost.findUnique({ where: { id: postId, deletedAt: null } });
+        if (!post) return res.status(404).json({ error: 'Post not found' });
+
+        const existing = await db.genrePostVote.findUnique({ where: { userId_postId: { userId, postId } } });
+
+        let delta = { upvotes: 0, downvotes: 0 };
+        let userVote: string | null = type;
+
+        if (existing) {
+            if (existing.type === type) {
+                // Toggle off
+                await db.genrePostVote.delete({ where: { userId_postId: { userId, postId } } });
+                delta = type === 'up' ? { upvotes: -1, downvotes: 0 } : { upvotes: 0, downvotes: -1 };
+                userVote = null;
+            } else {
+                // Switch direction
+                await db.genrePostVote.update({ where: { userId_postId: { userId, postId } }, data: { type } });
+                delta = type === 'up' ? { upvotes: 1, downvotes: -1 } : { upvotes: -1, downvotes: 1 };
+            }
+        } else {
+            await db.genrePostVote.create({ data: { userId, postId, type } });
+            delta = type === 'up' ? { upvotes: 1, downvotes: 0 } : { upvotes: 0, downvotes: 1 };
+        }
+
+        const updated = await db.genrePost.update({
+            where: { id: postId },
+            data: {
+                upvotes: { increment: delta.upvotes },
+                downvotes: { increment: delta.downvotes },
+                score: { increment: delta.upvotes - delta.downvotes },
+            },
+        });
+        const newHotScore = computeHotScore(updated.score, updated.createdAt);
+        await db.genrePost.update({ where: { id: postId }, data: { hotScore: newHotScore } });
+
+        res.json({ postId, score: updated.score, upvotes: updated.upvotes, downvotes: updated.downvotes, userVote, hotScore: newHotScore });
+    } catch (e: any) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Hot score background refresh (every 15 minutes)
+setInterval(async () => {
+    try {
+        await db.$executeRaw`
+            UPDATE genre_posts
+            SET "hotScore" = CAST(score AS float) / POWER(EXTRACT(EPOCH FROM (NOW() - "createdAt")) / 3600.0 + 2, 1.8)
+            WHERE "deletedAt" IS NULL AND score != 0
+        `;
+    } catch {}
+}, 15 * 60 * 1000);
 
 // ===== Discovery Settings (Admin) =====
 
@@ -17664,8 +17907,8 @@ setInterval(runChartGeneration, 60 * 60 * 1000);
 // GET comments for a track, profile, or battle entry
 app.get('/api/comments', async (req: any, res) => {
     try {
-        const { trackId, profileId, battleEntryId, articleId, cursor, limit: rawLimit } = req.query;
-        if (!trackId && !profileId && !battleEntryId && !articleId) return res.status(400).json({ error: 'trackId, profileId, battleEntryId, or articleId is required' });
+        const { trackId, profileId, battleEntryId, articleId, genrePostId, cursor, limit: rawLimit } = req.query;
+        if (!trackId && !profileId && !battleEntryId && !articleId && !genrePostId) return res.status(400).json({ error: 'trackId, profileId, battleEntryId, articleId, or genrePostId is required' });
 
         const limit = Math.min(Number(rawLimit) || 50, 100);
         const where: any = { parentId: null }; // top-level only
@@ -17673,6 +17916,7 @@ app.get('/api/comments', async (req: any, res) => {
         if (profileId) where.profileId = profileId;
         if (battleEntryId) where.battleEntryId = battleEntryId;
         if (articleId) where.articleId = articleId;
+        if (genrePostId) where.genrePostId = genrePostId;
 
         const comments = await db.comment.findMany({
             where,
@@ -17851,7 +18095,7 @@ function analyseComment(userId: string, content: string): string | null {
 app.post('/api/comments', requireAuth, requireVerified, async (req: any, res) => {
     try {
         const userId = req.session.user.id;
-        const { content, gifUrl: rawGifUrl, trackId, profileId, battleEntryId, articleId, parentId, trackTimestamp } = req.body;
+        const { content, gifUrl: rawGifUrl, trackId, profileId, battleEntryId, articleId, genrePostId, parentId, trackTimestamp } = req.body;
         const gifUrl = validateGifUrl(rawGifUrl);
         if (rawGifUrl && !gifUrl) return res.status(400).json({ error: 'Invalid GIF URL' });
 
@@ -17868,6 +18112,7 @@ app.post('/api/comments', requireAuth, requireVerified, async (req: any, res) =>
         let resolvedProfileId = profileId;
         let resolvedBattleEntryId = battleEntryId;
         let resolvedArticleId = articleId;
+        let resolvedGenrePostId = genrePostId;
         // The actual parent stored in the DB. If the client passed a reply's id
         // as parentId, we roll up to the top-level comment so threading stays
         // flat (single reply level) — the user can still "reply to" a reply.
@@ -17877,7 +18122,7 @@ app.post('/api/comments', requireAuth, requireVerified, async (req: any, res) =>
             // Reply — inherit context from parent. If the parent is itself a
             // reply, walk up to the top-level grandparent so we never create
             // nested threads (UI only renders one level of replies).
-            const parent = await db.comment.findUnique({ where: { id: parentId }, select: { trackId: true, profileId: true, battleEntryId: true, articleId: true, parentId: true } });
+            const parent = await db.comment.findUnique({ where: { id: parentId }, select: { trackId: true, profileId: true, battleEntryId: true, articleId: true, genrePostId: true, parentId: true } });
             if (!parent) return res.status(404).json({ error: 'Parent comment not found' });
             if (parent.parentId) {
                 effectiveParentId = parent.parentId;
@@ -17886,10 +18131,11 @@ app.post('/api/comments', requireAuth, requireVerified, async (req: any, res) =>
             resolvedProfileId = parent.profileId;
             resolvedBattleEntryId = parent.battleEntryId;
             resolvedArticleId = parent.articleId;
+            resolvedGenrePostId = parent.genrePostId;
         } else {
-            const targetCount = [resolvedTrackId, resolvedProfileId, resolvedBattleEntryId, resolvedArticleId].filter(Boolean).length;
-            if (targetCount === 0) return res.status(400).json({ error: 'trackId, profileId, battleEntryId, or articleId is required' });
-            if (targetCount > 1) return res.status(400).json({ error: 'Specify only one of trackId, profileId, battleEntryId, or articleId' });
+            const targetCount = [resolvedTrackId, resolvedProfileId, resolvedBattleEntryId, resolvedArticleId, resolvedGenrePostId].filter(Boolean).length;
+            if (targetCount === 0) return res.status(400).json({ error: 'trackId, profileId, battleEntryId, articleId, or genrePostId is required' });
+            if (targetCount > 1) return res.status(400).json({ error: 'Specify only one of trackId, profileId, battleEntryId, articleId, or genrePostId' });
         }
 
         // Resolve username and avatar � prefer MusicianProfile over Discord.
@@ -17930,10 +18176,16 @@ app.post('/api/comments', requireAuth, requireVerified, async (req: any, res) =>
                 ...(resolvedProfileId ? { profileId: resolvedProfileId } : {}),
                 ...(resolvedBattleEntryId ? { battleEntryId: resolvedBattleEntryId } : {}),
                 ...(resolvedArticleId ? { articleId: resolvedArticleId } : {}),
+                ...(resolvedGenrePostId ? { genrePostId: resolvedGenrePostId } : {}),
                 ...(effectiveParentId ? { parentId: effectiveParentId } : {}),
                 ...((resolvedTrackId || resolvedBattleEntryId) && trackTimestamp != null && !effectiveParentId ? { trackTimestamp: Number(trackTimestamp) } : {}),
             },
         });
+
+        // Increment genre post comment count (fire-and-forget)
+        if (resolvedGenrePostId && !effectiveParentId) {
+            db.genrePost.update({ where: { id: resolvedGenrePostId }, data: { commentCount: { increment: 1 } } }).catch(() => {});
+        }
 
         // Audit log
         await db.commentLog.create({
