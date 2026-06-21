@@ -151,7 +151,7 @@ export const FrontpageAltFGenrePost: React.FC = () => {
             <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', height: '100%' }}>
                 <AltHeader breadcrumb={[
                     { label: 'Genres', to: '/preview/alt_f_genres' },
-                    ...(post.genre ? [{ label: post.genre.name, to: '/preview/alt_f_genres' }] : []),
+                    ...(post.genre ? [{ label: post.genre.name, to: `/preview/alt_f_genres/${post.genre.slug}` }] : []),
                     { label: post.title.length > 40 ? post.title.slice(0, 40) + '…' : post.title },
                 ]} />
 

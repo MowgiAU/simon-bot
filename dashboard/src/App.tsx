@@ -968,7 +968,7 @@ const AppInternal: React.FC = () => {
   if (currentPath === '/preview/alt_f_favourites') {
     return <Suspense fallback={<PageSpinner />}><FrontpageAltFFavourites /></Suspense>;
   }
-  if (currentPath === '/preview/alt_f_genres') {
+  if (currentPath.startsWith('/preview/alt_f_genres')) {
     return <Suspense fallback={<PageSpinner />}><FrontpageAltFGenres /></Suspense>;
   }
   if (currentPath.startsWith('/preview/alt_f_genre_post')) {

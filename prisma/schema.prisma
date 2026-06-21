@@ -1241,6 +1241,7 @@ model Genre {
   primaryForProfiles MusicianProfile[] @relation("PrimaryGenre")
   subscriptions      GenreSubscription[]
   posts              GenrePost[]
+  groups             GenreGroupGenre[]
 
   // Head-to-Head
   h2hSamplePools H2HSamplePool[] @relation("H2HSamplePoolGenre")
@@ -1338,6 +1339,29 @@ model GenrePostVote {
   @@unique([userId, postId])
   @@index([postId])
   @@map("genre_post_votes")
+}
+
+model GenreGroup {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  genres    GenreGroupGenre[]
+
+  @@index([userId])
+  @@map("genre_groups")
+}
+
+model GenreGroupGenre {
+  groupId String
+  genreId String
+  group   GenreGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  genre   Genre      @relation(fields: [genreId], references: [id], onDelete: Cascade)
+
+  @@id([groupId, genreId])
+  @@index([genreId])
+  @@map("genre_group_genres")
 }
 
 model DiscoverySettings {

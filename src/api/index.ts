@@ -10350,7 +10350,7 @@ function computeHotScore(score: number, createdAt: Date): number {
 // Get genre posts feed (or personalised subscribed feed)
 app.get('/api/genre-posts', async (req: any, res) => {
     try {
-        const { genreId, feed, sort = 'hot', cursor, period = 'week' } = req.query;
+        const { genreId, genreIds: genreIdsRaw, groupId, feed, sort = 'hot', cursor, period = 'week' } = req.query;
         const limit = Math.min(Number(req.query.limit) || 25, 50);
         const userId = req.session?.user?.id || null;
 
@@ -10360,10 +10360,20 @@ app.get('/api/genre-posts', async (req: any, res) => {
             const subs = await db.genreSubscription.findMany({ where: { userId }, select: { genreId: true } });
             genreIds = subs.map((s: any) => s.genreId);
             if (genreIds.length === 0) return res.json({ posts: [], hasMore: false, nextCursor: null });
+        } else if (groupId) {
+            const group = await (db as any).genreGroup.findUnique({
+                where: { id: groupId as string },
+                include: { genres: { select: { genreId: true } } },
+            });
+            if (!group) return res.status(404).json({ error: 'Group not found' });
+            genreIds = group.genres.map((g: any) => g.genreId);
+            if (genreIds.length === 0) return res.json({ posts: [], hasMore: false, nextCursor: null });
+        } else if (genreIdsRaw) {
+            genreIds = (genreIdsRaw as string).split(',').filter(Boolean).slice(0, 20);
         } else if (genreId) {
             genreIds = [genreId as string];
         } else {
-            return res.status(400).json({ error: 'genreId or feed=subscribed required' });
+            return res.status(400).json({ error: 'genreId, genreIds, groupId, or feed=subscribed required' });
         }
 
         const where: any = { genreId: { in: genreIds }, deletedAt: null };
@@ -10519,6 +10529,101 @@ setInterval(async () => {
         `;
     } catch {}
 }, 15 * 60 * 1000);
+
+// ===== Genre Groups =====
+
+app.get('/api/genre-groups', requireAuth, async (req: any, res) => {
+    try {
+        const userId = req.session.user.id;
+        const groups = await (db as any).genreGroup.findMany({
+            where: { userId },
+            include: { genres: { include: { genre: { select: { id: true, name: true, slug: true } } } } },
+            orderBy: { createdAt: 'asc' as const },
+        });
+        res.json(groups);
+    } catch (e: any) { res.status(500).json({ error: 'Internal server error' }); }
+});
+
+app.post('/api/genre-groups', requireAuth, async (req: any, res) => {
+    try {
+        const userId = req.session.user.id;
+        const { name, genreIds } = req.body;
+        if (!name?.trim()) return res.status(400).json({ error: 'Name required' });
+        if (!Array.isArray(genreIds) || genreIds.length === 0) return res.status(400).json({ error: 'genreIds required' });
+        const group = await (db as any).genreGroup.create({
+            data: { userId, name: name.trim(), genres: { create: genreIds.map((gid: string) => ({ genreId: gid })) } },
+            include: { genres: { include: { genre: { select: { id: true, name: true, slug: true } } } } },
+        });
+        res.json(group);
+    } catch (e: any) { res.status(500).json({ error: 'Internal server error' }); }
+});
+
+app.put('/api/genre-groups/:id', requireAuth, async (req: any, res) => {
+    try {
+        const userId = req.session.user.id;
+        const { id } = req.params;
+        const { name, genreIds } = req.body;
+        const existing = await (db as any).genreGroup.findUnique({ where: { id } });
+        if (!existing || existing.userId !== userId) return res.status(404).json({ error: 'Not found' });
+        await (db as any).genreGroupGenre.deleteMany({ where: { groupId: id } });
+        const updated = await (db as any).genreGroup.update({
+            where: { id },
+            data: {
+                ...(name ? { name: name.trim() } : {}),
+                genres: { create: (genreIds as string[]).map((gid) => ({ genreId: gid })) },
+            },
+            include: { genres: { include: { genre: { select: { id: true, name: true, slug: true } } } } },
+        });
+        res.json(updated);
+    } catch (e: any) { res.status(500).json({ error: 'Internal server error' }); }
+});
+
+app.delete('/api/genre-groups/:id', requireAuth, async (req: any, res) => {
+    try {
+        const userId = req.session.user.id;
+        const { id } = req.params;
+        const existing = await (db as any).genreGroup.findUnique({ where: { id } });
+        if (!existing || existing.userId !== userId) return res.status(404).json({ error: 'Not found' });
+        await (db as any).genreGroup.delete({ where: { id } });
+        res.json({ success: true });
+    } catch (e: any) { res.status(500).json({ error: 'Internal server error' }); }
+});
+
+// Backfill GenrePost rows for all existing public tracks with genre tags
+app.post('/api/admin/genre-posts/backfill', requireAdmin, async (_req, res) => {
+    try {
+        const trackGenres = await db.trackGenre.findMany({
+            where: { track: { isPublic: true, deletedAt: null } },
+            include: {
+                track: { include: { profile: { select: { displayName: true, username: true, avatar: true, userId: true } } } },
+            },
+        });
+        const existing = await db.genrePost.findMany({
+            where: { type: 'track', trackId: { not: null } },
+            select: { trackId: true, genreId: true },
+        });
+        const existingSet = new Set(existing.map((e: any) => `${e.trackId}:${e.genreId}`));
+        const toCreate = trackGenres
+            .filter((tg: any) => !existingSet.has(`${tg.trackId}:${tg.genreId}`))
+            .map((tg: any) => ({
+                genreId: tg.genreId,
+                userId: tg.track.userId,
+                username: tg.track.profile?.displayName || tg.track.profile?.username || 'Unknown',
+                avatarUrl: tg.track.profile?.avatar || null,
+                type: 'track',
+                title: tg.track.title,
+                trackId: tg.trackId,
+                createdAt: tg.track.createdAt,
+            }));
+        if (toCreate.length === 0) return res.json({ created: 0, message: 'All tracks already indexed' });
+        let created = 0;
+        for (let i = 0; i < toCreate.length; i += 100) {
+            const r = await db.genrePost.createMany({ data: toCreate.slice(i, i + 100), skipDuplicates: true });
+            created += r.count;
+        }
+        res.json({ created, total: toCreate.length });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
 
 // ===== Discovery Settings (Admin) =====
 
