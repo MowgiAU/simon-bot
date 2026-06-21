@@ -95,6 +95,8 @@ export class FujiRadioPlugin implements IPlugin {
     // Dedicated radio bot client (uses RADIO_BOT_TOKEN)
     private radioClient: Client | null = null;
     private radioBotId: string | null = null;
+    private radioIdentityInterval: ReturnType<typeof setInterval> | null = null;
+    private lastProcessedRadioAvatarUrl: string | null = null;
 
     // Per-guild radio state
     private radioStates = new Map<string, RadioState>();
@@ -144,6 +146,10 @@ export class FujiRadioPlugin implements IPlugin {
                 this.radioBotId = this.radioClient.user?.id ?? null;
                 this.logger.info(`[FujiRadio] Radio bot logged in as ${this.radioClient.user?.tag}`);
 
+                // Start identity polling loop for radio bot
+                this.radioIdentityInterval = setInterval(() => this.updateRadioIdentity(), 30_000);
+                this.updateRadioIdentity();
+
                 // Auto-join configured radio channels after a short delay for guild cache
                 setTimeout(() => this.autoJoinChannels(), 5_000);
             } catch (err) {
@@ -155,10 +161,40 @@ export class FujiRadioPlugin implements IPlugin {
         this.logger.info('[FujiRadio] Plugin initialized');
     }
 
+    private async updateRadioIdentity(): Promise<void> {
+        if (!this.radioClient?.isReady()) return;
+        try {
+            const settings = await this.db.botSettings.findUnique({ where: { botId: 'radio' } });
+            if (!settings) return;
+
+            if (settings.username && settings.username !== this.radioClient.user?.username) {
+                try {
+                    await this.radioClient.user?.setUsername(settings.username);
+                    this.logger.info(`[FujiRadio] Updated radio bot username to: ${settings.username}`);
+                } catch (e) {
+                    this.logger.error('[FujiRadio] Failed to set radio bot username (rate limit?)', e);
+                }
+            }
+
+            if (settings.avatarUrl && settings.avatarUrl !== this.lastProcessedRadioAvatarUrl) {
+                try {
+                    await this.radioClient.user?.setAvatar(settings.avatarUrl);
+                    this.lastProcessedRadioAvatarUrl = settings.avatarUrl;
+                    this.logger.info('[FujiRadio] Updated radio bot avatar');
+                } catch (e) {
+                    this.logger.error('[FujiRadio] Failed to set radio bot avatar', e);
+                }
+            }
+        } catch (e) {
+            this.logger.error('[FujiRadio] Failed to update radio identity', e);
+        }
+    }
+
     async shutdown(): Promise<void> {
         if (this.xpInterval) clearInterval(this.xpInterval);
         if (this.watchdogInterval) clearInterval(this.watchdogInterval);
         if (this.commandPollInterval) clearInterval(this.commandPollInterval);
+        if (this.radioIdentityInterval) clearInterval(this.radioIdentityInterval);
 
         // Disconnect all radio sessions
         for (const [guildId, state] of this.radioStates) {

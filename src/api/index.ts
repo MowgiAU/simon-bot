@@ -6094,26 +6094,43 @@ app.post('/api/bot/identity', requireAdmin, async (req, res) => {
 
         const settings = await db.botSettings.upsert({
             where: { botId },
-            create: {
-                botId,
-                status,
-                activityType,
-                activityText,
-                username,
-                avatarUrl
-            },
-            update: {
-                status,
-                activityType,
-                activityText,
-                username,
-                avatarUrl
-            }
+            create: { botId, status, activityType, activityText, username, avatarUrl },
+            update: { status, activityType, activityText, username, avatarUrl }
         });
 
         res.json(settings);
     } catch (e) {
         logger.error('Failed to update bot identity', e);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
+// --- Radio Bot Identity Routes ---
+app.get('/api/bot/radio-identity', async (req: any, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+    try {
+        let settings = await db.botSettings.findUnique({ where: { botId: 'radio' } });
+        if (!settings) {
+            settings = await db.botSettings.create({ data: { botId: 'radio', status: 'online', activityType: 'PLAYING' } });
+        }
+        res.json(settings);
+    } catch (e) {
+        logger.error('Failed to fetch radio bot identity', e);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
+app.post('/api/bot/radio-identity', requireAdmin, async (req: any, res) => {
+    try {
+        const { username, avatarUrl } = req.body;
+        const settings = await db.botSettings.upsert({
+            where: { botId: 'radio' },
+            create: { botId: 'radio', status: 'online', activityType: 'PLAYING', username, avatarUrl },
+            update: { username, avatarUrl }
+        });
+        res.json(settings);
+    } catch (e) {
+        logger.error('Failed to update radio bot identity', e);
         res.status(500).json({ error: 'Internal Server Error' });
     }
 });
