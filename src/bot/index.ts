@@ -352,6 +352,25 @@ export class SimonBot {
           const settings = await this.db.botSettings.findUnique({ where: { botId: 'simon' } });
           if (!settings) return;
 
+          // Update presence
+          const { status, activityType, activityText } = settings;
+          const simonSignature = `${status}-${activityType}-${activityText}`;
+          if (simonSignature !== this.lastSimonPresenceSignature) {
+              let type = 0;
+              switch (activityType) {
+                  case 'PLAYING':   type = 0; break;
+                  case 'WATCHING':  type = 3; break;
+                  case 'LISTENING': type = 2; break;
+                  case 'COMPETING': type = 5; break;
+                  case 'CUSTOM':    type = 4; break;
+              }
+              this.simonClient.user?.setPresence({
+                  status: status as any,
+                  activities: activityText ? [{ name: activityText, type }] : [],
+              });
+              this.lastSimonPresenceSignature = simonSignature;
+          }
+
           if (settings.username && settings.username !== this.simonClient.user?.username) {
               try {
                   await this.simonClient.user?.setUsername(settings.username);
@@ -726,6 +745,7 @@ export class SimonBot {
   private simonClient: Client | null = null;
   private simonIdentityInterval: ReturnType<typeof setInterval> | null = null;
   private lastProcessedSimonAvatarUrl: string | null = null;
+  private lastSimonPresenceSignature: string = '';
   private pluginCache = new Map<string, boolean>();
   private lastProcessedAvatarUrl: string | null = null;
   private lastPresenceSignature: string = '';

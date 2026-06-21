@@ -6152,11 +6152,11 @@ app.get('/api/bot/simon-identity', async (req: any, res) => {
 
 app.post('/api/bot/simon-identity', requireAdmin, async (req: any, res) => {
     try {
-        const { username, avatarUrl } = req.body;
+        const { username, avatarUrl, status, activityType, activityText } = req.body;
         const settings = await db.botSettings.upsert({
             where: { botId: 'simon' },
-            create: { botId: 'simon', status: 'online', activityType: 'PLAYING', username, avatarUrl },
-            update: { username, avatarUrl }
+            create: { botId: 'simon', status: status || 'online', activityType: activityType || 'PLAYING', activityText, username, avatarUrl },
+            update: { status, activityType, activityText, username, avatarUrl }
         });
         res.json(settings);
     } catch (e) {

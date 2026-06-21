@@ -17,6 +17,9 @@ export const BotIdentityPage: React.FC = () => {
     const [radioSettings, setRadioSettings] = useState({
         username: '',
         avatarUrl: '',
+        status: 'online',
+        activityType: 'PLAYING',
+        activityText: '',
     });
     const [loading, setLoading] = useState(true);
 
@@ -32,7 +35,13 @@ export const BotIdentityPage: React.FC = () => {
                 axios.get('/api/bot/simon-identity', { withCredentials: true }),
             ]);
             setSettings(mainRes.data);
-            setRadioSettings({ username: radioRes.data.username || '', avatarUrl: radioRes.data.avatarUrl || '' });
+            setRadioSettings({
+                username: radioRes.data.username || '',
+                avatarUrl: radioRes.data.avatarUrl || '',
+                status: radioRes.data.status || 'online',
+                activityType: radioRes.data.activityType || 'PLAYING',
+                activityText: radioRes.data.activityText || '',
+            });
         } catch (e) {
             console.error(e);
         } finally {
@@ -173,7 +182,38 @@ export const BotIdentityPage: React.FC = () => {
             </div>
 
             <div style={{ background: 'linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))', border: '1px solid #3E455633', padding: spacing.md, borderRadius: borderRadius.md, marginBottom: spacing.lg, borderLeft: `4px solid ${colors.primary}` }}>
-                <p style={{ margin: 0, color: colors.textPrimary, fontSize: isMobile ? '13px' : '14px', lineHeight: '1.5' }}>Simon Bot handles auto-responses and bot messaging. It doesn't have a configurable presence status — only username and avatar apply. Changes take effect within 30 seconds.</p>
+                <p style={{ margin: 0, color: colors.textPrimary, fontSize: isMobile ? '13px' : '14px', lineHeight: '1.5' }}>Simon Bot handles auto-responses and bot messaging. Configure its presence and profile independently. Changes take effect within 30 seconds.</p>
+            </div>
+
+            <div style={sectionStyle}>
+                <h3 style={{ marginTop: 0, marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Activity size={20} /> Presence
+                </h3>
+
+                <label style={{ display: 'block', marginBottom: '8px', color: colors.textSecondary }}>Status</label>
+                <select style={inputStyle} value={radioSettings.status} onChange={(e) => setRadioSettings({ ...radioSettings, status: e.target.value })}>
+                    <option value="online">Online</option>
+                    <option value="idle">Idle</option>
+                    <option value="dnd">Do Not Disturb</option>
+                    <option value="invisible">Invisible</option>
+                </select>
+
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 2fr', gap: '16px' }}>
+                    <div>
+                        <label style={{ display: 'block', marginBottom: '8px', color: colors.textSecondary }}>Activity Type</label>
+                        <select style={inputStyle} value={radioSettings.activityType} onChange={(e) => setRadioSettings({ ...radioSettings, activityType: e.target.value })}>
+                            <option value="PLAYING">Playing</option>
+                            <option value="WATCHING">Watching</option>
+                            <option value="LISTENING">Listening</option>
+                            <option value="COMPETING">Competing</option>
+                            <option value="CUSTOM">Custom Status</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style={{ display: 'block', marginBottom: '8px', color: colors.textSecondary }}>Activity Text</label>
+                        <input style={inputStyle} value={radioSettings.activityText} onChange={(e) => setRadioSettings({ ...radioSettings, activityText: e.target.value })} placeholder="e.g. Answering questions" />
+                    </div>
+                </div>
             </div>
 
             <div style={sectionStyle}>
@@ -182,7 +222,7 @@ export const BotIdentityPage: React.FC = () => {
                 </h3>
 
                 <label style={{ display: 'block', marginBottom: '8px', color: colors.textSecondary }}>Username</label>
-                <input style={inputStyle} value={radioSettings.username} onChange={(e) => setRadioSettings({ ...radioSettings, username: e.target.value })} placeholder="Radio Bot Username (Rate limited!)" />
+                <input style={inputStyle} value={radioSettings.username} onChange={(e) => setRadioSettings({ ...radioSettings, username: e.target.value })} placeholder="Simon Bot Username (Rate limited!)" />
                 <p style={{ fontSize: '12px', color: colors.warning }}>Warning: Discord rate limits username changes (2 per hour).</p>
 
                 <br />
