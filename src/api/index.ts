@@ -10595,7 +10595,7 @@ app.post('/api/admin/genre-posts/backfill', requireAdmin, async (_req, res) => {
         const trackGenres = await db.trackGenre.findMany({
             where: { track: { isPublic: true, deletedAt: null } },
             include: {
-                track: { include: { profile: { select: { displayName: true, username: true, avatar: true, userId: true } } } },
+                track: { include: { profile: { select: { userId: true, displayName: true, username: true, avatar: true } } } },
             },
         });
         const existing = await db.genrePost.findMany({
@@ -10604,10 +10604,10 @@ app.post('/api/admin/genre-posts/backfill', requireAdmin, async (_req, res) => {
         });
         const existingSet = new Set(existing.map((e: any) => `${e.trackId}:${e.genreId}`));
         const toCreate = trackGenres
-            .filter((tg: any) => !existingSet.has(`${tg.trackId}:${tg.genreId}`))
+            .filter((tg: any) => !existingSet.has(`${tg.trackId}:${tg.genreId}`) && tg.track.profile?.userId)
             .map((tg: any) => ({
                 genreId: tg.genreId,
-                userId: tg.track.userId,
+                userId: tg.track.profile.userId,
                 username: tg.track.profile?.displayName || tg.track.profile?.username || 'Unknown',
                 avatarUrl: tg.track.profile?.avatar || null,
                 type: 'track',
