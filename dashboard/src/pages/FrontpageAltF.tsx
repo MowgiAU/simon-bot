@@ -21,6 +21,7 @@ import {
 
 const fmtNum = (n?: number) => { n = n || 0; if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M'; if (n >= 1e3) return (n / 1e3).toFixed(1) + 'k'; return String(n); };
 const fmtDate = (s?: string) => { if (!s) return ''; return new Date(s).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' }); };
+const fmtDur = (s?: number) => { if (!s) return ''; const m = Math.floor(s / 60); return `${m}:${String(Math.floor(s % 60)).padStart(2, '0')}`; };
 
 const glass: React.CSSProperties = {
     background: 'rgba(15,19,29,0.7)',
@@ -693,7 +694,6 @@ export const FrontpageAltF: React.FC = () => {
                                             {genrePosts.map((post: any) => {
                                                 const voteDir = genreVotes[post.id] ?? post.userVote;
                                                 const trackUrl = post.track?.mp3Url || post.track?.url;
-                                                const isPlaying = player.currentTrack?.id === post.track?.id && player.isPlaying;
                                                 const timeAgo = (() => {
                                                     const diff = Date.now() - new Date(post.createdAt).getTime();
                                                     const h = Math.floor(diff / 3_600_000);
@@ -743,29 +743,78 @@ export const FrontpageAltF: React.FC = () => {
                                                                 {post.title}
                                                             </Link>
 
-                                                            {/* Track mini-player */}
-                                                            {post.track && (
-                                                                <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: S_HIGH, borderRadius: 10, padding: '8px 12px', marginBottom: 4 }}>
-                                                                    {post.track.coverUrl && (
-                                                                        <img src={post.track.coverUrl} referrerPolicy="no-referrer" style={{ width: 36, height: 36, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }} />
-                                                                    )}
-                                                                    <div style={{ flex: 1, minWidth: 0 }}>
-                                                                        <div style={{ fontSize: 12, fontWeight: 700, color: isPlaying ? PRIMARY : TEXT, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{post.track.title}</div>
-                                                                        <div style={{ fontSize: 11, color: SUB }}>{post.track.profile?.displayName || post.track.profile?.username || ''}</div>
+                                                            {/* Track player card */}
+                                                            {post.track && (() => {
+                                                                const isActiveTrack = player.currentTrack?.id === post.track.id;
+                                                                const trackPlaying = isActiveTrack && player.isPlaying;
+                                                                const trackProgress = isActiveTrack ? (player.currentTime / (player.duration || post.track.duration || 1)) : 0;
+                                                                const artist = post.track.profile?.displayName || post.track.profile?.username || '';
+                                                                const peaks: number[] = post.track.waveformPeaks || [];
+                                                                const playHandler = () => {
+                                                                    if (!trackUrl) return;
+                                                                    if (isActiveTrack) { togglePlay(); return; }
+                                                                    setTrack({ id: post.track.id, title: post.track.title, artist, url: trackUrl, coverUrl: post.track.coverUrl }, []);
+                                                                };
+                                                                return (
+                                                                    <div style={{ borderRadius: 12, overflow: 'hidden', background: S_HIGH, border: `1px solid rgba(255,255,255,0.07)`, marginBottom: 4 }}>
+                                                                        <div style={{ display: 'flex', gap: 0 }}>
+                                                                            {/* Cover art with play overlay */}
+                                                                            <div style={{ position: 'relative', width: 96, height: 96, flexShrink: 0 }}>
+                                                                                {post.track.coverUrl
+                                                                                    ? <img src={post.track.coverUrl} referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                                                                                    : <div style={{ width: '100%', height: '100%', background: BG, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Music size={24} color={SUB} /></div>
+                                                                                }
+                                                                                <button onClick={playHandler} style={{ position: 'absolute', inset: 0, background: trackPlaying ? 'rgba(0,0,0,0.35)' : 'rgba(0,0,0,0.5)', border: 'none', cursor: trackUrl ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                                                    <div style={{ width: 36, height: 36, borderRadius: '50%', background: trackPlaying ? PRIMARY : 'rgba(255,255,255,0.92)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 12px rgba(0,0,0,0.5)' }}>
+                                                                                        {trackPlaying
+                                                                                            ? <Pause size={14} color="#fff" fill="#fff" />
+                                                                                            : <Play  size={14} color="#111" fill="#111" style={{ marginLeft: 2 }} />}
+                                                                                    </div>
+                                                                                </button>
+                                                                                {/* Active pulse ring */}
+                                                                                {trackPlaying && <div style={{ position: 'absolute', inset: 0, boxShadow: `inset 0 0 0 2px ${PRIMARY}`, pointerEvents: 'none' }} />}
+                                                                            </div>
+
+                                                                            {/* Right: title + waveform */}
+                                                                            <div style={{ flex: 1, minWidth: 0, padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                                                                <div>
+                                                                                    <div style={{ fontSize: 13, fontWeight: 700, color: trackPlaying ? PRIMARY : TEXT, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{post.track.title}</div>
+                                                                                    <div style={{ fontSize: 11, color: SUB, marginTop: 2, display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                                                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{artist}</span>
+                                                                                        {post.track.duration && <span style={{ flexShrink: 0, color: `${SUB}99` }}>{fmtDur(post.track.duration)}</span>}
+                                                                                    </div>
+                                                                                </div>
+
+                                                                                {/* Waveform */}
+                                                                                <div style={{ flex: 1, minHeight: 36, cursor: trackUrl ? 'pointer' : 'default' }} onClick={playHandler}>
+                                                                                    {peaks.length > 0 ? (
+                                                                                        <svg width="100%" height="36" preserveAspectRatio="none" viewBox={`0 0 ${peaks.length} 36`} style={{ display: 'block' }}>
+                                                                                            {peaks.map((peak: number, i: number) => {
+                                                                                                const h = Math.max(2, peak * 28); const y = (36 - h) / 2;
+                                                                                                const played = isActiveTrack && (i / peaks.length) < trackProgress;
+                                                                                                return <rect key={i} x={i} y={y} width={0.7} height={h} fill={played ? PRIMARY : 'rgba(255,255,255,0.18)'} rx={0.3} />;
+                                                                                            })}
+                                                                                        </svg>
+                                                                                    ) : (() => {
+                                                                                        let h = 5381;
+                                                                                        for (const c of post.track.id) h = (h * 33 ^ c.charCodeAt(0)) >>> 0;
+                                                                                        return (
+                                                                                            <div style={{ height: 36, display: 'flex', alignItems: 'center', gap: '1.5px', overflow: 'hidden' }}>
+                                                                                                {Array.from({ length: 80 }, (_, i) => {
+                                                                                                    h = (h * 1664525 + 1013904223) >>> 0;
+                                                                                                    const ht = 15 + (h % 65);
+                                                                                                    const played = isActiveTrack && (i / 80) < trackProgress;
+                                                                                                    return <div key={i} style={{ flex: 1, height: `${ht}%`, borderRadius: 9999, background: played ? PRIMARY : 'rgba(255,255,255,0.18)' }} />;
+                                                                                                })}
+                                                                                            </div>
+                                                                                        );
+                                                                                    })()}
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
                                                                     </div>
-                                                                    {trackUrl && (
-                                                                        <button onClick={() => {
-                                                                            if (player.currentTrack?.id === post.track.id) { togglePlay(); return; }
-                                                                            setTrack({ id: post.track.id, title: post.track.title, artist: post.track.profile?.displayName || post.track.profile?.username || '', url: trackUrl, coverUrl: post.track.coverUrl }, []);
-                                                                        }}
-                                                                            style={{ width: 32, height: 32, borderRadius: '50%', background: isPlaying ? PRIMARY : 'rgba(255,255,255,0.12)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
-                                                                            {isPlaying
-                                                                                ? <Pause size={12} color="#fff" fill="#fff" />
-                                                                                : <Play  size={12} color={TEXT} fill={TEXT} style={{ marginLeft: 1 }} />}
-                                                                        </button>
-                                                                    )}
-                                                                </div>
-                                                            )}
+                                                                );
+                                                            })()}
 
                                                             {/* Footer row */}
                                                             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 8 }}>
