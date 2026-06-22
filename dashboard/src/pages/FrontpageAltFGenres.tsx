@@ -16,6 +16,7 @@ import {
     Music, Play, Pause, Search, X, TrendingUp, Users,
     ChevronUp, ChevronDown, MessageCircle, Clock, Flame, Plus, Bell, BellOff,
     FileText, Layers, BookMarked, Trash2, Check, ChevronLeft,
+    Share2, Tag, Pin,
 } from 'lucide-react';
 
 const glass: React.CSSProperties = {
@@ -48,6 +49,11 @@ function genreAccent(name: string): string {
     for (let i = 0; i < name.length; i++) h = (h * 33 ^ name.charCodeAt(i)) >>> 0;
     return `hsl(${h % 360},60%,65%)`;
 }
+function flairColor(flair: string): string {
+    let h = 5381;
+    for (let i = 0; i < flair.length; i++) h = (h * 33 ^ flair.charCodeAt(i)) >>> 0;
+    return `hsl(${h % 360},60%,65%)`;
+}
 
 interface Genre {
     id: string; name: string; slug: string; parentId: string | null;
@@ -62,6 +68,10 @@ interface GenrePost {
     genreId: string; genre?: { id: string; name: string; slug: string };
     track?: { id: string; title: string; slug: string; coverUrl?: string | null; url?: string; mp3Url?: string | null; duration?: number; waveformPeaks?: number[] | null; profile?: { username: string; displayName?: string | null } } | null;
     userVote: 'up' | 'down' | null;
+    flair?: string | null;
+    pinned?: boolean;
+    crossPostOfId?: string | null;
+    crossPostOf?: { id: string; title: string; genre?: { name: string; slug: string } | null } | null;
 }
 interface GenreGroup {
     id: string; name: string; userId: string; createdAt: string;
@@ -71,7 +81,8 @@ interface GenreGroup {
 // ── GenrePostCard ──────────────────────────────────────────────────────────────
 const GenrePostCard: React.FC<{
     post: GenrePost; onVote: (id: string, type: 'up' | 'down') => void; showGenre?: boolean;
-}> = ({ post, onVote, showGenre }) => {
+    onShare?: (post: GenrePost) => void;
+}> = ({ post, onVote, showGenre, onShare }) => {
     const { player, setTrack, togglePlay } = usePlayer();
     const [hovered, setHovered] = useState(false);
 
@@ -109,6 +120,25 @@ const GenrePostCard: React.FC<{
 
             {/* Content */}
             <div style={{ flex: 1, minWidth: 0 }}>
+                {/* Pinned indicator */}
+                {post.pinned && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: SECONDARY, fontWeight: 700, marginBottom: 5 }}>
+                        <Pin size={11} /> Pinned
+                    </div>
+                )}
+                {/* Cross-post origin */}
+                {post.crossPostOf && (
+                    <div style={{ fontSize: 11, color: SUB, marginBottom: 5, display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <Share2 size={10} />
+                        Cross-posted from{' '}
+                        <Link to={`/preview/alt_f_genre_post/${post.crossPostOf.id}`} style={{ color: post.crossPostOf.genre ? genreAccent(post.crossPostOf.genre.name) : PRIMARY, textDecoration: 'none', fontWeight: 600 }}>
+                            {post.crossPostOf.title.length > 40 ? post.crossPostOf.title.slice(0, 40) + '…' : post.crossPostOf.title}
+                        </Link>
+                        {post.crossPostOf.genre && (
+                            <span> in <Link to={`/preview/alt_f_genres/${post.crossPostOf.genre.slug}`} style={{ color: genreAccent(post.crossPostOf.genre.name), textDecoration: 'none', fontWeight: 600 }}>{post.crossPostOf.genre.name}</Link></span>
+                        )}
+                    </div>
+                )}
                 <Link to={`/preview/alt_f_genre_post/${post.id}`} style={{ textDecoration: 'none', display: 'block', marginBottom: 6 }}>
                     <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: TEXT, lineHeight: 1.35, cursor: 'pointer' }}
                         onMouseEnter={e => (e.currentTarget.style.color = PRIMARY)}
@@ -118,6 +148,14 @@ const GenrePostCard: React.FC<{
                         {post.title}
                     </p>
                 </Link>
+                {/* Flair pill */}
+                {post.flair && (
+                    <div style={{ marginBottom: 6 }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 9999, background: `${flairColor(post.flair)}18`, border: `1px solid ${flairColor(post.flair)}44`, color: flairColor(post.flair), fontSize: 11, fontWeight: 700 }}>
+                            <Tag size={9} /> {post.flair}
+                        </span>
+                    </div>
+                )}
 
                 {post.type === 'track' && post.track && (() => {
                     const peaks: number[] = post.track.waveformPeaks || [];
@@ -216,6 +254,14 @@ const GenrePostCard: React.FC<{
                         <MessageCircle size={12} />
                         <span>{post.commentCount} comments</span>
                     </Link>
+                    {onShare && (
+                        <button onClick={e => { e.preventDefault(); onShare(post); }}
+                            style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', cursor: 'pointer', color: SUB, padding: 0, fontFamily: FONT, fontSize: 11 }}
+                            onMouseEnter={e => (e.currentTarget.style.color = TEXT)}
+                            onMouseLeave={e => (e.currentTarget.style.color = SUB)}>
+                            <Share2 size={12} /> Share
+                        </button>
+                    )}
                 </div>
             </div>
         </div>
@@ -226,6 +272,7 @@ const GenrePostCard: React.FC<{
 const CreatePostModal: React.FC<{
     genreId: string; genreName: string; onClose: () => void; onCreated: (post: GenrePost) => void;
 }> = ({ genreId, genreName, onClose, onCreated }) => {
+    const [flair, setFlair] = useState('');
     const [title, setTitle] = useState('');
     const [body, setBody] = useState('');
     const [saving, setSaving] = useState(false);
@@ -235,7 +282,7 @@ const CreatePostModal: React.FC<{
         if (!title.trim()) { setErr('Title is required'); return; }
         setSaving(true); setErr('');
         try {
-            const r = await axios.post('/api/genre-posts', { genreId, title, body, type: 'discussion' }, { withCredentials: true });
+            const r = await axios.post('/api/genre-posts', { genreId, title, body, type: 'discussion', flair: flair.trim() || undefined }, { withCredentials: true });
             onCreated(r.data); onClose();
         } catch (e: any) { setErr(e.response?.data?.error || 'Failed to post'); }
         finally { setSaving(false); }
@@ -246,6 +293,10 @@ const CreatePostModal: React.FC<{
             <div onClick={e => e.stopPropagation()} style={{ ...glass, borderRadius: 18, padding: 28, width: '100%', maxWidth: 560, fontFamily: FONT }}>
                 <h3 style={{ margin: '0 0 6px', fontSize: 18, fontWeight: 800, color: TEXT }}>New post in {genreName}</h3>
                 <p style={{ margin: '0 0 20px', fontSize: 13, color: SUB }}>Start a discussion in this genre community</p>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: SUB, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Topic <span style={{ fontWeight: 400, textTransform: 'none' }}>(optional)</span></label>
+                <input value={flair} onChange={e => setFlair(e.target.value)} maxLength={50} placeholder="e.g. Question, Tutorial, Showcase, Feedback…"
+                    style={{ width: '100%', boxSizing: 'border-box', padding: '10px 14px', background: S_CONT, border: `1px solid ${BORDER}`, borderRadius: 9, color: TEXT, fontSize: 14, fontFamily: FONT, outline: 'none', marginBottom: 4 }} />
+                <div style={{ fontSize: 11, color: SUB, textAlign: 'right', marginBottom: 16 }}>{flair.length}/50</div>
                 <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: SUB, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Title</label>
                 <input value={title} onChange={e => setTitle(e.target.value)} maxLength={300} placeholder="An interesting title…"
                     style={{ width: '100%', boxSizing: 'border-box', padding: '10px 14px', background: S_CONT, border: `1px solid ${BORDER}`, borderRadius: 9, color: TEXT, fontSize: 14, fontFamily: FONT, outline: 'none', marginBottom: 4 }} />
@@ -299,6 +350,107 @@ const SaveGroupModal: React.FC<{
     );
 };
 
+// ── Share Modal ────────────────────────────────────────────────────────────────
+const ShareModal: React.FC<{
+    post: GenrePost; genres: Genre[]; onClose: () => void;
+}> = ({ post, genres, onClose }) => {
+    const [step, setStep] = useState<'menu' | 'crosspost'>('menu');
+    const [crossPostGenreId, setCrossPostGenreId] = useState('');
+    const [crossPostNote, setCrossPostNote] = useState('');
+    const [crossPosting, setCrossPosting] = useState(false);
+    const [done, setDone] = useState(false);
+    const [copied, setCopied] = useState(false);
+    const [err, setErr] = useState('');
+
+    const allFlat: Genre[] = [];
+    const walkAll = (gs: Genre[]) => gs.forEach(g => { allFlat.push(g); walkAll(g.children || []); });
+    walkAll(genres);
+
+    const copyLink = () => {
+        const url = `${window.location.origin}/preview/alt_f_genre_post/${post.id}`;
+        navigator.clipboard.writeText(url).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); }).catch(() => {});
+    };
+
+    const submitCrossPost = async () => {
+        if (!crossPostGenreId) { setErr('Please select a genre'); return; }
+        setCrossPosting(true); setErr('');
+        try {
+            await axios.post('/api/genre-posts', {
+                genreId: crossPostGenreId,
+                crossPostOfId: post.id,
+                title: post.title,
+                body: crossPostNote || undefined,
+                type: 'discussion',
+            }, { withCredentials: true });
+            setDone(true);
+        } catch (e: any) { setErr(e.response?.data?.error || 'Failed to cross-post'); }
+        finally { setCrossPosting(false); }
+    };
+
+    return (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }} onClick={onClose}>
+            <div onClick={e => e.stopPropagation()} style={{ ...glass, borderRadius: 18, padding: 28, width: '100%', maxWidth: 480, fontFamily: FONT }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+                    <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: TEXT, display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <Share2 size={16} color={PRIMARY} /> Share Post
+                    </h3>
+                    <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: SUB, padding: 0, display: 'flex' }}><X size={16} /></button>
+                </div>
+
+                {done ? (
+                    <div style={{ textAlign: 'center', padding: '20px 0' }}>
+                        <Check size={32} color={SECONDARY} style={{ marginBottom: 10 }} />
+                        <div style={{ fontSize: 15, fontWeight: 700, color: TEXT, marginBottom: 6 }}>Cross-posted!</div>
+                        <div style={{ fontSize: 13, color: SUB, marginBottom: 18 }}>The post has been shared to the selected genre.</div>
+                        <button onClick={onClose} style={{ padding: '9px 20px', background: PRIMARY, border: 'none', borderRadius: 8, color: '#fff', cursor: 'pointer', fontFamily: FONT, fontSize: 14, fontWeight: 700 }}>Done</button>
+                    </div>
+                ) : step === 'menu' ? (
+                    <>
+                        <div style={{ fontSize: 13, color: SUB, marginBottom: 16, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            "{post.title.length > 50 ? post.title.slice(0, 50) + '…' : post.title}"
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                            <button onClick={copyLink}
+                                style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', background: copied ? `${SECONDARY}18` : S_CONT, border: `1px solid ${copied ? SECONDARY : BORDER}`, borderRadius: 10, color: copied ? SECONDARY : TEXT, cursor: 'pointer', fontFamily: FONT, fontSize: 14, fontWeight: 600, transition: 'all 0.2s' }}>
+                                <Share2 size={16} color={copied ? SECONDARY : SUB} />
+                                {copied ? 'Link copied!' : 'Copy link'}
+                            </button>
+                            <button onClick={() => setStep('crosspost')}
+                                style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', background: S_CONT, border: `1px solid ${BORDER}`, borderRadius: 10, color: TEXT, cursor: 'pointer', fontFamily: FONT, fontSize: 14, fontWeight: 600 }}>
+                                <Layers size={16} color={SUB} />
+                                Cross-post to another genre
+                            </button>
+                        </div>
+                    </>
+                ) : (
+                    <>
+                        <button onClick={() => setStep('menu')} style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'none', border: 'none', cursor: 'pointer', color: SUB, fontFamily: FONT, fontSize: 12, padding: 0, marginBottom: 16 }}>
+                            <ChevronLeft size={13} /> Back
+                        </button>
+                        <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: SUB, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Post to Genre</label>
+                        <select value={crossPostGenreId} onChange={e => setCrossPostGenreId(e.target.value)}
+                            style={{ width: '100%', boxSizing: 'border-box', padding: '10px 14px', background: S_CONT, border: `1px solid ${BORDER}`, borderRadius: 9, color: crossPostGenreId ? TEXT : SUB, fontSize: 14, fontFamily: FONT, outline: 'none', marginBottom: 16, appearance: 'none' }}>
+                            <option value="">Select a genre…</option>
+                            {allFlat.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+                        </select>
+                        <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: SUB, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Note <span style={{ fontWeight: 400, textTransform: 'none' }}>(optional)</span></label>
+                        <textarea value={crossPostNote} onChange={e => setCrossPostNote(e.target.value)} maxLength={2000} rows={3} placeholder="Add a note for the new community…"
+                            style={{ width: '100%', boxSizing: 'border-box', padding: '10px 14px', background: S_CONT, border: `1px solid ${BORDER}`, borderRadius: 9, color: TEXT, fontSize: 14, fontFamily: FONT, outline: 'none', resize: 'vertical', marginBottom: 4 }} />
+                        {err && <p style={{ color: TERTIARY, fontSize: 13, margin: '8px 0 0' }}>{err}</p>}
+                        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 16 }}>
+                            <button onClick={onClose} style={{ padding: '9px 18px', background: S_CONT, border: `1px solid ${BORDER}`, borderRadius: 8, color: SUB, cursor: 'pointer', fontFamily: FONT, fontSize: 14 }}>Cancel</button>
+                            <button onClick={submitCrossPost} disabled={crossPosting || !crossPostGenreId}
+                                style={{ padding: '9px 18px', background: PRIMARY, border: 'none', borderRadius: 8, color: '#fff', cursor: (crossPosting || !crossPostGenreId) ? 'not-allowed' : 'pointer', fontFamily: FONT, fontSize: 14, fontWeight: 700, opacity: (crossPosting || !crossPostGenreId) ? 0.6 : 1 }}>
+                                {crossPosting ? 'Posting…' : 'Cross-post'}
+                            </button>
+                        </div>
+                    </>
+                )}
+            </div>
+        </div>
+    );
+};
+
 // ── Main Component ─────────────────────────────────────────────────────────────
 export const FrontpageAltFGenres: React.FC = () => {
     const location = useLocation();
@@ -337,6 +489,7 @@ export const FrontpageAltFGenres: React.FC = () => {
     const [showSaveGroup, setShowSaveGroup] = useState(false);
     const [multiSelectMode, setMultiSelectMode] = useState(false);
     const [multiSelected, setMultiSelected] = useState<Set<string>>(new Set());
+    const [sharePost, setSharePost] = useState<GenrePost | null>(null);
 
     // ── Derived from genres list ──────────────────────────────────────────────
     const allGenres = useMemo(() => {
@@ -886,7 +1039,7 @@ export const FrontpageAltFGenres: React.FC = () => {
                                     ) : (
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                                             {posts.map(p => (
-                                                <GenrePostCard key={p.id} post={p} onVote={handleVote} showGenre={viewMode !== 'single'} />
+                                                <GenrePostCard key={p.id} post={p} onVote={handleVote} showGenre={viewMode !== 'single'} onShare={setSharePost} />
                                             ))}
                                             {hasMore && (
                                                 <button onClick={() => fetchPosts(buildParams(), nextCursor!)} disabled={postsLoading}
@@ -918,6 +1071,14 @@ export const FrontpageAltFGenres: React.FC = () => {
                     genreNames={viewMode === 'group' && activeGroup ? activeGroup.genres.map(g => g.genre.name) : activeGenreNames}
                     onSave={handleSaveGroup}
                     onClose={() => setShowSaveGroup(false)}
+                />
+            )}
+
+            {sharePost && (
+                <ShareModal
+                    post={sharePost}
+                    genres={genres}
+                    onClose={() => setSharePost(null)}
                 />
             )}
         </div>

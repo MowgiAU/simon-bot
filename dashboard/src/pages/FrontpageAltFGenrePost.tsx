@@ -1,11 +1,12 @@
 /**
  * Alt F — Genre Post Detail (/preview/alt_f_genre_post/:postId)
- * Full post view with voting, comments, and track player.
+ * Full post view with voting, comments, track player, share, admin controls.
  */
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
 import { usePlayer } from '../components/PlayerProvider';
+import { useAuth } from '../components/AuthProvider';
 import {
     AltSidebar, BG, S_CONT, S_HIGH,
     PRIMARY, SECONDARY, TERTIARY, TEXT, SUB, BORDER, FONT, arr,
@@ -15,6 +16,7 @@ import { AltActivitySidebar } from '../components/altshell/AltActivitySidebar';
 import {
     ChevronUp, ChevronDown, MessageCircle, Music, Play, Pause, FileText,
     ChevronLeft, Send, ThumbsUp, ThumbsDown,
+    Share2, Pin, EyeOff, Eye, Tag, Layers, Check, X,
 } from 'lucide-react';
 
 const glass: React.CSSProperties = {
@@ -40,10 +42,20 @@ function genreAccent(name: string): string {
     for (let i = 0; i < name.length; i++) h = (h * 33 ^ name.charCodeAt(i)) >>> 0;
     return `hsl(${h % 360},60%,65%)`;
 }
+function flairColor(flair: string): string {
+    let h = 5381;
+    for (let i = 0; i < flair.length; i++) h = (h * 33 ^ flair.charCodeAt(i)) >>> 0;
+    return `hsl(${h % 360},60%,65%)`;
+}
+
+interface GenreInfo { id: string; name: string; slug: string; }
+interface CrossPostOf { id: string; title: string; username?: string; flair?: string | null; genre?: GenreInfo | null; }
 
 export const FrontpageAltFGenrePost: React.FC = () => {
     const postId = window.location.pathname.split('/').pop() || '';
     const { player, setTrack, togglePlay } = usePlayer();
+    const { mutualAdminGuilds } = useAuth();
+    const isAdmin = mutualAdminGuilds.length > 0;
 
     const [post, setPost] = useState<any>(null);
     const [loading, setLoading] = useState(true);
@@ -53,6 +65,27 @@ export const FrontpageAltFGenrePost: React.FC = () => {
     const [commentText, setCommentText] = useState('');
     const [submitting, setSubmitting] = useState(false);
     const [replyTo, setReplyTo] = useState<{ id: string; username: string } | null>(null);
+
+    // Share state
+    const [showShareModal, setShowShareModal] = useState(false);
+    const [shareStep, setShareStep] = useState<'menu' | 'crosspost'>('menu');
+    const [crossPostGenreId, setCrossPostGenreId] = useState('');
+    const [crossPostNote, setCrossPostNote] = useState('');
+    const [crossPosting, setCrossPosting] = useState(false);
+    const [crossPostDone, setCrossPostDone] = useState(false);
+    const [copied, setCopied] = useState(false);
+    const [shareErr, setShareErr] = useState('');
+    const [genres, setGenres] = useState<any[]>([]);
+
+    // Admin hide post state
+    const [showHidePostModal, setShowHidePostModal] = useState(false);
+    const [hidePostReason, setHidePostReason] = useState('');
+    const [hidingPost, setHidingPost] = useState(false);
+
+    // Admin hide comment state
+    const [showHideCommentModal, setShowHideCommentModal] = useState<{ commentId: string } | null>(null);
+    const [hideCommentReason, setHideCommentReason] = useState('');
+    const [hidingComment, setHidingComment] = useState(false);
 
     useEffect(() => {
         if (!postId) return;
@@ -68,6 +101,16 @@ export const FrontpageAltFGenrePost: React.FC = () => {
             setCommentsLoading(false);
         }).catch(() => setCommentsLoading(false));
     }, [postId]);
+
+    // Fetch genres for cross-post selector
+    useEffect(() => {
+        axios.get('/api/musician/genres').then(r => {
+            const flat: any[] = [];
+            const walk = (gs: any[]) => gs.forEach((g: any) => { flat.push(g); walk(g.children || []); });
+            walk(arr(r.data));
+            setGenres(flat);
+        }).catch(() => {});
+    }, []);
 
     const handleVote = async (type: 'up' | 'down') => {
         if (!post) return;
@@ -112,6 +155,91 @@ export const FrontpageAltFGenrePost: React.FC = () => {
         finally { setSubmitting(false); }
     };
 
+    // Admin: toggle pin
+    const handleTogglePin = async () => {
+        if (!post) return;
+        try {
+            const r = await axios.post(`/api/genre-posts/${post.id}/pin`, {}, { withCredentials: true });
+            setPost((p: any) => ({ ...p, pinned: r.data.pinned }));
+        } catch {}
+    };
+
+    // Admin: hide post
+    const handleHidePost = async () => {
+        if (!post) return;
+        setHidingPost(true);
+        try {
+            await axios.post(`/api/genre-posts/${post.id}/hide`, { reason: hidePostReason || undefined }, { withCredentials: true });
+            setPost((p: any) => ({ ...p, hiddenAt: new Date().toISOString(), hideReason: hidePostReason || null }));
+            setShowHidePostModal(false);
+            setHidePostReason('');
+        } catch {}
+        finally { setHidingPost(false); }
+    };
+
+    // Admin: restore post
+    const handleRestorePost = async () => {
+        if (!post) return;
+        try {
+            await axios.post(`/api/genre-posts/${post.id}/restore`, {}, { withCredentials: true });
+            setPost((p: any) => ({ ...p, hiddenAt: null, hideReason: null }));
+        } catch {}
+    };
+
+    // Admin: hide comment
+    const handleHideComment = async () => {
+        if (!showHideCommentModal) return;
+        setHidingComment(true);
+        try {
+            await axios.post(`/api/comments/${showHideCommentModal.commentId}/hide`, { reason: hideCommentReason || undefined }, { withCredentials: true });
+            const update = (cs: any[]): any[] => cs.map(c => {
+                if (c.id === showHideCommentModal.commentId) return { ...c, hiddenAt: new Date().toISOString(), hideReason: hideCommentReason || null };
+                if (c.replies?.length) return { ...c, replies: update(c.replies) };
+                return c;
+            });
+            setComments(prev => update(prev));
+            setShowHideCommentModal(null);
+            setHideCommentReason('');
+        } catch {}
+        finally { setHidingComment(false); }
+    };
+
+    // Admin: restore comment
+    const handleRestoreComment = async (commentId: string) => {
+        try {
+            await axios.post(`/api/comments/${commentId}/restore`, {}, { withCredentials: true });
+            const update = (cs: any[]): any[] => cs.map(c => {
+                if (c.id === commentId) return { ...c, hiddenAt: null, hideReason: null };
+                if (c.replies?.length) return { ...c, replies: update(c.replies) };
+                return c;
+            });
+            setComments(prev => update(prev));
+        } catch {}
+    };
+
+    // Share: copy link
+    const copyLink = () => {
+        const url = `${window.location.origin}/preview/alt_f_genre_post/${postId}`;
+        navigator.clipboard.writeText(url).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); }).catch(() => {});
+    };
+
+    // Share: cross-post
+    const submitCrossPost = async () => {
+        if (!crossPostGenreId) { setShareErr('Please select a genre'); return; }
+        setCrossPosting(true); setShareErr('');
+        try {
+            await axios.post('/api/genre-posts', {
+                genreId: crossPostGenreId,
+                crossPostOfId: post.id,
+                title: post.title,
+                body: crossPostNote || undefined,
+                type: 'discussion',
+            }, { withCredentials: true });
+            setCrossPostDone(true);
+        } catch (e: any) { setShareErr(e.response?.data?.error || 'Failed to cross-post'); }
+        finally { setCrossPosting(false); }
+    };
+
     const sortedComments = [...comments].sort((a, b) => {
         if (commentSort === 'best') return (b.likeCount - b.dislikeCount) - (a.likeCount - a.dislikeCount);
         if (commentSort === 'new') return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
@@ -144,6 +272,7 @@ export const FrontpageAltFGenrePost: React.FC = () => {
     );
 
     const accent = post.genre ? genreAccent(post.genre.name) : PRIMARY;
+    const crossPostOf: CrossPostOf | null = post.crossPostOf || null;
 
     return (
         <div style={{ height: '100vh', display: 'flex', overflow: 'hidden', background: BG, color: TEXT, fontFamily: FONT }}>
@@ -161,6 +290,17 @@ export const FrontpageAltFGenrePost: React.FC = () => {
 
                             {/* Post card */}
                             <div style={{ ...glass, borderRadius: 18, padding: '24px 28px', marginBottom: 24 }}>
+                                {/* Admin: hidden indicator */}
+                                {isAdmin && post.hiddenAt && (
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: `${TERTIARY}18`, border: `1px solid ${TERTIARY}44`, borderRadius: 8, marginBottom: 14, fontSize: 12, color: TERTIARY }}>
+                                        <EyeOff size={13} />
+                                        <span><strong>Hidden</strong>{post.hideReason ? ` — "${post.hideReason}"` : ' (silently)'}</span>
+                                        <button onClick={handleRestorePost} style={{ marginLeft: 'auto', background: 'none', border: `1px solid ${TERTIARY}`, borderRadius: 6, color: TERTIARY, cursor: 'pointer', fontFamily: FONT, fontSize: 11, padding: '2px 8px', display: 'flex', alignItems: 'center', gap: 4 }}>
+                                            <Eye size={11} /> Restore
+                                        </button>
+                                    </div>
+                                )}
+
                                 <div style={{ display: 'flex', gap: 20 }}>
                                     {/* Vote column */}
                                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, minWidth: 44, paddingTop: 2 }}>
@@ -177,17 +317,45 @@ export const FrontpageAltFGenrePost: React.FC = () => {
 
                                     {/* Content */}
                                     <div style={{ flex: 1, minWidth: 0 }}>
+                                        {/* Pinned indicator */}
+                                        {post.pinned && (
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: SECONDARY, fontWeight: 700, marginBottom: 8 }}>
+                                                <Pin size={12} /> Pinned post
+                                            </div>
+                                        )}
+
                                         {/* Genre pill + meta */}
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, fontSize: 12, color: SUB }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, fontSize: 12, color: SUB, flexWrap: 'wrap' }}>
                                             {post.genre && (
                                                 <span style={{ background: `${accent}18`, border: `1px solid ${accent}44`, color: accent, padding: '2px 9px', borderRadius: 9999, fontWeight: 700, fontSize: 11 }}>
                                                     {post.genre.name}
+                                                </span>
+                                            )}
+                                            {/* Flair pill */}
+                                            {post.flair && (
+                                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: `${flairColor(post.flair)}18`, border: `1px solid ${flairColor(post.flair)}44`, color: flairColor(post.flair), padding: '2px 9px', borderRadius: 9999, fontWeight: 700, fontSize: 11 }}>
+                                                    <Tag size={9} /> {post.flair}
                                                 </span>
                                             )}
                                             <span>Posted by <strong style={{ color: TEXT }}>{post.username}</strong></span>
                                             <span>·</span>
                                             <span>{timeAgo(post.createdAt)}</span>
                                         </div>
+
+                                        {/* Cross-post origin */}
+                                        {crossPostOf && (
+                                            <div style={{ padding: '8px 12px', background: S_CONT, border: `1px solid ${BORDER}`, borderRadius: 8, marginBottom: 12, fontSize: 12, color: SUB, display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                <Share2 size={12} color={SUB} style={{ flexShrink: 0 }} />
+                                                <span>Cross-posted from{' '}
+                                                    <Link to={`/preview/alt_f_genre_post/${crossPostOf.id}`} style={{ color: crossPostOf.genre ? genreAccent(crossPostOf.genre.name) : PRIMARY, fontWeight: 600, textDecoration: 'none' }}>
+                                                        {crossPostOf.title.length > 50 ? crossPostOf.title.slice(0, 50) + '…' : crossPostOf.title}
+                                                    </Link>
+                                                    {crossPostOf.genre && (
+                                                        <> in <Link to={`/preview/alt_f_genres/${crossPostOf.genre.slug}`} style={{ color: genreAccent(crossPostOf.genre.name), fontWeight: 600, textDecoration: 'none' }}>{crossPostOf.genre.name}</Link></>
+                                                    )}
+                                                </span>
+                                            </div>
+                                        )}
 
                                         {/* Title */}
                                         <h1 style={{ margin: '0 0 16px', fontSize: 22, fontWeight: 900, color: TEXT, lineHeight: 1.3 }}>
@@ -232,10 +400,39 @@ export const FrontpageAltFGenrePost: React.FC = () => {
                                             <img src={post.imageUrl} alt="" style={{ maxWidth: '100%', borderRadius: 10, marginBottom: 14, display: 'block' }} onError={e => (e.currentTarget.style.display = 'none')} />
                                         )}
 
-                                        {/* Footer stats */}
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 14, fontSize: 12, color: SUB, paddingTop: 10, borderTop: `1px solid ${BORDER}` }}>
+                                        {/* Footer stats + actions */}
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 14, fontSize: 12, color: SUB, paddingTop: 10, borderTop: `1px solid ${BORDER}`, flexWrap: 'wrap' }}>
                                             <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><MessageCircle size={13} /> {post.commentCount} comments</span>
                                             <span>{post.upvotes} upvotes · {post.downvotes} downvotes</span>
+                                            {/* Share button */}
+                                            <button onClick={() => { setShowShareModal(true); setShareStep('menu'); setCrossPostDone(false); setShareErr(''); }}
+                                                style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'none', border: 'none', cursor: 'pointer', color: SUB, padding: 0, fontFamily: FONT, fontSize: 12 }}
+                                                onMouseEnter={e => (e.currentTarget.style.color = TEXT)}
+                                                onMouseLeave={e => (e.currentTarget.style.color = SUB)}>
+                                                <Share2 size={12} /> Share
+                                            </button>
+                                            {/* Admin controls */}
+                                            {isAdmin && (
+                                                <>
+                                                    <button onClick={handleTogglePin}
+                                                        style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'none', border: `1px solid ${post.pinned ? SECONDARY : BORDER}`, borderRadius: 6, cursor: 'pointer', color: post.pinned ? SECONDARY : SUB, padding: '3px 9px', fontFamily: FONT, fontSize: 11, fontWeight: 700 }}
+                                                        onMouseEnter={e => (e.currentTarget.style.borderColor = SECONDARY)}
+                                                        onMouseLeave={e => (e.currentTarget.style.borderColor = post.pinned ? SECONDARY : BORDER)}>
+                                                        <Pin size={11} /> {post.pinned ? 'Unpin' : 'Pin'}
+                                                    </button>
+                                                    {!post.hiddenAt ? (
+                                                        <button onClick={() => setShowHidePostModal(true)}
+                                                            style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'none', border: `1px solid ${BORDER}`, borderRadius: 6, cursor: 'pointer', color: TERTIARY, padding: '3px 9px', fontFamily: FONT, fontSize: 11, fontWeight: 700 }}>
+                                                            <EyeOff size={11} /> Hide Post
+                                                        </button>
+                                                    ) : (
+                                                        <button onClick={handleRestorePost}
+                                                            style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'none', border: `1px solid ${TERTIARY}`, borderRadius: 6, cursor: 'pointer', color: TERTIARY, padding: '3px 9px', fontFamily: FONT, fontSize: 11, fontWeight: 700 }}>
+                                                            <Eye size={11} /> Restore Post
+                                                        </button>
+                                                    )}
+                                                </>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
@@ -288,7 +485,15 @@ export const FrontpageAltFGenrePost: React.FC = () => {
                                 ) : (
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                                         {sortedComments.map(c => (
-                                            <CommentCard key={c.id} comment={c} onLike={handleCommentLike} onReply={r => setReplyTo(r)} />
+                                            <CommentCard
+                                                key={c.id}
+                                                comment={c}
+                                                onLike={handleCommentLike}
+                                                onReply={r => setReplyTo(r)}
+                                                isAdmin={isAdmin}
+                                                onHide={commentId => { setShowHideCommentModal({ commentId }); setHideCommentReason(''); }}
+                                                onRestore={handleRestoreComment}
+                                            />
                                         ))}
                                     </div>
                                 )}
@@ -298,6 +503,117 @@ export const FrontpageAltFGenrePost: React.FC = () => {
                     <AltActivitySidebar />
                 </div>
             </main>
+
+            {/* Share Modal */}
+            {showShareModal && (
+                <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
+                    onClick={() => setShowShareModal(false)}>
+                    <div onClick={e => e.stopPropagation()} style={{ ...glass, borderRadius: 18, padding: 28, width: '100%', maxWidth: 480, fontFamily: FONT }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+                            <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: TEXT, display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <Share2 size={16} color={PRIMARY} /> Share Post
+                            </h3>
+                            <button onClick={() => setShowShareModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: SUB, padding: 0, display: 'flex' }}><X size={16} /></button>
+                        </div>
+
+                        {crossPostDone ? (
+                            <div style={{ textAlign: 'center', padding: '20px 0' }}>
+                                <Check size={32} color={SECONDARY} style={{ marginBottom: 10 }} />
+                                <div style={{ fontSize: 15, fontWeight: 700, color: TEXT, marginBottom: 6 }}>Cross-posted!</div>
+                                <div style={{ fontSize: 13, color: SUB, marginBottom: 18 }}>The post has been shared to the selected genre.</div>
+                                <button onClick={() => setShowShareModal(false)} style={{ padding: '9px 20px', background: PRIMARY, border: 'none', borderRadius: 8, color: '#fff', cursor: 'pointer', fontFamily: FONT, fontSize: 14, fontWeight: 700 }}>Done</button>
+                            </div>
+                        ) : shareStep === 'menu' ? (
+                            <>
+                                <div style={{ fontSize: 13, color: SUB, marginBottom: 16, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    "{post.title.length > 50 ? post.title.slice(0, 50) + '…' : post.title}"
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                    <button onClick={copyLink}
+                                        style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', background: copied ? `${SECONDARY}18` : S_CONT, border: `1px solid ${copied ? SECONDARY : BORDER}`, borderRadius: 10, color: copied ? SECONDARY : TEXT, cursor: 'pointer', fontFamily: FONT, fontSize: 14, fontWeight: 600, transition: 'all 0.2s' }}>
+                                        <Share2 size={16} color={copied ? SECONDARY : SUB} />
+                                        {copied ? 'Link copied!' : 'Copy link'}
+                                    </button>
+                                    <button onClick={() => setShareStep('crosspost')}
+                                        style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', background: S_CONT, border: `1px solid ${BORDER}`, borderRadius: 10, color: TEXT, cursor: 'pointer', fontFamily: FONT, fontSize: 14, fontWeight: 600 }}>
+                                        <Layers size={16} color={SUB} />
+                                        Cross-post to another genre
+                                    </button>
+                                </div>
+                            </>
+                        ) : (
+                            <>
+                                <button onClick={() => setShareStep('menu')} style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'none', border: 'none', cursor: 'pointer', color: SUB, fontFamily: FONT, fontSize: 12, padding: 0, marginBottom: 16 }}>
+                                    <ChevronLeft size={13} /> Back
+                                </button>
+                                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: SUB, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Post to Genre</label>
+                                <select value={crossPostGenreId} onChange={e => setCrossPostGenreId(e.target.value)}
+                                    style={{ width: '100%', boxSizing: 'border-box', padding: '10px 14px', background: S_CONT, border: `1px solid ${BORDER}`, borderRadius: 9, color: crossPostGenreId ? TEXT : SUB, fontSize: 14, fontFamily: FONT, outline: 'none', marginBottom: 16, appearance: 'none' }}>
+                                    <option value="">Select a genre…</option>
+                                    {genres.map((g: any) => <option key={g.id} value={g.id}>{g.name}</option>)}
+                                </select>
+                                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: SUB, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Note <span style={{ fontWeight: 400, textTransform: 'none' }}>(optional)</span></label>
+                                <textarea value={crossPostNote} onChange={e => setCrossPostNote(e.target.value)} maxLength={2000} rows={3} placeholder="Add a note for the new community…"
+                                    style={{ width: '100%', boxSizing: 'border-box', padding: '10px 14px', background: S_CONT, border: `1px solid ${BORDER}`, borderRadius: 9, color: TEXT, fontSize: 14, fontFamily: FONT, outline: 'none', resize: 'vertical', marginBottom: 4 }} />
+                                {shareErr && <p style={{ color: TERTIARY, fontSize: 13, margin: '8px 0 0' }}>{shareErr}</p>}
+                                <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 16 }}>
+                                    <button onClick={() => setShowShareModal(false)} style={{ padding: '9px 18px', background: S_CONT, border: `1px solid ${BORDER}`, borderRadius: 8, color: SUB, cursor: 'pointer', fontFamily: FONT, fontSize: 14 }}>Cancel</button>
+                                    <button onClick={submitCrossPost} disabled={crossPosting || !crossPostGenreId}
+                                        style={{ padding: '9px 18px', background: PRIMARY, border: 'none', borderRadius: 8, color: '#fff', cursor: (crossPosting || !crossPostGenreId) ? 'not-allowed' : 'pointer', fontFamily: FONT, fontSize: 14, fontWeight: 700, opacity: (crossPosting || !crossPostGenreId) ? 0.6 : 1 }}>
+                                        {crossPosting ? 'Posting…' : 'Cross-post'}
+                                    </button>
+                                </div>
+                            </>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {/* Admin: Hide Post Modal */}
+            {showHidePostModal && (
+                <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
+                    onClick={() => setShowHidePostModal(false)}>
+                    <div onClick={e => e.stopPropagation()} style={{ ...glass, borderRadius: 18, padding: 28, width: '100%', maxWidth: 440, fontFamily: FONT }}>
+                        <h3 style={{ margin: '0 0 6px', fontSize: 17, fontWeight: 800, color: TEXT, display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <EyeOff size={16} color={TERTIARY} /> Hide Post
+                        </h3>
+                        <p style={{ margin: '0 0 18px', fontSize: 13, color: SUB }}>This post will be hidden from regular users. You can restore it at any time.</p>
+                        <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: SUB, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Reason <span style={{ fontWeight: 400, textTransform: 'none' }}>(optional — leave blank to hide silently)</span></label>
+                        <textarea value={hidePostReason} onChange={e => setHidePostReason(e.target.value)} maxLength={300} rows={3} placeholder="e.g. Spam, off-topic, guideline violation…"
+                            style={{ width: '100%', boxSizing: 'border-box', padding: '10px 14px', background: S_CONT, border: `1px solid ${BORDER}`, borderRadius: 9, color: TEXT, fontSize: 14, fontFamily: FONT, outline: 'none', resize: 'vertical', marginBottom: 16 }} />
+                        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                            <button onClick={() => setShowHidePostModal(false)} style={{ padding: '9px 18px', background: S_CONT, border: `1px solid ${BORDER}`, borderRadius: 8, color: SUB, cursor: 'pointer', fontFamily: FONT, fontSize: 14 }}>Cancel</button>
+                            <button onClick={handleHidePost} disabled={hidingPost}
+                                style={{ padding: '9px 18px', background: TERTIARY, border: 'none', borderRadius: 8, color: '#fff', cursor: hidingPost ? 'not-allowed' : 'pointer', fontFamily: FONT, fontSize: 14, fontWeight: 700, opacity: hidingPost ? 0.6 : 1 }}>
+                                {hidingPost ? 'Hiding…' : hidePostReason ? 'Hide with reason' : 'Hide silently'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Admin: Hide Comment Modal */}
+            {showHideCommentModal && (
+                <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
+                    onClick={() => setShowHideCommentModal(null)}>
+                    <div onClick={e => e.stopPropagation()} style={{ ...glass, borderRadius: 18, padding: 28, width: '100%', maxWidth: 440, fontFamily: FONT }}>
+                        <h3 style={{ margin: '0 0 6px', fontSize: 17, fontWeight: 800, color: TEXT, display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <EyeOff size={16} color={TERTIARY} /> Hide Comment
+                        </h3>
+                        <p style={{ margin: '0 0 18px', fontSize: 13, color: SUB }}>This comment will be hidden from regular users. Only admins will see it.</p>
+                        <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: SUB, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Reason <span style={{ fontWeight: 400, textTransform: 'none' }}>(optional)</span></label>
+                        <textarea value={hideCommentReason} onChange={e => setHideCommentReason(e.target.value)} maxLength={300} rows={3} placeholder="e.g. Spam, harassment…"
+                            style={{ width: '100%', boxSizing: 'border-box', padding: '10px 14px', background: S_CONT, border: `1px solid ${BORDER}`, borderRadius: 9, color: TEXT, fontSize: 14, fontFamily: FONT, outline: 'none', resize: 'vertical', marginBottom: 16 }} />
+                        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                            <button onClick={() => setShowHideCommentModal(null)} style={{ padding: '9px 18px', background: S_CONT, border: `1px solid ${BORDER}`, borderRadius: 8, color: SUB, cursor: 'pointer', fontFamily: FONT, fontSize: 14 }}>Cancel</button>
+                            <button onClick={handleHideComment} disabled={hidingComment}
+                                style={{ padding: '9px 18px', background: TERTIARY, border: 'none', borderRadius: 8, color: '#fff', cursor: hidingComment ? 'not-allowed' : 'pointer', fontFamily: FONT, fontSize: 14, fontWeight: 700, opacity: hidingComment ? 0.6 : 1 }}>
+                                {hidingComment ? 'Hiding…' : 'Hide Comment'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
@@ -308,49 +624,100 @@ const CommentCard: React.FC<{
     onLike: (id: string, type: 'like' | 'dislike') => void;
     onReply: (r: { id: string; username: string }) => void;
     isReply?: boolean;
-}> = ({ comment, onLike, onReply, isReply }) => {
+    isAdmin?: boolean;
+    onHide?: (commentId: string) => void;
+    onRestore?: (commentId: string) => void;
+}> = ({ comment, onLike, onReply, isReply, isAdmin, onHide, onRestore }) => {
     const [showReplies, setShowReplies] = useState(true);
     if (comment.deletedAt) return null;
+
+    const isHidden = !!comment.hiddenAt;
+
+    // Non-admins never see hidden comments (filtered server-side, but guard client-side too)
+    if (isHidden && !isAdmin) return null;
 
     const score = (comment.likeCount || 0) - (comment.dislikeCount || 0);
 
     return (
         <div style={{ paddingLeft: isReply ? 20 : 0 }}>
-            <div style={{ background: isReply ? 'rgba(28,31,42,0.5)' : 'rgba(15,19,29,0.7)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', border: `1px solid ${BORDER}`, borderRadius: 12, padding: '12px 16px' }}>
-                {/* Header */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                    <div style={{ width: 24, height: 24, borderRadius: '50%', overflow: 'hidden', background: S_HIGH, flexShrink: 0 }}>
-                        {comment.avatarUrl && <img src={comment.avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+            <div style={{
+                background: isHidden ? `rgba(${TERTIARY},0.06)` : isReply ? 'rgba(28,31,42,0.5)' : 'rgba(15,19,29,0.7)',
+                backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
+                border: `1px solid ${isHidden ? `${TERTIARY}44` : BORDER}`,
+                borderRadius: 12, padding: '12px 16px',
+            }}>
+                {/* Admin: hidden indicator */}
+                {isHidden && isAdmin && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: TERTIARY, marginBottom: 8, fontWeight: 700 }}>
+                        <EyeOff size={11} /> Hidden{comment.hideReason ? ` — "${comment.hideReason}"` : ' (silently)'}
                     </div>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: TEXT }}>{comment.username}</span>
-                    <span style={{ fontSize: 11, color: SUB }}>·</span>
-                    <span style={{ fontSize: 11, color: SUB }}>{timeAgo(comment.createdAt)}</span>
-                </div>
+                )}
 
-                {/* Content */}
-                <p style={{ margin: '0 0 10px', fontSize: 14, color: TEXT, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{comment.content}</p>
+                {isHidden ? (
+                    /* Hidden comment shown to admins only */
+                    <div style={{ opacity: 0.6 }}>
+                        {/* Header */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                            <div style={{ width: 24, height: 24, borderRadius: '50%', overflow: 'hidden', background: S_HIGH, flexShrink: 0 }}>
+                                {comment.avatarUrl && <img src={comment.avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+                            </div>
+                            <span style={{ fontSize: 13, fontWeight: 700, color: TEXT }}>{comment.username}</span>
+                            <span style={{ fontSize: 11, color: SUB }}>·</span>
+                            <span style={{ fontSize: 11, color: SUB }}>{timeAgo(comment.createdAt)}</span>
+                        </div>
+                        <p style={{ margin: '0 0 10px', fontSize: 14, color: SUB, lineHeight: 1.6, whiteSpace: 'pre-wrap', fontStyle: 'italic' }}>{comment.content}</p>
+                        {onRestore && (
+                            <button onClick={() => onRestore(comment.id)}
+                                style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: `1px solid ${TERTIARY}`, borderRadius: 6, cursor: 'pointer', color: TERTIARY, padding: '3px 9px', fontFamily: FONT, fontSize: 11, fontWeight: 700 }}>
+                                <Eye size={11} /> Restore
+                            </button>
+                        )}
+                    </div>
+                ) : (
+                    <>
+                        {/* Header */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                            <div style={{ width: 24, height: 24, borderRadius: '50%', overflow: 'hidden', background: S_HIGH, flexShrink: 0 }}>
+                                {comment.avatarUrl && <img src={comment.avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+                            </div>
+                            <span style={{ fontSize: 13, fontWeight: 700, color: TEXT }}>{comment.username}</span>
+                            <span style={{ fontSize: 11, color: SUB }}>·</span>
+                            <span style={{ fontSize: 11, color: SUB }}>{timeAgo(comment.createdAt)}</span>
+                        </div>
 
-                {/* Actions */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12 }}>
-                    <button onClick={() => onLike(comment.id, 'like')}
-                        style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', cursor: 'pointer', color: comment.userVote === 'like' ? SECONDARY : SUB, padding: 0, fontFamily: FONT, fontSize: 12 }}>
-                        <ThumbsUp size={12} fill={comment.userVote === 'like' ? SECONDARY : 'none'} />
-                        {comment.likeCount || 0}
-                    </button>
-                    <button onClick={() => onLike(comment.id, 'dislike')}
-                        style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', cursor: 'pointer', color: comment.userVote === 'dislike' ? TERTIARY : SUB, padding: 0, fontFamily: FONT, fontSize: 12 }}>
-                        <ThumbsDown size={12} fill={comment.userVote === 'dislike' ? TERTIARY : 'none'} />
-                        {comment.dislikeCount || 0}
-                    </button>
-                    <span style={{ color: `${SUB}55` }}>·</span>
-                    <span style={{ fontSize: 11, color: score > 0 ? SECONDARY : score < 0 ? TERTIARY : SUB, fontWeight: 600 }}>{score > 0 ? '+' : ''}{score}</span>
-                    {!isReply && (
-                        <button onClick={() => onReply({ id: comment.id, username: comment.username })}
-                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: SUB, padding: 0, fontFamily: FONT, fontSize: 12, marginLeft: 4 }}>
-                            Reply
-                        </button>
-                    )}
-                </div>
+                        {/* Content */}
+                        <p style={{ margin: '0 0 10px', fontSize: 14, color: TEXT, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{comment.content}</p>
+
+                        {/* Actions */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12 }}>
+                            <button onClick={() => onLike(comment.id, 'like')}
+                                style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', cursor: 'pointer', color: comment.userVote === 'like' ? SECONDARY : SUB, padding: 0, fontFamily: FONT, fontSize: 12 }}>
+                                <ThumbsUp size={12} fill={comment.userVote === 'like' ? SECONDARY : 'none'} />
+                                {comment.likeCount || 0}
+                            </button>
+                            <button onClick={() => onLike(comment.id, 'dislike')}
+                                style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', cursor: 'pointer', color: comment.userVote === 'dislike' ? TERTIARY : SUB, padding: 0, fontFamily: FONT, fontSize: 12 }}>
+                                <ThumbsDown size={12} fill={comment.userVote === 'dislike' ? TERTIARY : 'none'} />
+                                {comment.dislikeCount || 0}
+                            </button>
+                            <span style={{ color: `${SUB}55` }}>·</span>
+                            <span style={{ fontSize: 11, color: score > 0 ? SECONDARY : score < 0 ? TERTIARY : SUB, fontWeight: 600 }}>{score > 0 ? '+' : ''}{score}</span>
+                            {!isReply && (
+                                <button onClick={() => onReply({ id: comment.id, username: comment.username })}
+                                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: SUB, padding: 0, fontFamily: FONT, fontSize: 12, marginLeft: 4 }}>
+                                    Reply
+                                </button>
+                            )}
+                            {/* Admin: hide button */}
+                            {isAdmin && onHide && (
+                                <button onClick={() => onHide(comment.id)}
+                                    style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', cursor: 'pointer', color: TERTIARY, padding: 0, fontFamily: FONT, fontSize: 11, marginLeft: 4 }}>
+                                    <EyeOff size={11} /> Hide
+                                </button>
+                            )}
+                        </div>
+                    </>
+                )}
             </div>
 
             {/* Replies */}
@@ -362,8 +729,17 @@ const CommentCard: React.FC<{
                         </button>
                     ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, borderLeft: `2px solid ${BORDER}`, marginLeft: 12, paddingLeft: 8 }}>
-                            {comment.replies.filter((r: any) => !r.deletedAt).map((r: any) => (
-                                <CommentCard key={r.id} comment={r} onLike={onLike} onReply={() => {}} isReply />
+                            {comment.replies.filter((r: any) => !r.deletedAt && (!r.hiddenAt || isAdmin)).map((r: any) => (
+                                <CommentCard
+                                    key={r.id}
+                                    comment={r}
+                                    onLike={onLike}
+                                    onReply={() => {}}
+                                    isReply
+                                    isAdmin={isAdmin}
+                                    onHide={onHide}
+                                    onRestore={onRestore}
+                                />
                             ))}
                             <button onClick={() => setShowReplies(false)} style={{ background: 'none', border: 'none', color: SUB, cursor: 'pointer', fontFamily: FONT, fontSize: 11, textAlign: 'left', padding: '2px 0' }}>
                                 Hide replies

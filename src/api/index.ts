@@ -10379,7 +10379,11 @@ app.get('/api/genre-posts', async (req: any, res) => {
             return res.status(400).json({ error: 'genreId, genreIds, groupId, feed=subscribed, or feed=all required' });
         }
 
-        const where: any = allGenres ? { deletedAt: null } : { genreId: { in: genreIds }, deletedAt: null };
+        const isAdmin = isSuperAdmin(req) || !!(req.session as any)?.mutualAdminGuilds?.length;
+        const baseWhere: any = allGenres ? { deletedAt: null } : { genreId: { in: genreIds }, deletedAt: null };
+        if (!isAdmin) baseWhere.hiddenAt = null;
+
+        const where: any = { ...baseWhere };
 
         if (sort === 'top') {
             const periodMap: Record<string, number> = { day: 1, week: 7, month: 30, alltime: 36500 };
@@ -10389,7 +10393,30 @@ app.get('/api/genre-posts', async (req: any, res) => {
 
         const orderBy: any = sort === 'new' ? { createdAt: 'desc' } : sort === 'top' ? { score: 'desc' } : { hotScore: 'desc' };
 
-        const posts = await db.genrePost.findMany({
+        // For single-genre views with non-new sort, fetch pinned posts separately first
+        const isSingleGenre = genreIds.length === 1 && !allGenres;
+        let pinnedPosts: any[] = [];
+        if (isSingleGenre && sort !== 'new' && !cursor) {
+            const pinnedWhere: any = { genreId: { in: genreIds }, deletedAt: null, pinned: true };
+            if (!isAdmin) pinnedWhere.hiddenAt = null;
+            const fetched = await (db as any).genrePost.findMany({
+                where: pinnedWhere,
+                orderBy: { pinnedAt: 'desc' },
+                include: {
+                    genre: { select: { id: true, name: true, slug: true } },
+                    track: { select: { id: true, title: true, slug: true, coverUrl: true, url: true, mp3Url: true, duration: true, waveformPeaks: true, profile: { select: { username: true, displayName: true } } } },
+                    votes: userId ? { where: { userId }, select: { type: true } } : false,
+                    crossPostOf: { select: { id: true, title: true, genre: { select: { name: true, slug: true } } } },
+                },
+            });
+            pinnedPosts = fetched.map((p: any) => { const { votes, ...rest } = p; return { ...rest, userVote: votes?.[0]?.type ?? null }; });
+            // Exclude pinned post IDs from regular feed
+            if (pinnedPosts.length > 0) {
+                where.id = { notIn: pinnedPosts.map((p: any) => p.id) };
+            }
+        }
+
+        const posts = await (db as any).genrePost.findMany({
             where,
             orderBy,
             take: limit + 1,
@@ -10398,6 +10425,7 @@ app.get('/api/genre-posts', async (req: any, res) => {
                 genre: { select: { id: true, name: true, slug: true } },
                 track: { select: { id: true, title: true, slug: true, coverUrl: true, url: true, mp3Url: true, duration: true, waveformPeaks: true, profile: { select: { username: true, displayName: true } } } },
                 votes: userId ? { where: { userId }, select: { type: true } } : false,
+                crossPostOf: { select: { id: true, title: true, genre: { select: { name: true, slug: true } } } },
             },
         });
 
@@ -10412,7 +10440,7 @@ app.get('/api/genre-posts', async (req: any, res) => {
         // Deduplicate track posts when spanning multiple genres — a track tagged
         // with N genres creates N GenrePost rows; only show it once per feed.
         const multiGenre = allGenres || genreIds.length > 1;
-        const finalResult = multiGenre ? (() => {
+        const dedupedResult = multiGenre ? (() => {
             const seen = new Set<string>();
             return result.filter((p: any) => {
                 if (!p.trackId) return true;
@@ -10421,6 +10449,8 @@ app.get('/api/genre-posts', async (req: any, res) => {
                 return true;
             });
         })() : result;
+
+        const finalResult = [...pinnedPosts, ...dedupedResult];
 
         res.json({ posts: finalResult, hasMore, nextCursor: hasMore ? posts[posts.length - 1]?.id : null });
     } catch (e: any) {
@@ -10434,15 +10464,18 @@ app.get('/api/genre-posts/:postId', async (req: any, res) => {
     try {
         const { postId } = req.params;
         const userId = req.session?.user?.id || null;
-        const post = await db.genrePost.findUnique({
+        const isAdmin = isSuperAdmin(req) || !!(req.session as any)?.mutualAdminGuilds?.length;
+        const post = await (db as any).genrePost.findUnique({
             where: { id: postId, deletedAt: null },
             include: {
                 genre: { select: { id: true, name: true, slug: true } },
                 track: { select: { id: true, title: true, slug: true, coverUrl: true, url: true, mp3Url: true, duration: true, waveformPeaks: true, profile: { select: { username: true, displayName: true } } } },
                 votes: userId ? { where: { userId }, select: { type: true } } : false,
+                crossPostOf: { select: { id: true, title: true, username: true, flair: true, genre: { select: { name: true, slug: true } } } },
             },
         });
         if (!post) return res.status(404).json({ error: 'Post not found' });
+        if (post.hiddenAt && !isAdmin) return res.status(404).json({ error: 'Post not found' });
         const { votes, ...rest } = post as any;
         res.json({ ...rest, userVote: votes?.[0]?.type ?? null });
     } catch (e: any) {
@@ -10457,12 +10490,24 @@ const genrePostLimiter = rateLimit({ windowMs: 10 * 60 * 1000, max: 5, keyGenera
 app.post('/api/genre-posts', requireAuth, requireVerified, genrePostLimiter, async (req: any, res) => {
     try {
         const userId = req.session.user.id;
-        const { genreId, title, body, imageUrl } = req.body;
+        const { genreId, title, body, imageUrl, flair: rawFlair, crossPostOfId } = req.body;
         if (!genreId || !title?.trim()) return res.status(400).json({ error: 'genreId and title are required' });
         if (title.length > 300) return res.status(400).json({ error: 'Title must be 300 characters or fewer' });
         if (body && body.length > 10000) return res.status(400).json({ error: 'Body must be 10,000 characters or fewer' });
+        const flair = rawFlair ? String(rawFlair).trim().slice(0, 50) || null : null;
         const genre = await db.genre.findUnique({ where: { id: genreId } });
         if (!genre) return res.status(404).json({ error: 'Genre not found' });
+
+        // Validate cross-post source if provided
+        let resolvedCrossPostOfId: string | null = null;
+        let resolvedTitle = title.trim();
+        if (crossPostOfId) {
+            const originalPost = await (db as any).genrePost.findUnique({ where: { id: crossPostOfId, deletedAt: null }, select: { id: true, title: true } });
+            if (originalPost) {
+                resolvedCrossPostOfId = originalPost.id;
+                if (!title?.trim()) resolvedTitle = originalPost.title;
+            }
+        }
 
         const canonicalId = req.session.user._localId || userId;
         let username = req.session.user.username || 'Unknown';
@@ -10476,9 +10521,17 @@ app.post('/api/genre-posts', requireAuth, requireVerified, genrePostLimiter, asy
             avatarUrl = profile.avatar || null;
         }
 
-        const post = await db.genrePost.create({
-            data: { genreId, userId, username, avatarUrl, type: 'discussion', title: title.trim(), body: body?.trim() || null, imageUrl: imageUrl || null },
-            include: { genre: { select: { id: true, name: true, slug: true } } },
+        const post = await (db as any).genrePost.create({
+            data: {
+                genreId, userId, username, avatarUrl, type: 'discussion',
+                title: resolvedTitle, body: body?.trim() || null, imageUrl: imageUrl || null,
+                flair,
+                ...(resolvedCrossPostOfId ? { crossPostOfId: resolvedCrossPostOfId } : {}),
+            },
+            include: {
+                genre: { select: { id: true, name: true, slug: true } },
+                crossPostOf: { select: { id: true, title: true, genre: { select: { name: true, slug: true } } } },
+            },
         });
         res.json({ ...post, userVote: null });
     } catch (e: any) {
@@ -10545,6 +10598,60 @@ setInterval(async () => {
         `;
     } catch {}
 }, 15 * 60 * 1000);
+
+// ===== Genre Post Admin Actions =====
+
+// PIN / UNPIN a post
+app.post('/api/genre-posts/:postId/pin', requireAdmin, async (req: any, res) => {
+    const { postId } = req.params;
+    try {
+        const post = await (db as any).genrePost.findUnique({ where: { id: postId }, select: { pinned: true } });
+        if (!post) return res.status(404).json({ error: 'Not found' });
+        const updated = await (db as any).genrePost.update({
+            where: { id: postId },
+            data: { pinned: !post.pinned, pinnedAt: !post.pinned ? new Date() : null },
+        });
+        res.json({ pinned: updated.pinned });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+// HIDE a post (admin)
+app.post('/api/genre-posts/:postId/hide', requireAdmin, async (req: any, res) => {
+    const { postId } = req.params;
+    const { reason } = req.body;
+    try {
+        await (db as any).genrePost.update({ where: { id: postId }, data: { hiddenAt: new Date(), hideReason: reason || null } });
+        res.json({ ok: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+// RESTORE a hidden post (admin)
+app.post('/api/genre-posts/:postId/restore', requireAdmin, async (req: any, res) => {
+    const { postId } = req.params;
+    try {
+        await (db as any).genrePost.update({ where: { id: postId }, data: { hiddenAt: null, hideReason: null } });
+        res.json({ ok: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+// HIDE a comment (admin)
+app.post('/api/comments/:commentId/hide', requireAdmin, async (req: any, res) => {
+    const { commentId } = req.params;
+    const { reason } = req.body;
+    try {
+        await db.comment.update({ where: { id: commentId }, data: { hiddenAt: new Date(), hideReason: reason || null } as any });
+        res.json({ ok: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+// RESTORE a hidden comment (admin)
+app.post('/api/comments/:commentId/restore', requireAdmin, async (req: any, res) => {
+    const { commentId } = req.params;
+    try {
+        await db.comment.update({ where: { id: commentId }, data: { hiddenAt: null, hideReason: null } as any });
+        res.json({ ok: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
 
 // ===== Genre Groups =====
 
@@ -18032,7 +18139,9 @@ app.get('/api/comments', async (req: any, res) => {
         if (!trackId && !profileId && !battleEntryId && !articleId && !genrePostId) return res.status(400).json({ error: 'trackId, profileId, battleEntryId, articleId, or genrePostId is required' });
 
         const limit = Math.min(Number(rawLimit) || 50, 100);
+        const isAdminCommenter = isSuperAdmin(req) || !!(req.session as any)?.mutualAdminGuilds?.length;
         const where: any = { parentId: null }; // top-level only
+        if (!isAdminCommenter && genrePostId) where.hiddenAt = null;
         if (trackId) where.trackId = trackId;
         if (profileId) where.profileId = profileId;
         if (battleEntryId) where.battleEntryId = battleEntryId;
@@ -18096,7 +18205,7 @@ app.get('/api/comments', async (req: any, res) => {
             };
         };
 
-        res.json({ comments: comments.map(transformComment), hasMore, nextCursor: hasMore ? comments[comments.length - 1]?.id : null });
+        res.json({ comments: comments.map(transformComment), hasMore, nextCursor: hasMore ? comments[comments.length - 1]?.id : null, isAdmin: isAdminCommenter });
     } catch (e: any) {
         res.status(500).json({ error: 'Internal server error' });
     }

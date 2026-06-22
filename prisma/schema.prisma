@@ -1309,20 +1309,31 @@ model GenrePost {
   hotScore     Float @default(0) // Reddit hot algorithm score, stored for fast ORDER BY
   commentCount Int   @default(0) // denormalized; incremented on comment creation
 
+  flair         String?
+  crossPostOfId String?
+  pinned        Boolean   @default(false)
+  pinnedAt      DateTime?
+  hiddenAt      DateTime?
+  hideReason    String?
+
   deletedAt DateTime?
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
-  genre    Genre           @relation(fields: [genreId], references: [id], onDelete: Cascade)
-  track    Track?          @relation(fields: [trackId], references: [id], onDelete: SetNull)
-  votes    GenrePostVote[]
-  comments Comment[]
+  genre       Genre           @relation(fields: [genreId], references: [id], onDelete: Cascade)
+  track       Track?          @relation(fields: [trackId], references: [id], onDelete: SetNull)
+  votes       GenrePostVote[]
+  comments    Comment[]
+  crossPostOf GenrePost?      @relation("GenrePostCrossPost", fields: [crossPostOfId], references: [id], onDelete: SetNull)
+  crossPosts  GenrePost[]     @relation("GenrePostCrossPost")
 
   @@index([genreId, hotScore(sort: Desc)])
   @@index([genreId, createdAt(sort: Desc)])
   @@index([genreId, score(sort: Desc)])
   @@index([userId])
   @@index([trackId])
+  @@index([crossPostOfId])
+  @@index([pinned])
   @@map("genre_posts")
 }
 
@@ -1969,6 +1980,10 @@ model Comment {
 
   // Soft delete
   deletedAt DateTime?
+
+  // Admin hide
+  hiddenAt   DateTime?
+  hideReason String?
 
   track       Track?           @relation(fields: [trackId], references: [id], onDelete: Cascade)
   profile     MusicianProfile? @relation(fields: [profileId], references: [id], onDelete: Cascade)
