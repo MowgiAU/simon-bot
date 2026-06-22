@@ -14,7 +14,7 @@ import { AltActivitySidebar } from '../components/altshell/AltActivitySidebar';
 import {
     Play, Pause, Heart, Repeat2, UserPlus, Swords, Music,
     Rss, Users, TrendingUp, ChevronDown, Lock, MessageCircle,
-    Flame, Clock, ChevronUp, FileText,
+    Flame, Clock, ChevronUp, Home,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
@@ -66,7 +66,7 @@ const TYPE_ICONS: Record<string, { icon: any; color: string; label: string }> = 
 
 const FILTERS = ['All', 'Music', 'Battles', 'Follows', 'Comments'] as const;
 type Filter = typeof FILTERS[number];
-const TABS = ['Discover', 'Following', 'Genres'] as const;
+const TABS = ['Feed', 'Following', 'Discover'] as const;
 type Tab = typeof TABS[number];
 
 const filterMatch = (type: string, filter: Filter): boolean => {
@@ -308,7 +308,7 @@ function GenrePostFeedCard({ post, onVote }: { post: any; onVote: (id: string, t
 export const FrontpageAltFFeed: React.FC = () => {
     const { player, setTrack, togglePlay } = usePlayer();
 
-    const [tab, setTab] = useState<Tab>('Discover');
+    const [tab, setTab] = useState<Tab>('Feed');
     const [filter, setFilter] = useState<Filter>('All');
 
     // Discover tab data
@@ -397,13 +397,13 @@ export const FrontpageAltFFeed: React.FC = () => {
         if (tab === 'Following' && feedTracks.length === 0 && !feedLoading) {
             loadFollowingFeed();
         }
-        if (tab === 'Genres' && genrePosts.length === 0 && !genrePostsLoading) {
+        if (tab === 'Feed' && genrePosts.length === 0 && !genrePostsLoading) {
             loadGenreFeed(genreSort);
         }
     }, [tab]);
 
     useEffect(() => {
-        if (tab === 'Genres') {
+        if (tab === 'Feed') {
             setGenrePosts([]);
             loadGenreFeed(genreSort);
         }
@@ -427,6 +427,12 @@ export const FrontpageAltFFeed: React.FC = () => {
         ? publicItems.filter(i => filterMatch(i.type, filter))
         : [];
 
+    const headerSubtitle = tab === 'Feed'
+        ? 'Posts from genres you subscribe to'
+        : tab === 'Following'
+        ? 'Latest music from artists you follow'
+        : 'What\'s happening in the Fuji Studio community';
+
     return (
         <div style={{ height: '100vh', display: 'flex', overflow: 'hidden', background: BG, color: TEXT, fontFamily: FONT }}>
             <AltSidebar />
@@ -443,18 +449,18 @@ export const FrontpageAltFFeed: React.FC = () => {
                         <div style={{ position: 'relative', zIndex: 1, maxWidth: 1280, margin: '0 auto', padding: '32px 32px 28px', boxSizing: 'border-box' }}>
                             <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 24, flexWrap: 'wrap' }}>
                                 <div>
-                                    <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: PRIMARY, display: 'block', marginBottom: 6 }}>Activity</span>
-                                    <h1 style={{ margin: '0 0 4px', fontSize: 32, fontWeight: 900, letterSpacing: '-0.02em', lineHeight: 1 }}>Feed</h1>
-                                    <p style={{ margin: 0, color: SUB, fontSize: 14 }}>What's happening in the Fuji Studio community</p>
+                                    <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: PRIMARY, display: 'block', marginBottom: 6 }}>Personal</span>
+                                    <h1 style={{ margin: '0 0 4px', fontSize: 32, fontWeight: 900, letterSpacing: '-0.02em', lineHeight: 1 }}>Your Feed</h1>
+                                    <p style={{ margin: 0, color: SUB, fontSize: 14 }}>{headerSubtitle}</p>
                                 </div>
 
                                 {/* Tab switcher */}
                                 <div style={{ display: 'flex', background: 'rgba(28,31,42,0.8)', backdropFilter: 'blur(12px)', padding: 4, borderRadius: 12, border: `1px solid ${BORDER}`, gap: 2 }}>
                                     {TABS.map(t => (
                                         <button key={t} onClick={() => setTab(t)} style={{ padding: '9px 18px', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 700, fontFamily: FONT, background: tab === t ? PRIMARY : 'transparent', color: tab === t ? '#fff' : SUB, transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                            {t === 'Feed' && <Home size={13} />}
                                             {t === 'Following' && <Users size={13} />}
                                             {t === 'Discover' && <Rss size={13} />}
-                                            {t === 'Genres' && <Music size={13} />}
                                             {t}
                                         </button>
                                     ))}
@@ -468,6 +474,22 @@ export const FrontpageAltFFeed: React.FC = () => {
 
                         {/* ── LEFT COLUMN ── */}
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+
+                            {/* Subscriptions shortcut — Feed tab */}
+                            {tab === 'Feed' && (
+                                <div style={{ ...glass, borderRadius: 20, overflow: 'hidden' }}>
+                                    <div style={{ padding: '14px 20px', borderBottom: `1px solid ${DIVIDER}`, display: 'flex', alignItems: 'center', gap: 8 }}>
+                                        <Home size={14} color={PRIMARY} />
+                                        <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>Your Feed</h3>
+                                    </div>
+                                    <div style={{ padding: '14px 20px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                        <p style={{ margin: 0, fontSize: 12, color: SUB, lineHeight: 1.5 }}>Posts and tracks from genres you've subscribed to, sorted by relevance.</p>
+                                        <Link to="/preview/alt_f_genres" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, background: `${PRIMARY}18`, border: `1px solid ${PRIMARY}30`, color: PRIMARY, fontSize: 12, fontWeight: 700, textDecoration: 'none' }}>
+                                            <Music size={12} /> Manage Genres
+                                        </Link>
+                                    </div>
+                                </div>
+                            )}
 
                             {/* Filter card — only for Discover tab */}
                             {tab === 'Discover' && (
@@ -588,11 +610,11 @@ export const FrontpageAltFFeed: React.FC = () => {
                                 </section>
                             )}
 
-                            {/* GENRES TAB */}
-                            {tab === 'Genres' && (
+                            {/* FEED TAB — subscribed genre posts */}
+                            {tab === 'Feed' && (
                                 <section>
                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-                                        <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Your Genre Feed</h2>
+                                        <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Your Feed</h2>
                                         <div style={{ display: 'flex', gap: 4 }}>
                                             {(['hot', 'new', 'top'] as const).map(s => (
                                                 <button key={s} onClick={() => setGenreSort(s)}
@@ -611,14 +633,14 @@ export const FrontpageAltFFeed: React.FC = () => {
                                     ) : genrePostsError === 'unauth' ? (
                                         <div style={{ ...glass, borderRadius: 20, padding: '48px 24px', textAlign: 'center' }}>
                                             <Lock size={32} color={SUB} style={{ marginBottom: 12 }} />
-                                            <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}>Sign in to see genre posts</div>
-                                            <div style={{ fontSize: 13, color: SUB }}>Join genres to follow their feeds</div>
+                                            <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}>Sign in to see your feed</div>
+                                            <div style={{ fontSize: 13, color: SUB }}>Subscribe to genres to personalise your feed</div>
                                         </div>
                                     ) : genrePostsError === 'empty' ? (
                                         <div style={{ ...glass, borderRadius: 20, padding: '48px 24px', textAlign: 'center' }}>
                                             <Music size={32} color={SUB} style={{ marginBottom: 12 }} />
-                                            <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}>No genre posts yet</div>
-                                            <div style={{ fontSize: 13, color: SUB, marginBottom: 20 }}>Subscribe to genres to see posts from them here</div>
+                                            <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}>Your feed is empty</div>
+                                            <div style={{ fontSize: 13, color: SUB, marginBottom: 20 }}>Subscribe to genres to see their posts here</div>
                                             <Link to="/preview/alt_f_genres" style={{ display: 'inline-block', padding: '10px 28px', borderRadius: 10, background: PRIMARY, color: '#fff', fontSize: 13, fontWeight: 700, textDecoration: 'none' }}>
                                                 Explore Genres
                                             </Link>
