@@ -133,7 +133,11 @@ export const FrontpageAltF: React.FC = () => {
                 res = await axios.get('/api/genre-posts', { params: { feed: 'all', sort, limit: 20, ...(cursor ? { cursor } : {}) }, signal: ac.signal });
             }
             setGenreHasSubs(hasSubs);
-            setGenrePosts(prev => append ? [...prev, ...res.data.posts] : res.data.posts);
+            setGenrePosts(prev => {
+                if (!append) return res.data.posts;
+                const seenTrackIds = new Set(prev.map((p: any) => p.trackId).filter(Boolean));
+                return [...prev, ...res.data.posts.filter((p: any) => !p.trackId || !seenTrackIds.has(p.trackId))];
+            });
             setGenreFeedHasMore(res.data.hasMore);
             setGenreFeedCursor(res.data.nextCursor);
             // Merge user votes into local vote state

@@ -401,7 +401,10 @@ export const FrontpageAltFGenres: React.FC = () => {
         setPostsLoading(true);
         try {
             const r = await axios.get('/api/genre-posts', { params: { ...params, ...(cursor ? { cursor } : {}) } });
-            if (cursor) setPosts(prev => [...prev, ...arr(r.data.posts)]);
+            if (cursor) setPosts(prev => {
+                const seenTrackIds = new Set(prev.map((p: any) => p.trackId).filter(Boolean));
+                return [...prev, ...arr(r.data.posts).filter((p: any) => !p.trackId || !seenTrackIds.has(p.trackId))];
+            });
             else setPosts(arr(r.data.posts));
             setHasMore(r.data.hasMore);
             setNextCursor(r.data.nextCursor);
