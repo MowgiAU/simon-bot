@@ -25,8 +25,7 @@ type ItemKind = 'message' | 'file' | 'update';
 interface FeedItem {
     id: string;
     kind: ItemKind;
-    profileId?: string;   // files & updates: MusicianProfile.id
-    senderId?: string;    // messages: User.id
+    profileId?: string;   // MusicianProfile.id — used for all item types
     content?: string;
     createdAt: string;
     // file extras
@@ -239,20 +238,17 @@ export default function FrontpageAltFCollabWorkspace() {
     const myApproved    = project && (isInitiator ? project.initiatorApproved : project.collaboratorApproved);
     const partner       = project && (isInitiator ? project.collaborator : project.initiator);
 
-    const mergeFeed = useCallback((updates: any[], files: any[], messages: any[]): FeedItem[] => {
+    const mergeFeed = useCallback((updates: any[], files: any[]): FeedItem[] => {
         const items: FeedItem[] = [
+            // CollabUpdates — kind field tells us 'message' vs 'update'
             ...updates.map((u: any): FeedItem => ({
-                id: `u:${u.id}`, kind: 'update', profileId: u.authorId,
-                content: u.content, createdAt: u.createdAt,
+                id: `u:${u.id}`, kind: u.kind === 'message' ? 'message' : 'update',
+                profileId: u.authorId, content: u.content, createdAt: u.createdAt,
             })),
             ...files.map((f: any): FeedItem => ({
                 id: `f:${f.id}`, kind: 'file', profileId: f.uploaderId, uploaderId: f.uploaderId,
                 label: f.label, fileType: f.fileType, url: f.url, sizeBytes: f.sizeBytes,
                 content: f.label, createdAt: f.createdAt,
-            })),
-            ...messages.map((m: any): FeedItem => ({
-                id: `m:${m.id}`, kind: 'message', senderId: m.senderId,
-                content: m.content, createdAt: m.createdAt,
             })),
         ];
         return items.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
@@ -271,13 +267,8 @@ export default function FrontpageAltFCollabWorkspace() {
                 const proj = projRes.data;
                 setProject(proj);
                 setMyProfile(profileRes.data);
-
-                let messages: any[] = [];
-                if (proj.conversationId) {
-                    const msgRes = await axios.get(`/api/messages/conversations/${proj.conversationId}/messages`, { withCredentials: true });
-                    messages = msgRes.data?.messages || [];
-                }
-                setFeedItems(mergeFeed(proj.updates || [], proj.files || [], messages));
+                // updates array contains both 'message' and 'update' kind CollabUpdates
+                setFeedItems(mergeFeed(proj.updates || [], proj.files || []));
 
                 const projsRes = await axios.get('/api/projects', { withCredentials: true }).catch(() => null);
                 if (projsRes?.data) setMyProjects(Array.isArray(projsRes.data) ? projsRes.data : projsRes.data.projects || []);
@@ -293,11 +284,6 @@ export default function FrontpageAltFCollabWorkspace() {
 
     const getItemAuthor = (item: FeedItem) => {
         if (!project) return null;
-        if (item.kind === 'message') {
-            if (project.initiator?.userId === item.senderId) return project.initiator;
-            if (project.collaborator?.userId === item.senderId) return project.collaborator;
-            return null;
-        }
         if (item.profileId === project.initiatorProfileId) return project.initiator;
         if (item.profileId === project.collaboratorProfileId) return project.collaborator;
         return null;
@@ -305,7 +291,6 @@ export default function FrontpageAltFCollabWorkspace() {
 
     const isMine = (item: FeedItem): boolean => {
         if (!myProfile) return false;
-        if (item.kind === 'message') return item.senderId === myProfile.userId || item.senderId === myProfile.id;
         return item.profileId === myProfile.id;
     };
 
@@ -345,10 +330,10 @@ export default function FrontpageAltFCollabWorkspace() {
         try {
             if (postKind === 'update') {
                 const { data } = await axios.post(`/api/collab/projects/${id}/updates`, { content: text }, { withCredentials: true });
-                setFeedItems(prev => [...prev, { id: `u:${data.id}`, kind: 'update', profileId: data.authorId, content: data.content, createdAt: data.createdAt }]);
-            } else if (project.conversationId) {
-                const { data } = await axios.post(`/api/messages/conversations/${project.conversationId}/messages`, { content: text }, { withCredentials: true });
-                setFeedItems(prev => [...prev, { id: `m:${data.id}`, kind: 'message', senderId: data.senderId, content: data.content, createdAt: data.createdAt }]);
+                setFeedItems(prev => [...prev, { id: `u:${data.id}`, kind: 'update' as ItemKind, profileId: data.authorId, content: data.content, createdAt: data.createdAt }]);
+            } else {
+                const { data } = await axios.post(`/api/collab/projects/${id}/messages`, { content: text }, { withCredentials: true });
+                setFeedItems(prev => [...prev, { id: `u:${data.id}`, kind: 'message' as ItemKind, profileId: data.authorId, content: data.content, createdAt: data.createdAt }]);
             }
             setComposeText('');
             setReplyTo(null);
@@ -511,11 +496,9 @@ export default function FrontpageAltFCollabWorkspace() {
                         const author = getItemAuthor(item);
                         const mine   = isMine(item);
                         const prev   = i > 0 ? feedItems[i - 1] : null;
-                        const sameRun = prev && (
-                            item.kind === 'message' && prev.kind === 'message'
-                                ? item.senderId === prev.senderId
-                                : item.kind !== 'message' && prev.kind !== 'message' && item.profileId === prev.profileId
-                        ) && (new Date(item.createdAt).getTime() - new Date(prev.createdAt).getTime()) < 5 * 60 * 1000;
+                        const sameRun = prev &&
+                            item.profileId === prev.profileId &&
+                            (new Date(item.createdAt).getTime() - new Date(prev.createdAt).getTime()) < 5 * 60 * 1000;
 
                         return (
                             <FeedItemRow

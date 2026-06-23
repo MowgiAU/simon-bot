@@ -3652,6 +3652,7 @@ model CollabUpdate {
   projectId String
   authorId  String                            // MusicianProfile.id
   content   String   @db.Text
+  kind      String   @default("update")       // "message" | "update"
   createdAt DateTime @default(now())
 
   project   CollabProject @relation(fields: [projectId], references: [id], onDelete: Cascade)

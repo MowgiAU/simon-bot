@@ -24018,32 +24018,14 @@ app.patch('/api/collab/requests/:requestId', requireAuth, async (req: any, res) 
 
         let project = null;
         if (action === 'accept') {
-            // Lock the callout and create a project + conversation
+            // Lock the callout and create the project workspace
             await db.collabCallout.update({ where: { id: request.calloutId }, data: { status: 'matched' } });
-
-            // Create a conversation between the two participants
-            const responderProfile = await db.musicianProfile.findUnique({ where: { id: request.profileId }, select: { userId: true } });
-            const posterProfile = await db.musicianProfile.findUnique({ where: { id: request.callout.profileId }, select: { userId: true } });
-            let conversationId: string | null = null;
-            if (responderProfile && posterProfile) {
-                const conv = await db.conversation.create({
-                    data: {
-                        name: `Collab: ${request.callout.title}`,
-                        isGroup: false,
-                        createdById: posterProfile.userId,
-                        encryptedKey: msgEnc.generateConversationKey(),
-                        participants: { create: [{ userId: posterProfile.userId }, { userId: responderProfile.userId }] },
-                    },
-                });
-                conversationId = conv.id;
-            }
 
             project = await db.collabProject.create({
                 data: {
                     requestId: request.id,
                     initiatorProfileId: request.callout.profileId,
                     collaboratorProfileId: request.profileId,
-                    conversationId,
                 },
             });
 
@@ -24170,13 +24152,25 @@ app.post('/api/collab/projects/:id/updates', requireAuth, async (req: any, res) 
         if (!project) return res.status(404).json({ error: 'Not found' });
         const { content } = req.body;
         if (!content?.trim()) return res.status(400).json({ error: 'Content required' });
-        const update = await db.collabUpdate.create({ data: { projectId: project.id, authorId: me.id, content: content.trim() } });
-        // Notify the other party
+        const update = await db.collabUpdate.create({ data: { projectId: project.id, authorId: me.id, content: content.trim(), kind: 'update' } });
         const otherId = project.initiatorProfileId === me.id ? project.collaboratorProfileId : project.initiatorProfileId;
         const other = await db.musicianProfile.findUnique({ where: { id: otherId }, select: { userId: true } });
         if (other) db.musicNotification.create({ data: { userId: other.userId, type: 'collab_update', title: `${me.displayName || me.username} posted an update`, message: content.trim().slice(0, 100), link: `/preview/alt_f_collab_workspace?id=${project.id}`, actorId: me.userId, actorName: me.displayName || me.username, actorAvatar: me.avatar } }).catch(() => {});
         res.json(update);
     } catch (e) { res.status(500).json({ error: 'Failed' }); }
+});
+
+app.post('/api/collab/projects/:id/messages', requireAuth, async (req: any, res) => {
+    try {
+        const me = await getMyProfile(req);
+        if (!me) return res.status(404).json({ error: 'Profile not found' });
+        const project = await getCollabProject(req.params.id, me.id);
+        if (!project) return res.status(404).json({ error: 'Not found' });
+        const { content } = req.body;
+        if (!content?.trim()) return res.status(400).json({ error: 'Content required' });
+        const message = await db.collabUpdate.create({ data: { projectId: project.id, authorId: me.id, content: content.trim(), kind: 'message' } });
+        res.json(message);
+    } catch (e) { logger.error('POST collab message', e); res.status(500).json({ error: 'Failed' }); }
 });
 
 app.patch('/api/collab/projects/:id/approve', requireAuth, async (req: any, res) => {
