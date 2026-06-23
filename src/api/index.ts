@@ -24030,8 +24030,9 @@ app.patch('/api/collab/requests/:requestId', requireAuth, async (req: any, res) 
             });
 
             // Notify the responder
-            if (responderProfile) {
-                db.musicNotification.create({ data: { userId: responderProfile.userId, type: 'collab_accepted', title: 'Collab request accepted!', message: `Your request for "${request.callout.title}" was accepted`, link: `/preview/alt_f_collab_workspace?id=${project.id}`, actorId: me.userId, actorName: me.displayName || me.username, actorAvatar: me.avatar } }).catch(() => {});
+            const responderProfileAccept = await db.musicianProfile.findUnique({ where: { id: request.profileId }, select: { userId: true } });
+            if (responderProfileAccept) {
+                db.musicNotification.create({ data: { userId: responderProfileAccept.userId, type: 'collab_accepted', title: 'Collab request accepted!', message: `Your request for "${request.callout.title}" was accepted`, link: `/preview/alt_f_collab_workspace?id=${project.id}`, actorId: me.userId, actorName: me.displayName || me.username, actorAvatar: me.avatar } }).catch(() => {});
             }
         } else {
             // Notify the responder of decline
