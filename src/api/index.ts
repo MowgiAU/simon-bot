@@ -1059,6 +1059,8 @@ app.use(session({
     httpOnly: true,
     sameSite: 'lax',
     maxAge: 1000 * 60 * 60 * 24 * 30, // 30 days
+    // Share session across all *.fujistud.io subdomains (bot., dashboard., etc.)
+    domain: process.env.NODE_ENV === 'production' ? '.fujistud.io' : undefined,
   }
 }));
 

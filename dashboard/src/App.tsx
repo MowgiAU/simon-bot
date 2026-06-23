@@ -75,6 +75,7 @@ const LoginPage              = lazy(() => import("./pages/LoginPage").then(m => 
 const ForgotPasswordPage     = lazy(() => import("./pages/ResetPasswordPage").then(m => ({ default: m.ForgotPasswordPage })));
 const ResetPasswordPage      = lazy(() => import("./pages/ResetPasswordPage").then(m => ({ default: m.ResetPasswordPage })));
 const FeaturedContentSettings = lazy(() => import("./pages/FeaturedContentSettings").then(m => ({ default: m.FeaturedContentSettings })));
+const WebsiteAdminDashboard  = lazy(() => import("./pages/WebsiteAdminDashboard").then(m => ({ default: m.WebsiteAdminDashboard })));
 const FujiRadioPage          = lazy(() => import("./pages/FujiRadio").then(m => ({ default: m.FujiRadioPage })));
 const AccountManagementPage  = lazy(() => import("./pages/AccountManagement").then(m => ({ default: m.AccountManagementPage })));
 const VoteFraudPage          = lazy(() => import("./pages/VoteFraud").then(m => ({ default: m.VoteFraudPage })));
@@ -854,7 +855,28 @@ const AppInternal: React.FC = () => {
     return <Suspense fallback={<PageSpinner />}><CompleteAccountPage /></Suspense>;
   }
 
-  // /dashboard → Full admin dashboard
+  // Subdomain-based dashboard split.
+  // bot.fujistud.io      → Discord bot admin (AdminDashboard)
+  // dashboard.fujistud.io → Website CMS (WebsiteAdminDashboard)
+  // Local dev: append ?mode=bot or ?mode=website to test each
+  const _hostname = typeof window !== 'undefined' ? window.location.hostname : '';
+  const _devMode = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('mode') : null;
+  if (_hostname === 'bot.fujistud.io' || _devMode === 'bot') {
+    return (
+      <ResourceProvider>
+        <AdminDashboard />
+      </ResourceProvider>
+    );
+  }
+  if (_hostname === 'dashboard.fujistud.io' || _devMode === 'website') {
+    return (
+      <Suspense fallback={<PageSpinner />}>
+        <WebsiteAdminDashboard />
+      </Suspense>
+    );
+  }
+
+  // /dashboard → Full admin dashboard (legacy path on fujistud.io, still works)
   if (currentPath.startsWith('/dashboard')) {
     return (
       <ResourceProvider>
