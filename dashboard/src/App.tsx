@@ -859,21 +859,27 @@ const AppInternal: React.FC = () => {
   // bot.fujistud.io      → Discord bot admin (AdminDashboard)
   // dashboard.fujistud.io → Website CMS (WebsiteAdminDashboard)
   // Local dev: append ?mode=bot or ?mode=website to test each
+  //
+  // Auth paths bypass subdomain routing so the login flow works.
   const _hostname = typeof window !== 'undefined' ? window.location.hostname : '';
   const _devMode = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('mode') : null;
-  if (_hostname === 'bot.fujistud.io' || _devMode === 'bot') {
-    return (
-      <ResourceProvider>
-        <AdminDashboard />
-      </ResourceProvider>
-    );
-  }
-  if (_hostname === 'dashboard.fujistud.io' || _devMode === 'website') {
-    return (
-      <Suspense fallback={<PageSpinner />}>
-        <WebsiteAdminDashboard />
-      </Suspense>
-    );
+  const _authPaths = ['/login', '/register', '/complete-account', '/reset-password', '/forgot-password', '/verify-email', '/account', '/oauth'];
+  const _isAuthPath = _authPaths.some(p => currentPath === p || currentPath.startsWith(p));
+  if (!_isAuthPath) {
+    if (_hostname === 'bot.fujistud.io' || _devMode === 'bot') {
+      return (
+        <ResourceProvider>
+          <AdminDashboard />
+        </ResourceProvider>
+      );
+    }
+    if (_hostname === 'dashboard.fujistud.io' || _devMode === 'website') {
+      return (
+        <Suspense fallback={<PageSpinner />}>
+          <WebsiteAdminDashboard />
+        </Suspense>
+      );
+    }
   }
 
   // /dashboard → Full admin dashboard (legacy path on fujistud.io, still works)
