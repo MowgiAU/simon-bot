@@ -5,7 +5,7 @@
  */
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Music, Headphones, UserPlus, UserCheck, MessageCircle, Star, Play, ListMusic } from 'lucide-react';
 import { SURFACE, BORDER, PRIMARY, CYAN, TEXT, SUB, BG } from '../../pages/MobilePreviewChrome';
 import { useAuth } from '../AuthProvider';
@@ -14,6 +14,7 @@ const glass: React.CSSProperties = { background: SURFACE, backdropFilter: 'blur(
 
 export const ProfileMobile: React.FC<{ identifier: string }> = ({ identifier }) => {
     const { user } = useAuth();
+    const navigate = useNavigate();
     const [p, setP] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [isFollowing, setIsFollowing] = useState(false);
@@ -39,11 +40,12 @@ export const ProfileMobile: React.FC<{ identifier: string }> = ({ identifier }) 
 
     const toggleFollow = async () => {
         if (!p) return;
+        if (!user) { navigate('/login'); return; }
         try {
             const { data } = await axios.post(`/api/artists/${p.id}/follow`, {}, { withCredentials: true });
             setIsFollowing(data.following);
             setFollowerCount(prev => data.following ? prev + 1 : prev - 1);
-        } catch { /* not logged in */ }
+        } catch { /* server error */ }
     };
 
     const isOwnProfile = !!user && !!p && (

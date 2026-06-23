@@ -187,11 +187,12 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
 
     const toggleFollow = async () => {
         if (!profile) return;
+        if (!user) { navigate('/login'); return; }
         try {
             const { data } = await axios.post(`/api/artists/${profile.id}/follow`, {}, { withCredentials: true });
             setIsFollowing(data.following);
             setFollowerCount(prev => data.following ? prev + 1 : prev - 1);
-        } catch { /* not logged in */ }
+        } catch { /* server error */ }
     };
 
     const { startConversation: chatStart } = useChat();
