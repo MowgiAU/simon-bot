@@ -403,8 +403,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
         )}
 
         {/* ── Content ── */}
-        {['articles', 'article-review'].some(p => permissions.accessiblePlugins.includes(p)) && (
+        {['articles', 'article-review', 'featured-content'].some(p => permissions.accessiblePlugins.includes(p)) && (
           <NavGroup id="content" label="Content" icon={<FileText size={12} style={{ marginRight: 6, verticalAlign: 'middle', opacity: 0.5 }} />} collapsed={collapsed}>
+            {permissions.accessiblePlugins.includes('featured-content') && (
+              <button className={`nav-item ${activeSection === 'featured-content' ? 'active' : ''}`} onClick={() => onNavigate('featured-content')} title={collapsed ? "Featured Content" : ""}>
+                <span className="nav-icon"><AnimatedWrapper icon={Sparkles} size={20} /></span>
+                <span className="nav-label">Featured Content</span>
+              </button>
+            )}
             {permissions.accessiblePlugins.includes('articles') && (
               <button className={`nav-item ${activeSection === 'articles' ? 'active' : ''}`} onClick={() => onNavigate('articles')} title={collapsed ? "Articles" : ""}>
                 <span className="nav-icon"><AnimatedWrapper icon={FileText} size={20} /></span>
