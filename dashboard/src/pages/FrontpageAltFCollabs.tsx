@@ -8,7 +8,7 @@ import { Link } from 'react-router-dom';
 import { AltSidebar, BG, S_LOWEST, S_CONT, S_HIGH, PRIMARY, SECONDARY, TERTIARY, TEXT, SUB, BORDER, FONT } from '../components/altshell/AltSidebar';
 import { AltHeader } from '../components/altshell/AltHeader';
 import { useAuth } from '../components/AuthProvider';
-import { Users, Plus, Tag, Music, Mic2, Sliders, Clock, ChevronDown, X } from 'lucide-react';
+import { Users, Plus, Tag, Music, Mic2, Sliders, Clock, ChevronDown, X, FolderOpen } from 'lucide-react';
 
 const ROLES = ['vocals', 'mixing', 'mastering', 'production', 'guitar', 'bass', 'drums', 'piano', 'synths', 'songwriting', 'artwork'];
 const GENRES = ['trap', 'lofi', 'house', 'dnb', 'hip-hop', 'pop', 'r&b', 'ambient', 'techno', 'dubstep', 'jazz', 'soul'];
@@ -124,11 +124,18 @@ export default function FrontpageAltFCollabs() {
                                 <p style={{ margin: 0, fontSize: 13, color: SUB }}>Find your next collaborator</p>
                             </div>
                         </div>
-                        {user && (
-                            <button onClick={() => setShowCreateModal(true)} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 18px', borderRadius: 99, background: PRIMARY, color: '#fff', border: 'none', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
-                                <Plus size={16} /> Post a Callout
-                            </button>
-                        )}
+                        <div style={{ display: 'flex', gap: 8 }}>
+                            {user && (
+                                <Link to="/preview/alt_f_my_collabs" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 18px', borderRadius: 99, background: S_CONT, border: `1px solid ${BORDER}`, color: TEXT, textDecoration: 'none', fontWeight: 600, fontSize: 14 }}>
+                                    <FolderOpen size={16} /> My Collabs
+                                </Link>
+                            )}
+                            {user && (
+                                <button onClick={() => setShowCreateModal(true)} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 18px', borderRadius: 99, background: PRIMARY, color: '#fff', border: 'none', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
+                                    <Plus size={16} /> Post a Callout
+                                </button>
+                            )}
+                        </div>
                     </div>
 
                     {/* Filters */}

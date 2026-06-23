@@ -23958,6 +23958,23 @@ app.get('/api/collab/my-callouts', requireAuth, async (req: any, res) => {
     } catch (e) { res.status(500).json({ error: 'Failed' }); }
 });
 
+// Lightweight stats for sidebar badge
+app.get('/api/collab/stats', requireAuth, async (req: any, res) => {
+    try {
+        const me = await getMyProfile(req);
+        if (!me) return res.json({ activeProjects: 0, pendingRequests: 0 });
+        const [activeProjects, pendingRequests] = await Promise.all([
+            db.collabProject.count({
+                where: { OR: [{ initiatorProfileId: me.id }, { collaboratorProfileId: me.id }], status: 'active' },
+            }),
+            db.collabRequest.count({
+                where: { callout: { profileId: me.id }, status: 'pending' },
+            }),
+        ]);
+        res.json({ activeProjects, pendingRequests });
+    } catch { res.json({ activeProjects: 0, pendingRequests: 0 }); }
+});
+
 // ─── Requests ────────────────────────────────────────────────────────────────
 
 app.post('/api/collab/callouts/:id/requests', requireAuth, async (req: any, res) => {

@@ -7,6 +7,7 @@ import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
 import { usePlayer } from '../PlayerProvider';
+import { useAuth } from '../AuthProvider';
 import { useAltBreakpoint } from './useAltBreakpoint';
 import {
     Home, Search, User, Newspaper, BarChart3, Swords, Tag, Users, Plus, Library, AudioLines,
@@ -21,21 +22,23 @@ export const FONT = 'Inter, "SF Pro Display", -apple-system, BlinkMacSystemFont,
 export const arr = (d: any): any[] => Array.isArray(d) ? d : (d?.tracks || d?.profiles || d?.battles || d?.entries || d?.playlists || d?.data || []);
 
 const NAV = [
-    { icon: Home, label: 'Home', to: '/preview/alt_f' },
-    { icon: Search, label: 'Search', to: '/preview/alt_f_library' },
-    { icon: User, label: 'Artists', to: '/preview/alt_f_artists' },
-    { icon: Newspaper, label: 'News', to: '/preview/alt_f_articles' },
-    { icon: BarChart3, label: 'Charts', to: '/preview/alt_f_charts' },
-    { icon: Swords, label: 'Battles', to: '/preview/alt_f_battles' },
-    { icon: Tag, label: 'Genres', to: '/preview/alt_f_genres' },
-    { icon: Users, label: 'Collabs', to: '/preview/alt_f_collabs' },
+    { icon: Home,      label: 'Home',    to: '/preview/alt_f' },
+    { icon: Search,    label: 'Search',  to: '/preview/alt_f_library' },
+    { icon: User,      label: 'Artists', to: '/preview/alt_f_artists' },
+    { icon: Newspaper, label: 'News',    to: '/preview/alt_f_articles' },
+    { icon: BarChart3, label: 'Charts',  to: '/preview/alt_f_charts' },
+    { icon: Swords,    label: 'Battles', to: '/preview/alt_f_battles' },
+    { icon: Tag,       label: 'Genres',  to: '/preview/alt_f_genres' },
+    { icon: Users,     label: 'Collabs', to: '/preview/alt_f_collabs' },
 ];
 
 const LS_KEY = 'fuji_left_sidebar_collapsed';
 
 export const AltSidebar: React.FC<{ active?: string }> = ({ active }) => {
     const { player } = usePlayer();
+    const { user } = useAuth();
     const [playlists, setPlaylists] = useState<any[]>([]);
+    const [collabStats, setCollabStats] = useState<{ activeProjects: number; pendingRequests: number } | null>(null);
     const bp = useAltBreakpoint();
 
     const [collapsed, setCollapsed] = useState(() => {
@@ -99,8 +102,21 @@ export const AltSidebar: React.FC<{ active?: string }> = ({ active }) => {
         axios.get('/api/playlists/popular').then(r => setPlaylists(arr(r.data).slice(0, 6))).catch(() => {});
     }, []);
 
+    // Fetch collab stats when logged in
+    useEffect(() => {
+        if (!user) { setCollabStats(null); return; }
+        axios.get('/api/collab/stats', { withCredentials: true })
+            .then(r => setCollabStats(r.data))
+            .catch(() => {});
+    }, [user]);
+
     // xs always icon-rail to prevent overflow
     const w = (collapsed || bp === 'xs') ? 64 : 256;
+
+    // Badge counts per nav label
+    const collabBadge = collabStats
+        ? { projects: collabStats.activeProjects, requests: collabStats.pendingRequests }
+        : null;
 
     return (
         <aside style={{ width: w, minWidth: w, background: S_LOWEST, borderRight: `1px solid ${BORDER}`, display: 'flex', flexDirection: 'column', flexShrink: 0, fontFamily: FONT, color: TEXT, paddingBottom: player.currentTrack ? 90 : 0, transition: 'width 0.25s ease, min-width 0.25s ease', overflow: 'hidden' }}>
@@ -136,13 +152,42 @@ export const AltSidebar: React.FC<{ active?: string }> = ({ active }) => {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: collapsed ? 0 : 24 }}>
                     {NAV.map(({ icon: Icon, label, to }) => {
                         const on = active === label;
-                        return collapsed ? (
-                            <Link key={label} to={to} title={label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '11px 0', borderRadius: 8, textDecoration: 'none', color: on ? PRIMARY : SUB, background: on ? S_CONT : 'transparent' }}>
-                                <Icon size={20} />
-                            </Link>
-                        ) : (
+                        const isCollabs = label === 'Collabs';
+
+                        if (collapsed) {
+                            return (
+                                <Link key={label} to={to} title={label} style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '11px 0', borderRadius: 8, textDecoration: 'none', color: on ? PRIMARY : SUB, background: on ? S_CONT : 'transparent' }}>
+                                    <Icon size={20} />
+                                    {/* Collapsed dot — pending requests take priority, else active projects */}
+                                    {isCollabs && collabBadge && collabBadge.requests > 0 && (
+                                        <span style={{ position: 'absolute', top: 7, right: 10, width: 7, height: 7, borderRadius: '50%', background: PRIMARY, boxShadow: `0 0 0 2px ${S_LOWEST}` }} />
+                                    )}
+                                    {isCollabs && collabBadge && collabBadge.requests === 0 && collabBadge.projects > 0 && (
+                                        <span style={{ position: 'absolute', top: 7, right: 10, width: 7, height: 7, borderRadius: '50%', background: SECONDARY, boxShadow: `0 0 0 2px ${S_LOWEST}` }} />
+                                    )}
+                                </Link>
+                            );
+                        }
+
+                        return (
                             <Link key={label} to={to} style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '11px 16px', borderRadius: 8, textDecoration: 'none', fontWeight: 600, fontSize: 14, color: on ? TEXT : SUB, background: on ? S_CONT : 'transparent' }}>
-                                <Icon size={20} /> {label}
+                                <Icon size={20} />
+                                <span style={{ flex: 1 }}>{label}</span>
+                                {/* Expanded badges for Collabs */}
+                                {isCollabs && collabBadge && (collabBadge.requests > 0 || collabBadge.projects > 0) && (
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                        {collabBadge.projects > 0 && (
+                                            <span title={`${collabBadge.projects} active project${collabBadge.projects !== 1 ? 's' : ''}`} style={{ fontSize: 10, fontWeight: 700, minWidth: 18, height: 16, borderRadius: 99, background: `${SECONDARY}30`, color: SECONDARY, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 5px' }}>
+                                                {collabBadge.projects}
+                                            </span>
+                                        )}
+                                        {collabBadge.requests > 0 && (
+                                            <span title={`${collabBadge.requests} pending request${collabBadge.requests !== 1 ? 's' : ''}`} style={{ fontSize: 10, fontWeight: 700, minWidth: 18, height: 16, borderRadius: 99, background: PRIMARY, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 5px' }}>
+                                                {collabBadge.requests}
+                                            </span>
+                                        )}
+                                    </span>
+                                )}
                             </Link>
                         );
                     })}
