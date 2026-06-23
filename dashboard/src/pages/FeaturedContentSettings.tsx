@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { colors, spacing, borderRadius } from '../theme/theme';
-import { MonitorPlay, Newspaper, BookOpen, FileText, Save, CheckCircle, AlertCircle, Search, X, ListMusic } from 'lucide-react';
+import { MonitorPlay, Newspaper, BookOpen, FileText, Save, CheckCircle, AlertCircle, Search, X, ListMusic, Award } from 'lucide-react';
 
 type ContentType = 'video' | 'news' | 'guide' | 'article' | 'playlist';
 
@@ -39,6 +39,7 @@ interface FeaturedSettings {
     featuredArticle: FeaturedArticle | null;
     featuredPlaylistId: string | null;
     featuredPlaylist: FeaturedPlaylist | null;
+    globalSponsorIds: string[];
 }
 
 const TYPE_OPTIONS: { id: ContentType; icon: React.ReactNode; label: string; description: string; accentColor: string }[] = [
@@ -92,6 +93,7 @@ export const FeaturedContentSettings: React.FC = () => {
         featuredArticle: null,
         featuredPlaylistId: null,
         featuredPlaylist: null,
+        globalSponsorIds: [],
     });
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -102,10 +104,14 @@ export const FeaturedContentSettings: React.FC = () => {
     const [playlistSearch, setPlaylistSearch] = useState('');
     const [playlistResults, setPlaylistResults] = useState<FeaturedPlaylist[]>([]);
     const [searchingPlaylists, setSearchingPlaylists] = useState(false);
+    const [allSponsors, setAllSponsors] = useState<any[]>([]);
 
     useEffect(() => {
-        axios.get('/api/discovery/settings').then(r => {
-            const d = r.data;
+        Promise.all([
+            axios.get('/api/discovery/settings'),
+            axios.get('/api/beat-battle/admin/sponsors', { withCredentials: true }),
+        ]).then(([dRes, sRes]) => {
+            const d = dRes.data;
             setSettings({
                 featuredContentType: d.featuredContentType || 'video',
                 featuredTutorialUrl: d.featuredTutorialUrl || '',
@@ -118,7 +124,9 @@ export const FeaturedContentSettings: React.FC = () => {
                 featuredArticle: d.featuredArticle || null,
                 featuredPlaylistId: d.featuredPlaylistId || null,
                 featuredPlaylist: d.featuredPlaylist || null,
+                globalSponsorIds: Array.isArray(d.globalSponsorIds) ? d.globalSponsorIds : [],
             });
+            setAllSponsors(Array.isArray(sRes.data) ? sRes.data : []);
         }).catch(() => {}).finally(() => setLoading(false));
     }, []);
 
@@ -136,6 +144,7 @@ export const FeaturedContentSettings: React.FC = () => {
                 featuredTutorialDate: settings.featuredTutorialDate || null,
                 featuredArticleId: settings.featuredArticleId || null,
                 featuredPlaylistId: settings.featuredPlaylistId || null,
+                globalSponsorIds: settings.globalSponsorIds,
             });
             setSaveStatus('ok');
             setTimeout(() => setSaveStatus('idle'), 3000);
@@ -500,6 +509,64 @@ export const FeaturedContentSettings: React.FC = () => {
                             {settings.featuredContentType === 'news' ? ' Community News' : ' Community Guides'} card.
                             Article/guide management will be added in a future update.
                         </p>
+                    </div>
+                )}
+            </div>
+
+            {/* ── Homepage Sponsors ── */}
+            <div style={{ marginTop: spacing.lg, marginBottom: spacing.lg }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+                    <Award size={20} color={colors.primary} />
+                    <div>
+                        <h2 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: colors.textPrimary }}>Homepage Partners</h2>
+                        <p style={{ margin: '2px 0 0', fontSize: '12px', color: colors.textSecondary }}>
+                            Select which sponsors appear in the Premium Partner banner on the homepage.
+                        </p>
+                    </div>
+                </div>
+
+                {allSponsors.length === 0 ? (
+                    <p style={{ fontSize: '13px', color: colors.textSecondary }}>No sponsors found. Add sponsors in the Beat Battle → Sponsors section first.</p>
+                ) : (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '10px' }}>
+                        {allSponsors.map((sp: any) => {
+                            const selected = settings.globalSponsorIds.includes(sp.id);
+                            return (
+                                <div
+                                    key={sp.id}
+                                    onClick={() => setSettings(s => ({
+                                        ...s,
+                                        globalSponsorIds: selected
+                                            ? s.globalSponsorIds.filter(id => id !== sp.id)
+                                            : [...s.globalSponsorIds, sp.id],
+                                    }))}
+                                    style={{
+                                        display: 'flex', alignItems: 'center', gap: '10px',
+                                        padding: '10px 12px', borderRadius: borderRadius.md, cursor: 'pointer',
+                                        background: selected ? `${colors.primary}12` : 'rgba(255,255,255,0.03)',
+                                        border: `1px solid ${selected ? colors.primary + '55' : 'rgba(255,255,255,0.08)'}`,
+                                        transition: 'all 0.15s',
+                                        userSelect: 'none',
+                                    }}
+                                >
+                                    {sp.logoUrl
+                                        ? <img src={sp.logoUrl} alt={sp.name} style={{ width: 32, height: 32, borderRadius: 6, objectFit: 'contain', background: 'rgba(255,255,255,0.05)', flexShrink: 0 }} />
+                                        : <div style={{ width: 32, height: 32, borderRadius: 6, background: `${colors.primary}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                            <Award size={14} color={colors.primary} />
+                                          </div>
+                                    }
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                        <div style={{ fontSize: '13px', fontWeight: 600, color: colors.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sp.name}</div>
+                                        {sp.websiteUrl && (
+                                            <div style={{ fontSize: '11px', color: colors.textTertiary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sp.websiteUrl.replace(/^https?:\/\//, '')}</div>
+                                        )}
+                                    </div>
+                                    <div style={{ width: 18, height: 18, borderRadius: 4, border: `2px solid ${selected ? colors.primary : 'rgba(255,255,255,0.2)'}`, background: selected ? colors.primary : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 0.15s' }}>
+                                        {selected && <CheckCircle size={11} color="#0f1218" />}
+                                    </div>
+                                </div>
+                            );
+                        })}
                     </div>
                 )}
             </div>

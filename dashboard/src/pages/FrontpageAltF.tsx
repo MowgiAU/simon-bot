@@ -89,21 +89,25 @@ export const FrontpageAltF: React.FC = () => {
             const chart = Array.isArray(cRes.data) ? cRes.data[0] : cRes.data;
             setChartEntries(chart?.entries || []);
             setArtists(arr(pRes.data).slice(0, 8));
-            if (dRes.data) setFeatured(dRes.data);
+            if (dRes.data) {
+                setFeatured(dRes.data);
+                // Use admin-curated global sponsors from discovery settings
+                if (Array.isArray(dRes.data.globalSponsors) && dRes.data.globalSponsors.length > 0) {
+                    setSponsors(dRes.data.globalSponsors);
+                } else {
+                    // Fallback: extract from battles
+                    const seen = new Set<string>();
+                    const merged: any[] = [];
+                    for (const b of arr(bRes.data)) {
+                        const s = b.sponsor;
+                        if (s?.id && s.isActive && s.showOnPage && !seen.has(s.id)) { seen.add(s.id); merged.push(s); }
+                    }
+                    setSponsors(merged);
+                }
+            }
             const bBattles = arr(bRes.data);
             setBattles(bBattles);
             setPlaylists(arr(plRes.data));
-            // Extract sponsors from battles (inline sponsor field), deduplicate by id
-            const seen = new Set<string>();
-            const merged: any[] = [];
-            for (const b of bBattles) {
-                const s = b.sponsor;
-                if (s?.id && s.isActive && s.showOnPage && !seen.has(s.id)) {
-                    seen.add(s.id);
-                    merged.push(s);
-                }
-            }
-            setSponsors(merged);
             setLoading(false);
         });
     }, []);
@@ -497,25 +501,14 @@ export const FrontpageAltF: React.FC = () => {
                                                 </p>
                                             )}
 
-                                            {/* CTA buttons */}
-                                            <div style={{ display: 'flex', gap: 10, flexShrink: 0, flexWrap: 'wrap' }}>
-                                                {sp.links && sp.links.length > 0
-                                                    ? sp.links.map((lnk: any) => (
-                                                        <a key={lnk.id} href={lnk.url} target="_blank" rel="noopener noreferrer"
-                                                            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 10, background: PRIMARY, color: '#000', fontSize: 13, fontWeight: 700, textDecoration: 'none' }}>
-                                                            <ExternalLink size={13} />
-                                                            {lnk.label}
-                                                        </a>
-                                                    ))
-                                                    : sp.websiteUrl && (
-                                                        <a href={sp.websiteUrl} target="_blank" rel="noopener noreferrer"
-                                                            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 10, background: PRIMARY, color: '#000', fontSize: 13, fontWeight: 700, textDecoration: 'none' }}>
-                                                            <ExternalLink size={13} />
-                                                            Visit Site
-                                                        </a>
-                                                    )
-                                                }
-                                            </div>
+                                            {/* CTA */}
+                                            {sp.websiteUrl && (
+                                                <a href={sp.websiteUrl} target="_blank" rel="noopener noreferrer"
+                                                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 10, background: PRIMARY, color: '#000', fontSize: 13, fontWeight: 700, textDecoration: 'none', flexShrink: 0 }}>
+                                                    <ExternalLink size={13} />
+                                                    Visit Site
+                                                </a>
+                                            )}
 
                                             {/* Dot indicators (only when >1 sponsor) */}
                                             {sponsors.length > 1 && (
