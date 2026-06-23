@@ -6,24 +6,51 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
-import { Music, Headphones, UserPlus, MessageCircle, Star, Play, ListMusic } from 'lucide-react';
+import { Music, Headphones, UserPlus, UserCheck, MessageCircle, Star, Play, ListMusic } from 'lucide-react';
 import { SURFACE, BORDER, PRIMARY, CYAN, TEXT, SUB, BG } from '../../pages/MobilePreviewChrome';
+import { useAuth } from '../AuthProvider';
 
 const glass: React.CSSProperties = { background: SURFACE, backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: `1px solid ${BORDER}` };
 
 export const ProfileMobile: React.FC<{ identifier: string }> = ({ identifier }) => {
+    const { user } = useAuth();
     const [p, setP] = useState<any>(null);
     const [loading, setLoading] = useState(true);
+    const [isFollowing, setIsFollowing] = useState(false);
+    const [followerCount, setFollowerCount] = useState(0);
 
     useEffect(() => {
         let on = true;
         setLoading(true);
         axios.get(`/api/musician/profile/${identifier}`, { withCredentials: true })
-            .then(r => { if (on) setP(r.data); })
+            .then(r => {
+                if (!on) return;
+                const prof = r.data;
+                setP(prof);
+                if (prof?.id) {
+                    axios.get(`/api/artists/${prof.id}/follower-count`).then(res => { if (on) setFollowerCount(res.data?.count ?? 0); }).catch(() => {});
+                    axios.get(`/api/artists/${prof.id}/follow`, { withCredentials: true }).then(res => { if (on) setIsFollowing(res.data?.following ?? false); }).catch(() => {});
+                }
+            })
             .catch(() => {})
             .finally(() => { if (on) setLoading(false); });
         return () => { on = false; };
     }, [identifier]);
+
+    const toggleFollow = async () => {
+        if (!p) return;
+        try {
+            const { data } = await axios.post(`/api/artists/${p.id}/follow`, {}, { withCredentials: true });
+            setIsFollowing(data.following);
+            setFollowerCount(prev => data.following ? prev + 1 : prev - 1);
+        } catch { /* not logged in */ }
+    };
+
+    const isOwnProfile = !!user && !!p && (
+        p.userId === user.id ||
+        p.username === user.username ||
+        p.username === (user as any).profileUsername
+    );
 
     if (loading) return <div style={{ maxWidth: 480, margin: '0 auto', padding: '60px 16px', textAlign: 'center', color: SUB }}>Loading…</div>;
     if (!p) return <div style={{ maxWidth: 480, margin: '0 auto', padding: '60px 16px', textAlign: 'center', color: SUB }}>Profile not found</div>;
@@ -60,10 +87,12 @@ export const ProfileMobile: React.FC<{ identifier: string }> = ({ identifier }) 
 
             {/* Actions */}
             <div style={{ display: 'flex', gap: 12, marginTop: 20 }}>
-                <button style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, background: PRIMARY, color: '#fff', border: 'none', borderRadius: 8, padding: '12px 0', fontSize: 16, fontWeight: 600, cursor: 'pointer', boxShadow: '0 0 20px rgba(242,120,10,0.15)' }}>
-                    <UserPlus size={20} /> Follow
-                </button>
-                <Link to={`/messages?to=${p.userId || ''}`} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, ...glass, color: TEXT, borderRadius: 8, padding: '12px 0', fontSize: 16, fontWeight: 600, textDecoration: 'none' }}>
+                {!isOwnProfile && (
+                    <button onClick={toggleFollow} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, background: isFollowing ? 'transparent' : PRIMARY, color: isFollowing ? PRIMARY : '#fff', border: isFollowing ? `1px solid ${PRIMARY}` : 'none', borderRadius: 8, padding: '12px 0', fontSize: 16, fontWeight: 600, cursor: 'pointer', boxShadow: isFollowing ? 'none' : '0 0 20px rgba(242,120,10,0.15)', transition: 'all 0.2s' }}>
+                        {isFollowing ? <><UserCheck size={20} /> Following</> : <><UserPlus size={20} /> Follow</>}
+                    </button>
+                )}
+                <Link to={`/messages?to=${p.userId || ''}`} style={{ flex: isOwnProfile ? undefined : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, ...glass, color: TEXT, borderRadius: 8, padding: '12px 0', fontSize: 16, fontWeight: 600, textDecoration: 'none' }}>
                     <MessageCircle size={20} /> Message
                 </Link>
             </div>
