@@ -9,7 +9,7 @@ import axios from 'axios';
 import { Link } from 'react-router-dom';
 import { usePlayer } from '../PlayerProvider';
 import { useAltBreakpoint } from './useAltBreakpoint';
-import { PanelRightClose, PanelRightOpen, Swords, Music, Activity, MessageCircle } from 'lucide-react';
+import { PanelRightClose, PanelRightOpen, Swords, Music, Activity, MessageCircle, Newspaper } from 'lucide-react';
 import {
     BG, S_CONT, S_HIGH, PRIMARY, SECONDARY, TERTIARY, TEXT, SUB, BORDER, FONT, arr,
 } from './AltSidebar';
@@ -22,6 +22,7 @@ export const AltActivitySidebar: React.FC = () => {
     const [battles, setBattles] = useState<any[]>([]);
     const [activity, setActivity] = useState<any[]>([]);
     const [comments, setComments] = useState<any[]>([]);
+    const [latestArticle, setLatestArticle] = useState<any>(null);
     const bp = useAltBreakpoint();
 
     const [collapsed, setCollapsed] = useState(() => {
@@ -46,9 +47,13 @@ export const AltActivitySidebar: React.FC = () => {
     });
 
     useEffect(() => {
-        axios.get('/api/beat-battle/battles').then(r => setBattles(arr(r.data).slice(0, 3))).catch(() => {});
+        axios.get('/api/beat-battle/battles').then(r => setBattles(arr(r.data).slice(0, 1))).catch(() => {});
         axios.get('/api/discovery/tracks?limit=6').then(r => setActivity(arr(r.data).slice(0, 6))).catch(() => {});
         axios.get('/api/comments/recent').then(r => setComments(arr(r.data).slice(0, 5))).catch(() => {});
+        axios.get('/api/articles?limit=1').then(r => {
+            const list = arr(r.data?.articles ?? r.data);
+            setLatestArticle(list[0] ?? null);
+        }).catch(() => {});
     }, []);
 
     const w = collapsed ? 48 : 288;
@@ -113,6 +118,40 @@ export const AltActivitySidebar: React.FC = () => {
                                 );
                             })}
                         </div>
+                    </section>
+                )}
+
+                {/* Latest News */}
+                {latestArticle && (
+                    <section>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <Newspaper size={14} color={SECONDARY} />
+                                <span style={{ fontSize: 10, color: SUB, textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700 }}>Latest News</span>
+                            </div>
+                            <Link to="/preview/alt_f_articles" style={{ fontSize: 10, color: PRIMARY, fontWeight: 700, textDecoration: 'none', fontFamily: FONT }}>More →</Link>
+                        </div>
+                        <Link
+                            to="/preview/alt_f_article"
+                            style={{ display: 'block', borderRadius: 12, overflow: 'hidden', textDecoration: 'none', color: 'inherit', background: 'rgba(15,19,29,0.7)', border: '1px solid rgba(255,255,255,0.1)', backdropFilter: 'blur(20px)', transition: 'border-color 0.2s' }}
+                            onMouseEnter={ev => (ev.currentTarget.style.borderColor = `${PRIMARY}66`)}
+                            onMouseLeave={ev => (ev.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)')}
+                        >
+                            {latestArticle.coverImageUrl && (
+                                <div style={{ height: 80, overflow: 'hidden', position: 'relative' }}>
+                                    <img src={latestArticle.coverImageUrl} alt="" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(15,19,29,0.7), transparent)' }} />
+                                </div>
+                            )}
+                            <div style={{ padding: '10px 12px' }}>
+                                {latestArticle.category && (
+                                    <span style={{ fontSize: 9, fontWeight: 800, color: SECONDARY, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{latestArticle.category} · </span>
+                                )}
+                                <p style={{ margin: '4px 0 0', fontSize: 12, fontWeight: 700, color: TEXT, lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as const, overflow: 'hidden' }}>
+                                    {latestArticle.title}
+                                </p>
+                            </div>
+                        </Link>
                     </section>
                 )}
 

@@ -15,12 +15,11 @@ import { AltActivitySidebar } from '../components/altshell/AltActivitySidebar';
 import {
     Users, Music, TrendingUp, Play, Pause,
     ChevronLeft, ChevronRight,
-    Newspaper, Flame, Award, ExternalLink,
+    Flame, Award, ExternalLink,
     ArrowUp, ArrowDown, MessageSquare, Hash, Clock, Zap,
 } from 'lucide-react';
 
 const fmtNum = (n?: number) => { n = n || 0; if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M'; if (n >= 1e3) return (n / 1e3).toFixed(1) + 'k'; return String(n); };
-const fmtDate = (s?: string) => { if (!s) return ''; return new Date(s).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' }); };
 const fmtDur = (s?: number) => { if (!s) return ''; const m = Math.floor(s / 60); return `${m}:${String(Math.floor(s % 60)).padStart(2, '0')}`; };
 
 const glass: React.CSSProperties = {
@@ -62,7 +61,6 @@ export const FrontpageAltF: React.FC = () => {
     const [slideIdx,           setSlideIdx]           = useState(0);
     const [artists,            setArtists]            = useState<any[]>([]);
     const [chartEntries,       setChartEntries]       = useState<any[]>([]);
-    const [articles,           setArticles]           = useState<any[]>([]);
     const [battles,            setBattles]            = useState<any[]>([]);
     const [playlists,          setPlaylists]          = useState<any[]>([]);
     const [sponsors,           setSponsors]           = useState<any[]>([]);
@@ -83,14 +81,12 @@ export const FrontpageAltF: React.FC = () => {
         Promise.all([
             axios.get('/api/charts/weekly').catch(() => ({ data: null })),
             axios.get('/api/musician/profiles?limit=8&sort=popular').catch(() => ({ data: [] })),
-            axios.get('/api/articles?limit=6').catch(() => ({ data: { articles: [] } })),
             axios.get('/api/beat-battle/battles').catch(() => ({ data: [] })),
             axios.get('/api/playlists/popular').catch(() => ({ data: [] })),
-        ]).then(([cRes, pRes, aRes, bRes, plRes]) => {
+        ]).then(([cRes, pRes, bRes, plRes]) => {
             const chart = Array.isArray(cRes.data) ? cRes.data[0] : cRes.data;
             setChartEntries(chart?.entries || []);
             setArtists(arr(pRes.data).slice(0, 8));
-            setArticles((aRes.data?.articles || arr(aRes.data)).slice(0, 6));
             const bBattles = arr(bRes.data);
             setBattles(bBattles);
             setPlaylists(arr(plRes.data));
@@ -586,69 +582,6 @@ export const FrontpageAltF: React.FC = () => {
                             {/* ── RIGHT CONTENT ── */}
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
 
-                                {/* Latest News */}
-                                <section>
-                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-                                        <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Latest News</h2>
-                                        <Link to="/preview/alt_f_articles"
-                                            style={{ color: PRIMARY, fontSize: 12, fontWeight: 600, fontFamily: FONT, textDecoration: 'none' }}>
-                                            View All Articles
-                                        </Link>
-                                    </div>
-                                    {articles.length === 0 ? (
-                                        <div style={{ ...glass, borderRadius: 20, padding: '40px 24px', textAlign: 'center', color: SUB, fontSize: 14 }}>
-                                            <Newspaper size={32} color={SUB} style={{ marginBottom: 12 }} />
-                                            <div>No articles published yet.</div>
-                                        </div>
-                                    ) : (
-                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 18 }}>
-                                            {articles.slice(0, 4).map((a: any) => (
-                                                <Link
-                                                    key={a.id}
-                                                    to="/preview/alt_f_article"
-                                                    style={{ ...glass, borderRadius: 20, overflow: 'hidden', display: 'flex', flexDirection: 'column', transition: 'border-color 0.2s, transform 0.15s', textDecoration: 'none', color: 'inherit' }}
-                                                    onMouseEnter={ev => { (ev.currentTarget as HTMLElement).style.borderColor = `${PRIMARY}66`; (ev.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'; }}
-                                                    onMouseLeave={ev => { (ev.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.1)'; (ev.currentTarget as HTMLElement).style.transform = 'translateY(0)'; }}
-                                                >
-                                                    <div style={{ height: 128, position: 'relative', background: S_HIGH, flexShrink: 0, overflow: 'hidden' }}>
-                                                        {a.coverImageUrl
-                                                            ? <img src={a.coverImageUrl} alt="" referrerPolicy="no-referrer"
-                                                                style={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.5s' }}
-                                                                onMouseEnter={ev => (ev.currentTarget.style.transform = 'scale(1.08)')}
-                                                                onMouseLeave={ev => (ev.currentTarget.style.transform = 'scale(1)')} />
-                                                            : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #1a2010, #0a1020)' }}>
-                                                                <Newspaper size={36} color={`${PRIMARY}55`} />
-                                                            </div>
-                                                        }
-                                                        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(15,19,29,0.65) 0%, transparent 60%)' }} />
-                                                        {a.category && (
-                                                            <div style={{ position: 'absolute', top: 10, left: 10 }}>
-                                                                <span style={{ background: 'rgba(15,19,29,0.85)', backdropFilter: 'blur(8px)', border: `1px solid ${SECONDARY}55`, color: SECONDARY, padding: '3px 10px', borderRadius: 9999, fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                                                                    {a.category}
-                                                                </span>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                    <div style={{ padding: '14px 18px 16px', flex: 1, display: 'flex', flexDirection: 'column' }}>
-                                                        <h3 style={{ margin: '0 0 8px', fontSize: 14, fontWeight: 800, color: TEXT, lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as const, overflow: 'hidden' }}>
-                                                            {a.title}
-                                                        </h3>
-                                                        {a.excerpt && (
-                                                            <p style={{ margin: '0 0 12px', fontSize: 12, color: SUB, lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as const, overflow: 'hidden', flex: 1 }}>
-                                                                {a.excerpt}
-                                                            </p>
-                                                        )}
-                                                        <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 10, borderTop: `1px solid ${DIVIDER}`, fontSize: 11, color: SUB }}>
-                                                            <span>{a.authorName || 'Fuji Studio'}</span>
-                                                            <span>{fmtDate(a.publishedAt)}</span>
-                                                        </div>
-                                                    </div>
-                                                </Link>
-                                            ))}
-                                        </div>
-                                    )}
-                                </section>
-
                                 {/* ── GENRE FEED ── */}
                                 <section>
                                     {/* Header row */}
@@ -858,7 +791,7 @@ export const FrontpageAltF: React.FC = () => {
                                     )}
                                 </section>
 
-                                {!slide && chartEntries.length === 0 && articles.length === 0 && (
+                                {!slide && chartEntries.length === 0 && (
                                     <div style={{ padding: 60, textAlign: 'center', color: SUB, fontSize: 14 }}>Nothing to show yet.</div>
                                 )}
                             </div>
