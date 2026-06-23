@@ -59,6 +59,7 @@ export const FrontpageAltF: React.FC = () => {
     const { player, setTrack, togglePlay } = usePlayer();
     const [loading,            setLoading]            = useState(true);
     const [slideIdx,           setSlideIdx]           = useState(0);
+    const [featured,           setFeatured]           = useState<any>(null);
     const [artists,            setArtists]            = useState<any[]>([]);
     const [chartEntries,       setChartEntries]       = useState<any[]>([]);
     const [battles,            setBattles]            = useState<any[]>([]);
@@ -83,10 +84,12 @@ export const FrontpageAltF: React.FC = () => {
             axios.get('/api/musician/profiles?limit=8&sort=popular').catch(() => ({ data: [] })),
             axios.get('/api/beat-battle/battles').catch(() => ({ data: [] })),
             axios.get('/api/playlists/popular').catch(() => ({ data: [] })),
-        ]).then(([cRes, pRes, bRes, plRes]) => {
+            axios.get('/api/discovery/settings').catch(() => ({ data: null })),
+        ]).then(([cRes, pRes, bRes, plRes, dRes]) => {
             const chart = Array.isArray(cRes.data) ? cRes.data[0] : cRes.data;
             setChartEntries(chart?.entries || []);
             setArtists(arr(pRes.data).slice(0, 8));
+            if (dRes.data) setFeatured(dRes.data);
             const bBattles = arr(bRes.data);
             setBattles(bBattles);
             setPlaylists(arr(plRes.data));
@@ -169,84 +172,172 @@ export const FrontpageAltF: React.FC = () => {
     };
 
     // ── Carousel slides ───────────────────────────────────────────────────
-    const topEntry   = chartEntries[0] || null;
-    const topTrack   = topEntry?.track || null;
-    const topProfile = topEntry?.track?.profile || null;
-    const fArtist    = artists.find((a: any) => a.bannerUrl) || artists[0] || null;
-    const fBattle    = battles.find((b: any) => b.bannerUrl && (b.status === 'active' || b.status === 'open'))
-                     || battles.find((b: any) => b.bannerUrl) || battles[0] || null;
-    const fPlaylist  = playlists[0] || null;
-
     const slides: Slide[] = [];
 
-    if (topTrack) {
-        slides.push({
-            key: 'track',
-            eyebrow: '#1 This Week',
-            title: topTrack.title,
-            subtitle: topProfile?.displayName || topProfile?.username || 'Unknown Artist',
-            bg: topTrack.coverUrl || null,
-            stat1Label: 'Plays',  stat1Value: fmtNum(topTrack.playCount),
-            stat2Label: 'Chart',  stat2Value: '#1 Trending',
-            actionLabel: 'Play Now',
-            onAction: () => {
-                if (!topTrack.url) return;
-                const q = chartEntries.filter((e: any) => e.track?.url).map((e: any) => ({
-                    id: e.track.id, title: e.track.title,
-                    artist: e.track.profile?.displayName || e.track.profile?.username || '',
-                    url: e.track.url, coverUrl: e.track.coverUrl,
-                }));
-                setTrack(q[0], q);
-            },
-        });
+    if (featured) {
+        // Primary featured content (admin-curated)
+        if (featured.featuredType === 'track' && featured.featuredTrack) {
+            const t = featured.featuredTrack;
+            const p = t.profile;
+            slides.push({
+                key: 'featured-track',
+                eyebrow: featured.featuredLabel || 'Featured Track',
+                title: t.title,
+                subtitle: featured.featuredDescription || p?.displayName || p?.username || 'Unknown Artist',
+                bg: t.coverUrl || null,
+                stat1Label: 'Plays',  stat1Value: fmtNum(t.playCount),
+                stat2Label: 'Genre',  stat2Value: t.genres?.[0]?.genre?.name || 'Producer',
+                actionLabel: 'Play Now',
+                onAction: () => {
+                    if (!t.url) return;
+                    setTrack({ id: t.id, title: t.title, artist: p?.displayName || p?.username || '', url: t.url, coverUrl: t.coverUrl }, []);
+                },
+            });
+        } else if (featured.featuredType === 'artist' && featured.featuredArtist) {
+            const a = featured.featuredArtist;
+            const genre = a.genres?.[0]?.genre?.name || 'Producer';
+            slides.push({
+                key: 'featured-artist',
+                eyebrow: featured.featuredLabel || 'Featured Artist',
+                title: a.displayName || a.username,
+                subtitle: featured.featuredDescription || genre,
+                bg: a.bannerUrl || a.avatar || null,
+                stat1Label: 'Tracks',      stat1Value: fmtNum(a._count?.tracks ?? a.tracks?.length),
+                stat2Label: 'Total Plays', stat2Value: fmtNum(a.totalPlays),
+                actionLabel: 'View Profile',
+                href: `/profile/${a.username}`,
+                onAction: () => navigate(`/profile/${a.username}`),
+            });
+        } else if (featured.featuredType === 'playlist' && featured.featuredPlaylist) {
+            const pl = featured.featuredPlaylist;
+            const cnt = pl._count?.tracks ?? pl.tracks?.length ?? 0;
+            slides.push({
+                key: 'featured-playlist',
+                eyebrow: featured.featuredLabel || 'Featured Playlist',
+                title: pl.name || pl.title,
+                subtitle: featured.featuredDescription || `${cnt} tracks curated for the community`,
+                bg: pl.coverUrl || pl.tracks?.[0]?.track?.coverUrl || null,
+                stat1Label: 'Tracks', stat1Value: fmtNum(cnt),
+                stat2Label: 'By',     stat2Value: pl.profile?.displayName || pl.profile?.username || 'Community',
+                actionLabel: 'Open Playlist',
+                href: `/playlist/${pl.id}`,
+                onAction: () => navigate(`/playlist/${pl.id}`),
+            });
+        }
+
+        // Featured battle (independent of featuredType)
+        if (featured.featuredBattle) {
+            const b = featured.featuredBattle;
+            const prize = b.prizePool || (b.prizes?.[0]?.amount ? `$${b.prizes[0].amount}` : null);
+            slides.push({
+                key: 'featured-battle',
+                eyebrow: 'Featured Battle',
+                title: b.title,
+                subtitle: featured.featuredBattleDescription || (b.status === 'active' ? 'Live Now' : b.status === 'voting' ? 'Voting Open' : 'Beat Battle'),
+                bg: b.bannerUrl || b.cardImageUrl || null,
+                stat1Label: 'Entries', stat1Value: fmtNum(b._count?.entries),
+                stat2Label: 'Prize',   stat2Value: prize || 'Community',
+                actionLabel: 'View Battle',
+                href: '/preview/alt_f_battles',
+                onAction: () => navigate('/preview/alt_f_battles'),
+            });
+        }
+
+        // Featured producer as a slide (if set and not already the primary)
+        if (featured.featuredProducer && featured.featuredType !== 'artist') {
+            const pr = featured.featuredProducer;
+            const genre = pr.genres?.[0]?.genre?.name || 'Producer';
+            slides.push({
+                key: 'featured-producer',
+                eyebrow: 'Featured Producer',
+                title: pr.displayName || pr.username,
+                subtitle: featured.featuredProducerNote || genre,
+                bg: pr.bannerUrl || pr.avatar || null,
+                stat1Label: 'Tracks', stat1Value: fmtNum(pr._count?.tracks ?? pr.tracks?.length),
+                stat2Label: 'Genre',  stat2Value: genre,
+                actionLabel: 'View Profile',
+                href: `/profile/${pr.username}`,
+                onAction: () => navigate(`/profile/${pr.username}`),
+            });
+        }
     }
 
-    if (fArtist) {
-        const genreName = fArtist.genres?.[0]?.genre?.name || fArtist.genres?.[0]?.name || 'Producer';
-        slides.push({
-            key: 'artist',
-            eyebrow: 'Featured Artist',
-            title: fArtist.displayName || fArtist.username,
-            subtitle: genreName,
-            bg: fArtist.bannerUrl || fArtist.avatar || null,
-            stat1Label: 'Tracks',    stat1Value: fmtNum(fArtist._count?.tracks),
-            stat2Label: 'Total Plays', stat2Value: fmtNum(fArtist.totalPlays),
-            actionLabel: 'View Profile',
-            href: `/profile/${fArtist.username}`,
-            onAction: () => navigate(`/profile/${fArtist.username}`),
-        });
-    }
+    // Fallback slides — only used when no featured content is configured
+    if (slides.length === 0) {
+        const topEntry   = chartEntries[0] || null;
+        const topTrack   = topEntry?.track || null;
+        const topProfile = topEntry?.track?.profile || null;
+        const fArtist    = artists.find((a: any) => a.bannerUrl) || artists[0] || null;
+        const fBattle    = battles.find((b: any) => b.bannerUrl && (b.status === 'active' || b.status === 'open'))
+                         || battles.find((b: any) => b.bannerUrl) || battles[0] || null;
+        const fPlaylist  = playlists[0] || null;
 
-    if (fBattle) {
-        const prize = fBattle.prizePool || (fBattle.prizes?.[0]?.amount ? `$${fBattle.prizes[0].amount}` : null);
-        slides.push({
-            key: 'battle',
-            eyebrow: 'Featured Battle',
-            title: fBattle.title,
-            subtitle: fBattle.status === 'active' ? 'Live Now' : fBattle.status === 'voting' ? 'Voting Open' : 'Beat Battle',
-            bg: fBattle.bannerUrl || null,
-            stat1Label: 'Entries', stat1Value: fmtNum(fBattle._count?.entries),
-            stat2Label: 'Prize',   stat2Value: prize || 'Community',
-            actionLabel: 'View Battle',
-            href: '/preview/alt_f_battles',
-            onAction: () => navigate('/preview/alt_f_battles'),
-        });
-    }
-
-    if (fPlaylist) {
-        const cnt = fPlaylist.trackCount ?? fPlaylist._count?.tracks ?? fPlaylist.tracks?.length ?? 0;
-        slides.push({
-            key: 'playlist',
-            eyebrow: 'Featured Playlist',
-            title: fPlaylist.name || fPlaylist.title,
-            subtitle: `${cnt} tracks curated by the community`,
-            bg: fPlaylist.coverUrl || fPlaylist.tracks?.[0]?.coverUrl || null,
-            stat1Label: 'Tracks', stat1Value: fmtNum(cnt),
-            stat2Label: 'Type',   stat2Value: fPlaylist.isPublic === false ? 'Private' : 'Community',
-            actionLabel: 'Open Playlist',
-            href: `/playlist/${fPlaylist.id}`,
-            onAction: () => navigate(`/playlist/${fPlaylist.id}`),
-        });
+        if (topTrack) {
+            slides.push({
+                key: 'track',
+                eyebrow: '#1 This Week',
+                title: topTrack.title,
+                subtitle: topProfile?.displayName || topProfile?.username || 'Unknown Artist',
+                bg: topTrack.coverUrl || null,
+                stat1Label: 'Plays', stat1Value: fmtNum(topTrack.playCount),
+                stat2Label: 'Chart', stat2Value: '#1 Trending',
+                actionLabel: 'Play Now',
+                onAction: () => {
+                    if (!topTrack.url) return;
+                    const q = chartEntries.filter((e: any) => e.track?.url).map((e: any) => ({
+                        id: e.track.id, title: e.track.title,
+                        artist: e.track.profile?.displayName || e.track.profile?.username || '',
+                        url: e.track.url, coverUrl: e.track.coverUrl,
+                    }));
+                    setTrack(q[0], q);
+                },
+            });
+        }
+        if (fArtist) {
+            const genreName = fArtist.genres?.[0]?.genre?.name || fArtist.genres?.[0]?.name || 'Producer';
+            slides.push({
+                key: 'artist',
+                eyebrow: 'Featured Artist',
+                title: fArtist.displayName || fArtist.username,
+                subtitle: genreName,
+                bg: fArtist.bannerUrl || fArtist.avatar || null,
+                stat1Label: 'Tracks',      stat1Value: fmtNum(fArtist._count?.tracks),
+                stat2Label: 'Total Plays', stat2Value: fmtNum(fArtist.totalPlays),
+                actionLabel: 'View Profile',
+                href: `/profile/${fArtist.username}`,
+                onAction: () => navigate(`/profile/${fArtist.username}`),
+            });
+        }
+        if (fBattle) {
+            const prize = fBattle.prizePool || (fBattle.prizes?.[0]?.amount ? `$${fBattle.prizes[0].amount}` : null);
+            slides.push({
+                key: 'battle',
+                eyebrow: 'Featured Battle',
+                title: fBattle.title,
+                subtitle: fBattle.status === 'active' ? 'Live Now' : fBattle.status === 'voting' ? 'Voting Open' : 'Beat Battle',
+                bg: fBattle.bannerUrl || null,
+                stat1Label: 'Entries', stat1Value: fmtNum(fBattle._count?.entries),
+                stat2Label: 'Prize',   stat2Value: prize || 'Community',
+                actionLabel: 'View Battle',
+                href: '/preview/alt_f_battles',
+                onAction: () => navigate('/preview/alt_f_battles'),
+            });
+        }
+        if (fPlaylist) {
+            const cnt = fPlaylist.trackCount ?? fPlaylist._count?.tracks ?? fPlaylist.tracks?.length ?? 0;
+            slides.push({
+                key: 'playlist',
+                eyebrow: 'Featured Playlist',
+                title: fPlaylist.name || fPlaylist.title,
+                subtitle: `${cnt} tracks curated by the community`,
+                bg: fPlaylist.coverUrl || fPlaylist.tracks?.[0]?.coverUrl || null,
+                stat1Label: 'Tracks', stat1Value: fmtNum(cnt),
+                stat2Label: 'Type',   stat2Value: fPlaylist.isPublic === false ? 'Private' : 'Community',
+                actionLabel: 'Open Playlist',
+                href: `/playlist/${fPlaylist.id}`,
+                onAction: () => navigate(`/playlist/${fPlaylist.id}`),
+            });
+        }
     }
 
     useEffect(() => {
