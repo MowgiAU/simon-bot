@@ -9,7 +9,7 @@ import { Link } from 'react-router-dom';
 import { usePlayer } from '../PlayerProvider';
 import { useAltBreakpoint } from './useAltBreakpoint';
 import {
-    Home, Search, User, Newspaper, BarChart3, Swords, Plus, Library, AudioLines,
+    Home, Search, User, Newspaper, BarChart3, Swords, Tag, Plus, Library, AudioLines,
     Users, Star, HelpCircle, LogOut, PanelLeftClose, PanelLeftOpen,
 } from 'lucide-react';
 
@@ -27,6 +27,7 @@ const NAV = [
     { icon: Newspaper, label: 'News', to: '/preview/alt_f_articles' },
     { icon: BarChart3, label: 'Charts', to: '/preview/alt_f_charts' },
     { icon: Swords, label: 'Battles', to: '/preview/alt_f_battles' },
+    { icon: Tag, label: 'Genres', to: '/preview/alt_f_genres' },
 ];
 
 const LS_KEY = 'fuji_left_sidebar_collapsed';
