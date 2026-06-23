@@ -110,6 +110,10 @@ const FrontpageAltFGenres      = lazy(() => import("./pages/FrontpageAltFGenres"
 const FrontpageAltFGenrePost   = lazy(() => import("./pages/FrontpageAltFGenrePost").then(m => ({ default: m.FrontpageAltFGenrePost })));
 const FrontpageAltFArena       = lazy(() => import("./pages/FrontpageAltFArena").then(m => ({ default: m.FrontpageAltFArena })));
 const FrontpageAltFLearn       = lazy(() => import("./pages/FrontpageAltFLearn").then(m => ({ default: m.FrontpageAltFLearn })));
+const FrontpageAltFCollabs     = lazy(() => import("./pages/FrontpageAltFCollabs"));
+const FrontpageAltFCollabCallout = lazy(() => import("./pages/FrontpageAltFCollabCallout"));
+const FrontpageAltFCollabWorkspace = lazy(() => import("./pages/FrontpageAltFCollabWorkspace"));
+const FrontpageAltFMyCollabs   = lazy(() => import("./pages/FrontpageAltFMyCollabs"));
 const MobilePreviewNowPlaying = lazy(() => import("./pages/MobilePreviewNowPlaying").then(m => ({ default: m.MobilePreviewNowPlaying })));
 const MobilePreviewHome      = lazy(() => import("./pages/MobilePreviewHome").then(m => ({ default: m.MobilePreviewHome })));
 const MobilePreviewCharts    = lazy(() => import("./pages/MobilePreviewCharts").then(m => ({ default: m.MobilePreviewCharts })));
@@ -1007,6 +1011,18 @@ const AppInternal: React.FC = () => {
   }
   if (currentPath === '/preview/alt_f_learn') {
     return <Suspense fallback={<PageSpinner />}><FrontpageAltFLearn /></Suspense>;
+  }
+  if (currentPath === '/preview/alt_f_collabs') {
+    return <Suspense fallback={<PageSpinner />}><FrontpageAltFCollabs /></Suspense>;
+  }
+  if (currentPath === '/preview/alt_f_collab_callout') {
+    return <Suspense fallback={<PageSpinner />}><FrontpageAltFCollabCallout /></Suspense>;
+  }
+  if (currentPath === '/preview/alt_f_collab_workspace') {
+    return <Suspense fallback={<PageSpinner />}><FrontpageAltFCollabWorkspace /></Suspense>;
+  }
+  if (currentPath === '/preview/alt_f_my_collabs') {
+    return <Suspense fallback={<PageSpinner />}><FrontpageAltFMyCollabs /></Suspense>;
   }
 
   // Mobile redesign previews (Stitch mockups rebuilt as CSP-safe React) — access by URL only

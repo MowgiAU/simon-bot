@@ -9,8 +9,8 @@ import { Link } from 'react-router-dom';
 import { usePlayer } from '../PlayerProvider';
 import { useAltBreakpoint } from './useAltBreakpoint';
 import {
-    Home, Search, User, Newspaper, BarChart3, Swords, Tag, Plus, Library, AudioLines,
-    Users, Star, HelpCircle, LogOut, PanelLeftClose, PanelLeftOpen,
+    Home, Search, User, Newspaper, BarChart3, Swords, Tag, Users, Plus, Library, AudioLines,
+    Star, HelpCircle, LogOut, PanelLeftClose, PanelLeftOpen,
 } from 'lucide-react';
 
 // Alt desktop palette (exported for reuse by Alt pages)
@@ -28,6 +28,7 @@ const NAV = [
     { icon: BarChart3, label: 'Charts', to: '/preview/alt_f_charts' },
     { icon: Swords, label: 'Battles', to: '/preview/alt_f_battles' },
     { icon: Tag, label: 'Genres', to: '/preview/alt_f_genres' },
+    { icon: Users, label: 'Collabs', to: '/preview/alt_f_collabs' },
 ];
 
 const LS_KEY = 'fuji_left_sidebar_collapsed';

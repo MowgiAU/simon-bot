@@ -4492,7 +4492,7 @@ app.get('/api/guilds/:guildId/my-permissions', async (req, res) => {
         if (isAdmin) {
             return res.json({ 
                 canManagePlugins: true, 
-                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content', 'account-management', 'anti-piracy', 'leveling', 'fuji-radio', 'studio-guide', 'bot-identity', 'bot-messenger', 'booster-color', 'private-messages', 'auto-messages', 'auto-responder', 'server-boost', 'reports', 'articles', 'article-review', 'pause', 'voice-stats', 'spam-guard', 'muzzle', 'track-announcer', 'profile-styles', 'academy', 'head-to-head', 'drum-kit', 'bug-reports', 'plugin-registry', 'activity-logs', 'duplicate-profiles', 'projects', 'vote-fraud', 'beat-market', 'slots', 'platform-analytics']
+                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content', 'account-management', 'anti-piracy', 'leveling', 'fuji-radio', 'studio-guide', 'bot-identity', 'bot-messenger', 'booster-color', 'private-messages', 'auto-messages', 'auto-responder', 'server-boost', 'reports', 'articles', 'article-review', 'pause', 'voice-stats', 'spam-guard', 'muzzle', 'track-announcer', 'profile-styles', 'academy', 'head-to-head', 'drum-kit', 'bug-reports', 'plugin-registry', 'activity-logs', 'duplicate-profiles', 'projects', 'vote-fraud', 'beat-market', 'slots', 'platform-analytics', 'collabs']
             });
         }
 
@@ -23802,6 +23802,443 @@ const server = app.listen(PORT, async () => {
 });
 
 // -- Graceful Shutdown ---------------------------------------------------------
+// ──────────────────────────────────────────────────────────────────────────────
+// COLLABORATION SYSTEM
+// ──────────────────────────────────────────────────────────────────────────────
+
+const collabUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
+
+async function getMyProfile(req: any) {
+    const ids = getSessionUserIds(req);
+    return db.musicianProfile.findFirst({ where: { userId: { in: ids } }, select: { id: true, userId: true, username: true, displayName: true, avatar: true } });
+}
+
+async function getCollabProject(projectId: string, myProfileId: string) {
+    const p = await db.collabProject.findUnique({
+        where: { id: projectId },
+        include: {
+            request: { include: { callout: true } },
+            initiator: { select: { id: true, username: true, displayName: true, avatar: true } },
+            collaborator: { select: { id: true, username: true, displayName: true, avatar: true } },
+            files: { where: { deletedAt: null }, orderBy: { createdAt: 'desc' } },
+            updates: { orderBy: { createdAt: 'desc' } },
+            project: { select: { id: true, name: true, slug: true, versions: { orderBy: { versionNumber: 'desc' }, take: 1, select: { id: true, versionNumber: true, audioUrl: true, message: true, createdAt: true } } } },
+            track: { select: { id: true, title: true, slug: true, coverUrl: true } },
+        },
+    });
+    if (!p) return null;
+    if (p.initiatorProfileId !== myProfileId && p.collaboratorProfileId !== myProfileId) return null;
+    return p;
+}
+
+// ─── Callouts ────────────────────────────────────────────────────────────────
+
+app.get('/api/collab/callouts', async (req: any, res) => {
+    try {
+        const { genre, role, cursor, limit: rawLimit = '20' } = req.query;
+        const take = Math.min(Number(rawLimit), 50);
+        const where: any = { status: 'open', deletedAt: null };
+        if (genre) where.genreTags = { has: genre };
+        if (role) where.rolesWanted = { has: role };
+        if (cursor) where.createdAt = { lt: new Date(cursor as string) };
+        const callouts = await db.collabCallout.findMany({
+            where,
+            orderBy: { createdAt: 'desc' },
+            take: take + 1,
+            include: {
+                profile: { select: { id: true, username: true, displayName: true, avatar: true } },
+                _count: { select: { requests: true } },
+            },
+        });
+        const hasMore = callouts.length > take;
+        if (hasMore) callouts.pop();
+        res.json({ callouts, hasMore, nextCursor: hasMore ? callouts[callouts.length - 1]?.createdAt : null });
+    } catch (e) { logger.error('GET collab/callouts', e); res.status(500).json({ error: 'Failed' }); }
+});
+
+app.post('/api/collab/callouts', requireAuth, collabUpload.single('sampleFile'), async (req: any, res) => {
+    try {
+        const me = await getMyProfile(req);
+        if (!me) return res.status(404).json({ error: 'Profile not found' });
+        const { title, description, genreTags, rolesWanted, expiresAt } = req.body;
+        if (!title?.trim() || !description?.trim()) return res.status(400).json({ error: 'Title and description required' });
+
+        let sampleUrl: string | null = null;
+        let sampleType: string | null = null;
+        if (req.file) {
+            const ext = req.file.originalname.split('.').pop()?.toLowerCase() || 'bin';
+            const key = `collab-samples/${me.id}/${Date.now()}.${ext}`;
+            if (R2Storage.isConfigured()) {
+                sampleUrl = await R2Storage.uploadBuffer(key, req.file.buffer, req.file.mimetype);
+            } else {
+                const fs = await import('fs/promises');
+                const outPath = path.join(PROJECT_ROOT, 'public/uploads', path.basename(key));
+                await fs.writeFile(outPath, req.file.buffer);
+                sampleUrl = `/uploads/${path.basename(key)}`;
+            }
+            sampleType = req.file.mimetype.startsWith('audio/') ? 'audio' : req.file.mimetype.startsWith('image/') ? 'image' : 'other';
+        }
+
+        const callout = await db.collabCallout.create({
+            data: {
+                profileId: me.id,
+                title: title.trim(),
+                description: description.trim(),
+                genreTags: Array.isArray(genreTags) ? genreTags : (genreTags ? [genreTags] : []),
+                rolesWanted: Array.isArray(rolesWanted) ? rolesWanted : (rolesWanted ? [rolesWanted] : []),
+                sampleUrl,
+                sampleType,
+                expiresAt: expiresAt ? new Date(expiresAt) : null,
+            },
+        });
+        res.json(callout);
+    } catch (e) { logger.error('POST collab/callouts', e); res.status(500).json({ error: 'Failed' }); }
+});
+
+app.get('/api/collab/callouts/:id', async (req: any, res) => {
+    try {
+        const callout = await db.collabCallout.findFirst({
+            where: { id: req.params.id, deletedAt: null },
+            include: {
+                profile: { select: { id: true, username: true, displayName: true, avatar: true } },
+                _count: { select: { requests: true } },
+            },
+        });
+        if (!callout) return res.status(404).json({ error: 'Not found' });
+        res.json(callout);
+    } catch (e) { res.status(500).json({ error: 'Failed' }); }
+});
+
+app.patch('/api/collab/callouts/:id', requireAuth, async (req: any, res) => {
+    try {
+        const me = await getMyProfile(req);
+        if (!me) return res.status(404).json({ error: 'Profile not found' });
+        const callout = await db.collabCallout.findFirst({ where: { id: req.params.id, profileId: me.id, deletedAt: null } });
+        if (!callout) return res.status(404).json({ error: 'Not found' });
+        const { title, description, status, genreTags, rolesWanted, expiresAt } = req.body;
+        const updated = await db.collabCallout.update({
+            where: { id: callout.id },
+            data: {
+                ...(title && { title: title.trim() }),
+                ...(description && { description: description.trim() }),
+                ...(status && { status }),
+                ...(genreTags !== undefined && { genreTags }),
+                ...(rolesWanted !== undefined && { rolesWanted }),
+                ...(expiresAt !== undefined && { expiresAt: expiresAt ? new Date(expiresAt) : null }),
+            },
+        });
+        res.json(updated);
+    } catch (e) { res.status(500).json({ error: 'Failed' }); }
+});
+
+app.delete('/api/collab/callouts/:id', requireAuth, async (req: any, res) => {
+    try {
+        const me = await getMyProfile(req);
+        if (!me) return res.status(404).json({ error: 'Profile not found' });
+        const callout = await db.collabCallout.findFirst({ where: { id: req.params.id, profileId: me.id, deletedAt: null } });
+        if (!callout) return res.status(404).json({ error: 'Not found' });
+        await db.collabCallout.update({ where: { id: callout.id }, data: { deletedAt: new Date() } });
+        res.json({ ok: true });
+    } catch (e) { res.status(500).json({ error: 'Failed' }); }
+});
+
+app.get('/api/collab/my-callouts', requireAuth, async (req: any, res) => {
+    try {
+        const me = await getMyProfile(req);
+        if (!me) return res.status(404).json({ error: 'Profile not found' });
+        const callouts = await db.collabCallout.findMany({
+            where: { profileId: me.id, deletedAt: null },
+            orderBy: { createdAt: 'desc' },
+            include: {
+                _count: { select: { requests: true } },
+                requests: { where: { status: 'pending' }, select: { id: true } },
+            },
+        });
+        res.json(callouts);
+    } catch (e) { res.status(500).json({ error: 'Failed' }); }
+});
+
+// ─── Requests ────────────────────────────────────────────────────────────────
+
+app.post('/api/collab/callouts/:id/requests', requireAuth, async (req: any, res) => {
+    try {
+        const me = await getMyProfile(req);
+        if (!me) return res.status(404).json({ error: 'Profile not found' });
+        const callout = await db.collabCallout.findFirst({ where: { id: req.params.id, deletedAt: null, status: 'open' } });
+        if (!callout) return res.status(404).json({ error: 'Callout not found or no longer open' });
+        if (callout.profileId === me.id) return res.status(400).json({ error: 'Cannot request your own callout' });
+        const { message, roleOffered } = req.body;
+        if (!message?.trim()) return res.status(400).json({ error: 'Message required' });
+        const existing = await db.collabRequest.findUnique({ where: { calloutId_profileId: { calloutId: callout.id, profileId: me.id } } });
+        if (existing) return res.status(409).json({ error: 'Already submitted a request' });
+        const request = await db.collabRequest.create({
+            data: { calloutId: callout.id, profileId: me.id, message: message.trim(), roleOffered: roleOffered?.trim() || null },
+        });
+        // Notify the callout owner
+        const poster = await db.musicianProfile.findUnique({ where: { id: callout.profileId }, select: { userId: true } });
+        if (poster) {
+            db.musicNotification.create({ data: { userId: poster.userId, type: 'collab_request', title: `${me.displayName || me.username} wants to collab`, message: callout.title, link: `/preview/alt_f_collab_callout?id=${callout.id}`, actorId: me.userId, actorName: me.displayName || me.username, actorAvatar: me.avatar } }).catch(() => {});
+        }
+        res.json(request);
+    } catch (e) { logger.error('POST collab request', e); res.status(500).json({ error: 'Failed' }); }
+});
+
+app.get('/api/collab/callouts/:id/requests', requireAuth, async (req: any, res) => {
+    try {
+        const me = await getMyProfile(req);
+        if (!me) return res.status(404).json({ error: 'Profile not found' });
+        const callout = await db.collabCallout.findFirst({ where: { id: req.params.id, profileId: me.id, deletedAt: null } });
+        if (!callout) return res.status(403).json({ error: 'Not your callout' });
+        const requests = await db.collabRequest.findMany({
+            where: { calloutId: callout.id },
+            orderBy: { createdAt: 'desc' },
+            include: { profile: { select: { id: true, username: true, displayName: true, avatar: true } } },
+        });
+        res.json(requests);
+    } catch (e) { res.status(500).json({ error: 'Failed' }); }
+});
+
+app.patch('/api/collab/requests/:requestId', requireAuth, async (req: any, res) => {
+    try {
+        const me = await getMyProfile(req);
+        if (!me) return res.status(404).json({ error: 'Profile not found' });
+        const request = await db.collabRequest.findUnique({
+            where: { id: req.params.requestId },
+            include: { callout: true },
+        });
+        if (!request) return res.status(404).json({ error: 'Not found' });
+        if (request.callout.profileId !== me.id) return res.status(403).json({ error: 'Not your callout' });
+        if (request.status !== 'pending') return res.status(400).json({ error: 'Request already resolved' });
+
+        const { action } = req.body;
+        if (!['accept', 'decline'].includes(action)) return res.status(400).json({ error: 'action must be accept or decline' });
+
+        const status = action === 'accept' ? 'accepted' : 'declined';
+        await db.collabRequest.update({ where: { id: request.id }, data: { status, respondedAt: new Date() } });
+
+        let project = null;
+        if (action === 'accept') {
+            // Lock the callout and create a project + conversation
+            await db.collabCallout.update({ where: { id: request.calloutId }, data: { status: 'matched' } });
+
+            // Create a conversation between the two participants
+            const responderProfile = await db.musicianProfile.findUnique({ where: { id: request.profileId }, select: { userId: true } });
+            const posterProfile = await db.musicianProfile.findUnique({ where: { id: request.callout.profileId }, select: { userId: true } });
+            let conversationId: string | null = null;
+            if (responderProfile && posterProfile) {
+                const conv = await db.conversation.create({
+                    data: {
+                        name: `Collab: ${request.callout.title}`,
+                        isGroup: false,
+                        createdById: posterProfile.userId,
+                        encryptedKey: msgEnc.generateConversationKey(),
+                        participants: { create: [{ userId: posterProfile.userId }, { userId: responderProfile.userId }] },
+                    },
+                });
+                conversationId = conv.id;
+            }
+
+            project = await db.collabProject.create({
+                data: {
+                    requestId: request.id,
+                    initiatorProfileId: request.callout.profileId,
+                    collaboratorProfileId: request.profileId,
+                    conversationId,
+                },
+            });
+
+            // Notify the responder
+            if (responderProfile) {
+                db.musicNotification.create({ data: { userId: responderProfile.userId, type: 'collab_accepted', title: 'Collab request accepted!', message: `Your request for "${request.callout.title}" was accepted`, link: `/preview/alt_f_collab_workspace?id=${project.id}`, actorId: me.userId, actorName: me.displayName || me.username, actorAvatar: me.avatar } }).catch(() => {});
+            }
+        } else {
+            // Notify the responder of decline
+            const responderProfile = await db.musicianProfile.findUnique({ where: { id: request.profileId }, select: { userId: true } });
+            if (responderProfile) {
+                db.musicNotification.create({ data: { userId: responderProfile.userId, type: 'collab_declined', title: 'Collab request declined', message: `Your request for "${request.callout.title}" was not accepted`, link: `/preview/alt_f_collab_callout?id=${request.calloutId}`, actorId: me.userId, actorName: me.displayName || me.username, actorAvatar: me.avatar } }).catch(() => {});
+            }
+        }
+
+        res.json({ status, project });
+    } catch (e) { logger.error('PATCH collab request', e); res.status(500).json({ error: 'Failed' }); }
+});
+
+app.get('/api/collab/my-requests', requireAuth, async (req: any, res) => {
+    try {
+        const me = await getMyProfile(req);
+        if (!me) return res.status(404).json({ error: 'Profile not found' });
+        const requests = await db.collabRequest.findMany({
+            where: { profileId: me.id },
+            orderBy: { createdAt: 'desc' },
+            include: { callout: { include: { profile: { select: { id: true, username: true, displayName: true, avatar: true } } } }, project: { select: { id: true, status: true } } },
+        });
+        res.json(requests);
+    } catch (e) { res.status(500).json({ error: 'Failed' }); }
+});
+
+// ─── Project Workspace ───────────────────────────────────────────────────────
+
+app.get('/api/collab/my-projects', requireAuth, async (req: any, res) => {
+    try {
+        const me = await getMyProfile(req);
+        if (!me) return res.status(404).json({ error: 'Profile not found' });
+        const projects = await db.collabProject.findMany({
+            where: { OR: [{ initiatorProfileId: me.id }, { collaboratorProfileId: me.id }] },
+            orderBy: { updatedAt: 'desc' },
+            include: {
+                request: { include: { callout: { select: { title: true } } } },
+                initiator: { select: { id: true, username: true, displayName: true, avatar: true } },
+                collaborator: { select: { id: true, username: true, displayName: true, avatar: true } },
+                track: { select: { id: true, title: true, slug: true, coverUrl: true } },
+            },
+        });
+        res.json(projects);
+    } catch (e) { res.status(500).json({ error: 'Failed' }); }
+});
+
+app.get('/api/collab/projects/:id', requireAuth, async (req: any, res) => {
+    try {
+        const me = await getMyProfile(req);
+        if (!me) return res.status(404).json({ error: 'Profile not found' });
+        const project = await getCollabProject(req.params.id, me.id);
+        if (!project) return res.status(404).json({ error: 'Not found' });
+        res.json(project);
+    } catch (e) { res.status(500).json({ error: 'Failed' }); }
+});
+
+app.patch('/api/collab/projects/:id/link-sync', requireAuth, async (req: any, res) => {
+    try {
+        const me = await getMyProfile(req);
+        if (!me) return res.status(404).json({ error: 'Profile not found' });
+        const project = await getCollabProject(req.params.id, me.id);
+        if (!project) return res.status(404).json({ error: 'Not found' });
+        const { projectId } = req.body;
+        // Verify the user owns the desktop project
+        const myUserIds = getSessionUserIds(req);
+        const desktopProject = await db.project.findFirst({ where: { id: projectId, userId: { in: myUserIds } } });
+        if (!desktopProject) return res.status(404).json({ error: 'Project not found or not yours' });
+        const updated = await db.collabProject.update({ where: { id: project.id }, data: { projectId } });
+        res.json(updated);
+    } catch (e) { res.status(500).json({ error: 'Failed' }); }
+});
+
+app.post('/api/collab/projects/:id/files', requireAuth, collabUpload.single('collabFile'), async (req: any, res) => {
+    try {
+        const me = await getMyProfile(req);
+        if (!me) return res.status(404).json({ error: 'Profile not found' });
+        const project = await getCollabProject(req.params.id, me.id);
+        if (!project) return res.status(404).json({ error: 'Not found' });
+        if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+        const { label } = req.body;
+        const ext = req.file.originalname.split('.').pop()?.toLowerCase() || 'bin';
+        const key = `collab-files/${project.id}/${Date.now()}.${ext}`;
+        let url: string;
+        if (R2Storage.isConfigured()) {
+            url = await R2Storage.uploadBuffer(key, req.file.buffer, req.file.mimetype);
+        } else {
+            const fs = await import('fs/promises');
+            const outPath = path.join(PROJECT_ROOT, 'public/uploads', path.basename(key));
+            await fs.writeFile(outPath, req.file.buffer);
+            url = `/uploads/${path.basename(key)}`;
+        }
+        const mime = req.file.mimetype;
+        const fileType = mime.startsWith('audio/') ? 'audio' : mime.startsWith('image/') ? 'image' : ext === 'flp' || ext === 'zip' ? 'project' : 'other';
+        const file = await db.collabFile.create({
+            data: { projectId: project.id, uploaderId: me.id, label: (label || req.file.originalname).trim(), url, mimeType: mime, sizeBytes: req.file.size, fileType },
+        });
+        res.json(file);
+    } catch (e) { logger.error('POST collab file', e); res.status(500).json({ error: 'Failed' }); }
+});
+
+app.delete('/api/collab/projects/:id/files/:fileId', requireAuth, async (req: any, res) => {
+    try {
+        const me = await getMyProfile(req);
+        if (!me) return res.status(404).json({ error: 'Profile not found' });
+        const file = await db.collabFile.findFirst({ where: { id: req.params.fileId, projectId: req.params.id, deletedAt: null } });
+        if (!file) return res.status(404).json({ error: 'Not found' });
+        if (file.uploaderId !== me.id) return res.status(403).json({ error: 'Not your file' });
+        await db.collabFile.update({ where: { id: file.id }, data: { deletedAt: new Date() } });
+        res.json({ ok: true });
+    } catch (e) { res.status(500).json({ error: 'Failed' }); }
+});
+
+app.post('/api/collab/projects/:id/updates', requireAuth, async (req: any, res) => {
+    try {
+        const me = await getMyProfile(req);
+        if (!me) return res.status(404).json({ error: 'Profile not found' });
+        const project = await getCollabProject(req.params.id, me.id);
+        if (!project) return res.status(404).json({ error: 'Not found' });
+        const { content } = req.body;
+        if (!content?.trim()) return res.status(400).json({ error: 'Content required' });
+        const update = await db.collabUpdate.create({ data: { projectId: project.id, authorId: me.id, content: content.trim() } });
+        // Notify the other party
+        const otherId = project.initiatorProfileId === me.id ? project.collaboratorProfileId : project.initiatorProfileId;
+        const other = await db.musicianProfile.findUnique({ where: { id: otherId }, select: { userId: true } });
+        if (other) db.musicNotification.create({ data: { userId: other.userId, type: 'collab_update', title: `${me.displayName || me.username} posted an update`, message: content.trim().slice(0, 100), link: `/preview/alt_f_collab_workspace?id=${project.id}`, actorId: me.userId, actorName: me.displayName || me.username, actorAvatar: me.avatar } }).catch(() => {});
+        res.json(update);
+    } catch (e) { res.status(500).json({ error: 'Failed' }); }
+});
+
+app.patch('/api/collab/projects/:id/approve', requireAuth, async (req: any, res) => {
+    try {
+        const me = await getMyProfile(req);
+        if (!me) return res.status(404).json({ error: 'Profile not found' });
+        const project = await getCollabProject(req.params.id, me.id);
+        if (!project) return res.status(404).json({ error: 'Not found' });
+        if (project.status !== 'active') return res.status(400).json({ error: 'Project is not in active state' });
+
+        const isInitiator = project.initiatorProfileId === me.id;
+        const updateData: any = isInitiator ? { initiatorApproved: true } : { collaboratorApproved: true };
+        const updated = await db.collabProject.update({ where: { id: project.id }, data: updateData });
+
+        // If both have now approved, publish the collab track
+        if (updated.initiatorApproved && updated.collaboratorApproved) {
+            await db.collabProject.update({ where: { id: project.id }, data: { status: 'releasing' } });
+
+            const { trackTitle, trackDescription, coverUrl } = req.body;
+            const initiatorProfile = await db.musicianProfile.findUnique({ where: { id: project.initiatorProfileId }, select: { id: true, userId: true, username: true, displayName: true } });
+            const collaboratorProfile = await db.musicianProfile.findUnique({ where: { id: project.collaboratorProfileId }, select: { id: true, userId: true, username: true } });
+            if (!initiatorProfile || !collaboratorProfile) return res.status(500).json({ error: 'Profile lookup failed' });
+
+            const title = (trackTitle || `${initiatorProfile.displayName || initiatorProfile.username} & ${collaboratorProfile.username} - Collab`).trim();
+            const track = await db.track.create({
+                data: {
+                    profileId: project.initiatorProfileId,
+                    title,
+                    description: trackDescription?.trim() || null,
+                    coverUrl: coverUrl || null,
+                    url: '', // placeholder — poster uploads the actual audio file separately via the existing track edit flow
+                    isPublic: false, // stays draft until audio is uploaded
+                    trackType: 'original',
+                },
+            });
+
+            await db.trackCollaborator.create({
+                data: { trackId: track.id, profileId: project.collaboratorProfileId, contribution: project.request.roleOffered || 'collaboration', category: 'collaboration', status: 'accepted' },
+            });
+
+            // Link to desktop project if set
+            if (project.projectId) {
+                const latestVersion = await db.projectVersion.findFirst({ where: { projectId: project.projectId! }, orderBy: { versionNumber: 'desc' } });
+                if (latestVersion) {
+                    await db.projectTrackLink.create({ data: { projectId: project.projectId!, versionId: latestVersion.id, trackId: track.id } }).catch(() => {});
+                }
+            }
+
+            await db.collabProject.update({ where: { id: project.id }, data: { trackId: track.id, status: 'released' } });
+
+            // Notify both parties
+            for (const userId of [initiatorProfile.userId, collaboratorProfile.userId]) {
+                db.musicNotification.create({ data: { userId, type: 'collab_released', title: 'Collab track created!', message: `"${title}" is ready — add your audio to publish`, link: `/preview/alt_f_collab_workspace?id=${project.id}`, actorId: me.userId, actorName: me.displayName || me.username, actorAvatar: me.avatar } }).catch(() => {});
+            }
+
+            return res.json({ released: true, track, project: { ...updated, status: 'released', trackId: track.id } });
+        }
+
+        res.json({ released: false, project: updated });
+    } catch (e) { logger.error('PATCH collab approve', e); res.status(500).json({ error: 'Failed' }); }
+});
+
 // On SIGTERM/SIGINT (PM2 restart, deploy, etc.) drain the Prisma connection pool
 // before the process exits so no in-flight queries are cut mid-write.
 async function gracefulShutdown(signal: string) {
