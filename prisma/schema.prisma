@@ -1048,6 +1048,11 @@ model MusicianProfile {
   playlists      Playlist[]
   collaborations TrackCollaborator[]
 
+  callouts          CollabCallout[]
+  collabRequests    CollabRequest[]
+  initiatedProjects CollabProject[] @relation("CollabProjectInitiator")
+  joinedProjects    CollabProject[] @relation("CollabProjectCollaborator")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -1126,6 +1131,7 @@ model Track {
   collaborators  TrackCollaborator[]
   projectLink    ProjectTrackLink?
   genrePosts     GenrePost[]
+  collabProject  CollabProject?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -2196,8 +2202,9 @@ model Conversation {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  participants ConversationParticipant[]
-  messages     PrivateMessage[]
+  participants  ConversationParticipant[]
+  messages      PrivateMessage[]
+  collabProject CollabProject?
 
   @@map("conversations")
 }
@@ -3355,9 +3362,10 @@ model Project {
   arrangement  Json?   // Latest parsed FLP arrangement data
   deletedAt   DateTime?
 
-  user       User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-  versions   ProjectVersion[]
-  trackLinks ProjectTrackLink[]
+  user          User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  versions      ProjectVersion[]
+  trackLinks    ProjectTrackLink[]
+  collabProject CollabProject?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -3531,4 +3539,123 @@ model SessionEvent {
   metadata  Json?
 
   @@map("session_events")
+}
+
+// ──────────────────────────────────────────────
+// COLLABORATION SYSTEM
+// ──────────────────────────────────────────────
+
+model CollabCallout {
+  id          String    @id @default(cuid())
+  profileId   String
+  title       String
+  description String    @db.Text
+  status      String    @default("open")     // "open" | "matched" | "closed"
+
+  genreTags   String[]  @default([])          // genre slugs
+  rolesWanted String[]  @default([])          // e.g. ["vocalist","mixing"]
+
+  sampleUrl   String?
+  sampleType  String?                          // "audio" | "image" | "other"
+
+  expiresAt   DateTime?
+  deletedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  profile     MusicianProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  requests    CollabRequest[]
+
+  @@index([profileId])
+  @@index([status, createdAt(sort: Desc)])
+  @@map("collab_callouts")
+}
+
+model CollabRequest {
+  id          String    @id @default(cuid())
+  calloutId   String
+  profileId   String                           // responder's MusicianProfile.id
+  message     String    @db.Text
+  roleOffered String?
+  status      String    @default("pending")   // "pending" | "accepted" | "declined"
+  respondedAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  callout     CollabCallout   @relation(fields: [calloutId], references: [id], onDelete: Cascade)
+  profile     MusicianProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  project     CollabProject?
+
+  @@unique([calloutId, profileId])
+  @@index([calloutId, status])
+  @@index([profileId])
+  @@map("collab_requests")
+}
+
+model CollabProject {
+  id                    String    @id @default(cuid())
+  requestId             String    @unique
+  initiatorProfileId    String
+  collaboratorProfileId String
+  status                String    @default("active") // "active" | "releasing" | "released" | "abandoned"
+
+  // Optional desktop project link
+  projectId             String?   @unique
+
+  // Set on release
+  trackId               String?   @unique
+
+  // Joint approval flags
+  initiatorApproved     Boolean   @default(false)
+  collaboratorApproved  Boolean   @default(false)
+
+  // Workspace conversation (reuses existing messaging system)
+  conversationId        String?   @unique
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  request      CollabRequest   @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  initiator    MusicianProfile @relation("CollabProjectInitiator", fields: [initiatorProfileId], references: [id], onDelete: Cascade)
+  collaborator MusicianProfile @relation("CollabProjectCollaborator", fields: [collaboratorProfileId], references: [id], onDelete: Cascade)
+  project      Project?        @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  track        Track?          @relation(fields: [trackId], references: [id], onDelete: SetNull)
+  conversation Conversation?   @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  files        CollabFile[]
+  updates      CollabUpdate[]
+
+  @@index([initiatorProfileId])
+  @@index([collaboratorProfileId])
+  @@index([status])
+  @@map("collab_projects")
+}
+
+model CollabFile {
+  id         String    @id @default(cuid())
+  projectId  String
+  uploaderId String                           // MusicianProfile.id
+  label      String
+  url        String
+  mimeType   String?
+  sizeBytes  Int       @default(0)
+  fileType   String    @default("other")      // "audio" | "project" | "image" | "other"
+  deletedAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  project    CollabProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, createdAt(sort: Desc)])
+  @@map("collab_files")
+}
+
+model CollabUpdate {
+  id        String   @id @default(cuid())
+  projectId String
+  authorId  String                            // MusicianProfile.id
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+
+  project   CollabProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, createdAt(sort: Desc)])
+  @@map("collab_updates")
 }
