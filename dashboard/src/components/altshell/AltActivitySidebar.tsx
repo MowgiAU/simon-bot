@@ -92,9 +92,12 @@ export const AltActivitySidebar: React.FC = () => {
                 {/* Active Battles */}
                 {battles.length > 0 && (
                     <section>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-                            <Swords size={14} color={TERTIARY} />
-                            <span style={{ fontSize: 10, color: SUB, textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700 }}>Battles</span>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <Swords size={14} color={TERTIARY} />
+                                <span style={{ fontSize: 10, color: SUB, textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700 }}>Battles</span>
+                            </div>
+                            <Link to="/preview/alt_f_battles" style={{ fontSize: 10, color: PRIMARY, fontWeight: 700, textDecoration: 'none', fontFamily: FONT }}>More →</Link>
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                             {battles.map((b: any) => {
