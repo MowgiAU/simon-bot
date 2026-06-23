@@ -21,12 +21,12 @@ export const FONT = 'Inter, "SF Pro Display", -apple-system, BlinkMacSystemFont,
 export const arr = (d: any): any[] => Array.isArray(d) ? d : (d?.tracks || d?.profiles || d?.battles || d?.entries || d?.playlists || d?.data || []);
 
 const NAV = [
-    { icon: Home, label: 'Home', to: '/' },
-    { icon: Search, label: 'Search', to: '/library' },
-    { icon: User, label: 'Artists', to: '/artists' },
-    { icon: Newspaper, label: 'News', to: '/articles' },
-    { icon: BarChart3, label: 'Charts', to: '/charts' },
-    { icon: Swords, label: 'Battles', to: '/battles' },
+    { icon: Home, label: 'Home', to: '/preview/alt_f' },
+    { icon: Search, label: 'Search', to: '/preview/alt_f_library' },
+    { icon: User, label: 'Artists', to: '/preview/alt_f_artists' },
+    { icon: Newspaper, label: 'News', to: '/preview/alt_f_articles' },
+    { icon: BarChart3, label: 'Charts', to: '/preview/alt_f_charts' },
+    { icon: Swords, label: 'Battles', to: '/preview/alt_f_battles' },
 ];
 
 const LS_KEY = 'fuji_left_sidebar_collapsed';
@@ -153,16 +153,16 @@ export const AltSidebar: React.FC<{ active?: string }> = ({ active }) => {
                             <Plus size={18} color={SUB} />
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                            <Link to="/library" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 16px', borderRadius: 8, textDecoration: 'none', color: SUB, fontSize: 14 }}><Library size={20} color={SECONDARY} /> All Tracks</Link>
-                            <Link to="/library" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 16px', borderRadius: 8, textDecoration: 'none', color: SUB, fontSize: 14 }}><AudioLines size={20} color={PRIMARY} /> Samples</Link>
-                            <Link to="/artists" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 16px', borderRadius: 8, textDecoration: 'none', color: SUB, fontSize: 14 }}><Users size={20} color={TERTIARY} /> Collabs</Link>
+                            <Link to="/preview/alt_f_library" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 16px', borderRadius: 8, textDecoration: 'none', color: SUB, fontSize: 14 }}><Library size={20} color={SECONDARY} /> All Tracks</Link>
+                            <Link to="/preview/alt_f_library" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 16px', borderRadius: 8, textDecoration: 'none', color: SUB, fontSize: 14 }}><AudioLines size={20} color={PRIMARY} /> Samples</Link>
+                            <Link to="/preview/alt_f_artists" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 16px', borderRadius: 8, textDecoration: 'none', color: SUB, fontSize: 14 }}><Users size={20} color={TERTIARY} /> Collabs</Link>
                         </div>
                         {playlists.length > 0 && (
                             <div style={{ marginTop: 24, padding: '0 8px' }}>
                                 <span style={{ fontSize: 10, color: SUB, textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700, display: 'block', marginBottom: 8 }}>Playlists</span>
                                 <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 4 }}>
                                     {playlists.map((pl: any) => (
-                                        <li key={pl.id}><Link to={`/playlist/${pl.id}`} style={{ display: 'block', padding: '4px 8px', color: SUB, fontSize: 14, textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pl.name || pl.title}</Link></li>
+                                        <li key={pl.id}><Link to={`/preview/alt_f_playlist?id=${pl.id}`} style={{ display: 'block', padding: '4px 8px', color: SUB, fontSize: 14, textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pl.name || pl.title}</Link></li>
                                     ))}
                                 </ul>
                             </div>
@@ -173,7 +173,7 @@ export const AltSidebar: React.FC<{ active?: string }> = ({ active }) => {
                 {/* Collapsed library icons */}
                 {collapsed && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 16 }}>
-                        {[{ Icon: Library, color: SECONDARY, to: '/library' }, { Icon: AudioLines, color: PRIMARY, to: '/library' }, { Icon: Users, color: TERTIARY, to: '/artists' }].map(({ Icon, color, to }, i) => (
+                        {[{ Icon: Library, color: SECONDARY, to: '/preview/alt_f_library' }, { Icon: AudioLines, color: PRIMARY, to: '/preview/alt_f_library' }, { Icon: Users, color: TERTIARY, to: '/preview/alt_f_artists' }].map(({ Icon, color, to }, i) => (
                             <Link key={i} to={to} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '10px 0', borderRadius: 8, textDecoration: 'none', color: SUB }}>
                                 <Icon size={18} color={color} />
                             </Link>
