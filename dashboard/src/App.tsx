@@ -149,7 +149,6 @@ const ProjectDetailPage      = lazy(() => import("./pages/ProjectDetailPage").th
 const ServerStatsPage        = lazy(() => import("./pages/ServerStats").then(m => ({ default: m.ServerStats })));
 const SupportPage            = lazy(() => import("./pages/SupportPage").then(m => ({ default: m.SupportPage })));
 const PageEmbedsPage         = lazy(() => import("./pages/PageEmbeds").then(m => ({ default: m.PageEmbedsPage })));
-const BeatMarketPage         = lazy(() => import("./pages/BeatMarketPage").then(m => ({ default: m.BeatMarketPage })));
 const SlotMachinePage        = lazy(() => import("./pages/SlotMachinePage").then(m => ({ default: m.SlotMachinePage })));
 const SlotMachineSettings    = lazy(() => import("./pages/SlotMachineSettings").then(m => ({ default: m.SlotMachineSettings })));
 const PlatformAnalytics      = lazy(() => import("./pages/PlatformAnalytics").then(m => ({ default: m.PlatformAnalytics })));
@@ -1084,11 +1083,6 @@ const AppInternal: React.FC = () => {
   // /features → Public features overview
   if (currentPath === '/features') {
     return <Suspense fallback={<PageSpinner />}><FeaturesPage /></Suspense>;
-  }
-
-  // /beat-market → Public explainer for the Beat Market investment system
-  if (currentPath === '/beat-market') {
-    return <Suspense fallback={<PageSpinner />}><BeatMarketPage /></Suspense>;
   }
 
   // /slots → Slot machine game (link shared via bot command only)

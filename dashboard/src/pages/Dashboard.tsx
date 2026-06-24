@@ -5,7 +5,7 @@ import {
 import {
   MessageSquare, Shield, ShieldAlert, DollarSign, UserPlus, Settings,
   Users, Mic, Bot, Globe, Music, Headphones, Flag, Mail, Bug, ArrowRight,
-  Zap, Star, Swords, TrendingUp, type LucideIcon
+  Zap, Star, Swords, type LucideIcon
 } from 'lucide-react';
 import { colors } from '../theme/theme';
 import './Dashboard.css';
@@ -431,14 +431,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ guildId, onNavigate, acces
                     <Swords size={13} /> Beat Battle
                   </span>
                   <span className="info-value" style={{ color: colors.primary }}>{stats!.pluginsData!.beatBattle!.active} active</span>
-                </div>
-                )}
-                {accessiblePlugins.includes('beat-market') && stats?.pluginsData?.beatMarket?.activeSeason != null && (
-                <div className="info-row" style={{ cursor: 'pointer' }} onClick={() => onNavigate('beat-market')}>
-                  <span className="info-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <TrendingUp size={13} /> Beat Market
-                  </span>
-                  <span className="info-value">Season {stats.pluginsData!.beatMarket!.activeSeason}</span>
                 </div>
                 )}
                 {(stats?.pluginsData?.reports?.open ?? 0) > 0 && (
