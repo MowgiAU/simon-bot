@@ -5309,7 +5309,7 @@ app.post('/api/feedback/settings/:guildId', async (req, res) => {
             if (!hasAccess) return res.status(403).json({ error: 'Forbidden' });
         }
 
-        const { enabled, forumChannelId, reviewChannelId, modLogChannelId, feedbackPointsReward, feedbackPointsCost, aiModel, approverRoleIds } = req.body;
+        const { enabled, forumChannelId, reviewChannelId, modLogChannelId, feedbackPointsReward, feedbackPointsCost, aiModel, approverRoleIds, supportChannelId } = req.body;
 
         // Validate integer fields — floats or NaN from the frontend cause a Prisma type error
         if (feedbackPointsReward !== undefined) {
@@ -5331,6 +5331,7 @@ app.post('/api/feedback/settings/:guildId', async (req, res) => {
         if (feedbackPointsCost !== undefined) allowedData.feedbackPointsCost = Math.trunc(Number(feedbackPointsCost));
         if (aiModel !== undefined) allowedData.aiModel = aiModel;
         if (approverRoleIds !== undefined) allowedData.approverRoleIds = Array.isArray(approverRoleIds) ? approverRoleIds : [];
+        if (supportChannelId !== undefined) allowedData.supportChannelId = supportChannelId || null;
 
         const updated = await db.feedbackSettings.upsert({
             where: { guildId },
@@ -5676,6 +5677,59 @@ app.post('/api/feedback/vault/:guildId', async (req, res) => {
         res.json(updated);
     } catch (e: any) {
         logger.error('Feedback vault update failed', e);
+        res.status(500).json({ error: e?.message ?? 'Failed' });
+    }
+});
+
+// Feedback Blocks — list blocked users
+app.get('/api/feedback/blocks/:guildId', async (req, res) => {
+    try {
+        const { guildId } = req.params;
+        if (!await checkPluginAccess(guildId, req, 'production-feedback')) return res.status(403).json({ error: 'Forbidden' });
+
+        const blocks = await db.feedbackBlock.findMany({
+            where: { guildId },
+            orderBy: { createdAt: 'desc' },
+        });
+
+        const enriched = await enrichMembersWithUsernames(blocks.map((b: any) => ({ ...b, userId: b.userId })));
+
+        res.json(enriched);
+    } catch (e: any) {
+        res.status(500).json({ error: e?.message ?? 'Failed' });
+    }
+});
+
+// Feedback Blocks — block a user
+app.post('/api/feedback/blocks/:guildId', async (req, res) => {
+    try {
+        const { guildId } = req.params;
+        if (!isTrueAdmin(guildId, req)) return res.status(403).json({ error: 'Forbidden — admin only' });
+
+        const { userId, reason } = req.body;
+        if (!userId) return res.status(400).json({ error: 'userId is required' });
+
+        const block = await db.feedbackBlock.upsert({
+            where: { guildId_userId: { guildId, userId } },
+            update: { reason: reason ?? null, blockedBy: req.session.user!.id },
+            create: { guildId, userId, reason: reason ?? null, blockedBy: req.session.user!.id },
+        });
+
+        res.json(block);
+    } catch (e: any) {
+        res.status(500).json({ error: e?.message ?? 'Failed' });
+    }
+});
+
+// Feedback Blocks — unblock a user
+app.delete('/api/feedback/blocks/:guildId/:userId', async (req, res) => {
+    try {
+        const { guildId, userId } = req.params;
+        if (!isTrueAdmin(guildId, req)) return res.status(403).json({ error: 'Forbidden — admin only' });
+
+        await db.feedbackBlock.deleteMany({ where: { guildId, userId } });
+        res.json({ ok: true });
+    } catch (e: any) {
         res.status(500).json({ error: e?.message ?? 'Failed' });
     }
 });

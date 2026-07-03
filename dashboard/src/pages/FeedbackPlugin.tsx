@@ -5,7 +5,7 @@ import { useAuth } from '../components/AuthProvider';
 import { ChannelSelect } from '../components/ChannelSelect';
 import { RoleSelect } from '../components/RoleSelect';
 import { showToast } from '../components/Toast';
-import { Play, Check, X, AlertTriangle, Settings, RefreshCw, MessageSquare, Star, Search, TrendingUp } from 'lucide-react';
+import { Play, Check, X, AlertTriangle, Settings, RefreshCw, MessageSquare, Star, Search, TrendingUp, Ban, Trash2 } from 'lucide-react';
 import { useMobile } from '../hooks/useMobile';
 
 // ── Styles shared across tabs ─────────────────────────────────────────────────
@@ -193,9 +193,155 @@ const PointsTab: React.FC<{ guildId: string; isMobile: boolean }> = ({ guildId, 
     );
 };
 
+// ── Blocked Users tab ─────────────────────────────────────────────────────────
+const BlockedUsersTab: React.FC<{ guildId: string; isMobile: boolean }> = ({ guildId, isMobile }) => {
+    const [blocked, setBlocked] = useState<any[]>([]);
+    const [loading, setLoading] = useState(false);
+    const [query, setQuery] = useState('');
+    const [results, setResults] = useState<any[]>([]);
+    const [blockReason, setBlockReason] = useState('');
+
+    const fetchBlocked = async () => {
+        setLoading(true);
+        try {
+            const res = await axios.get(`/api/feedback/blocks/${guildId}`, { withCredentials: true });
+            setBlocked(res.data);
+        } catch { showToast('Failed to load blocked users', 'error'); }
+        finally { setLoading(false); }
+    };
+
+    useEffect(() => { fetchBlocked(); }, [guildId]);
+
+    const handleSearch = async () => {
+        if (!query.trim()) return;
+        try {
+            const res = await axios.get(`/api/feedback/search-users/${guildId}?q=${encodeURIComponent(query)}`, { withCredentials: true });
+            setResults(res.data);
+        } catch { showToast('Search failed', 'error'); }
+    };
+
+    const handleBlock = async (member: any) => {
+        const userId = member.user?.id ?? member.id;
+        try {
+            await axios.post(`/api/feedback/blocks/${guildId}`, { userId, reason: blockReason || undefined }, { withCredentials: true });
+            showToast('User restricted', 'success');
+            setResults([]);
+            setQuery('');
+            setBlockReason('');
+            fetchBlocked();
+        } catch (e: any) {
+            showToast(e?.response?.data?.error ?? 'Failed to block user', 'error');
+        }
+    };
+
+    const handleUnblock = async (userId: string) => {
+        try {
+            await axios.delete(`/api/feedback/blocks/${guildId}/${userId}`, { withCredentials: true });
+            showToast('Restriction removed', 'success');
+            setBlocked(prev => prev.filter(b => b.userId !== userId));
+        } catch { showToast('Failed to remove restriction', 'error'); }
+    };
+
+    return (
+        <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: '24px' }}>
+            {/* Block a user */}
+            <div style={{ flex: 1.4 }}>
+                <h4 style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Ban size={16} /> Restrict a User
+                </h4>
+                <div style={{ background: colors.surface, padding: '16px', borderRadius: borderRadius.md, marginBottom: '16px', borderLeft: `3px solid ${colors.warning}` }}>
+                    <p style={{ margin: 0, fontSize: '13px', color: colors.textSecondary }}>
+                        Restricted users cannot post new feedback threads. Their comments and replies in existing threads are unaffected.
+                    </p>
+                </div>
+                <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+                    <input
+                        placeholder="Search by Discord username…"
+                        value={query}
+                        onChange={e => setQuery(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && handleSearch()}
+                        style={{ ...inputStyle, flex: 1 }}
+                    />
+                    <button onClick={handleSearch} style={btnStyle(colors.primary)}>Search</button>
+                </div>
+                <input
+                    placeholder="Reason (optional)"
+                    value={blockReason}
+                    onChange={e => setBlockReason(e.target.value)}
+                    style={{ ...inputStyle, marginBottom: '12px' }}
+                />
+                {results.length > 0 && (
+                    <div style={{ background: colors.background, borderRadius: borderRadius.md, overflow: 'hidden', border: `1px solid ${colors.border}` }}>
+                        {results.map(r => {
+                            const uid = r.user?.id ?? r.id;
+                            const username = r.user?.username ?? r.username;
+                            const avatar = r.user?.avatar;
+                            const alreadyBlocked = blocked.some(b => b.userId === uid);
+                            return (
+                                <div key={uid} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', borderBottom: `1px solid ${colors.border}` }}>
+                                    {avatar ? (
+                                        <img src={`https://cdn.discordapp.com/avatars/${uid}/${avatar}.png`} style={{ width: 28, height: 28, borderRadius: '50%' }} alt="" />
+                                    ) : (
+                                        <div style={{ width: 28, height: 28, borderRadius: '50%', background: colors.surface }} />
+                                    )}
+                                    <span style={{ flex: 1 }}>{username}</span>
+                                    {alreadyBlocked ? (
+                                        <span style={{ fontSize: '12px', color: colors.warning }}>Already restricted</span>
+                                    ) : (
+                                        <button onClick={() => handleBlock(r)} style={btnStyle(colors.error)}>
+                                            <Ban size={14} style={{ marginRight: '4px', verticalAlign: 'middle' }} /> Restrict
+                                        </button>
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+            </div>
+
+            {/* Current blocked list */}
+            <div style={{ flex: 1, borderLeft: !isMobile ? `1px solid ${colors.border}` : 'none', paddingLeft: !isMobile ? '24px' : '0' }}>
+                <h4 style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Ban size={16} /> Currently Restricted ({blocked.length})
+                </h4>
+                {loading ? (
+                    <div style={{ color: colors.textSecondary }}>Loading…</div>
+                ) : blocked.length === 0 ? (
+                    <div style={{ padding: '24px', textAlign: 'center', color: colors.textSecondary, background: colors.background, borderRadius: borderRadius.md }}>
+                        No users are currently restricted.
+                    </div>
+                ) : (
+                    <div style={{ background: colors.background, borderRadius: borderRadius.md, overflow: 'hidden', border: `1px solid ${colors.border}` }}>
+                        {blocked.map(b => (
+                            <div key={b.userId} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', borderBottom: `1px solid ${colors.border}` }}>
+                                {b.avatar ? (
+                                    <img src={`https://cdn.discordapp.com/avatars/${b.userId}/${b.avatar}.png`} style={{ width: 28, height: 28, borderRadius: '50%' }} alt="" />
+                                ) : (
+                                    <div style={{ width: 28, height: 28, borderRadius: '50%', background: colors.surface }} />
+                                )}
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ fontWeight: 600, fontSize: '14px' }}>{b.username}</div>
+                                    {b.reason && <div style={{ fontSize: '12px', color: colors.textSecondary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.reason}</div>}
+                                </div>
+                                <button
+                                    onClick={() => handleUnblock(b.userId)}
+                                    title="Remove restriction"
+                                    style={{ background: 'transparent', border: `1px solid ${colors.error}`, color: colors.error, borderRadius: borderRadius.sm, padding: '4px 8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px' }}
+                                >
+                                    <Trash2 size={12} /> Unblock
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
+
 export const FeedbackPluginPage: React.FC = () => {
     const { selectedGuild } = useAuth();
-    const [activeTab, setActiveTab] = useState<'queue' | 'settings' | 'points'>('queue');
+    const [activeTab, setActiveTab] = useState<'queue' | 'settings' | 'points' | 'blocked'>('queue');
     const [queue, setQueue] = useState<any[]>([]);
     const [settings, setSettings] = useState<any>({
         enabled: false,
@@ -333,6 +479,17 @@ export const FeedbackPluginPage: React.FC = () => {
                 >
                     <Star size={18} /> Points
                 </button>
+                <button
+                    onClick={() => setActiveTab('blocked')}
+                    style={{
+                        padding: '10px 20px',
+                        background: activeTab === 'blocked' ? colors.error : 'linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))',
+                        color: colors.textPrimary, border: `1px solid ${activeTab === 'blocked' ? colors.error : colors.border}`, borderRadius: borderRadius.md, cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center'
+                    }}
+                >
+                    <Ban size={18} /> Blocked Users
+                </button>
             </div>
 
             {loading && <div style={{ color: colors.textSecondary }}>Loading...</div>}
@@ -447,6 +604,12 @@ export const FeedbackPluginPage: React.FC = () => {
                 </div>
             )}
 
+            {activeTab === 'blocked' && selectedGuild && (
+                <div style={{ background: 'linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))', padding: '24px', borderRadius: borderRadius.lg, border: '1px solid #3E455633' }}>
+                    <BlockedUsersTab guildId={selectedGuild.id} isMobile={isMobile} />
+                </div>
+            )}
+
             {!loading && activeTab === 'settings' && settings && (
                 <div style={{ background: 'linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))', padding: '24px', borderRadius: borderRadius.lg, border: '1px solid #3E455633' }}>
                     <h3 style={{ marginTop: 0, marginBottom: '20px' }}>Configuration</h3>
@@ -504,6 +667,17 @@ export const FeedbackPluginPage: React.FC = () => {
                                     style={{ width: '100%', padding: '10px', background: colors.background, border: `1px solid ${colors.border}`, color: colors.textPrimary, borderRadius: borderRadius.sm }}
                                 />
                             </div>
+                        </div>
+
+                        <div>
+                            <label style={{ display: 'block', marginBottom: '8px' }}>Support Channel</label>
+                            <ChannelSelect
+                                guildId={selectedGuild?.id || ''}
+                                value={settings.supportChannelId || ''}
+                                onChange={(val: string | string[]) => setSettings({ ...settings, supportChannelId: val as string })}
+                                channelTypes={[0]}
+                            />
+                            <small style={{ color: colors.textSecondary }}>Linked in the DM sent to restricted users so they know where to appeal.</small>
                         </div>
 
                         <div>

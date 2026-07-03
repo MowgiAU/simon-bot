@@ -792,10 +792,28 @@ model FeedbackSettings {
 
   aiModel         String   @default("gpt-4o-mini")
   approverRoleIds String[] @default([])
+  supportChannelId String?
+
+  blockedUsers FeedbackBlock[]
 
   guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
 
   @@map("feedback_settings")
+}
+
+model FeedbackBlock {
+  id        String   @id @default(cuid())
+  guildId   String
+  userId    String
+  reason    String?
+  blockedBy String
+
+  createdAt DateTime @default(now())
+
+  settings FeedbackSettings @relation(fields: [guildId], references: [guildId], onDelete: Cascade)
+
+  @@unique([guildId, userId])
+  @@map("feedback_blocks")
 }
 
 // Feedback Points - separate from economy currency

@@ -78,6 +78,17 @@ export class ProductionFeedbackPlugin implements IPlugin {
                     .setDescription('Give feedback points to a user')
                     .addUserOption(opt => opt.setName('user').setDescription('Target user').setRequired(true))
                     .addIntegerOption(opt => opt.setName('amount').setDescription('Points to give').setRequired(true).setMinValue(1))
+            )
+            .addSubcommand(sub =>
+                sub.setName('block')
+                    .setDescription('Block a user from posting new feedback threads')
+                    .addUserOption(opt => opt.setName('user').setDescription('User to block').setRequired(true))
+                    .addStringOption(opt => opt.setName('reason').setDescription('Reason for block').setRequired(false))
+            )
+            .addSubcommand(sub =>
+                sub.setName('unblock')
+                    .setDescription('Remove a user\'s feedback post restriction')
+                    .addUserOption(opt => opt.setName('user').setDescription('User to unblock').setRequired(true))
             ) as SlashCommandBuilder;
 
         return [feedbackCmd, adminFeedbackCmd];
@@ -139,6 +150,58 @@ export class ProductionFeedbackPlugin implements IPlugin {
 
         await interaction.reply({
             content: `✅ Set <@${target.id}>'s feedback points to **${amount}**.`,
+            flags: MessageFlags.Ephemeral,
+        });
+    }
+
+    private async handleAdminBlock(interaction: ChatInputCommandInteraction): Promise<void> {
+        const member = interaction.member as any;
+        if (!member?.permissions?.has?.(PermissionFlagsBits.Administrator)) {
+            await interaction.reply({ content: '❌ Administrator permission required.', flags: MessageFlags.Ephemeral });
+            return;
+        }
+
+        const target = interaction.options.getUser('user', true);
+        const reason = interaction.options.getString('reason') ?? undefined;
+        const guildId = interaction.guildId!;
+
+        await this.context!.db.feedbackBlock.upsert({
+            where: { guildId_userId: { guildId, userId: target.id } },
+            update: { reason: reason ?? null, blockedBy: interaction.user.id },
+            create: { guildId, userId: target.id, reason: reason ?? null, blockedBy: interaction.user.id },
+        });
+
+        await interaction.reply({
+            content: `✅ <@${target.id}> has been restricted from posting feedback threads.`,
+            flags: MessageFlags.Ephemeral,
+        });
+    }
+
+    private async handleAdminUnblock(interaction: ChatInputCommandInteraction): Promise<void> {
+        const member = interaction.member as any;
+        if (!member?.permissions?.has?.(PermissionFlagsBits.Administrator)) {
+            await interaction.reply({ content: '❌ Administrator permission required.', flags: MessageFlags.Ephemeral });
+            return;
+        }
+
+        const target = interaction.options.getUser('user', true);
+        const guildId = interaction.guildId!;
+
+        const existing = await this.context!.db.feedbackBlock.findUnique({
+            where: { guildId_userId: { guildId, userId: target.id } },
+        });
+
+        if (!existing) {
+            await interaction.reply({ content: `ℹ️ <@${target.id}> is not currently restricted.`, flags: MessageFlags.Ephemeral });
+            return;
+        }
+
+        await this.context!.db.feedbackBlock.delete({
+            where: { guildId_userId: { guildId, userId: target.id } },
+        });
+
+        await interaction.reply({
+            content: `✅ <@${target.id}>'s feedback restriction has been removed.`,
             flags: MessageFlags.Ephemeral,
         });
     }
@@ -225,10 +288,29 @@ export class ProductionFeedbackPlugin implements IPlugin {
                 return;
             }
 
-            // B. Check Feedback Points & Deduct Cost
-            const cost = settings.feedbackPointsCost;
+            // B. Check if user is blocked from posting
             const userId = starterMsg.author.id;
             const guildId = thread.guildId;
+
+            const block = await this.context.db.feedbackBlock.findUnique({
+                where: { guildId_userId: { guildId, userId } },
+            });
+
+            if (block) {
+                await thread.delete('User restricted from feedback posts');
+                try {
+                    const supportChannelId = settings.supportChannelId;
+                    const supportRef = supportChannelId ? `<#${supportChannelId}>` : 'the **#support** channel';
+                    await starterMsg.author.send(
+                        `Your feedback thread was removed because your account has been restricted from posting new feedback threads.\n\n` +
+                        `If you believe this is a mistake, please reach out to the moderators via ${supportRef} in the server.`
+                    );
+                } catch {}
+                return;
+            }
+
+            // C. Check Feedback Points & Deduct Cost
+            const cost = settings.feedbackPointsCost;
 
             this.logger.info(`Processing feedback points cost of ${cost} for user ${userId} in guild ${guildId}`);
 
@@ -621,6 +703,8 @@ export class ProductionFeedbackPlugin implements IPlugin {
                 const sub = interaction.options.getSubcommand();
                 if (sub === 'set') await this.handleAdminSet(interaction);
                 else if (sub === 'give') await this.handleAdminGive(interaction);
+                else if (sub === 'block') await this.handleAdminBlock(interaction);
+                else if (sub === 'unblock') await this.handleAdminUnblock(interaction);
             }
             return;
         }
