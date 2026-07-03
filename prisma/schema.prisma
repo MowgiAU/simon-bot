@@ -166,6 +166,7 @@ model Guild {
   feedbackProfiles FeedbackProfile[]
   feedbackPosts    FeedbackPost[]
   feedbackSettings FeedbackSettings?
+  echoSettings     EchoSettings?
   feedbackPoints   FeedbackPoints[]
   feedbackPointsTransactions FeedbackPointsTransaction[]
 
@@ -817,6 +818,25 @@ model FeedbackBlock {
 }
 
 // Feedback Points - separate from economy currency
+model EchoSettings {
+  id      String @id @default(cuid())
+  guildId String @unique
+
+  enabled            Boolean  @default(false)
+  impersonateUser    Boolean  @default(true)       // post via webhook as original author
+  triggerChance      Int      @default(10)          // % chance per message to queue an echo (1-100)
+  minDelaySeconds    Int      @default(300)         // minimum wait before echoing (seconds)
+  maxDelaySeconds    Int      @default(1800)        // maximum wait
+  lookbackMessages   Int      @default(50)          // how many recent messages to pick from
+  channelIds         String[] @default([])          // empty = all text channels
+  blacklistUserIds   String[] @default([])          // never echo these users
+  whitelistUserIds   String[] @default([])          // if non-empty, only echo these users
+
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  @@map("echo_settings")
+}
+
 model FeedbackPoints {
   id        String   @id @default(cuid())
   guildId   String

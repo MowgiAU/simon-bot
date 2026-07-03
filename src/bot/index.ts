@@ -47,6 +47,7 @@ import { SpamGuardPlugin } from './plugins/SpamGuardPlugin';
 import { MuzzlePlugin } from './plugins/MuzzlePlugin';
 import { TrackAnnouncerPlugin } from './plugins/TrackAnnouncerPlugin';
 import { HeadToHeadAnnouncerPlugin } from './plugins/HeadToHeadAnnouncerPlugin';
+import { EchoPlugin } from './plugins/EchoPlugin';
 import { FujiGenerator } from './utils/FujiGenerator';
 import { FujiScanner } from './utils/FujiScanner';
 import { softDeleteMiddleware } from '../services/softDelete.js';
@@ -166,6 +167,7 @@ export class SimonBot {
       this.pluginManager.register(new MuzzlePlugin());
       this.pluginManager.register(new TrackAnnouncerPlugin());
       this.pluginManager.register(new HeadToHeadAnnouncerPlugin());
+      this.pluginManager.register(new EchoPlugin());
 
       // Initialize enabled plugins
       for (const plugin of this.pluginManager.getEnabled()) {

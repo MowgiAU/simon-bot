@@ -84,6 +84,7 @@ const BotMessengerPage       = lazy(() => import("./pages/BotMessenger").then(m 
 const PrivateMessagesPage    = lazy(() => import("./pages/PrivateMessages").then(m => ({ default: m.PrivateMessagesPage })));
 const AutoMessagesPage       = lazy(() => import("./pages/AutoMessages").then(m => ({ default: m.AutoMessagesPage })));
 const AutoResponderPage      = lazy(() => import("./pages/AutoResponder").then(m => ({ default: m.AutoResponderPage })));
+const EchoPluginPage         = lazy(() => import("./pages/EchoPlugin").then(m => ({ default: m.EchoPluginPage })));
 const FrontpageStitch        = lazy(() => import("./pages/FrontpageStitch").then(m => ({ default: m.FrontpageStitch })));
 const FrontpageEditorialB    = lazy(() => import("./pages/FrontpageEditorialB").then(m => ({ default: m.FrontpageEditorialB })));
 const FrontpageVHub          = lazy(() => import("./pages/FrontpageVHub").then(m => ({ default: m.FrontpageVHub })));
@@ -218,7 +219,8 @@ type Section =
   | "admin-tools"
   | "activity-logs"
   | "vote-fraud"
-  | "platform-analytics";
+  | "platform-analytics"
+  | "echo";
 
 const WelcomeScreen: React.FC<{ login: () => void }> = ({ login }) => {
   const navigate = useNavigate();
@@ -414,6 +416,7 @@ const AdminDashboard: React.FC = () => {
     'private-messages': 'private-messages',
     'auto-messages': 'auto-messages',
     'auto-responder': 'auto-responder',
+    'echo': 'echo',
     'pause': 'pause',
     'server-boost': 'server-boost',
     'booster-color': 'booster-color',
@@ -532,6 +535,8 @@ const AdminDashboard: React.FC = () => {
           return <AutoMessagesPage />;
         case "auto-responder":
           return <AutoResponderPage />;
+        case "echo":
+          return <EchoPluginPage />;
         case "pause":
           return <PausePage />;
         case "server-boost":
@@ -700,6 +705,7 @@ const AdminDashboard: React.FC = () => {
                 "plugins": "overview",
                 "auto-messages": "overview",
                 "auto-responder": "overview",
+                "echo": "overview",
                 "server-boost": "overview",
                 "voice-stats": "stats",
                 "spam-guard": "overview",

@@ -4492,7 +4492,7 @@ app.get('/api/guilds/:guildId/my-permissions', async (req, res) => {
         if (isAdmin) {
             return res.json({ 
                 canManagePlugins: true, 
-                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content', 'account-management', 'anti-piracy', 'leveling', 'fuji-radio', 'studio-guide', 'bot-identity', 'bot-messenger', 'booster-color', 'private-messages', 'auto-messages', 'auto-responder', 'server-boost', 'reports', 'articles', 'article-review', 'pause', 'voice-stats', 'spam-guard', 'muzzle', 'track-announcer', 'profile-styles', 'academy', 'head-to-head', 'drum-kit', 'bug-reports', 'plugin-registry', 'activity-logs', 'duplicate-profiles', 'projects', 'vote-fraud', 'slots', 'platform-analytics', 'collabs']
+                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content', 'account-management', 'anti-piracy', 'leveling', 'fuji-radio', 'studio-guide', 'bot-identity', 'bot-messenger', 'booster-color', 'private-messages', 'auto-messages', 'auto-responder', 'server-boost', 'reports', 'articles', 'article-review', 'pause', 'voice-stats', 'spam-guard', 'muzzle', 'track-announcer', 'profile-styles', 'academy', 'head-to-head', 'drum-kit', 'bug-reports', 'plugin-registry', 'activity-logs', 'duplicate-profiles', 'projects', 'vote-fraud', 'slots', 'platform-analytics', 'collabs', 'echo']
             });
         }
 
@@ -5677,6 +5677,74 @@ app.post('/api/feedback/vault/:guildId', async (req, res) => {
         res.json(updated);
     } catch (e: any) {
         logger.error('Feedback vault update failed', e);
+        res.status(500).json({ error: e?.message ?? 'Failed' });
+    }
+});
+
+// ── Echo Plugin ───────────────────────────────────────────────────────────────
+
+app.get('/api/echo/settings/:guildId', async (req, res) => {
+    try {
+        const { guildId } = req.params;
+        if (!await checkPluginAccess(guildId, req, 'echo')) return res.status(403).json({ error: 'Forbidden' });
+
+        let settings = await db.echoSettings.findUnique({ where: { guildId } });
+        if (!settings) {
+            settings = await db.echoSettings.create({
+                data: { guildId }
+            });
+        }
+        res.json(settings);
+    } catch (e: any) {
+        res.status(500).json({ error: e?.message ?? 'Failed' });
+    }
+});
+
+app.post('/api/echo/settings/:guildId', async (req, res) => {
+    try {
+        const { guildId } = req.params;
+        if (!isTrueAdmin(guildId, req)) return res.status(403).json({ error: 'Forbidden — admin only' });
+
+        const {
+            enabled, impersonateUser, triggerChance,
+            minDelaySeconds, maxDelaySeconds, lookbackMessages,
+            channelIds, blacklistUserIds, whitelistUserIds,
+        } = req.body;
+
+        const data: any = {};
+        if (enabled !== undefined) data.enabled = Boolean(enabled);
+        if (impersonateUser !== undefined) data.impersonateUser = Boolean(impersonateUser);
+        if (triggerChance !== undefined) {
+            const v = Math.trunc(Number(triggerChance));
+            if (!Number.isFinite(v) || v < 1 || v > 100) return res.status(400).json({ error: 'triggerChance must be 1-100' });
+            data.triggerChance = v;
+        }
+        if (minDelaySeconds !== undefined) {
+            const v = Math.trunc(Number(minDelaySeconds));
+            if (!Number.isFinite(v) || v < 0) return res.status(400).json({ error: 'minDelaySeconds must be >= 0' });
+            data.minDelaySeconds = v;
+        }
+        if (maxDelaySeconds !== undefined) {
+            const v = Math.trunc(Number(maxDelaySeconds));
+            if (!Number.isFinite(v) || v < 0) return res.status(400).json({ error: 'maxDelaySeconds must be >= 0' });
+            data.maxDelaySeconds = v;
+        }
+        if (lookbackMessages !== undefined) {
+            const v = Math.trunc(Number(lookbackMessages));
+            if (!Number.isFinite(v) || v < 1 || v > 100) return res.status(400).json({ error: 'lookbackMessages must be 1-100' });
+            data.lookbackMessages = v;
+        }
+        if (channelIds !== undefined) data.channelIds = Array.isArray(channelIds) ? channelIds : [];
+        if (blacklistUserIds !== undefined) data.blacklistUserIds = Array.isArray(blacklistUserIds) ? blacklistUserIds : [];
+        if (whitelistUserIds !== undefined) data.whitelistUserIds = Array.isArray(whitelistUserIds) ? whitelistUserIds : [];
+
+        const updated = await db.echoSettings.upsert({
+            where: { guildId },
+            create: { guildId, ...data },
+            update: data,
+        });
+        res.json(updated);
+    } catch (e: any) {
         res.status(500).json({ error: e?.message ?? 'Failed' });
     }
 });
