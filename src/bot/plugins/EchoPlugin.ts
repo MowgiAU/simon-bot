@@ -14,7 +14,7 @@ export class EchoPlugin implements IPlugin {
     commands = [];
     events = ['messageCreate'];
     dashboardSections = ['echo'];
-    defaultEnabled = false;
+    defaultEnabled = true;
 
     configSchema = z.object({
         enabled: z.boolean().default(false),
