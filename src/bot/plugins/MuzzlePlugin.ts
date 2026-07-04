@@ -30,7 +30,7 @@ export class MuzzlePlugin implements IPlugin {
     commands: string[] = [];
     events: string[] = ['messageCreate'];
     dashboardSections = ['muzzle'];
-    defaultEnabled = false;
+    defaultEnabled = true;
 
     configSchema = z.object({});
 
