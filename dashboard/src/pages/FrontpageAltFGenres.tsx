@@ -893,8 +893,20 @@ export const FrontpageAltFGenres: React.FC = () => {
                                                                 </div>
                                                             </div>
                                                             {g.children.length > 0 && (
-                                                                <div style={{ fontSize: 11, color: SUB }}>
-                                                                    {g.children.slice(0, 4).map(c => c.name).join(' · ')}{g.children.length > 4 ? ` +${g.children.length - 4}` : ''}
+                                                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                                                                    {g.children.slice(0, 5).map(c => {
+                                                                        const cAccent = genreAccent(c.name);
+                                                                        return (
+                                                                            <Link key={c.id} to={`/preview/alt_f_genres/${c.slug}`}
+                                                                                onClick={e => e.stopPropagation()}
+                                                                                style={{ padding: '2px 8px', borderRadius: 9999, background: `${cAccent}15`, border: `1px solid ${cAccent}33`, color: cAccent, fontSize: 10, fontWeight: 700, textDecoration: 'none', lineHeight: 1.7, flexShrink: 0 }}>
+                                                                                {c.name}
+                                                                            </Link>
+                                                                        );
+                                                                    })}
+                                                                    {g.children.length > 5 && (
+                                                                        <span style={{ fontSize: 10, color: SUB, alignSelf: 'center', flexShrink: 0 }}>+{g.children.length - 5} more</span>
+                                                                    )}
                                                                 </div>
                                                             )}
                                                         </div>
@@ -915,48 +927,6 @@ export const FrontpageAltFGenres: React.FC = () => {
                                         </Link>
 
                                         <SortBar />
-
-                                        {/* Subgenre dropdown */}
-                                        {viewMode === 'single' && subgenres.length > 0 && (
-                                            <div ref={dropdownRef} style={{ position: 'relative' }}>
-                                                <button onClick={() => setShowSubgenreDropdown(d => !d)}
-                                                    style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', background: showSubgenreDropdown ? `${PRIMARY}12` : S_CONT, border: `1px solid ${showSubgenreDropdown ? PRIMARY : BORDER}`, borderRadius: 8, color: showSubgenreDropdown ? PRIMARY : SUB, cursor: 'pointer', fontFamily: FONT, fontSize: 12, fontWeight: 700, transition: 'all 0.15s' }}>
-                                                    Subgenres <ChevronDown size={11} />
-                                                </button>
-                                                {showSubgenreDropdown && (
-                                                    <div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, zIndex: 300, ...glass, borderRadius: 12, padding: '14px 16px', minWidth: 200 }}>
-                                                        <div style={{ fontSize: 11, fontWeight: 700, color: SUB, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>Filter by subgenre</div>
-                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                                                            {subgenres.map(sg => {
-                                                                const checked = selectedSubSlugs.has(sg.slug);
-                                                                return (
-                                                                    <label key={sg.id} style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', padding: '5px 4px', borderRadius: 6, transition: 'background 0.1s' }}
-                                                                        onMouseEnter={e => (e.currentTarget.style.background = S_HIGH)}
-                                                                        onMouseLeave={e => (e.currentTarget.style.background = 'none')}>
-                                                                        <div style={{ width: 16, height: 16, borderRadius: 4, background: checked ? PRIMARY : 'none', border: `2px solid ${checked ? PRIMARY : BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 0.15s' }}
-                                                                            onClick={() => setSelectedSubSlugs(prev => { const s = new Set(prev); if (s.has(sg.slug)) s.delete(sg.slug); else s.add(sg.slug); return s; })}>
-                                                                            {checked && <Check size={10} color="#fff" />}
-                                                                        </div>
-                                                                        <span style={{ fontSize: 13, color: TEXT }}>{sg.name}</span>
-                                                                        <span style={{ fontSize: 11, color: SUB, marginLeft: 'auto' }}>{fmtNum(sg._count?.tracks)}</span>
-                                                                    </label>
-                                                                );
-                                                            })}
-                                                        </div>
-                                                        <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${BORDER}`, display: 'flex', gap: 6 }}>
-                                                            <button onClick={() => { setSelectedSubSlugs(new Set()); navigate(`/preview/alt_f_genres/${activeGenre!.slug}`); setShowSubgenreDropdown(false); }}
-                                                                style={{ flex: 1, padding: '6px 0', background: 'none', border: `1px solid ${BORDER}`, borderRadius: 6, color: SUB, cursor: 'pointer', fontFamily: FONT, fontSize: 12 }}>
-                                                                All posts
-                                                            </button>
-                                                            <button onClick={applySubgenreFilter} disabled={selectedSubSlugs.size === 0}
-                                                                style={{ flex: 1, padding: '6px 0', background: selectedSubSlugs.size > 0 ? PRIMARY : S_CONT, border: 'none', borderRadius: 6, color: selectedSubSlugs.size > 0 ? '#fff' : SUB, cursor: selectedSubSlugs.size > 0 ? 'pointer' : 'not-allowed', fontFamily: FONT, fontSize: 12, fontWeight: 700 }}>
-                                                                {selectedSubSlugs.size > 0 ? `Apply (${selectedSubSlugs.size})` : 'Select genres'}
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        )}
 
                                         {/* Right-side buttons */}
                                         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
@@ -986,6 +956,36 @@ export const FrontpageAltFGenres: React.FC = () => {
                                             )}
                                         </div>
                                     </div>
+
+                                    {/* Inline subgenre chips */}
+                                    {viewMode === 'single' && subgenres.length > 0 && (
+                                        <div style={{ marginBottom: 16, padding: '12px 16px', background: S_CONT, borderRadius: 12, border: `1px solid ${BORDER}` }}>
+                                            <div style={{ fontSize: 10, fontWeight: 800, color: SUB, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 5 }}>
+                                                <Layers size={10} /> Subgenres
+                                            </div>
+                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                                                {activeGenre?.parentId ? null : (
+                                                    <Link to={`/preview/alt_f_genres/${activeGenre!.slug}`}
+                                                        style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 13px', borderRadius: 9999, background: !genreSlug || genreSlug === activeGenre?.slug ? `${genreAccent(activeGenre!.name)}28` : 'transparent', border: `1px solid ${!genreSlug || genreSlug === activeGenre?.slug ? genreAccent(activeGenre!.name) : BORDER}`, color: !genreSlug || genreSlug === activeGenre?.slug ? genreAccent(activeGenre!.name) : SUB, fontSize: 12, fontWeight: 700, textDecoration: 'none', transition: 'all 0.15s' }}>
+                                                        All
+                                                    </Link>
+                                                )}
+                                                {subgenres.map(sg => {
+                                                    const accent = genreAccent(sg.name);
+                                                    const isActive = genreSlug === sg.slug;
+                                                    return (
+                                                        <Link key={sg.id} to={`/preview/alt_f_genres/${sg.slug}`}
+                                                            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 13px', borderRadius: 9999, background: isActive ? `${accent}28` : 'transparent', border: `1px solid ${isActive ? accent : BORDER}`, color: isActive ? accent : TEXT, fontSize: 12, fontWeight: 700, textDecoration: 'none', transition: 'all 0.15s' }}
+                                                            onMouseEnter={e => { if (!isActive) { (e.currentTarget as HTMLElement).style.borderColor = `${accent}66`; (e.currentTarget as HTMLElement).style.color = accent; } }}
+                                                            onMouseLeave={e => { if (!isActive) { (e.currentTarget as HTMLElement).style.borderColor = BORDER; (e.currentTarget as HTMLElement).style.color = TEXT; } }}>
+                                                            {sg.name}
+                                                            {sg._count?.tracks > 0 && <span style={{ opacity: 0.6, fontWeight: 400, fontSize: 10 }}>{fmtNum(sg._count.tracks)}</span>}
+                                                        </Link>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    )}
 
                                     {/* Multi-genre pills (removable) */}
                                     {viewMode === 'multi' && (
