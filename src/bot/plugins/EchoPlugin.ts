@@ -77,7 +77,10 @@ export class EchoPlugin implements IPlugin {
 
         setTimeout(async () => {
             try {
-                if (settings.impersonateUser) {
+                // Re-read settings at fire time so changes during the delay window take effect
+                const liveSettings = await this.getSettings(message.guildId!);
+                if (!liveSettings?.enabled) return;
+                if (liveSettings.impersonateUser) {
                     await this.sendViaWebhook(channel, target);
                 } else {
                     await channel.send(target.content);
