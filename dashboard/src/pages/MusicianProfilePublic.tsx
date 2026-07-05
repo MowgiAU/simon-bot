@@ -360,7 +360,13 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
         if (!profile?.userId) return;
         setGenrePostsLoading(true);
         axios.get(`/api/genre-posts?authorId=${profile.userId}&sort=new&feed=all`, { withCredentials: true })
-            .then(r => setGenrePosts(Array.isArray(r.data?.posts) ? r.data.posts : []))
+            .then(r => {
+                const all = Array.isArray(r.data?.posts) ? r.data.posts : [];
+                // Exclude track posts where the track belongs to someone else (reposts of other people's tracks)
+                setGenrePosts(all.filter((p: any) =>
+                    p.type !== 'track' || p.track?.profile?.username === profile.username
+                ));
+            })
             .catch(() => {})
             .finally(() => setGenrePostsLoading(false));
     }, [profile?.userId]);
