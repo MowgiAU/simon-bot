@@ -152,9 +152,10 @@ const GenrePostCard: React.FC<{
                 {/* Flair pill */}
                 {post.flair && (
                     <div style={{ marginBottom: 6 }}>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 9999, background: `${flairColor(post.flair)}18`, border: `1px solid ${flairColor(post.flair)}44`, color: flairColor(post.flair), fontSize: 11, fontWeight: 700 }}>
+                        <Link to={`/preview/alt_f_genres/${post.genre?.slug || ''}?flair=${encodeURIComponent(post.flair)}`}
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 9999, background: `${flairColor(post.flair)}18`, border: `1px solid ${flairColor(post.flair)}44`, color: flairColor(post.flair), fontSize: 11, fontWeight: 700, textDecoration: 'none' }}>
                             <Tag size={9} /> {post.flair}
-                        </span>
+                        </Link>
                     </div>
                 )}
 
@@ -252,7 +253,11 @@ const GenrePostCard: React.FC<{
                         <div style={{ width: 18, height: 18, borderRadius: '50%', overflow: 'hidden', background: S_HIGH, flexShrink: 0 }}>
                             {post.avatarUrl && <img src={post.avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
                         </div>
-                        <span style={{ fontWeight: 600, color: TEXT }}>{post.username}</span>
+                        <Link to={`/profile/${post.username}`} style={{ fontWeight: 600, color: TEXT, textDecoration: 'none' }}
+                            onMouseEnter={e => (e.currentTarget.style.textDecoration = 'underline')}
+                            onMouseLeave={e => (e.currentTarget.style.textDecoration = 'none')}>
+                            {post.username}
+                        </Link>
                     </div>
                     <span>·</span>
                     <span>{timeAgo(post.createdAt)}</span>
@@ -477,7 +482,7 @@ export const FrontpageAltFGenres: React.FC = () => {
     const dropdownRef = useRef<HTMLDivElement>(null);
 
     // ── Parse URL ─────────────────────────────────────────────────────────────
-    const { genreSlug, multiSlugsFromUrl, groupIdFromUrl } = useMemo(() => {
+    const { genreSlug, multiSlugsFromUrl, groupIdFromUrl, flairFromUrl } = useMemo(() => {
         const pathAfter = location.pathname.replace('/preview/alt_f_genres', '');
         const segments = pathAfter.split('/').filter(Boolean);
         const sp = new URLSearchParams(location.search);
@@ -485,6 +490,7 @@ export const FrontpageAltFGenres: React.FC = () => {
             genreSlug: segments[0] || null,
             multiSlugsFromUrl: sp.get('g')?.split(',').filter(Boolean) || [],
             groupIdFromUrl: sp.get('group') || null,
+            flairFromUrl: sp.get('flair') || null,
         };
     }, [location]);
 
@@ -589,8 +595,9 @@ export const FrontpageAltFGenres: React.FC = () => {
         if (sort === 'top') p.period = period;
         if (viewMode === 'group' && groupIdFromUrl) { p.groupId = groupIdFromUrl; }
         else if (activeGenreIds.length > 0) { p.genreIds = activeGenreIds.join(','); }
+        if (flairFromUrl) p.flair = flairFromUrl;
         return p;
-    }, [viewMode, groupIdFromUrl, activeGenreIds, sort, period]);
+    }, [viewMode, groupIdFromUrl, activeGenreIds, sort, period, flairFromUrl]);
 
     useEffect(() => {
         if (genres.length === 0) return;
@@ -602,7 +609,7 @@ export const FrontpageAltFGenres: React.FC = () => {
         fetchPosts(buildParams());
         setSelectedSubSlugs(new Set());
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [genres, viewMode, activeGenreIds.join(','), groupIdFromUrl, sort, period]);
+    }, [genres, viewMode, activeGenreIds.join(','), groupIdFromUrl, sort, period, flairFromUrl]);
 
     // ── Close dropdown on outside click ──────────────────────────────────────
     useEffect(() => {
@@ -1020,6 +1027,19 @@ export const FrontpageAltFGenres: React.FC = () => {
                                             )}
                                         </div>
                                     </div>
+
+                                    {/* Active flair filter indicator */}
+                                    {flairFromUrl && (
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, padding: '8px 12px', background: `${flairColor(flairFromUrl)}12`, border: `1px solid ${flairColor(flairFromUrl)}40`, borderRadius: 8 }}>
+                                            <Tag size={12} color={flairColor(flairFromUrl)} />
+                                            <span style={{ fontSize: 12, color: flairColor(flairFromUrl), fontWeight: 700 }}>Flair: {flairFromUrl}</span>
+                                            <Link to={location.pathname} style={{ marginLeft: 'auto', fontSize: 11, color: SUB, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4 }}
+                                                onMouseEnter={e => (e.currentTarget.style.color = TEXT)}
+                                                onMouseLeave={e => (e.currentTarget.style.color = SUB)}>
+                                                ✕ Clear
+                                            </Link>
+                                        </div>
+                                    )}
 
                                     {/* Inline subgenre chips */}
                                     {viewMode === 'single' && subgenres.length > 0 && (

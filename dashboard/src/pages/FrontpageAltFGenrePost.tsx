@@ -684,7 +684,11 @@ const CommentCard: React.FC<{
                             <div style={{ width: 24, height: 24, borderRadius: '50%', overflow: 'hidden', background: S_HIGH, flexShrink: 0 }}>
                                 {comment.avatarUrl && <img src={comment.avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
                             </div>
-                            <span style={{ fontSize: 13, fontWeight: 700, color: TEXT }}>{comment.username}</span>
+                            <Link to={`/profile/${comment.username}`} style={{ fontSize: 13, fontWeight: 700, color: TEXT, textDecoration: 'none' }}
+                                onMouseEnter={e => (e.currentTarget.style.textDecoration = 'underline')}
+                                onMouseLeave={e => (e.currentTarget.style.textDecoration = 'none')}>
+                                {comment.username}
+                            </Link>
                             <span style={{ fontSize: 11, color: SUB }}>·</span>
                             <span style={{ fontSize: 11, color: SUB }}>{timeAgo(comment.createdAt)}</span>
                         </div>
@@ -703,7 +707,11 @@ const CommentCard: React.FC<{
                             <div style={{ width: 24, height: 24, borderRadius: '50%', overflow: 'hidden', background: S_HIGH, flexShrink: 0 }}>
                                 {comment.avatarUrl && <img src={comment.avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
                             </div>
-                            <span style={{ fontSize: 13, fontWeight: 700, color: TEXT }}>{comment.username}</span>
+                            <Link to={`/profile/${comment.username}`} style={{ fontSize: 13, fontWeight: 700, color: TEXT, textDecoration: 'none' }}
+                                onMouseEnter={e => (e.currentTarget.style.textDecoration = 'underline')}
+                                onMouseLeave={e => (e.currentTarget.style.textDecoration = 'none')}>
+                                {comment.username}
+                            </Link>
                             <span style={{ fontSize: 11, color: SUB }}>·</span>
                             <span style={{ fontSize: 11, color: SUB }}>{timeAgo(comment.createdAt)}</span>
                         </div>

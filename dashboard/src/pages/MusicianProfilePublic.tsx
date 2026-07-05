@@ -123,6 +123,10 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
     const [favourites, setFavourites] = useState<Record<string, boolean>>({});
     const [reposts, setReposts] = useState<Record<string, boolean>>({});
 
+    // Genre posts
+    const [genrePosts, setGenrePosts] = useState<any[]>([]);
+    const [genrePostsLoading, setGenrePostsLoading] = useState(false);
+
     // Battle submissions
     const [battleEntries, setBattleEntries] = useState<any[]>([]);
 
@@ -349,6 +353,16 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
         axios.get(`/api/profile-styles/${profile.userId}`).then(r => {
             setProfileStyle(r.data || null);
         }).catch(() => {});
+    }, [profile?.userId]);
+
+    // Fetch genre posts when profile loads
+    useEffect(() => {
+        if (!profile?.userId) return;
+        setGenrePostsLoading(true);
+        axios.get(`/api/genre-posts?authorId=${profile.userId}&sort=new&feed=all`, { withCredentials: true })
+            .then(r => setGenrePosts(Array.isArray(r.data?.posts) ? r.data.posts : []))
+            .catch(() => {})
+            .finally(() => setGenrePostsLoading(false));
     }, [profile?.userId]);
 
     if (loading) return (
@@ -1223,6 +1237,49 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                                 );
                             })()}
                         </div>
+
+                        {/* Genre Posts */}
+                        {(genrePosts.length > 0 || genrePostsLoading) && (
+                        <div style={{ borderRadius: '14px', border: `1px solid ${cardBorder}`, padding: isMobile ? '20px' : '28px', backgroundColor: cardBg }}>
+                            <h3 style={{ margin: '0 0 16px', fontSize: '16px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '10px', color: cardText }}>
+                                <MessageCircle size={20} color={accent} /> Genre Posts
+                                <span style={{ fontSize: 12, fontWeight: 500, color: cardTextSec, marginLeft: 4 }}>({genrePosts.length})</span>
+                            </h3>
+                            {genrePostsLoading ? (
+                                <p style={{ color: cardTextSec, fontSize: 13, margin: 0 }}>Loading…</p>
+                            ) : (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                    {genrePosts.map((gp: any) => (
+                                        <Link key={gp.id} to={`/preview/alt_f_genre_post/${gp.id}`}
+                                            style={{ display: 'flex', gap: 12, padding: '12px 14px', backgroundColor: isLightCard ? 'rgba(0,0,0,0.04)' : '#1A1E2E', borderRadius: 10, border: `1px solid ${cardBorder}`, textDecoration: 'none', color: 'inherit', transition: 'border-color 0.15s' }}
+                                            onMouseEnter={e => (e.currentTarget.style.borderColor = accent + '66')}
+                                            onMouseLeave={e => (e.currentTarget.style.borderColor = cardBorder)}>
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4, flexWrap: 'wrap' }}>
+                                                    {gp.genre && (
+                                                        <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 9999, background: accent + '22', color: accent, border: `1px solid ${accent}44` }}>
+                                                            {gp.genre.name}
+                                                        </span>
+                                                    )}
+                                                    {gp.flair && (
+                                                        <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 9999, background: 'rgba(120,120,200,0.15)', color: cardTextSec, border: `1px solid rgba(120,120,200,0.3)` }}>
+                                                            {gp.flair}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <p style={{ margin: '0 0 4px', fontSize: 13, fontWeight: 700, color: cardText, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{gp.title}</p>
+                                                <div style={{ fontSize: 11, color: cardTextSec, display: 'flex', gap: 8, alignItems: 'center' }}>
+                                                    <span>{new Date(gp.createdAt).toLocaleDateString()}</span>
+                                                    <span>·</span>
+                                                    <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><MessageCircle size={10} /> {gp.commentCount ?? 0}</span>
+                                                </div>
+                                            </div>
+                                        </Link>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                        )}
 
                         {/* Beat Battle History */}
                         {battleEntries.length > 0 && (

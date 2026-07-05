@@ -272,7 +272,7 @@ function GenrePostFeedCard({ post, onVote }: { post: any; onVote: (id: string, t
             {/* Content */}
             <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-                    {post.genre && <span style={{ background: `${accent}18`, border: `1px solid ${accent}44`, color: accent, padding: '1px 7px', borderRadius: 9999, fontSize: 10, fontWeight: 700 }}>{post.genre.name}</span>}
+                    {post.genre && <Link to={`/preview/alt_f_genres/${post.genre.slug}`} style={{ background: `${accent}18`, border: `1px solid ${accent}44`, color: accent, padding: '1px 7px', borderRadius: 9999, fontSize: 10, fontWeight: 700, textDecoration: 'none' }}>{post.genre.name}</Link>}
                     <span style={{ fontSize: 11, color: SUB }}>{post.type === 'track' ? '🎵 Track' : '💬 Discussion'}</span>
                 </div>
                 <Link to={`/preview/alt_f_genre_post/${post.id}`} style={{ textDecoration: 'none' }}>
@@ -291,7 +291,11 @@ function GenrePostFeedCard({ post, onVote }: { post: any; onVote: (id: string, t
                     </div>
                 )}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 11, color: SUB }}>
-                    <span style={{ fontWeight: 600, color: TEXT }}>{post.username}</span>
+                    <Link to={`/profile/${post.username}`} style={{ fontWeight: 600, color: TEXT, textDecoration: 'none' }}
+                        onMouseEnter={e => (e.currentTarget.style.textDecoration = 'underline')}
+                        onMouseLeave={e => (e.currentTarget.style.textDecoration = 'none')}>
+                        {post.username}
+                    </Link>
                     <span>·</span>
                     <span>{timeAgo(post.createdAt)}</span>
                     <Link to={`/preview/alt_f_genre_post/${post.id}`} style={{ display: 'flex', alignItems: 'center', gap: 3, color: SUB, textDecoration: 'none', marginLeft: 'auto' }}>
