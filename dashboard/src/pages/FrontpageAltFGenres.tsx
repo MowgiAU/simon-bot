@@ -1025,8 +1025,8 @@ export const FrontpageAltFGenres: React.FC = () => {
                                     {viewMode === 'single' && subgenres.length > 0 && (
                                         <div style={{ marginBottom: 16 }}>
                                             <button onClick={() => setSubgenresOpen(o => !o)}
-                                                style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '10px 14px', background: subgenresOpen ? `${PRIMARY}18` : S_CONT, border: `1.5px solid ${subgenresOpen ? PRIMARY : BORDER}`, borderRadius: 10, cursor: 'pointer', color: subgenresOpen ? PRIMARY : TEXT, fontSize: 13, fontWeight: 700, marginBottom: subgenresOpen ? 12 : 0, transition: 'all 0.15s', letterSpacing: '0.01em', boxShadow: subgenresOpen ? `0 0 0 3px ${PRIMARY}18` : 'none' }}>
-                                                <Layers size={14} color={subgenresOpen ? PRIMARY : SUB} />
+                                                style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '10px 14px', background: subgenresOpen ? `${PRIMARY}18` : `${SECONDARY}22`, border: `1.5px solid ${subgenresOpen ? PRIMARY : SECONDARY}`, borderRadius: 10, cursor: 'pointer', color: subgenresOpen ? PRIMARY : SECONDARY, fontSize: 13, fontWeight: 700, marginBottom: subgenresOpen ? 12 : 0, transition: 'all 0.15s', letterSpacing: '0.01em', boxShadow: subgenresOpen ? `0 0 0 3px ${PRIMARY}18` : `0 0 0 2px ${SECONDARY}22` }}>
+                                                <Layers size={14} color={subgenresOpen ? PRIMARY : SECONDARY} />
                                                 <span style={{ flex: 1, textAlign: 'left' }}>Subgenres</span>
                                                 <span style={{ fontSize: 11, fontWeight: 400, color: SUB, marginRight: 6 }}>{subgenres.length}</span>
                                                 {subgenresOpen ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
