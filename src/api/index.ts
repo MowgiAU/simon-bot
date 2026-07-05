@@ -8397,6 +8397,7 @@ app.post('/api/musician/tracks', uploadLimiter, requireDesktopAuth, upload.field
         if (_isPublic && fullTrack && uploaderProfile) {
             const taggedGenreIds = (fullTrack.genres ?? []).map((tg: any) => tg.genreId).filter(Boolean);
             if (taggedGenreIds.length > 0) {
+                const trackHotScore = computeHotScore(0, new Date());
                 db.genrePost.createMany({
                     data: taggedGenreIds.map((gid: string) => ({
                         genreId: gid,
@@ -8406,6 +8407,7 @@ app.post('/api/musician/tracks', uploadLimiter, requireDesktopAuth, upload.field
                         type: 'track',
                         title: track.title,
                         trackId: track.id,
+                        hotScore: trackHotScore,
                     })),
                     skipDuplicates: true,
                 }).catch((err: any) => logger.warn(`[GenrePost] Failed to create genre posts: ${err.message}`));
@@ -10469,22 +10471,37 @@ app.get('/api/genre-subscriptions', requireAuth, async (req: any, res) => {
 });
 
 // Helper: compute hot score (Reddit algorithm)
+// Reddit-style "hot" ranking. Recency is the dominant, additive baseline so
+// every post — even one with zero votes — surfaces by how new it is, while
+// votes add a *logarithmic* popularity bump on top. A post needs ~10x the net
+// score to outrank something posted ~HOT_TIME_DIVISOR seconds (~9h) later, so
+// popular posts linger but fresh posts always bubble in.
+//
+// Because the score is anchored to absolute post time (epoch), the stored value
+// is stable: it only changes when the post is voted on and never needs a
+// periodic "age decay" pass. Higher = hotter.
+const HOT_EPOCH = 1_134_028_003;   // fixed anchor (seconds); only shifts all scores by a constant
+const HOT_TIME_DIVISOR = 33_000;   // seconds of freshness worth one order of magnitude of votes (~9.2h)
 function computeHotScore(score: number, createdAt: Date): number {
-    const ageHours = (Date.now() - createdAt.getTime()) / 3_600_000;
-    if (score === 0) return 0;
-    return score / Math.pow(ageHours + 2, 1.8);
+    const order = Math.log10(Math.max(Math.abs(score), 1));
+    const sign = score > 0 ? 1 : score < 0 ? -1 : 0;
+    const seconds = createdAt.getTime() / 1000 - HOT_EPOCH;
+    return Number((sign * order + seconds / HOT_TIME_DIVISOR).toFixed(7));
 }
 
 // Get genre posts feed (or personalised subscribed feed)
 app.get('/api/genre-posts', async (req: any, res) => {
     try {
-        const { genreId, genreIds: genreIdsRaw, groupId, feed, sort = 'hot', cursor, period = 'week' } = req.query;
+        const { genreId, genreIds: genreIdsRaw, groupId, feed, sort = 'hot', cursor, period = 'week', authorId, flair: flairFilter } = req.query;
         const limit = Math.min(Number(req.query.limit) || 25, 50);
         const userId = req.session?.user?.id || null;
 
         let genreIds: string[] = [];
         let allGenres = false;
-        if (feed === 'subscribed') {
+        if (authorId) {
+            // User profile view — return all posts by this user across all genres
+            allGenres = true;
+        } else if (feed === 'subscribed') {
             if (!userId) return res.json({ posts: [], hasMore: false, nextCursor: null, hasSubscriptions: false });
             const subs = await db.genreSubscription.findMany({ where: { userId }, select: { genreId: true } });
             genreIds = subs.map((s: any) => s.genreId);
@@ -10503,14 +10520,16 @@ app.get('/api/genre-posts', async (req: any, res) => {
             genreIds = (genreIdsRaw as string).split(',').filter(Boolean).slice(0, 20);
         } else if (genreId) {
             genreIds = [genreId as string];
-        } else {
-            return res.status(400).json({ error: 'genreId, genreIds, groupId, feed=subscribed, or feed=all required' });
+        } else if (!authorId) {
+            return res.status(400).json({ error: 'genreId, genreIds, groupId, authorId, feed=subscribed, or feed=all required' });
         }
 
         const isAdmin = isSuperAdmin(req) || !!(req.session as any)?.mutualAdminGuilds?.length;
         const genreFilter = allGenres ? {} : { OR: [{ genreId: { in: genreIds } }, { extraGenreIds: { hasSome: genreIds } }] };
         const baseWhere: any = { ...genreFilter, deletedAt: null };
         if (!isAdmin) baseWhere.hiddenAt = null;
+        if (authorId) baseWhere.userId = authorId as string;
+        if (flairFilter) baseWhere.flair = flairFilter as string;
 
         const where: any = { ...baseWhere };
 
@@ -10520,7 +10539,13 @@ app.get('/api/genre-posts', async (req: any, res) => {
             where.createdAt = { gte: new Date(Date.now() - days * 86_400_000) };
         }
 
-        const orderBy: any = sort === 'new' ? { createdAt: 'desc' } : sort === 'top' ? { score: 'desc' } : { hotScore: 'desc' };
+        // Deterministic tiebreakers (createdAt, then id) so equally-ranked posts
+        // — e.g. the many at score 0 — order sensibly (newest first) and cursor
+        // pagination stays stable.
+        const orderBy: any =
+            sort === 'new'  ? [{ createdAt: 'desc' }, { id: 'desc' }] :
+            sort === 'top'  ? [{ score: 'desc' }, { createdAt: 'desc' }, { id: 'desc' }] :
+                              [{ hotScore: 'desc' }, { createdAt: 'desc' }, { id: 'desc' }];
 
         // For single-genre views with non-new sort, fetch pinned posts separately first
         const isSingleGenre = genreIds.length === 1 && !allGenres;
@@ -10696,6 +10721,7 @@ app.post('/api/genre-posts', requireAuth, requireVerified, genrePostLimiter, asy
                 audioUrl: audioUrl || null,
                 extraGenreIds,
                 flair,
+                hotScore: computeHotScore(0, new Date()),
                 ...(resolvedCrossPostOfId ? { crossPostOfId: resolvedCrossPostOfId } : {}),
             },
             include: {
@@ -10758,16 +10784,26 @@ app.post('/api/genre-posts/:postId/vote', requireAuth, async (req: any, res) => 
     }
 });
 
-// Hot score background refresh (every 15 minutes)
-setInterval(async () => {
+// One-time hot-score backfill on boot. The Reddit-style score is anchored to
+// absolute post time, so it never decays with wall-clock and needs no periodic
+// refresh — this pass only repairs rows written before the formula changed
+// (notably unvoted posts that were stuck at hotScore = 0). Recomputed live on
+// each vote and set at creation thereafter.
+(async () => {
     try {
-        await db.$executeRaw`
+        const affected = await db.$executeRaw`
             UPDATE genre_posts
-            SET "hotScore" = CAST(score AS float) / POWER(EXTRACT(EPOCH FROM (NOW() - "createdAt")) / 3600.0 + 2, 1.8)
-            WHERE "deletedAt" IS NULL AND score != 0
+            SET "hotScore" =
+                (CASE WHEN score > 0 THEN 1 WHEN score < 0 THEN -1 ELSE 0 END)::float
+                * LOG(GREATEST(ABS(score), 1)::numeric)::float
+                + (EXTRACT(EPOCH FROM "createdAt") - ${HOT_EPOCH}::float) / ${HOT_TIME_DIVISOR}::float
+            WHERE "deletedAt" IS NULL
         `;
-    } catch {}
-}, 15 * 60 * 1000);
+        logger.info(`[GenrePost] Hot scores backfilled (${affected} rows)`);
+    } catch (e: any) {
+        logger.warn(`[GenrePost] Hot score backfill failed: ${e.message}`);
+    }
+})();
 
 // ===== Genre Post Admin Actions =====
 
