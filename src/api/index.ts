@@ -10629,7 +10629,11 @@ app.post('/api/genre-posts/upload-media', requireAuth, requireVerified,
             const audioFile = files?.genrePostAudio?.[0];
             if (!imageFile && !audioFile) return res.status(400).json({ error: 'No file uploaded' });
             const file = imageFile || audioFile!;
-            const url = `/uploads/${imageFile ? 'genre-posts/images' : 'genre-posts/audio'}/${file.filename}`;
+            const isImage = !!imageFile;
+            const localSubdir = isImage ? 'genre-posts/images' : 'genre-posts/audio';
+            const localUrl = `/uploads/${localSubdir}/${file.filename}`;
+            const r2Key = `${localSubdir}/${file.filename}`;
+            const url = await uploadToR2OrLocal(file.path, r2Key, file.mimetype, localUrl);
             res.json({ url });
         } catch (e: any) {
             res.status(500).json({ error: e?.message ?? 'Upload failed' });
