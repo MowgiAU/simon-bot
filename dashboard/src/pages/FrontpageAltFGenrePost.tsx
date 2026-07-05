@@ -349,17 +349,21 @@ export const FrontpageAltFGenrePost: React.FC = () => {
                                         {/* Genre pill + meta */}
                                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, fontSize: 12, color: SUB, flexWrap: 'wrap' }}>
                                             {post.genre && (
-                                                <span style={{ background: `${accent}18`, border: `1px solid ${accent}44`, color: accent, padding: '2px 9px', borderRadius: 9999, fontWeight: 700, fontSize: 11 }}>
+                                                <Link to={`/preview/alt_f_genres/${post.genre.slug}`} style={{ background: `${accent}18`, border: `1px solid ${accent}44`, color: accent, padding: '2px 9px', borderRadius: 9999, fontWeight: 700, fontSize: 11, textDecoration: 'none' }}>
                                                     {post.genre.name}
-                                                </span>
+                                                </Link>
                                             )}
                                             {/* Flair pill */}
                                             {post.flair && (
-                                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: `${flairColor(post.flair)}18`, border: `1px solid ${flairColor(post.flair)}44`, color: flairColor(post.flair), padding: '2px 9px', borderRadius: 9999, fontWeight: 700, fontSize: 11 }}>
+                                                <Link to={`/preview/alt_f_genres/${post.genre?.slug || ''}?flair=${encodeURIComponent(post.flair)}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: `${flairColor(post.flair)}18`, border: `1px solid ${flairColor(post.flair)}44`, color: flairColor(post.flair), padding: '2px 9px', borderRadius: 9999, fontWeight: 700, fontSize: 11, textDecoration: 'none' }}>
                                                     <Tag size={9} /> {post.flair}
-                                                </span>
+                                                </Link>
                                             )}
-                                            <span>Posted by <strong style={{ color: TEXT }}>{post.username}</strong></span>
+                                            <span>Posted by <Link to={`/profile/${post.username}`} style={{ color: TEXT, fontWeight: 700, textDecoration: 'none' }}
+                                                onMouseEnter={e => (e.currentTarget.style.textDecoration = 'underline')}
+                                                onMouseLeave={e => (e.currentTarget.style.textDecoration = 'none')}>
+                                                {post.username}
+                                            </Link></span>
                                             <span>·</span>
                                             <span>{timeAgo(post.createdAt)}</span>
                                         </div>
