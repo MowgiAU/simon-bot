@@ -14,7 +14,7 @@ import { AltHeader } from '../components/altshell/AltHeader';
 import { AltActivitySidebar } from '../components/altshell/AltActivitySidebar';
 import {
     Music, Play, Pause, Search, X, TrendingUp, Users,
-    ChevronUp, ChevronDown, MessageCircle, Clock, Flame, Plus, Bell, BellOff,
+    ChevronUp, ChevronDown, MessageCircle, Clock, Flame, Plus,
     FileText, Layers, BookMarked, Trash2, Check, ChevronLeft,
     Share2, Tag, Pin,
 } from 'lucide-react';
@@ -937,7 +937,58 @@ export const FrontpageAltFGenres: React.FC = () => {
                                 </>
                             ) : (
                                 /* ── FEED VIEW (single / multi / group) ── */
-                                <div>
+                                <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr', gap: 28, alignItems: 'start' }}>
+
+                                    {/* ── LEFT SIDEBAR ── */}
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                                        {viewMode === 'single' && activeGenre && (() => {
+                                            const accent = genreAccent(activeGenre.name);
+                                            return (
+                                                <div style={{ ...glass, borderRadius: 16, overflow: 'hidden' }}>
+                                                    <div style={{ height: 6, background: accent }} />
+                                                    <div style={{ padding: '16px 18px' }}>
+                                                        <h3 style={{ margin: '0 0 14px', fontSize: 15, fontWeight: 800, color: TEXT }}>{activeGenre.name}</h3>
+                                                        <div style={{ display: 'flex', gap: 16, marginBottom: 14 }}>
+                                                            <div style={{ textAlign: 'center' }}>
+                                                                <div style={{ fontSize: 16, fontWeight: 800, color: TEXT }}>{fmtNum(activeGenre._count?.tracks ?? 0)}</div>
+                                                                <div style={{ fontSize: 10, color: SUB, textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 700 }}>Tracks</div>
+                                                            </div>
+                                                            <div style={{ textAlign: 'center' }}>
+                                                                <div style={{ fontSize: 16, fontWeight: 800, color: TEXT }}>{fmtNum(activeGenre._count?.subscriptions ?? 0)}</div>
+                                                                <div style={{ fontSize: 10, color: SUB, textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 700 }}>Members</div>
+                                                            </div>
+                                                        </div>
+                                                        <button onClick={() => toggleSubscribe()} disabled={subLoading}
+                                                            style={{ width: '100%', padding: '8px 0', background: isSubscribed ? 'transparent' : accent, border: `1.5px solid ${isSubscribed ? BORDER : accent}`, borderRadius: 9, color: isSubscribed ? SUB : '#fff', cursor: subLoading ? 'wait' : 'pointer', fontFamily: FONT, fontSize: 13, fontWeight: 700, transition: 'all 0.15s' }}>
+                                                            {isSubscribed ? 'Joined ✓' : 'Join Community'}
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })()}
+
+                                        {(viewMode === 'multi' || viewMode === 'group') && (
+                                            <div style={{ ...glass, borderRadius: 16, padding: '14px 16px' }}>
+                                                <div style={{ fontSize: 10, fontWeight: 800, color: SUB, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 10 }}>Browsing</div>
+                                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                                                    {(viewMode === 'multi' ? multiSlugsFromUrl : activeGroup?.genres.map(g => g.genre.slug) ?? []).map(slug => {
+                                                        const genre = allGenres.find(g => g.slug === slug);
+                                                        if (!genre) return null;
+                                                        const accent = genreAccent(genre.name);
+                                                        return (
+                                                            <Link key={slug} to={`/preview/alt_f_genres/${slug}`}
+                                                                style={{ padding: '4px 10px', borderRadius: 9999, background: `${accent}18`, border: `1px solid ${accent}44`, color: accent, fontSize: 12, fontWeight: 600, textDecoration: 'none' }}>
+                                                                {genre.name}
+                                                            </Link>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* ── RIGHT COLUMN (posts) ── */}
+                                    <div>
                                     {/* Action bar */}
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 18, flexWrap: 'wrap' }}>
                                         <Link to="/preview/alt_f_genres"
@@ -960,12 +1011,6 @@ export const FrontpageAltFGenres: React.FC = () => {
                                                     style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px', background: PRIMARY, borderRadius: 8, color: '#fff', textDecoration: 'none', fontSize: 13, fontWeight: 700 }}>
                                                     <Plus size={13} /> Post
                                                 </Link>
-                                            )}
-                                            {viewMode === 'single' && activeGenre && (
-                                                <button onClick={() => toggleSubscribe()} disabled={subLoading}
-                                                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px', background: isSubscribed ? S_CONT : `${SECONDARY}18`, border: `1px solid ${isSubscribed ? BORDER : SECONDARY}`, borderRadius: 8, color: isSubscribed ? SUB : SECONDARY, cursor: subLoading ? 'wait' : 'pointer', fontFamily: FONT, fontSize: 12, fontWeight: 700 }}>
-                                                    {isSubscribed ? <><BellOff size={13} /> Joined</> : <><Bell size={13} /> Join</>}
-                                                </button>
                                             )}
                                             {viewMode === 'group' && (
                                                 <button onClick={handleDeleteGroup}
@@ -1010,38 +1055,6 @@ export const FrontpageAltFGenres: React.FC = () => {
                                         </div>
                                     )}
 
-                                    {/* Multi-genre pills (removable) */}
-                                    {viewMode === 'multi' && (
-                                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 16 }}>
-                                            {multiSlugsFromUrl.map(slug => {
-                                                const genre = allGenres.find(g => g.slug === slug);
-                                                if (!genre) return null;
-                                                const accent = genreAccent(genre.name);
-                                                return (
-                                                    <span key={slug} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 9999, background: `${accent}18`, border: `1px solid ${accent}44`, color: accent, fontSize: 12, fontWeight: 600 }}>
-                                                        <Link to={`/preview/alt_f_genres/${slug}`} style={{ color: 'inherit', textDecoration: 'none' }}>{genre.name}</Link>
-                                                        <button onClick={() => removeSlugFromMulti(slug)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: accent, padding: 0, display: 'flex', opacity: 0.7, lineHeight: 0 }}><X size={10} /></button>
-                                                    </span>
-                                                );
-                                            })}
-                                        </div>
-                                    )}
-
-                                    {/* Group genre pills */}
-                                    {viewMode === 'group' && activeGroup && (
-                                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 16 }}>
-                                            {activeGroup.genres.map(({ genre }) => {
-                                                const accent = genreAccent(genre.name);
-                                                return (
-                                                    <Link key={genre.id} to={`/preview/alt_f_genres/${genre.slug}`}
-                                                        style={{ padding: '4px 10px', borderRadius: 9999, background: `${accent}18`, border: `1px solid ${accent}44`, color: accent, fontSize: 12, fontWeight: 600, textDecoration: 'none' }}>
-                                                        {genre.name}
-                                                    </Link>
-                                                );
-                                            })}
-                                        </div>
-                                    )}
-
                                     {/* Post feed */}
                                     {postsLoading && posts.length === 0 ? (
                                         <div style={{ textAlign: 'center', padding: '60px 0', color: SUB, fontSize: 14 }}>Loading posts…</div>
@@ -1072,6 +1085,7 @@ export const FrontpageAltFGenres: React.FC = () => {
                                             )}
                                         </div>
                                     )}
+                                    </div>
                                 </div>
                             )}
                         </div>
