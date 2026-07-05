@@ -508,7 +508,7 @@ export const FrontpageAltFGenres: React.FC = () => {
     const [multiSelectMode, setMultiSelectMode] = useState(false);
     const [multiSelected, setMultiSelected] = useState<Set<string>>(new Set());
     const [sharePost, setSharePost] = useState<GenrePost | null>(null);
-    const [subgenresOpen, setSubgenresOpen] = useState(true);
+    const [subgenresOpen, setSubgenresOpen] = useState(false);
 
     // ── Derived from genres list ──────────────────────────────────────────────
     const allGenres = useMemo(() => {
@@ -978,13 +978,12 @@ export const FrontpageAltFGenres: React.FC = () => {
 
                                     {/* Inline subgenre chips */}
                                     {viewMode === 'single' && subgenres.length > 0 && (
-                                        <div style={{ marginBottom: 16, padding: '12px 16px', background: S_CONT, borderRadius: 12, border: `1px solid ${BORDER}` }}>
+                                        <div style={{ marginBottom: 16 }}>
                                             <button onClick={() => setSubgenresOpen(o => !o)}
-                                                style={{ display: 'flex', alignItems: 'center', gap: 5, width: '100%', background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginBottom: subgenresOpen ? 10 : 0 }}>
-                                                <span style={{ fontSize: 10, fontWeight: 800, color: SUB, textTransform: 'uppercase', letterSpacing: '0.1em', display: 'flex', alignItems: 'center', gap: 5, flex: 1 }}>
-                                                    <Layers size={10} /> Subgenres
-                                                </span>
-                                                {subgenresOpen ? <ChevronUp size={12} color={SUB} /> : <ChevronDown size={12} color={SUB} />}
+                                                style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '6px 14px', background: subgenresOpen ? `${PRIMARY}22` : S_CONT, border: `1px solid ${subgenresOpen ? PRIMARY : BORDER}`, borderRadius: 9999, cursor: 'pointer', color: subgenresOpen ? PRIMARY : SUB, fontSize: 12, fontWeight: 700, marginBottom: subgenresOpen ? 10 : 0, transition: 'all 0.15s', letterSpacing: '0.01em' }}>
+                                                <Layers size={12} />
+                                                Subgenres
+                                                {subgenresOpen ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
                                             </button>
                                             {subgenresOpen && <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                                                 {activeGenre?.parentId ? null : (
