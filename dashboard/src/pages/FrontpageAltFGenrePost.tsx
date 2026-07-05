@@ -392,7 +392,7 @@ export const FrontpageAltFGenrePost: React.FC = () => {
 
                                         {/* Discussion body */}
                                         {post.type === 'discussion' && post.body && (
-                                            <div style={{ fontSize: 15, color: TEXT, lineHeight: 1.7, whiteSpace: 'pre-wrap', marginBottom: 14 }}>{post.body}</div>
+                                            <div style={{ fontSize: 15, color: TEXT, lineHeight: 1.7, marginBottom: 14 }} dangerouslySetInnerHTML={{ __html: post.body }} />
                                         )}
 
                                         {/* Discussion image */}
