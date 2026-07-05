@@ -17,6 +17,7 @@ import {
     ChevronLeft, ChevronRight,
     Flame, Award, ExternalLink,
     ArrowUp, ArrowDown, MessageSquare, Hash, Clock, Zap,
+    Tag, Sparkles, MessageCircle,
 } from 'lucide-react';
 
 const fmtNum = (n?: number) => { n = n || 0; if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M'; if (n >= 1e3) return (n / 1e3).toFixed(1) + 'k'; return String(n); };
@@ -36,6 +37,15 @@ function avatarGradient(name = '') {
     for (let i = 0; i < name.length; i++) h = (h * 33 ^ name.charCodeAt(i)) >>> 0;
     return `linear-gradient(135deg, hsl(${h % 360},50%,20%), hsl(${(h + 80) % 360},60%,30%))`;
 }
+
+// Deterministic per-genre / per-flair accent hue — matches the genre pages.
+function hueColor(name = '', sat = 62, light = 66) {
+    let h = 5381;
+    for (let i = 0; i < name.length; i++) h = (h * 33 ^ name.charCodeAt(i)) >>> 0;
+    return `hsl(${h % 360},${sat}%,${light}%)`;
+}
+const genreAccent = (name = '') => hueColor(name, 62, 66);
+const flairColor = (name = '') => hueColor(name, 58, 64);
 
 // Rank medal colours — index 0 = #1
 const MEDAL = ['#FFD700', '#C0C0C0', '#CD7F32'];
@@ -668,19 +678,33 @@ export const FrontpageAltF: React.FC = () => {
 
                                 {/* ── GENRE FEED ── */}
                                 <section>
+                                    <style>{`@keyframes fujiPulse { 0% { transform: scale(1); opacity: 0.6; } 100% { transform: scale(2.6); opacity: 0; } }`}</style>
                                     {/* Header row */}
-                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                            <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>
-                                                {genreHasSubs ? 'Your Genres' : 'Community Feed'}
-                                            </h2>
-                                            {!genreHasSubs && (
-                                                <span style={{ fontSize: 11, color: SUB, background: S_HIGH, padding: '3px 10px', borderRadius: 9999 }}>All genres</span>
-                                            )}
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                            {/* Gradient icon badge */}
+                                            <div style={{ width: 38, height: 38, borderRadius: 12, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: `linear-gradient(135deg, ${PRIMARY}, ${SECONDARY})`, boxShadow: `0 6px 18px ${PRIMARY}55` }}>
+                                                {genreHasSubs ? <Sparkles size={19} color="#fff" /> : <Users size={19} color="#fff" />}
+                                            </div>
+                                            <div>
+                                                <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800, letterSpacing: '-0.01em', display: 'flex', alignItems: 'center', gap: 9 }}>
+                                                    {genreHasSubs ? 'Your Genres' : 'Community Feed'}
+                                                    {/* live pulse */}
+                                                    <span style={{ position: 'relative', width: 8, height: 8, flexShrink: 0 }}>
+                                                        <span style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: '#33d17a' }} />
+                                                        <span style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: '#33d17a', animation: 'fujiPulse 1.8s ease-out infinite' }} />
+                                                    </span>
+                                                </h2>
+                                                <div style={{ fontSize: 11.5, color: SUB, marginTop: 2 }}>
+                                                    {genreHasSubs ? 'Fresh from the genres you follow' : 'What the whole community is posting'}
+                                                </div>
+                                            </div>
                                         </div>
                                         <Link to="/preview/alt_f_genres"
-                                            style={{ color: PRIMARY, fontSize: 12, fontWeight: 600, textDecoration: 'none' }}>
-                                            Browse Genres →
+                                            style={{ display: 'flex', alignItems: 'center', gap: 6, color: PRIMARY, fontSize: 12, fontWeight: 700, textDecoration: 'none', padding: '7px 14px', borderRadius: 9999, background: `${PRIMARY}14`, border: `1px solid ${PRIMARY}33` }}
+                                            onMouseEnter={ev => (ev.currentTarget.style.background = `${PRIMARY}26`)}
+                                            onMouseLeave={ev => (ev.currentTarget.style.background = `${PRIMARY}14`)}>
+                                            <Hash size={12} /> Browse Genres
                                         </Link>
                                     </div>
 
@@ -712,9 +736,14 @@ export const FrontpageAltF: React.FC = () => {
                                         </div>
                                     ) : (
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                            {genrePosts.map((post: any) => {
+                                            {genrePosts.map((post: any, postIdx: number) => {
                                                 const voteDir = genreVotes[post.id] ?? post.userVote;
                                                 const trackUrl = post.track?.mp3Url || post.track?.url;
+                                                const accent = post.genre?.name ? genreAccent(post.genre.name) : PRIMARY;
+                                                const isTrending = genreFeedSort === 'hot' && postIdx === 0 && (post.score ?? 0) > 0;
+                                                const bodyPreview = !post.track && post.body
+                                                    ? String(post.body).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+                                                    : '';
                                                 const timeAgo = (() => {
                                                     const diff = Date.now() - new Date(post.createdAt).getTime();
                                                     const h = Math.floor(diff / 3_600_000);
@@ -723,12 +752,12 @@ export const FrontpageAltF: React.FC = () => {
                                                     return `${Math.floor(h / 24)}d`;
                                                 })();
                                                 return (
-                                                    <div key={post.id} style={{ ...glass, borderRadius: 14, display: 'flex', gap: 0, overflow: 'hidden', transition: 'border-color 0.15s' }}
-                                                        onMouseEnter={ev => ev.currentTarget.style.borderColor = `${PRIMARY}44`}
-                                                        onMouseLeave={ev => ev.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'}>
+                                                    <div key={post.id} style={{ ...glass, borderRadius: 14, display: 'flex', gap: 0, overflow: 'hidden', borderLeft: `3px solid ${accent}`, transition: 'border-color 0.15s, transform 0.15s, box-shadow 0.15s' }}
+                                                        onMouseEnter={ev => { ev.currentTarget.style.borderColor = `${accent}66`; ev.currentTarget.style.borderLeftColor = accent; ev.currentTarget.style.transform = 'translateY(-2px)'; ev.currentTarget.style.boxShadow = `0 14px 44px rgba(0,0,0,0.55), 0 0 0 1px ${accent}22`; }}
+                                                        onMouseLeave={ev => { ev.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; ev.currentTarget.style.borderLeftColor = accent; ev.currentTarget.style.transform = 'translateY(0)'; ev.currentTarget.style.boxShadow = glass.boxShadow as string; }}>
 
                                                         {/* Vote column */}
-                                                        <div style={{ width: 52, flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '14px 0', gap: 4, background: 'rgba(0,0,0,0.2)' }}>
+                                                        <div style={{ width: 52, flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '14px 0', gap: 4, background: `linear-gradient(180deg, ${accent}14, rgba(0,0,0,0.28))` }}>
                                                             <button onClick={() => handleGenreVote(post.id, 'up')}
                                                                 style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, borderRadius: 4, color: voteDir === 'up' ? PRIMARY : SUB, display: 'flex' }}>
                                                                 <ArrowUp size={16} fill={voteDir === 'up' ? PRIMARY : 'none'} />
@@ -746,23 +775,43 @@ export const FrontpageAltF: React.FC = () => {
                                                         <div style={{ flex: 1, minWidth: 0, padding: '12px 16px' }}>
                                                             {/* Meta row */}
                                                             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
+                                                                {isTrending && (
+                                                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10, fontWeight: 800, color: '#fff', background: 'linear-gradient(135deg, #ff7a18, #ff3d6e)', padding: '2px 8px', borderRadius: 9999, letterSpacing: '0.03em', textTransform: 'uppercase', boxShadow: '0 3px 10px rgba(255,61,110,0.4)' }}>
+                                                                        <Flame size={10} /> Trending
+                                                                    </span>
+                                                                )}
                                                                 <Link to={`/preview/alt_f_genres/${post.genre?.slug}`}
-                                                                    style={{ fontSize: 11, fontWeight: 700, color: PRIMARY, background: `${PRIMARY}18`, padding: '2px 9px', borderRadius: 9999, textDecoration: 'none', letterSpacing: '0.02em' }}>
-                                                                    {post.genre?.name}
+                                                                    style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 700, color: accent, background: `${accent}1c`, border: `1px solid ${accent}3a`, padding: '2px 9px', borderRadius: 9999, textDecoration: 'none', letterSpacing: '0.02em' }}>
+                                                                    <Hash size={10} /> {post.genre?.name}
                                                                 </Link>
+                                                                {post.flair && (
+                                                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10.5, fontWeight: 700, color: flairColor(post.flair), background: `${flairColor(post.flair)}18`, border: `1px solid ${flairColor(post.flair)}3a`, padding: '2px 8px', borderRadius: 9999 }}>
+                                                                        <Tag size={9} /> {post.flair}
+                                                                    </span>
+                                                                )}
                                                                 <span style={{ fontSize: 11, color: SUB }}>
-                                                                    posted by <strong style={{ color: TEXT }}>{post.username}</strong>
+                                                                    posted by <Link to={`/profile/${post.username}`} style={{ color: TEXT, fontWeight: 700, textDecoration: 'none' }}
+                                                                        onMouseEnter={ev => (ev.currentTarget.style.color = accent)}
+                                                                        onMouseLeave={ev => (ev.currentTarget.style.color = TEXT)}>{post.username}</Link>
                                                                 </span>
-                                                                <span style={{ fontSize: 11, color: SUB }}>{timeAgo}</span>
+                                                                <span style={{ fontSize: 11, color: `${SUB}cc`, display: 'inline-flex', alignItems: 'center', gap: 3 }}><Clock size={9} /> {timeAgo}</span>
                                                             </div>
 
                                                             {/* Title */}
                                                             <Link to={`/preview/alt_f_genre_post/${post.id}`}
-                                                                style={{ display: 'block', fontSize: 15, fontWeight: 700, color: TEXT, textDecoration: 'none', marginBottom: post.track ? 10 : 0, lineHeight: 1.4 }}
-                                                                onMouseEnter={ev => (ev.currentTarget.style.color = PRIMARY)}
+                                                                style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 15, fontWeight: 700, color: TEXT, textDecoration: 'none', marginBottom: post.track ? 10 : 0, lineHeight: 1.4 }}
+                                                                onMouseEnter={ev => (ev.currentTarget.style.color = accent)}
                                                                 onMouseLeave={ev => (ev.currentTarget.style.color = TEXT)}>
-                                                                {post.title}
+                                                                {!post.track && <MessageCircle size={15} color={accent} style={{ flexShrink: 0, marginTop: 3 }} />}
+                                                                <span>{post.title}</span>
                                                             </Link>
+
+                                                            {/* Discussion body preview */}
+                                                            {bodyPreview && (
+                                                                <p style={{ margin: '6px 0 0', paddingLeft: 12, borderLeft: `2px solid ${accent}44`, fontSize: 12.5, color: SUB, lineHeight: 1.55, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                                                                    {bodyPreview}
+                                                                </p>
+                                                            )}
 
                                                             {/* Track player card */}
                                                             {post.track && (() => {
@@ -838,13 +887,21 @@ export const FrontpageAltF: React.FC = () => {
                                                             })()}
 
                                                             {/* Footer row */}
-                                                            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 8 }}>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10 }}>
                                                                 <Link to={`/preview/alt_f_genre_post/${post.id}`}
-                                                                    style={{ display: 'flex', alignItems: 'center', gap: 5, color: SUB, fontSize: 11, fontWeight: 600, textDecoration: 'none' }}
-                                                                    onMouseEnter={ev => (ev.currentTarget.style.color = TEXT)}
-                                                                    onMouseLeave={ev => (ev.currentTarget.style.color = SUB)}>
+                                                                    style={{ display: 'flex', alignItems: 'center', gap: 6, color: SUB, fontSize: 11, fontWeight: 700, textDecoration: 'none', padding: '5px 11px', borderRadius: 9999, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)', transition: 'all 0.15s' }}
+                                                                    onMouseEnter={ev => { ev.currentTarget.style.color = accent; ev.currentTarget.style.borderColor = `${accent}44`; ev.currentTarget.style.background = `${accent}12`; }}
+                                                                    onMouseLeave={ev => { ev.currentTarget.style.color = SUB; ev.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)'; ev.currentTarget.style.background = 'rgba(255,255,255,0.04)'; }}>
                                                                     <MessageSquare size={12} />
-                                                                    {post.commentCount ?? 0} comments
+                                                                    {post.commentCount ?? 0}
+                                                                    <span style={{ color: `${SUB}99`, fontWeight: 500 }}>{(post.commentCount ?? 0) === 1 ? 'reply' : 'replies'}</span>
+                                                                </Link>
+                                                                <div style={{ flex: 1 }} />
+                                                                <Link to={`/preview/alt_f_genre_post/${post.id}`}
+                                                                    style={{ fontSize: 11, fontWeight: 700, color: accent, textDecoration: 'none', opacity: 0.85 }}
+                                                                    onMouseEnter={ev => (ev.currentTarget.style.opacity = '1')}
+                                                                    onMouseLeave={ev => (ev.currentTarget.style.opacity = '0.85')}>
+                                                                    Open →
                                                                 </Link>
                                                             </div>
                                                         </div>
