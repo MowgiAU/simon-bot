@@ -1340,6 +1340,9 @@ model GenrePost {
   title    String
   body     String? @db.Text
   imageUrl String?
+  videoUrl String?
+  audioUrl String?
+  extraGenreIds String[] @default([])
 
   trackId String? // FK to Track; set only for auto-created track posts
 

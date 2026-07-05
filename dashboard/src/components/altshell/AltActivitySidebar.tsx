@@ -9,7 +9,7 @@ import axios from 'axios';
 import { Link } from 'react-router-dom';
 import { usePlayer } from '../PlayerProvider';
 import { useAltBreakpoint } from './useAltBreakpoint';
-import { PanelRightClose, PanelRightOpen, Swords, Music, Activity, MessageCircle, Newspaper } from 'lucide-react';
+import { PanelRightClose, PanelRightOpen, Swords, Music, Activity, MessageCircle, Newspaper, Plus } from 'lucide-react';
 import {
     BG, S_CONT, S_HIGH, PRIMARY, SECONDARY, TERTIARY, TEXT, SUB, BORDER, FONT, arr,
 } from './AltSidebar';
@@ -84,6 +84,14 @@ export const AltActivitySidebar: React.FC = () => {
                 <button onClick={toggle} title="Collapse activity" style={{ background: 'none', border: 'none', color: SUB, cursor: 'pointer', padding: 4, display: 'flex', alignItems: 'center', opacity: 0.7 }}>
                     <PanelRightClose size={17} />
                 </button>
+            </div>
+
+            {/* Create Post */}
+            <div style={{ padding: '12px 16px', borderBottom: `1px solid ${BORDER}`, flexShrink: 0 }}>
+                <Link to="/preview/alt_f_create_post"
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, width: '100%', padding: '9px 0', background: PRIMARY, borderRadius: 9, color: '#fff', textDecoration: 'none', fontSize: 13, fontWeight: 800, letterSpacing: '0.01em', boxSizing: 'border-box' }}>
+                    <Plus size={15} /> Create Post
+                </Link>
             </div>
 
             {/* Content — scrollable */}

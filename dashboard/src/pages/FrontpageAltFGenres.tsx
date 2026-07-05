@@ -62,7 +62,8 @@ interface Genre {
 }
 interface GenrePost {
     id: string; type: 'discussion' | 'track'; title: string; body?: string | null;
-    imageUrl?: string | null; score: number; upvotes: number; downvotes: number;
+    imageUrl?: string | null; videoUrl?: string | null; audioUrl?: string | null;
+    score: number; upvotes: number; downvotes: number;
     hotScore: number; commentCount: number; createdAt: string;
     userId: string; username: string; avatarUrl?: string | null;
     genreId: string; genre?: { id: string; name: string; slug: string };
@@ -219,14 +220,31 @@ const GenrePostCard: React.FC<{
                     );
                 })()}
 
-                {post.type === 'discussion' && post.body && (
-                    <p style={{ margin: '0 0 8px', fontSize: 13, color: SUB, lineHeight: 1.5, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' as any }}>
-                        {post.body}
-                    </p>
+                {post.type === 'discussion' && post.imageUrl && (
+                    <img src={post.imageUrl} alt="" style={{ maxWidth: '100%', maxHeight: 280, borderRadius: 8, objectFit: 'cover', marginBottom: 8, display: 'block' }} onError={e => (e.currentTarget.style.display = 'none')} />
                 )}
 
-                {post.type === 'discussion' && post.imageUrl && (
-                    <img src={post.imageUrl} alt="" style={{ maxWidth: '100%', maxHeight: 200, borderRadius: 8, objectFit: 'cover', marginBottom: 8, display: 'block' }} onError={e => (e.currentTarget.style.display = 'none')} />
+                {post.type === 'discussion' && post.videoUrl && (() => {
+                    const ytMatch = post.videoUrl.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([A-Za-z0-9_-]{11})/);
+                    if (ytMatch) return (
+                        <div style={{ borderRadius: 8, overflow: 'hidden', marginBottom: 8, position: 'relative', paddingBottom: '40%', background: S_CONT }}>
+                            <iframe src={`https://www.youtube.com/embed/${ytMatch[1]}`} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 'none' }} allowFullScreen title="Video" />
+                        </div>
+                    );
+                    return (
+                        <video src={post.videoUrl} controls style={{ maxWidth: '100%', maxHeight: 280, borderRadius: 8, display: 'block', marginBottom: 8 }} />
+                    );
+                })()}
+
+                {post.type === 'discussion' && post.audioUrl && (
+                    <div style={{ background: S_CONT, borderRadius: 8, padding: '10px 12px', marginBottom: 8 }}>
+                        <audio src={post.audioUrl} controls style={{ width: '100%', height: 32 }} />
+                    </div>
+                )}
+
+                {post.type === 'discussion' && post.body && (
+                    <div style={{ margin: '0 0 8px', fontSize: 13, color: SUB, lineHeight: 1.5, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' as any }}
+                        dangerouslySetInnerHTML={{ __html: post.body }} />
                 )}
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 11, color: SUB }}>
@@ -938,10 +956,10 @@ export const FrontpageAltFGenres: React.FC = () => {
                                                 </button>
                                             )}
                                             {viewMode !== 'group' && createGenreId && (
-                                                <button onClick={() => setShowCreate(true)}
-                                                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px', background: PRIMARY, border: 'none', borderRadius: 8, color: '#fff', cursor: 'pointer', fontFamily: FONT, fontSize: 13, fontWeight: 700 }}>
+                                                <Link to={`/preview/alt_f_create_post?genreId=${createGenreId}`}
+                                                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px', background: PRIMARY, borderRadius: 8, color: '#fff', textDecoration: 'none', fontSize: 13, fontWeight: 700 }}>
                                                     <Plus size={13} /> Post
-                                                </button>
+                                                </Link>
                                             )}
                                             {viewMode === 'single' && activeGenre && (
                                                 <button onClick={() => toggleSubscribe()} disabled={subLoading}
@@ -1035,10 +1053,10 @@ export const FrontpageAltFGenres: React.FC = () => {
                                                 {viewMode === 'single' ? `Be the first to post in ${activeGenre?.name}.` : 'No posts in these genres yet.'}
                                             </div>
                                             {viewMode === 'single' && activeGenre && createGenreId && (
-                                                <button onClick={() => setShowCreate(true)}
-                                                    style={{ padding: '9px 20px', background: PRIMARY, border: 'none', borderRadius: 9, color: '#fff', cursor: 'pointer', fontFamily: FONT, fontSize: 14, fontWeight: 700 }}>
+                                                <Link to={`/preview/alt_f_create_post?genreId=${createGenreId}`}
+                                                    style={{ display: 'inline-block', padding: '9px 20px', background: PRIMARY, borderRadius: 9, color: '#fff', textDecoration: 'none', fontSize: 14, fontWeight: 700 }}>
                                                     Create First Post
-                                                </button>
+                                                </Link>
                                             )}
                                         </div>
                                     ) : (
@@ -1061,15 +1079,6 @@ export const FrontpageAltFGenres: React.FC = () => {
                     <AltActivitySidebar />
                 </div>
             </main>
-
-            {showCreate && createGenreId && (
-                <CreatePostModal
-                    genreId={createGenreId}
-                    genreName={createGenreName}
-                    onClose={() => setShowCreate(false)}
-                    onCreated={post => setPosts(prev => [post, ...prev])}
-                />
-            )}
 
             {showSaveGroup && (
                 <SaveGroupModal

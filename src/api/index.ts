@@ -113,6 +113,10 @@ const storage = multer.diskStorage({
       dir = path.join(PROJECT_ROOT, 'public/uploads/slot-sounds');
     } else if (file.fieldname === 'slotIcon') {
       dir = path.join(PROJECT_ROOT, 'public/uploads/slot-icons');
+    } else if (file.fieldname === 'genrePostImage') {
+      dir = path.join(PROJECT_ROOT, 'public/uploads/genre-posts/images');
+    } else if (file.fieldname === 'genrePostAudio') {
+      dir = path.join(PROJECT_ROOT, 'public/uploads/genre-posts/audio');
     }
 
     // Ensure directory exists synchronously to prevent race conditions during target upload
@@ -10504,7 +10508,8 @@ app.get('/api/genre-posts', async (req: any, res) => {
         }
 
         const isAdmin = isSuperAdmin(req) || !!(req.session as any)?.mutualAdminGuilds?.length;
-        const baseWhere: any = allGenres ? { deletedAt: null } : { genreId: { in: genreIds }, deletedAt: null };
+        const genreFilter = allGenres ? {} : { OR: [{ genreId: { in: genreIds } }, { extraGenreIds: { hasSome: genreIds } }] };
+        const baseWhere: any = { ...genreFilter, deletedAt: null };
         if (!isAdmin) baseWhere.hiddenAt = null;
 
         const where: any = { ...baseWhere };
@@ -10521,7 +10526,7 @@ app.get('/api/genre-posts', async (req: any, res) => {
         const isSingleGenre = genreIds.length === 1 && !allGenres;
         let pinnedPosts: any[] = [];
         if (isSingleGenre && sort !== 'new' && !cursor) {
-            const pinnedWhere: any = { genreId: { in: genreIds }, deletedAt: null, pinned: true };
+            const pinnedWhere: any = { OR: [{ genreId: { in: genreIds } }, { extraGenreIds: { hasSome: genreIds } }], deletedAt: null, pinned: true };
             if (!isAdmin) pinnedWhere.hiddenAt = null;
             const fetched = await (db as any).genrePost.findMany({
                 where: pinnedWhere,
@@ -10611,14 +10616,47 @@ app.get('/api/genre-posts/:postId', async (req: any, res) => {
 const genrePostLimiter = rateLimit({ windowMs: 10 * 60 * 1000, max: 5, keyGenerator: (req: any) => req.session?.user?.id || req.ip });
 
 // Create a discussion genre post
+// Genre post media upload (image or audio)
+app.post('/api/genre-posts/upload-media', requireAuth, requireVerified,
+    upload.fields([
+        { name: 'genrePostImage', maxCount: 1 },
+        { name: 'genrePostAudio', maxCount: 1 },
+    ]),
+    async (req: any, res) => {
+        try {
+            const files = req.files as Record<string, Express.Multer.File[]>;
+            const imageFile = files?.genrePostImage?.[0];
+            const audioFile = files?.genrePostAudio?.[0];
+            if (!imageFile && !audioFile) return res.status(400).json({ error: 'No file uploaded' });
+            const file = imageFile || audioFile!;
+            const url = `/uploads/${imageFile ? 'genre-posts/images' : 'genre-posts/audio'}/${file.filename}`;
+            res.json({ url });
+        } catch (e: any) {
+            res.status(500).json({ error: e?.message ?? 'Upload failed' });
+        }
+    }
+);
+
 app.post('/api/genre-posts', requireAuth, requireVerified, genrePostLimiter, async (req: any, res) => {
     try {
         const userId = req.session.user.id;
-        const { genreId, title, body, imageUrl, flair: rawFlair, crossPostOfId } = req.body;
+        const { genreId, title, body, imageUrl, videoUrl, audioUrl, flair: rawFlair, crossPostOfId, extraGenreIds: extraRaw } = req.body;
         if (!genreId || !title?.trim()) return res.status(400).json({ error: 'genreId and title are required' });
         if (title.length > 300) return res.status(400).json({ error: 'Title must be 300 characters or fewer' });
-        if (body && body.length > 10000) return res.status(400).json({ error: 'Body must be 10,000 characters or fewer' });
+        if (body && body.length > 50000) return res.status(400).json({ error: 'Body is too long' });
         const flair = rawFlair ? String(rawFlair).trim().slice(0, 50) || null : null;
+
+        // Validate extra genre IDs (max 2, must exist, must not duplicate primary)
+        let extraGenreIds: string[] = [];
+        if (extraRaw) {
+            const raw = Array.isArray(extraRaw) ? extraRaw : String(extraRaw).split(',').filter(Boolean);
+            const deduped = [...new Set(raw.map(String))].filter(id => id !== genreId).slice(0, 2);
+            if (deduped.length > 0) {
+                const found = await db.genre.findMany({ where: { id: { in: deduped } }, select: { id: true } });
+                extraGenreIds = found.map((g: any) => g.id);
+            }
+        }
+
         const genre = await db.genre.findUnique({ where: { id: genreId } });
         if (!genre) return res.status(404).json({ error: 'Genre not found' });
 
@@ -10648,7 +10686,11 @@ app.post('/api/genre-posts', requireAuth, requireVerified, genrePostLimiter, asy
         const post = await (db as any).genrePost.create({
             data: {
                 genreId, userId, username, avatarUrl, type: 'discussion',
-                title: resolvedTitle, body: body?.trim() || null, imageUrl: imageUrl || null,
+                title: resolvedTitle, body: body?.trim() || null,
+                imageUrl: imageUrl || null,
+                videoUrl: videoUrl || null,
+                audioUrl: audioUrl || null,
+                extraGenreIds,
                 flair,
                 ...(resolvedCrossPostOfId ? { crossPostOfId: resolvedCrossPostOfId } : {}),
             },
