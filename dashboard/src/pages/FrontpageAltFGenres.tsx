@@ -980,10 +980,11 @@ export const FrontpageAltFGenres: React.FC = () => {
                                     {viewMode === 'single' && subgenres.length > 0 && (
                                         <div style={{ marginBottom: 16 }}>
                                             <button onClick={() => setSubgenresOpen(o => !o)}
-                                                style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '6px 14px', background: subgenresOpen ? `${PRIMARY}22` : S_CONT, border: `1px solid ${subgenresOpen ? PRIMARY : BORDER}`, borderRadius: 9999, cursor: 'pointer', color: subgenresOpen ? PRIMARY : SUB, fontSize: 12, fontWeight: 700, marginBottom: subgenresOpen ? 10 : 0, transition: 'all 0.15s', letterSpacing: '0.01em' }}>
-                                                <Layers size={12} />
-                                                Subgenres
-                                                {subgenresOpen ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                                                style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '10px 14px', background: subgenresOpen ? `${PRIMARY}18` : S_CONT, border: `1.5px solid ${subgenresOpen ? PRIMARY : BORDER}`, borderRadius: 10, cursor: 'pointer', color: subgenresOpen ? PRIMARY : TEXT, fontSize: 13, fontWeight: 700, marginBottom: subgenresOpen ? 12 : 0, transition: 'all 0.15s', letterSpacing: '0.01em', boxShadow: subgenresOpen ? `0 0 0 3px ${PRIMARY}18` : 'none' }}>
+                                                <Layers size={14} color={subgenresOpen ? PRIMARY : SUB} />
+                                                <span style={{ flex: 1, textAlign: 'left' }}>Subgenres</span>
+                                                <span style={{ fontSize: 11, fontWeight: 400, color: SUB, marginRight: 6 }}>{subgenres.length}</span>
+                                                {subgenresOpen ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
                                             </button>
                                             {subgenresOpen && <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                                                 {activeGenre?.parentId ? null : (
