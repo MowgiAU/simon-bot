@@ -286,7 +286,29 @@ export const FrontpageAltFGenrePost: React.FC = () => {
 
                 <div style={{ flex: 1, display: 'flex', minHeight: 0, overflow: 'hidden' }}>
                     <div style={{ flex: 1, overflowY: 'auto', paddingBottom: pb }}>
-                        <div style={{ maxWidth: 820, margin: '0 auto', padding: '28px 24px 60px', boxSizing: 'border-box' }}>
+                        <div style={{ maxWidth: 1280, margin: '0 auto', padding: '28px 32px 60px', boxSizing: 'border-box', display: 'grid', gridTemplateColumns: '260px 1fr', gap: 28, alignItems: 'start' }}>
+
+                            {/* LEFT SIDEBAR */}
+                            <div style={{ position: 'sticky', top: 0 }}>
+                                {post.genre && (() => {
+                                    const sAccent = genreAccent(post.genre.name);
+                                    return (
+                                        <div style={{ ...glass, borderRadius: 16, overflow: 'hidden' }}>
+                                            <div style={{ height: 5, background: sAccent }} />
+                                            <div style={{ padding: '14px 16px' }}>
+                                                <h3 style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 800, color: TEXT }}>{post.genre.name}</h3>
+                                                <Link to={`/preview/alt_f_genres/${post.genre.slug}`}
+                                                    style={{ display: 'block', width: '100%', padding: '8px 0', background: `${sAccent}18`, border: `1.5px solid ${sAccent}`, borderRadius: 8, color: sAccent, textAlign: 'center', textDecoration: 'none', fontSize: 13, fontWeight: 700, boxSizing: 'border-box' }}>
+                                                    Browse genre
+                                                </Link>
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
+                            </div>
+
+                            {/* RIGHT COLUMN */}
+                            <div>
 
                             {/* Post card */}
                             <div style={{ ...glass, borderRadius: 18, padding: '24px 28px', marginBottom: 24 }}>
@@ -497,6 +519,7 @@ export const FrontpageAltFGenrePost: React.FC = () => {
                                         ))}
                                     </div>
                                 )}
+                            </div>
                             </div>
                         </div>
                     </div>
