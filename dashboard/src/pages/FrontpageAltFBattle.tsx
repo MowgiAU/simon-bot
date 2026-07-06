@@ -9,7 +9,7 @@ import { AltHeader, BreadcrumbItem } from '../components/altshell/AltHeader';
 import { AltActivitySidebar } from '../components/altshell/AltActivitySidebar';
 import {
     Play, Pause, Clock, Users, Trophy, Music, Star, Download,
-    Tag, ExternalLink, CheckCircle, ChevronRight, Zap,
+    Tag, ExternalLink, CheckCircle, ChevronRight, Zap, Gift,
 } from 'lucide-react';
 
 const fmtNum = (n?: number) => { n = n || 0; if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M'; if (n >= 1e3) return (n / 1e3).toFixed(1) + 'k'; return String(n); };
@@ -98,89 +98,100 @@ export const FrontpageAltFBattle: React.FC = () => {
     ];
 
     // Right-rail extras (prizes + timeline + podium). Built only when battle data is present.
+
+    // Prizes
+    const prizesSection = battle && Array.isArray(battle.prizes) && battle.prizes.length > 0 ? (
+        <div style={{ ...glass, borderRadius: 20, padding: '20px 20px', overflow: 'hidden', position: 'relative' }}>
+            <div style={{ position: 'absolute', top: -32, right: -32, width: 100, height: 100, background: `${PRIMARY}10`, borderRadius: '50%', filter: 'blur(24px)' }} />
+            <h3 style={{ margin: '0 0 20px', fontSize: 15, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Trophy size={16} color={PRIMARY} /> Battle Prizes
+            </h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                {(battle.prizes as any[]).map((p: any, i: number) => {
+                    const placeColor = i === 0 ? PRIMARY : i === 1 ? SECONDARY : TERTIARY;
+                    return (
+                        <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                            <div style={{ width: 40, height: 40, borderRadius: 10, border: `1px solid ${placeColor}44`, background: `${placeColor}0a`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 18 }}>
+                                {i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉'}
+                            </div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                                <p style={{ margin: '0 0 2px', fontSize: 10, fontWeight: 800, color: placeColor, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{p.place || `${i + 1}${['st','nd','rd'][i] || 'th'} Place`}</p>
+                                {p.title && <p style={{ margin: '0 0 2px', fontSize: 12, fontWeight: 700, color: TEXT }}>{p.title}</p>}
+                                {p.description && <p style={{ margin: 0, fontSize: 11, color: SUB, lineHeight: 1.4 }}>{p.description}</p>}
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
+    ) : null;
+
+    // Timeline
+    const timelineSection = battle ? (
+        <div style={{ ...glass, borderRadius: 20, padding: '20px 20px' }}>
+            <h3 style={{ margin: '0 0 16px', fontSize: 15, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Clock size={16} color={SECONDARY} /> Timeline
+            </h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {[
+                    { label: 'Submissions close', date: battle.submissionEnd },
+                    { label: 'Voting ends', date: battle.votingEnd },
+                ].filter(t => t.date).map((t, i) => (
+                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13 }}>
+                        <span style={{ color: SUB }}>{t.label}</span>
+                        <span style={{ color: TEXT, fontWeight: 600 }}>{new Date(t.date!).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                    </div>
+                ))}
+            </div>
+        </div>
+    ) : null;
+
+    // Top entries podium
+    const podiumSection = battle && entries.length >= 2 ? (
+        <div style={{ ...glass, borderRadius: 20, padding: '20px 20px' }}>
+            <h3 style={{ margin: '0 0 16px', fontSize: 15, fontWeight: 700 }}>
+                {status?.label === 'Ended' ? 'Final Podium' : 'Leading Right Now'}
+            </h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {entries.slice(0, 3).map((e: any, i: number) => {
+                    const placeColor = i === 0 ? PRIMARY : i === 1 ? SECONDARY : TERTIARY;
+                    const avatar = e.track?.profile?.avatar;
+                    const userId = e.track?.profile?.userId;
+                    return (
+                        <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', background: S_HIGH, borderRadius: 12, position: 'relative', overflow: 'hidden', borderLeft: `3px solid ${placeColor}` }}>
+                            <span style={{ position: 'absolute', right: 8, bottom: -4, fontSize: 28, fontWeight: 900, color: `${placeColor}18`, fontStyle: 'italic', lineHeight: 1 }}>0{i + 1}</span>
+                            <div style={{ width: 40, height: 40, borderRadius: '50%', overflow: 'hidden', background: S_CONT, flexShrink: 0 }}>
+                                {avatar && userId
+                                    ? <img src={`https://cdn.discordapp.com/avatars/${userId}/${avatar}.png?size=64`} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Music size={16} color={SUB} /></div>}
+                            </div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                                <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: TEXT, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.track?.profile?.displayName || e.track?.profile?.username || 'Unknown'}</p>
+                                <p style={{ margin: '1px 0 0', fontSize: 11, color: SUB, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Track: {e.track?.title || 'Untitled'}</p>
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+            <button style={{ width: '100%', marginTop: 14, padding: '8px 0', background: 'none', border: 'none', color: SUB, fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                View Full Leaderboard <ChevronRight size={14} />
+            </button>
+        </div>
+    ) : null;
+
     const railExtras = battle ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-
-            {/* Prizes */}
-            {Array.isArray(battle.prizes) && battle.prizes.length > 0 && (
-                <div style={{ ...glass, borderRadius: 20, padding: '20px 20px', overflow: 'hidden', position: 'relative' }}>
-                    <div style={{ position: 'absolute', top: -32, right: -32, width: 100, height: 100, background: `${PRIMARY}10`, borderRadius: '50%', filter: 'blur(24px)' }} />
-                    <h3 style={{ margin: '0 0 20px', fontSize: 15, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <Trophy size={16} color={PRIMARY} /> Battle Prizes
-                    </h3>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                        {(battle.prizes as any[]).map((p: any, i: number) => {
-                            const placeColor = i === 0 ? PRIMARY : i === 1 ? SECONDARY : TERTIARY;
-                            return (
-                                <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-                                    <div style={{ width: 40, height: 40, borderRadius: 10, border: `1px solid ${placeColor}44`, background: `${placeColor}0a`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 18 }}>
-                                        {i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉'}
-                                    </div>
-                                    <div style={{ flex: 1, minWidth: 0 }}>
-                                        <p style={{ margin: '0 0 2px', fontSize: 10, fontWeight: 800, color: placeColor, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{p.place || `${i + 1}${['st','nd','rd'][i] || 'th'} Place`}</p>
-                                        {p.title && <p style={{ margin: '0 0 2px', fontSize: 12, fontWeight: 700, color: TEXT }}>{p.title}</p>}
-                                        {p.description && <p style={{ margin: 0, fontSize: 11, color: SUB, lineHeight: 1.4 }}>{p.description}</p>}
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                </div>
-            )}
-
-            {/* Timeline */}
-            <div style={{ ...glass, borderRadius: 20, padding: '20px 20px' }}>
-                <h3 style={{ margin: '0 0 16px', fontSize: 15, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <Clock size={16} color={SECONDARY} /> Timeline
-                </h3>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                    {[
-                        { label: 'Submissions close', date: battle.submissionEnd },
-                        { label: 'Voting ends', date: battle.votingEnd },
-                    ].filter(t => t.date).map((t, i) => (
-                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13 }}>
-                            <span style={{ color: SUB }}>{t.label}</span>
-                            <span style={{ color: TEXT, fontWeight: 600 }}>{new Date(t.date!).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
-                        </div>
-                    ))}
-                </div>
-            </div>
-
-            {/* Top entries podium */}
-            {entries.length >= 2 && (
-                <div style={{ ...glass, borderRadius: 20, padding: '20px 20px' }}>
-                    <h3 style={{ margin: '0 0 16px', fontSize: 15, fontWeight: 700 }}>
-                        {status?.label === 'Ended' ? 'Final Podium' : 'Leading Right Now'}
-                    </h3>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                        {entries.slice(0, 3).map((e: any, i: number) => {
-                            const placeColor = i === 0 ? PRIMARY : i === 1 ? SECONDARY : TERTIARY;
-                            const avatar = e.track?.profile?.avatar;
-                            const userId = e.track?.profile?.userId;
-                            return (
-                                <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', background: S_HIGH, borderRadius: 12, position: 'relative', overflow: 'hidden', borderLeft: `3px solid ${placeColor}` }}>
-                                    <span style={{ position: 'absolute', right: 8, bottom: -4, fontSize: 28, fontWeight: 900, color: `${placeColor}18`, fontStyle: 'italic', lineHeight: 1 }}>0{i + 1}</span>
-                                    <div style={{ width: 40, height: 40, borderRadius: '50%', overflow: 'hidden', background: S_CONT, flexShrink: 0 }}>
-                                        {avatar && userId
-                                            ? <img src={`https://cdn.discordapp.com/avatars/${userId}/${avatar}.png?size=64`} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                            : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Music size={16} color={SUB} /></div>}
-                                    </div>
-                                    <div style={{ flex: 1, minWidth: 0 }}>
-                                        <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: TEXT, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.track?.profile?.displayName || e.track?.profile?.username || 'Unknown'}</p>
-                                        <p style={{ margin: '1px 0 0', fontSize: 11, color: SUB, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Track: {e.track?.title || 'Untitled'}</p>
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                    <button style={{ width: '100%', marginTop: 14, padding: '8px 0', background: 'none', border: 'none', color: SUB, fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                        View Full Leaderboard <ChevronRight size={14} />
-                    </button>
-                </div>
-            )}
-
+            {prizesSection}
+            {timelineSection}
+            {podiumSection}
         </div>
     ) : undefined;
+
+    const railSections = battle ? [
+        { key: 'prizes', label: 'Prizes', icon: <Gift size={20} />, content: prizesSection },
+        { key: 'timeline', label: 'Timeline', icon: <Clock size={20} />, content: timelineSection },
+        { key: 'podium', label: 'Podium', icon: <Trophy size={20} />, content: podiumSection },
+    ] : undefined;
 
     return (
         <div style={{ height: '100vh', display: 'flex', overflow: 'hidden', background: BG, color: TEXT, fontFamily: FONT }}>
@@ -409,7 +420,7 @@ export const FrontpageAltFBattle: React.FC = () => {
                         </>
                     )}
                 </div>
-                <AltActivitySidebar topSlot={railExtras} showCommunity={false} />
+                <AltActivitySidebar topSlot={railExtras} railSections={railSections} showCommunity={false} />
                 </div>
             </main>
         </div>

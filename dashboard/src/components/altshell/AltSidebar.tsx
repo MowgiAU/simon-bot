@@ -88,6 +88,30 @@ export const AltSidebar: React.FC<{ active?: string }> = ({ active }) => {
   [style*="44px 44px 1fr 110px"]{min-width:680px}
   [style*="40px 44px 1fr 120px"]{min-width:600px}
   [style*="36px 44px 1fr 48px"]{min-width:560px}
+}
+/* ⑤ Mobile < 600px: the 24-32px page-container gutters used across Alt F pages
+   waste ~15-17% of a phone's width. Tighten every observed container-padding
+   signature down to a uniform 16px edge margin (matches the ② stack rule above). */
+@media (max-width:599px){
+  /* Note: the browser normalises a leading "0" to "0px" in the serialised style
+     attribute, so these selectors match "0px ..." not the JSX source's "0 ...". */
+  [style*="padding: 0px 32px"],[style*="padding: 0px 32px 20px"],[style*="padding: 0px 32px 32px"],
+  [style*="padding: 0px 32px 36px"],[style*="padding: 0px 32px 40px"],[style*="padding: 0px 32px 60px"],
+  [style*="padding: 0px 32px 64px"],[style*="padding: 10px 32px"],[style*="padding: 11px 32px"],
+  [style*="padding: 24px 32px"],[style*="padding: 24px 32px 40px"],[style*="padding: 24px 32px 48px"],
+  [style*="padding: 28px 32px"],[style*="padding: 28px 32px 60px"],[style*="padding: 32px 32px 28px"],
+  [style*="padding: 40px 32px 36px"],[style*="padding: 40px 32px 60px"],[style*="padding: 48px 32px 64px"],
+  [style*="padding: 0px 24px 20px"],[style*="padding: 10px 24px"],[style*="padding: 12px 24px"],
+  [style*="padding: 14px 24px"],[style*="padding: 20px 24px"],[style*="padding: 20px 24px 24px"],
+  [style*="padding: 24px 24px 64px"],[style*="padding: 40px 24px"],[style*="padding: 48px 24px"],
+  [style*="padding: 60px 24px"],[style*="padding: 7px 24px"],[style*="padding: 8px 24px"],
+  [style*="padding: 9px 24px"]
+  {padding-left:16px!important;padding-right:16px!important}
+
+  /* Uniform padding on centered loading/empty-state blocks ("Loading…", "No X
+     found") — safe to tighten since they're just centered text, not shaped UI. */
+  [style*="padding: 40px;"],[style*="padding: 60px;"],[style*="padding: 80px;"]
+  {padding-left:16px!important;padding-right:16px!important}
 }`;
         document.head.appendChild(s);
     }, []);

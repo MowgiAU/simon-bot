@@ -14,13 +14,14 @@ import { StemsMixer } from '../components/StemsMixer';
 import { ArrangementViewer, usePluginRegistry, matchPlugin, PluginModal, PluginList } from '../components/ArrangementViewer';
 import { AltSidebar, BG, S_CONT, S_HIGH, PRIMARY, SECONDARY, TERTIARY, TEXT, SUB, BORDER, FONT } from '../components/altshell/AltSidebar';
 import { AltHeader } from '../components/altshell/AltHeader';
-import { AltActivitySidebar } from '../components/altshell/AltActivitySidebar';
+import { AltActivitySidebar, RailSection } from '../components/altshell/AltActivitySidebar';
 import { useChat } from '../components/ChatProvider';
 import {
     Play, Pause, SkipBack, SkipForward, Heart, Repeat2, Share2, ListPlus, Download,
     ChevronDown, ChevronUp, AlignLeft, Zap, FileAudio,
     Clock, Activity, Tag, Music, UserPlus, UserCheck,
     MessageCircle, Package, ExternalLink, Swords, BadgeCheck, Flag,
+    User, FileText,
 } from 'lucide-react';
 
 const fmtNum = (n?: number) => { n = n || 0; if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M'; if (n >= 1e3) return (n / 1e3).toFixed(1) + 'k'; return String(n); };
@@ -161,14 +162,14 @@ export const FrontpageAltFTrack: React.FC = () => {
     const youtubeId = track?.youtubeUrl ? extractYouTubeId(track.youtubeUrl) : null;
     const showVideo = !!youtubeId;
 
-    const shell = (child: React.ReactNode, sideExtras?: React.ReactNode) => (
+    const shell = (child: React.ReactNode, sideExtras?: React.ReactNode, railSectionsParam?: RailSection[]) => (
         <div style={{ height: '100vh', display: 'flex', overflow: 'hidden', background: BG, color: TEXT, fontFamily: FONT }}>
             <AltSidebar active="Tracks" />
             <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', height: '100%' }}>
                 <AltHeader breadcrumb={[{ label: 'Tracks' }, { label: track?.title || '…' }]} />
                 <div style={{ flex: 1, display: 'flex', minHeight: 0, overflow: 'hidden' }}>
                     {child}
-                    <AltActivitySidebar topSlot={sideExtras} showCommunity={!sideExtras} />
+                    <AltActivitySidebar topSlot={sideExtras} showCommunity={!sideExtras} railSections={railSectionsParam} />
                 </div>
             </main>
         </div>
@@ -177,11 +178,8 @@ export const FrontpageAltFTrack: React.FC = () => {
     if (loading) return shell(<div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: SUB }}>Loading…</div>);
     if (!track) return shell(<div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: SUB }}>Track not found.</div>);
 
-    const trackSide = (<>
-{/* ── LEFT (280px): artist info, actions, lyrics ── */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-
-                    {/* Artist card */}
+    // Artist card
+    const artistSection = (
                     <section style={{ ...glass, borderRadius: 20, overflow: 'hidden' }}>
                         <div style={{ padding: '14px 18px', borderBottom: `1px solid ${DIVIDER}`, display: 'flex', alignItems: 'center', gap: 8 }}>
                             <div style={{ width: 48, height: 48, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, background: S_HIGH, border: '2px solid rgba(255,255,255,0.1)' }}>
@@ -213,8 +211,10 @@ export const FrontpageAltFTrack: React.FC = () => {
                             </button>
                         </div>
                     </section>
+    );
 
-                    {/* Track info: actions + metadata + description */}
+    // Track info: actions + metadata + description
+    const actionsSection = (
                     <section style={{ ...glass, borderRadius: 20, padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 14 }}>
                         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                             {[
@@ -254,9 +254,10 @@ export const FrontpageAltFTrack: React.FC = () => {
                             </div>
                         )}
                     </section>
+    );
 
-                    {/* Lyrics */}
-                    {(track.lyrics || track.lyricsSync?.length > 0) && (
+    // Lyrics
+    const lyricsSection = (track.lyrics || track.lyricsSync?.length > 0) ? (
                         <section style={{ ...glass, borderRadius: 20, overflow: 'hidden', flexShrink: 0 }}>
                             <button onClick={() => setLyricsExpanded(e => !e)} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', background: 'none', border: 'none', cursor: 'pointer', color: TEXT }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -283,9 +284,23 @@ export const FrontpageAltFTrack: React.FC = () => {
                                 </div>
                             )}
                         </section>
-                    )}
+    ) : null;
+
+    const trackSide = (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                    {artistSection}
+                    {actionsSection}
+                    {lyricsSection}
                 </div>
-    </>);
+    );
+
+    const railSections: RailSection[] = [
+        { key: 'artist', label: 'Artist', icon: <User size={20} />, content: artistSection },
+        { key: 'actions', label: 'Actions', icon: <Heart size={20} />, content: actionsSection },
+        ...((track.lyrics || track.lyricsSync?.length > 0)
+            ? [{ key: 'lyrics', label: 'Lyrics', icon: <FileText size={20} />, content: lyricsSection }]
+            : []),
+    ];
 
     return shell(
         <div style={{ flex: 1, overflowY: 'auto', paddingBottom: player.currentTrack ? 90 : 0 }}>
@@ -471,6 +486,7 @@ export const FrontpageAltFTrack: React.FC = () => {
                 </div>
             </div>
         </div>,
-        trackSide
+        trackSide,
+        railSections
     );
 };

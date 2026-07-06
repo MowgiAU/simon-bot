@@ -10,7 +10,7 @@ import { AltSidebar, BG, S_CONT, S_HIGH, PRIMARY, SECONDARY, TERTIARY, TEXT, SUB
 import { AltHeader } from '../components/altshell/AltHeader';
 import { AltActivitySidebar } from '../components/altshell/AltActivitySidebar';
 import {
-    Play, Pause, TrendingUp, TrendingDown, Minus, MoreVertical, Repeat2, Heart, BarChart3,
+    Play, Pause, TrendingUp, TrendingDown, Minus, MoreVertical, Repeat2, Heart, BarChart3, Clock,
 } from 'lucide-react';
 
 const fmtNum = (n?: number) => { n = n || 0; if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M'; if (n >= 1e3) return (n / 1e3).toFixed(1) + 'k'; return String(n); };
@@ -67,20 +67,22 @@ export const FrontpageAltFCharts: React.FC = () => {
     const rankColor = (pos: number) => pos === 1 ? '#FFD700' : pos === 2 ? '#C0C0C0' : pos === 3 ? '#CD7F32' : pos <= 10 ? TEXT : SUB;
 
     // Right-rail content: period selector + Top Tracks summary
-    const rail = (
-        <>
-            <div style={{ ...glass, borderRadius: 16, padding: '16px 14px' }}>
-                <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: SUB, marginBottom: 10, display: 'block' }}>Time Period</span>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                    {PERIODS.map(p => (
-                        <button key={p.key} onClick={() => setPeriod(p.key)}
-                            style={{ padding: '10px 14px', borderRadius: 10, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 700, background: period === p.key ? PRIMARY : 'transparent', color: period === p.key ? '#fff' : SUB, textAlign: 'left', transition: 'all 0.2s' }}>
-                            {p.label}
-                        </button>
-                    ))}
-                </div>
+    const periodSection = (
+        <div style={{ ...glass, borderRadius: 16, padding: '16px 14px' }}>
+            <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: SUB, marginBottom: 10, display: 'block' }}>Time Period</span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                {PERIODS.map(p => (
+                    <button key={p.key} onClick={() => setPeriod(p.key)}
+                        style={{ padding: '10px 14px', borderRadius: 10, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 700, background: period === p.key ? PRIMARY : 'transparent', color: period === p.key ? '#fff' : SUB, textAlign: 'left', transition: 'all 0.2s' }}>
+                        {p.label}
+                    </button>
+                ))}
             </div>
+        </div>
+    );
 
+    const topTracksSection = (
+        <>
             {entries.length > 0 && (
                 <div style={{ ...glass, borderRadius: 16, overflow: 'hidden' }}>
                     <div style={{ padding: '12px 16px', background: 'rgba(38,42,53,0.5)', borderBottom: `1px solid ${DIVIDER}`, display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -107,6 +109,13 @@ export const FrontpageAltFCharts: React.FC = () => {
                     })}
                 </div>
             )}
+        </>
+    );
+
+    const rail = (
+        <>
+            {periodSection}
+            {topTracksSection}
         </>
     );
 
@@ -219,7 +228,14 @@ export const FrontpageAltFCharts: React.FC = () => {
                         </div>
                     </div>
                 </div>
-                <AltActivitySidebar topSlot={rail} showCommunity={false} />
+                <AltActivitySidebar
+                    topSlot={rail}
+                    showCommunity={false}
+                    railSections={[
+                        { key: 'period', label: 'Time Period', icon: <Clock size={20} />, content: periodSection },
+                        { key: 'top-tracks', label: 'Top Tracks', icon: <TrendingUp size={20} />, content: topTracksSection },
+                    ]}
+                />
                 </div>
             </main>
         </div>
