@@ -12,6 +12,7 @@ import {
 } from '../components/altshell/AltSidebar';
 import { AltHeader } from '../components/altshell/AltHeader';
 import { AltActivitySidebar } from '../components/altshell/AltActivitySidebar';
+import { useAltBreakpoint } from '../components/altshell/useAltBreakpoint';
 import {
     Users, Music, TrendingUp, Play, Pause,
     ChevronLeft, ChevronRight,
@@ -67,6 +68,8 @@ interface Slide {
 export const FrontpageAltF: React.FC = () => {
     const navigate = useNavigate();
     const { player, setTrack, togglePlay } = usePlayer();
+    const bp = useAltBreakpoint();
+    const isMobileHero = bp === 'xs';
     const [loading,            setLoading]            = useState(true);
     const [slideIdx,           setSlideIdx]           = useState(0);
     const [featured,           setFeatured]           = useState<any>(null);
@@ -544,9 +547,9 @@ export const FrontpageAltF: React.FC = () => {
                         <div style={{ padding: 80, textAlign: 'center', color: SUB }}>Loading…</div>
                     ) : (<>
 
-                        {/* ── CAROUSEL HERO — 480px, full-bleed, centred ── */}
+                        {/* ── CAROUSEL HERO — 480px desktop / 280px mobile, full-bleed, centred ── */}
                         {slide && (
-                            <section style={{ position: 'relative', width: '100%', height: 480, minHeight: 480, flexShrink: 0, overflow: 'hidden' }}>
+                            <section style={{ position: 'relative', width: '100%', height: isMobileHero ? 280 : 480, minHeight: isMobileHero ? 280 : 480, flexShrink: 0, overflow: 'hidden' }}>
                                 {slide.bg
                                     ? <img key={slide.key} src={slide.bg} alt="" referrerPolicy="no-referrer"
                                         style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: 0.45 }} />
@@ -564,42 +567,45 @@ export const FrontpageAltF: React.FC = () => {
                                     </div>
                                 )}
 
-                                <div style={{ position: 'relative', zIndex: 2, height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0 40px', textAlign: 'center' }}>
+                                <div style={{ position: 'relative', zIndex: 2, height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: isMobileHero ? '0 20px' : '0 40px', textAlign: 'center' }}>
                                     {/* Eyebrow + title + subtitle — centred in the upper portion */}
-                                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', paddingBottom: 120 }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
-                                            <span style={{ background: `${PRIMARY}22`, border: `1px solid ${PRIMARY}55`, color: PRIMARY, padding: '5px 16px', borderRadius: 9999, fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', display: 'flex', alignItems: 'center', gap: 6 }}>
-                                                <Flame size={12} fill={PRIMARY} /> {slide.eyebrow}
+                                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', paddingBottom: isMobileHero ? 76 : 120 }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: isMobileHero ? 10 : 18 }}>
+                                            <span style={{ background: `${PRIMARY}22`, border: `1px solid ${PRIMARY}55`, color: PRIMARY, padding: isMobileHero ? '4px 12px' : '5px 16px', borderRadius: 9999, fontSize: isMobileHero ? 9 : 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                <Flame size={isMobileHero ? 10 : 12} fill={PRIMARY} /> {slide.eyebrow}
                                             </span>
                                         </div>
-                                        <h1 style={{ margin: '0 0 10px', fontSize: 52, fontWeight: 900, color: '#fff', letterSpacing: '-0.03em', lineHeight: 1, textShadow: '0 4px 24px rgba(0,0,0,0.8)', maxWidth: 700 }}>
+                                        <h1 style={{ margin: '0 0 8px', fontSize: isMobileHero ? 26 : 52, fontWeight: 900, color: '#fff', letterSpacing: '-0.03em', lineHeight: 1.1, textShadow: '0 4px 24px rgba(0,0,0,0.8)', maxWidth: isMobileHero ? 320 : 700 }}>
                                             {slide.title}
                                         </h1>
-                                        <p style={{ margin: 0, maxWidth: 480, color: 'rgba(159,166,185,0.9)', fontSize: 15, lineHeight: 1.65 }}>
+                                        <p style={{
+                                            margin: 0, maxWidth: isMobileHero ? 300 : 480, color: 'rgba(159,166,185,0.9)', fontSize: isMobileHero ? 12 : 15, lineHeight: 1.55,
+                                            ...(isMobileHero ? { display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as const, overflow: 'hidden' } : {}),
+                                        }}>
                                             {slide.subtitle}
                                         </p>
                                     </div>
 
-                                    {/* Stats pill — pinned 32px from bottom, always same position */}
-                                    <div style={{ position: 'absolute', bottom: 32, left: 0, right: 0, display: 'flex', justifyContent: 'center' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 0, background: 'rgba(28,31,42,0.65)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', border: '1px solid rgba(87,66,54,0.35)', borderRadius: 20, padding: '20px 40px' }}>
-                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0 28px 0 0' }}>
-                                                <span style={{ fontSize: 10, fontWeight: 700, color: SUB, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4 }}>{slide.stat1Label}</span>
-                                                <span style={{ fontSize: 20, fontWeight: 700, color: PRIMARY }}>{slide.stat1Value}</span>
+                                    {/* Stats pill — pinned from bottom, always same position */}
+                                    <div style={{ position: 'absolute', bottom: isMobileHero ? 14 : 32, left: 0, right: 0, display: 'flex', justifyContent: 'center' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 0, background: 'rgba(28,31,42,0.65)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', border: '1px solid rgba(87,66,54,0.35)', borderRadius: isMobileHero ? 14 : 20, padding: isMobileHero ? '10px 16px' : '20px 40px' }}>
+                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: isMobileHero ? '0 12px 0 0' : '0 28px 0 0' }}>
+                                                <span style={{ fontSize: isMobileHero ? 8 : 10, fontWeight: 700, color: SUB, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 3 }}>{slide.stat1Label}</span>
+                                                <span style={{ fontSize: isMobileHero ? 14 : 20, fontWeight: 700, color: PRIMARY }}>{slide.stat1Value}</span>
                                             </div>
-                                            <div style={{ width: 1, height: 48, background: 'rgba(87,66,54,0.5)' }} />
-                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0 28px' }}>
-                                                <span style={{ fontSize: 10, fontWeight: 700, color: SUB, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4 }}>{slide.stat2Label}</span>
-                                                <span style={{ fontSize: 20, fontWeight: 700, color: TEXT }}>{slide.stat2Value}</span>
+                                            <div style={{ width: 1, height: isMobileHero ? 30 : 48, background: 'rgba(87,66,54,0.5)' }} />
+                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: isMobileHero ? '0 12px' : '0 28px' }}>
+                                                <span style={{ fontSize: isMobileHero ? 8 : 10, fontWeight: 700, color: SUB, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 3 }}>{slide.stat2Label}</span>
+                                                <span style={{ fontSize: isMobileHero ? 14 : 20, fontWeight: 700, color: TEXT }}>{slide.stat2Value}</span>
                                             </div>
-                                            <div style={{ width: 1, height: 48, background: 'rgba(87,66,54,0.5)' }} />
-                                            <div style={{ padding: '0 0 0 28px' }}>
+                                            <div style={{ width: 1, height: isMobileHero ? 30 : 48, background: 'rgba(87,66,54,0.5)' }} />
+                                            <div style={{ padding: isMobileHero ? '0 0 0 12px' : '0 0 0 28px' }}>
                                                 {slide.href ? (
-                                                    <Link to={slide.href} style={{ padding: '14px 36px', borderRadius: 12, background: PRIMARY, color: '#fff', fontWeight: 800, fontSize: 15, boxShadow: `0 0 24px ${PRIMARY}55`, letterSpacing: '-0.01em', fontFamily: FONT, textDecoration: 'none', display: 'inline-block' }}>
+                                                    <Link to={slide.href} style={{ padding: isMobileHero ? '8px 16px' : '14px 36px', borderRadius: isMobileHero ? 8 : 12, background: PRIMARY, color: '#fff', fontWeight: 800, fontSize: isMobileHero ? 12 : 15, boxShadow: `0 0 24px ${PRIMARY}55`, letterSpacing: '-0.01em', fontFamily: FONT, textDecoration: 'none', display: 'inline-block', whiteSpace: 'nowrap' }}>
                                                         {slide.actionLabel}
                                                     </Link>
                                                 ) : (
-                                                    <button onClick={slide.onAction} style={{ padding: '14px 36px', borderRadius: 12, background: PRIMARY, border: 'none', color: '#fff', fontWeight: 800, fontSize: 15, cursor: 'pointer', boxShadow: `0 0 24px ${PRIMARY}55`, letterSpacing: '-0.01em', fontFamily: FONT }}>
+                                                    <button onClick={slide.onAction} style={{ padding: isMobileHero ? '8px 16px' : '14px 36px', borderRadius: isMobileHero ? 8 : 12, background: PRIMARY, border: 'none', color: '#fff', fontWeight: 800, fontSize: isMobileHero ? 12 : 15, cursor: 'pointer', boxShadow: `0 0 24px ${PRIMARY}55`, letterSpacing: '-0.01em', fontFamily: FONT, whiteSpace: 'nowrap' }}>
                                                         {slide.actionLabel}
                                                     </button>
                                                 )}
