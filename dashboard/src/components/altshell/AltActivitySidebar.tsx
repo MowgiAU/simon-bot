@@ -17,7 +17,7 @@ import {
 const DIVIDER = 'rgba(87,66,54,0.25)';
 const LS_KEY = 'fuji_right_sidebar_collapsed';
 
-export const AltActivitySidebar: React.FC<{ topSlot?: React.ReactNode }> = ({ topSlot }) => {
+export const AltActivitySidebar: React.FC<{ topSlot?: React.ReactNode; showCommunity?: boolean }> = ({ topSlot, showCommunity = true }) => {
     const { player } = usePlayer();
     const [battles, setBattles] = useState<any[]>([]);
     const [activity, setActivity] = useState<any[]>([]);
@@ -47,6 +47,7 @@ export const AltActivitySidebar: React.FC<{ topSlot?: React.ReactNode }> = ({ to
     });
 
     useEffect(() => {
+        if (!showCommunity) return;
         axios.get('/api/beat-battle/battles').then(r => setBattles(arr(r.data).slice(0, 1))).catch(() => {});
         axios.get('/api/discovery/tracks?limit=6').then(r => setActivity(arr(r.data).slice(0, 6))).catch(() => {});
         axios.get('/api/comments/recent').then(r => setComments(arr(r.data).slice(0, 5))).catch(() => {});
@@ -54,7 +55,7 @@ export const AltActivitySidebar: React.FC<{ topSlot?: React.ReactNode }> = ({ to
             const list = arr(r.data?.articles ?? r.data);
             setLatestArticle(list[0] ?? null);
         }).catch(() => {});
-    }, []);
+    }, [showCommunity]);
 
     const w = collapsed ? 48 : 288;
     const pb = player.currentTrack ? 90 : 0;
@@ -232,7 +233,7 @@ export const AltActivitySidebar: React.FC<{ topSlot?: React.ReactNode }> = ({ to
                     </section>
                 )}
 
-                {battles.length === 0 && activity.length === 0 && comments.length === 0 && (
+                {showCommunity && battles.length === 0 && activity.length === 0 && comments.length === 0 && (
                     <div style={{ padding: 32, textAlign: 'center', color: SUB, fontSize: 13 }}>Loading activity…</div>
                 )}
             </div>

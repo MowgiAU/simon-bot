@@ -161,14 +161,14 @@ export const FrontpageAltFTrack: React.FC = () => {
     const youtubeId = track?.youtubeUrl ? extractYouTubeId(track.youtubeUrl) : null;
     const showVideo = !!youtubeId;
 
-    const shell = (child: React.ReactNode) => (
+    const shell = (child: React.ReactNode, sideExtras?: React.ReactNode) => (
         <div style={{ height: '100vh', display: 'flex', overflow: 'hidden', background: BG, color: TEXT, fontFamily: FONT }}>
             <AltSidebar active="Tracks" />
             <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', height: '100%' }}>
                 <AltHeader breadcrumb={[{ label: 'Tracks' }, { label: track?.title || '…' }]} />
                 <div style={{ flex: 1, display: 'flex', minHeight: 0, overflow: 'hidden' }}>
                     {child}
-                    <AltActivitySidebar />
+                    <AltActivitySidebar topSlot={sideExtras} showCommunity={!sideExtras} />
                 </div>
             </main>
         </div>
@@ -177,11 +177,8 @@ export const FrontpageAltFTrack: React.FC = () => {
     if (loading) return shell(<div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: SUB }}>Loading…</div>);
     if (!track) return shell(<div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: SUB }}>Track not found.</div>);
 
-    return shell(
-        <div style={{ flex: 1, overflowY: 'auto', paddingBottom: player.currentTrack ? 90 : 0 }}>
-            <div style={{ maxWidth: 1280, margin: '0 auto', padding: '24px 32px', boxSizing: 'border-box', display: 'grid', gridTemplateColumns: '280px 1fr', gap: 24 }}>
-
-                {/* ── LEFT (280px): artist info, actions, lyrics ── */}
+    const trackSide = (<>
+{/* ── LEFT (280px): artist info, actions, lyrics ── */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
 
                     {/* Artist card */}
@@ -288,6 +285,11 @@ export const FrontpageAltFTrack: React.FC = () => {
                         </section>
                     )}
                 </div>
+    </>);
+
+    return shell(
+        <div style={{ flex: 1, overflowY: 'auto', paddingBottom: player.currentTrack ? 90 : 0 }}>
+            <div style={{ maxWidth: 1280, margin: '0 auto', padding: '24px 32px', boxSizing: 'border-box' }}>
 
                 {/* ── RIGHT (1fr): media, waveform, stems, timeline, comments ── */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -468,6 +470,7 @@ export const FrontpageAltFTrack: React.FC = () => {
                     </section>
                 </div>
             </div>
-        </div>
+        </div>,
+        trackSide
     );
 };
