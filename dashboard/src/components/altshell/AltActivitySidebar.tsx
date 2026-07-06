@@ -6,23 +6,31 @@
  */
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { usePlayer } from '../PlayerProvider';
 import { useAltBreakpoint } from './useAltBreakpoint';
-import { PanelRightClose, PanelRightOpen, Swords, Music, Activity, MessageCircle, Newspaper, Plus } from 'lucide-react';
+import { PanelRightClose, PanelRightOpen, Swords, Music, Activity, MessageCircle, Newspaper, Plus, Layers, Sparkles } from 'lucide-react';
 import {
     BG, S_CONT, S_HIGH, PRIMARY, SECONDARY, TERTIARY, TEXT, SUB, BORDER, FONT, arr,
 } from './AltSidebar';
+import { RadialPieMenu, PieItem } from './RadialPieMenu';
+import { AltMobileSheet } from './AltMobileSheet';
+import { MOBILE_NAV_HEIGHT } from './AltMobileNav';
 
 const DIVIDER = 'rgba(87,66,54,0.25)';
 const LS_KEY = 'fuji_right_sidebar_collapsed';
 
-export const AltActivitySidebar: React.FC<{ topSlot?: React.ReactNode; showCommunity?: boolean }> = ({ topSlot, showCommunity = true }) => {
+export interface RailSection { key: string; label: string; icon: React.ReactNode; content: React.ReactNode }
+
+export const AltActivitySidebar: React.FC<{ topSlot?: React.ReactNode; showCommunity?: boolean; railSections?: RailSection[] }> = ({ topSlot, showCommunity = true, railSections }) => {
     const { player } = usePlayer();
+    const navigate = useNavigate();
     const [battles, setBattles] = useState<any[]>([]);
     const [activity, setActivity] = useState<any[]>([]);
     const [comments, setComments] = useState<any[]>([]);
     const [latestArticle, setLatestArticle] = useState<any>(null);
+    const [mobilePieOpen, setMobilePieOpen] = useState(false);
+    const [mobileSheet, setMobileSheet] = useState<{ title: string; content: React.ReactNode } | null>(null);
     const bp = useAltBreakpoint();
 
     const [collapsed, setCollapsed] = useState(() => {
@@ -56,6 +64,174 @@ export const AltActivitySidebar: React.FC<{ topSlot?: React.ReactNode; showCommu
             setLatestArticle(list[0] ?? null);
         }).catch(() => {});
     }, [showCommunity]);
+
+    const communityContent = (
+        <>
+        {/* Active Battles */}
+        {battles.length > 0 && (
+            <section>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <Swords size={14} color={TERTIARY} />
+                        <span style={{ fontSize: 10, color: SUB, textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700 }}>Battles</span>
+                    </div>
+                    <Link to="/preview/alt_f_battles" style={{ fontSize: 10, color: PRIMARY, fontWeight: 700, textDecoration: 'none', fontFamily: FONT }}>More →</Link>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    {battles.map((b: any) => {
+                        const live = b.status === 'active' || b.status === 'voting';
+                        return (
+                            <Link key={b.id} to={`/battles/${b.slug || b.id}`}
+                                style={{ position: 'relative', overflow: 'hidden', height: 100, borderRadius: 12, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', padding: '10px 12px', textDecoration: 'none', color: '#fff', background: 'rgba(15,19,29,0.7)', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 8px 24px rgba(0,0,0,0.4)', backdropFilter: 'blur(20px)', transition: 'border-color 0.2s, transform 0.15s' }}
+                                onMouseEnter={ev => { ev.currentTarget.style.borderColor = `${PRIMARY}66`; ev.currentTarget.style.transform = 'translateY(-2px)'; }}
+                                onMouseLeave={ev => { ev.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; ev.currentTarget.style.transform = 'translateY(0)'; }}>
+                                {b.cardImageUrl && (
+                                    <img src={b.cardImageUrl} alt="" referrerPolicy="no-referrer" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+                                )}
+                                <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.85), rgba(0,0,0,0.15))' }} />
+                                <div style={{ position: 'relative', zIndex: 1 }}>
+                                    <span style={{ padding: '2px 6px', borderRadius: 4, fontSize: 9, fontWeight: 700, background: live ? TERTIARY : 'rgba(255,255,255,0.15)', color: '#fff', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                        {live ? 'Live' : b.status === 'completed' ? 'Ended' : 'Upcoming'}
+                                    </span>
+                                    <p style={{ margin: '5px 0 0', fontSize: 13, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.title}</p>
+                                </div>
+                            </Link>
+                        );
+                    })}
+                </div>
+            </section>
+        )}
+
+        {/* Latest News */}
+        {latestArticle && (
+            <section>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <Newspaper size={14} color={SECONDARY} />
+                        <span style={{ fontSize: 10, color: SUB, textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700 }}>Latest News</span>
+                    </div>
+                    <Link to="/preview/alt_f_articles" style={{ fontSize: 10, color: PRIMARY, fontWeight: 700, textDecoration: 'none', fontFamily: FONT }}>More →</Link>
+                </div>
+                <Link
+                    to="/preview/alt_f_article"
+                    style={{ display: 'block', borderRadius: 12, overflow: 'hidden', textDecoration: 'none', color: 'inherit', background: 'rgba(15,19,29,0.7)', border: '1px solid rgba(255,255,255,0.1)', backdropFilter: 'blur(20px)', transition: 'border-color 0.2s' }}
+                    onMouseEnter={ev => (ev.currentTarget.style.borderColor = `${PRIMARY}66`)}
+                    onMouseLeave={ev => (ev.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)')}
+                >
+                    {latestArticle.coverImageUrl && (
+                        <div style={{ height: 80, overflow: 'hidden', position: 'relative' }}>
+                            <img src={latestArticle.coverImageUrl} alt="" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(15,19,29,0.7), transparent)' }} />
+                        </div>
+                    )}
+                    <div style={{ padding: '10px 12px' }}>
+                        {latestArticle.category && (
+                            <span style={{ fontSize: 9, fontWeight: 800, color: SECONDARY, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{latestArticle.category} · </span>
+                        )}
+                        <p style={{ margin: '4px 0 0', fontSize: 12, fontWeight: 700, color: TEXT, lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as const, overflow: 'hidden' }}>
+                            {latestArticle.title}
+                        </p>
+                    </div>
+                </Link>
+            </section>
+        )}
+
+        {/* Recent Activity */}
+        {activity.length > 0 && (
+            <section>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+                    <Music size={14} color={SECONDARY} />
+                    <span style={{ fontSize: 10, color: SUB, textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700 }}>Recent Activity</span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                    {activity.map((t: any) => (
+                        <Link key={t.id} to={`/profile/${t.profile?.username || ''}`}
+                            style={{ display: 'flex', gap: 10, textDecoration: 'none', color: TEXT, alignItems: 'flex-start' }}>
+                            <div style={{ width: 34, height: 34, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, background: S_HIGH }}>
+                                {t.profile?.avatar && (
+                                    <img src={t.profile.avatar} alt="" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                )}
+                            </div>
+                            <div style={{ minWidth: 0 }}>
+                                <p style={{ margin: 0, fontSize: 12, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    {t.profile?.displayName || t.profile?.username || 'Unknown'}
+                                </p>
+                                <p style={{ margin: '2px 0 0', fontSize: 11, color: SUB, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 4 }}>
+                                    <Music size={10} /> {t.title}
+                                </p>
+                            </div>
+                        </Link>
+                    ))}
+                </div>
+            </section>
+        )}
+
+        {/* Recent Comments */}
+        {comments.length > 0 && (
+            <section>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+                    <MessageCircle size={14} color='#a78bfa' />
+                    <span style={{ fontSize: 10, color: SUB, textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700 }}>Recent Comments</span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                    {comments.map((c: any) => {
+                        const targetName = c.track?.title || c.profile?.displayName || c.profile?.username || 'a post';
+                        return (
+                            <div key={c.id} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                                <div style={{ width: 28, height: 28, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, background: S_HIGH, marginTop: 1 }}>
+                                    {c.avatarUrl && (
+                                        <img src={c.avatarUrl} alt="" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    )}
+                                </div>
+                                <div style={{ minWidth: 0 }}>
+                                    <p style={{ margin: 0, fontSize: 11, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: TEXT }}>
+                                        {c.username}
+                                        <span style={{ color: SUB, fontWeight: 400 }}> on {targetName}</span>
+                                    </p>
+                                    <p style={{ margin: '3px 0 0', fontSize: 11, color: SUB, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', lineHeight: 1.4, fontStyle: 'italic' }}>
+                                        {c.content.length > 80 ? c.content.slice(0, 80) + '…' : c.content}
+                                    </p>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            </section>
+        )}
+
+        {showCommunity && battles.length === 0 && activity.length === 0 && comments.length === 0 && (
+            <div style={{ padding: 32, textAlign: 'center', color: SUB, fontSize: 13 }}>Loading activity…</div>
+        )}
+        </>
+    );
+
+    // Mobile (xs, <600px): replace the icon-strip with a FAB that opens a radial
+    // pie menu for this page's content — Create Post is a direct action, the rest
+    // (page sections / community) open a bottom sheet with the same content the
+    // desktop rail shows.
+    if (bp === 'xs') {
+        const wedgeItems: PieItem[] = [
+            { key: 'post', label: 'Post', icon: <Plus size={20} />, onClick: () => navigate('/preview/alt_f_create_post') },
+            ...(railSections && railSections.length > 0
+                ? railSections.map(s => ({ key: s.key, label: s.label, icon: s.icon, onClick: () => setMobileSheet({ title: s.label, content: s.content }) }))
+                : topSlot ? [{ key: 'page', label: 'Page', icon: <Layers size={20} />, onClick: () => setMobileSheet({ title: 'Page', content: topSlot }) }] : []),
+            ...(showCommunity ? [{ key: 'community', label: 'Community', icon: <Activity size={20} />, onClick: () => setMobileSheet({ title: 'Community', content: communityContent }) }] : []),
+        ];
+        const fabBottom = MOBILE_NAV_HEIGHT + 16 + (player.currentTrack ? 90 : 0);
+
+        return (
+            <>
+                <button onClick={() => setMobilePieOpen(true)} aria-label="Page menu"
+                    style={{ position: 'fixed', right: 16, bottom: fabBottom, width: 52, height: 52, borderRadius: '50%', background: PRIMARY, border: 'none', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 4px 20px ${PRIMARY}66`, zIndex: 210, cursor: 'pointer' }}>
+                    <Sparkles size={22} />
+                </button>
+                <RadialPieMenu open={mobilePieOpen} onClose={() => setMobilePieOpen(false)} items={wedgeItems} />
+                <AltMobileSheet open={!!mobileSheet} onClose={() => setMobileSheet(null)} title={mobileSheet?.title}>
+                    {mobileSheet?.content}
+                </AltMobileSheet>
+            </>
+        );
+    }
 
     const w = collapsed ? 48 : 288;
     const pb = player.currentTrack ? 90 : 0;
@@ -101,141 +277,7 @@ export const AltActivitySidebar: React.FC<{ topSlot?: React.ReactNode; showCommu
                 {/* Page-specific extras (e.g. Home injects Top Artists + Trending Tracks) */}
                 {topSlot}
 
-                {/* Active Battles */}
-                {battles.length > 0 && (
-                    <section>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                <Swords size={14} color={TERTIARY} />
-                                <span style={{ fontSize: 10, color: SUB, textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700 }}>Battles</span>
-                            </div>
-                            <Link to="/preview/alt_f_battles" style={{ fontSize: 10, color: PRIMARY, fontWeight: 700, textDecoration: 'none', fontFamily: FONT }}>More →</Link>
-                        </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                            {battles.map((b: any) => {
-                                const live = b.status === 'active' || b.status === 'voting';
-                                return (
-                                    <Link key={b.id} to={`/battles/${b.slug || b.id}`}
-                                        style={{ position: 'relative', overflow: 'hidden', height: 100, borderRadius: 12, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', padding: '10px 12px', textDecoration: 'none', color: '#fff', background: 'rgba(15,19,29,0.7)', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 8px 24px rgba(0,0,0,0.4)', backdropFilter: 'blur(20px)', transition: 'border-color 0.2s, transform 0.15s' }}
-                                        onMouseEnter={ev => { ev.currentTarget.style.borderColor = `${PRIMARY}66`; ev.currentTarget.style.transform = 'translateY(-2px)'; }}
-                                        onMouseLeave={ev => { ev.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; ev.currentTarget.style.transform = 'translateY(0)'; }}>
-                                        {b.cardImageUrl && (
-                                            <img src={b.cardImageUrl} alt="" referrerPolicy="no-referrer" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
-                                        )}
-                                        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.85), rgba(0,0,0,0.15))' }} />
-                                        <div style={{ position: 'relative', zIndex: 1 }}>
-                                            <span style={{ padding: '2px 6px', borderRadius: 4, fontSize: 9, fontWeight: 700, background: live ? TERTIARY : 'rgba(255,255,255,0.15)', color: '#fff', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                                                {live ? 'Live' : b.status === 'completed' ? 'Ended' : 'Upcoming'}
-                                            </span>
-                                            <p style={{ margin: '5px 0 0', fontSize: 13, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.title}</p>
-                                        </div>
-                                    </Link>
-                                );
-                            })}
-                        </div>
-                    </section>
-                )}
-
-                {/* Latest News */}
-                {latestArticle && (
-                    <section>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                <Newspaper size={14} color={SECONDARY} />
-                                <span style={{ fontSize: 10, color: SUB, textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700 }}>Latest News</span>
-                            </div>
-                            <Link to="/preview/alt_f_articles" style={{ fontSize: 10, color: PRIMARY, fontWeight: 700, textDecoration: 'none', fontFamily: FONT }}>More →</Link>
-                        </div>
-                        <Link
-                            to="/preview/alt_f_article"
-                            style={{ display: 'block', borderRadius: 12, overflow: 'hidden', textDecoration: 'none', color: 'inherit', background: 'rgba(15,19,29,0.7)', border: '1px solid rgba(255,255,255,0.1)', backdropFilter: 'blur(20px)', transition: 'border-color 0.2s' }}
-                            onMouseEnter={ev => (ev.currentTarget.style.borderColor = `${PRIMARY}66`)}
-                            onMouseLeave={ev => (ev.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)')}
-                        >
-                            {latestArticle.coverImageUrl && (
-                                <div style={{ height: 80, overflow: 'hidden', position: 'relative' }}>
-                                    <img src={latestArticle.coverImageUrl} alt="" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                    <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(15,19,29,0.7), transparent)' }} />
-                                </div>
-                            )}
-                            <div style={{ padding: '10px 12px' }}>
-                                {latestArticle.category && (
-                                    <span style={{ fontSize: 9, fontWeight: 800, color: SECONDARY, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{latestArticle.category} · </span>
-                                )}
-                                <p style={{ margin: '4px 0 0', fontSize: 12, fontWeight: 700, color: TEXT, lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as const, overflow: 'hidden' }}>
-                                    {latestArticle.title}
-                                </p>
-                            </div>
-                        </Link>
-                    </section>
-                )}
-
-                {/* Recent Activity */}
-                {activity.length > 0 && (
-                    <section>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-                            <Music size={14} color={SECONDARY} />
-                            <span style={{ fontSize: 10, color: SUB, textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700 }}>Recent Activity</span>
-                        </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                            {activity.map((t: any) => (
-                                <Link key={t.id} to={`/profile/${t.profile?.username || ''}`}
-                                    style={{ display: 'flex', gap: 10, textDecoration: 'none', color: TEXT, alignItems: 'flex-start' }}>
-                                    <div style={{ width: 34, height: 34, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, background: S_HIGH }}>
-                                        {t.profile?.avatar && (
-                                            <img src={t.profile.avatar} alt="" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                        )}
-                                    </div>
-                                    <div style={{ minWidth: 0 }}>
-                                        <p style={{ margin: 0, fontSize: 12, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                            {t.profile?.displayName || t.profile?.username || 'Unknown'}
-                                        </p>
-                                        <p style={{ margin: '2px 0 0', fontSize: 11, color: SUB, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 4 }}>
-                                            <Music size={10} /> {t.title}
-                                        </p>
-                                    </div>
-                                </Link>
-                            ))}
-                        </div>
-                    </section>
-                )}
-
-                {/* Recent Comments */}
-                {comments.length > 0 && (
-                    <section>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-                            <MessageCircle size={14} color='#a78bfa' />
-                            <span style={{ fontSize: 10, color: SUB, textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700 }}>Recent Comments</span>
-                        </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                            {comments.map((c: any) => {
-                                const targetName = c.track?.title || c.profile?.displayName || c.profile?.username || 'a post';
-                                return (
-                                    <div key={c.id} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-                                        <div style={{ width: 28, height: 28, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, background: S_HIGH, marginTop: 1 }}>
-                                            {c.avatarUrl && (
-                                                <img src={c.avatarUrl} alt="" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                            )}
-                                        </div>
-                                        <div style={{ minWidth: 0 }}>
-                                            <p style={{ margin: 0, fontSize: 11, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: TEXT }}>
-                                                {c.username}
-                                                <span style={{ color: SUB, fontWeight: 400 }}> on {targetName}</span>
-                                            </p>
-                                            <p style={{ margin: '3px 0 0', fontSize: 11, color: SUB, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', lineHeight: 1.4, fontStyle: 'italic' }}>
-                                                {c.content.length > 80 ? c.content.slice(0, 80) + '…' : c.content}
-                                            </p>
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </section>
-                )}
-
-                {showCommunity && battles.length === 0 && activity.length === 0 && comments.length === 0 && (
-                    <div style={{ padding: 32, textAlign: 'center', color: SUB, fontSize: 13 }}>Loading activity…</div>
-                )}
+{communityContent}
             </div>
         </aside>
     );

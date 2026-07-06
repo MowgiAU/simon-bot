@@ -9,6 +9,7 @@ import { Link } from 'react-router-dom';
 import { usePlayer } from '../PlayerProvider';
 import { useAuth } from '../AuthProvider';
 import { useAltBreakpoint } from './useAltBreakpoint';
+import { AltMobileNav } from './AltMobileNav';
 import {
     Home, Search, User, Newspaper, BarChart3, Swords, Tag, Users, Plus, Library, AudioLines,
     Star, HelpCircle, LogOut, PanelLeftClose, PanelLeftOpen,
@@ -110,8 +111,12 @@ export const AltSidebar: React.FC<{ active?: string }> = ({ active }) => {
             .catch(() => {});
     }, [user]);
 
-    // xs always icon-rail to prevent overflow
-    const w = (collapsed || bp === 'xs') ? 64 : 256;
+    // Mobile (xs, <600px): the icon-rail is too cramped — hand off to the bottom nav instead.
+    if (bp === 'xs') {
+        return <AltMobileNav active={active || ''} />;
+    }
+
+    const w = collapsed ? 64 : 256;
 
     // Badge counts per nav label
     const collabBadge = collabStats
