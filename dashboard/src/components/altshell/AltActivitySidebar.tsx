@@ -17,7 +17,7 @@ import {
 const DIVIDER = 'rgba(87,66,54,0.25)';
 const LS_KEY = 'fuji_right_sidebar_collapsed';
 
-export const AltActivitySidebar: React.FC = () => {
+export const AltActivitySidebar: React.FC<{ topSlot?: React.ReactNode }> = ({ topSlot }) => {
     const { player } = usePlayer();
     const [battles, setBattles] = useState<any[]>([]);
     const [activity, setActivity] = useState<any[]>([]);
@@ -96,6 +96,9 @@ export const AltActivitySidebar: React.FC = () => {
 
             {/* Content — scrollable */}
             <div style={{ flex: 1, overflowY: 'auto', padding: 16, display: 'flex', flexDirection: 'column', gap: 28 }}>
+
+                {/* Page-specific extras (e.g. Home injects Top Artists + Trending Tracks) */}
+                {topSlot}
 
                 {/* Active Battles */}
                 {battles.length > 0 && (
