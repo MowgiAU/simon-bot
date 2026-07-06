@@ -18,7 +18,7 @@ import { MOBILE_NAV_HEIGHT } from '../components/altshell/AltMobileNav';
 import {
     ChevronUp, ChevronDown, MessageCircle, Music, Play, Pause, FileText,
     ChevronLeft, Send, ThumbsUp, ThumbsDown,
-    Share2, Pin, EyeOff, Eye, Tag, Layers, Check, X,
+    Share2, Pin, EyeOff, Eye, Tag, Layers, Check, X, ExternalLink,
 } from 'lucide-react';
 
 const glass: React.CSSProperties = {
@@ -257,7 +257,7 @@ export const FrontpageAltFGenrePost: React.FC = () => {
         if (!post?.track?.url) return;
         if (player.currentTrack?.id === post.track.id) { togglePlay(); return; }
         const artist = post.track.profile?.displayName || post.track.profile?.username || post.username;
-        setTrack({ id: post.track.id, title: post.track.title, artist, url: post.track.url, coverUrl: post.track.coverUrl || undefined }, []);
+        setTrack({ id: post.track.id, title: post.track.title, artist, username: post.track.profile?.username, slug: post.track.slug, url: post.track.url, coverUrl: post.track.coverUrl || undefined }, []);
     };
 
     const pb = player.currentTrack ? 90 : 0;
@@ -411,7 +411,7 @@ export const FrontpageAltFGenrePost: React.FC = () => {
                                                         </div>
                                                     )}
                                                 </div>
-                                                <div style={{ minWidth: 0 }}>
+                                                <div style={{ minWidth: 0, flex: 1 }}>
                                                     <div style={{ fontSize: 16, fontWeight: 700, color: TEXT, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{post.track.title}</div>
                                                     {post.track.profile && (
                                                         <div style={{ fontSize: 13, color: SUB, marginTop: 2 }}>by {post.track.profile.displayName || post.track.profile.username}</div>
@@ -420,6 +420,14 @@ export const FrontpageAltFGenrePost: React.FC = () => {
                                                         <div style={{ fontSize: 12, color: SUB, marginTop: 2 }}>{fmtDur(post.track.duration)}</div>
                                                     )}
                                                 </div>
+                                                {post.track.profile?.username && post.track.slug && (
+                                                    <Link to={`/profile/${post.track.profile.username}/${post.track.slug}`}
+                                                        style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0, color: accent, fontSize: 12, fontWeight: 700, textDecoration: 'none', background: `${accent}18`, border: `1px solid ${accent}44`, borderRadius: 9999, padding: '6px 12px' }}
+                                                        onMouseEnter={e => (e.currentTarget.style.background = `${accent}30`)}
+                                                        onMouseLeave={e => (e.currentTarget.style.background = `${accent}18`)}>
+                                                        <ExternalLink size={12} /> View track
+                                                    </Link>
+                                                )}
                                             </div>
                                         )}
 

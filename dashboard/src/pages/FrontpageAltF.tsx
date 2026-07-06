@@ -617,8 +617,8 @@ export const FrontpageAltF: React.FC = () => {
                             </section>
                         )}
 
-                        {/* ── SPONSOR BANNER ── */}
-                        {sponsors.length > 0 && (() => {
+                        {/* ── SPONSOR BANNER — hidden on mobile ── */}
+                        {!isMobile && sponsors.length > 0 && (() => {
                             const sp = sponsors[sponsorIdx % sponsors.length];
                             return (
                                 <section style={{ maxWidth: 1280, margin: '24px auto 0', padding: '0 32px', boxSizing: 'border-box' }}>
@@ -805,7 +805,7 @@ export const FrontpageAltF: React.FC = () => {
                                                                 const playHandler = () => {
                                                                     if (!trackUrl) return;
                                                                     if (isActiveTrack) { togglePlay(); return; }
-                                                                    setTrack({ id: post.track.id, title: post.track.title, artist, url: trackUrl, coverUrl: post.track.coverUrl }, []);
+                                                                    setTrack({ id: post.track.id, title: post.track.title, artist, username: post.track.profile?.username, slug: post.track.slug, url: trackUrl, coverUrl: post.track.coverUrl }, []);
                                                                 };
                                                                 return (
                                                                     <div onClick={playHandler} style={{ display: 'flex', alignItems: 'center', gap: 10, background: S_HIGH, borderRadius: 10, padding: 8, marginBottom: 8, cursor: trackUrl ? 'pointer' : 'default' }}>
@@ -925,7 +925,7 @@ export const FrontpageAltF: React.FC = () => {
                                                                 const playHandler = () => {
                                                                     if (!trackUrl) return;
                                                                     if (isActiveTrack) { togglePlay(); return; }
-                                                                    setTrack({ id: post.track.id, title: post.track.title, artist, url: trackUrl, coverUrl: post.track.coverUrl }, []);
+                                                                    setTrack({ id: post.track.id, title: post.track.title, artist, username: post.track.profile?.username, slug: post.track.slug, url: trackUrl, coverUrl: post.track.coverUrl }, []);
                                                                 };
                                                                 return (
                                                                     <div style={{ borderRadius: 12, overflow: 'hidden', background: S_HIGH, border: `1px solid rgba(255,255,255,0.07)`, marginBottom: 4 }}>

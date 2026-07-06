@@ -429,9 +429,16 @@ export const GlobalPlayer: React.FC = () => {
                             {player.isPlaying ? <Pause fill="#1A1E2E" size={12} /> : <Play fill="#1A1E2E" size={12} style={{ marginLeft: '1px' }} />}
                         </button>
                         <div style={{ minWidth: 0, flex: 1 }}>
-                            <p style={{ margin: 0, fontSize: '12px', fontWeight: 600, color: 'white', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                {player.currentTrack.title}
-                            </p>
+                            {titleTo ? (
+                                <Link to={titleTo} onClick={e => e.stopPropagation()}
+                                    style={{ display: 'block', margin: 0, fontSize: '12px', fontWeight: 600, color: 'white', textDecoration: 'none', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                    {player.currentTrack.title}
+                                </Link>
+                            ) : (
+                                <p style={{ margin: 0, fontSize: '12px', fontWeight: 600, color: 'white', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                    {player.currentTrack.title}
+                                </p>
+                            )}
                         </div>
                         {/* Progress bar */}
                         <div style={{ width: '120px', height: '3px', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: '2px', flexShrink: 0, overflow: 'hidden' }}>
@@ -459,9 +466,16 @@ export const GlobalPlayer: React.FC = () => {
                                         : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Music2 size={20} color="rgba(255,255,255,0.2)" /></div>}
                                 </div>
                                 <div style={{ minWidth: 0 }}>
-                                    <p style={{ margin: 0, fontSize: '13px', fontWeight: 700, color: 'white', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                        {player.currentTrack.title}
-                                    </p>
+                                    {titleTo ? (
+                                        <Link to={titleTo} onClick={e => e.stopPropagation()}
+                                            style={{ display: 'block', margin: 0, fontSize: '13px', fontWeight: 700, color: 'white', textDecoration: 'none', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                            {player.currentTrack.title}
+                                        </Link>
+                                    ) : (
+                                        <p style={{ margin: 0, fontSize: '13px', fontWeight: 700, color: 'white', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                            {player.currentTrack.title}
+                                        </p>
+                                    )}
                                     <p style={{ margin: '2px 0 0', fontSize: '11px', color: '#B9C3CE', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                         {player.currentTrack.artist}
                                     </p>
