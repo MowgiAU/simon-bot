@@ -597,7 +597,7 @@ export const FrontpageAltFGenrePost: React.FC = () => {
                         setCommentBarFocused(true);
                         setTimeout(() => document.getElementById('genre-post-comment-textarea')?.focus(), 50);
                     }}
-                    style={{ position: 'fixed', left: 12, right: 12, bottom: MOBILE_NAV_HEIGHT + 12, height: 44, background: S_CONT, border: `1px solid ${BORDER}`, borderRadius: 9999, color: SUB, fontSize: 13, fontFamily: FONT, display: 'flex', alignItems: 'center', paddingLeft: 16, gap: 8, zIndex: 205, cursor: 'pointer', boxShadow: '0 4px 20px rgba(0,0,0,0.4)' }}>
+                    style={{ position: 'fixed', left: 12, right: 80, bottom: MOBILE_NAV_HEIGHT + 12, height: 44, background: S_CONT, border: `1px solid ${BORDER}`, borderRadius: 9999, color: SUB, fontSize: 13, fontFamily: FONT, display: 'flex', alignItems: 'center', paddingLeft: 16, gap: 8, zIndex: 205, cursor: 'pointer', boxShadow: '0 4px 20px rgba(0,0,0,0.4)' }}>
                     <Send size={14} /> {replyTo ? `Reply to ${replyTo.username}…` : 'Add a comment…'}
                 </button>
             )}
