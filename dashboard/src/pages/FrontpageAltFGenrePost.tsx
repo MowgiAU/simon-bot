@@ -13,6 +13,8 @@ import {
 } from '../components/altshell/AltSidebar';
 import { AltHeader } from '../components/altshell/AltHeader';
 import { AltActivitySidebar } from '../components/altshell/AltActivitySidebar';
+import { useAltBreakpoint } from '../components/altshell/useAltBreakpoint';
+import { MOBILE_NAV_HEIGHT } from '../components/altshell/AltMobileNav';
 import {
     ChevronUp, ChevronDown, MessageCircle, Music, Play, Pause, FileText,
     ChevronLeft, Send, ThumbsUp, ThumbsDown,
@@ -56,6 +58,9 @@ export const FrontpageAltFGenrePost: React.FC = () => {
     const { player, setTrack, togglePlay } = usePlayer();
     const { mutualAdminGuilds } = useAuth();
     const isAdmin = mutualAdminGuilds.length > 0;
+    const bp = useAltBreakpoint();
+    const isMobile = bp === 'xs';
+    const [commentBarFocused, setCommentBarFocused] = useState(false);
 
     const [post, setPost] = useState<any>(null);
     const [loading, setLoading] = useState(true);
@@ -311,7 +316,7 @@ export const FrontpageAltFGenrePost: React.FC = () => {
                             <div>
 
                             {/* Post card */}
-                            <div style={{ ...glass, borderRadius: 18, padding: '24px 28px', marginBottom: 24 }}>
+                            <div style={isMobile ? { borderBottom: `1px solid ${BORDER}`, padding: '4px 0 16px', marginBottom: 16 } : { ...glass, borderRadius: 18, padding: '24px 28px', marginBottom: 24 }}>
                                 {/* Admin: hidden indicator */}
                                 {isAdmin && post.hiddenAt && (
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: `${TERTIARY}18`, border: `1px solid ${TERTIARY}44`, borderRadius: 8, marginBottom: 14, fontSize: 12, color: TERTIARY }}>
@@ -324,7 +329,8 @@ export const FrontpageAltFGenrePost: React.FC = () => {
                                 )}
 
                                 <div style={{ display: 'flex', gap: 20 }}>
-                                    {/* Vote column */}
+                                    {/* Vote column — desktop only; mobile shows votes in the bottom action bar */}
+                                    {!isMobile && (
                                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, minWidth: 44, paddingTop: 2 }}>
                                         <button onClick={() => handleVote('up')}
                                             style={{ background: post.userVote === 'up' ? `${PRIMARY}18` : 'none', border: `1px solid ${post.userVote === 'up' ? PRIMARY : BORDER}`, borderRadius: 8, cursor: 'pointer', color: post.userVote === 'up' ? PRIMARY : SUB, padding: '6px 8px', display: 'flex', transition: 'all 0.15s' }}>
@@ -336,6 +342,7 @@ export const FrontpageAltFGenrePost: React.FC = () => {
                                             <ChevronDown size={20} />
                                         </button>
                                     </div>
+                                    )}
 
                                     {/* Content */}
                                     <div style={{ flex: 1, minWidth: 0 }}>
@@ -384,7 +391,7 @@ export const FrontpageAltFGenrePost: React.FC = () => {
                                         )}
 
                                         {/* Title */}
-                                        <h1 style={{ margin: '0 0 16px', fontSize: 22, fontWeight: 900, color: TEXT, lineHeight: 1.3 }}>
+                                        <h1 style={{ margin: '0 0 16px', fontSize: isMobile ? 18 : 22, fontWeight: 900, color: TEXT, lineHeight: 1.3 }}>
                                             {post.type === 'track' && <Music size={18} color={PRIMARY} style={{ marginRight: 8, verticalAlign: 'middle' }} />}
                                             {post.type === 'discussion' && <FileText size={18} color={SECONDARY} style={{ marginRight: 8, verticalAlign: 'middle' }} />}
                                             {post.title}
@@ -426,7 +433,50 @@ export const FrontpageAltFGenrePost: React.FC = () => {
                                             <img src={post.imageUrl} alt="" style={{ maxWidth: '100%', borderRadius: 10, marginBottom: 14, display: 'block' }} onError={e => (e.currentTarget.style.display = 'none')} />
                                         )}
 
-                                        {/* Footer stats + actions */}
+                                        {/* Footer stats + actions — Reddit-style bottom action bar on mobile */}
+                                        {isMobile && (
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingTop: 10, borderTop: `1px solid ${BORDER}`, flexWrap: 'wrap' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 2, background: S_HIGH, borderRadius: 9999, padding: '4px 6px' }}>
+                                                    <button onClick={() => handleVote('up')}
+                                                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'flex', color: post.userVote === 'up' ? PRIMARY : SUB }}>
+                                                        <ChevronUp size={17} />
+                                                    </button>
+                                                    <span style={{ fontSize: 13, fontWeight: 800, color: post.score > 0 ? PRIMARY : post.score < 0 ? TERTIARY : TEXT, minWidth: 18, textAlign: 'center' }}>{post.score}</span>
+                                                    <button onClick={() => handleVote('down')}
+                                                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'flex', color: post.userVote === 'down' ? TERTIARY : SUB }}>
+                                                        <ChevronDown size={17} />
+                                                    </button>
+                                                </div>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 5, color: SUB, fontSize: 12, fontWeight: 700, background: S_HIGH, borderRadius: 9999, padding: '6px 12px' }}>
+                                                    <MessageCircle size={14} /> {post.commentCount}
+                                                </div>
+                                                <button onClick={() => { setShowShareModal(true); setShareStep('menu'); setCrossPostDone(false); setShareErr(''); }}
+                                                    style={{ display: 'flex', alignItems: 'center', gap: 5, color: SUB, fontSize: 12, fontWeight: 700, background: S_HIGH, border: 'none', borderRadius: 9999, padding: '6px 12px', cursor: 'pointer' }}>
+                                                    <Share2 size={14} />
+                                                </button>
+                                                {isAdmin && (
+                                                    <>
+                                                        <button onClick={handleTogglePin}
+                                                            style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'none', border: `1px solid ${post.pinned ? SECONDARY : BORDER}`, borderRadius: 9999, cursor: 'pointer', color: post.pinned ? SECONDARY : SUB, padding: '5px 10px', fontFamily: FONT, fontSize: 11, fontWeight: 700 }}>
+                                                            <Pin size={11} /> {post.pinned ? 'Unpin' : 'Pin'}
+                                                        </button>
+                                                        {!post.hiddenAt ? (
+                                                            <button onClick={() => setShowHidePostModal(true)}
+                                                                style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'none', border: `1px solid ${BORDER}`, borderRadius: 9999, cursor: 'pointer', color: TERTIARY, padding: '5px 10px', fontFamily: FONT, fontSize: 11, fontWeight: 700 }}>
+                                                                <EyeOff size={11} /> Hide
+                                                            </button>
+                                                        ) : (
+                                                            <button onClick={handleRestorePost}
+                                                                style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'none', border: `1px solid ${TERTIARY}`, borderRadius: 9999, cursor: 'pointer', color: TERTIARY, padding: '5px 10px', fontFamily: FONT, fontSize: 11, fontWeight: 700 }}>
+                                                                <Eye size={11} /> Restore
+                                                            </button>
+                                                        )}
+                                                    </>
+                                                )}
+                                            </div>
+                                        )}
+
+                                        {!isMobile && (
                                         <div style={{ display: 'flex', alignItems: 'center', gap: 14, fontSize: 12, color: SUB, paddingTop: 10, borderTop: `1px solid ${BORDER}`, flexWrap: 'wrap' }}>
                                             <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><MessageCircle size={13} /> {post.commentCount} comments</span>
                                             <span>{post.upvotes} upvotes · {post.downvotes} downvotes</span>
@@ -460,12 +510,13 @@ export const FrontpageAltFGenrePost: React.FC = () => {
                                                 </>
                                             )}
                                         </div>
+                                        )}
                                     </div>
                                 </div>
                             </div>
 
-                            {/* Comment box */}
-                            <div style={{ ...glass, borderRadius: 14, padding: '18px 20px', marginBottom: 24 }}>
+                            {/* Comment box — inline on desktop; on mobile it's reachable via the sticky "Add a comment" bar below */}
+                            <div style={isMobile ? { display: commentBarFocused ? 'block' : 'none', ...glass, borderRadius: 14, padding: '16px 18px', marginBottom: 24 } : { ...glass, borderRadius: 14, padding: '18px 20px', marginBottom: 24 }}>
                                 {replyTo && (
                                     <div style={{ fontSize: 12, color: SECONDARY, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
                                         Replying to <strong>{replyTo.username}</strong>
@@ -473,14 +524,21 @@ export const FrontpageAltFGenrePost: React.FC = () => {
                                     </div>
                                 )}
                                 <textarea
+                                    id="genre-post-comment-textarea"
                                     value={commentText}
                                     onChange={e => setCommentText(e.target.value)}
                                     placeholder={replyTo ? `Reply to ${replyTo.username}…` : 'Share your thoughts…'}
                                     rows={3}
                                     style={{ width: '100%', boxSizing: 'border-box', padding: '10px 14px', background: S_CONT, border: `1px solid ${BORDER}`, borderRadius: 9, color: TEXT, fontSize: 14, fontFamily: FONT, outline: 'none', resize: 'vertical', marginBottom: 10 }}
                                 />
-                                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                                    <button onClick={submitComment} disabled={submitting || !commentText.trim()}
+                                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                                    {isMobile && (
+                                        <button onClick={() => setCommentBarFocused(false)}
+                                            style={{ padding: '8px 16px', background: 'none', border: `1px solid ${BORDER}`, borderRadius: 8, color: SUB, cursor: 'pointer', fontFamily: FONT, fontSize: 13, fontWeight: 700 }}>
+                                            Cancel
+                                        </button>
+                                    )}
+                                    <button onClick={() => submitComment().then(() => setCommentBarFocused(false))} disabled={submitting || !commentText.trim()}
                                         style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', background: PRIMARY, border: 'none', borderRadius: 8, color: '#fff', cursor: (submitting || !commentText.trim()) ? 'not-allowed' : 'pointer', fontFamily: FONT, fontSize: 13, fontWeight: 700, opacity: (submitting || !commentText.trim()) ? 0.5 : 1 }}>
                                         <Send size={13} /> {submitting ? 'Posting…' : 'Comment'}
                                     </button>
@@ -517,6 +575,7 @@ export const FrontpageAltFGenrePost: React.FC = () => {
                                                 onLike={handleCommentLike}
                                                 onReply={r => setReplyTo(r)}
                                                 isAdmin={isAdmin}
+                                                isMobile={isMobile}
                                                 onHide={commentId => { setShowHideCommentModal({ commentId }); setHideCommentReason(''); }}
                                                 onRestore={handleRestoreComment}
                                             />
@@ -530,6 +589,18 @@ export const FrontpageAltFGenrePost: React.FC = () => {
                     <AltActivitySidebar />
                 </div>
             </main>
+
+            {/* Mobile: sticky "Add a comment" bar (Reddit-style), tap to reveal the comment box above */}
+            {isMobile && !commentBarFocused && (
+                <button
+                    onClick={() => {
+                        setCommentBarFocused(true);
+                        setTimeout(() => document.getElementById('genre-post-comment-textarea')?.focus(), 50);
+                    }}
+                    style={{ position: 'fixed', left: 12, right: 12, bottom: MOBILE_NAV_HEIGHT + 12, height: 44, background: S_CONT, border: `1px solid ${BORDER}`, borderRadius: 9999, color: SUB, fontSize: 13, fontFamily: FONT, display: 'flex', alignItems: 'center', paddingLeft: 16, gap: 8, zIndex: 205, cursor: 'pointer', boxShadow: '0 4px 20px rgba(0,0,0,0.4)' }}>
+                    <Send size={14} /> {replyTo ? `Reply to ${replyTo.username}…` : 'Add a comment…'}
+                </button>
+            )}
 
             {/* Share Modal */}
             {showShareModal && (
@@ -652,9 +723,10 @@ const CommentCard: React.FC<{
     onReply: (r: { id: string; username: string }) => void;
     isReply?: boolean;
     isAdmin?: boolean;
+    isMobile?: boolean;
     onHide?: (commentId: string) => void;
     onRestore?: (commentId: string) => void;
-}> = ({ comment, onLike, onReply, isReply, isAdmin, onHide, onRestore }) => {
+}> = ({ comment, onLike, onReply, isReply, isAdmin, isMobile, onHide, onRestore }) => {
     const [showReplies, setShowReplies] = useState(true);
     if (comment.deletedAt) return null;
 
@@ -667,7 +739,11 @@ const CommentCard: React.FC<{
 
     return (
         <div style={{ paddingLeft: isReply ? 20 : 0 }}>
-            <div style={{
+            <div style={isMobile ? {
+                background: isHidden ? `${TERTIARY}0f` : 'none',
+                border: isHidden ? `1px solid ${TERTIARY}44` : 'none',
+                borderRadius: isHidden ? 10 : 0, padding: isHidden ? '10px 12px' : '8px 0',
+            } : {
                 background: isHidden ? `rgba(${TERTIARY},0.06)` : isReply ? 'rgba(28,31,42,0.5)' : 'rgba(15,19,29,0.7)',
                 backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
                 border: `1px solid ${isHidden ? `${TERTIARY}44` : BORDER}`,
@@ -724,33 +800,61 @@ const CommentCard: React.FC<{
                         <p style={{ margin: '0 0 10px', fontSize: 14, color: TEXT, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{comment.content}</p>
 
                         {/* Actions */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12 }}>
-                            <button onClick={() => onLike(comment.id, 'like')}
-                                style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', cursor: 'pointer', color: comment.userVote === 'like' ? SECONDARY : SUB, padding: 0, fontFamily: FONT, fontSize: 12 }}>
-                                <ThumbsUp size={12} fill={comment.userVote === 'like' ? SECONDARY : 'none'} />
-                                {comment.likeCount || 0}
-                            </button>
-                            <button onClick={() => onLike(comment.id, 'dislike')}
-                                style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', cursor: 'pointer', color: comment.userVote === 'dislike' ? TERTIARY : SUB, padding: 0, fontFamily: FONT, fontSize: 12 }}>
-                                <ThumbsDown size={12} fill={comment.userVote === 'dislike' ? TERTIARY : 'none'} />
-                                {comment.dislikeCount || 0}
-                            </button>
-                            <span style={{ color: `${SUB}55` }}>·</span>
-                            <span style={{ fontSize: 11, color: score > 0 ? SECONDARY : score < 0 ? TERTIARY : SUB, fontWeight: 600 }}>{score > 0 ? '+' : ''}{score}</span>
-                            {!isReply && (
-                                <button onClick={() => onReply({ id: comment.id, username: comment.username })}
-                                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: SUB, padding: 0, fontFamily: FONT, fontSize: 12, marginLeft: 4 }}>
-                                    Reply
+                        {isMobile ? (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 2, background: S_HIGH, borderRadius: 9999, padding: '2px 4px' }}>
+                                    <button onClick={() => onLike(comment.id, 'like')}
+                                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: comment.userVote === 'like' ? SECONDARY : SUB, padding: 4, display: 'flex' }}>
+                                        <ChevronUp size={14} />
+                                    </button>
+                                    <span style={{ fontSize: 11, fontWeight: 800, color: score > 0 ? SECONDARY : score < 0 ? TERTIARY : TEXT, minWidth: 14, textAlign: 'center' }}>{score}</span>
+                                    <button onClick={() => onLike(comment.id, 'dislike')}
+                                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: comment.userVote === 'dislike' ? TERTIARY : SUB, padding: 4, display: 'flex' }}>
+                                        <ChevronDown size={14} />
+                                    </button>
+                                </div>
+                                {!isReply && (
+                                    <button onClick={() => onReply({ id: comment.id, username: comment.username })}
+                                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: SUB, padding: '4px 8px', fontFamily: FONT, fontSize: 12, fontWeight: 700 }}>
+                                        Reply
+                                    </button>
+                                )}
+                                {isAdmin && onHide && (
+                                    <button onClick={() => onHide(comment.id)}
+                                        style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', cursor: 'pointer', color: TERTIARY, padding: '4px 8px', fontFamily: FONT, fontSize: 11 }}>
+                                        <EyeOff size={11} /> Hide
+                                    </button>
+                                )}
+                            </div>
+                        ) : (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12 }}>
+                                <button onClick={() => onLike(comment.id, 'like')}
+                                    style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', cursor: 'pointer', color: comment.userVote === 'like' ? SECONDARY : SUB, padding: 0, fontFamily: FONT, fontSize: 12 }}>
+                                    <ThumbsUp size={12} fill={comment.userVote === 'like' ? SECONDARY : 'none'} />
+                                    {comment.likeCount || 0}
                                 </button>
-                            )}
-                            {/* Admin: hide button */}
-                            {isAdmin && onHide && (
-                                <button onClick={() => onHide(comment.id)}
-                                    style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', cursor: 'pointer', color: TERTIARY, padding: 0, fontFamily: FONT, fontSize: 11, marginLeft: 4 }}>
-                                    <EyeOff size={11} /> Hide
+                                <button onClick={() => onLike(comment.id, 'dislike')}
+                                    style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', cursor: 'pointer', color: comment.userVote === 'dislike' ? TERTIARY : SUB, padding: 0, fontFamily: FONT, fontSize: 12 }}>
+                                    <ThumbsDown size={12} fill={comment.userVote === 'dislike' ? TERTIARY : 'none'} />
+                                    {comment.dislikeCount || 0}
                                 </button>
-                            )}
-                        </div>
+                                <span style={{ color: `${SUB}55` }}>·</span>
+                                <span style={{ fontSize: 11, color: score > 0 ? SECONDARY : score < 0 ? TERTIARY : SUB, fontWeight: 600 }}>{score > 0 ? '+' : ''}{score}</span>
+                                {!isReply && (
+                                    <button onClick={() => onReply({ id: comment.id, username: comment.username })}
+                                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: SUB, padding: 0, fontFamily: FONT, fontSize: 12, marginLeft: 4 }}>
+                                        Reply
+                                    </button>
+                                )}
+                                {/* Admin: hide button */}
+                                {isAdmin && onHide && (
+                                    <button onClick={() => onHide(comment.id)}
+                                        style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', cursor: 'pointer', color: TERTIARY, padding: 0, fontFamily: FONT, fontSize: 11, marginLeft: 4 }}>
+                                        <EyeOff size={11} /> Hide
+                                    </button>
+                                )}
+                            </div>
+                        )}
                     </>
                 )}
             </div>
@@ -772,6 +876,7 @@ const CommentCard: React.FC<{
                                     onReply={() => {}}
                                     isReply
                                     isAdmin={isAdmin}
+                                    isMobile={isMobile}
                                     onHide={onHide}
                                     onRestore={onRestore}
                                 />
