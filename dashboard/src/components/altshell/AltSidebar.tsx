@@ -72,12 +72,12 @@ export const AltSidebar: React.FC<{ active?: string }> = ({ active }) => {
 }
 /* ② Small tablet < 900px: body left-sidebar stacks above content */
 @media (max-width:899px){
-  [style*="280px 1fr"],[style*="300px 1fr"]{grid-template-columns:1fr!important}
+  [style*="280px 1fr"],[style*="300px 1fr"],[style*="260px 1fr"]{grid-template-columns:1fr!important}
 }
 /* ③ Mobile < 550px: 3/2-col → 1-col, tighten padding */
 @media (max-width:549px){
   [style*="repeat(3, 1fr)"],[style*="repeat(2, 1fr)"]{grid-template-columns:1fr!important}
-  [style*="280px 1fr"],[style*="300px 1fr"]{padding-left:16px!important;padding-right:16px!important}
+  [style*="280px 1fr"],[style*="300px 1fr"],[style*="260px 1fr"]{padding-left:16px!important;padding-right:16px!important}
 }
 /* ④ Track-table rows — min-width forces overflowX:auto parent to scroll
    rather than cropping columns when viewport is narrow */
