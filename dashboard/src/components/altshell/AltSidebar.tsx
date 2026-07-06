@@ -112,6 +112,14 @@ export const AltSidebar: React.FC<{ active?: string }> = ({ active }) => {
      found") — safe to tighten since they're just centered text, not shaped UI. */
   [style*="padding: 40px;"],[style*="padding: 60px;"],[style*="padding: 80px;"]
   {padding-left:16px!important;padding-right:16px!important}
+
+  /* Every Alt F page's scrollable content wrapper uses this exact convention
+     (verified identical across home/track/charts/battle). It reserves bottom
+     clearance for a desktop-docked player only — on mobile it also needs to
+     clear the fixed bottom nav (60px) and the content FAB floating above it,
+     or the last item in the list sits underneath them. */
+  [style*="flex: 1 1 0%; overflow-y: auto; padding-bottom: 0px"]{padding-bottom:150px!important}
+  [style*="flex: 1 1 0%; overflow-y: auto; padding-bottom: 90px"]{padding-bottom:230px!important}
 }`;
         document.head.appendChild(s);
     }, []);
