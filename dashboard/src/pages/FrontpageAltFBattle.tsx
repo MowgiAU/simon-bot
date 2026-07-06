@@ -97,6 +97,91 @@ export const FrontpageAltFBattle: React.FC = () => {
         { label: battle?.title || '…' },
     ];
 
+    // Right-rail extras (prizes + timeline + podium). Built only when battle data is present.
+    const railExtras = battle ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+            {/* Prizes */}
+            {Array.isArray(battle.prizes) && battle.prizes.length > 0 && (
+                <div style={{ ...glass, borderRadius: 20, padding: '20px 20px', overflow: 'hidden', position: 'relative' }}>
+                    <div style={{ position: 'absolute', top: -32, right: -32, width: 100, height: 100, background: `${PRIMARY}10`, borderRadius: '50%', filter: 'blur(24px)' }} />
+                    <h3 style={{ margin: '0 0 20px', fontSize: 15, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <Trophy size={16} color={PRIMARY} /> Battle Prizes
+                    </h3>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                        {(battle.prizes as any[]).map((p: any, i: number) => {
+                            const placeColor = i === 0 ? PRIMARY : i === 1 ? SECONDARY : TERTIARY;
+                            return (
+                                <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                                    <div style={{ width: 40, height: 40, borderRadius: 10, border: `1px solid ${placeColor}44`, background: `${placeColor}0a`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 18 }}>
+                                        {i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉'}
+                                    </div>
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                        <p style={{ margin: '0 0 2px', fontSize: 10, fontWeight: 800, color: placeColor, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{p.place || `${i + 1}${['st','nd','rd'][i] || 'th'} Place`}</p>
+                                        {p.title && <p style={{ margin: '0 0 2px', fontSize: 12, fontWeight: 700, color: TEXT }}>{p.title}</p>}
+                                        {p.description && <p style={{ margin: 0, fontSize: 11, color: SUB, lineHeight: 1.4 }}>{p.description}</p>}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+
+            {/* Timeline */}
+            <div style={{ ...glass, borderRadius: 20, padding: '20px 20px' }}>
+                <h3 style={{ margin: '0 0 16px', fontSize: 15, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <Clock size={16} color={SECONDARY} /> Timeline
+                </h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    {[
+                        { label: 'Submissions close', date: battle.submissionEnd },
+                        { label: 'Voting ends', date: battle.votingEnd },
+                    ].filter(t => t.date).map((t, i) => (
+                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13 }}>
+                            <span style={{ color: SUB }}>{t.label}</span>
+                            <span style={{ color: TEXT, fontWeight: 600 }}>{new Date(t.date!).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            {/* Top entries podium */}
+            {entries.length >= 2 && (
+                <div style={{ ...glass, borderRadius: 20, padding: '20px 20px' }}>
+                    <h3 style={{ margin: '0 0 16px', fontSize: 15, fontWeight: 700 }}>
+                        {status?.label === 'Ended' ? 'Final Podium' : 'Leading Right Now'}
+                    </h3>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                        {entries.slice(0, 3).map((e: any, i: number) => {
+                            const placeColor = i === 0 ? PRIMARY : i === 1 ? SECONDARY : TERTIARY;
+                            const avatar = e.track?.profile?.avatar;
+                            const userId = e.track?.profile?.userId;
+                            return (
+                                <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', background: S_HIGH, borderRadius: 12, position: 'relative', overflow: 'hidden', borderLeft: `3px solid ${placeColor}` }}>
+                                    <span style={{ position: 'absolute', right: 8, bottom: -4, fontSize: 28, fontWeight: 900, color: `${placeColor}18`, fontStyle: 'italic', lineHeight: 1 }}>0{i + 1}</span>
+                                    <div style={{ width: 40, height: 40, borderRadius: '50%', overflow: 'hidden', background: S_CONT, flexShrink: 0 }}>
+                                        {avatar && userId
+                                            ? <img src={`https://cdn.discordapp.com/avatars/${userId}/${avatar}.png?size=64`} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                            : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Music size={16} color={SUB} /></div>}
+                                    </div>
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                        <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: TEXT, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.track?.profile?.displayName || e.track?.profile?.username || 'Unknown'}</p>
+                                        <p style={{ margin: '1px 0 0', fontSize: 11, color: SUB, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Track: {e.track?.title || 'Untitled'}</p>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                    <button style={{ width: '100%', marginTop: 14, padding: '8px 0', background: 'none', border: 'none', color: SUB, fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                        View Full Leaderboard <ChevronRight size={14} />
+                    </button>
+                </div>
+            )}
+
+        </div>
+    ) : undefined;
+
     return (
         <div style={{ height: '100vh', display: 'flex', overflow: 'hidden', background: BG, color: TEXT, fontFamily: FONT }}>
             <AltSidebar active="Battles" />
@@ -149,93 +234,10 @@ export const FrontpageAltFBattle: React.FC = () => {
                                 </div>
                             </section>
 
-                            {/* ── BODY GRID ── */}
-                            <div style={{ maxWidth: 1280, margin: '0 auto', padding: '28px 32px', display: 'grid', gridTemplateColumns: '280px 1fr', gap: 24, boxSizing: 'border-box' }}>
+                            {/* ── BODY ── (single column; prizes/timeline/podium moved to right rail) */}
+                            <div style={{ maxWidth: 1280, margin: '0 auto', padding: '28px 32px', boxSizing: 'border-box' }}>
 
-                                {/* ── LEFT SIDEBAR (280px): prizes + timeline + podium ── */}
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-
-                                    {/* Prizes */}
-                                    {Array.isArray(battle.prizes) && battle.prizes.length > 0 && (
-                                        <div style={{ ...glass, borderRadius: 20, padding: '20px 20px', overflow: 'hidden', position: 'relative' }}>
-                                            <div style={{ position: 'absolute', top: -32, right: -32, width: 100, height: 100, background: `${PRIMARY}10`, borderRadius: '50%', filter: 'blur(24px)' }} />
-                                            <h3 style={{ margin: '0 0 20px', fontSize: 15, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
-                                                <Trophy size={16} color={PRIMARY} /> Battle Prizes
-                                            </h3>
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                                                {(battle.prizes as any[]).map((p: any, i: number) => {
-                                                    const placeColor = i === 0 ? PRIMARY : i === 1 ? SECONDARY : TERTIARY;
-                                                    return (
-                                                        <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-                                                            <div style={{ width: 40, height: 40, borderRadius: 10, border: `1px solid ${placeColor}44`, background: `${placeColor}0a`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 18 }}>
-                                                                {i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉'}
-                                                            </div>
-                                                            <div style={{ flex: 1, minWidth: 0 }}>
-                                                                <p style={{ margin: '0 0 2px', fontSize: 10, fontWeight: 800, color: placeColor, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{p.place || `${i + 1}${['st','nd','rd'][i] || 'th'} Place`}</p>
-                                                                {p.title && <p style={{ margin: '0 0 2px', fontSize: 12, fontWeight: 700, color: TEXT }}>{p.title}</p>}
-                                                                {p.description && <p style={{ margin: 0, fontSize: 11, color: SUB, lineHeight: 1.4 }}>{p.description}</p>}
-                                                            </div>
-                                                        </div>
-                                                    );
-                                                })}
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* Timeline */}
-                                    <div style={{ ...glass, borderRadius: 20, padding: '20px 20px' }}>
-                                        <h3 style={{ margin: '0 0 16px', fontSize: 15, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
-                                            <Clock size={16} color={SECONDARY} /> Timeline
-                                        </h3>
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                                            {[
-                                                { label: 'Submissions close', date: battle.submissionEnd },
-                                                { label: 'Voting ends', date: battle.votingEnd },
-                                            ].filter(t => t.date).map((t, i) => (
-                                                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13 }}>
-                                                    <span style={{ color: SUB }}>{t.label}</span>
-                                                    <span style={{ color: TEXT, fontWeight: 600 }}>{new Date(t.date!).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-
-                                    {/* Top entries podium */}
-                                    {entries.length >= 2 && (
-                                        <div style={{ ...glass, borderRadius: 20, padding: '20px 20px' }}>
-                                            <h3 style={{ margin: '0 0 16px', fontSize: 15, fontWeight: 700 }}>
-                                                {status?.label === 'Ended' ? 'Final Podium' : 'Leading Right Now'}
-                                            </h3>
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                                                {entries.slice(0, 3).map((e: any, i: number) => {
-                                                    const placeColor = i === 0 ? PRIMARY : i === 1 ? SECONDARY : TERTIARY;
-                                                    const avatar = e.track?.profile?.avatar;
-                                                    const userId = e.track?.profile?.userId;
-                                                    return (
-                                                        <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', background: S_HIGH, borderRadius: 12, position: 'relative', overflow: 'hidden', borderLeft: `3px solid ${placeColor}` }}>
-                                                            <span style={{ position: 'absolute', right: 8, bottom: -4, fontSize: 28, fontWeight: 900, color: `${placeColor}18`, fontStyle: 'italic', lineHeight: 1 }}>0{i + 1}</span>
-                                                            <div style={{ width: 40, height: 40, borderRadius: '50%', overflow: 'hidden', background: S_CONT, flexShrink: 0 }}>
-                                                                {avatar && userId
-                                                                    ? <img src={`https://cdn.discordapp.com/avatars/${userId}/${avatar}.png?size=64`} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                                                    : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Music size={16} color={SUB} /></div>}
-                                                            </div>
-                                                            <div style={{ flex: 1, minWidth: 0 }}>
-                                                                <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: TEXT, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.track?.profile?.displayName || e.track?.profile?.username || 'Unknown'}</p>
-                                                                <p style={{ margin: '1px 0 0', fontSize: 11, color: SUB, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Track: {e.track?.title || 'Untitled'}</p>
-                                                            </div>
-                                                        </div>
-                                                    );
-                                                })}
-                                            </div>
-                                            <button style={{ width: '100%', marginTop: 14, padding: '8px 0', background: 'none', border: 'none', color: SUB, fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                                                View Full Leaderboard <ChevronRight size={14} />
-                                            </button>
-                                        </div>
-                                    )}
-
-                                </div>
-
-                                {/* ── RIGHT COLUMN (1fr): sponsor + challenge + samples + entries ── */}
+                                {/* ── MAIN CONTENT: sponsor + challenge + samples + entries ── */}
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
 
                                     {/* Sponsor card */}
@@ -407,7 +409,7 @@ export const FrontpageAltFBattle: React.FC = () => {
                         </>
                     )}
                 </div>
-                <AltActivitySidebar />
+                <AltActivitySidebar topSlot={railExtras} showCommunity={false} />
                 </div>
             </main>
         </div>

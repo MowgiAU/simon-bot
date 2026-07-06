@@ -101,6 +101,64 @@ export const FrontpageAltFBattles: React.FC = () => {
         ? featured.submissionEnd
         : featured?.votingEnd;
 
+    // Rail content: Wall of Fame + Community Stats (only meaningful once data has loaded)
+    const railTopSlot = loading ? null : (
+        <>
+            {/* Wall of Fame */}
+            <div style={{ ...glass, borderRadius: 20, overflow: 'hidden' }}>
+                <div style={{ padding: '16px 20px', borderBottom: `1px solid ${DIVIDER}`, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <Trophy size={16} color="#eab308" />
+                    <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>Wall of Fame</h3>
+                </div>
+                {topEntries.length === 0 ? (
+                    <div style={{ padding: 28, textAlign: 'center', color: SUB, fontSize: 13 }}>No past winners yet.</div>
+                ) : topEntries.map((e: any, i: number) => {
+                    const rankColor = ['#FFD700', '#C0C0C0', '#CD7F32', SUB, SUB][i];
+                    const cover = e.coverUrl || e.track?.coverUrl;
+                    return (
+                        <div key={e.id || i} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 16px', borderBottom: i < topEntries.length - 1 ? `1px solid ${DIVIDER}` : 'none', cursor: 'pointer', transition: 'background 0.15s' }}
+                            onMouseEnter={e2 => (e2.currentTarget.style.background = 'rgba(38,42,53,0.5)')}
+                            onMouseLeave={e2 => (e2.currentTarget.style.background = 'transparent')}>
+                            {/* Cover with hover play */}
+                            <div style={{ position: 'relative', width: 56, height: 56, borderRadius: 10, overflow: 'hidden', background: S_HIGH, flexShrink: 0 }} className="wof-cover">
+                                {cover
+                                    ? <img src={cover} alt="" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Music size={18} color={SUB} /></div>}
+                                <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0, transition: 'opacity 0.2s' }}
+                                    onMouseEnter={ev => { ev.currentTarget.style.opacity = '1'; }} onMouseLeave={ev => { ev.currentTarget.style.opacity = '0'; }}>
+                                    <Play size={20} fill="#fff" color="#fff" />
+                                </div>
+                            </div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                                <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: TEXT, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.title || e.trackTitle || 'Entry'}</p>
+                                <p style={{ margin: '3px 0 0', fontSize: 11, color: SUB, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.profile?.displayName || e.profile?.username || 'Producer'}</p>
+                            </div>
+                            <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                                <p style={{ margin: 0, fontWeight: 900, fontSize: 14, color: rankColor }}>#{i + 1}</p>
+                                <p style={{ margin: '2px 0 0', fontSize: 10, color: SUB, display: 'flex', alignItems: 'center', gap: 3, justifyContent: 'flex-end' }}><Star size={10} fill={PRIMARY} color={PRIMARY} /> {fmtNum(e.votes || 0)}</p>
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+
+            {/* Community Stats */}
+            <div style={{ ...glass, borderRadius: 20, padding: 20, borderLeft: `4px solid ${PRIMARY}` }}>
+                <h3 style={{ margin: '0 0 16px', fontSize: 12, fontWeight: 700, color: PRIMARY, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Community Stats</h3>
+                {[
+                    { label: 'Total Battles', value: battles.length + archive.length },
+                    { label: 'Live Now', value: battles.filter((b: any) => b.status === 'active' || b.status === 'open').length },
+                    { label: 'Total Entries', value: [...battles, ...archive].reduce((sum: number, b: any) => sum + (b._count?.entries || 0), 0) },
+                ].map((s, i) => (
+                    <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr auto', alignItems: 'center', padding: '11px 0', borderBottom: i < 2 ? `1px solid ${DIVIDER}` : 'none', fontSize: 14 }}>
+                        <span style={{ color: SUB, fontSize: 13 }}>{s.label}</span>
+                        <span style={{ color: TEXT, fontWeight: 700, fontSize: 15 }}>{fmtNum(s.value)}</span>
+                    </div>
+                ))}
+            </div>
+        </>
+    );
+
     return (
         <div style={{ height: '100vh', display: 'flex', overflow: 'hidden', background: BG, color: TEXT, fontFamily: FONT }}>
             <AltSidebar active="Battles" />
@@ -219,67 +277,10 @@ export const FrontpageAltFBattles: React.FC = () => {
                                 </section>
                             )}
 
-                            {/* ── MAIN BODY: left sidebar + right content ── */}
-                            <div style={{ maxWidth: 1280, margin: '24px auto 0', padding: '0 32px 40px', display: 'grid', gridTemplateColumns: '280px 1fr', gap: 28, boxSizing: 'border-box' }}>
+                            {/* ── MAIN BODY: battles content (full width — Wall of Fame / Community Stats moved to right rail) ── */}
+                            <div style={{ maxWidth: 1280, margin: '24px auto 0', padding: '0 32px 40px', boxSizing: 'border-box' }}>
 
-                                {/* ── LEFT SIDEBAR ── */}
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-
-                                    {/* Wall of Fame */}
-                                    <div style={{ ...glass, borderRadius: 20, overflow: 'hidden' }}>
-                                        <div style={{ padding: '16px 20px', borderBottom: `1px solid ${DIVIDER}`, display: 'flex', alignItems: 'center', gap: 8 }}>
-                                            <Trophy size={16} color="#eab308" />
-                                            <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>Wall of Fame</h3>
-                                        </div>
-                                        {topEntries.length === 0 ? (
-                                            <div style={{ padding: 28, textAlign: 'center', color: SUB, fontSize: 13 }}>No past winners yet.</div>
-                                        ) : topEntries.map((e: any, i: number) => {
-                                            const rankColor = ['#FFD700', '#C0C0C0', '#CD7F32', SUB, SUB][i];
-                                            const cover = e.coverUrl || e.track?.coverUrl;
-                                            return (
-                                                <div key={e.id || i} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 16px', borderBottom: i < topEntries.length - 1 ? `1px solid ${DIVIDER}` : 'none', cursor: 'pointer', transition: 'background 0.15s' }}
-                                                    onMouseEnter={e2 => (e2.currentTarget.style.background = 'rgba(38,42,53,0.5)')}
-                                                    onMouseLeave={e2 => (e2.currentTarget.style.background = 'transparent')}>
-                                                    {/* Cover with hover play */}
-                                                    <div style={{ position: 'relative', width: 56, height: 56, borderRadius: 10, overflow: 'hidden', background: S_HIGH, flexShrink: 0 }} className="wof-cover">
-                                                        {cover
-                                                            ? <img src={cover} alt="" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                                            : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Music size={18} color={SUB} /></div>}
-                                                        <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0, transition: 'opacity 0.2s' }}
-                                                            onMouseEnter={ev => { ev.currentTarget.style.opacity = '1'; }} onMouseLeave={ev => { ev.currentTarget.style.opacity = '0'; }}>
-                                                            <Play size={20} fill="#fff" color="#fff" />
-                                                        </div>
-                                                    </div>
-                                                    <div style={{ flex: 1, minWidth: 0 }}>
-                                                        <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: TEXT, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.title || e.trackTitle || 'Entry'}</p>
-                                                        <p style={{ margin: '3px 0 0', fontSize: 11, color: SUB, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.profile?.displayName || e.profile?.username || 'Producer'}</p>
-                                                    </div>
-                                                    <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                                                        <p style={{ margin: 0, fontWeight: 900, fontSize: 14, color: rankColor }}>#{i + 1}</p>
-                                                        <p style={{ margin: '2px 0 0', fontSize: 10, color: SUB, display: 'flex', alignItems: 'center', gap: 3, justifyContent: 'flex-end' }}><Star size={10} fill={PRIMARY} color={PRIMARY} /> {fmtNum(e.votes || 0)}</p>
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-
-                                    {/* Community Stats */}
-                                    <div style={{ ...glass, borderRadius: 20, padding: 20, borderLeft: `4px solid ${PRIMARY}` }}>
-                                        <h3 style={{ margin: '0 0 16px', fontSize: 12, fontWeight: 700, color: PRIMARY, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Community Stats</h3>
-                                        {[
-                                            { label: 'Total Battles', value: battles.length + archive.length },
-                                            { label: 'Live Now', value: battles.filter((b: any) => b.status === 'active' || b.status === 'open').length },
-                                            { label: 'Total Entries', value: [...battles, ...archive].reduce((sum: number, b: any) => sum + (b._count?.entries || 0), 0) },
-                                        ].map((s, i) => (
-                                            <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr auto', alignItems: 'center', padding: '11px 0', borderBottom: i < 2 ? `1px solid ${DIVIDER}` : 'none', fontSize: 14 }}>
-                                                <span style={{ color: SUB, fontSize: 13 }}>{s.label}</span>
-                                                <span style={{ color: TEXT, fontWeight: 700, fontSize: 15 }}>{fmtNum(s.value)}</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                {/* ── RIGHT CONTENT ── */}
+                                {/* ── MAIN CONTENT ── */}
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
 
                                     {/* Upcoming / Active battles grid */}
@@ -396,7 +397,7 @@ export const FrontpageAltFBattles: React.FC = () => {
                         </>
                     )}
                 </div>
-                <AltActivitySidebar />
+                <AltActivitySidebar topSlot={railTopSlot} showCommunity={false} />
                 </div>
             </main>
         </div>

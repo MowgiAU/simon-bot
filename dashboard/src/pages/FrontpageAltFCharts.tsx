@@ -66,6 +66,50 @@ export const FrontpageAltFCharts: React.FC = () => {
 
     const rankColor = (pos: number) => pos === 1 ? '#FFD700' : pos === 2 ? '#C0C0C0' : pos === 3 ? '#CD7F32' : pos <= 10 ? TEXT : SUB;
 
+    // Right-rail content: period selector + Top Tracks summary
+    const rail = (
+        <>
+            <div style={{ ...glass, borderRadius: 16, padding: '16px 14px' }}>
+                <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: SUB, marginBottom: 10, display: 'block' }}>Time Period</span>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    {PERIODS.map(p => (
+                        <button key={p.key} onClick={() => setPeriod(p.key)}
+                            style={{ padding: '10px 14px', borderRadius: 10, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 700, background: period === p.key ? PRIMARY : 'transparent', color: period === p.key ? '#fff' : SUB, textAlign: 'left', transition: 'all 0.2s' }}>
+                            {p.label}
+                        </button>
+                    ))}
+                </div>
+            </div>
+
+            {entries.length > 0 && (
+                <div style={{ ...glass, borderRadius: 16, overflow: 'hidden' }}>
+                    <div style={{ padding: '12px 16px', background: 'rgba(38,42,53,0.5)', borderBottom: `1px solid ${DIVIDER}`, display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <BarChart3 size={13} color={PRIMARY} />
+                        <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: SUB }}>Top Tracks</span>
+                    </div>
+                    {entries.slice(0, 3).map((e: any, i: number) => {
+                        const medalColor = i === 0 ? '#FFD700' : i === 1 ? '#C0C0C0' : '#CD7F32';
+                        return (
+                            <div key={e.track.id} onClick={() => playEntry(e)}
+                                style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', borderBottom: i < 2 ? `1px solid ${DIVIDER}` : 'none', cursor: 'pointer', transition: 'background 0.15s' }}
+                                onMouseEnter={ev => ev.currentTarget.style.background = 'rgba(38,42,53,0.4)'}
+                                onMouseLeave={ev => ev.currentTarget.style.background = 'transparent'}>
+                                <span style={{ fontSize: 15, fontWeight: 900, color: medalColor, minWidth: 20, fontStyle: 'italic' }}>{i + 1}</span>
+                                <div style={{ width: 40, height: 40, borderRadius: 6, overflow: 'hidden', flexShrink: 0, background: S_HIGH }}>
+                                    {e.track.coverUrl && <img src={e.track.coverUrl} alt="" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+                                </div>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                    <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: TEXT, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.track.title}</p>
+                                    <p style={{ margin: '2px 0 0', fontSize: 11, color: SUB, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.track.profile?.displayName || e.track.profile?.username}</p>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
+        </>
+    );
+
     return (
         <div style={{ height: '100vh', display: 'flex', overflow: 'hidden', background: BG, color: TEXT, fontFamily: FONT }}>
             <AltSidebar active="Charts" />
@@ -112,52 +156,10 @@ export const FrontpageAltFCharts: React.FC = () => {
                         </section>
                     )}
 
-                    {/* Body: 280px left panel + 1fr table */}
-                    <div style={{ maxWidth: 1280, margin: '0 auto', padding: '24px 32px 40px', boxSizing: 'border-box', display: 'grid', gridTemplateColumns: '280px 1fr', gap: 28, alignItems: 'flex-start' }}>
+                    {/* Body: full-width Global Charts table */}
+                    <div style={{ maxWidth: 1280, margin: '0 auto', padding: '24px 32px 40px', boxSizing: 'border-box' }}>
 
-                        {/* Left panel: period selector + top 3 */}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                            <div style={{ ...glass, borderRadius: 20, padding: '18px 16px' }}>
-                                <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: SUB, marginBottom: 10, display: 'block' }}>Time Period</span>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                                    {PERIODS.map(p => (
-                                        <button key={p.key} onClick={() => setPeriod(p.key)}
-                                            style={{ padding: '10px 14px', borderRadius: 10, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 700, background: period === p.key ? PRIMARY : 'transparent', color: period === p.key ? '#fff' : SUB, textAlign: 'left', transition: 'all 0.2s' }}>
-                                            {p.label}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-
-                            {entries.length > 0 && (
-                                <div style={{ ...glass, borderRadius: 20, overflow: 'hidden' }}>
-                                    <div style={{ padding: '12px 16px', background: 'rgba(38,42,53,0.5)', borderBottom: `1px solid ${DIVIDER}`, display: 'flex', alignItems: 'center', gap: 8 }}>
-                                        <BarChart3 size={13} color={PRIMARY} />
-                                        <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: SUB }}>Top Tracks</span>
-                                    </div>
-                                    {entries.slice(0, 3).map((e: any, i: number) => {
-                                        const medalColor = i === 0 ? '#FFD700' : i === 1 ? '#C0C0C0' : '#CD7F32';
-                                        return (
-                                            <div key={e.track.id} onClick={() => playEntry(e)}
-                                                style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', borderBottom: i < 2 ? `1px solid ${DIVIDER}` : 'none', cursor: 'pointer', transition: 'background 0.15s' }}
-                                                onMouseEnter={ev => ev.currentTarget.style.background = 'rgba(38,42,53,0.4)'}
-                                                onMouseLeave={ev => ev.currentTarget.style.background = 'transparent'}>
-                                                <span style={{ fontSize: 15, fontWeight: 900, color: medalColor, minWidth: 20, fontStyle: 'italic' }}>{i + 1}</span>
-                                                <div style={{ width: 40, height: 40, borderRadius: 6, overflow: 'hidden', flexShrink: 0, background: S_HIGH }}>
-                                                    {e.track.coverUrl && <img src={e.track.coverUrl} alt="" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
-                                                </div>
-                                                <div style={{ flex: 1, minWidth: 0 }}>
-                                                    <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: TEXT, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.track.title}</p>
-                                                    <p style={{ margin: '2px 0 0', fontSize: 11, color: SUB, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.track.profile?.displayName || e.track.profile?.username}</p>
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Right: header + table */}
+                        {/* Global charts header + table */}
                         <div>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
                                 <div>
@@ -217,7 +219,7 @@ export const FrontpageAltFCharts: React.FC = () => {
                         </div>
                     </div>
                 </div>
-                <AltActivitySidebar />
+                <AltActivitySidebar topSlot={rail} showCommunity={false} />
                 </div>
             </main>
         </div>
