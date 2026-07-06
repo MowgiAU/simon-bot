@@ -18,7 +18,7 @@ import {
     ChevronLeft, ChevronRight,
     Flame, Award, ExternalLink,
     ArrowUp, ArrowDown, MessageSquare, Hash, Clock, Zap,
-    Tag, Sparkles, MessageCircle,
+    Tag, Sparkles, MessageCircle, Share2,
 } from 'lucide-react';
 
 const fmtNum = (n?: number) => { n = n || 0; if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M'; if (n >= 1e3) return (n / 1e3).toFixed(1) + 'k'; return String(n); };
@@ -70,6 +70,7 @@ export const FrontpageAltF: React.FC = () => {
     const { player, setTrack, togglePlay } = usePlayer();
     const bp = useAltBreakpoint();
     const isMobileHero = bp === 'xs';
+    const isMobile = bp === 'xs';
     const [loading,            setLoading]            = useState(true);
     const [slideIdx,           setSlideIdx]           = useState(0);
     const [featured,           setFeatured]           = useState<any>(null);
@@ -757,6 +758,101 @@ export const FrontpageAltF: React.FC = () => {
                                                     if (h < 24) return `${h}h`;
                                                     return `${Math.floor(h / 24)}d`;
                                                 })();
+
+                                                // ── Reddit-style flat mobile card: no card chrome, hairline divider,
+                                                // compact header row, votes/comments/share as a bottom action bar. ──
+                                                if (isMobile) {
+                                                    return (
+                                                        <div key={post.id} style={{ borderBottom: `1px solid ${DIVIDER}`, padding: '12px 0' }}>
+                                                            {/* Header row */}
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, flexWrap: 'wrap' }}>
+                                                                <Link to={`/preview/alt_f_genres/${post.genre?.slug}`}
+                                                                    style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 12, fontWeight: 700, color: accent, textDecoration: 'none' }}>
+                                                                    <Hash size={11} /> {post.genre?.name}
+                                                                </Link>
+                                                                <span style={{ fontSize: 11, color: `${SUB}99` }}>·</span>
+                                                                <span style={{ fontSize: 11, color: SUB }}>{timeAgo}</span>
+                                                                {isTrending && (
+                                                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 9, fontWeight: 800, color: '#fff', background: 'linear-gradient(135deg, #ff7a18, #ff3d6e)', padding: '2px 7px', borderRadius: 9999, letterSpacing: '0.03em', textTransform: 'uppercase' }}>
+                                                                        <Flame size={9} /> Hot
+                                                                    </span>
+                                                                )}
+                                                                {post.flair && (
+                                                                    <span style={{ fontSize: 10, fontWeight: 700, color: flairColor(post.flair), background: `${flairColor(post.flair)}18`, padding: '1px 7px', borderRadius: 9999 }}>
+                                                                        {post.flair}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+
+                                                            {/* Title */}
+                                                            <Link to={`/preview/alt_f_genre_post/${post.id}`}
+                                                                style={{ display: 'block', fontSize: 15, fontWeight: 700, color: TEXT, textDecoration: 'none', marginBottom: post.track ? 8 : 4, lineHeight: 1.35 }}>
+                                                                {post.title}
+                                                            </Link>
+
+                                                            {/* Discussion body preview */}
+                                                            {bodyPreview && (
+                                                                <p style={{ margin: '0 0 8px', fontSize: 13, color: SUB, lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                                                                    {bodyPreview}
+                                                                </p>
+                                                            )}
+
+                                                            {/* Track player — full width */}
+                                                            {post.track && (() => {
+                                                                const isActiveTrack = player.currentTrack?.id === post.track.id;
+                                                                const trackPlaying = isActiveTrack && player.isPlaying;
+                                                                const artist = post.track.profile?.displayName || post.track.profile?.username || '';
+                                                                const playHandler = () => {
+                                                                    if (!trackUrl) return;
+                                                                    if (isActiveTrack) { togglePlay(); return; }
+                                                                    setTrack({ id: post.track.id, title: post.track.title, artist, url: trackUrl, coverUrl: post.track.coverUrl }, []);
+                                                                };
+                                                                return (
+                                                                    <div onClick={playHandler} style={{ display: 'flex', alignItems: 'center', gap: 10, background: S_HIGH, borderRadius: 10, padding: 8, marginBottom: 8, cursor: trackUrl ? 'pointer' : 'default' }}>
+                                                                        <div style={{ position: 'relative', width: 44, height: 44, borderRadius: 6, overflow: 'hidden', flexShrink: 0 }}>
+                                                                            {post.track.coverUrl
+                                                                                ? <img src={post.track.coverUrl} referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                                                                                : <div style={{ width: '100%', height: '100%', background: BG, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Music size={16} color={SUB} /></div>}
+                                                                            <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                                                {trackPlaying ? <Pause size={16} color="#fff" fill="#fff" /> : <Play size={16} color="#fff" fill="#fff" style={{ marginLeft: 1 }} />}
+                                                                            </div>
+                                                                        </div>
+                                                                        <div style={{ minWidth: 0, flex: 1 }}>
+                                                                            <div style={{ fontSize: 13, fontWeight: 700, color: trackPlaying ? PRIMARY : TEXT, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{post.track.title}</div>
+                                                                            {artist && <div style={{ fontSize: 11, color: SUB, marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{artist}</div>}
+                                                                        </div>
+                                                                    </div>
+                                                                );
+                                                            })()}
+
+                                                            {/* Bottom action bar — votes / comments / share (Reddit-style) */}
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                                <div style={{ display: 'flex', alignItems: 'center', gap: 2, background: S_HIGH, borderRadius: 9999, padding: '4px 6px' }}>
+                                                                    <button onClick={() => handleGenreVote(post.id, 'up')}
+                                                                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'flex', color: voteDir === 'up' ? PRIMARY : SUB }}>
+                                                                        <ArrowUp size={15} fill={voteDir === 'up' ? PRIMARY : 'none'} />
+                                                                    </button>
+                                                                    <span style={{ fontSize: 12, fontWeight: 800, color: voteDir === 'up' ? PRIMARY : voteDir === 'down' ? SECONDARY : TEXT, minWidth: 16, textAlign: 'center' }}>
+                                                                        {post.score ?? 0}
+                                                                    </span>
+                                                                    <button onClick={() => handleGenreVote(post.id, 'down')}
+                                                                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'flex', color: voteDir === 'down' ? SECONDARY : SUB }}>
+                                                                        <ArrowDown size={15} fill={voteDir === 'down' ? SECONDARY : 'none'} />
+                                                                    </button>
+                                                                </div>
+                                                                <Link to={`/preview/alt_f_genre_post/${post.id}`}
+                                                                    style={{ display: 'flex', alignItems: 'center', gap: 5, color: SUB, fontSize: 12, fontWeight: 700, textDecoration: 'none', background: S_HIGH, borderRadius: 9999, padding: '6px 12px' }}>
+                                                                    <MessageSquare size={14} /> {post.commentCount ?? 0}
+                                                                </Link>
+                                                                <button onClick={() => navigator.share ? navigator.share({ title: post.title, url: `${window.location.origin}/preview/alt_f_genre_post/${post.id}` }).catch(() => {}) : navigator.clipboard.writeText(`${window.location.origin}/preview/alt_f_genre_post/${post.id}`)}
+                                                                    style={{ display: 'flex', alignItems: 'center', gap: 5, color: SUB, fontSize: 12, fontWeight: 700, background: S_HIGH, border: 'none', borderRadius: 9999, padding: '6px 12px', cursor: 'pointer' }}>
+                                                                    <Share2 size={14} />
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                }
+
                                                 return (
                                                     <div key={post.id} style={{ ...glass, borderRadius: 14, display: 'flex', gap: 0, overflow: 'hidden', borderLeft: `3px solid ${accent}`, transition: 'border-color 0.15s, transform 0.15s, box-shadow 0.15s' }}
                                                         onMouseEnter={ev => { ev.currentTarget.style.borderColor = `${accent}66`; ev.currentTarget.style.borderLeftColor = accent; ev.currentTarget.style.transform = 'translateY(-2px)'; ev.currentTarget.style.boxShadow = `0 14px 44px rgba(0,0,0,0.55), 0 0 0 1px ${accent}22`; }}
