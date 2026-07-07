@@ -12,6 +12,7 @@ import {
 } from '../components/altshell/AltSidebar';
 import { AltHeader } from '../components/altshell/AltHeader';
 import { AltActivitySidebar } from '../components/altshell/AltActivitySidebar';
+import { AltSpinner } from '../components/altshell/AltSpinner';
 import { Search, Play, Users, Music, TrendingUp, Star, X } from 'lucide-react';
 
 const glass: React.CSSProperties = {
@@ -186,7 +187,7 @@ export const FrontpageAltFArtists: React.FC = () => {
                     </section>
 
                     {loading ? (
-                        <div style={{ padding: 80, textAlign: 'center', color: SUB }}>Loading artists…</div>
+                        <div style={{ padding: 80, textAlign: 'center', color: SUB }}><AltSpinner /></div>
                     ) : (
                         <>
                         {/* ── BODY GRID ── */}

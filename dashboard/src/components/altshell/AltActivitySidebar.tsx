@@ -14,6 +14,7 @@ import {
     BG, S_CONT, S_HIGH, PRIMARY, SECONDARY, TERTIARY, TEXT, SUB, BORDER, FONT, arr,
 } from './AltSidebar';
 import { RadialPieMenu, PieItem } from './RadialPieMenu';
+import { AltSpinner } from './AltSpinner';
 import { AltMobileSheet } from './AltMobileSheet';
 import { MOBILE_NAV_HEIGHT } from './AltMobileNav';
 
@@ -200,7 +201,7 @@ export const AltActivitySidebar: React.FC<{ topSlot?: React.ReactNode; showCommu
         )}
 
         {showCommunity && battles.length === 0 && activity.length === 0 && comments.length === 0 && (
-            <div style={{ padding: 32, textAlign: 'center', color: SUB, fontSize: 13 }}>Loading activity…</div>
+            <div style={{ padding: 32, textAlign: 'center', color: SUB, fontSize: 13 }}><AltSpinner /></div>
         )}
         </>
     );

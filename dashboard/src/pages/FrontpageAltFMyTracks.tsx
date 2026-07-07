@@ -14,6 +14,7 @@ import {
 } from '../components/altshell/AltSidebar';
 import { AltHeader } from '../components/altshell/AltHeader';
 import { AltActivitySidebar } from '../components/altshell/AltActivitySidebar';
+import { AltSpinner } from '../components/altshell/AltSpinner';
 import {
     Music, Play, Pause, Globe, Lock, Trash2, Upload,
     SortAsc, Filter, HardDrive, TrendingUp, Eye, Clock,
@@ -284,7 +285,7 @@ export const FrontpageAltFMyTracks: React.FC = () => {
                                 </div>
                                 <div style={{ padding: '16px 20px' }}>
                                     {!storage ? (
-                                        <div style={{ fontSize: 13, color: SUB }}>Loading…</div>
+                                        <div style={{ fontSize: 13, color: SUB }}><AltSpinner /></div>
                                     ) : (
                                         <>
                                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
@@ -346,7 +347,7 @@ export const FrontpageAltFMyTracks: React.FC = () => {
                             </div>
 
                             {loading ? (
-                                <div style={{ ...glass, borderRadius: 20, padding: '60px 24px', textAlign: 'center', color: SUB }}>Loading…</div>
+                                <div style={{ ...glass, borderRadius: 20, padding: '60px 24px', textAlign: 'center', color: SUB }}><AltSpinner /></div>
                             ) : displayed.length === 0 ? (
                                 <div style={{ ...glass, borderRadius: 20, padding: '60px 24px', textAlign: 'center' }}>
                                     <Music size={36} color={SUB} style={{ marginBottom: 14 }} />

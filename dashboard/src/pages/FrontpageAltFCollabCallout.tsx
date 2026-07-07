@@ -9,6 +9,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { AltSidebar, BG, S_LOWEST, S_CONT, S_HIGH, PRIMARY, SECONDARY, TERTIARY, TEXT, SUB, BORDER, FONT } from '../components/altshell/AltSidebar';
 import { AltHeader } from '../components/altshell/AltHeader';
 import { useAuth } from '../components/AuthProvider';
+import { AltSpinner } from '../components/altshell/AltSpinner';
 import { ArrowLeft, Users, Tag, Music, Mic2, Sliders, Clock, CheckCircle, XCircle, ExternalLink, Play, Pause } from 'lucide-react';
 
 function timeAgo(date: string) {
@@ -119,7 +120,7 @@ export default function FrontpageAltFCollabCallout() {
     if (loading) return (
         <div style={{ display: 'flex', height: '100vh', background: BG, fontFamily: FONT, color: TEXT }}>
             <AltSidebar active="Collabs" />
-            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: SUB }}>Loading…</div>
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: SUB }}><AltSpinner /></div>
         </div>
     );
 

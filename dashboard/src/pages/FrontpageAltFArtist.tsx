@@ -16,6 +16,7 @@ import { AltSidebar, BG, S_CONT, S_HIGH, PRIMARY, SECONDARY, TERTIARY, TEXT, SUB
 import { AltHeader } from '../components/altshell/AltHeader';
 import { AltActivitySidebar } from '../components/altshell/AltActivitySidebar';
 import { useAltBreakpoint } from '../components/altshell/useAltBreakpoint';
+import { AltSpinner } from '../components/altshell/AltSpinner';
 import {
     Swords, MapPin, Mail,
     UserPlus, UserCheck, MessageCircle, Play, MoreVertical, Globe, Music, Youtube, Instagram, Headphones, Repeat2, Trophy, Edit3,
@@ -398,7 +399,7 @@ export const FrontpageAltFArtist: React.FC = () => {
                         </div>
 
                     </div>
-                    {!p && <div style={{ padding: 80, textAlign: 'center', color: SUB }}>Loading…</div>}
+                    {!p && <div style={{ padding: 80, textAlign: 'center', color: SUB }}><AltSpinner /></div>}
                 </div>
                 <AltActivitySidebar />
                 </div>

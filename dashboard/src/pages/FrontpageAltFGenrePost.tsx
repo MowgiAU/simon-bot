@@ -13,6 +13,7 @@ import {
 } from '../components/altshell/AltSidebar';
 import { AltHeader } from '../components/altshell/AltHeader';
 import { AltActivitySidebar } from '../components/altshell/AltActivitySidebar';
+import { AltSpinner } from '../components/altshell/AltSpinner';
 import { useAltBreakpoint } from '../components/altshell/useAltBreakpoint';
 import { MOBILE_NAV_HEIGHT } from '../components/altshell/AltMobileNav';
 import {
@@ -265,7 +266,7 @@ export const FrontpageAltFGenrePost: React.FC = () => {
     if (loading) return (
         <div style={{ height: '100vh', display: 'flex', overflow: 'hidden', background: BG, color: TEXT, fontFamily: FONT }}>
             <AltSidebar />
-            <main style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: SUB }}>Loading…</main>
+            <main style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: SUB }}><AltSpinner /></main>
         </div>
     );
 
@@ -568,7 +569,7 @@ export const FrontpageAltFGenrePost: React.FC = () => {
                                 </div>
 
                                 {commentsLoading ? (
-                                    <div style={{ textAlign: 'center', padding: '40px 0', color: SUB, fontSize: 14 }}>Loading comments…</div>
+                                    <div style={{ textAlign: 'center', padding: '40px 0', color: SUB, fontSize: 14 }}><AltSpinner /></div>
                                 ) : sortedComments.length === 0 ? (
                                     <div style={{ ...glass, borderRadius: 14, padding: '40px 24px', textAlign: 'center' }}>
                                         <MessageCircle size={28} color={SUB} style={{ marginBottom: 10 }} />

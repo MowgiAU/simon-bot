@@ -14,6 +14,7 @@ import {
 } from '../components/altshell/AltSidebar';
 import { AltHeader } from '../components/altshell/AltHeader';
 import { AltActivitySidebar } from '../components/altshell/AltActivitySidebar';
+import { AltSpinner } from '../components/altshell/AltSpinner';
 import { BookOpen, ChevronLeft, Eye, Clock, Calendar, Tag, Share2, Bookmark } from 'lucide-react';
 
 const glass: React.CSSProperties = {
@@ -92,7 +93,7 @@ export const FrontpageAltFArticle: React.FC = () => {
                 <div style={{ flex: 1, overflowY: 'auto', paddingBottom: player.currentTrack ? 90 : 0 }}>
                     {loading && (
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 300, color: SUB, fontSize: 14 }}>
-                            Loading article…
+                            <AltSpinner />
                         </div>
                     )}
 

@@ -7,6 +7,7 @@ import axios from 'axios';
 import { Link, useNavigate } from 'react-router-dom';
 import { AltSidebar, BG, S_LOWEST, S_CONT, S_HIGH, PRIMARY, SECONDARY, TERTIARY, TEXT, SUB, BORDER, FONT } from '../components/altshell/AltSidebar';
 import { AltHeader } from '../components/altshell/AltHeader';
+import { AltSpinner } from '../components/altshell/AltSpinner';
 import { useAuth } from '../components/AuthProvider';
 import { Users, Plus, Edit2, Trash2, CheckCircle, Clock, XCircle, ExternalLink, ArrowRight } from 'lucide-react';
 
@@ -121,7 +122,7 @@ export default function FrontpageAltFMyCollabs() {
                         ))}
                     </div>
 
-                    {loading ? <div style={{ color: SUB }}>Loading…</div> : (
+                    {loading ? <div style={{ color: SUB }}><AltSpinner /></div> : (
                         <>
                             {/* My Callouts */}
                             {tab === 'callouts' && (

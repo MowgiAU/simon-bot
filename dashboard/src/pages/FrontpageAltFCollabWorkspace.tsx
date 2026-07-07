@@ -12,6 +12,7 @@ import {
 } from '../components/altshell/AltSidebar';
 import { AltHeader } from '../components/altshell/AltHeader';
 import { useAuth } from '../components/AuthProvider';
+import { AltSpinner } from '../components/altshell/AltSpinner';
 import {
     ArrowLeft, Paperclip, Send, CheckCircle, Clock, Trash2, Download,
     Music, Image, File, ExternalLink, Link2, CheckCheck,
@@ -378,7 +379,7 @@ export default function FrontpageAltFCollabWorkspace() {
             </div>
         </Shell>
     );
-    if (loading) return <Shell><div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: SUB }}>Loading workspace…</div></Shell>;
+    if (loading) return <Shell><div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: SUB }}><AltSpinner /></div></Shell>;
     if (!project) return <Shell><div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: SUB }}>Workspace not found or access denied.</div></Shell>;
 
     const canPost = isParticipant && project.status === 'active';

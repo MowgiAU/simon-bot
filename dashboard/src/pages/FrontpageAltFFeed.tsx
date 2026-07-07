@@ -11,6 +11,7 @@ import {
 } from '../components/altshell/AltSidebar';
 import { AltHeader } from '../components/altshell/AltHeader';
 import { AltActivitySidebar } from '../components/altshell/AltActivitySidebar';
+import { AltSpinner } from '../components/altshell/AltSpinner';
 import {
     Play, Pause, Heart, Repeat2, UserPlus, Swords, Music,
     Rss, Users, TrendingUp, ChevronDown, Lock, MessageCircle,
@@ -592,7 +593,7 @@ export const FrontpageAltFFeed: React.FC = () => {
                                     </div>
 
                                     {publicLoading ? (
-                                        <div style={{ ...glass, borderRadius: 20, padding: '48px 24px', textAlign: 'center', color: SUB }}>Loading activity…</div>
+                                        <div style={{ ...glass, borderRadius: 20, padding: '48px 24px', textAlign: 'center', color: SUB }}><AltSpinner /></div>
                                     ) : visiblePublic.length === 0 ? (
                                         <div style={{ ...glass, borderRadius: 20, padding: '48px 24px', textAlign: 'center' }}>
                                             <Rss size={32} color={SUB} style={{ marginBottom: 12 }} />
@@ -633,7 +634,7 @@ export const FrontpageAltFFeed: React.FC = () => {
                                     </div>
 
                                     {genrePostsLoading && genrePosts.length === 0 ? (
-                                        <div style={{ ...glass, borderRadius: 20, padding: '48px 24px', textAlign: 'center', color: SUB }}>Loading genre feed…</div>
+                                        <div style={{ ...glass, borderRadius: 20, padding: '48px 24px', textAlign: 'center', color: SUB }}><AltSpinner /></div>
                                     ) : genrePostsError === 'unauth' ? (
                                         <div style={{ ...glass, borderRadius: 20, padding: '48px 24px', textAlign: 'center' }}>
                                             <Lock size={32} color={SUB} style={{ marginBottom: 12 }} />
@@ -678,7 +679,7 @@ export const FrontpageAltFFeed: React.FC = () => {
                                     </div>
 
                                     {feedLoading && feedTracks.length === 0 ? (
-                                        <div style={{ ...glass, borderRadius: 20, padding: '48px 24px', textAlign: 'center', color: SUB }}>Loading your feed…</div>
+                                        <div style={{ ...glass, borderRadius: 20, padding: '48px 24px', textAlign: 'center', color: SUB }}><AltSpinner /></div>
                                     ) : feedError === 'unauth' ? (
                                         <div style={{ ...glass, borderRadius: 20, padding: '48px 24px', textAlign: 'center' }}>
                                             <Lock size={32} color={SUB} style={{ marginBottom: 12 }} />

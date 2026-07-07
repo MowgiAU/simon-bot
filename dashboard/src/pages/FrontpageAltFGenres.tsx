@@ -12,6 +12,7 @@ import {
 } from '../components/altshell/AltSidebar';
 import { AltHeader } from '../components/altshell/AltHeader';
 import { AltActivitySidebar } from '../components/altshell/AltActivitySidebar';
+import { AltSpinner } from '../components/altshell/AltSpinner';
 import {
     Music, Play, Pause, Search, X, TrendingUp, Users,
     ChevronUp, ChevronDown, MessageCircle, Clock, Flame, Plus,
@@ -862,7 +863,7 @@ export const FrontpageAltFGenres: React.FC = () => {
 
                                     {/* Genre grid */}
                                     {genreLoading ? (
-                                        <div style={{ textAlign: 'center', padding: '60px 0', color: SUB }}>Loading genres…</div>
+                                        <div style={{ textAlign: 'center', padding: '60px 0', color: SUB }}><AltSpinner /></div>
                                     ) : filtered.length === 0 ? (
                                         <div style={{ ...glass, borderRadius: 20, padding: '60px 24px', textAlign: 'center' }}>
                                             <Search size={32} color={SUB} style={{ marginBottom: 12 }} />
@@ -1077,7 +1078,7 @@ export const FrontpageAltFGenres: React.FC = () => {
 
                                     {/* Post feed */}
                                     {postsLoading && posts.length === 0 ? (
-                                        <div style={{ textAlign: 'center', padding: '60px 0', color: SUB, fontSize: 14 }}>Loading posts…</div>
+                                        <div style={{ textAlign: 'center', padding: '60px 0', color: SUB, fontSize: 14 }}><AltSpinner /></div>
                                     ) : posts.length === 0 ? (
                                         <div style={{ ...glass, borderRadius: 18, padding: '60px 24px', textAlign: 'center' }}>
                                             <FileText size={36} color={SUB} style={{ marginBottom: 14 }} />

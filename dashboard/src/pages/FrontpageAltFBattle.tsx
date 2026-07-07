@@ -7,6 +7,7 @@ import { usePlayer } from '../components/PlayerProvider';
 import { AltSidebar, BG, S_CONT, S_HIGH, PRIMARY, SECONDARY, TERTIARY, TEXT, SUB, BORDER, FONT } from '../components/altshell/AltSidebar';
 import { AltHeader, BreadcrumbItem } from '../components/altshell/AltHeader';
 import { AltActivitySidebar } from '../components/altshell/AltActivitySidebar';
+import { AltSpinner } from '../components/altshell/AltSpinner';
 import {
     Play, Pause, Clock, Users, Trophy, Music, Star, Download,
     Tag, ExternalLink, CheckCircle, ChevronRight, Zap, Gift,
@@ -201,7 +202,7 @@ export const FrontpageAltFBattle: React.FC = () => {
                 <div style={{ flex: 1, display: 'flex', minHeight: 0, overflow: 'hidden' }}>
                 <div style={{ flex: 1, overflowY: 'auto', paddingBottom: player.currentTrack ? 90 : 0 }}>
                     {loading ? (
-                        <div style={{ padding: 80, textAlign: 'center', color: SUB }}>Loading…</div>
+                        <div style={{ padding: 80, textAlign: 'center', color: SUB }}><AltSpinner /></div>
                     ) : !battle ? (
                         <div style={{ padding: 80, textAlign: 'center', color: SUB }}>No battle found.</div>
                     ) : (

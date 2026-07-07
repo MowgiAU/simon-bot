@@ -9,6 +9,7 @@ import { usePlayer } from '../components/PlayerProvider';
 import { AltSidebar, BG, S_CONT, S_HIGH, PRIMARY, SECONDARY, TERTIARY, TEXT, SUB, BORDER, FONT, arr } from '../components/altshell/AltSidebar';
 import { AltHeader } from '../components/altshell/AltHeader';
 import { AltActivitySidebar } from '../components/altshell/AltActivitySidebar';
+import { AltSpinner } from '../components/altshell/AltSpinner';
 import {
     Play, Pause, TrendingUp, TrendingDown, Minus, MoreVertical, Repeat2, Heart, BarChart3, Clock,
 } from 'lucide-react';
@@ -178,7 +179,7 @@ export const FrontpageAltFCharts: React.FC = () => {
                             </div>
 
                             {loading ? (
-                                <div style={{ padding: 60, textAlign: 'center', color: SUB }}>Loading…</div>
+                                <div style={{ padding: 60, textAlign: 'center', color: SUB }}><AltSpinner /></div>
                             ) : entries.length === 0 ? (
                                 <div style={{ padding: 60, textAlign: 'center', color: SUB }}>No chart data yet.</div>
                             ) : (

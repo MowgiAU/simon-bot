@@ -13,6 +13,7 @@ import {
 } from '../components/altshell/AltSidebar';
 import { AltHeader } from '../components/altshell/AltHeader';
 import { AltActivitySidebar } from '../components/altshell/AltActivitySidebar';
+import { AltSpinner } from '../components/altshell/AltSpinner';
 import { ListMusic, Plus, Lock, Globe, Pencil, Trash2, Check, X, Play, Layers, TrendingUp } from 'lucide-react';
 
 const glass: React.CSSProperties = {
@@ -244,7 +245,7 @@ export const FrontpageAltFMyPlaylists: React.FC = () => {
                             <h2 style={{ margin: '0 0 16px', fontSize: 20, fontWeight: 700 }}>Your Playlists</h2>
 
                             {loading ? (
-                                <div style={{ ...glass, borderRadius: 20, padding: '60px 24px', textAlign: 'center', color: SUB }}>Loading…</div>
+                                <div style={{ ...glass, borderRadius: 20, padding: '60px 24px', textAlign: 'center', color: SUB }}><AltSpinner /></div>
                             ) : playlists.length === 0 ? (
                                 <div style={{ ...glass, borderRadius: 20, padding: '60px 24px', textAlign: 'center' }}>
                                     <Layers size={36} color={SUB} style={{ marginBottom: 14 }} />

@@ -15,6 +15,7 @@ import { ArrangementViewer, usePluginRegistry, matchPlugin, PluginModal, PluginL
 import { AltSidebar, BG, S_CONT, S_HIGH, PRIMARY, SECONDARY, TERTIARY, TEXT, SUB, BORDER, FONT } from '../components/altshell/AltSidebar';
 import { AltHeader } from '../components/altshell/AltHeader';
 import { AltActivitySidebar, RailSection } from '../components/altshell/AltActivitySidebar';
+import { AltSpinner } from '../components/altshell/AltSpinner';
 import { useChat } from '../components/ChatProvider';
 import {
     Play, Pause, SkipBack, SkipForward, Heart, Repeat2, Share2, ListPlus, Download,
@@ -175,7 +176,7 @@ export const FrontpageAltFTrack: React.FC = () => {
         </div>
     );
 
-    if (loading) return shell(<div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: SUB }}>Loading…</div>);
+    if (loading) return shell(<div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: SUB }}><AltSpinner /></div>);
     if (!track) return shell(<div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: SUB }}>Track not found.</div>);
 
     // Artist card

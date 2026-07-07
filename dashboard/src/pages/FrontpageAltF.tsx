@@ -13,6 +13,7 @@ import {
 import { AltHeader } from '../components/altshell/AltHeader';
 import { AltActivitySidebar } from '../components/altshell/AltActivitySidebar';
 import { useAltBreakpoint } from '../components/altshell/useAltBreakpoint';
+import { AltSpinner } from '../components/altshell/AltSpinner';
 import {
     Users, Music, TrendingUp, Play, Pause,
     ChevronLeft, ChevronRight,
@@ -545,7 +546,7 @@ export const FrontpageAltF: React.FC = () => {
                 <div style={{ flex: 1, overflowY: 'auto', paddingBottom: player.currentTrack ? 90 : 0 }}>
 
                     {loading ? (
-                        <div style={{ padding: 80, textAlign: 'center', color: SUB }}>Loading…</div>
+                        <div style={{ padding: 80, textAlign: 'center', color: SUB }}><AltSpinner /></div>
                     ) : (<>
 
                         {/* ── CAROUSEL HERO — 480px desktop / 280px mobile, full-bleed, centred ── */}
@@ -730,7 +731,7 @@ export const FrontpageAltF: React.FC = () => {
 
                                     {/* Posts */}
                                     {genreFeedLoading && genrePosts.length === 0 ? (
-                                        <div style={{ padding: '40px 0', textAlign: 'center', color: SUB, fontSize: 13 }}>Loading…</div>
+                                        <div style={{ padding: '40px 0', textAlign: 'center', color: SUB, fontSize: 13 }}><AltSpinner /></div>
                                     ) : genrePosts.length === 0 ? (
                                         <div style={{ ...glass, borderRadius: 16, padding: '40px 24px', textAlign: 'center' }}>
                                             <Hash size={32} color={SUB} style={{ marginBottom: 12 }} />

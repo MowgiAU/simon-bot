@@ -8,6 +8,7 @@ import { Link } from 'react-router-dom';
 import { AltSidebar, BG, S_LOWEST, S_CONT, S_HIGH, PRIMARY, SECONDARY, TERTIARY, TEXT, SUB, BORDER, FONT } from '../components/altshell/AltSidebar';
 import { AltHeader } from '../components/altshell/AltHeader';
 import { useAuth } from '../components/AuthProvider';
+import { AltSpinner } from '../components/altshell/AltSpinner';
 import { Users, Plus, Tag, Music, Mic2, Sliders, Clock, ChevronDown, X, FolderOpen } from 'lucide-react';
 
 const ROLES = ['vocals', 'mixing', 'mastering', 'production', 'guitar', 'bass', 'drums', 'piano', 'synths', 'songwriting', 'artwork'];
@@ -151,7 +152,7 @@ export default function FrontpageAltFCollabs() {
 
                     {/* Feed */}
                     {loading && callouts.length === 0 ? (
-                        <div style={{ textAlign: 'center', padding: '60px 0', color: SUB }}>Loading…</div>
+                        <div style={{ textAlign: 'center', padding: '60px 0', color: SUB }}><AltSpinner /></div>
                     ) : callouts.length === 0 ? (
                         <div style={{ textAlign: 'center', padding: '60px 0' }}>
                             <Users size={40} color={SUB} style={{ margin: '0 auto 16px', display: 'block' }} />

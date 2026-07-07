@@ -13,6 +13,7 @@ import {
 } from '../components/altshell/AltSidebar';
 import { AltHeader } from '../components/altshell/AltHeader';
 import { AltActivitySidebar } from '../components/altshell/AltActivitySidebar';
+import { AltSpinner } from '../components/altshell/AltSpinner';
 import { Play, Pause, ListMusic, Globe, Lock, Music, ChevronLeft, Shuffle } from 'lucide-react';
 
 const glass: React.CSSProperties = {
@@ -122,7 +123,7 @@ export const FrontpageAltFPlaylist: React.FC = () => {
                 <div style={{ flex: 1, overflowY: 'auto', paddingBottom: player.currentTrack ? 90 : 0 }}>
 
                     {loading && (
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 300, color: SUB }}>Loading…</div>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 300, color: SUB }}><AltSpinner /></div>
                     )}
 
                     {error && (

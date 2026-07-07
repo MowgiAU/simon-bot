@@ -13,6 +13,7 @@ import {
 } from '../components/altshell/AltSidebar';
 import { AltHeader } from '../components/altshell/AltHeader';
 import { AltActivitySidebar } from '../components/altshell/AltActivitySidebar';
+import { AltSpinner } from '../components/altshell/AltSpinner';
 import { Play, Pause, Search, X, Music, TrendingUp, Clock, SortAsc, Library, Filter } from 'lucide-react';
 
 const glass: React.CSSProperties = {
@@ -245,7 +246,7 @@ export const FrontpageAltFLibrary: React.FC = () => {
                                 </div>
 
                                 {loading ? (
-                                    <div style={{ ...glass, borderRadius: 20, padding: '60px 24px', textAlign: 'center', color: SUB }}>Loading tracks…</div>
+                                    <div style={{ ...glass, borderRadius: 20, padding: '60px 24px', textAlign: 'center', color: SUB }}><AltSpinner /></div>
                                 ) : displayed.length === 0 ? (
                                     <div style={{ ...glass, borderRadius: 20, padding: '60px 24px', textAlign: 'center' }}>
                                         <Search size={36} color={SUB} style={{ marginBottom: 14 }} />

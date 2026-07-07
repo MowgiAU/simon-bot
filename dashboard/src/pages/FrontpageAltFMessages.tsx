@@ -10,6 +10,7 @@ import {
     PRIMARY, SECONDARY, TEXT, SUB, BORDER, FONT,
 } from '../components/altshell/AltSidebar';
 import { AltHeader } from '../components/altshell/AltHeader';
+import { AltSpinner } from '../components/altshell/AltSpinner';
 import { MessageSquare, Plus, Search, X, Send, ChevronLeft, Users, Lock, MoreHorizontal, Check, CheckCheck, Smile } from 'lucide-react';
 
 const glass: React.CSSProperties = {
@@ -311,7 +312,7 @@ export const FrontpageAltFMessages: React.FC = () => {
                         {!showNewDM && (
                             <div style={{ flex: 1, overflowY: 'auto' }}>
                                 {convoLoading && (
-                                    <div style={{ padding: '16px', fontSize: 13, color: SUB }}>Loading…</div>
+                                    <div style={{ padding: '16px', fontSize: 13, color: SUB }}><AltSpinner /></div>
                                 )}
                                 {!convoLoading && filteredConvos.length === 0 && (
                                     <div style={{ padding: '24px 16px', textAlign: 'center' }}>
@@ -408,7 +409,7 @@ export const FrontpageAltFMessages: React.FC = () => {
                                 {/* Messages area */}
                                 <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 0 }}>
                                     {msgLoading && (
-                                        <div style={{ textAlign: 'center', color: SUB, fontSize: 13, marginTop: 20 }}>Loading messages…</div>
+                                        <div style={{ textAlign: 'center', color: SUB, fontSize: 13, marginTop: 20 }}><AltSpinner /></div>
                                     )}
                                     {!msgLoading && messages.length === 0 && (
                                         <div style={{ textAlign: 'center', marginTop: 40 }}>

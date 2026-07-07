@@ -13,6 +13,7 @@ import {
 } from '../components/altshell/AltSidebar';
 import { AltHeader } from '../components/altshell/AltHeader';
 import { AltActivitySidebar } from '../components/altshell/AltActivitySidebar';
+import { AltSpinner } from '../components/altshell/AltSpinner';
 import { BookOpen, ChevronRight, Eye, X, Clock, TrendingUp, Tag, Bookmark } from 'lucide-react';
 
 const glass: React.CSSProperties = {
@@ -318,7 +319,7 @@ export const FrontpageAltFArticles: React.FC = () => {
                                 </div>
 
                                 {loading ? (
-                                    <div style={{ ...glass, borderRadius: 20, padding: '60px 24px', textAlign: 'center', color: SUB }}>Loading articles…</div>
+                                    <div style={{ ...glass, borderRadius: 20, padding: '60px 24px', textAlign: 'center', color: SUB }}><AltSpinner /></div>
                                 ) : articles.length === 0 ? (
                                     <div style={{ ...glass, borderRadius: 20, padding: '60px 24px', textAlign: 'center' }}>
                                         <BookOpen size={36} color={SUB} style={{ marginBottom: 14 }} />
