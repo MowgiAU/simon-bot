@@ -399,6 +399,11 @@ export const FrontpageAltFTrack: React.FC = () => {
                         )}
                     </section>
 
+                    {/* Mobile: track details + lyrics are inline in the main content here
+                        (desktop/tablet show them in the right rail via topSlot instead) */}
+                    {isMobile && actionsSection}
+                    {isMobile && lyricsSection}
+
                     {/* Stems Mixer — hidden on mobile */}
                     {!isMobile && track.stems?.length > 0 && (
                         <section style={{ ...glass, borderRadius: 20, overflow: 'hidden', flexShrink: 0 }}>
