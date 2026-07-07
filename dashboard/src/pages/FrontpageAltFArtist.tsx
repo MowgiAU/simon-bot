@@ -15,6 +15,7 @@ import { CommentSection } from '../components/CommentSection';
 import { AltSidebar, BG, S_CONT, S_HIGH, PRIMARY, SECONDARY, TERTIARY, TEXT, SUB, BORDER, FONT } from '../components/altshell/AltSidebar';
 import { AltHeader } from '../components/altshell/AltHeader';
 import { AltActivitySidebar } from '../components/altshell/AltActivitySidebar';
+import { useAltBreakpoint } from '../components/altshell/useAltBreakpoint';
 import {
     BadgeCheck, Swords, MapPin, Mail,
     UserPlus, UserCheck, MessageCircle, Play, MoreVertical, Globe, Music, Youtube, Instagram, Headphones, Repeat2, Trophy, Edit3,
@@ -34,6 +35,8 @@ export const FrontpageAltFArtist: React.FC = () => {
     const { user, mutualAdminGuilds } = useAuth();
     const { dropdownOpen: messengerOpen, setDropdownOpen: setMessengerOpen, unreadTotal: unreadMsgCount, startConversation } = useChat();
     const isAdmin = !!(mutualAdminGuilds && mutualAdminGuilds.length > 0);
+    const bp = useAltBreakpoint();
+    const isMobile = bp === 'xs';
 
     const [p, setP] = useState<any>(null);
     const [friends, setFriends] = useState<any[]>([]);
@@ -150,38 +153,39 @@ export const FrontpageAltFArtist: React.FC = () => {
                 <div style={{ flex: 1, display: 'flex', minHeight: 0, overflow: 'hidden' }}>
                 <div style={{ flex: 1, overflowY: 'auto', paddingBottom: player.currentTrack ? 90 : 0 }}>
                     {/* Hero */}
-                    <div style={{ position: 'relative', width: '100%', height: 400, overflow: 'hidden', borderBottom: `1px solid ${BORDER}` }}>
+                    <div style={{ position: 'relative', width: '100%', height: isMobile ? 200 : 400, overflow: 'hidden', borderBottom: `1px solid ${BORDER}` }}>
                         {heroBg && <img src={heroBg} alt="" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.5 }} />}
                         <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(to top, ${pageBg}, rgba(15,19,29,0.4), transparent)` }} />
                         <div style={{ position: 'absolute', bottom: 0, left: 0, width: '100%', boxSizing: 'border-box' }}>
-                        <div style={{ maxWidth: 1280, margin: '0 auto', padding: '0 32px 32px', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 24, flexWrap: 'wrap', boxSizing: 'border-box' }}>
-                            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 24, minWidth: 0 }}>
+                        <div style={{ maxWidth: 1280, margin: '0 auto', padding: isMobile ? '0 16px 16px' : '0 32px 32px', display: 'flex', alignItems: isMobile ? 'flex-start' : 'flex-end', justifyContent: 'space-between', gap: isMobile ? 12 : 24, flexWrap: 'wrap', boxSizing: 'border-box' }}>
+                            <div style={{ display: 'flex', alignItems: isMobile ? 'flex-start' : 'flex-end', gap: isMobile ? 12 : 24, minWidth: 0 }}>
                                 <div style={{ position: 'relative', flexShrink: 0 }}>
                                     <StyledAvatar userId={p?.userId}>
-                                        <div style={{ width: 176, height: 176, borderRadius: '50%', overflow: 'hidden', border: `4px solid ${BG}`, background: S_HIGH }}>
+                                        <div style={{ width: isMobile ? 76 : 176, height: isMobile ? 76 : 176, borderRadius: '50%', overflow: 'hidden', border: `${isMobile ? 3 : 4}px solid ${BG}`, background: S_HIGH }}>
                                             {p?.avatar && <img src={p.avatar} alt="" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
                                         </div>
                                     </StyledAvatar>
-                                    <span style={{ position: 'absolute', bottom: -6, right: -6, display: 'flex', alignItems: 'center', gap: 4, background: accent, color: '#fff', padding: '4px 10px', borderRadius: 9999, fontSize: 12, fontWeight: 700, border: `2px solid ${BG}` }}><BadgeCheck size={14} /> Pro</span>
+                                    <span style={{ position: 'absolute', bottom: isMobile ? -4 : -6, right: isMobile ? -4 : -6, display: 'flex', alignItems: 'center', gap: 4, background: accent, color: '#fff', padding: isMobile ? '2px 7px' : '4px 10px', borderRadius: 9999, fontSize: isMobile ? 9 : 12, fontWeight: 700, border: `2px solid ${BG}` }}><BadgeCheck size={isMobile ? 10 : 14} /> Pro</span>
                                 </div>
-                                <div style={{ minWidth: 0, paddingBottom: 8 }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 4, flexWrap: 'wrap' }}>
-                                        <StyledUsername userId={p?.userId} style={{ fontSize: 48, fontWeight: 900, color: '#fff', letterSpacing: '-0.02em' }}>{p?.displayName || REF_USER}</StyledUsername>
+                                <div style={{ minWidth: 0, paddingBottom: isMobile ? 0 : 8 }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' }}>
+                                        <StyledUsername userId={p?.userId} style={{ fontSize: isMobile ? 20 : 48, fontWeight: 900, color: '#fff', letterSpacing: '-0.02em' }}>{p?.displayName || REF_USER}</StyledUsername>
                                         {p?.showH2HRank && arena && (
-                                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: S_HIGH, color: SUB, padding: '6px 12px', borderRadius: 8, fontSize: 12, border: `1px solid ${BORDER}` }}><Swords size={16} color={TERTIARY} /> Arena {Math.round(arena.elo)}</span>
+                                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: S_HIGH, color: SUB, padding: isMobile ? '3px 8px' : '6px 12px', borderRadius: 8, fontSize: isMobile ? 10 : 12, border: `1px solid ${BORDER}` }}><Swords size={isMobile ? 12 : 16} color={TERTIARY} /> Arena {Math.round(arena.elo)}</span>
                                         )}
                                     </div>
                                     {/* Genre tags */}
                                     {(p?.genres || []).length > 0 && (
-                                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
-                                            {(p.genres as any[]).slice(0, 4).map((g: any, i: number) => (
-                                                <span key={i} style={{ background: i === 0 ? `${accent}33` : 'rgba(255,255,255,0.08)', color: i === 0 ? accent : SUB, padding: '3px 10px', borderRadius: 9999, fontSize: 11, fontWeight: 600, border: i === 0 ? `1px solid ${accent}55` : `1px solid ${BORDER}` }}>
+                                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: isMobile ? 6 : 10 }}>
+                                            {(p.genres as any[]).slice(0, isMobile ? 3 : 4).map((g: any, i: number) => (
+                                                <span key={i} style={{ background: i === 0 ? `${accent}33` : 'rgba(255,255,255,0.08)', color: i === 0 ? accent : SUB, padding: isMobile ? '2px 8px' : '3px 10px', borderRadius: 9999, fontSize: isMobile ? 10 : 11, fontWeight: 600, border: i === 0 ? `1px solid ${accent}55` : `1px solid ${BORDER}` }}>
                                                     {g.genre?.name || g.name || g}
                                                 </span>
                                             ))}
                                         </div>
                                     )}
-                                    {p?.location && <p style={{ margin: '0 0 12px', color: SUB, fontSize: 14, display: 'flex', alignItems: 'center', gap: 6 }}><MapPin size={16} /> {p.location}</p>}
+                                    {p?.location && <p style={{ margin: '0 0 10px', color: SUB, fontSize: isMobile ? 12 : 14, display: 'flex', alignItems: 'center', gap: 6 }}><MapPin size={isMobile ? 13 : 16} /> {p.location}</p>}
+                                    {!isMobile && (
                                     <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
                                         {!isOwnProfile && (
                                             <button onClick={toggleFollow} style={{ display: 'flex', alignItems: 'center', gap: 8, background: isFollowing ? 'transparent' : accent, color: isFollowing ? accent : '#fff', border: isFollowing ? `1px solid ${accent}` : 'none', padding: '10px 28px', borderRadius: 8, fontWeight: 600, fontSize: 16, cursor: 'pointer', transition: 'all 0.2s' }}>
@@ -202,9 +206,10 @@ export const FrontpageAltFArtist: React.FC = () => {
                                             </button>
                                         )}
                                     </div>
+                                    )}
                                 </div>
                             </div>
-                            {p?.showStatsBar !== false && (
+                            {!isMobile && p?.showStatsBar !== false && (
                                 <div style={{ ...glass, display: 'flex', textAlign: 'center', borderRadius: 12, padding: 16 }}>
                                     {[[fmtNum(followerCount), 'Followers'], [fmtNum(p?.totalPlays), 'Plays']].map(([n, l], i) => (
                                         <div key={l} style={{ padding: '0 20px', borderLeft: i ? `1px solid ${BORDER}` : 'none' }}>
@@ -218,10 +223,46 @@ export const FrontpageAltFArtist: React.FC = () => {
                         </div>
                     </div>
 
+                    {/* Mobile: compact stats + action buttons (hidden from the hero above) */}
+                    {isMobile && (
+                        <div style={{ padding: '12px 16px 0', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                            {p?.showStatsBar !== false && (
+                                <div style={{ ...glass, display: 'flex', textAlign: 'center', borderRadius: 12, padding: 10 }}>
+                                    {[[fmtNum(followerCount), 'Followers'], [fmtNum(p?.totalPlays), 'Plays']].map(([n, l], i) => (
+                                        <div key={l} style={{ flex: 1, padding: '0 10px', borderLeft: i ? `1px solid ${BORDER}` : 'none' }}>
+                                            <p style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#fff' }}>{n}</p>
+                                            <p style={{ margin: '2px 0 0', fontSize: 10, color: SUB, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{l}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                                {!isOwnProfile && (
+                                    <button onClick={toggleFollow} style={{ flex: 1, minWidth: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: isFollowing ? 'transparent' : accent, color: isFollowing ? accent : '#fff', border: isFollowing ? `1px solid ${accent}` : 'none', padding: '9px 14px', borderRadius: 8, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
+                                        {isFollowing ? <><UserCheck size={15} /> Following</> : <><UserPlus size={15} /> Follow</>}
+                                    </button>
+                                )}
+                                {!isOwnProfile && user && (
+                                    <button onClick={startMessage} disabled={startingChat} style={{ flex: 1, minWidth: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: 'transparent', color: SECONDARY, border: `1px solid ${SECONDARY}`, padding: '9px 14px', borderRadius: 8, fontWeight: 600, fontSize: 13, cursor: startingChat ? 'default' : 'pointer', opacity: startingChat ? 0.6 : 1 }}>
+                                        <Mail size={15} /> Message
+                                    </button>
+                                )}
+                                {(isOwnProfile || isAdmin) && (
+                                    <button
+                                        onClick={() => isOwnProfile ? navigate('/profile/edit') : navigate(`/profile/edit?adminTarget=${p?.userId}`)}
+                                        style={{ flex: 1, minWidth: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: isAdmin && !isOwnProfile ? 'rgba(255,152,0,0.1)' : `${accent}1A`, color: isAdmin && !isOwnProfile ? '#ff9800' : accent, border: `1px solid ${isAdmin && !isOwnProfile ? 'rgba(255,152,0,0.5)' : `${accent}4D`}`, padding: '9px 14px', borderRadius: 8, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}
+                                    >
+                                        <Edit3 size={14} /> {isAdmin && !isOwnProfile ? 'Edit (Admin)' : 'Edit Profile'}
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
                     {/* Body */}
-                    <div style={{ maxWidth: 1280, margin: '0 auto', width: '100%', boxSizing: 'border-box', padding: '24px 32px 40px', display: 'grid', gridTemplateColumns: '280px 1fr', gap: 24, alignItems: 'flex-start' }}>
+                    <div style={{ maxWidth: 1280, margin: '0 auto', width: '100%', boxSizing: 'border-box', padding: isMobile ? '16px 16px 24px' : '24px 32px 40px', display: isMobile ? 'flex' : 'grid', flexDirection: isMobile ? 'column' : undefined, gridTemplateColumns: isMobile ? undefined : '280px 1fr', gap: isMobile ? 24 : 24, alignItems: 'flex-start' }}>
                         {/* Left column: About, Friends, Gear */}
-                        <aside style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                        <aside style={{ display: 'flex', flexDirection: 'column', gap: 20, minWidth: 0, width: isMobile ? '100%' : undefined, boxSizing: 'border-box' }}>
                             <section>
                                 <div style={{ ...glass, borderRadius: 20, overflow: 'hidden' }}>
                                     <div style={{ padding: '16px 20px', borderBottom: `1px solid ${DIVIDER}`, display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -273,22 +314,24 @@ export const FrontpageAltFArtist: React.FC = () => {
                         </aside>
 
                         {/* Right column: tracks, battles, comments */}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? 20 : 28, minWidth: 0, width: isMobile ? '100%' : undefined, boxSizing: 'border-box' }}>
                             {featured && (
                                 <section>
-                                    <h2 style={{ margin: '0 0 16px', fontSize: 20, fontWeight: 700 }}>Featured</h2>
-                                    <div style={{ ...glass, borderRadius: 20, padding: 16, display: 'flex', gap: 24, alignItems: 'center', flexWrap: 'wrap' }}>
-                                        <div onClick={() => open(featured)} style={{ width: 176, height: 176, borderRadius: 8, overflow: 'hidden', flexShrink: 0, position: 'relative', background: S_HIGH, cursor: 'pointer' }}>
-                                            {featured.coverUrl ? <img src={featured.coverUrl} alt="" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Music size={48} color={SUB} /></div>}
-                                            <span style={{ position: 'absolute', inset: 0, margin: 'auto', width: 64, height: 64, borderRadius: '50%', background: accent, opacity: 0.92, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Play size={32} fill="#fff" color="#fff" style={{ marginLeft: 3 }} /></span>
+                                    <h2 style={{ margin: '0 0 16px', fontSize: isMobile ? 16 : 20, fontWeight: 700 }}>Featured</h2>
+                                    <div style={{ ...glass, borderRadius: 20, padding: isMobile ? 12 : 16, display: 'flex', gap: isMobile ? 12 : 24, alignItems: 'center', flexWrap: 'wrap' }}>
+                                        <div onClick={() => open(featured)} style={{ width: isMobile ? 72 : 176, height: isMobile ? 72 : 176, borderRadius: 8, overflow: 'hidden', flexShrink: 0, position: 'relative', background: S_HIGH, cursor: 'pointer' }}>
+                                            {featured.coverUrl ? <img src={featured.coverUrl} alt="" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Music size={isMobile ? 22 : 48} color={SUB} /></div>}
+                                            <span style={{ position: 'absolute', inset: 0, margin: 'auto', width: isMobile ? 32 : 64, height: isMobile ? 32 : 64, borderRadius: '50%', background: accent, opacity: 0.92, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Play size={isMobile ? 16 : 32} fill="#fff" color="#fff" style={{ marginLeft: isMobile ? 2 : 3 }} /></span>
                                         </div>
-                                        <div style={{ flex: 1, minWidth: 200 }}>
-                                            <span style={{ display: 'inline-block', background: 'rgba(255,103,121,0.2)', color: TERTIARY, padding: '2px 8px', borderRadius: 4, fontSize: 12, marginBottom: 8 }}>Latest Release</span>
-                                            <h4 style={{ margin: 0, fontSize: 26, fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{featured.title}</h4>
-                                            <p style={{ margin: '4px 0 0', fontSize: 12, color: SUB }}>{p?.displayName}{p?.genres?.[0] ? ` • ${p.genres[0].genre?.name || p.genres[0].name}` : ''}</p>
+                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                            <span style={{ display: 'inline-block', background: 'rgba(255,103,121,0.2)', color: TERTIARY, padding: '2px 8px', borderRadius: 4, fontSize: isMobile ? 10 : 12, marginBottom: 8 }}>Latest Release</span>
+                                            <h4 style={{ margin: 0, fontSize: isMobile ? 15 : 26, fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{featured.title}</h4>
+                                            <p style={{ margin: '4px 0 0', fontSize: 12, color: SUB, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p?.displayName}{p?.genres?.[0] ? ` • ${p.genres[0].genre?.name || p.genres[0].name}` : ''}</p>
+                                            {!isMobile && (
                                             <div style={{ height: 56, display: 'flex', alignItems: 'center', gap: 2, marginTop: 16 }}>
                                                 {bars(featured.id || featured.title).map((h, i) => <div key={i} style={{ flex: 1, height: `${h}%`, borderRadius: 9999, background: i < 18 ? SECONDARY : 'rgba(76,215,246,0.4)' }} />)}
                                             </div>
+                                            )}
                                         </div>
                                     </div>
                                 </section>
