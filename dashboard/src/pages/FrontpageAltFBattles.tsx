@@ -271,7 +271,7 @@ export const FrontpageAltFBattles: React.FC = () => {
                                                 }
                                                 <div>
                                                     <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: SECONDARY }}>{featured.sponsor.name}</h3>
-                                                    <span style={{ fontSize: 10, fontWeight: 700, color: SUB, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Premium Partner</span>
+                                                    <span style={{ fontSize: 10, fontWeight: 700, color: SUB, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Official Sponsor</span>
                                                 </div>
                                             </div>
                                             <div style={{ width: 1, height: 64, background: DIVIDER, flexShrink: 0 }} />

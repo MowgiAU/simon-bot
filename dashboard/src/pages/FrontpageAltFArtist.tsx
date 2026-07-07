@@ -17,7 +17,7 @@ import { AltHeader } from '../components/altshell/AltHeader';
 import { AltActivitySidebar } from '../components/altshell/AltActivitySidebar';
 import { useAltBreakpoint } from '../components/altshell/useAltBreakpoint';
 import {
-    BadgeCheck, Swords, MapPin, Mail,
+    Swords, MapPin, Mail,
     UserPlus, UserCheck, MessageCircle, Play, MoreVertical, Globe, Music, Youtube, Instagram, Headphones, Repeat2, Trophy, Edit3,
 } from 'lucide-react';
 
@@ -165,7 +165,6 @@ export const FrontpageAltFArtist: React.FC = () => {
                                             {p?.avatar && <img src={p.avatar} alt="" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
                                         </div>
                                     </StyledAvatar>
-                                    <span style={{ position: 'absolute', bottom: isMobile ? -4 : -6, right: isMobile ? -4 : -6, display: 'flex', alignItems: 'center', gap: 4, background: accent, color: '#fff', padding: isMobile ? '2px 7px' : '4px 10px', borderRadius: 9999, fontSize: isMobile ? 9 : 12, fontWeight: 700, border: `2px solid ${BG}` }}><BadgeCheck size={isMobile ? 10 : 14} /> Pro</span>
                                 </div>
                                 <div style={{ minWidth: 0, paddingBottom: isMobile ? 0 : 8 }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' }}>

@@ -638,7 +638,7 @@ export const FrontpageAltF: React.FC = () => {
                                                       </div>
                                                 }
                                                 <div>
-                                                    <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: PRIMARY, marginBottom: 2 }}>Premium Partner</div>
+                                                    <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: PRIMARY, marginBottom: 2 }}>Official Sponsor</div>
                                                     <div style={{ fontSize: 16, fontWeight: 800, color: TEXT }}>{sp.name}</div>
                                                 </div>
                                             </div>

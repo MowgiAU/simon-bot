@@ -12,7 +12,7 @@ import { useAltBreakpoint } from './useAltBreakpoint';
 import { AltMobileNav } from './AltMobileNav';
 import {
     Home, Search, User, Newspaper, BarChart3, Swords, Tag, Users, Plus, Library, AudioLines,
-    Star, HelpCircle, LogOut, PanelLeftClose, PanelLeftOpen,
+    HelpCircle, LogOut, PanelLeftClose, PanelLeftOpen,
 } from 'lucide-react';
 
 // Alt desktop palette (exported for reuse by Alt pages)
@@ -269,7 +269,6 @@ export const AltSidebar: React.FC<{ active?: string }> = ({ active }) => {
             {/* Footer */}
             {!collapsed ? (
                 <div style={{ padding: '16px 12px', borderTop: `1px solid ${BORDER}`, display: 'flex', flexDirection: 'column', gap: 8, flexShrink: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px', borderRadius: 8, background: S_CONT, cursor: 'pointer' }}><Star size={18} color={PRIMARY} /><span style={{ fontSize: 13, fontWeight: 600 }}>Go Premium</span></div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px', color: SUB }}>
                         <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}><HelpCircle size={18} /> Support</span>
                         <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>Logout <LogOut size={18} /></span>
@@ -277,7 +276,6 @@ export const AltSidebar: React.FC<{ active?: string }> = ({ active }) => {
                 </div>
             ) : (
                 <div style={{ padding: '16px 8px', borderTop: `1px solid ${BORDER}`, display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center', flexShrink: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 8, borderRadius: 8, background: S_CONT, cursor: 'pointer' }}><Star size={18} color={PRIMARY} /></div>
                     <div style={{ color: SUB, cursor: 'pointer' }}><LogOut size={18} /></div>
                 </div>
             )}
