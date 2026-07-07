@@ -11,7 +11,7 @@ import { useAuth } from '../AuthProvider';
 import { useAltBreakpoint } from './useAltBreakpoint';
 import { AltMobileNav } from './AltMobileNav';
 import {
-    Home, Search, User, Newspaper, BarChart3, Swords, Tag, Users, Plus, Library, AudioLines,
+    Home, Search, User, Newspaper, BarChart3, Swords, Tag, Users,
     HelpCircle, LogOut, PanelLeftClose, PanelLeftOpen,
 } from 'lucide-react';
 
@@ -132,8 +132,9 @@ export const AltSidebar: React.FC<{ active?: string }> = ({ active }) => {
     });
 
     useEffect(() => {
-        axios.get('/api/playlists/popular').then(r => setPlaylists(arr(r.data).slice(0, 6))).catch(() => {});
-    }, []);
+        if (!user) { setPlaylists([]); return; }
+        axios.get('/api/my-playlists').then(r => setPlaylists(arr(r.data).slice(0, 6))).catch(() => {});
+    }, [user]);
 
     // Fetch collab stats when logged in
     useEffect(() => {
@@ -230,38 +231,14 @@ export const AltSidebar: React.FC<{ active?: string }> = ({ active }) => {
                     })}
                 </div>
 
-                {!collapsed && (
-                    <>
-                        <div style={{ padding: '0 8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                            <span style={{ fontSize: 10, color: SUB, textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700 }}>Your Library</span>
-                            <Plus size={18} color={SUB} />
-                        </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                            <Link to="/preview/alt_f_library" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 16px', borderRadius: 8, textDecoration: 'none', color: SUB, fontSize: 14 }}><Library size={20} color={SECONDARY} /> All Tracks</Link>
-                            <Link to="/preview/alt_f_library" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 16px', borderRadius: 8, textDecoration: 'none', color: SUB, fontSize: 14 }}><AudioLines size={20} color={PRIMARY} /> Samples</Link>
-                            <Link to="/preview/alt_f_artists" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 16px', borderRadius: 8, textDecoration: 'none', color: SUB, fontSize: 14 }}><Users size={20} color={TERTIARY} /> Collabs</Link>
-                        </div>
-                        {playlists.length > 0 && (
-                            <div style={{ marginTop: 24, padding: '0 8px' }}>
-                                <span style={{ fontSize: 10, color: SUB, textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700, display: 'block', marginBottom: 8 }}>Playlists</span>
-                                <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 4 }}>
-                                    {playlists.map((pl: any) => (
-                                        <li key={pl.id}><Link to={`/preview/alt_f_playlist?id=${pl.id}`} style={{ display: 'block', padding: '4px 8px', color: SUB, fontSize: 14, textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pl.name || pl.title}</Link></li>
-                                    ))}
-                                </ul>
-                            </div>
-                        )}
-                    </>
-                )}
-
-                {/* Collapsed library icons */}
-                {collapsed && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 16 }}>
-                        {[{ Icon: Library, color: SECONDARY, to: '/preview/alt_f_library' }, { Icon: AudioLines, color: PRIMARY, to: '/preview/alt_f_library' }, { Icon: Users, color: TERTIARY, to: '/preview/alt_f_artists' }].map(({ Icon, color, to }, i) => (
-                            <Link key={i} to={to} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '10px 0', borderRadius: 8, textDecoration: 'none', color: SUB }}>
-                                <Icon size={18} color={color} />
-                            </Link>
-                        ))}
+                {!collapsed && user && playlists.length > 0 && (
+                    <div style={{ padding: '0 8px' }}>
+                        <span style={{ fontSize: 10, color: SUB, textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700, display: 'block', marginBottom: 8 }}>Your Playlists</span>
+                        <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                            {playlists.map((pl: any) => (
+                                <li key={pl.id}><Link to={`/preview/alt_f_playlist?id=${pl.id}`} style={{ display: 'block', padding: '4px 8px', color: SUB, fontSize: 14, textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pl.name || pl.title}</Link></li>
+                            ))}
+                        </ul>
                     </div>
                 )}
             </nav>
