@@ -11,6 +11,7 @@ import { AltSidebar, BG, S_LOWEST, S_CONT, S_HIGH, S_HIGHEST, PRIMARY, SECONDARY
 import { AltHeader } from '../components/altshell/AltHeader';
 import { AltActivitySidebar } from '../components/altshell/AltActivitySidebar';
 import { AltSpinner } from '../components/altshell/AltSpinner';
+import { appendSponsorRef, trackSponsorClick } from '../lib/sponsorUtils';
 import { Trophy, Users, Clock, Star, ChevronRight, Flame, Music, Award, Play, BarChart3 } from 'lucide-react';
 
 const fmtNum = (n?: number) => { n = n || 0; if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M'; if (n >= 1e3) return (n / 1e3).toFixed(1) + 'k'; return String(n); };
@@ -279,10 +280,16 @@ export const FrontpageAltFBattles: React.FC = () => {
                                             {featured.sponsor.description && (
                                                 <p style={{ margin: 0, flex: 1, fontSize: 14, color: SUB, lineHeight: 1.6, minWidth: 200 }}>{featured.sponsor.description}</p>
                                             )}
-                                            <div style={{ display: 'flex', gap: 10, flexShrink: 0 }}>
-                                                <button style={{ padding: '10px 24px', borderRadius: 10, background: 'transparent', border: `1px solid ${SECONDARY}`, color: SECONDARY, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Learn More</button>
-                                                <button style={{ padding: '10px 24px', borderRadius: 10, background: SECONDARY, border: 'none', color: '#001f26', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}>Shop Deal</button>
-                                            </div>
+                                            {featured.sponsor.websiteUrl && (
+                                                <div style={{ display: 'flex', gap: 10, flexShrink: 0 }}>
+                                                    <a href={appendSponsorRef(featured.sponsor.websiteUrl, '/preview/alt_f_battles')} target="_blank" rel="noopener noreferrer"
+                                                        onClick={() => trackSponsorClick(featured.sponsor.id, 'alt_f_battles')}
+                                                        style={{ display: 'flex', alignItems: 'center', padding: '10px 24px', borderRadius: 10, background: 'transparent', border: `1px solid ${SECONDARY}`, color: SECONDARY, fontSize: 13, fontWeight: 700, cursor: 'pointer', textDecoration: 'none' }}>Learn More</a>
+                                                    <a href={appendSponsorRef(featured.sponsor.websiteUrl, '/preview/alt_f_battles')} target="_blank" rel="noopener noreferrer"
+                                                        onClick={() => trackSponsorClick(featured.sponsor.id, 'alt_f_battles')}
+                                                        style={{ display: 'flex', alignItems: 'center', padding: '10px 24px', borderRadius: 10, background: SECONDARY, border: 'none', color: '#001f26', fontSize: 13, fontWeight: 800, cursor: 'pointer', textDecoration: 'none' }}>Shop Deal</a>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 </section>

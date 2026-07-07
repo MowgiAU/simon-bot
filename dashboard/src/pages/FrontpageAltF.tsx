@@ -14,6 +14,7 @@ import { AltHeader } from '../components/altshell/AltHeader';
 import { AltActivitySidebar } from '../components/altshell/AltActivitySidebar';
 import { useAltBreakpoint } from '../components/altshell/useAltBreakpoint';
 import { AltSpinner } from '../components/altshell/AltSpinner';
+import { appendSponsorRef, trackSponsorClick } from '../lib/sponsorUtils';
 import {
     Users, Music, TrendingUp, Play, Pause,
     ChevronLeft, ChevronRight,
@@ -656,7 +657,8 @@ export const FrontpageAltF: React.FC = () => {
 
                                             {/* CTA */}
                                             {sp.websiteUrl && (
-                                                <a href={sp.websiteUrl} target="_blank" rel="noopener noreferrer"
+                                                <a href={appendSponsorRef(sp.websiteUrl, '/preview/alt_f')} target="_blank" rel="noopener noreferrer"
+                                                    onClick={() => trackSponsorClick(sp.id, 'alt_f')}
                                                     style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 10, background: PRIMARY, color: '#000', fontSize: 13, fontWeight: 700, textDecoration: 'none', flexShrink: 0 }}>
                                                     <ExternalLink size={13} />
                                                     Visit Site
@@ -689,11 +691,8 @@ export const FrontpageAltF: React.FC = () => {
                                     <style>{`@keyframes fujiPulse { 0% { transform: scale(1); opacity: 0.6; } 100% { transform: scale(2.6); opacity: 0; } }`}</style>
                                     {/* Header row */}
                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                                            {/* Gradient icon badge */}
-                                            <div style={{ width: 38, height: 38, borderRadius: 12, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: `linear-gradient(135deg, ${PRIMARY}, ${SECONDARY})`, boxShadow: `0 6px 18px ${PRIMARY}55` }}>
-                                                {genreHasSubs ? <Sparkles size={19} color="#fff" /> : <Users size={19} color="#fff" />}
-                                            </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                            {genreHasSubs ? <Sparkles size={18} color={SECONDARY} /> : <Users size={18} color={SECONDARY} />}
                                             <div>
                                                 <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800, letterSpacing: '-0.01em', display: 'flex', alignItems: 'center', gap: 9 }}>
                                                     {genreHasSubs ? 'Your Genres' : 'Community Feed'}

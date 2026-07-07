@@ -8,6 +8,7 @@ import { AltSidebar, BG, S_CONT, S_HIGH, PRIMARY, SECONDARY, TERTIARY, TEXT, SUB
 import { AltHeader, BreadcrumbItem } from '../components/altshell/AltHeader';
 import { AltActivitySidebar } from '../components/altshell/AltActivitySidebar';
 import { AltSpinner } from '../components/altshell/AltSpinner';
+import { appendSponsorRef, trackSponsorClick, trackPromoLinkClick } from '../lib/sponsorUtils';
 import {
     Play, Pause, Clock, Users, Trophy, Music, Star, Download,
     Tag, ExternalLink, CheckCircle, ChevronRight, Zap, Gift,
@@ -271,12 +272,16 @@ export const FrontpageAltFBattle: React.FC = () => {
                                                         {sponsor.description && <p style={{ margin: '0 0 16px', fontSize: 14, color: SUB, lineHeight: 1.65 }}>{sponsor.description}</p>}
                                                         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                                                             {sponsor.websiteUrl && (
-                                                                <a href={sponsor.websiteUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 18px', borderRadius: 10, background: PRIMARY, color: BG, fontWeight: 700, fontSize: 13, textDecoration: 'none' }}>
+                                                                <a href={appendSponsorRef(sponsor.websiteUrl, `/battles/${battle.slug || battle.id}`)} target="_blank" rel="noopener noreferrer"
+                                                                    onClick={() => trackSponsorClick(sponsor.id, `battles/${battle.slug || battle.id}`)}
+                                                                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 18px', borderRadius: 10, background: PRIMARY, color: BG, fontWeight: 700, fontSize: 13, textDecoration: 'none' }}>
                                                                     Visit Website <ExternalLink size={13} />
                                                                 </a>
                                                             )}
                                                             {sponsor.links?.map((l: any, i: number) => (
-                                                                <a key={i} href={l.url} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 18px', borderRadius: 10, border: `1px solid ${BORDER}`, color: TEXT, fontWeight: 600, fontSize: 13, textDecoration: 'none' }}>
+                                                                <a key={l.id ?? i} href={appendSponsorRef(l.url, `/battles/${battle.slug || battle.id}`)} target="_blank" rel="noopener noreferrer"
+                                                                    onClick={() => trackPromoLinkClick(l.id, `battles/${battle.slug || battle.id}`)}
+                                                                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 18px', borderRadius: 10, border: `1px solid ${BORDER}`, color: TEXT, fontWeight: 600, fontSize: 13, textDecoration: 'none' }}>
                                                                     {l.label}
                                                                 </a>
                                                             ))}
