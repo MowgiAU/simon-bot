@@ -16,6 +16,7 @@ import { AltSidebar, BG, S_CONT, S_HIGH, PRIMARY, SECONDARY, TERTIARY, TEXT, SUB
 import { AltHeader } from '../components/altshell/AltHeader';
 import { AltActivitySidebar, RailSection } from '../components/altshell/AltActivitySidebar';
 import { AltSpinner } from '../components/altshell/AltSpinner';
+import { useAltBreakpoint } from '../components/altshell/useAltBreakpoint';
 import { useChat } from '../components/ChatProvider';
 import {
     Play, Pause, SkipBack, SkipForward, Heart, Repeat2, Share2, ListPlus, Download,
@@ -63,6 +64,8 @@ export const FrontpageAltFTrack: React.FC = () => {
     const { user } = useAuth();
     const { startConversation } = useChat();
     const pluginRegistry = usePluginRegistry();
+    const bp = useAltBreakpoint();
+    const isMobile = bp === 'xs';
 
     const [track, setTrackData] = useState<any>(null);
     const [loading, setLoading] = useState(true);
@@ -396,15 +399,15 @@ export const FrontpageAltFTrack: React.FC = () => {
                         )}
                     </section>
 
-                    {/* Stems Mixer */}
-                    {track.stems?.length > 0 && (
+                    {/* Stems Mixer — hidden on mobile */}
+                    {!isMobile && track.stems?.length > 0 && (
                         <section style={{ ...glass, borderRadius: 20, overflow: 'hidden', flexShrink: 0 }}>
                             <StemsMixer stems={track.stems} trackTitle={track.title} masterDuration={track.duration} playerTrack={track} allowDownload={track.allowStemsDownload ?? true} compact />
                         </section>
                     )}
 
-                    {/* 5. FL Project Timeline */}
-                    {hasArrangement && (
+                    {/* 5. FL Project Timeline — hidden on mobile */}
+                    {!isMobile && hasArrangement && (
                         <section style={{ ...glass, overflow: 'hidden' }}>
                             <div style={{ padding: '14px 20px', borderBottom: `1px solid ${DIVIDER}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(38,42,53,0.5)' }}>
                                 <h3 style={{ margin: 0, fontSize: 14, fontWeight: 600, color: TEXT }}>
