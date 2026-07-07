@@ -743,7 +743,7 @@ export const FrontpageAltF: React.FC = () => {
                                             </Link>
                                         </div>
                                     ) : (
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? 10 : 8 }}>
                                             {genrePosts.map((post: any, postIdx: number) => {
                                                 const voteDir = genreVotes[post.id] ?? post.userVote;
                                                 const trackUrl = post.track?.mp3Url || post.track?.url;
@@ -764,7 +764,7 @@ export const FrontpageAltF: React.FC = () => {
                                                 // compact header row, votes/comments/share as a bottom action bar. ──
                                                 if (isMobile) {
                                                     return (
-                                                        <div key={post.id} style={{ borderBottom: `1px solid ${DIVIDER}`, padding: '12px 0' }}>
+                                                        <div key={post.id} style={{ background: S_CONT, borderRadius: 12, padding: '12px 14px' }}>
                                                             {/* Header row */}
                                                             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, flexWrap: 'wrap' }}>
                                                                 <Link to={`/preview/alt_f_genres/${post.genre?.slug}`}
