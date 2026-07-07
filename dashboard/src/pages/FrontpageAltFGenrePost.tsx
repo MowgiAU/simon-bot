@@ -253,6 +253,8 @@ export const FrontpageAltFGenrePost: React.FC = () => {
     });
 
     const isPlaying = post?.track && player.currentTrack?.id === post.track.id && player.isPlaying;
+    const isActiveTrack = !!post?.track && player.currentTrack?.id === post.track.id;
+    const trackProgress = isActiveTrack ? (player.currentTime / (player.duration || post.track.duration || 1)) : 0;
 
     const playTrack = () => {
         if (!post?.track?.url) return;
@@ -292,28 +294,9 @@ export const FrontpageAltFGenrePost: React.FC = () => {
 
                 <div style={{ flex: 1, display: 'flex', minHeight: 0, overflow: 'hidden' }}>
                     <div style={{ flex: 1, overflowY: 'auto', paddingBottom: pb }}>
-                        <div style={{ maxWidth: 1280, margin: '0 auto', padding: '28px 32px 60px', boxSizing: 'border-box', display: 'grid', gridTemplateColumns: '260px 1fr', gap: 28, alignItems: 'start' }}>
+                        <div style={{ maxWidth: 1280, margin: '0 auto', padding: '28px 32px 60px', boxSizing: 'border-box' }}>
 
-                            {/* LEFT SIDEBAR */}
-                            <div style={{ position: 'sticky', top: 0 }}>
-                                {post.genre && (() => {
-                                    const sAccent = genreAccent(post.genre.name);
-                                    return (
-                                        <div style={{ ...glass, borderRadius: 16, overflow: 'hidden' }}>
-                                            <div style={{ height: 5, background: sAccent }} />
-                                            <div style={{ padding: '14px 16px' }}>
-                                                <h3 style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 800, color: TEXT }}>{post.genre.name}</h3>
-                                                <Link to={`/preview/alt_f_genres/${post.genre.slug}`}
-                                                    style={{ display: 'block', width: '100%', padding: '8px 0', background: `${sAccent}18`, border: `1.5px solid ${sAccent}`, borderRadius: 8, color: sAccent, textAlign: 'center', textDecoration: 'none', fontSize: 13, fontWeight: 700, boxSizing: 'border-box' }}>
-                                                    Browse genre
-                                                </Link>
-                                            </div>
-                                        </div>
-                                    );
-                                })()}
-                            </div>
-
-                            {/* RIGHT COLUMN */}
+                            {/* Content column — the genre is already shown as a pill in the post header below, so no separate sidebar is needed */}
                             <div>
 
                             {/* Post card */}
@@ -399,8 +382,11 @@ export const FrontpageAltFGenrePost: React.FC = () => {
                                         </h1>
 
                                         {/* Track player */}
-                                        {post.type === 'track' && post.track && (
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 14, background: S_CONT, borderRadius: 14, padding: '14px 18px', marginBottom: 14, border: `1px solid ${BORDER}` }}>
+                                        {post.type === 'track' && post.track && (() => {
+                                            const peaks: number[] = post.track.waveformPeaks || [];
+                                            return (
+                                            <div style={{ background: S_CONT, borderRadius: 14, padding: '14px 18px', marginBottom: 14, border: `1px solid ${BORDER}` }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
                                                 <div style={{ width: 56, height: 56, borderRadius: 10, overflow: 'hidden', flexShrink: 0, background: S_HIGH, position: 'relative', cursor: post.track.url ? 'pointer' : 'default' }} onClick={playTrack}>
                                                     {post.track.coverUrl
                                                         ? <img src={post.track.coverUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -430,7 +416,35 @@ export const FrontpageAltFGenrePost: React.FC = () => {
                                                     </Link>
                                                 )}
                                             </div>
-                                        )}
+
+                                            {/* Waveform */}
+                                            <div style={{ marginTop: 12, height: 44, cursor: post.track.url ? 'pointer' : 'default' }} onClick={playTrack}>
+                                                {peaks.length > 0 ? (
+                                                    <svg width="100%" height="44" preserveAspectRatio="none" viewBox={`0 0 ${peaks.length} 44`} style={{ display: 'block' }}>
+                                                        {peaks.map((peak: number, i: number) => {
+                                                            const h = Math.max(2, peak * 36); const y = (44 - h) / 2;
+                                                            const played = isActiveTrack && (i / peaks.length) < trackProgress;
+                                                            return <rect key={i} x={i} y={y} width={0.7} height={h} fill={played ? accent : 'rgba(255,255,255,0.18)'} rx={0.3} />;
+                                                        })}
+                                                    </svg>
+                                                ) : (() => {
+                                                    let h = 5381;
+                                                    for (const c of post.track.id) h = (h * 33 ^ c.charCodeAt(0)) >>> 0;
+                                                    return (
+                                                        <div style={{ height: 44, display: 'flex', alignItems: 'center', gap: '1.5px', overflow: 'hidden' }}>
+                                                            {Array.from({ length: 120 }, (_, i) => {
+                                                                h = (h * 1664525 + 1013904223) >>> 0;
+                                                                const ht = 15 + (h % 65);
+                                                                const played = isActiveTrack && (i / 120) < trackProgress;
+                                                                return <div key={i} style={{ flex: 1, height: `${ht}%`, borderRadius: 9999, background: played ? accent : 'rgba(255,255,255,0.18)' }} />;
+                                                            })}
+                                                        </div>
+                                                    );
+                                                })()}
+                                            </div>
+                                            </div>
+                                            );
+                                        })()}
 
                                         {/* Discussion body */}
                                         {post.type === 'discussion' && post.body && (
