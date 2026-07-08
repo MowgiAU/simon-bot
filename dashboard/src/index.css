@@ -61,22 +61,23 @@ body {
   z-index: 999;
 }
 
-/* Tablet */
+/* Tablet — matches the sidebar's own off-canvas breakpoint (see SidebarStyles.ts)
+   so the content area stops reserving space for a sidebar that's no longer docked. */
 @media (max-width: 1024px) {
   .main-content {
+    margin-left: 0;
     padding: 24px 24px;
+  }
+
+  .mobile-menu-toggle {
+    display: block;
   }
 }
 
 /* Mobile */
 @media (max-width: 768px) {
   .main-content {
-    margin-left: 0;
     padding: 16px;
-  }
-
-  .mobile-menu-toggle {
-    display: block;
   }
 }
 
