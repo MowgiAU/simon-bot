@@ -62,11 +62,13 @@ body {
 }
 
 /* Tablet — matches the sidebar's own off-canvas breakpoint (see SidebarStyles.ts)
-   so the content area stops reserving space for a sidebar that's no longer docked. */
+   so the content area stops reserving space for a sidebar that's no longer docked.
+   Horizontal padding is dropped here (kept vertical only) because every page already
+   wraps its content in its own padded container — adding it here just double-pads. */
 @media (max-width: 1024px) {
   .main-content {
     margin-left: 0;
-    padding: 24px 24px;
+    padding: 24px 0;
   }
 
   .mobile-menu-toggle {
@@ -77,7 +79,7 @@ body {
 /* Mobile */
 @media (max-width: 768px) {
   .main-content {
-    padding: 16px;
+    padding: 16px 0;
   }
 }
 
