@@ -91,13 +91,16 @@ const EditorToolbar: React.FC = () => {
 };
 
 const ThreadMessage: React.FC<{ msg: Email; isLast: boolean }> = ({ msg, isLast }) => {
+    const isMobile = useMobile();
     const { mainBody, quotedBody } = useProcessedBody(msg.body);
     const [showQuoted, setShowQuoted] = useState(false);
     const [collapsed, setCollapsed] = useState(!isLast);
+    const avatarSize = isMobile ? 28 : 36;
+    const indent = isMobile ? 12 + avatarSize : 68;
     return (
         <div style={{ borderBottom: isLast ? 'none' : `1px solid rgba(255,255,255,0.06)` }}>
-            <div onClick={() => setCollapsed(!collapsed)} style={{ padding: '14px 20px', cursor: 'pointer', display: 'flex', alignItems: 'flex-start', gap: 12, background: collapsed ? 'rgba(255,255,255,0.02)' : 'transparent' }}>
-                <div style={{ width: 36, height: 36, borderRadius: '50%', backgroundColor: colors.primary, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 700, flexShrink: 0 }}>
+            <div onClick={() => setCollapsed(!collapsed)} style={{ padding: isMobile ? '12px' : '14px 20px', cursor: 'pointer', display: 'flex', alignItems: 'flex-start', gap: 12, background: collapsed ? 'rgba(255,255,255,0.02)' : 'transparent' }}>
+                <div style={{ width: avatarSize, height: avatarSize, borderRadius: '50%', backgroundColor: colors.primary, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: isMobile ? 13 : 15, fontWeight: 700, flexShrink: 0 }}>
                     {msg.from.charAt(0).toUpperCase()}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -110,7 +113,7 @@ const ThreadMessage: React.FC<{ msg: Email; isLast: boolean }> = ({ msg, isLast 
                 </div>
             </div>
             {!collapsed && (
-                <div style={{ padding: '0 20px 20px 68px' }}>
+                <div style={{ padding: isMobile ? `0 12px 16px ${indent}px` : `0 20px 20px ${indent}px` }}>
                     {msg.attachments && msg.attachments.length > 0 && (
                         <div style={{ marginBottom: 12 }}>
                             {msg.attachments.map((att, i) => {
@@ -295,56 +298,65 @@ export const EmailClientPage: React.FC<EmailPageProps> = ({ searchParam }) => {
     // --- Render ---
     const inputStyle: React.CSSProperties = { padding: '6px 10px', backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, color: colors.textPrimary, fontSize: 13, outline: 'none', cursor: 'pointer' };
 
+    const showList = !isMobile || !selectedEmail;
+    const showDetail = !isMobile || !!selectedEmail;
+
     return (
         <>
-        <div style={{ padding: 24 }}>
+        <div style={{ padding: isMobile ? 12 : 24 }}>
             {/* Page header */}
-            <div style={{ display: 'flex', alignItems: 'center', marginBottom: 24 }}>
-                <Mail size={32} color={colors.primary} style={{ marginRight: 16 }} />
-                <div>
-                    <h1 style={{ margin: 0 }}>Email Client</h1>
-                    <p style={{ margin: '4px 0 0', color: colors.textSecondary }}>Send and receive emails directly from the dashboard</p>
+            {!(isMobile && selectedEmail) && (
+                <div style={{ display: 'flex', alignItems: 'center', marginBottom: isMobile ? 16 : 24 }}>
+                    <Mail size={isMobile ? 24 : 32} color={colors.primary} style={{ marginRight: isMobile ? 10 : 16 }} />
+                    <div>
+                        <h1 style={{ margin: 0, fontSize: isMobile ? 18 : undefined }}>Email Client</h1>
+                        {!isMobile && <p style={{ margin: '4px 0 0', color: colors.textSecondary }}>Send and receive emails directly from the dashboard</p>}
+                    </div>
                 </div>
-            </div>
+            )}
 
-            <div style={{ backgroundColor: colors.surface, padding: spacing.md, borderRadius: borderRadius.md, marginBottom: spacing.lg, borderLeft: `4px solid ${colors.primary}` }}>
-                <p style={{ margin: 0, color: colors.textPrimary }}>Emails arrive via webhook and are stored in the dashboard. Configure the webhook secret and notification settings in the Settings tab.</p>
-            </div>
+            {!isMobile && (
+                <div style={{ backgroundColor: colors.surface, padding: spacing.md, borderRadius: borderRadius.md, marginBottom: spacing.lg, borderLeft: `4px solid ${colors.primary}` }}>
+                    <p style={{ margin: 0, color: colors.textPrimary }}>Emails arrive via webhook and are stored in the dashboard. Configure the webhook secret and notification settings in the Settings tab.</p>
+                </div>
+            )}
 
             {/* Folder tabs + actions */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
-                {FOLDERS.map(f => (
-                    <button key={f.key} onClick={() => { setView(f.key); setSelectedEmail(null); setFilterUnread(false); }} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 14px', borderRadius: borderRadius.sm, border: `1px solid ${view === f.key ? colors.primary : 'rgba(255,255,255,0.1)'}`, background: view === f.key ? `${colors.primary}18` : 'transparent', color: view === f.key ? colors.primary : colors.textSecondary, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>
-                        {f.icon} {f.label}
-                        {f.key === 'inbox' && unreadCount > 0 && <span style={{ marginLeft: 2, padding: '1px 6px', borderRadius: 999, background: colors.primary, color: '#fff', fontSize: 10, fontWeight: 700 }}>{unreadCount}</span>}
+            {!(isMobile && selectedEmail) && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
+                    {FOLDERS.map(f => (
+                        <button key={f.key} onClick={() => { setView(f.key); setSelectedEmail(null); setFilterUnread(false); }} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 14px', borderRadius: borderRadius.sm, border: `1px solid ${view === f.key ? colors.primary : 'rgba(255,255,255,0.1)'}`, background: view === f.key ? `${colors.primary}18` : 'transparent', color: view === f.key ? colors.primary : colors.textSecondary, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>
+                            {f.icon} {f.label}
+                            {f.key === 'inbox' && unreadCount > 0 && <span style={{ marginLeft: 2, padding: '1px 6px', borderRadius: 999, background: colors.primary, color: '#fff', fontSize: 10, fontWeight: 700 }}>{unreadCount}</span>}
+                        </button>
+                    ))}
+                    <button onClick={() => { setView('settings'); setSelectedEmail(null); }} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 14px', borderRadius: borderRadius.sm, border: `1px solid ${view === 'settings' ? colors.primary : 'rgba(255,255,255,0.1)'}`, background: view === 'settings' ? `${colors.primary}18` : 'transparent', color: view === 'settings' ? colors.primary : colors.textSecondary, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>
+                        <Settings size={13} /> Settings
                     </button>
-                ))}
-                <button onClick={() => { setView('settings'); setSelectedEmail(null); }} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 14px', borderRadius: borderRadius.sm, border: `1px solid ${view === 'settings' ? colors.primary : 'rgba(255,255,255,0.1)'}`, background: view === 'settings' ? `${colors.primary}18` : 'transparent', color: view === 'settings' ? colors.primary : colors.textSecondary, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>
-                    <Settings size={13} /> Settings
-                </button>
 
-                {view === 'inbox' && (
-                    <button onClick={() => setFilterUnread(f => !f)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 14px', borderRadius: borderRadius.sm, border: `1px solid ${filterUnread ? '#3b82f6' : 'rgba(255,255,255,0.1)'}`, background: filterUnread ? 'rgba(59,130,246,0.1)' : 'transparent', color: filterUnread ? '#3b82f6' : colors.textSecondary, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>
-                        <Circle size={8} style={{ fill: filterUnread ? '#3b82f6' : 'none' }} /> Unread only
-                    </button>
-                )}
-
-                <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontSize: 13, color: colors.textTertiary }}>{visibleEmails.length} {view !== 'settings' ? 'email' + (visibleEmails.length !== 1 ? 's' : '') : ''}</span>
-                    <button onClick={() => view === 'settings' ? axios.get('/api/email/settings', { withCredentials: true }).then(r => setSettings(r.data)).catch(() => {}) : fetchEmails(view)} style={{ ...inputStyle, display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, padding: 0 }} title="Refresh">
-                        <RefreshCw size={14} style={{ animation: refreshing ? 'spin 1s linear infinite' : 'none' }} />
-                    </button>
-                    {view !== 'settings' && (
-                        <button onClick={() => { setComposing(true); setComposeData({ to: '', subject: '', body: '', attachments: [] }); }} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: borderRadius.sm, border: 'none', background: colors.primary, color: '#fff', cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>
-                            <Plus size={14} /> Compose
+                    {view === 'inbox' && (
+                        <button onClick={() => setFilterUnread(f => !f)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 14px', borderRadius: borderRadius.sm, border: `1px solid ${filterUnread ? '#3b82f6' : 'rgba(255,255,255,0.1)'}`, background: filterUnread ? 'rgba(59,130,246,0.1)' : 'transparent', color: filterUnread ? '#3b82f6' : colors.textSecondary, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>
+                            <Circle size={8} style={{ fill: filterUnread ? '#3b82f6' : 'none' }} /> Unread only
                         </button>
                     )}
+
+                    <div style={{ marginLeft: isMobile ? 0 : 'auto', width: isMobile ? '100%' : undefined, display: 'flex', alignItems: 'center', gap: 8 }}>
+                        {view !== 'settings' && <span style={{ fontSize: 13, color: colors.textTertiary }}>{visibleEmails.length} email{visibleEmails.length !== 1 ? 's' : ''}</span>}
+                        <button onClick={() => view === 'settings' ? axios.get('/api/email/settings', { withCredentials: true }).then(r => setSettings(r.data)).catch(() => {}) : fetchEmails(view)} style={{ ...inputStyle, display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, padding: 0 }} title="Refresh">
+                            <RefreshCw size={14} style={{ animation: refreshing ? 'spin 1s linear infinite' : 'none' }} />
+                        </button>
+                        {view !== 'settings' && (
+                            <button onClick={() => { setComposing(true); setComposeData({ to: '', subject: '', body: '', attachments: [] }); }} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: borderRadius.sm, border: 'none', background: colors.primary, color: '#fff', cursor: 'pointer', fontWeight: 600, fontSize: 13, marginLeft: isMobile ? 'auto' : undefined }}>
+                                <Plus size={14} /> Compose
+                            </button>
+                        )}
+                    </div>
                 </div>
-            </div>
+            )}
 
             {view === 'settings' ? (
                 /* Settings panel */
-                <div style={{ backgroundColor: colors.surface, borderRadius: borderRadius.lg, border: '1px solid rgba(255,255,255,0.06)', padding: spacing.lg, maxWidth: 600 }}>
+                <div style={{ backgroundColor: colors.surface, borderRadius: borderRadius.lg, border: '1px solid rgba(255,255,255,0.06)', padding: isMobile ? spacing.md : spacing.lg, maxWidth: isMobile ? '100%' : 600 }}>
                     <h3 style={{ margin: '0 0 20px', fontSize: 15, fontWeight: 700, color: colors.textPrimary }}>Email Settings</h3>
                     {[
                         { label: 'Webhook Secret', key: 'webhookSecret', placeholder: 'Paste whsec_ from Resend or generate one', hasGenerate: true },
@@ -367,10 +379,12 @@ export const EmailClientPage: React.FC<EmailPageProps> = ({ searchParam }) => {
                     <button onClick={saveSettings} style={{ padding: '9px 20px', borderRadius: borderRadius.md, border: 'none', background: colors.primary, color: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: 13 }}>Save Settings</button>
                 </div>
             ) : (
-                /* Email list + detail — same pattern as BugReportsAdmin */
+                /* Email list + detail — same pattern as BugReportsAdmin.
+                   On mobile, list and detail are single-pane views (never side by side). */
                 <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
                     {/* List */}
-                    <div style={{ flex: selectedEmail ? '0 0 380px' : '1 1 auto', minWidth: 0 }}>
+                    {showList && (
+                    <div style={{ flex: isMobile ? '1 1 auto' : (selectedEmail ? '0 0 380px' : '1 1 auto'), width: isMobile ? '100%' : undefined, minWidth: 0 }}>
                         {loading ? (
                             <p style={{ color: colors.textSecondary, textAlign: 'center', padding: 40 }}>Loading…</p>
                         ) : visibleEmails.length === 0 ? (
@@ -404,25 +418,33 @@ export const EmailClientPage: React.FC<EmailPageProps> = ({ searchParam }) => {
                             </div>
                         )}
                     </div>
+                    )}
 
                     {/* Detail panel */}
-                    {selectedEmail && (
-                        <div style={{ flex: '1 1 auto', minWidth: 0, backgroundColor: colors.surface, borderRadius: borderRadius.lg, border: `1px solid rgba(255,255,255,0.06)`, overflow: 'hidden' }}>
+                    {showDetail && selectedEmail && (
+                        <div style={{ flex: '1 1 auto', width: isMobile ? '100%' : undefined, minWidth: 0, backgroundColor: isMobile ? 'transparent' : colors.surface, borderRadius: isMobile ? 0 : borderRadius.lg, border: isMobile ? 'none' : `1px solid rgba(255,255,255,0.06)`, overflow: 'hidden' }}>
                             {/* Thread header */}
-                            <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+                            <div style={{ padding: isMobile ? '4px 0 12px' : '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+                                {isMobile && (
+                                    <button onClick={() => { setSelectedEmail(null); setInlineReplying(false); }} style={{ background: 'none', border: 'none', color: colors.textSecondary, cursor: 'pointer', display: 'flex', padding: '4px 4px 4px 0', flexShrink: 0 }}>
+                                        <ArrowLeft size={18} />
+                                    </button>
+                                )}
                                 <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: colors.textPrimary, flex: 1, lineHeight: 1.3 }}>{selectedEmail.subject}</h3>
                                 <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
                                     <button onClick={() => { setTrashConfirm(selectedEmail); }} title="Move to trash" style={{ background: 'none', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 8, padding: '5px 8px', color: '#f87171', cursor: 'pointer', display: 'flex' }}>
                                         <Trash2 size={14} />
                                     </button>
-                                    <button onClick={() => { setSelectedEmail(null); setInlineReplying(false); }} style={{ background: 'none', border: 'none', color: colors.textTertiary, cursor: 'pointer', display: 'flex', padding: 4 }}>
-                                        <X size={18} />
-                                    </button>
+                                    {!isMobile && (
+                                        <button onClick={() => { setSelectedEmail(null); setInlineReplying(false); }} style={{ background: 'none', border: 'none', color: colors.textTertiary, cursor: 'pointer', display: 'flex', padding: 4 }}>
+                                            <X size={18} />
+                                        </button>
+                                    )}
                                 </div>
                             </div>
 
                             {/* Thread messages */}
-                            <div style={{ maxHeight: 480, overflowY: 'auto' }}>
+                            <div style={{ maxHeight: isMobile ? 'none' : 480, overflowY: isMobile ? 'visible' : 'auto' }}>
                                 {currentThread.map((msg, idx) => (
                                     <ThreadMessage key={msg.threadId} msg={msg} isLast={idx === currentThread.length - 1} />
                                 ))}
