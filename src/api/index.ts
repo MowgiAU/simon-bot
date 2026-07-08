@@ -1681,6 +1681,63 @@ async function verifyPassword(password: string, hash: string): Promise<boolean> 
 }
 
 // --- Session builder: creates a consistent session from a DB User ---
+// Resolves a Discord user's admin/staff guild access using the bot token only
+// (no user OAuth token required — usable for email logins and impersonation).
+async function resolveGuildAccessViaBotToken(discordId: string): Promise<{
+    mutualAdminGuilds: any[];
+    mutualStaffGuilds: any[];
+    isGuildMember: boolean;
+}> {
+    const botGuilds = await getBotGuildIds();
+    const primaryGuildId = process.env.GUILD_ID;
+    const mutualAdminGuilds: any[] = [];
+    const mutualStaffGuilds: any[] = [];
+    let isGuildMember = false;
+
+    for (const botGuild of botGuilds) {
+        try {
+            const [memberRes, guildRes, rolesRes] = await Promise.all([
+                axios.get(`https://discord.com/api/v10/guilds/${botGuild.id}/members/${discordId}`,
+                    { headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` }, timeout: 5000 }),
+                axios.get(`https://discord.com/api/v10/guilds/${botGuild.id}`,
+                    { headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` }, timeout: 5000 }),
+                axios.get(`https://discord.com/api/v10/guilds/${botGuild.id}/roles`,
+                    { headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` }, timeout: 5000 }),
+            ]);
+
+            const member = memberRes.data;
+            const memberRoles: string[] = member.roles || [];
+
+            if (primaryGuildId && botGuild.id === primaryGuildId) isGuildMember = true;
+
+            memberRoleCache.set(`${botGuild.id}:${discordId}`, { roles: memberRoles, timestamp: Date.now() });
+
+            const isOwner = guildRes.data.owner_id === discordId;
+            const guildRoles: any[] = rolesRes.data;
+            const isDiscordAdmin = memberRoles.some((roleId: string) => {
+                const role = guildRoles.find((r: any) => r.id === roleId);
+                return role && (BigInt(role.permissions) & BigInt(0x8)) === BigInt(0x8);
+            });
+
+            if (isOwner || isDiscordAdmin) {
+                mutualAdminGuilds.push({ id: botGuild.id, name: botGuild.name, icon: botGuild.icon });
+            } else {
+                const guildAccess = await db.dashboardAccess.findUnique({ where: { guildId: botGuild.id } });
+                const hasAllowedRole = guildAccess?.allowedRoles?.length
+                    ? memberRoles.some((r: string) => guildAccess.allowedRoles.includes(r))
+                    : false;
+                if (hasAllowedRole) {
+                    mutualStaffGuilds.push({ id: botGuild.id, name: botGuild.name, icon: botGuild.icon });
+                }
+            }
+        } catch (e: any) {
+            // 404 = not a member of this guild, skip
+        }
+    }
+
+    return { mutualAdminGuilds, mutualStaffGuilds, isGuildMember };
+}
+
 async function buildSessionFromUser(req: any, dbUser: any, loginMethod: 'email' | 'discord') {
     req.session.user = {
         id: dbUser.discordId || dbUser.id,
@@ -1701,55 +1758,8 @@ async function buildSessionFromUser(req: any, dbUser: any, loginMethod: 'email' 
     // If user has a linked Discord account, use bot token to resolve guild/admin status
     if (dbUser.discordId && loginMethod === 'email') {
         try {
-            const botGuilds = await getBotGuildIds();
             const primaryGuildId = process.env.GUILD_ID;
-            const mutualAdminGuilds: any[] = [];
-            const mutualStaffGuilds: any[] = [];
-            let isGuildMember = false;
-
-            for (const botGuild of botGuilds) {
-                try {
-                    const [memberRes, guildRes, rolesRes] = await Promise.all([
-                        axios.get(`https://discord.com/api/v10/guilds/${botGuild.id}/members/${dbUser.discordId}`,
-                            { headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` }, timeout: 5000 }),
-                        axios.get(`https://discord.com/api/v10/guilds/${botGuild.id}`,
-                            { headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` }, timeout: 5000 }),
-                        axios.get(`https://discord.com/api/v10/guilds/${botGuild.id}/roles`,
-                            { headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` }, timeout: 5000 }),
-                    ]);
-
-                    const member = memberRes.data;
-                    const memberRoles: string[] = member.roles || [];
-
-                    if (primaryGuildId && botGuild.id === primaryGuildId) isGuildMember = true;
-
-                    // Store in cache for later permission checks
-                    memberRoleCache.set(`${botGuild.id}:${dbUser.discordId}`, { roles: memberRoles, timestamp: Date.now() });
-
-                    // Check ADMINISTRATOR permission (same logic as Discord OAuth flow)
-                    const isOwner = guildRes.data.owner_id === dbUser.discordId;
-                    const guildRoles: any[] = rolesRes.data;
-                    const isDiscordAdmin = memberRoles.some((roleId: string) => {
-                        const role = guildRoles.find((r: any) => r.id === roleId);
-                        return role && (BigInt(role.permissions) & BigInt(0x8)) === BigInt(0x8);
-                    });
-
-                    if (isOwner || isDiscordAdmin) {
-                        mutualAdminGuilds.push({ id: botGuild.id, name: botGuild.name, icon: botGuild.icon });
-                    } else {
-                        // Check dashboard-configured allowed roles (staff, not admin)
-                        const guildAccess = await db.dashboardAccess.findUnique({ where: { guildId: botGuild.id } });
-                        const hasAllowedRole = guildAccess?.allowedRoles?.length
-                            ? memberRoles.some((r: string) => guildAccess.allowedRoles.includes(r))
-                            : false;
-                        if (hasAllowedRole) {
-                            mutualStaffGuilds.push({ id: botGuild.id, name: botGuild.name, icon: botGuild.icon });
-                        }
-                    }
-                } catch (e: any) {
-                    // 404 = not a member of this guild, skip
-                }
-            }
+            const { mutualAdminGuilds, mutualStaffGuilds, isGuildMember } = await resolveGuildAccessViaBotToken(dbUser.discordId);
 
             req.session.guilds = [];
             req.session.mutualAdminGuilds = mutualAdminGuilds;
@@ -12590,9 +12600,16 @@ app.post('/api/admin/impersonate', requireAdmin, async (req: any, res) => {
             _totpEnabled: targetUser.totpEnabled,
         };
         req.session.guilds = [];
-        req.session.mutualAdminGuilds = [];
-        req.session.mutualStaffGuilds = [];
-        req.session.isGuildMember = false;
+        if (targetUser.discordId) {
+            const { mutualAdminGuilds, mutualStaffGuilds, isGuildMember } = await resolveGuildAccessViaBotToken(targetUser.discordId);
+            req.session.mutualAdminGuilds = mutualAdminGuilds;
+            req.session.mutualStaffGuilds = mutualStaffGuilds;
+            req.session.isGuildMember = isGuildMember;
+        } else {
+            req.session.mutualAdminGuilds = [];
+            req.session.mutualStaffGuilds = [];
+            req.session.isGuildMember = false;
+        }
 
         await new Promise<void>((resolve, reject) => req.session.save((err: any) => err ? reject(err) : resolve()));
         logger.info(`Admin impersonated user ${targetUser.username} (${targetUser.id})`);
