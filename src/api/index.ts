@@ -6542,25 +6542,39 @@ app.post('/api/email/send', requireAdmin, emailUpload.array('attachments'), asyn
 
 // List Emails
 app.get('/api/email/list/:category?', requireAdmin, async (req, res) => {
-    const category = req.params.category || 'inbox';
-    const emails = await emailService.getEmails(category);
-    res.json(emails);
+    try {
+        const category = req.params.category || 'inbox';
+        const emails = await emailService.getEmails(category);
+        res.json(emails);
+    } catch (e: any) {
+        logger.error('[Email] Failed to list emails', e);
+        res.status(500).json({ error: e.message || 'Failed to load emails' });
+    }
 });
 
 // Get Thread
 app.get('/api/email/thread', requireAdmin, async (req, res) => {
     const subject = req.query.subject as string;
     if (!subject) return res.status(400).json({ error: 'Subject required' });
-    
-    const thread = await emailService.getThread(subject);
-    res.json(thread);
+    try {
+        const thread = await emailService.getThread(subject);
+        res.json(thread);
+    } catch (e: any) {
+        logger.error('[Email] Failed to load thread', e);
+        res.status(500).json({ error: e.message || 'Failed to load thread' });
+    }
 });
 
 // Update Email
 app.patch('/api/email/:threadId', requireAdmin, async (req, res) => {
-    const { updates } = req.body;
-    await emailService.updateEmail(req.params.threadId, updates);
-    res.json({ success: true });
+    try {
+        const { updates } = req.body;
+        await emailService.updateEmail(req.params.threadId, updates);
+        res.json({ success: true });
+    } catch (e: any) {
+        logger.error('[Email] Failed to update email', e);
+        res.status(500).json({ error: e.message || 'Failed to update email' });
+    }
 });
 
 // Get Settings
