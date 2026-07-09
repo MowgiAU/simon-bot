@@ -21,6 +21,9 @@ import { WordCensor } from '../../services/WordCensor.js';
 
 interface EconomyContext extends IPluginContext {}
 
+// Channel where birthday-role activations are announced (General).
+const BIRTHDAY_ANNOUNCEMENT_CHANNEL_ID = '957214011290693692';
+
 export class EconomyPlugin implements IPlugin {
     id = 'economy';
     name = 'Economy';
@@ -564,6 +567,10 @@ export class EconomyPlugin implements IPlugin {
                 details: { item: item.name, roleId, expiresAt },
             });
 
+            if (item.name.toLowerCase().includes('birthday')) {
+                await this.announceBirthday(interaction.user.id);
+            }
+
             const ts = Math.floor(expiresAt.getTime() / 1000);
             await interaction.reply({
                 content: `✅ Used **${item.name}**! Your role has been granted and will be removed <t:${ts}:R>.`,
@@ -571,6 +578,24 @@ export class EconomyPlugin implements IPlugin {
         } catch (e) {
             this.logger.error('Token use failed', e);
             await interaction.reply({ content: 'Failed to use token.', flags: MessageFlags.Ephemeral });
+        }
+    }
+
+    /**
+     * Posts a happy-birthday announcement when a user activates the birthday role token.
+     */
+    private async announceBirthday(userId: string): Promise<void> {
+        try {
+            const channel = await this.client.channels.fetch(BIRTHDAY_ANNOUNCEMENT_CHANNEL_ID);
+            if (!channel?.isTextBased()) return;
+
+            const embed = new EmbedBuilder()
+                .setColor('#F2780A')
+                .setDescription(`🎉🎂 Everyone wish <@${userId}> a very **Happy Birthday**! 🎉🎂`);
+
+            await channel.send({ content: `<@${userId}>`, embeds: [embed] });
+        } catch (e) {
+            this.logger.error('Failed to send birthday announcement', e);
         }
     }
 
