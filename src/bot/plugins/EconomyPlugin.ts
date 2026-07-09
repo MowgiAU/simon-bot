@@ -24,6 +24,12 @@ interface EconomyContext extends IPluginContext {}
 // Channel where birthday-role activations are announced (General).
 const BIRTHDAY_ANNOUNCEMENT_CHANNEL_ID = '957214011290693692';
 
+// Staff members get a separate birthday role (positioned above Moderator in the
+// role list) so their staff role color isn't overridden by the regular birthday role.
+const BIRTHDAY_MOD_ROLE_ID = '1524630879832379523';
+const MOD_ROLE_ID = '957213892810010645';
+const JR_STAFF_ROLE_ID = '1194170279522471946';
+
 export class EconomyPlugin implements IPlugin {
     id = 'economy';
     name = 'Economy';
@@ -551,20 +557,26 @@ export class EconomyPlugin implements IPlugin {
                 });
             }
 
-            // Grant the role
+            // Grant the role — staff (Mod/Jr Staff) get the dedicated birthday role instead,
+            // so it can be positioned above their staff role and show their birthday color.
             const member = await interaction.guild?.members.fetch(interaction.user.id);
-            await member?.roles.add(roleId).catch((e: any) => this.logger.error('Failed to add token role', e));
+            let grantRoleId = roleId;
+            if (item.name.toLowerCase().includes('birthday') && member) {
+                const isStaff = member.roles.cache.has(MOD_ROLE_ID) || member.roles.cache.has(JR_STAFF_ROLE_ID);
+                if (isStaff) grantRoleId = BIRTHDAY_MOD_ROLE_ID;
+            }
+            await member?.roles.add(grantRoleId).catch((e: any) => this.logger.error('Failed to add token role', e));
 
             // Record the grant
             await this.db.economyTokenGrant.create({
-                data: { guildId: interaction.guildId, userId: interaction.user.id, itemId: item.id, roleId, expiresAt },
+                data: { guildId: interaction.guildId, userId: interaction.user.id, itemId: item.id, roleId: grantRoleId, expiresAt },
             });
 
             await this.logAction({
                 guildId: interaction.guildId,
                 actionType: 'token_used',
                 executorId: interaction.user.id,
-                details: { item: item.name, roleId, expiresAt },
+                details: { item: item.name, roleId: grantRoleId, expiresAt },
             });
 
             if (item.name.toLowerCase().includes('birthday')) {
