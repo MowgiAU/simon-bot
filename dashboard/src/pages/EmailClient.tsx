@@ -90,15 +90,15 @@ const EditorToolbar: React.FC = () => {
     );
 };
 
-const ThreadMessage: React.FC<{ msg: Email; isLast: boolean }> = ({ msg, isLast }) => {
+const ThreadMessage: React.FC<{ msg: Email; isLastRendered: boolean; autoExpand: boolean }> = ({ msg, isLastRendered, autoExpand }) => {
     const isMobile = useMobile();
     const { mainBody, quotedBody } = useProcessedBody(msg.body);
     const [showQuoted, setShowQuoted] = useState(false);
-    const [collapsed, setCollapsed] = useState(!isLast);
+    const [collapsed, setCollapsed] = useState(!autoExpand);
     const avatarSize = isMobile ? 28 : 36;
     const indent = isMobile ? 12 + avatarSize : 68;
     return (
-        <div style={{ borderBottom: isLast ? 'none' : `1px solid rgba(255,255,255,0.06)` }}>
+        <div style={{ borderBottom: isLastRendered ? 'none' : `1px solid rgba(255,255,255,0.06)` }}>
             <div onClick={() => setCollapsed(!collapsed)} style={{ padding: isMobile ? '12px' : '14px 20px', cursor: 'pointer', display: 'flex', alignItems: 'flex-start', gap: 12, background: collapsed ? 'rgba(255,255,255,0.02)' : 'transparent' }}>
                 <div style={{ width: avatarSize, height: avatarSize, borderRadius: '50%', backgroundColor: colors.primary, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: isMobile ? 13 : 15, fontWeight: 700, flexShrink: 0 }}>
                     {msg.from.charAt(0).toUpperCase()}
@@ -238,9 +238,9 @@ export const EmailClientPage: React.FC<EmailPageProps> = ({ searchParam }) => {
     const startReply = () => {
         if (!selectedEmail) return;
         setInlineReplying(true);
-        const lastMsg = currentThread[currentThread.length - 1] || selectedEmail;
+        const lastMsg = currentThread[0] || selectedEmail;
         const ownEmail = settings.fromEmail?.toLowerCase();
-        const lastInbound = [...currentThread].reverse().find(m => m.fromEmail?.toLowerCase() !== ownEmail && m.category !== 'sent') || selectedEmail;
+        const lastInbound = currentThread.find(m => m.fromEmail?.toLowerCase() !== ownEmail && m.category !== 'sent') || selectedEmail;
         setComposeData(prev => ({
             ...prev, to: lastInbound.fromEmail,
             subject: lastMsg.subject.startsWith('Re:') ? lastMsg.subject : `Re: ${lastMsg.subject}`,
@@ -294,6 +294,27 @@ export const EmailClientPage: React.FC<EmailPageProps> = ({ searchParam }) => {
     // --- Derived data ---
     const visibleEmails = view === 'inbox' && filterUnread ? emails.filter(e => !e.read) : emails;
     const unreadCount = emails.filter(e => !e.read && e.category === 'inbox').length;
+
+    // Collapse same-conversation messages into a single row (most recent message
+    // represents the row) so a long back-and-forth doesn't show as N separate rows.
+    const groupedEmails = React.useMemo(() => {
+        const groups = new Map<string, { latest: Email; count: number; unread: boolean }>();
+        for (const email of visibleEmails) {
+            const key = normalizeSubject(email.subject || '');
+            const existing = groups.get(key);
+            const isUnread = !email.read && email.category === 'inbox';
+            if (!existing) {
+                groups.set(key, { latest: email, count: 1, unread: isUnread });
+            } else {
+                existing.count += 1;
+                existing.unread = existing.unread || isUnread;
+                if (new Date(email.date).getTime() > new Date(existing.latest.date).getTime()) {
+                    existing.latest = email;
+                }
+            }
+        }
+        return [...groups.values()].sort((a, b) => new Date(b.latest.date).getTime() - new Date(a.latest.date).getTime());
+    }, [visibleEmails]);
 
     // --- Render ---
     const inputStyle: React.CSSProperties = { padding: '6px 10px', backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.sm, color: colors.textPrimary, fontSize: 13, outline: 'none', cursor: 'pointer' };
@@ -387,16 +408,15 @@ export const EmailClientPage: React.FC<EmailPageProps> = ({ searchParam }) => {
                     <div style={{ flex: isMobile ? '1 1 auto' : (selectedEmail ? '0 0 380px' : '1 1 auto'), width: isMobile ? '100%' : undefined, minWidth: 0 }}>
                         {loading ? (
                             <p style={{ color: colors.textSecondary, textAlign: 'center', padding: 40 }}>Loading…</p>
-                        ) : visibleEmails.length === 0 ? (
+                        ) : groupedEmails.length === 0 ? (
                             <div style={{ textAlign: 'center', padding: 40, color: colors.textTertiary }}>
                                 <Mail size={48} style={{ opacity: 0.2, marginBottom: 12 }} />
                                 <p>{filterUnread ? 'No unread emails.' : 'No emails here.'}</p>
                             </div>
                         ) : (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                {visibleEmails.map(email => {
-                                    const isSelected = selectedEmail?.threadId === email.threadId;
-                                    const unread = !email.read && email.category === 'inbox';
+                                {groupedEmails.map(({ latest: email, count, unread }) => {
+                                    const isSelected = !!selectedEmail && normalizeSubject(selectedEmail.subject) === normalizeSubject(email.subject);
                                     return (
                                         <div key={email.threadId} onClick={() => setSelectedEmail(email)} style={{ padding: '12px 16px', backgroundColor: isSelected ? 'rgba(255,255,255,0.06)' : colors.surface, borderRadius: borderRadius.md, border: `1px solid ${isSelected ? colors.primary : unread ? 'rgba(59,130,246,0.35)' : 'rgba(255,255,255,0.06)'}`, cursor: 'pointer', transition: 'border-color 0.15s', background: unread && !isSelected ? 'rgba(59,130,246,0.04)' : undefined }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
@@ -404,6 +424,7 @@ export const EmailClientPage: React.FC<EmailPageProps> = ({ searchParam }) => {
                                                 <span style={{ fontWeight: unread ? 700 : 500, color: colors.textPrimary, fontSize: 13, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                                     {view === 'sent' ? `To: ${email.toEmail || email.from}` : email.from}
                                                 </span>
+                                                {count > 1 && <span style={{ fontSize: 11, color: colors.textTertiary, flexShrink: 0, background: 'rgba(255,255,255,0.06)', borderRadius: 999, padding: '1px 6px' }}>{count}</span>}
                                                 <span style={{ fontSize: 11, color: unread ? '#60a5fa' : colors.textTertiary, flexShrink: 0 }}>{fmtShort(email.date)}</span>
                                             </div>
                                             <div style={{ fontSize: 13, fontWeight: unread ? 600 : 400, color: unread ? colors.textPrimary : colors.textSecondary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 2 }}>
@@ -446,7 +467,7 @@ export const EmailClientPage: React.FC<EmailPageProps> = ({ searchParam }) => {
                             {/* Thread messages */}
                             <div style={{ maxHeight: isMobile ? 'none' : 480, overflowY: isMobile ? 'visible' : 'auto' }}>
                                 {currentThread.map((msg, idx) => (
-                                    <ThreadMessage key={msg.threadId} msg={msg} isLast={idx === currentThread.length - 1} />
+                                    <ThreadMessage key={msg.threadId} msg={msg} isLastRendered={idx === currentThread.length - 1} autoExpand={idx === 0} />
                                 ))}
                             </div>
 
