@@ -12,6 +12,14 @@ interface Genre {
     parentId: string | null;
 }
 
+interface Community {
+    id: string;
+    name: string;
+    slug: string;
+    description: string | null;
+    icon: string | null;
+}
+
 interface TrackResult {
     id: string;
     title: string;
@@ -53,11 +61,15 @@ export const MusicianProfileAdmin: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [newGenreName, setNewGenreName] = useState('');
     const [newGenreParent, setNewGenreParent] = useState<string>('');
+    const [communities, setCommunities] = useState<Community[]>([]);
+    const [newCommunityName, setNewCommunityName] = useState('');
+    const [newCommunityDescription, setNewCommunityDescription] = useState('');
+    const [newCommunityIcon, setNewCommunityIcon] = useState('');
     const [saving, setSaving] = useState(false);
     const [msg, setMsg] = useState<{ type: 'success' | 'error', text: string } | null>(null);
     const [confirmDialog, setConfirmDialog] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
     const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
-    const [adminTab, setAdminTab] = useState<'discover' | 'profiles' | 'genres' | 'settings'>('discover');
+    const [adminTab, setAdminTab] = useState<'discover' | 'profiles' | 'genres' | 'communities' | 'settings'>('discover');
 
     // Auto-follow settings state
     const [autoFollowProfile, setAutoFollowProfile] = useState<{ id: string; username: string; displayName: string | null; avatar: string | null } | null>(null);
@@ -157,6 +169,7 @@ export const MusicianProfileAdmin: React.FC = () => {
 
     useEffect(() => {
         fetchGenres();
+        fetchCommunities();
         fetchDiscoverySettings();
         fetchBattles();
         axios.get('/api/beat-battle/admin/sponsors', { withCredentials: true })
@@ -261,6 +274,16 @@ export const MusicianProfileAdmin: React.FC = () => {
             console.error('Failed to load genres');
         } finally {
             setLoading(false);
+        }
+    };
+
+    const fetchCommunities = async () => {
+        try {
+            const res = await axios.get('/api/communities', { withCredentials: true });
+            const sorted = [...res.data].sort((a: Community, b: Community) => a.name.localeCompare(b.name));
+            setCommunities(sorted);
+        } catch (err) {
+            console.error('Failed to load communities');
         }
     };
 
@@ -761,6 +784,45 @@ export const MusicianProfileAdmin: React.FC = () => {
         });
     };
 
+    const handleAddCommunity = async () => {
+        if (!newCommunityName) return;
+        setSaving(true);
+        try {
+            await axios.post('/api/communities', {
+                name: newCommunityName,
+                description: newCommunityDescription || undefined,
+                icon: newCommunityIcon || undefined,
+            }, { withCredentials: true });
+            setNewCommunityName('');
+            setNewCommunityDescription('');
+            setNewCommunityIcon('');
+            setMsg({ type: 'success', text: 'Community added successfully!' });
+            fetchCommunities();
+        } catch (err: any) {
+            setMsg({ type: 'error', text: err.response?.data?.error || 'Failed to add community' });
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleArchiveCommunity = (id: string) => {
+        const community = communities.find(c => c.id === id);
+        setConfirmDialog({
+            title: 'Archive Community',
+            message: `Are you sure you want to archive "${community?.name || 'this community'}"? It will disappear from the browse grid, but existing posts are kept.`,
+            onConfirm: async () => {
+                setConfirmDialog(null);
+                try {
+                    await axios.post(`/api/communities/${id}/archive`, {}, { withCredentials: true });
+                    setMsg({ type: 'success', text: 'Community archived.' });
+                    fetchCommunities();
+                } catch (err) {
+                    setMsg({ type: 'error', text: 'Failed to archive community' });
+                }
+            }
+        });
+    };
+
     if (loading) return <div style={{ color: colors.textSecondary, padding: spacing.xl }}>Loading admin settings...</div>;
 
     // A "root" genre is any genre that does NOT have a parentId
@@ -797,6 +859,7 @@ export const MusicianProfileAdmin: React.FC = () => {
                     { key: 'discover' as const, label: 'Discovery', icon: <Compass size={16} /> },
                     { key: 'profiles' as const, label: 'Profiles & Tracks', icon: <ShieldOff size={16} /> },
                     { key: 'genres' as const, label: 'Genres & Admin', icon: <List size={16} /> },
+                    { key: 'communities' as const, label: 'Communities', icon: <Tag size={16} /> },
                     { key: 'settings' as const, label: 'Site Settings', icon: <Settings size={16} /> },
                 ]).map(t => (
                     <button
@@ -1880,6 +1943,85 @@ export const MusicianProfileAdmin: React.FC = () => {
                                 )}
                             </div>
                         ))}
+                    </div>
+                </div>
+            </div>
+            </>)}
+
+            {adminTab === 'communities' && (<>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: spacing.xl }}>
+                {/* Community List */}
+                <div style={{ backgroundColor: colors.surface, padding: spacing.lg, borderRadius: borderRadius.lg }}>
+                    <h3 style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Tag size={20} /> Custom Communities
+                    </h3>
+                    <div style={{ maxHeight: '600px', overflowY: 'auto', paddingRight: '8px' }}>
+                        {communities.length === 0 && <p style={{ color: colors.textSecondary }}>No custom communities configured.</p>}
+                        {communities.map(c => (
+                            <div key={c.id} style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                marginBottom: spacing.sm,
+                                border: '1px solid rgba(255,255,255,0.05)',
+                                borderRadius: borderRadius.sm,
+                                backgroundColor: 'rgba(255,255,255,0.02)',
+                                padding: '10px 12px',
+                            }}>
+                                <div>
+                                    <span style={{ color: colors.primary, fontWeight: 'bold' }}>{c.icon ? `${c.icon} ` : ''}{c.name}</span>
+                                    {c.description && <div style={{ fontSize: '0.8rem', color: colors.textSecondary, marginTop: '2px' }}>{c.description}</div>}
+                                </div>
+                                <Trash2 size={16} style={{ cursor: 'pointer', color: '#ff4444', opacity: 0.6, flexShrink: 0 }} onClick={() => handleArchiveCommunity(c.id)} />
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Add New Community */}
+                <div style={{ backgroundColor: colors.surface, padding: spacing.lg, borderRadius: borderRadius.lg }}>
+                    <h3 style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Plus size={20} /> Add New Community
+                    </h3>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.md }}>
+                        <div>
+                            <label style={{ fontSize: '0.85rem', color: colors.textSecondary }}>Community Name</label>
+                            <input
+                                type="text"
+                                value={newCommunityName}
+                                onChange={(e) => setNewCommunityName(e.target.value)}
+                                placeholder="e.g. Resources"
+                                style={{ width: '100%', backgroundColor: 'rgba(255,255,255,0.05)', border: 'none', borderRadius: borderRadius.sm, padding: spacing.sm, color: colors.textPrimary, marginTop: '4px' }}
+                            />
+                        </div>
+                        <div>
+                            <label style={{ fontSize: '0.85rem', color: colors.textSecondary }}>Description (Optional)</label>
+                            <input
+                                type="text"
+                                value={newCommunityDescription}
+                                onChange={(e) => setNewCommunityDescription(e.target.value)}
+                                placeholder="What's this community for?"
+                                style={{ width: '100%', backgroundColor: 'rgba(255,255,255,0.05)', border: 'none', borderRadius: borderRadius.sm, padding: spacing.sm, color: colors.textPrimary, marginTop: '4px' }}
+                            />
+                        </div>
+                        <div>
+                            <label style={{ fontSize: '0.85rem', color: colors.textSecondary }}>Icon (Optional emoji)</label>
+                            <input
+                                type="text"
+                                value={newCommunityIcon}
+                                onChange={(e) => setNewCommunityIcon(e.target.value)}
+                                placeholder="📁"
+                                maxLength={4}
+                                style={{ width: '100%', backgroundColor: 'rgba(255,255,255,0.05)', border: 'none', borderRadius: borderRadius.sm, padding: spacing.sm, color: colors.textPrimary, marginTop: '4px' }}
+                            />
+                        </div>
+                        <button
+                            onClick={handleAddCommunity}
+                            disabled={saving || !newCommunityName}
+                            style={{ backgroundColor: colors.primary, color: 'white', border: 'none', borderRadius: borderRadius.sm, padding: spacing.md, cursor: 'pointer', fontWeight: 'bold' }}
+                        >
+                            {saving ? 'Saving...' : 'Create Community'}
+                        </button>
                     </div>
                 </div>
             </div>
