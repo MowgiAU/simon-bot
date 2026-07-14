@@ -10883,6 +10883,387 @@ app.post('/api/comments/:commentId/restore', requireAdmin, async (req: any, res)
     } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
+// ===== Custom Communities (non-genre, e.g. "Resources") =====
+// Independent model set from Genre/GenrePost — same Reddit-style feed
+// mechanics (voting, hot/new/top sort, comments via the shared Comment
+// model, admin pin/hide/restore), but no track-linking, cross-post, or
+// multi-tag support since custom communities don't need them.
+
+// List all (non-archived) communities
+app.get('/api/communities', async (req, res) => {
+    try {
+        const communities = await db.community.findMany({
+            where: { archivedAt: null },
+            include: { _count: { select: { subscriptions: true, posts: true } } },
+            orderBy: { name: 'asc' },
+        });
+        res.json(communities);
+    } catch (e: any) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Admin: Create a community
+app.post('/api/communities', requireAdmin, async (req: any, res) => {
+    try {
+        const { name, description, icon } = req.body;
+        if (!name?.trim()) return res.status(400).json({ error: 'Name is required' });
+
+        const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+
+        const community = await db.community.create({
+            data: { name: name.trim(), slug, description: description?.trim() || null, icon: icon || null, createdBy: req.session.user.id },
+        });
+        res.json(community);
+    } catch (e: any) {
+        if (e.code === 'P2002') return res.status(409).json({ error: 'A community with that name already exists' });
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Admin: Edit a community
+app.patch('/api/communities/:id', requireAdmin, async (req: any, res) => {
+    try {
+        const { id } = req.params;
+        const { name, description, icon } = req.body;
+        const data: any = {};
+        if (name?.trim()) {
+            data.name = name.trim();
+            data.slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+        }
+        if (description !== undefined) data.description = description?.trim() || null;
+        if (icon !== undefined) data.icon = icon || null;
+
+        const community = await db.community.update({ where: { id }, data });
+        res.json(community);
+    } catch (e: any) {
+        if (e.code === 'P2002') return res.status(409).json({ error: 'A community with that name already exists' });
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Admin: Archive a community (soft — communities aren't referenced elsewhere,
+// but posts/subscriptions should survive for audit purposes)
+app.post('/api/communities/:id/archive', requireAdmin, async (req: any, res) => {
+    try {
+        const { id } = req.params;
+        await db.community.update({ where: { id }, data: { archivedAt: new Date() } });
+        res.json({ success: true });
+    } catch (e: any) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Subscribe to a community
+app.post('/api/community-subscriptions/:communityId', requireAuth, async (req: any, res) => {
+    try {
+        const userId = req.session.user.id;
+        const { communityId } = req.params;
+        const community = await db.community.findUnique({ where: { id: communityId } });
+        if (!community) return res.status(404).json({ error: 'Community not found' });
+        await db.communitySubscription.upsert({
+            where: { userId_communityId: { userId, communityId } },
+            update: {},
+            create: { userId, communityId },
+        });
+        res.json({ subscribed: true, communityId });
+    } catch (e: any) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Unsubscribe from a community
+app.delete('/api/community-subscriptions/:communityId', requireAuth, async (req: any, res) => {
+    try {
+        const userId = req.session.user.id;
+        const { communityId } = req.params;
+        await db.communitySubscription.deleteMany({ where: { userId, communityId } });
+        res.json({ subscribed: false, communityId });
+    } catch (e: any) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Get my subscribed community IDs
+app.get('/api/community-subscriptions', requireAuth, async (req: any, res) => {
+    try {
+        const userId = req.session.user.id;
+        const subs = await db.communitySubscription.findMany({ where: { userId }, select: { communityId: true } });
+        res.json({ communityIds: subs.map((s: any) => s.communityId) });
+    } catch (e: any) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Get community posts feed (or personalised subscribed feed)
+app.get('/api/community-posts', async (req: any, res) => {
+    try {
+        const { communityId, feed, sort = 'hot', cursor, period = 'week', authorId, flair: flairFilter } = req.query;
+        const limit = Math.min(Number(req.query.limit) || 25, 50);
+        const userId = req.session?.user?.id || null;
+
+        let communityIds: string[] = [];
+        let allCommunities = false;
+        if (authorId) {
+            allCommunities = true;
+        } else if (feed === 'subscribed') {
+            if (!userId) return res.json({ posts: [], hasMore: false, nextCursor: null, hasSubscriptions: false });
+            const subs = await db.communitySubscription.findMany({ where: { userId }, select: { communityId: true } });
+            communityIds = subs.map((s: any) => s.communityId);
+            if (communityIds.length === 0) return res.json({ posts: [], hasMore: false, nextCursor: null, hasSubscriptions: false });
+        } else if (feed === 'all') {
+            allCommunities = true;
+        } else if (communityId) {
+            communityIds = [communityId as string];
+        } else if (!authorId) {
+            return res.status(400).json({ error: 'communityId, authorId, feed=subscribed, or feed=all required' });
+        }
+
+        const isAdmin = isSuperAdmin(req) || !!(req.session as any)?.mutualAdminGuilds?.length;
+        const communityFilter = allCommunities ? {} : { communityId: { in: communityIds } };
+        const baseWhere: any = { ...communityFilter, deletedAt: null };
+        if (!isAdmin) baseWhere.hiddenAt = null;
+        if (authorId) baseWhere.userId = authorId as string;
+        if (flairFilter) baseWhere.flair = flairFilter as string;
+
+        const where: any = { ...baseWhere };
+
+        if (sort === 'top') {
+            const periodMap: Record<string, number> = { day: 1, week: 7, month: 30, alltime: 36500 };
+            const days = periodMap[period as string] ?? 7;
+            where.createdAt = { gte: new Date(Date.now() - days * 86_400_000) };
+        }
+
+        const orderBy: any =
+            sort === 'new'  ? [{ createdAt: 'desc' }, { id: 'desc' }] :
+            sort === 'top'  ? [{ score: 'desc' }, { createdAt: 'desc' }, { id: 'desc' }] :
+                              [{ hotScore: 'desc' }, { createdAt: 'desc' }, { id: 'desc' }];
+
+        // For single-community views with non-new sort, fetch pinned posts separately first
+        const isSingleCommunity = communityIds.length === 1 && !allCommunities;
+        let pinnedPosts: any[] = [];
+        if (isSingleCommunity && sort !== 'new' && !cursor) {
+            const pinnedWhere: any = { communityId: { in: communityIds }, deletedAt: null, pinned: true };
+            if (!isAdmin) pinnedWhere.hiddenAt = null;
+            const fetched = await db.communityPost.findMany({
+                where: pinnedWhere,
+                orderBy: { pinnedAt: 'desc' },
+                include: {
+                    community: { select: { id: true, name: true, slug: true } },
+                    votes: userId ? { where: { userId }, select: { type: true } } : false,
+                },
+            });
+            pinnedPosts = fetched.map((p: any) => { const { votes, ...rest } = p; return { ...rest, userVote: votes?.[0]?.type ?? null }; });
+            if (pinnedPosts.length > 0) {
+                where.id = { notIn: pinnedPosts.map((p: any) => p.id) };
+            }
+        }
+
+        const posts = await db.communityPost.findMany({
+            where,
+            orderBy,
+            take: limit + 1,
+            ...(cursor ? { cursor: { id: cursor as string }, skip: 1 } : {}),
+            include: {
+                community: { select: { id: true, name: true, slug: true } },
+                votes: userId ? { where: { userId }, select: { type: true } } : false,
+            },
+        });
+
+        const hasMore = posts.length > limit;
+        if (hasMore) posts.pop();
+
+        const result = posts.map((p: any) => {
+            const { votes, ...rest } = p;
+            return { ...rest, userVote: votes?.[0]?.type ?? null };
+        });
+
+        const finalResult = [...pinnedPosts, ...result];
+
+        res.json({ posts: finalResult, hasMore, nextCursor: hasMore ? posts[posts.length - 1]?.id : null });
+    } catch (e: any) {
+        logger.error('Community posts feed error', { message: e.message });
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Get single community post
+app.get('/api/community-posts/:postId', async (req: any, res) => {
+    try {
+        const { postId } = req.params;
+        const userId = req.session?.user?.id || null;
+        const isAdmin = isSuperAdmin(req) || !!(req.session as any)?.mutualAdminGuilds?.length;
+        const post = await db.communityPost.findUnique({
+            where: { id: postId, deletedAt: null },
+            include: {
+                community: { select: { id: true, name: true, slug: true } },
+                votes: userId ? { where: { userId }, select: { type: true } } : false,
+            },
+        });
+        if (!post) return res.status(404).json({ error: 'Post not found' });
+        if (post.hiddenAt && !isAdmin) return res.status(404).json({ error: 'Post not found' });
+        const { votes, ...rest } = post as any;
+        res.json({ ...rest, userVote: votes?.[0]?.type ?? null });
+    } catch (e: any) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Community post media upload (image or audio)
+app.post('/api/community-posts/upload-media', requireAuth, requireVerified,
+    upload.fields([
+        { name: 'communityPostImage', maxCount: 1 },
+        { name: 'communityPostAudio', maxCount: 1 },
+    ]),
+    async (req: any, res) => {
+        try {
+            const files = req.files as Record<string, Express.Multer.File[]>;
+            const imageFile = files?.communityPostImage?.[0];
+            const audioFile = files?.communityPostAudio?.[0];
+            if (!imageFile && !audioFile) return res.status(400).json({ error: 'No file uploaded' });
+            const file = imageFile || audioFile!;
+            const isImage = !!imageFile;
+            const localSubdir = isImage ? 'community-posts/images' : 'community-posts/audio';
+            const localUrl = `/uploads/${localSubdir}/${file.filename}`;
+            const r2Key = `${localSubdir}/${file.filename}`;
+            const url = await uploadToR2OrLocal(file.path, r2Key, file.mimetype, localUrl);
+            res.json({ url });
+        } catch (e: any) {
+            res.status(500).json({ error: e?.message ?? 'Upload failed' });
+        }
+    }
+);
+
+// Community post rate limiter: 5 posts per 10 minutes
+const communityPostLimiter = rateLimit({ windowMs: 10 * 60 * 1000, max: 5, keyGenerator: (req: any) => req.session?.user?.id || req.ip });
+
+// Create a discussion post in a community
+app.post('/api/community-posts', requireAuth, requireVerified, communityPostLimiter, async (req: any, res) => {
+    try {
+        const userId = req.session.user.id;
+        const { communityId, title, body, imageUrl, videoUrl, audioUrl, flair: rawFlair } = req.body;
+        if (!communityId || !title?.trim()) return res.status(400).json({ error: 'communityId and title are required' });
+        if (title.length > 300) return res.status(400).json({ error: 'Title must be 300 characters or fewer' });
+        if (body && body.length > 50000) return res.status(400).json({ error: 'Body is too long' });
+        const flair = rawFlair ? String(rawFlair).trim().slice(0, 50) || null : null;
+
+        const community = await db.community.findUnique({ where: { id: communityId } });
+        if (!community) return res.status(404).json({ error: 'Community not found' });
+
+        const canonicalId = req.session.user._localId || userId;
+        let username = req.session.user.username || 'Unknown';
+        let avatarUrl: string | null = null;
+        const profile = await db.musicianProfile.findFirst({
+            where: { OR: [{ userId: canonicalId }, { userId }] },
+            select: { avatar: true, displayName: true, username: true },
+        });
+        if (profile) {
+            username = profile.displayName || profile.username || username;
+            avatarUrl = profile.avatar || null;
+        }
+
+        const post = await db.communityPost.create({
+            data: {
+                communityId, userId, username, avatarUrl,
+                title: title.trim(), body: body?.trim() || null,
+                imageUrl: imageUrl || null,
+                videoUrl: videoUrl || null,
+                audioUrl: audioUrl || null,
+                flair,
+                hotScore: computeHotScore(0, new Date()),
+            },
+            include: {
+                community: { select: { id: true, name: true, slug: true } },
+            },
+        });
+        res.json({ ...post, userVote: null });
+    } catch (e: any) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Vote on a community post
+app.post('/api/community-posts/:postId/vote', requireAuth, async (req: any, res) => {
+    try {
+        const userId = req.session.user.id;
+        const { postId } = req.params;
+        const { type } = req.body; // "up" | "down"
+        if (type !== 'up' && type !== 'down') return res.status(400).json({ error: 'type must be "up" or "down"' });
+
+        const post = await db.communityPost.findUnique({ where: { id: postId, deletedAt: null } });
+        if (!post) return res.status(404).json({ error: 'Post not found' });
+
+        const existing = await db.communityPostVote.findUnique({ where: { userId_postId: { userId, postId } } });
+
+        let delta = { upvotes: 0, downvotes: 0 };
+        let userVote: string | null = type;
+
+        if (existing) {
+            if (existing.type === type) {
+                await db.communityPostVote.delete({ where: { userId_postId: { userId, postId } } });
+                delta = type === 'up' ? { upvotes: -1, downvotes: 0 } : { upvotes: 0, downvotes: -1 };
+                userVote = null;
+            } else {
+                await db.communityPostVote.update({ where: { userId_postId: { userId, postId } }, data: { type } });
+                delta = type === 'up' ? { upvotes: 1, downvotes: -1 } : { upvotes: -1, downvotes: 1 };
+            }
+        } else {
+            await db.communityPostVote.create({ data: { userId, postId, type } });
+            delta = type === 'up' ? { upvotes: 1, downvotes: 0 } : { upvotes: 0, downvotes: 1 };
+        }
+
+        const updated = await db.communityPost.update({
+            where: { id: postId },
+            data: {
+                upvotes: { increment: delta.upvotes },
+                downvotes: { increment: delta.downvotes },
+                score: { increment: delta.upvotes - delta.downvotes },
+            },
+        });
+        const newHotScore = computeHotScore(updated.score, updated.createdAt);
+        await db.communityPost.update({ where: { id: postId }, data: { hotScore: newHotScore } });
+
+        res.json({ postId, score: updated.score, upvotes: updated.upvotes, downvotes: updated.downvotes, userVote, hotScore: newHotScore });
+    } catch (e: any) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// ===== Custom Community Post Admin Actions =====
+
+// PIN / UNPIN a post
+app.post('/api/community-posts/:postId/pin', requireAdmin, async (req: any, res) => {
+    const { postId } = req.params;
+    try {
+        const post = await db.communityPost.findUnique({ where: { id: postId }, select: { pinned: true } });
+        if (!post) return res.status(404).json({ error: 'Not found' });
+        const updated = await db.communityPost.update({
+            where: { id: postId },
+            data: { pinned: !post.pinned, pinnedAt: !post.pinned ? new Date() : null },
+        });
+        res.json({ pinned: updated.pinned });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+// HIDE a post (admin)
+app.post('/api/community-posts/:postId/hide', requireAdmin, async (req: any, res) => {
+    const { postId } = req.params;
+    const { reason } = req.body;
+    try {
+        await db.communityPost.update({ where: { id: postId }, data: { hiddenAt: new Date(), hideReason: reason || null } });
+        res.json({ ok: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+// RESTORE a hidden post (admin)
+app.post('/api/community-posts/:postId/restore', requireAdmin, async (req: any, res) => {
+    const { postId } = req.params;
+    try {
+        await db.communityPost.update({ where: { id: postId }, data: { hiddenAt: null, hideReason: null } });
+        res.json({ ok: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
 // ===== Genre Groups =====
 
 app.get('/api/genre-groups', requireAuth, async (req: any, res) => {
@@ -18372,18 +18753,19 @@ setInterval(runChartGeneration, 60 * 60 * 1000);
 // GET comments for a track, profile, or battle entry
 app.get('/api/comments', async (req: any, res) => {
     try {
-        const { trackId, profileId, battleEntryId, articleId, genrePostId, cursor, limit: rawLimit } = req.query;
-        if (!trackId && !profileId && !battleEntryId && !articleId && !genrePostId) return res.status(400).json({ error: 'trackId, profileId, battleEntryId, articleId, or genrePostId is required' });
+        const { trackId, profileId, battleEntryId, articleId, genrePostId, communityPostId, cursor, limit: rawLimit } = req.query;
+        if (!trackId && !profileId && !battleEntryId && !articleId && !genrePostId && !communityPostId) return res.status(400).json({ error: 'trackId, profileId, battleEntryId, articleId, genrePostId, or communityPostId is required' });
 
         const limit = Math.min(Number(rawLimit) || 50, 100);
         const isAdminCommenter = isSuperAdmin(req) || !!(req.session as any)?.mutualAdminGuilds?.length;
         const where: any = { parentId: null }; // top-level only
-        if (!isAdminCommenter && genrePostId) where.hiddenAt = null;
+        if (!isAdminCommenter && (genrePostId || communityPostId)) where.hiddenAt = null;
         if (trackId) where.trackId = trackId;
         if (profileId) where.profileId = profileId;
         if (battleEntryId) where.battleEntryId = battleEntryId;
         if (articleId) where.articleId = articleId;
         if (genrePostId) where.genrePostId = genrePostId;
+        if (communityPostId) where.communityPostId = communityPostId;
 
         const comments = await db.comment.findMany({
             where,
@@ -18562,7 +18944,7 @@ function analyseComment(userId: string, content: string): string | null {
 app.post('/api/comments', requireAuth, requireVerified, async (req: any, res) => {
     try {
         const userId = req.session.user.id;
-        const { content, gifUrl: rawGifUrl, trackId, profileId, battleEntryId, articleId, genrePostId, parentId, trackTimestamp } = req.body;
+        const { content, gifUrl: rawGifUrl, trackId, profileId, battleEntryId, articleId, genrePostId, communityPostId, parentId, trackTimestamp } = req.body;
         const gifUrl = validateGifUrl(rawGifUrl);
         if (rawGifUrl && !gifUrl) return res.status(400).json({ error: 'Invalid GIF URL' });
 
@@ -18580,6 +18962,7 @@ app.post('/api/comments', requireAuth, requireVerified, async (req: any, res) =>
         let resolvedBattleEntryId = battleEntryId;
         let resolvedArticleId = articleId;
         let resolvedGenrePostId = genrePostId;
+        let resolvedCommunityPostId = communityPostId;
         // The actual parent stored in the DB. If the client passed a reply's id
         // as parentId, we roll up to the top-level comment so threading stays
         // flat (single reply level) — the user can still "reply to" a reply.
@@ -18589,7 +18972,7 @@ app.post('/api/comments', requireAuth, requireVerified, async (req: any, res) =>
             // Reply — inherit context from parent. If the parent is itself a
             // reply, walk up to the top-level grandparent so we never create
             // nested threads (UI only renders one level of replies).
-            const parent = await db.comment.findUnique({ where: { id: parentId }, select: { trackId: true, profileId: true, battleEntryId: true, articleId: true, genrePostId: true, parentId: true } });
+            const parent = await db.comment.findUnique({ where: { id: parentId }, select: { trackId: true, profileId: true, battleEntryId: true, articleId: true, genrePostId: true, communityPostId: true, parentId: true } });
             if (!parent) return res.status(404).json({ error: 'Parent comment not found' });
             if (parent.parentId) {
                 effectiveParentId = parent.parentId;
@@ -18599,10 +18982,11 @@ app.post('/api/comments', requireAuth, requireVerified, async (req: any, res) =>
             resolvedBattleEntryId = parent.battleEntryId;
             resolvedArticleId = parent.articleId;
             resolvedGenrePostId = parent.genrePostId;
+            resolvedCommunityPostId = parent.communityPostId;
         } else {
-            const targetCount = [resolvedTrackId, resolvedProfileId, resolvedBattleEntryId, resolvedArticleId, resolvedGenrePostId].filter(Boolean).length;
-            if (targetCount === 0) return res.status(400).json({ error: 'trackId, profileId, battleEntryId, articleId, or genrePostId is required' });
-            if (targetCount > 1) return res.status(400).json({ error: 'Specify only one of trackId, profileId, battleEntryId, articleId, or genrePostId' });
+            const targetCount = [resolvedTrackId, resolvedProfileId, resolvedBattleEntryId, resolvedArticleId, resolvedGenrePostId, resolvedCommunityPostId].filter(Boolean).length;
+            if (targetCount === 0) return res.status(400).json({ error: 'trackId, profileId, battleEntryId, articleId, genrePostId, or communityPostId is required' });
+            if (targetCount > 1) return res.status(400).json({ error: 'Specify only one of trackId, profileId, battleEntryId, articleId, genrePostId, or communityPostId' });
         }
 
         // Resolve username and avatar � prefer MusicianProfile over Discord.
@@ -18644,6 +19028,7 @@ app.post('/api/comments', requireAuth, requireVerified, async (req: any, res) =>
                 ...(resolvedBattleEntryId ? { battleEntryId: resolvedBattleEntryId } : {}),
                 ...(resolvedArticleId ? { articleId: resolvedArticleId } : {}),
                 ...(resolvedGenrePostId ? { genrePostId: resolvedGenrePostId } : {}),
+                ...(resolvedCommunityPostId ? { communityPostId: resolvedCommunityPostId } : {}),
                 ...(effectiveParentId ? { parentId: effectiveParentId } : {}),
                 ...((resolvedTrackId || resolvedBattleEntryId) && trackTimestamp != null && !effectiveParentId ? { trackTimestamp: Number(trackTimestamp) } : {}),
             },
@@ -18652,6 +19037,10 @@ app.post('/api/comments', requireAuth, requireVerified, async (req: any, res) =>
         // Increment genre post comment count (fire-and-forget)
         if (resolvedGenrePostId && !effectiveParentId) {
             db.genrePost.update({ where: { id: resolvedGenrePostId }, data: { commentCount: { increment: 1 } } }).catch(() => {});
+        }
+        // Increment community post comment count (fire-and-forget)
+        if (resolvedCommunityPostId && !effectiveParentId) {
+            db.communityPost.update({ where: { id: resolvedCommunityPostId }, data: { commentCount: { increment: 1 } } }).catch(() => {});
         }
 
         // Audit log
@@ -18697,6 +19086,8 @@ app.post('/api/comments', requireAuth, requireVerified, async (req: any, res) =>
                         } else if (resolvedArticleId) {
                             const a = await db.article.findUnique({ where: { id: resolvedArticleId }, select: { slug: true } });
                             if (a) link = `/article/${a.slug}`;
+                        } else if (resolvedCommunityPostId) {
+                            link = `/preview/alt_f_genre_post/${resolvedCommunityPostId}?kind=community`;
                         }
                         await db.musicNotification.create({
                             data: { userId: parentComment.userId, type: 'reply', title: `${username} replied to your comment`, message: snippet, link, actorId: userId, actorName: username, actorAvatar: avatarUrl },
