@@ -76,16 +76,18 @@ export class MuzzlePlugin implements IPlugin {
         if (!this.context) return;
 
         const settings = await this.getSettings(msg.guild.id);
-        if (!settings?.enabled || !settings.muzzleRoleId) return;
+        if (!settings?.enabled) return;
 
         const guildId = msg.guild.id;
         const userId = msg.author.id;
         const muzzleKey = `${guildId}:${userId}`;
 
-        // Skip users already muzzled
+        // Skip users already muzzled — active timeout is the source of truth
+        // (the role is an optional marker), so check that first.
         const member = msg.member;
         if (!member) return;
-        if (member.roles.cache.has(settings.muzzleRoleId)) return;
+        if (member.isCommunicationDisabled()) return;
+        if (settings.muzzleRoleId && member.roles.cache.has(settings.muzzleRoleId)) return;
 
         // Skip exempt roles
         if (settings.exemptRoleIds.length > 0 && settings.exemptRoleIds.some(id => member.roles.cache.has(id))) return;
@@ -113,8 +115,6 @@ export class MuzzlePlugin implements IPlugin {
         muzzleKey: string,
         triggerChannel: TextChannel,
     ): Promise<void> {
-        if (!settings.muzzleRoleId) return;
-
         const durationMs = settings.muzzleDurationMinutes * 60 * 1000;
         const reason = 'Muzzle: sent too many messages too quickly';
 
@@ -128,12 +128,14 @@ export class MuzzlePlugin implements IPlugin {
             return;
         }
 
-        // Apply the visible muzzle role too (best-effort — the timeout above is
-        // the real enforcement, so a role failure must not abort the muzzle).
-        try {
-            await member.roles.add(settings.muzzleRoleId, reason);
-        } catch (err: any) {
-            this.logger.warn(`Applied timeout but failed to add muzzle role: ${err.message}`);
+        // Apply the optional visible muzzle role too (best-effort — the timeout
+        // above is the real enforcement, so a role failure must not abort it).
+        if (settings.muzzleRoleId) {
+            try {
+                await member.roles.add(settings.muzzleRoleId, reason);
+            } catch (err: any) {
+                this.logger.warn(`Applied timeout but failed to add muzzle role: ${err.message}`);
+            }
         }
 
         this.logger.info(`Muzzled ${member.user.tag} in guild ${member.guild.id} for ${settings.muzzleDurationMinutes}m`);
@@ -148,7 +150,9 @@ export class MuzzlePlugin implements IPlugin {
                 // Discord auto-expires the timeout, but clear it explicitly in case
                 // the configured duration was shortened while the muzzle was active.
                 await member.timeout(null, 'Muzzle: duration expired').catch(() => {});
-                await member.roles.remove(settings.muzzleRoleId!, 'Muzzle: duration expired');
+                if (settings.muzzleRoleId) {
+                    await member.roles.remove(settings.muzzleRoleId, 'Muzzle: duration expired').catch(() => {});
+                }
                 this.logger.info(`Unmuzzled ${member.user.tag} in guild ${member.guild.id}`);
             } catch { /* member may have left */ }
         }, durationMs);

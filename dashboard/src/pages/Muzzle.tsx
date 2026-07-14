@@ -158,22 +158,19 @@ export const MuzzlePage: React.FC<MuzzlePageProps> = ({ guildId }) => {
                 <h3 style={{ margin: '0 0 16px', fontSize: 15, color: colors.textPrimary }}>Configuration</h3>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
                     <div>
-                        <label style={labelStyle}>
-                            Muzzle Role <span style={{ color: colors.error, marginLeft: 4 }}>*</span>
-                        </label>
+                        <label style={labelStyle}>Muzzle Role <span style={{ fontWeight: 400, color: colors.textTertiary }}>(optional)</span></label>
                         <RoleSelect
                             guildId={guildId}
                             value={muzzleRoleId}
                             onChange={v => setMuzzleRoleId(v as string)}
-                            placeholder="Select the role to apply…"
+                            placeholder="Select a marker role to apply…"
                         />
                         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginTop: 8, padding: '8px 12px', background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: borderRadius.sm }}>
                             <Info size={14} color="#F59E0B" style={{ flexShrink: 0, marginTop: 1 }} />
                             <p style={{ margin: 0, fontSize: 12, color: '#F59E0B', lineHeight: 1.5 }}>
-                                Create a <strong>Muzzle</strong> role in your Discord server as a visible marker for muzzled users.
-                                The actual silencing is handled by Discord's timeout, so no channel permission setup is required.
-                                Make sure this role is below the bot's role in the hierarchy, and that the bot has the
-                                <strong> Moderate Members</strong> permission.
+                                Silencing is handled by Discord's timeout, so a role is not required — the bot just needs the
+                                <strong> Moderate Members</strong> permission. Optionally pick a <strong>Muzzle</strong> role as a
+                                visible marker; if you do, keep it below the bot's role in the hierarchy.
                             </p>
                         </div>
                     </div>
@@ -209,12 +206,11 @@ export const MuzzlePage: React.FC<MuzzlePageProps> = ({ guildId }) => {
             <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
                 <button
                     onClick={save}
-                    disabled={saving || !muzzleRoleId}
-                    style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 24px', background: colors.primary, color: '#fff', border: 'none', borderRadius: borderRadius.md, fontWeight: 700, fontSize: 14, cursor: saving || !muzzleRoleId ? 'not-allowed' : 'pointer', opacity: saving || !muzzleRoleId ? 0.6 : 1 }}
+                    disabled={saving}
+                    style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 24px', background: colors.primary, color: '#fff', border: 'none', borderRadius: borderRadius.md, fontWeight: 700, fontSize: 14, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.6 : 1 }}
                 >
                     <Save size={16} /> {saving ? 'Saving…' : 'Save Settings'}
                 </button>
-                {!muzzleRoleId && <span style={{ fontSize: 13, color: colors.textTertiary }}>Select a Muzzle role to save.</span>}
                 {msg && <span style={{ fontSize: 13, color: msg.type === 'success' ? colors.success : colors.error }}>{msg.text}</span>}
             </div>
         </div>
