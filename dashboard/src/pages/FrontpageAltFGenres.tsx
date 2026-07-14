@@ -62,12 +62,13 @@ interface Genre {
     children: Genre[];
 }
 interface GenrePost {
-    id: string; type: 'discussion' | 'track'; title: string; body?: string | null;
+    id: string; type?: 'discussion' | 'track'; title: string; body?: string | null;
     imageUrl?: string | null; videoUrl?: string | null; audioUrl?: string | null;
     score: number; upvotes: number; downvotes: number;
     hotScore: number; commentCount: number; createdAt: string;
     userId: string; username: string; avatarUrl?: string | null;
-    genreId: string; genre?: { id: string; name: string; slug: string };
+    genreId?: string; genre?: { id: string; name: string; slug: string };
+    communityId?: string; community?: { id: string; name: string; slug: string };
     track?: { id: string; title: string; slug: string; coverUrl?: string | null; url?: string; mp3Url?: string | null; duration?: number; waveformPeaks?: number[] | null; profile?: { username: string; displayName?: string | null } } | null;
     userVote: 'up' | 'down' | null;
     flair?: string | null;
@@ -79,6 +80,10 @@ interface GenreGroup {
     id: string; name: string; userId: string; createdAt: string;
     genres: { genre: { id: string; name: string; slug: string } }[];
 }
+interface Community {
+    id: string; name: string; slug: string; description: string | null; icon: string | null;
+    _count: { subscriptions: number; posts: number };
+}
 
 // ── GenrePostCard ──────────────────────────────────────────────────────────────
 const GenrePostCard: React.FC<{
@@ -87,6 +92,8 @@ const GenrePostCard: React.FC<{
 }> = ({ post, onVote, showGenre, onShare }) => {
     const { player, setTrack, togglePlay } = usePlayer();
     const [hovered, setHovered] = useState(false);
+    const isCommunityPost = !!post.communityId;
+    const postLink = `/preview/alt_f_genre_post/${post.id}${isCommunityPost ? '?kind=community' : ''}`;
 
     const trackUrl = post.track?.mp3Url || post.track?.url;
     const isActiveTrack = player.currentTrack?.id === post.track?.id;
@@ -141,11 +148,11 @@ const GenrePostCard: React.FC<{
                         )}
                     </div>
                 )}
-                <Link to={`/preview/alt_f_genre_post/${post.id}`} style={{ textDecoration: 'none', display: 'block', marginBottom: 6 }}>
+                <Link to={postLink} style={{ textDecoration: 'none', display: 'block', marginBottom: 6 }}>
                     <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: TEXT, lineHeight: 1.35, cursor: 'pointer' }}
                         onMouseEnter={e => (e.currentTarget.style.color = PRIMARY)}
                         onMouseLeave={e => (e.currentTarget.style.color = TEXT)}>
-                        {post.type === 'discussion' && <FileText size={13} color={SECONDARY} style={{ marginRight: 6, verticalAlign: 'middle', flexShrink: 0 }} />}
+                        {post.type !== 'track' && <FileText size={13} color={SECONDARY} style={{ marginRight: 6, verticalAlign: 'middle', flexShrink: 0 }} />}
                         {post.type === 'track' && <Music size={13} color={PRIMARY} style={{ marginRight: 6, verticalAlign: 'middle', flexShrink: 0 }} />}
                         {post.title}
                     </p>
@@ -153,7 +160,7 @@ const GenrePostCard: React.FC<{
                 {/* Flair pill */}
                 {post.flair && (
                     <div style={{ marginBottom: 6 }}>
-                        <Link to={`/preview/alt_f_genres/${post.genre?.slug || ''}?flair=${encodeURIComponent(post.flair)}`}
+                        <Link to={isCommunityPost ? `/preview/alt_f_genres/${post.community?.slug || ''}?kind=community&flair=${encodeURIComponent(post.flair)}` : `/preview/alt_f_genres/${post.genre?.slug || ''}?flair=${encodeURIComponent(post.flair)}`}
                             style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 9999, background: `${flairColor(post.flair)}18`, border: `1px solid ${flairColor(post.flair)}44`, color: flairColor(post.flair), fontSize: 11, fontWeight: 700, textDecoration: 'none' }}>
                             <Tag size={9} /> {post.flair}
                         </Link>
@@ -222,11 +229,11 @@ const GenrePostCard: React.FC<{
                     );
                 })()}
 
-                {post.type === 'discussion' && post.imageUrl && (
+                {post.type !== 'track' && post.imageUrl && (
                     <img src={post.imageUrl} alt="" style={{ maxWidth: '100%', maxHeight: 280, borderRadius: 8, objectFit: 'cover', marginBottom: 8, display: 'block' }} onError={e => (e.currentTarget.style.display = 'none')} />
                 )}
 
-                {post.type === 'discussion' && post.videoUrl && (() => {
+                {post.type !== 'track' && post.videoUrl && (() => {
                     const ytMatch = post.videoUrl.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([A-Za-z0-9_-]{11})/);
                     if (ytMatch) return (
                         <div style={{ borderRadius: 8, overflow: 'hidden', marginBottom: 8, position: 'relative', paddingBottom: '40%', background: S_CONT }}>
@@ -238,13 +245,13 @@ const GenrePostCard: React.FC<{
                     );
                 })()}
 
-                {post.type === 'discussion' && post.audioUrl && (
+                {post.type !== 'track' && post.audioUrl && (
                     <div style={{ background: S_CONT, borderRadius: 8, padding: '10px 12px', marginBottom: 8 }}>
                         <audio src={post.audioUrl} controls style={{ width: '100%', height: 32 }} />
                     </div>
                 )}
 
-                {post.type === 'discussion' && post.body && (
+                {post.type !== 'track' && post.body && (
                     <div style={{ margin: '0 0 8px', fontSize: 13, color: SUB, lineHeight: 1.5, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' as any }}
                         dangerouslySetInnerHTML={{ __html: post.body }} />
                 )}
@@ -272,7 +279,7 @@ const GenrePostCard: React.FC<{
                             </Link>
                         </>
                     )}
-                    <Link to={`/preview/alt_f_genre_post/${post.id}`} style={{ display: 'flex', alignItems: 'center', gap: 4, color: SUB, textDecoration: 'none', marginLeft: 'auto' }}
+                    <Link to={postLink} style={{ display: 'flex', alignItems: 'center', gap: 4, color: SUB, textDecoration: 'none', marginLeft: 'auto' }}
                         onMouseEnter={e => (e.currentTarget.style.color = TEXT)}
                         onMouseLeave={e => (e.currentTarget.style.color = SUB)}>
                         <MessageCircle size={12} />
@@ -294,8 +301,8 @@ const GenrePostCard: React.FC<{
 
 // ── Create Post Modal ──────────────────────────────────────────────────────────
 const CreatePostModal: React.FC<{
-    genreId: string; genreName: string; onClose: () => void; onCreated: (post: GenrePost) => void;
-}> = ({ genreId, genreName, onClose, onCreated }) => {
+    genreId?: string; communityId?: string; genreName: string; onClose: () => void; onCreated: (post: GenrePost) => void;
+}> = ({ genreId, communityId, genreName, onClose, onCreated }) => {
     const [flair, setFlair] = useState('');
     const [title, setTitle] = useState('');
     const [body, setBody] = useState('');
@@ -306,7 +313,9 @@ const CreatePostModal: React.FC<{
         if (!title.trim()) { setErr('Title is required'); return; }
         setSaving(true); setErr('');
         try {
-            const r = await axios.post('/api/genre-posts', { genreId, title, body, type: 'discussion', flair: flair.trim() || undefined }, { withCredentials: true });
+            const r = communityId
+                ? await axios.post('/api/community-posts', { communityId, title, body, flair: flair.trim() || undefined }, { withCredentials: true })
+                : await axios.post('/api/genre-posts', { genreId, title, body, type: 'discussion', flair: flair.trim() || undefined }, { withCredentials: true });
             onCreated(r.data); onClose();
         } catch (e: any) { setErr(e.response?.data?.error || 'Failed to post'); }
         finally { setSaving(false); }
@@ -316,7 +325,7 @@ const CreatePostModal: React.FC<{
         <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }} onClick={onClose}>
             <div onClick={e => e.stopPropagation()} style={{ ...glass, borderRadius: 18, padding: 28, width: '100%', maxWidth: 560, fontFamily: FONT }}>
                 <h3 style={{ margin: '0 0 6px', fontSize: 18, fontWeight: 800, color: TEXT }}>New post in {genreName}</h3>
-                <p style={{ margin: '0 0 20px', fontSize: 13, color: SUB }}>Start a discussion in this genre community</p>
+                <p style={{ margin: '0 0 20px', fontSize: 13, color: SUB }}>Start a discussion in this {communityId ? 'community' : 'genre community'}</p>
                 <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: SUB, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Topic <span style={{ fontWeight: 400, textTransform: 'none' }}>(optional)</span></label>
                 <input value={flair} onChange={e => setFlair(e.target.value)} maxLength={50} placeholder="e.g. Question, Tutorial, Showcase, Feedback…"
                     style={{ width: '100%', boxSizing: 'border-box', padding: '10px 14px', background: S_CONT, border: `1px solid ${BORDER}`, borderRadius: 9, color: TEXT, fontSize: 14, fontFamily: FONT, outline: 'none', marginBottom: 4 }} />
@@ -390,8 +399,10 @@ const ShareModal: React.FC<{
     const walkAll = (gs: Genre[]) => gs.forEach(g => { allFlat.push(g); walkAll(g.children || []); });
     walkAll(genres);
 
+    const isCommunityPost = !!post.communityId;
+
     const copyLink = () => {
-        const url = `${window.location.origin}/preview/alt_f_genre_post/${post.id}`;
+        const url = `${window.location.origin}/preview/alt_f_genre_post/${post.id}${isCommunityPost ? '?kind=community' : ''}`;
         navigator.clipboard.writeText(url).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); }).catch(() => {});
     };
 
@@ -439,11 +450,13 @@ const ShareModal: React.FC<{
                                 <Share2 size={16} color={copied ? SECONDARY : SUB} />
                                 {copied ? 'Link copied!' : 'Copy link'}
                             </button>
-                            <button onClick={() => setStep('crosspost')}
-                                style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', background: S_CONT, border: `1px solid ${BORDER}`, borderRadius: 10, color: TEXT, cursor: 'pointer', fontFamily: FONT, fontSize: 14, fontWeight: 600 }}>
-                                <Layers size={16} color={SUB} />
-                                Cross-post to another genre
-                            </button>
+                            {!isCommunityPost && (
+                                <button onClick={() => setStep('crosspost')}
+                                    style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', background: S_CONT, border: `1px solid ${BORDER}`, borderRadius: 10, color: TEXT, cursor: 'pointer', fontFamily: FONT, fontSize: 14, fontWeight: 600 }}>
+                                    <Layers size={16} color={SUB} />
+                                    Cross-post to another genre
+                                </button>
+                            )}
                         </div>
                     </>
                 ) : (
@@ -483,7 +496,7 @@ export const FrontpageAltFGenres: React.FC = () => {
     const dropdownRef = useRef<HTMLDivElement>(null);
 
     // ── Parse URL ─────────────────────────────────────────────────────────────
-    const { genreSlug, multiSlugsFromUrl, groupIdFromUrl, flairFromUrl } = useMemo(() => {
+    const { genreSlug, multiSlugsFromUrl, groupIdFromUrl, flairFromUrl, isCommunityKind } = useMemo(() => {
         const pathAfter = location.pathname.replace('/preview/alt_f_genres', '');
         const segments = pathAfter.split('/').filter(Boolean);
         const sp = new URLSearchParams(location.search);
@@ -492,6 +505,7 @@ export const FrontpageAltFGenres: React.FC = () => {
             multiSlugsFromUrl: sp.get('g')?.split(',').filter(Boolean) || [],
             groupIdFromUrl: sp.get('group') || null,
             flairFromUrl: sp.get('flair') || null,
+            isCommunityKind: sp.get('kind') === 'community',
         };
     }, [location]);
 
@@ -516,6 +530,8 @@ export const FrontpageAltFGenres: React.FC = () => {
     const [multiSelected, setMultiSelected] = useState<Set<string>>(new Set());
     const [sharePost, setSharePost] = useState<GenrePost | null>(null);
     const [subgenresOpen, setSubgenresOpen] = useState(false);
+    const [communities, setCommunities] = useState<Community[]>([]);
+    const [communitySubscribedIds, setCommunitySubscribedIds] = useState<Set<string>>(new Set());
 
     // ── Derived from genres list ──────────────────────────────────────────────
     const allGenres = useMemo(() => {
@@ -533,8 +549,12 @@ export const FrontpageAltFGenres: React.FC = () => {
     }, [genreSlug, multiSlugsFromUrl, groupIdFromUrl]);
 
     const activeGenre = useMemo(() =>
-        genreSlug ? allGenres.find(g => g.slug === genreSlug) || null : null,
-        [allGenres, genreSlug]);
+        (genreSlug && !isCommunityKind) ? allGenres.find(g => g.slug === genreSlug) || null : null,
+        [allGenres, genreSlug, isCommunityKind]);
+
+    const activeCommunity = useMemo(() =>
+        (genreSlug && isCommunityKind) ? communities.find(c => c.slug === genreSlug) || null : null,
+        [communities, genreSlug, isCommunityKind]);
 
     const activeGroup = useMemo(() =>
         groupIdFromUrl ? groups.find(g => g.id === groupIdFromUrl) || null : null,
@@ -573,13 +593,15 @@ export const FrontpageAltFGenres: React.FC = () => {
         axios.get('/api/musician/genres').then(r => { setGenres(arr(r.data)); setGenreLoading(false); }).catch(() => setGenreLoading(false));
         axios.get('/api/genre-subscriptions', { withCredentials: true }).then(r => { setSubscribedIds(new Set(arr(r.data.genreIds))); }).catch(() => {});
         axios.get('/api/genre-groups', { withCredentials: true }).then(r => { setGroups(arr(r.data)); }).catch(() => {});
+        axios.get('/api/communities').then(r => { setCommunities(arr(r.data)); }).catch(() => {});
+        axios.get('/api/community-subscriptions', { withCredentials: true }).then(r => { setCommunitySubscribedIds(new Set(arr(r.data.communityIds))); }).catch(() => {});
     }, []);
 
     // ── Fetch posts on view change ────────────────────────────────────────────
-    const fetchPosts = useCallback(async (params: Record<string, string>, cursor?: string) => {
+    const fetchPosts = useCallback(async (params: Record<string, string>, cursor?: string, community?: boolean) => {
         setPostsLoading(true);
         try {
-            const r = await axios.get('/api/genre-posts', { params: { ...params, ...(cursor ? { cursor } : {}) } });
+            const r = await axios.get(community ? '/api/community-posts' : '/api/genre-posts', { params: { ...params, ...(cursor ? { cursor } : {}) } });
             if (cursor) setPosts(prev => {
                 const seenTrackIds = new Set(prev.map((p: any) => p.trackId).filter(Boolean));
                 return [...prev, ...arr(r.data.posts).filter((p: any) => !p.trackId || !seenTrackIds.has(p.trackId))];
@@ -594,13 +616,22 @@ export const FrontpageAltFGenres: React.FC = () => {
     const buildParams = useCallback(() => {
         const p: Record<string, string> = { sort };
         if (sort === 'top') p.period = period;
-        if (viewMode === 'group' && groupIdFromUrl) { p.groupId = groupIdFromUrl; }
+        if (isCommunityKind && activeCommunity) { p.communityId = activeCommunity.id; }
+        else if (viewMode === 'group' && groupIdFromUrl) { p.groupId = groupIdFromUrl; }
         else if (activeGenreIds.length > 0) { p.genreIds = activeGenreIds.join(','); }
         if (flairFromUrl) p.flair = flairFromUrl;
         return p;
-    }, [viewMode, groupIdFromUrl, activeGenreIds, sort, period, flairFromUrl]);
+    }, [viewMode, groupIdFromUrl, activeGenreIds, sort, period, flairFromUrl, isCommunityKind, activeCommunity]);
 
     useEffect(() => {
+        if (isCommunityKind) {
+            if (communities.length === 0) return;
+            if (!activeCommunity) return;
+            setPosts([]);
+            setNextCursor(null);
+            fetchPosts(buildParams(), undefined, true);
+            return;
+        }
         if (genres.length === 0) return;
         if (viewMode === 'grid') return;
         if (viewMode === 'group' && !groupIdFromUrl) return;
@@ -610,7 +641,7 @@ export const FrontpageAltFGenres: React.FC = () => {
         fetchPosts(buildParams());
         setSelectedSubSlugs(new Set());
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [genres, viewMode, activeGenreIds.join(','), groupIdFromUrl, sort, period, flairFromUrl]);
+    }, [genres, communities, viewMode, activeGenreIds.join(','), groupIdFromUrl, sort, period, flairFromUrl, isCommunityKind, activeCommunity]);
 
     // ── Close dropdown on outside click ──────────────────────────────────────
     useEffect(() => {
@@ -626,12 +657,30 @@ export const FrontpageAltFGenres: React.FC = () => {
     // ── Handlers ──────────────────────────────────────────────────────────────
     const handleVote = async (postId: string, type: 'up' | 'down') => {
         try {
-            const r = await axios.post(`/api/genre-posts/${postId}/vote`, { type }, { withCredentials: true });
+            const isCommunityPost = !!posts.find(p => p.id === postId)?.communityId;
+            const endpoint = isCommunityPost ? `/api/community-posts/${postId}/vote` : `/api/genre-posts/${postId}/vote`;
+            const r = await axios.post(endpoint, { type }, { withCredentials: true });
             setPosts(prev => prev.map(p => p.id === postId ? { ...p, score: r.data.score, upvotes: r.data.upvotes, downvotes: r.data.downvotes, userVote: r.data.userVote } : p));
         } catch {}
     };
 
     const toggleSubscribe = async (genreId?: string) => {
+        if (isCommunityKind) {
+            const id = activeCommunity?.id;
+            if (!id) return;
+            setSubLoading(true);
+            try {
+                if (communitySubscribedIds.has(id)) {
+                    await axios.delete(`/api/community-subscriptions/${id}`, { withCredentials: true });
+                    setCommunitySubscribedIds(prev => { const s = new Set(prev); s.delete(id); return s; });
+                } else {
+                    await axios.post(`/api/community-subscriptions/${id}`, {}, { withCredentials: true });
+                    setCommunitySubscribedIds(prev => new Set([...prev, id]));
+                }
+            } catch {}
+            finally { setSubLoading(false); }
+            return;
+        }
         const id = genreId || activeGenre?.id;
         if (!id) return;
         setSubLoading(true);
@@ -694,9 +743,15 @@ export const FrontpageAltFGenres: React.FC = () => {
     const totalTracks = topLevel.reduce((s, g) => s + (g._count?.tracks || 0), 0);
     const totalArtists = topLevel.reduce((s, g) => s + (g._count?.profiles || 0), 0);
     const pb = player.currentTrack ? 90 : 0;
-    const isSubscribed = activeGenre ? subscribedIds.has(activeGenre.id) : false;
+    const isSubscribed = isCommunityKind
+        ? (activeCommunity ? communitySubscribedIds.has(activeCommunity.id) : false)
+        : (activeGenre ? subscribedIds.has(activeGenre.id) : false);
 
     const breadcrumb = useMemo(() => {
+        if (isCommunityKind) {
+            if (activeCommunity) return [{ label: 'Genres', to: '/preview/alt_f_genres' }, { label: activeCommunity.name }];
+            return [{ label: 'Genres', to: '/preview/alt_f_genres' }];
+        }
         if (viewMode === 'grid') return [{ label: 'Genres' }];
         if (viewMode === 'group' && activeGroup) return [{ label: 'Genres', to: '/preview/alt_f_genres' }, { label: activeGroup.name }];
         if (viewMode === 'multi') return [{ label: 'Genres', to: '/preview/alt_f_genres' }, { label: `${activeGenreIds.length} Genres` }];
@@ -710,11 +765,14 @@ export const FrontpageAltFGenres: React.FC = () => {
             return crumbs;
         }
         return [{ label: 'Genres', to: '/preview/alt_f_genres' }];
-    }, [viewMode, activeGroup, activeGenre, activeGenreIds.length, allGenres]);
+    }, [viewMode, activeGroup, activeGenre, activeGenreIds.length, allGenres, isCommunityKind, activeCommunity]);
 
     // ── Feed create genre (for modal) ─────────────────────────────────────────
     const createGenreId = viewMode === 'single' ? activeGenre?.id : multiSlugsFromUrl.length > 0 ? allGenres.find(g => g.slug === multiSlugsFromUrl[0])?.id : undefined;
     const createGenreName = viewMode === 'single' ? (activeGenre?.name || 'Genre') : activeGenreNames[0] || 'Genre';
+    const createLink = isCommunityKind && activeCommunity
+        ? `/preview/alt_f_create_post?communityId=${activeCommunity.id}&kind=community`
+        : (createGenreId ? `/preview/alt_f_create_post?genreId=${createGenreId}` : undefined);
 
     // ── Common sort bar ───────────────────────────────────────────────────────
     const SortBar = () => (
@@ -760,13 +818,16 @@ export const FrontpageAltFGenres: React.FC = () => {
                             <div style={{ position: 'relative', zIndex: 2, height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                 <div style={{ maxWidth: 1280, width: '100%', padding: '0 32px 20px', textAlign: 'center', boxSizing: 'border-box' }}>
                                     <h1 style={{ margin: '0 0 6px', fontSize: 36, fontWeight: 900, letterSpacing: '-0.03em', color: '#fff', lineHeight: 1 }}>
-                                        {viewMode === 'group' && activeGroup ? activeGroup.name
+                                        {isCommunityKind && activeCommunity ? activeCommunity.name
+                                            : viewMode === 'group' && activeGroup ? activeGroup.name
                                             : viewMode === 'multi' ? `${activeGenreIds.length} Genres`
                                             : viewMode === 'single' && activeGenre ? activeGenre.name
                                             : 'Explore Genres'}
                                     </h1>
                                     <p style={{ margin: '0 0 16px', color: 'rgba(159,166,185,0.85)', fontSize: 13 }}>
-                                        {viewMode === 'single' && activeGenre
+                                        {isCommunityKind && activeCommunity
+                                            ? (activeCommunity.description || `${fmtNum(activeCommunity._count?.posts)} posts · ${fmtNum(activeCommunity._count?.subscriptions)} members`)
+                                            : viewMode === 'single' && activeGenre
                                             ? `${fmtNum(activeGenre._count?.tracks)} tracks · ${fmtNum(activeGenre._count?.profiles)} artists · ${fmtNum(activeGenre._count?.subscriptions)} members`
                                             : viewMode === 'group' && activeGroup
                                             ? activeGroup.genres.map(g => g.genre.name).join(' · ')
@@ -819,6 +880,59 @@ export const FrontpageAltFGenres: React.FC = () => {
                                                             </div>
                                                             <div style={{ fontSize: 11, color: SUB, lineHeight: 1.4, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any }}>
                                                                 {group.genres.map(g => g.genre.name).join(' · ')}
+                                                            </div>
+                                                        </Link>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Communities strip */}
+                                    {communities.length > 0 && (
+                                        <div style={{ marginBottom: 28 }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                                                <span style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: SUB, display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                    <Tag size={12} /> Communities
+                                                </span>
+                                            </div>
+                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 14 }}>
+                                                {communities.map(c => {
+                                                    const subbed = communitySubscribedIds.has(c.id);
+                                                    return (
+                                                        <Link key={c.id} to={`/preview/alt_f_genres/${c.slug}?kind=community`}
+                                                            style={{ ...glass, borderRadius: 18, overflow: 'hidden', display: 'flex', flexDirection: 'column', textDecoration: 'none', transition: 'border-color 0.2s, transform 0.15s', borderColor: 'rgba(255,255,255,0.1)' }}
+                                                            onMouseEnter={ev => { ev.currentTarget.style.borderColor = `${PRIMARY}55`; ev.currentTarget.style.transform = 'translateY(-2px)'; }}
+                                                            onMouseLeave={ev => { ev.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; ev.currentTarget.style.transform = 'translateY(0)'; }}>
+                                                            <div style={{ height: 72, background: `linear-gradient(135deg, ${PRIMARY}22 0%, ${SECONDARY}22 100%)`, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                                <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, transparent 40%, rgba(15,19,29,0.6) 100%)' }} />
+                                                                <span style={{ fontSize: 30, opacity: 0.5 }}>{c.icon || '📁'}</span>
+                                                                <div style={{ position: 'absolute', bottom: 8, left: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                                    <Tag size={12} color={PRIMARY} />
+                                                                    <span style={{ fontSize: 14, fontWeight: 800, color: '#fff' }}>{c.name}</span>
+                                                                </div>
+                                                                {subbed && (
+                                                                    <div style={{ position: 'absolute', top: 8, right: 10 }}>
+                                                                        <span style={{ background: `${PRIMARY}33`, border: `1px solid ${PRIMARY}55`, color: PRIMARY, padding: '2px 7px', borderRadius: 9999, fontSize: 9, fontWeight: 800 }}>JOINED</span>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                            <div style={{ padding: '12px 14px 14px' }}>
+                                                                <div style={{ display: 'flex', gap: 14 }}>
+                                                                    <div>
+                                                                        <div style={{ fontSize: 15, fontWeight: 900, color: PRIMARY, lineHeight: 1 }}>{fmtNum(c._count?.posts)}</div>
+                                                                        <div style={{ fontSize: 10, color: SUB, textTransform: 'uppercase', letterSpacing: '0.07em', marginTop: 2 }}>Posts</div>
+                                                                    </div>
+                                                                    <div>
+                                                                        <div style={{ fontSize: 15, fontWeight: 900, color: SECONDARY, lineHeight: 1 }}>{fmtNum(c._count?.subscriptions)}</div>
+                                                                        <div style={{ fontSize: 10, color: SUB, textTransform: 'uppercase', letterSpacing: '0.07em', marginTop: 2 }}>Members</div>
+                                                                    </div>
+                                                                </div>
+                                                                {c.description && (
+                                                                    <div style={{ marginTop: 8, fontSize: 11, color: SUB, lineHeight: 1.4, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any }}>
+                                                                        {c.description}
+                                                                    </div>
+                                                                )}
                                                             </div>
                                                         </Link>
                                                     );
@@ -949,6 +1063,31 @@ export const FrontpageAltFGenres: React.FC = () => {
 
                                     {/* ── LEFT SIDEBAR ── */}
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                                        {isCommunityKind && activeCommunity && (
+                                            <div style={{ ...glass, borderRadius: 16, overflow: 'hidden' }}>
+                                                <div style={{ height: 6, background: PRIMARY }} />
+                                                <div style={{ padding: '16px 18px' }}>
+                                                    <h3 style={{ margin: '0 0 14px', fontSize: 15, fontWeight: 800, color: TEXT }}>{activeCommunity.icon ? `${activeCommunity.icon} ` : ''}{activeCommunity.name}</h3>
+                                                    {activeCommunity.description && (
+                                                        <p style={{ margin: '0 0 14px', fontSize: 12, color: SUB, lineHeight: 1.5 }}>{activeCommunity.description}</p>
+                                                    )}
+                                                    <div style={{ display: 'flex', gap: 16, marginBottom: 14 }}>
+                                                        <div style={{ textAlign: 'center' }}>
+                                                            <div style={{ fontSize: 16, fontWeight: 800, color: TEXT }}>{fmtNum(activeCommunity._count?.posts ?? 0)}</div>
+                                                            <div style={{ fontSize: 10, color: SUB, textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 700 }}>Posts</div>
+                                                        </div>
+                                                        <div style={{ textAlign: 'center' }}>
+                                                            <div style={{ fontSize: 16, fontWeight: 800, color: TEXT }}>{fmtNum(activeCommunity._count?.subscriptions ?? 0)}</div>
+                                                            <div style={{ fontSize: 10, color: SUB, textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 700 }}>Members</div>
+                                                        </div>
+                                                    </div>
+                                                    <button onClick={() => toggleSubscribe()} disabled={subLoading}
+                                                        style={{ width: '100%', padding: '8px 0', background: isSubscribed ? 'transparent' : PRIMARY, border: `1.5px solid ${isSubscribed ? BORDER : PRIMARY}`, borderRadius: 9, color: isSubscribed ? SUB : '#fff', cursor: subLoading ? 'wait' : 'pointer', fontFamily: FONT, fontSize: 13, fontWeight: 700, transition: 'all 0.15s' }}>
+                                                        {isSubscribed ? 'Joined ✓' : 'Join Community'}
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
                                         {viewMode === 'single' && activeGenre && (() => {
                                             const accent = genreAccent(activeGenre.name);
                                             return (
@@ -1014,8 +1153,8 @@ export const FrontpageAltFGenres: React.FC = () => {
                                                     <BookMarked size={12} /> Save Group
                                                 </button>
                                             )}
-                                            {viewMode !== 'group' && createGenreId && (
-                                                <Link to={`/preview/alt_f_create_post?genreId=${createGenreId}`}
+                                            {viewMode !== 'group' && createLink && (
+                                                <Link to={createLink}
                                                     style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px', background: PRIMARY, borderRadius: 8, color: '#fff', textDecoration: 'none', fontSize: 13, fontWeight: 700 }}>
                                                     <Plus size={13} /> Post
                                                 </Link>
@@ -1084,10 +1223,11 @@ export const FrontpageAltFGenres: React.FC = () => {
                                             <FileText size={36} color={SUB} style={{ marginBottom: 14 }} />
                                             <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}>No posts yet</div>
                                             <div style={{ fontSize: 13, color: SUB, marginBottom: 18 }}>
-                                                {viewMode === 'single' ? `Be the first to post in ${activeGenre?.name}.` : 'No posts in these genres yet.'}
+                                                {isCommunityKind ? `Be the first to post in ${activeCommunity?.name}.`
+                                                    : viewMode === 'single' ? `Be the first to post in ${activeGenre?.name}.` : 'No posts in these genres yet.'}
                                             </div>
-                                            {viewMode === 'single' && activeGenre && createGenreId && (
-                                                <Link to={`/preview/alt_f_create_post?genreId=${createGenreId}`}
+                                            {((isCommunityKind && activeCommunity) || (viewMode === 'single' && activeGenre)) && createLink && (
+                                                <Link to={createLink}
                                                     style={{ display: 'inline-block', padding: '9px 20px', background: PRIMARY, borderRadius: 9, color: '#fff', textDecoration: 'none', fontSize: 14, fontWeight: 700 }}>
                                                     Create First Post
                                                 </Link>
@@ -1099,7 +1239,7 @@ export const FrontpageAltFGenres: React.FC = () => {
                                                 <GenrePostCard key={p.id} post={p} onVote={handleVote} showGenre={viewMode !== 'single'} onShare={setSharePost} />
                                             ))}
                                             {hasMore && (
-                                                <button onClick={() => fetchPosts(buildParams(), nextCursor!)} disabled={postsLoading}
+                                                <button onClick={() => fetchPosts(buildParams(), nextCursor!, isCommunityKind)} disabled={postsLoading}
                                                     style={{ padding: '11px 0', background: S_CONT, border: `1px solid ${BORDER}`, borderRadius: 12, color: SUB, cursor: postsLoading ? 'wait' : 'pointer', fontFamily: FONT, fontSize: 14, fontWeight: 600 }}>
                                                     {postsLoading ? 'Loading…' : 'Load more'}
                                                 </button>

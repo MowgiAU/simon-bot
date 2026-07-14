@@ -33,6 +33,9 @@ interface Genre {
     id: string; name: string; slug: string; parentId: string | null;
     children: Genre[];
 }
+interface Community {
+    id: string; name: string; slug: string; description: string | null; icon: string | null;
+}
 
 type MediaTab = 'none' | 'image' | 'video' | 'audio';
 
@@ -49,8 +52,11 @@ export const FrontpageAltFCreatePost: React.FC = () => {
     const location = useLocation();
     const sp = new URLSearchParams(location.search);
     const initialGenreId = sp.get('genreId') || '';
+    const isCommunityKind = sp.get('kind') === 'community';
+    const communityIdParam = sp.get('communityId') || '';
 
     const [genres, setGenres] = useState<Genre[]>([]);
+    const [communities, setCommunities] = useState<Community[]>([]);
     const [title, setTitle] = useState('');
     const [body, setBody] = useState('');
     const [flair, setFlair] = useState('');
@@ -72,8 +78,14 @@ export const FrontpageAltFCreatePost: React.FC = () => {
     const genreSearchRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
-        axios.get('/api/musician/genres').then(r => setGenres(arr(r.data))).catch(() => {});
-    }, []);
+        if (isCommunityKind) {
+            axios.get('/api/communities').then(r => setCommunities(arr(r.data))).catch(() => {});
+        } else {
+            axios.get('/api/musician/genres').then(r => setGenres(arr(r.data))).catch(() => {});
+        }
+    }, [isCommunityKind]);
+
+    const activeCommunity = communities.find(c => c.id === communityIdParam) || null;
 
     // Close genre search on outside click
     useEffect(() => {
@@ -115,8 +127,9 @@ export const FrontpageAltFCreatePost: React.FC = () => {
         setUploadProgress(`Uploading ${type}…`);
         try {
             const fd = new FormData();
-            fd.append(type === 'image' ? 'genrePostImage' : 'genrePostAudio', file);
-            const r = await axios.post('/api/genre-posts/upload-media', fd, { withCredentials: true });
+            const fieldPrefix = isCommunityKind ? 'communityPost' : 'genrePost';
+            fd.append(type === 'image' ? `${fieldPrefix}Image` : `${fieldPrefix}Audio`, file);
+            const r = await axios.post(isCommunityKind ? '/api/community-posts/upload-media' : '/api/genre-posts/upload-media', fd, { withCredentials: true });
             if (type === 'image') setImageUrl(r.data.url);
             else setAudioUrl(r.data.url);
             setUploadProgress('');
@@ -141,30 +154,28 @@ export const FrontpageAltFCreatePost: React.FC = () => {
 
     const handleImageUploadForEditor = async (file: File): Promise<string> => {
         const fd = new FormData();
-        fd.append('genrePostImage', file);
-        const r = await axios.post('/api/genre-posts/upload-media', fd, { withCredentials: true });
+        fd.append(isCommunityKind ? 'communityPostImage' : 'genrePostImage', file);
+        const r = await axios.post(isCommunityKind ? '/api/community-posts/upload-media' : '/api/genre-posts/upload-media', fd, { withCredentials: true });
         return r.data.url;
     };
 
     const submit = async () => {
         setError('');
-        if (!primaryGenreId) { setError('Please select a primary genre'); return; }
+        if (isCommunityKind) {
+            if (!activeCommunity) { setError('Community not found'); return; }
+        } else if (!primaryGenreId) { setError('Please select a primary genre'); return; }
         if (!title.trim()) { setError('Title is required'); return; }
         if (title.length > 300) { setError('Title must be 300 characters or fewer'); return; }
         setSubmitting(true);
         try {
-            const payload: any = {
-                genreId: primaryGenreId,
-                title: title.trim(),
-                body: body || undefined,
-                flair: flair.trim() || undefined,
-                extraGenreIds,
-            };
+            const payload: any = isCommunityKind
+                ? { communityId: activeCommunity!.id, title: title.trim(), body: body || undefined, flair: flair.trim() || undefined }
+                : { genreId: primaryGenreId, title: title.trim(), body: body || undefined, flair: flair.trim() || undefined, extraGenreIds };
             if (mediaTab === 'image' && imageUrl) payload.imageUrl = imageUrl;
             if (mediaTab === 'video' && videoUrl.trim()) payload.videoUrl = videoUrl.trim();
             if (mediaTab === 'audio' && audioUrl) payload.audioUrl = audioUrl;
-            const r = await axios.post('/api/genre-posts', payload, { withCredentials: true });
-            navigate(`/preview/alt_f_genre_post/${r.data.id}`);
+            const r = await axios.post(isCommunityKind ? '/api/community-posts' : '/api/genre-posts', payload, { withCredentials: true });
+            navigate(`/preview/alt_f_genre_post/${r.data.id}${isCommunityKind ? '?kind=community' : ''}`);
         } catch (e: any) {
             setError(e?.response?.data?.error ?? 'Failed to post. Please try again.');
         } finally {
@@ -172,13 +183,19 @@ export const FrontpageAltFCreatePost: React.FC = () => {
         }
     };
 
-    const breadcrumb = [
-        { label: 'Genres', to: '/preview/alt_f_genres' },
-        ...(primaryGenre ? [{ label: primaryGenre.name, to: `/preview/alt_f_genres/${primaryGenre.slug}` }] : []),
-        { label: 'Create Post' },
-    ];
+    const breadcrumb = isCommunityKind
+        ? [
+            { label: 'Genres', to: '/preview/alt_f_genres' },
+            ...(activeCommunity ? [{ label: activeCommunity.name, to: `/preview/alt_f_genres/${activeCommunity.slug}?kind=community` }] : []),
+            { label: 'Create Post' },
+        ]
+        : [
+            { label: 'Genres', to: '/preview/alt_f_genres' },
+            ...(primaryGenre ? [{ label: primaryGenre.name, to: `/preview/alt_f_genres/${primaryGenre.slug}` }] : []),
+            { label: 'Create Post' },
+        ];
 
-    const canPost = !submitting && !uploading && primaryGenreId && title.trim().length > 0;
+    const canPost = !submitting && !uploading && (isCommunityKind ? !!activeCommunity : !!primaryGenreId) && title.trim().length > 0;
 
     return (
         <div style={{ height: '100vh', display: 'flex', overflow: 'hidden', background: BG, color: TEXT, fontFamily: FONT }}>
@@ -190,11 +207,11 @@ export const FrontpageAltFCreatePost: React.FC = () => {
                     <div style={{ maxWidth: 1080, margin: '0 auto', padding: '24px 24px 64px', boxSizing: 'border-box' }}>
 
                         {/* Back link */}
-                        <Link to={primaryGenre ? `/preview/alt_f_genres/${primaryGenre.slug}` : '/preview/alt_f_genres'}
+                        <Link to={isCommunityKind ? (activeCommunity ? `/preview/alt_f_genres/${activeCommunity.slug}?kind=community` : '/preview/alt_f_genres') : (primaryGenre ? `/preview/alt_f_genres/${primaryGenre.slug}` : '/preview/alt_f_genres')}
                             style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, color: SUB, textDecoration: 'none', marginBottom: 20 }}
                             onMouseEnter={e => (e.currentTarget.style.color = TEXT)}
                             onMouseLeave={e => (e.currentTarget.style.color = SUB)}>
-                            <ChevronLeft size={14} /> Back to {primaryGenre?.name ?? 'Genres'}
+                            <ChevronLeft size={14} /> Back to {isCommunityKind ? (activeCommunity?.name ?? 'Genres') : (primaryGenre?.name ?? 'Genres')}
                         </Link>
 
                         <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
@@ -202,8 +219,17 @@ export const FrontpageAltFCreatePost: React.FC = () => {
                             {/* ── Left: Form ── */}
                             <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 14 }}>
 
+                                {/* Posting in (community mode) */}
+                                {isCommunityKind && activeCommunity && (
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: S_CONT, borderRadius: 10, border: `1px solid ${PRIMARY}44` }}>
+                                        <div style={{ width: 10, height: 10, borderRadius: '50%', background: PRIMARY, flexShrink: 0 }} />
+                                        <span style={{ fontSize: 13, fontWeight: 700, color: PRIMARY }}>{activeCommunity.icon ? `${activeCommunity.icon} ` : ''}{activeCommunity.name}</span>
+                                        <span style={{ fontSize: 11, color: SUB }}>· Community</span>
+                                    </div>
+                                )}
+
                                 {/* Primary genre selector (if none pre-selected) */}
-                                {!initialGenreId && (
+                                {!isCommunityKind && !initialGenreId && (
                                     <div style={{ ...glass, borderRadius: 14, padding: '16px 18px' }}>
                                         <label style={{ fontSize: 11, fontWeight: 800, color: SUB, textTransform: 'uppercase', letterSpacing: '0.1em', display: 'block', marginBottom: 8 }}>Primary Genre</label>
                                         <select value={primaryGenreId} onChange={e => setPrimaryGenreId(e.target.value)}
@@ -213,7 +239,7 @@ export const FrontpageAltFCreatePost: React.FC = () => {
                                         </select>
                                     </div>
                                 )}
-                                {primaryGenre && (
+                                {!isCommunityKind && primaryGenre && (
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: S_CONT, borderRadius: 10, border: `1px solid ${genreAccent(primaryGenre.name)}44` }}>
                                         <div style={{ width: 10, height: 10, borderRadius: '50%', background: genreAccent(primaryGenre.name), flexShrink: 0 }} />
                                         <span style={{ fontSize: 13, fontWeight: 700, color: genreAccent(primaryGenre.name) }}>{primaryGenre.name}</span>
@@ -385,6 +411,7 @@ export const FrontpageAltFCreatePost: React.FC = () => {
                                 </div>
 
                                 {/* Extra genre tags */}
+                                {!isCommunityKind && (
                                 <div style={{ ...glass, borderRadius: 14, padding: '16px 18px' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
                                         <label style={{ fontSize: 11, fontWeight: 800, color: SUB, textTransform: 'uppercase', letterSpacing: '0.1em', display: 'flex', alignItems: 'center', gap: 5 }}>
@@ -441,6 +468,7 @@ export const FrontpageAltFCreatePost: React.FC = () => {
                                         </div>
                                     )}
                                 </div>
+                                )}
 
                                 {/* Error */}
                                 {error && (

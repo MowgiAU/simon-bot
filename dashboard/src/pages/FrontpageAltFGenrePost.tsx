@@ -56,6 +56,7 @@ interface CrossPostOf { id: string; title: string; username?: string; flair?: st
 
 export const FrontpageAltFGenrePost: React.FC = () => {
     const postId = window.location.pathname.split('/').pop() || '';
+    const isCommunityKind = new URLSearchParams(window.location.search).get('kind') === 'community';
     const { player, setTrack, togglePlay } = usePlayer();
     const { mutualAdminGuilds } = useAuth();
     const isAdmin = mutualAdminGuilds.length > 0;
@@ -96,17 +97,17 @@ export const FrontpageAltFGenrePost: React.FC = () => {
     useEffect(() => {
         if (!postId) return;
         setLoading(true);
-        axios.get(`/api/genre-posts/${postId}`).then(r => {
+        axios.get(isCommunityKind ? `/api/community-posts/${postId}` : `/api/genre-posts/${postId}`).then(r => {
             setPost(r.data);
             setLoading(false);
         }).catch(() => setLoading(false));
 
         setCommentsLoading(true);
-        axios.get('/api/comments', { params: { genrePostId: postId } }).then(r => {
+        axios.get('/api/comments', { params: isCommunityKind ? { communityPostId: postId } : { genrePostId: postId } }).then(r => {
             setComments(arr(r.data.comments));
             setCommentsLoading(false);
         }).catch(() => setCommentsLoading(false));
-    }, [postId]);
+    }, [postId, isCommunityKind]);
 
     // Fetch genres for cross-post selector
     useEffect(() => {
@@ -121,7 +122,7 @@ export const FrontpageAltFGenrePost: React.FC = () => {
     const handleVote = async (type: 'up' | 'down') => {
         if (!post) return;
         try {
-            const r = await axios.post(`/api/genre-posts/${post.id}/vote`, { type }, { withCredentials: true });
+            const r = await axios.post(isCommunityKind ? `/api/community-posts/${post.id}/vote` : `/api/genre-posts/${post.id}/vote`, { type }, { withCredentials: true });
             setPost((p: any) => ({ ...p, score: r.data.score, upvotes: r.data.upvotes, downvotes: r.data.downvotes, userVote: r.data.userVote }));
         } catch {}
     };
@@ -145,7 +146,7 @@ export const FrontpageAltFGenrePost: React.FC = () => {
         if (!commentText.trim() || !post) return;
         setSubmitting(true);
         try {
-            const body: any = { content: commentText, genrePostId: post.id };
+            const body: any = isCommunityKind ? { content: commentText, communityPostId: post.id } : { content: commentText, genrePostId: post.id };
             if (replyTo) body.parentId = replyTo.id;
             const r = await axios.post('/api/comments', body, { withCredentials: true });
             const newComment = { ...r.data, likes: [], likeCount: 0, dislikeCount: 0, userVote: null, replies: [] };
@@ -165,7 +166,7 @@ export const FrontpageAltFGenrePost: React.FC = () => {
     const handleTogglePin = async () => {
         if (!post) return;
         try {
-            const r = await axios.post(`/api/genre-posts/${post.id}/pin`, {}, { withCredentials: true });
+            const r = await axios.post(isCommunityKind ? `/api/community-posts/${post.id}/pin` : `/api/genre-posts/${post.id}/pin`, {}, { withCredentials: true });
             setPost((p: any) => ({ ...p, pinned: r.data.pinned }));
         } catch {}
     };
@@ -175,7 +176,7 @@ export const FrontpageAltFGenrePost: React.FC = () => {
         if (!post) return;
         setHidingPost(true);
         try {
-            await axios.post(`/api/genre-posts/${post.id}/hide`, { reason: hidePostReason || undefined }, { withCredentials: true });
+            await axios.post(isCommunityKind ? `/api/community-posts/${post.id}/hide` : `/api/genre-posts/${post.id}/hide`, { reason: hidePostReason || undefined }, { withCredentials: true });
             setPost((p: any) => ({ ...p, hiddenAt: new Date().toISOString(), hideReason: hidePostReason || null }));
             setShowHidePostModal(false);
             setHidePostReason('');
@@ -187,7 +188,7 @@ export const FrontpageAltFGenrePost: React.FC = () => {
     const handleRestorePost = async () => {
         if (!post) return;
         try {
-            await axios.post(`/api/genre-posts/${post.id}/restore`, {}, { withCredentials: true });
+            await axios.post(isCommunityKind ? `/api/community-posts/${post.id}/restore` : `/api/genre-posts/${post.id}/restore`, {}, { withCredentials: true });
             setPost((p: any) => ({ ...p, hiddenAt: null, hideReason: null }));
         } catch {}
     };
@@ -225,7 +226,7 @@ export const FrontpageAltFGenrePost: React.FC = () => {
 
     // Share: copy link
     const copyLink = () => {
-        const url = `${window.location.origin}/preview/alt_f_genre_post/${postId}`;
+        const url = `${window.location.origin}/preview/alt_f_genre_post/${postId}${isCommunityKind ? '?kind=community' : ''}`;
         navigator.clipboard.writeText(url).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); }).catch(() => {});
     };
 
@@ -289,6 +290,7 @@ export const FrontpageAltFGenrePost: React.FC = () => {
                 <AltHeader breadcrumb={[
                     { label: 'Genres', to: '/preview/alt_f_genres' },
                     ...(post.genre ? [{ label: post.genre.name, to: `/preview/alt_f_genres/${post.genre.slug}` }] : []),
+                    ...(post.community ? [{ label: post.community.name, to: `/preview/alt_f_genres/${post.community.slug}?kind=community` }] : []),
                     { label: post.title.length > 40 ? post.title.slice(0, 40) + '…' : post.title },
                 ]} />
 
@@ -344,9 +346,14 @@ export const FrontpageAltFGenrePost: React.FC = () => {
                                                     {post.genre.name}
                                                 </Link>
                                             )}
+                                            {post.community && (
+                                                <Link to={`/preview/alt_f_genres/${post.community.slug}?kind=community`} style={{ background: `${PRIMARY}18`, border: `1px solid ${PRIMARY}44`, color: PRIMARY, padding: '2px 9px', borderRadius: 9999, fontWeight: 700, fontSize: 11, textDecoration: 'none' }}>
+                                                    {post.community.name}
+                                                </Link>
+                                            )}
                                             {/* Flair pill */}
                                             {post.flair && (
-                                                <Link to={`/preview/alt_f_genres/${post.genre?.slug || ''}?flair=${encodeURIComponent(post.flair)}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: `${flairColor(post.flair)}18`, border: `1px solid ${flairColor(post.flair)}44`, color: flairColor(post.flair), padding: '2px 9px', borderRadius: 9999, fontWeight: 700, fontSize: 11, textDecoration: 'none' }}>
+                                                <Link to={isCommunityKind ? `/preview/alt_f_genres/${post.community?.slug || ''}?kind=community&flair=${encodeURIComponent(post.flair)}` : `/preview/alt_f_genres/${post.genre?.slug || ''}?flair=${encodeURIComponent(post.flair)}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: `${flairColor(post.flair)}18`, border: `1px solid ${flairColor(post.flair)}44`, color: flairColor(post.flair), padding: '2px 9px', borderRadius: 9999, fontWeight: 700, fontSize: 11, textDecoration: 'none' }}>
                                                     <Tag size={9} /> {post.flair}
                                                 </Link>
                                             )}
@@ -377,7 +384,7 @@ export const FrontpageAltFGenrePost: React.FC = () => {
                                         {/* Title */}
                                         <h1 style={{ margin: '0 0 16px', fontSize: isMobile ? 18 : 22, fontWeight: 900, color: TEXT, lineHeight: 1.3 }}>
                                             {post.type === 'track' && <Music size={18} color={PRIMARY} style={{ marginRight: 8, verticalAlign: 'middle' }} />}
-                                            {post.type === 'discussion' && <FileText size={18} color={SECONDARY} style={{ marginRight: 8, verticalAlign: 'middle' }} />}
+                                            {post.type !== 'track' && <FileText size={18} color={SECONDARY} style={{ marginRight: 8, verticalAlign: 'middle' }} />}
                                             {post.title}
                                         </h1>
 
@@ -447,12 +454,12 @@ export const FrontpageAltFGenrePost: React.FC = () => {
                                         })()}
 
                                         {/* Discussion body */}
-                                        {post.type === 'discussion' && post.body && (
+                                        {post.type !== 'track' && post.body && (
                                             <div style={{ fontSize: 15, color: TEXT, lineHeight: 1.7, marginBottom: 14 }} dangerouslySetInnerHTML={{ __html: post.body }} />
                                         )}
 
                                         {/* Discussion image */}
-                                        {post.type === 'discussion' && post.imageUrl && (
+                                        {post.type !== 'track' && post.imageUrl && (
                                             <img src={post.imageUrl} alt="" style={{ maxWidth: '100%', borderRadius: 10, marginBottom: 14, display: 'block' }} onError={e => (e.currentTarget.style.display = 'none')} />
                                         )}
 
@@ -655,11 +662,13 @@ export const FrontpageAltFGenrePost: React.FC = () => {
                                         <Share2 size={16} color={copied ? SECONDARY : SUB} />
                                         {copied ? 'Link copied!' : 'Copy link'}
                                     </button>
-                                    <button onClick={() => setShareStep('crosspost')}
-                                        style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', background: S_CONT, border: `1px solid ${BORDER}`, borderRadius: 10, color: TEXT, cursor: 'pointer', fontFamily: FONT, fontSize: 14, fontWeight: 600 }}>
-                                        <Layers size={16} color={SUB} />
-                                        Cross-post to another genre
-                                    </button>
+                                    {!isCommunityKind && (
+                                        <button onClick={() => setShareStep('crosspost')}
+                                            style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', background: S_CONT, border: `1px solid ${BORDER}`, borderRadius: 10, color: TEXT, cursor: 'pointer', fontFamily: FONT, fontSize: 14, fontWeight: 600 }}>
+                                            <Layers size={16} color={SUB} />
+                                            Cross-post to another genre
+                                        </button>
+                                    )}
                                 </div>
                             </>
                         ) : (
