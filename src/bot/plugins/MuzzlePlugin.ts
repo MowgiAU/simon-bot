@@ -26,7 +26,7 @@ export class MuzzlePlugin implements IPlugin {
     version = '1.0.0';
     author = 'Fuji Studio Team';
 
-    requiredPermissions: PermissionResolvable[] = ['ManageRoles'];
+    requiredPermissions: PermissionResolvable[] = ['ManageRoles', 'ModerateMembers'];
     commands: string[] = [];
     events: string[] = ['messageCreate'];
     dashboardSections = ['muzzle'];
@@ -115,15 +115,28 @@ export class MuzzlePlugin implements IPlugin {
     ): Promise<void> {
         if (!settings.muzzleRoleId) return;
 
+        const durationMs = settings.muzzleDurationMinutes * 60 * 1000;
+        const reason = 'Muzzle: sent too many messages too quickly';
+
+        // Native timeout is what actually blocks the user from sending messages,
+        // reacting, or speaking — it does not depend on the muzzle role having
+        // Send Messages denied via channel permission overwrites.
         try {
-            await member.roles.add(settings.muzzleRoleId, 'Muzzle: sent too many messages too quickly');
-            this.logger.info(`Muzzled ${member.user.tag} in guild ${member.guild.id} for ${settings.muzzleDurationMinutes}m`);
+            await member.timeout(durationMs, reason);
         } catch (err: any) {
-            this.logger.error(`Failed to apply muzzle role: ${err.message}`);
+            this.logger.error(`Failed to time out member: ${err.message}`);
             return;
         }
 
-        const durationMs = settings.muzzleDurationMinutes * 60 * 1000;
+        // Apply the visible muzzle role too (best-effort — the timeout above is
+        // the real enforcement, so a role failure must not abort the muzzle).
+        try {
+            await member.roles.add(settings.muzzleRoleId, reason);
+        } catch (err: any) {
+            this.logger.warn(`Applied timeout but failed to add muzzle role: ${err.message}`);
+        }
+
+        this.logger.info(`Muzzled ${member.user.tag} in guild ${member.guild.id} for ${settings.muzzleDurationMinutes}m`);
 
         // Cancel any existing unmuzzle timer
         if (this.activeMuzzles.has(muzzleKey)) clearTimeout(this.activeMuzzles.get(muzzleKey)!);
@@ -132,6 +145,9 @@ export class MuzzlePlugin implements IPlugin {
         const handle = setTimeout(async () => {
             this.activeMuzzles.delete(muzzleKey);
             try {
+                // Discord auto-expires the timeout, but clear it explicitly in case
+                // the configured duration was shortened while the muzzle was active.
+                await member.timeout(null, 'Muzzle: duration expired').catch(() => {});
                 await member.roles.remove(settings.muzzleRoleId!, 'Muzzle: duration expired');
                 this.logger.info(`Unmuzzled ${member.user.tag} in guild ${member.guild.id}`);
             } catch { /* member may have left */ }

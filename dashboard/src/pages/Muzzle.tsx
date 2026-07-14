@@ -95,9 +95,9 @@ export const MuzzlePage: React.FC<MuzzlePageProps> = ({ guildId }) => {
             <div style={{ ...card, borderLeft: `4px solid ${colors.primary}`, marginBottom: spacing.lg }}>
                 <p style={{ margin: 0, color: colors.textPrimary, fontSize: 14, lineHeight: 1.6 }}>
                     When a user sends more than <strong>{messageLimit} messages</strong> within <strong>{windowSeconds} seconds</strong>,
-                    the Muzzle role is applied to them for <strong>{muzzleDuration} minute{muzzleDuration !== 1 ? 's' : ''}</strong>.
-                    Configure the Muzzle role in Discord to deny <strong>Send Messages</strong> in whichever channels you want to restrict.
-                    The role is removed automatically after the duration expires.
+                    they are timed out for <strong>{muzzleDuration} minute{muzzleDuration !== 1 ? 's' : ''}</strong> — Discord's native
+                    timeout blocks them from sending messages, reacting, and speaking server-wide. The Muzzle role is also applied as a
+                    visible marker. Both are removed automatically after the duration expires.
                 </p>
             </div>
 
@@ -170,9 +170,10 @@ export const MuzzlePage: React.FC<MuzzlePageProps> = ({ guildId }) => {
                         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginTop: 8, padding: '8px 12px', background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: borderRadius.sm }}>
                             <Info size={14} color="#F59E0B" style={{ flexShrink: 0, marginTop: 1 }} />
                             <p style={{ margin: 0, fontSize: 12, color: '#F59E0B', lineHeight: 1.5 }}>
-                                Create a <strong>Muzzle</strong> role in your Discord server, then configure it to deny
-                                <strong> Send Messages</strong> in channels where you want muzzled users to be silenced.
-                                Make sure this role is below the bot's role in the hierarchy.
+                                Create a <strong>Muzzle</strong> role in your Discord server as a visible marker for muzzled users.
+                                The actual silencing is handled by Discord's timeout, so no channel permission setup is required.
+                                Make sure this role is below the bot's role in the hierarchy, and that the bot has the
+                                <strong> Moderate Members</strong> permission.
                             </p>
                         </div>
                     </div>
