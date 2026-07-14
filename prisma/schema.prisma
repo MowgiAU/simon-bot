@@ -1418,6 +1418,100 @@ model GenreGroupGenre {
   @@map("genre_group_genres")
 }
 
+// ── Custom Communities ───────────────────────────────────────────────────
+// Non-genre communities (e.g. "Resources") with the same Reddit-style feed
+// mechanics as Genre communities, but a separate, independent model set so
+// Genre (load-bearing elsewhere: track tagging, primary genre, H2H pools)
+// is never touched.
+
+model Community {
+  id          String    @id @default(cuid())
+  name        String    @unique
+  slug        String    @unique
+  description String?
+  icon        String?
+  createdBy   String
+  archivedAt  DateTime?
+
+  subscriptions CommunitySubscription[]
+  posts         CommunityPost[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("communities")
+}
+
+model CommunitySubscription {
+  id          String   @id @default(cuid())
+  userId      String
+  communityId String
+  createdAt   DateTime @default(now())
+
+  community Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, communityId])
+  @@index([userId])
+  @@index([communityId])
+  @@map("community_subscriptions")
+}
+
+model CommunityPost {
+  id          String  @id @default(cuid())
+  communityId String
+  userId      String
+  username    String
+  avatarUrl   String?
+
+  title    String
+  body     String? @db.Text
+  imageUrl String?
+  videoUrl String?
+  audioUrl String?
+
+  upvotes      Int   @default(0)
+  downvotes    Int   @default(0)
+  score        Int   @default(0)
+  hotScore     Float @default(0)
+  commentCount Int   @default(0)
+
+  flair      String?
+  pinned     Boolean   @default(false)
+  pinnedAt   DateTime?
+  hiddenAt   DateTime?
+  hideReason String?
+
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  community Community           @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  votes     CommunityPostVote[]
+  comments  Comment[]
+
+  @@index([communityId, hotScore(sort: Desc)])
+  @@index([communityId, createdAt(sort: Desc)])
+  @@index([communityId, score(sort: Desc)])
+  @@index([userId])
+  @@index([pinned])
+  @@map("community_posts")
+}
+
+model CommunityPostVote {
+  id     String @id @default(cuid())
+  userId String
+  postId String
+  type   String // "up" | "down"
+
+  createdAt DateTime @default(now())
+
+  post CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, postId])
+  @@index([postId])
+  @@map("community_post_votes")
+}
+
 model DiscoverySettings {
   id                  String  @id @default("singleton")
   featuredType        String  @default("track") // 'track' | 'artist' | 'playlist'
@@ -1935,11 +2029,12 @@ model Comment {
   editedAt       DateTime? // Set when edited
 
   // Polymorphic target: exactly one of these should be set
-  trackId       String? // Comment on a track
-  profileId     String? // Comment on a musician profile
-  battleEntryId String? // Comment on a battle entry
-  articleId     String? // Comment on an article
-  genrePostId   String? // Comment on a genre post
+  trackId         String? // Comment on a track
+  profileId       String? // Comment on a musician profile
+  battleEntryId   String? // Comment on a battle entry
+  articleId       String? // Comment on an article
+  genrePostId     String? // Comment on a genre post
+  communityPostId String? // Comment on a custom-community post
 
   // Self-referential reply thread (one level deep)
   parentId String?
@@ -1951,14 +2046,15 @@ model Comment {
   hiddenAt   DateTime?
   hideReason String?
 
-  track       Track?           @relation(fields: [trackId], references: [id], onDelete: Cascade)
-  profile     MusicianProfile? @relation(fields: [profileId], references: [id], onDelete: Cascade)
-  battleEntry BattleEntry?     @relation(fields: [battleEntryId], references: [id], onDelete: Cascade)
-  article     Article?         @relation(fields: [articleId], references: [id], onDelete: Cascade)
-  genrePost   GenrePost?       @relation(fields: [genrePostId], references: [id], onDelete: Cascade)
-  parent      Comment?         @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
-  replies     Comment[]        @relation("CommentReplies")
-  likes       CommentLike[]
+  track         Track?           @relation(fields: [trackId], references: [id], onDelete: Cascade)
+  profile       MusicianProfile? @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  battleEntry   BattleEntry?     @relation(fields: [battleEntryId], references: [id], onDelete: Cascade)
+  article       Article?         @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  genrePost     GenrePost?       @relation(fields: [genrePostId], references: [id], onDelete: Cascade)
+  communityPost CommunityPost?   @relation(fields: [communityPostId], references: [id], onDelete: Cascade)
+  parent        Comment?         @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies       Comment[]        @relation("CommentReplies")
+  likes         CommentLike[]
 
   createdAt DateTime @default(now())
 
@@ -1967,6 +2063,7 @@ model Comment {
   @@index([battleEntryId])
   @@index([articleId])
   @@index([genrePostId])
+  @@index([communityPostId])
   @@index([userId])
   @@index([parentId])
   @@map("comments")
