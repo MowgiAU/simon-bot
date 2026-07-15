@@ -2,11 +2,13 @@ import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { colors, spacing, borderRadius } from '../theme/theme';
 import { useAuth } from '../components/AuthProvider';
+import { RoleSelect } from '../components/RoleSelect';
+import { ChannelSelect } from '../components/ChannelSelect';
 import { ArticleEditor } from './Articles';
 import {
     ClipboardCheck, Clock, CheckCircle, XCircle, AlertCircle,
     Edit3, Eye, Star, StarOff, Search, FileText, X, MessageSquare,
-    Archive, Trash2, Filter,
+    Archive, Trash2, Filter, Settings, ChevronDown, ChevronUp,
 } from 'lucide-react';
 
 interface Article {
@@ -387,8 +389,72 @@ const ReviewPanel: React.FC<{
 };
 
 // ── MAIN PAGE ─────────────────────────────────────────────────────────────────
+// ── Admin settings: who can write (contributor roles) + submit-for-review channel ──
+const ArticleAccessSettings: React.FC<{ guildId: string }> = ({ guildId }) => {
+    const [open, setOpen] = useState(false);
+    const [contributorRoleIds, setContributorRoleIds] = useState<string[]>([]);
+    const [reviewChannelId, setReviewChannelId] = useState<string>('');
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+    const [savedMsg, setSavedMsg] = useState('');
+
+    useEffect(() => {
+        let alive = true;
+        axios.get(`/api/guilds/${guildId}/article-settings`, { withCredentials: true })
+            .then(r => { if (alive) { setContributorRoleIds(r.data.contributorRoleIds || []); setReviewChannelId(r.data.articleReviewChannelId || ''); } })
+            .catch(() => {})
+            .finally(() => { if (alive) setLoading(false); });
+        return () => { alive = false; };
+    }, [guildId]);
+
+    const save = async () => {
+        setSaving(true); setSavedMsg('');
+        try {
+            await axios.put(`/api/guilds/${guildId}/article-settings`, { contributorRoleIds, articleReviewChannelId: reviewChannelId || null }, { withCredentials: true });
+            setSavedMsg('Saved');
+            setTimeout(() => setSavedMsg(''), 2500);
+        } catch (e: any) {
+            setSavedMsg(e.response?.data?.error || 'Failed to save');
+        } finally { setSaving(false); }
+    };
+
+    return (
+        <div style={{ backgroundColor: colors.surface, borderRadius: borderRadius.md, marginBottom: spacing.lg, border: `1px solid ${colors.border}`, overflow: 'hidden' }}>
+            <button onClick={() => setOpen(o => !o)} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: spacing.md, background: 'none', border: 'none', cursor: 'pointer', color: colors.textPrimary }}>
+                <Settings size={18} color={colors.primary} />
+                <span style={{ fontWeight: 600, fontSize: 14, flex: 1, textAlign: 'left' }}>Contributor Access &amp; Notifications</span>
+                {open ? <ChevronUp size={18} color={colors.textSecondary} /> : <ChevronDown size={18} color={colors.textSecondary} />}
+            </button>
+            {open && (
+                <div style={{ padding: spacing.md, borderTop: `1px solid ${colors.border}`, display: 'flex', flexDirection: 'column', gap: spacing.md }}>
+                    {loading ? <p style={{ color: colors.textSecondary, margin: 0 }}>Loading…</p> : (
+                        <>
+                            <div>
+                                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: colors.textSecondary, marginBottom: 6 }}>Contributor Roles</label>
+                                <p style={{ margin: '0 0 8px', fontSize: 12, color: colors.textTertiary }}>Members with any of these Discord roles can write articles for approval in the Writing Studio.</p>
+                                <RoleSelect guildId={guildId} value={contributorRoleIds} onChange={v => setContributorRoleIds(Array.isArray(v) ? v : [v])} multiple placeholder="Select contributor roles" />
+                            </div>
+                            <div>
+                                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: colors.textSecondary, marginBottom: 6 }}>Submission Notification Channel</label>
+                                <p style={{ margin: '0 0 8px', fontSize: 12, color: colors.textTertiary }}>When an article is submitted for review, a message is posted here.</p>
+                                <ChannelSelect guildId={guildId} value={reviewChannelId} onChange={v => setReviewChannelId(Array.isArray(v) ? v[0] || '' : v)} placeholder="Select a channel (optional)" />
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                <button onClick={save} disabled={saving} style={{ background: colors.primary, color: '#fff', border: 'none', borderRadius: borderRadius.sm, padding: '8px 20px', fontWeight: 700, cursor: saving ? 'wait' : 'pointer' }}>
+                                    {saving ? 'Saving…' : 'Save'}
+                                </button>
+                                {savedMsg && <span style={{ fontSize: 13, color: savedMsg === 'Saved' ? colors.success : colors.error }}>{savedMsg}</span>}
+                            </div>
+                        </>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+};
+
 export const ArticleReviewPage: React.FC = () => {
-    const { user } = useAuth();
+    const { user, selectedGuild, permissions } = useAuth();
     const [articles, setArticles] = useState<Article[]>([]);
     const [loading, setLoading] = useState(true);
     const [page, setPage] = useState(1);
@@ -466,6 +532,9 @@ export const ArticleReviewPage: React.FC = () => {
                     feature published articles for the front page.
                 </p>
             </div>
+
+            {/* Admin-only: contributor access + notification settings */}
+            {permissions.canManagePlugins && selectedGuild && <ArticleAccessSettings guildId={selectedGuild.id} />}
 
             {/* Status tabs */}
             <div style={{

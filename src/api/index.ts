@@ -99,7 +99,7 @@ const storage = multer.diskStorage({
       dir = path.join(PROJECT_ROOT, 'public/uploads/battle-banners');
     } else if (file.fieldname === 'embedImage') {
       dir = path.join(PROJECT_ROOT, 'public/uploads/embed-images');
-    } else if (file.fieldname === 'articleImage' || file.fieldname === 'articleCover') {
+    } else if (file.fieldname === 'articleImage' || file.fieldname === 'articleCover' || file.fieldname === 'articleThumbnail') {
       dir = path.join(PROJECT_ROOT, 'public/uploads/articles');
     } else if (file.fieldname === 'articleAudio') {
       dir = path.join(PROJECT_ROOT, 'public/uploads/articles/audio');
@@ -2918,6 +2918,58 @@ const isTrueAdmin = (guildId: string, req: any) => {
     if (!guild) return false;
     const permissions = BigInt(guild.permissions);
     return Boolean(guild.owner || (permissions & BigInt(0x8)) === BigInt(0x8));
+};
+
+// Resolves whether the current session user can write articles (Writing Studio access).
+// canWrite = super-admin OR guild admin OR staff OR holds a configured contributor role in
+// the primary guild. Staff/admin also get isStaff:true (they can be reviewers).
+async function resolveArticleAccess(req: any): Promise<{ canWrite: boolean; isStaff: boolean; isAdmin: boolean }> {
+    const primaryGuildId = process.env.GUILD_ID || '';
+    const isAdmin = isTrueAdmin(primaryGuildId, req);
+    const isStaff = isAdmin || hasDashboardAccess(primaryGuildId, req);
+    if (isStaff) return { canWrite: true, isStaff: true, isAdmin };
+
+    const discordId = req.session?.user?.id;
+    if (!discordId || !primaryGuildId) return { canWrite: false, isStaff: false, isAdmin: false };
+
+    try {
+        const access = await db.dashboardAccess.findUnique({
+            where: { guildId: primaryGuildId },
+            select: { contributorRoleIds: true },
+        });
+        const contributorRoleIds = access?.contributorRoleIds || [];
+        if (contributorRoleIds.length === 0) return { canWrite: false, isStaff: false, isAdmin: false };
+
+        // Resolve the member's Discord roles (cached — same pattern as /my-permissions + beta-access)
+        const cacheKey = `${primaryGuildId}:${discordId}`;
+        const cached = memberRoleCache.get(cacheKey);
+        let memberRoles: string[];
+        if (cached && (Date.now() - cached.timestamp < MEMBER_ROLE_CACHE_TTL)) {
+            memberRoles = cached.roles;
+        } else {
+            const memberRes = await axios.get(`https://discord.com/api/v10/guilds/${primaryGuildId}/members/${discordId}`, {
+                headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` }, timeout: 5000,
+            });
+            memberRoles = memberRes.data.roles || [];
+            memberRoleCache.set(cacheKey, { roles: memberRoles, timestamp: Date.now() });
+        }
+        const canWrite = memberRoles.some((r: string) => contributorRoleIds.includes(r));
+        return { canWrite, isStaff: false, isAdmin: false };
+    } catch {
+        return { canWrite: false, isStaff: false, isAdmin: false };
+    }
+}
+
+// Middleware: gate the writer article routes to contributors (or staff/admin).
+const requireArticleContributor: RequestHandler = async (req: any, res, next) => {
+    try {
+        if (!req.session?.user) { res.status(401).json({ error: 'Unauthorized' }); return; }
+        const access = await resolveArticleAccess(req);
+        if (!access.canWrite) { res.status(403).json({ error: 'Article contributor access required' }); return; }
+        next();
+    } catch (e) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
 };
 
 // Simple TTL cache for Discord user lookups (60-second TTL)
@@ -21072,6 +21124,60 @@ app.put('/api/guilds/:guildId/beta-access', async (req, res) => {
     }
 });
 
+// Admin: Article contributor roles + submit-for-review notification channel
+app.get('/api/guilds/:guildId/article-settings', async (req, res) => {
+    try {
+        const { guildId } = req.params;
+        if (!isTrueAdmin(guildId, req)) return res.status(403).json({ error: 'Admin only' });
+        const access = await db.dashboardAccess.findUnique({
+            where: { guildId },
+            select: { contributorRoleIds: true, articleReviewChannelId: true },
+        });
+        res.json({
+            contributorRoleIds: access?.contributorRoleIds || [],
+            articleReviewChannelId: access?.articleReviewChannelId || null,
+        });
+    } catch (e) {
+        logger.error('[Articles] Failed to get article settings', e);
+        res.status(500).json({ error: 'Failed to load settings' });
+    }
+});
+
+app.put('/api/guilds/:guildId/article-settings', async (req, res) => {
+    try {
+        const { guildId } = req.params;
+        if (!isTrueAdmin(guildId, req)) return res.status(403).json({ error: 'Admin only' });
+        const { contributorRoleIds, articleReviewChannelId } = req.body;
+        if (contributorRoleIds !== undefined && !Array.isArray(contributorRoleIds)) {
+            return res.status(400).json({ error: 'contributorRoleIds must be an array' });
+        }
+        const cleanedRoles = Array.isArray(contributorRoleIds)
+            ? contributorRoleIds.filter((r: any) => typeof r === 'string' && r.length > 0)
+            : undefined;
+        const channelId = articleReviewChannelId === undefined
+            ? undefined
+            : (typeof articleReviewChannelId === 'string' && articleReviewChannelId.length > 0 ? articleReviewChannelId : null);
+
+        const updateData: any = {};
+        if (cleanedRoles !== undefined) updateData.contributorRoleIds = cleanedRoles;
+        if (channelId !== undefined) updateData.articleReviewChannelId = channelId;
+
+        // Ensure the guild row exists (dashboard_access.guildId FKs to guilds.id)
+        await db.guild.upsert({ where: { id: guildId }, update: {}, create: { id: guildId, name: 'Unknown' } });
+        const saved = await db.dashboardAccess.upsert({
+            where: { guildId },
+            update: updateData,
+            create: { guildId, ...updateData },
+            select: { contributorRoleIds: true, articleReviewChannelId: true },
+        });
+        logger.info(`[Articles] Updated article settings for guild ${guildId}`);
+        res.json(saved);
+    } catch (e) {
+        logger.error('[Articles] Failed to update article settings', e);
+        res.status(500).json({ error: 'Failed to save settings' });
+    }
+});
+
 // Admin: List all users with invite status
 app.get('/api/admin/users', requireAdmin, async (req, res) => {
     try {
@@ -22465,8 +22571,18 @@ app.get('/api/articles/:slug', async (req: any, res) => {
 });
 
 // -------------------------------------------------------------------------------
-// ��  WRITER ARTICLE ENDPOINTS (any authenticated user)
+// ��  WRITER ARTICLE ENDPOINTS (article contributors + staff/admin)
 // -------------------------------------------------------------------------------
+
+// -- Whether the current user can write articles (Writing Studio gate) ---------
+app.get('/api/me/article-access', requireAuth, async (req: any, res) => {
+    try {
+        const access = await resolveArticleAccess(req);
+        res.json({ canWrite: access.canWrite, isStaff: access.isStaff });
+    } catch (e) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
 
 // -- Writer: List own articles -------------------------------------------------
 app.get('/api/my/articles', requireAuth, async (req: any, res) => {
@@ -22506,7 +22622,7 @@ app.get('/api/my/articles/:id', requireAuth, async (req: any, res) => {
 });
 
 // -- Writer: Create article (draft or submit for review) ----------------------
-app.post('/api/my/articles', requireAuth, async (req: any, res) => {
+app.post('/api/my/articles', requireArticleContributor, async (req: any, res) => {
     try {
         const user = req.session.user;
         const { title, subtitle, content, excerpt, coverImageUrl, squareThumbnailUrl, category, tags, metaTitle, metaDescription, status } = req.body;
@@ -22561,7 +22677,7 @@ app.post('/api/my/articles', requireAuth, async (req: any, res) => {
 });
 
 // -- Writer: Update own article (only if draft or rejected) -------------------
-app.patch('/api/my/articles/:id', requireAuth, async (req: any, res) => {
+app.patch('/api/my/articles/:id', requireArticleContributor, async (req: any, res) => {
     try {
         const user = req.session.user;
         const existing = await db.article.findUnique({ where: { id: req.params.id } });
@@ -22606,7 +22722,7 @@ app.patch('/api/my/articles/:id', requireAuth, async (req: any, res) => {
 });
 
 // -- Writer: Delete own article (only drafts) ---------------------------------
-app.delete('/api/my/articles/:id', requireAuth, async (req: any, res) => {
+app.delete('/api/my/articles/:id', requireArticleContributor, async (req: any, res) => {
     try {
         const user = req.session.user;
         const existing = await db.article.findUnique({ where: { id: req.params.id } });
@@ -22622,7 +22738,7 @@ app.delete('/api/my/articles/:id', requireAuth, async (req: any, res) => {
 });
 
 // -- Writer: Upload article inline image ---------------------------------------
-app.post('/api/my/articles/upload-image', requireAuth, upload.single('articleImage'), async (req: any, res) => {
+app.post('/api/my/articles/upload-image', requireArticleContributor, upload.single('articleImage'), async (req: any, res) => {
     try {
         if (!req.file) return res.status(400).json({ error: 'No image file provided' });
         const imageUrl = `/uploads/articles/${req.file.filename}`;
@@ -22634,7 +22750,7 @@ app.post('/api/my/articles/upload-image', requireAuth, upload.single('articleIma
 });
 
 // -- Writer: Upload article cover image ----------------------------------------
-app.post('/api/my/articles/upload-cover', requireAuth, upload.single('articleCover'), async (req: any, res) => {
+app.post('/api/my/articles/upload-cover', requireArticleContributor, upload.single('articleCover'), async (req: any, res) => {
     try {
         if (!req.file) return res.status(400).json({ error: 'No image file provided' });
         const imageUrl = `/uploads/articles/${req.file.filename}`;
@@ -22646,7 +22762,7 @@ app.post('/api/my/articles/upload-cover', requireAuth, upload.single('articleCov
 });
 
 // -- Writer: Upload article square thumbnail (frontpage featured card) ---------
-app.post('/api/my/articles/upload-thumbnail', requireAuth, upload.single('articleThumbnail'), async (req: any, res) => {
+app.post('/api/my/articles/upload-thumbnail', requireArticleContributor, upload.single('articleThumbnail'), async (req: any, res) => {
     try {
         if (!req.file) return res.status(400).json({ error: 'No image file provided' });
         const imageUrl = `/uploads/articles/${req.file.filename}`;
@@ -22658,7 +22774,7 @@ app.post('/api/my/articles/upload-thumbnail', requireAuth, upload.single('articl
 });
 
 // -- Writer: Upload article audio (samples, loops, stems) ---------------------
-app.post('/api/my/articles/upload-audio', requireAuth, upload.single('articleAudio'), async (req: any, res) => {
+app.post('/api/my/articles/upload-audio', requireArticleContributor, upload.single('articleAudio'), async (req: any, res) => {
     try {
         if (!req.file) return res.status(400).json({ error: 'No audio file provided' });
         const fileUrl = `/uploads/articles/audio/${req.file.filename}`;
@@ -22670,7 +22786,7 @@ app.post('/api/my/articles/upload-audio', requireAuth, upload.single('articleAud
 });
 
 // -- Writer: Upload article project file (.flp, .zip, .als) -------------------
-app.post('/api/my/articles/upload-project', requireAuth, upload.single('articleProject'), async (req: any, res) => {
+app.post('/api/my/articles/upload-project', requireArticleContributor, upload.single('articleProject'), async (req: any, res) => {
     try {
         if (!req.file) return res.status(400).json({ error: 'No project file provided' });
         const fileUrl = `/uploads/articles/projects/${req.file.filename}`;
@@ -22682,7 +22798,7 @@ app.post('/api/my/articles/upload-project', requireAuth, upload.single('articleP
 });
 
 // -- Writer: Upload article preset file ----------------------------------------
-app.post('/api/my/articles/upload-preset', requireAuth, upload.single('articlePreset'), async (req: any, res) => {
+app.post('/api/my/articles/upload-preset', requireArticleContributor, upload.single('articlePreset'), async (req: any, res) => {
     try {
         if (!req.file) return res.status(400).json({ error: 'No preset file provided' });
         const fileUrl = `/uploads/articles/presets/${req.file.filename}`;
