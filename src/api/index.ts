@@ -22639,18 +22639,17 @@ app.post('/api/my/articles', requireArticleContributor, async (req: any, res) =>
         // Writers can only create as draft or pending � never published directly
         const articleStatus = status === 'pending' ? 'pending' : 'draft';
 
-        // Use the first guild the bot + user share
+        // Use the first guild the bot + user share, falling back to the primary guild
+        // (pure contributors have no mutualAdmin/StaffGuilds, so this keeps the FK valid).
         const guildObj = req.session?.mutualAdminGuilds?.[0] || req.session?.mutualStaffGuilds?.[0];
-        const guildId = guildObj?.id;
+        const guildId = guildObj?.id || process.env.GUILD_ID || 'default';
 
-        // Ensure guild row exists
-        if (guildId) {
-            await db.guild.upsert({ where: { id: guildId }, update: {}, create: { id: guildId, name: guildObj?.name || 'Unknown' } });
-        }
+        // Ensure the guild row exists (articles.guildId FKs to guilds.id)
+        await db.guild.upsert({ where: { id: guildId }, update: {}, create: { id: guildId, name: guildObj?.name || 'Fuji Studio' } });
 
         const article = await db.article.create({
             data: {
-                guildId: guildId || 'default',
+                guildId,
                 slug,
                 title: title.slice(0, 200),
                 subtitle: subtitle?.slice(0, 300) || null,

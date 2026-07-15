@@ -61,6 +61,34 @@ const PwInput: React.FC<{ value: string; onChange: (v: string) => void; show: bo
     </div>
 );
 
+// Gated entry point to the Writing Studio — only shows for article contributors.
+const WritingStudioBanner: React.FC = () => {
+    const [canWrite, setCanWrite] = React.useState(false);
+    React.useEffect(() => {
+        fetch('/api/me/article-access', { credentials: 'include' })
+            .then(r => r.ok ? r.json() : null)
+            .then(d => { if (d?.canWrite) setCanWrite(true); })
+            .catch(() => {});
+    }, []);
+    if (!canWrite) return null;
+    return (
+        <a href="/write" style={{
+            display: 'flex', alignItems: 'center', gap: '14px', padding: '16px 18px', marginBottom: '16px',
+            background: 'linear-gradient(135deg, rgba(242,120,10,0.12), rgba(242,120,10,0.04))',
+            border: '1px solid rgba(242,120,10,0.3)', borderRadius: borderRadius.xl, textDecoration: 'none',
+        }}>
+            <div style={{ width: '40px', height: '40px', borderRadius: borderRadius.md, background: 'rgba(242,120,10,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <Newspaper size={19} color={colors.primary} />
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: '15px', fontWeight: 700, color: colors.textPrimary }}>Writing Studio</div>
+                <div style={{ fontSize: '13px', color: colors.textSecondary }}>Write articles and submit them for staff approval.</div>
+            </div>
+            <span style={{ color: colors.primary, fontWeight: 700, fontSize: '13px', flexShrink: 0 }}>Open →</span>
+        </a>
+    );
+};
+
 export const AccountSettingsPage: React.FC = () => {
     const { user, email, emailVerified, hasPassword, totpEnabled, refreshAccountStatus } = useAuth();
     const navigate = useNavigate();
@@ -544,6 +572,9 @@ export const AccountSettingsPage: React.FC = () => {
                         </div>
                     </div>
                 </div>
+
+                {/* ── Writing Studio entry (contributors only) ── */}
+                <WritingStudioBanner />
 
                 {/* ── URL-param banners ── */}
                 {confirmEmailMsg && <StatusMsg type="success" text={confirmEmailMsg} />}

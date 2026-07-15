@@ -139,6 +139,7 @@ const ArticlesPage           = lazy(() => import("./pages/Articles").then(m => (
 const ArticleReviewPage      = lazy(() => import("./pages/ArticleReview").then(m => ({ default: m.ArticleReviewPage })));
 const ArticlePage            = lazy(() => import("./pages/ArticlePage").then(m => ({ default: m.ArticlePage })));
 const ArticlesArchivePage    = lazy(() => import("./pages/ArticlesArchivePage").then(m => ({ default: m.ArticlesArchivePage })));
+const WritingStudio          = lazy(() => import("./pages/WritingStudio").then(m => ({ default: m.WritingStudio })));
 const ProgressionPage        = lazy(() => import("./pages/Progression").then(m => ({ default: m.ProgressionPage })));
 const MessagesPage           = lazy(() => import("./pages/Messages").then(m => ({ default: m.MessagesPage })));
 const SetupPasswordModal     = lazy(() => import("./components/SetupPasswordModal").then(m => ({ default: m.SetupPasswordModal })));
@@ -902,6 +903,11 @@ const AppInternal: React.FC = () => {
   }
 
   // /profile/edit → Profile editing page
+  // /write → Writing Studio (standalone article authoring surface)
+  if (currentPath === '/write' || currentPath.startsWith('/write/')) {
+    return <Suspense fallback={<PageSpinner />}><WritingStudio /></Suspense>;
+  }
+
   if (currentPath === '/profile/edit') {
     return <Suspense fallback={<PageSpinner />}><ProfileEditPage /></Suspense>;
   }
