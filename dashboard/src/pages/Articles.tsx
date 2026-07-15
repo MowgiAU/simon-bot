@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { colors, spacing, borderRadius } from '../theme/theme';
 import { useAuth } from '../components/AuthProvider';
-import { RichTextEditor } from '../components/RichTextEditor';
+import { ArticleEditorRich } from '../components/ArticleEditorRich';
 import {
     FileText, Plus, Edit3, Trash2, Eye, Send,
     ChevronLeft, Clock, CheckCircle, XCircle, AlertCircle,
@@ -290,7 +290,7 @@ export const ArticleEditor: React.FC<{
             {/* Content Editor */}
             <div style={{ marginBottom: '20px' }}>
                 <label style={labelStyle}>Content *</label>
-                <RichTextEditor
+                <ArticleEditorRich
                     value={content}
                     onChange={setContent}
                     onImageUpload={handleImageUpload}
