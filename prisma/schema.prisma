@@ -543,10 +543,12 @@ model PluginSettings {
 }
 
 model DashboardAccess {
-  id           String   @id @default(cuid())
-  guildId      String   @unique
-  allowedRoles String[] @default([]) // Roles that can login to dashboard
-  betaRoleIds  String[] @default([]) // Roles that get auto-invited for beta access
+  id                  String   @id @default(cuid())
+  guildId             String   @unique
+  allowedRoles        String[] @default([]) // Roles that can login to dashboard
+  betaRoleIds         String[] @default([]) // Roles that get auto-invited for beta access
+  contributorRoleIds  String[] @default([]) // Roles that can write articles for staff approval (Writing Studio)
+  articleReviewChannelId String? // Discord channel to notify when an article is submitted for review
 
   guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
 
@@ -2876,8 +2878,9 @@ model Article {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  guild    Guild     @relation(fields: [guildId], references: [id], onDelete: Cascade)
-  comments Comment[]
+  guild     Guild             @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  comments  Comment[]
+  revisions ArticleRevision[]
 
   @@index([status, publishedAt])
   @@index([authorUserId])
@@ -2885,6 +2888,25 @@ model Article {
   @@index([isFeatured])
   @@index([guildId])
   @@map("articles")
+}
+
+// Point-in-time snapshots of an article's content for revision history / restore.
+model ArticleRevision {
+  id           String   @id @default(cuid())
+  articleId    String
+  editorUserId String
+  editorName   String
+  title        String
+  subtitle     String?
+  excerpt      String?  @db.Text
+  content      String   @db.Text
+  note         String? // e.g. "Submitted for review", "Published", "Restored from <date>"
+  createdAt    DateTime @default(now())
+
+  article Article @relation(fields: [articleId], references: [id], onDelete: Cascade)
+
+  @@index([articleId, createdAt])
+  @@map("article_revisions")
 }
 
 // Voice Stat Channels — auto-updating stat voice channels
