@@ -1,9 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import { colors, spacing, borderRadius } from '../theme/theme';
 import { useAuth } from '../components/AuthProvider';
 import { RoleSelect } from '../components/RoleSelect';
 import { ChannelSelect } from '../components/ChannelSelect';
+import { ArticleRevisions } from '../components/ArticleRevisions';
+import { ArticleEmbedHydrator } from '../components/ArticleEmbeds';
 import { ArticleEditor } from './Articles';
 import {
     ClipboardCheck, Clock, CheckCircle, XCircle, AlertCircle,
@@ -91,6 +93,7 @@ const ReviewPanel: React.FC<{
     const [reviewNote, setReviewNote] = useState(article.reviewNote || '');
     const [saving, setSaving] = useState(false);
     const [editMode, setEditMode] = useState(false);
+    const contentRef = useRef<HTMLDivElement>(null);
 
     const handleStatusChange = async (newStatus: string) => {
         setSaving(true);
@@ -235,14 +238,18 @@ const ReviewPanel: React.FC<{
                     </div>
                 )}
 
-                {/* Content preview */}
+                {/* Content preview (with live embed hydration) + revision history */}
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+                    <ArticleRevisions articleId={article.id} onRestored={onAction} />
+                </div>
                 <div style={{
                     padding: '16px', background: colors.background, borderRadius: borderRadius.md,
-                    marginBottom: '20px', maxHeight: '300px', overflowY: 'auto',
+                    marginBottom: '20px', maxHeight: '400px', overflowY: 'auto',
                     border: '1px solid rgba(255,255,255,0.04)',
                 }}>
-                    <div style={{ fontSize: '13px', color: colors.textSecondary, lineHeight: 1.7 }}
+                    <div ref={contentRef} className="article-content" style={{ fontSize: '14px', color: colors.textSecondary, lineHeight: 1.7 }}
                         dangerouslySetInnerHTML={{ __html: article.content }} />
+                    <ArticleEmbedHydrator contentRef={contentRef} articleContent={article.content} />
                 </div>
 
                 {/* Previous review note */}

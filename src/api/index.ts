@@ -22584,6 +22584,53 @@ app.get('/api/me/article-access', requireAuth, async (req: any, res) => {
     }
 });
 
+// ── Article workflow helpers (revisions + notifications) ──────────────────────
+
+// Snapshot an article's current stored content into a revision row.
+async function snapshotArticleRevision(articleId: string, editorUserId: string, editorName: string, note: string) {
+    try {
+        const a = await db.article.findUnique({ where: { id: articleId }, select: { title: true, subtitle: true, excerpt: true, content: true } });
+        if (!a) return;
+        await db.articleRevision.create({
+            data: { articleId, editorUserId, editorName, title: a.title, subtitle: a.subtitle, excerpt: a.excerpt, content: a.content, note },
+        });
+    } catch (e) { logger.warn('[Articles] snapshot revision failed', e); }
+}
+
+// Notify staff via the configured Discord review channel when an article is submitted.
+async function notifyArticleSubmitted(article: any) {
+    try {
+        const access = await db.dashboardAccess.findUnique({ where: { guildId: article.guildId }, select: { articleReviewChannelId: true } });
+        const channelId = access?.articleReviewChannelId;
+        if (!channelId) return;
+        await axios.post(`https://discord.com/api/v10/channels/${channelId}/messages`, {
+            embeds: [{
+                title: '📝 New article submitted for review',
+                description: `**${(article.title || 'Untitled').slice(0, 240)}**\nby ${article.authorName || 'a contributor'}`,
+                color: 0xF2780A,
+                fields: [{ name: 'Category', value: String(article.category || 'news'), inline: true }],
+                timestamp: new Date().toISOString(),
+            }],
+        }, { headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` }, timeout: 5000 });
+    } catch (e: any) { logger.warn('[Articles] submit notification failed', { message: e?.message }); }
+}
+
+// Notify the author (in-app + push) when their article is published or rejected.
+async function notifyArticleDecision(article: any, decision: 'published' | 'rejected', reviewerName: string) {
+    try {
+        const isPub = decision === 'published';
+        const title = isPub ? 'Your article was published! 🎉' : 'Changes requested on your article';
+        const message = isPub
+            ? (article.title || 'Your article is live')
+            : (article.reviewNote ? String(article.reviewNote).slice(0, 160) : `"${article.title}" needs some changes`);
+        const link = isPub ? `/article/${article.slug}` : `/write/${article.id}`;
+        await db.musicNotification.create({
+            data: { userId: article.authorUserId, type: isPub ? 'article_published' : 'article_rejected', title, message, link, actorName: reviewerName || null },
+        }).catch(() => {});
+        await sendPushToUsers(db, [article.authorUserId], { title, body: message, url: link, channelId: 'news' }).catch(() => {});
+    } catch (e: any) { logger.warn('[Articles] decision notification failed', { message: e?.message }); }
+}
+
 // -- Writer: List own articles -------------------------------------------------
 app.get('/api/my/articles', requireAuth, async (req: any, res) => {
     try {
@@ -22669,6 +22716,11 @@ app.post('/api/my/articles', requireArticleContributor, async (req: any, res) =>
         });
 
         res.status(201).json(article);
+
+        if (article.status === 'pending') {
+            snapshotArticleRevision(article.id, user.id, article.authorName, 'Submitted for review');
+            notifyArticleSubmitted(article);
+        }
     } catch (e: any) {
         logger.error('POST /api/my/articles error', e);
         res.status(500).json({ error: 'Failed to create article' });
@@ -22714,6 +22766,12 @@ app.patch('/api/my/articles/:id', requireArticleContributor, async (req: any, re
 
         const article = await db.article.update({ where: { id: req.params.id }, data });
         res.json(article);
+
+        // On submit-for-review: snapshot + notify staff
+        if (data.status === 'pending' && existing.status !== 'pending') {
+            snapshotArticleRevision(article.id, user.id, article.authorName, 'Submitted for review');
+            notifyArticleSubmitted(article);
+        }
     } catch (e: any) {
         logger.error('PATCH /api/my/articles/:id error', e);
         res.status(500).json({ error: 'Failed to update article' });
@@ -22987,6 +23045,20 @@ app.patch('/api/admin/articles/:id', requireAdmin, async (req: any, res) => {
         const article = await db.article.update({ where: { id: req.params.id }, data });
         res.json(article);
 
+        const reviewerName = user.global_name || user.username || 'Staff';
+        // Revision snapshot on publish or on an admin content edit
+        if (status === 'published' && existing.status !== 'published') {
+            snapshotArticleRevision(article.id, user.id, reviewerName, 'Published');
+        } else if (content !== undefined && content !== existing.content) {
+            snapshotArticleRevision(article.id, user.id, reviewerName, `Edited by ${reviewerName}`);
+        }
+        // Notify the author of the decision
+        if (status === 'published' && existing.status !== 'published') {
+            notifyArticleDecision(article, 'published', reviewerName);
+        } else if (status === 'rejected' && existing.status !== 'rejected') {
+            notifyArticleDecision(article, 'rejected', reviewerName);
+        }
+
         // Push new-article notification when transitioning to published
         if (status === 'published' && existing.status !== 'published') {
             (async () => {
@@ -23047,6 +23119,71 @@ app.patch('/api/admin/articles/:id/feature', requireAdmin, async (req: any, res)
     } catch (e: any) {
         logger.error('PATCH /api/admin/articles/:id/feature error', e);
         res.status(500).json({ error: 'Failed to toggle feature status' });
+    }
+});
+
+// ── Article revisions (author or staff/admin) ─────────────────────────────────
+async function canAccessArticleRevisions(req: any, article: any): Promise<{ ok: boolean; canRestore: boolean }> {
+    if (!article) return { ok: false, canRestore: false };
+    const isOwner = article.authorUserId === req.session?.user?.id;
+    const access = await resolveArticleAccess(req);
+    const isStaff = access.isStaff;
+    return { ok: isOwner || isStaff, canRestore: isStaff || (isOwner && ['draft', 'rejected'].includes(article.status)) };
+}
+
+// List revisions (metadata only)
+app.get('/api/articles/:id/revisions', requireAuth, async (req: any, res) => {
+    try {
+        const article = await db.article.findUnique({ where: { id: req.params.id }, select: { authorUserId: true, status: true } });
+        const perm = await canAccessArticleRevisions(req, article);
+        if (!perm.ok) return res.status(403).json({ error: 'Not allowed' });
+        const revisions = await db.articleRevision.findMany({
+            where: { articleId: req.params.id },
+            orderBy: { createdAt: 'desc' },
+            select: { id: true, editorUserId: true, editorName: true, title: true, note: true, createdAt: true },
+        });
+        res.json({ revisions, canRestore: perm.canRestore });
+    } catch (e: any) {
+        logger.error('GET article revisions error', e);
+        res.status(500).json({ error: 'Failed to fetch revisions' });
+    }
+});
+
+// Get a single revision (full content)
+app.get('/api/articles/:id/revisions/:revId', requireAuth, async (req: any, res) => {
+    try {
+        const article = await db.article.findUnique({ where: { id: req.params.id }, select: { authorUserId: true, status: true } });
+        const perm = await canAccessArticleRevisions(req, article);
+        if (!perm.ok) return res.status(403).json({ error: 'Not allowed' });
+        const rev = await db.articleRevision.findUnique({ where: { id: req.params.revId } });
+        if (!rev || rev.articleId !== req.params.id) return res.status(404).json({ error: 'Revision not found' });
+        res.json(rev);
+    } catch (e: any) {
+        logger.error('GET article revision error', e);
+        res.status(500).json({ error: 'Failed to fetch revision' });
+    }
+});
+
+// Restore a revision (writes its snapshot back onto the article + records a new revision)
+app.post('/api/articles/:id/revisions/:revId/restore', requireAuth, async (req: any, res) => {
+    try {
+        const article = await db.article.findUnique({ where: { id: req.params.id } });
+        const perm = await canAccessArticleRevisions(req, article);
+        if (!perm.ok || !perm.canRestore) return res.status(403).json({ error: 'Not allowed' });
+        const rev = await db.articleRevision.findUnique({ where: { id: req.params.revId } });
+        if (!rev || rev.articleId !== req.params.id) return res.status(404).json({ error: 'Revision not found' });
+
+        const editorName = req.session.user.global_name || req.session.user.username || 'Editor';
+        // Snapshot current state first so the restore is itself reversible
+        await snapshotArticleRevision(req.params.id, req.session.user.id, editorName, `Before restore to ${new Date(rev.createdAt).toLocaleString()}`);
+        const updated = await db.article.update({
+            where: { id: req.params.id },
+            data: { title: rev.title, subtitle: rev.subtitle, excerpt: rev.excerpt, content: rev.content, updatedAt: new Date() },
+        });
+        res.json(updated);
+    } catch (e: any) {
+        logger.error('POST restore article revision error', e);
+        res.status(500).json({ error: 'Failed to restore revision' });
     }
 });
 

@@ -8,6 +8,7 @@ import axios from 'axios';
 import { colors, spacing, borderRadius } from '../theme/theme';
 import { ArticleEditorRich } from '../components/ArticleEditorRich';
 import { ArticleEmbedHydrator } from '../components/ArticleEmbeds';
+import { ArticleRevisions } from '../components/ArticleRevisions';
 import {
     PenSquare, Plus, ChevronLeft, Eye, EyeOff, Clock, CheckCircle, XCircle,
     Edit3, AlertCircle, MessageSquare, Loader2, ExternalLink, Image as ImageIcon, X, Trash2,
@@ -216,6 +217,7 @@ const StudioEditor: React.FC<{ articleId: string | 'new' }> = ({ articleId }) =>
                 <StatusPill status={status} />
                 <span style={{ fontSize: 12, color: saveState === 'error' ? colors.error : colors.textTertiary }}>{saveLabel}</span>
                 <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
+                    {id && <ArticleRevisions articleId={id} onRestored={() => window.location.reload()} />}
                     <button onClick={() => setPreview(p => !p)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px', background: preview ? `${colors.primary}18` : 'transparent', border: `1px solid ${preview ? colors.primary : colors.border}`, borderRadius: borderRadius.sm, color: preview ? colors.primary : colors.textSecondary, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
                         {preview ? <EyeOff size={14} /> : <Eye size={14} />} {preview ? 'Edit' : 'Preview'}
                     </button>
