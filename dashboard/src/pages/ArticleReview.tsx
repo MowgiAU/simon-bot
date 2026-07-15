@@ -426,8 +426,8 @@ const ArticleAccessSettings: React.FC<{ guildId: string }> = ({ guildId }) => {
     };
 
     return (
-        <div style={{ backgroundColor: colors.surface, borderRadius: borderRadius.md, marginBottom: spacing.lg, border: `1px solid ${colors.border}`, overflow: 'hidden' }}>
-            <button onClick={() => setOpen(o => !o)} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: spacing.md, background: 'none', border: 'none', cursor: 'pointer', color: colors.textPrimary }}>
+        <div style={{ backgroundColor: colors.surface, borderRadius: borderRadius.md, marginBottom: spacing.lg, border: `1px solid ${colors.border}` }}>
+            <button onClick={() => setOpen(o => !o)} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: spacing.md, background: 'none', border: 'none', cursor: 'pointer', color: colors.textPrimary, borderRadius: `${borderRadius.md} ${borderRadius.md} 0 0` }}>
                 <Settings size={18} color={colors.primary} />
                 <span style={{ fontWeight: 600, fontSize: 14, flex: 1, textAlign: 'left' }}>Contributor Access &amp; Notifications</span>
                 {open ? <ChevronUp size={18} color={colors.textSecondary} /> : <ChevronDown size={18} color={colors.textSecondary} />}
