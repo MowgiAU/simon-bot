@@ -14,6 +14,7 @@ import {
     ButtonBuilder,
     ButtonStyle,
     MessageFlags,
+    type Message,
     type PermissionResolvable,
 } from 'discord.js';
 import {
@@ -37,6 +38,18 @@ import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
 import { PassThrough } from 'stream';
 
 ffmpeg.setFfmpegPath(process.env.FFMPEG_PATH || ffmpegInstaller.path);
+
+// ─── Radio channel guard ─────────────────────────────────────────────────────
+// The #radio channel is reserved for Fuji's own radio commands. Other bots'
+// slash commands must be blocked via Discord permissions (Integrations), but we
+// also enforce it bot-side: delete other bots' messages and typed prefix-command
+// attempts (e.g. !play, .skip) in this channel. Human chat is left untouched.
+const RADIO_GUARD_CHANNEL_ID = process.env.RADIO_GUARD_CHANNEL_ID || '1489634197378437242';
+
+// Matches a message that starts with a common bot command prefix immediately
+// followed by a word char — catches !play / .skip / -queue / $np / >join / m!help /
+// pls play, while sparing "!!!", "...", "- a dash", and ordinary sentences.
+const PREFIX_COMMAND_RE = /^\s*([!?.$>;+~&%=|\/-][a-z0-9]|[a-z]{1,3}!\S|pls\s+\w)/i;
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -98,6 +111,9 @@ export class FujiRadioPlugin implements IPlugin {
     private radioIdentityInterval: ReturnType<typeof setInterval> | null = null;
     private lastProcessedRadioAvatarUrl: string | null = null;
 
+    // Bound #radio channel-guard listener (attached directly on the client).
+    private radioGuardHandler: ((message: Message) => void) | null = null;
+
     // Per-guild radio state
     private radioStates = new Map<string, RadioState>();
 
@@ -158,7 +174,51 @@ export class FujiRadioPlugin implements IPlugin {
             }
         }
 
+        // Attach the #radio channel guard directly on the client. We can't route
+        // this through the shared plugin dispatcher because it drops all
+        // bot-authored messages (index.ts messageCreate: `if author.bot return`),
+        // and the guard's whole job includes removing *other bots'* messages.
+        this.radioGuardHandler = (message: Message) => { void this.onMessageCreate(message); };
+        this.client.on(Events.MessageCreate, this.radioGuardHandler);
+
         this.logger.info('[FujiRadio] Plugin initialized');
+    }
+
+    /**
+     * Guards the #radio channel: it is reserved for Fuji's own radio. We delete
+     *   - messages from any *other* bot (their command responses / embeds), and
+     *   - human messages that look like a typed prefix command (!play, .skip …).
+     * We never touch Fuji's own bot/radio-bot messages, and we leave ordinary
+     * human conversation alone. (Other bots' *slash* commands can't be caught
+     * here — those are blocked via Discord channel permissions.)
+     */
+    async onMessageCreate(message: Message): Promise<void> {
+        try {
+            if (!message.guild || message.channelId !== RADIO_GUARD_CHANNEL_ID) return;
+
+            // Never remove our own bots' posts (main bot + dedicated radio bot).
+            const selfIds = [this.client?.user?.id, this.radioBotId].filter(Boolean) as string[];
+            if (selfIds.includes(message.author.id)) return;
+
+            // System messages (pins, joins, etc.) — leave alone.
+            if (message.system) return;
+
+            const isOtherBot = message.author.bot;
+            const looksLikeCommand = !message.author.bot && PREFIX_COMMAND_RE.test(message.content || '');
+            if (!isOtherBot && !looksLikeCommand) return;
+
+            await message.delete().catch(() => {});
+
+            if (looksLikeCommand && 'send' in message.channel) {
+                // Nudge the human once; auto-clean the notice so it doesn't linger.
+                (message.channel as TextChannel)
+                    .send({ content: `<@${message.author.id}> This channel is for Fuji radio commands only — please use bot commands elsewhere.` })
+                    .then((m: any) => setTimeout(() => m.delete().catch(() => {}), 6000))
+                    .catch(() => {});
+            }
+        } catch (err) {
+            this.logger?.warn?.(`[FujiRadio] radio-channel guard error: ${err}`);
+        }
     }
 
     private async updateRadioIdentity(): Promise<void> {
@@ -195,6 +255,11 @@ export class FujiRadioPlugin implements IPlugin {
         if (this.watchdogInterval) clearInterval(this.watchdogInterval);
         if (this.commandPollInterval) clearInterval(this.commandPollInterval);
         if (this.radioIdentityInterval) clearInterval(this.radioIdentityInterval);
+
+        if (this.radioGuardHandler) {
+            this.client?.off?.(Events.MessageCreate, this.radioGuardHandler);
+            this.radioGuardHandler = null;
+        }
 
         // Disconnect all radio sessions
         for (const [guildId, state] of this.radioStates) {
