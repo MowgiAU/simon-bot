@@ -17817,6 +17817,157 @@ app.post('/api/head-to-head/queue/leave', requireAuth, async (req: any, res) => 
     }
 });
 
+// Elo → tier bands (kept in sync with the Arena frontend TIERS).
+const H2H_TIER_BANDS = [
+    { name: 'Bronze',   min: 1200, color: '#CD7F32' },
+    { name: 'Silver',   min: 1300, color: '#C0C0C0' },
+    { name: 'Gold',     min: 1450, color: '#FFD700' },
+    { name: 'Platinum', min: 1600, color: '#E5E4E2' },
+    { name: 'Diamond',  min: 1750, color: '#5DD4FF' },
+    { name: 'Master',   min: 1900, color: '#A855F7' },
+    { name: 'Legend',   min: 2100, color: '#FF3D7F' },
+];
+function h2hTierFor(elo: number, matchesPlayed: number) {
+    if (!matchesPlayed) return { name: 'Unranked', color: '#7A8190' };
+    return [...H2H_TIER_BANDS].reverse().find(t => elo >= t.min) || H2H_TIER_BANDS[0];
+}
+
+// Live lobby — currently-queued players, anonymized to tier + wait time only.
+app.get('/api/head-to-head/lobby', async (req: any, res) => {
+    try {
+        const meId = req.session?.user?.id || null;
+        const now = Date.now();
+        const [queued, inMatch, voting] = await Promise.all([
+            db.h2HMatch.findMany({ where: { status: 'queued', opponentId: null }, orderBy: { createdAt: 'asc' } }),
+            db.h2HMatch.count({ where: { status: { in: ['ready_check', 'melodics_vote', 'producing'] } } }),
+            db.h2HMatch.count({ where: { status: 'voting' } }),
+        ]);
+        const ratings = queued.length
+            ? await db.h2HRating.findMany({ where: { userId: { in: queued.map(q => q.challengerId) }, genreId: null } })
+            : [];
+        const rmap = new Map(ratings.map(r => [r.userId, r]));
+        const entries = queued.map(q => {
+            const r = rmap.get(q.challengerId);
+            const tier = h2hTierFor(r?.elo ?? 0, r?.matchesPlayed ?? 0);
+            return {
+                id: q.id,
+                tier,
+                productionMinutes: q.productionMinutes,
+                genreId: q.genreId,
+                waitedSeconds: Math.max(0, Math.floor((now - new Date(q.createdAt).getTime()) / 1000)),
+                isMine: meId ? q.challengerId === meId : false,
+            };
+        });
+        res.json({ entries, summary: { waiting: queued.length, inMatch, voting } });
+    } catch (e: any) {
+        logger.error('H2H lobby failed', e);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Live activity feed — recent results (revealed) + recent queue joins (anonymized).
+app.get('/api/head-to-head/activity', publicCache(5), async (_req, res) => {
+    try {
+        const [completed, joins] = await Promise.all([
+            db.h2HMatch.findMany({
+                where: { status: 'completed', winnerId: { not: null } },
+                orderBy: { updatedAt: 'desc' },
+                take: 12,
+                include: { genre: true },
+            }),
+            db.h2HMatch.findMany({
+                where: { status: 'queued', opponentId: null },
+                orderBy: { createdAt: 'desc' },
+                take: 6,
+            }),
+        ]);
+        const userIds = new Set<string>();
+        for (const m of completed) { if (m.winnerId) userIds.add(m.winnerId); if (m.loserId) userIds.add(m.loserId); }
+        const joinRatings = joins.length
+            ? await db.h2HRating.findMany({ where: { userId: { in: joins.map(j => j.challengerId) }, genreId: null } })
+            : [];
+        const jmap = new Map(joinRatings.map(r => [r.userId, r]));
+        const profiles = userIds.size
+            ? await db.musicianProfile.findMany({ where: { userId: { in: Array.from(userIds) } }, select: { userId: true, username: true, displayName: true, avatar: true } })
+            : [];
+        const pmap = new Map(profiles.map(p => [p.userId, p]));
+        const nameOf = (uid: string | null) => {
+            if (!uid) return 'A producer';
+            const p = pmap.get(uid);
+            return p?.displayName || p?.username || 'A producer';
+        };
+
+        const events: any[] = [];
+        for (const m of completed) {
+            const delta = (m.winnerId === m.challengerId)
+                ? (m.challengerEloAfter != null && m.challengerEloBefore != null ? m.challengerEloAfter - m.challengerEloBefore : null)
+                : (m.opponentEloAfter != null && m.opponentEloBefore != null ? m.opponentEloAfter - m.opponentEloBefore : null);
+            events.push({
+                type: 'result',
+                at: m.updatedAt,
+                winner: nameOf(m.winnerId),
+                loser: nameOf(m.loserId),
+                eloDelta: delta,
+                genreName: m.genre?.name || null,
+            });
+        }
+        for (const j of joins) {
+            const r = jmap.get(j.challengerId);
+            events.push({ type: 'join', at: j.createdAt, tier: h2hTierFor(r?.elo ?? 0, r?.matchesPlayed ?? 0), productionMinutes: j.productionMinutes });
+        }
+        events.sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
+        res.json({ events: events.slice(0, 15) });
+    } catch (e: any) {
+        logger.error('H2H activity failed', e);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Challenge a specific waiting player (targeted pairing).
+app.post('/api/head-to-head/challenge', requireAuth, async (req: any, res) => {
+    try {
+        const userId = req.session.user.id;
+        const settings = await getH2HSettings();
+        if (!settings.enabled) return res.status(403).json({ error: 'Head-to-Head is disabled' });
+        const { targetMatchId } = req.body || {};
+        if (!targetMatchId) return res.status(400).json({ error: 'targetMatchId is required' });
+
+        // Caller must not already be in an active match (excluding their own queued row, which we'll cancel).
+        const activeNonQueued = await db.h2HMatch.findFirst({
+            where: {
+                OR: [{ challengerId: userId }, { opponentId: userId }],
+                status: { in: ['ready_check', 'melodics_vote', 'producing', 'voting'] },
+            },
+        });
+        if (activeNonQueued) return res.status(400).json({ error: 'You already have an active match', matchId: activeNonQueued.id });
+
+        const target = await db.h2HMatch.findUnique({ where: { id: targetMatchId } });
+        if (!target || target.status !== 'queued' || target.opponentId) return res.status(404).json({ error: 'That player is no longer waiting' });
+        if (target.challengerId === userId) return res.status(400).json({ error: "You can't challenge yourself" });
+
+        // Atomic claim — only succeeds if the row is still an open queued slot.
+        const readyDeadline = new Date(Date.now() + settings.readyUpMinutes * 60 * 1000);
+        const claim = await db.h2HMatch.updateMany({
+            where: { id: target.id, status: 'queued', opponentId: null },
+            data: { opponentId: userId, status: 'ready_check', readyUpStartedAt: new Date(), readyDeadline },
+        });
+        if (claim.count === 0) return res.status(409).json({ error: 'That player was just matched with someone else' });
+
+        // Cancel the challenger's own queued row, if any (merge pattern).
+        await db.h2HMatch.updateMany({
+            where: { challengerId: userId, opponentId: null, status: 'queued' },
+            data: { status: 'cancelled', forfeitReason: 'Challenged match ' + target.id },
+        });
+
+        res.json({ matchId: target.id, status: 'ready_check' });
+        sendPushIfEnabled(db, target.challengerId, 'h2hUpdates', { title: 'You were challenged to a 1v1!', body: 'Ready up before time runs out.', url: '/preview/alt_f_arena', channelId: 'battles' }).catch(() => {});
+        sendPushIfEnabled(db, userId, 'h2hUpdates', { title: 'Your 1v1 match is ready!', body: 'Ready up before time runs out.', url: '/preview/alt_f_arena', channelId: 'battles' }).catch(() => {});
+    } catch (e: any) {
+        logger.error('H2H challenge failed', e);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 // Match details (with sample URLs only for participants while in producing)
 app.get('/api/head-to-head/match/:id', async (req: any, res) => {
     try {

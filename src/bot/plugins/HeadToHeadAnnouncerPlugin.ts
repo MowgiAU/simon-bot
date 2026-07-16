@@ -7,6 +7,7 @@ import {
 import { IPlugin, IPluginContext } from '../types/plugin';
 import { z } from 'zod';
 import { PrismaClient } from '@prisma/client';
+import { sendPushToUsersIfEnabled } from '../../services/PushService.js';
 
 const POLL_INTERVAL_MS  = 30_000;
 const EMBED_COLOR_QUEUE  = 0x3b82f6; // blue  — looking for opponent
@@ -92,7 +93,29 @@ export class HeadToHeadAnnouncerPlugin implements IPlugin {
             await this.postQueueAnnouncement(channel, match).catch((err: any) =>
                 this.logger.warn(`[H2HAnnouncer] Failed to post queue announcement for match ${match.id}: ${err.message}`)
             );
+            await this.pingWaitingOpponents(match).catch((err: any) =>
+                this.logger.warn(`[H2HAnnouncer] Failed to push queue ping for match ${match.id}: ${err.message}`)
+            );
         }
+    }
+
+    // Push-notify producers who have battled before that someone's waiting in the lobby.
+    // Throttled to once per queued row (gated by queueAnnouncedAt above) + capped fan-out.
+    private async pingWaitingOpponents(match: any): Promise<void> {
+        const ratings = await (this.db as any).h2HRating.findMany({
+            where: { genreId: null, matchesPlayed: { gt: 0 }, userId: { not: match.challengerId } },
+            orderBy: { updatedAt: 'desc' },
+            take: 40,
+            select: { userId: true },
+        });
+        const userIds = ratings.map((r: any) => r.userId);
+        if (!userIds.length) return;
+        await sendPushToUsersIfEnabled(this.db as any, userIds, 'h2hUpdates', {
+            title: "Someone's waiting in the Arena",
+            body: 'A producer is looking for a 1v1 — jump in and battle.',
+            url: '/preview/alt_f_arena',
+            channelId: 'battles',
+        });
     }
 
     private async postQueueAnnouncement(channel: TextChannel, match: any): Promise<void> {
