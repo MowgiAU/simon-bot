@@ -11,7 +11,7 @@ import { useAuth } from '../AuthProvider';
 import { useAltBreakpoint } from './useAltBreakpoint';
 import { AltMobileNav } from './AltMobileNav';
 import {
-    Home, Search, User, Newspaper, BarChart3, Swords, Tag, Users,
+    Home, Search, User, Newspaper, BarChart3, Swords, Tag, Users, Zap,
     HelpCircle, LogOut, PanelLeftClose, PanelLeftOpen,
 } from 'lucide-react';
 
@@ -29,6 +29,7 @@ const NAV = [
     { icon: Newspaper, label: 'News',    to: '/preview/alt_f_articles' },
     { icon: BarChart3, label: 'Charts',  to: '/preview/alt_f_charts' },
     { icon: Swords,    label: 'Battles', to: '/preview/alt_f_battles' },
+    { icon: Zap,       label: 'Arena',   to: '/preview/alt_f_arena' },
     { icon: Tag,       label: 'Genres',  to: '/preview/alt_f_genres' },
     { icon: Users,     label: 'Collabs', to: '/preview/alt_f_collabs' },
 ];

@@ -9,7 +9,7 @@ import axios from 'axios';
 import { Link, useNavigate } from 'react-router-dom';
 import { usePlayer } from '../PlayerProvider';
 import { useAltBreakpoint } from './useAltBreakpoint';
-import { PanelRightClose, PanelRightOpen, Swords, Music, Activity, MessageCircle, Newspaper, Plus, Layers, Sparkles } from 'lucide-react';
+import { PanelRightClose, PanelRightOpen, Swords, Music, Activity, MessageCircle, Newspaper, Plus, Layers, Sparkles, Zap, Users } from 'lucide-react';
 import {
     BG, S_CONT, S_HIGH, PRIMARY, SECONDARY, TERTIARY, TEXT, SUB, BORDER, FONT, arr,
 } from './AltSidebar';
@@ -22,6 +22,37 @@ const DIVIDER = 'rgba(87,66,54,0.25)';
 const LS_KEY = 'fuji_right_sidebar_collapsed';
 
 export interface RailSection { key: string; label: string; icon: React.ReactNode; content: React.ReactNode }
+
+// Live "someone's waiting to battle" teaser — surfaces the arena lobby on every Alt F page.
+const ArenaTeaser: React.FC = () => {
+    const [summary, setSummary] = useState<{ waiting: number; inMatch: number; voting: number } | null>(null);
+    useEffect(() => {
+        const load = () => axios.get('/api/head-to-head/lobby').then(r => setSummary(r.data.summary)).catch(() => {});
+        load();
+        const t = setInterval(load, 12000);
+        return () => clearInterval(t);
+    }, []);
+    if (!summary || (summary.waiting === 0 && summary.inMatch === 0)) return null;
+    const hot = summary.waiting > 0;
+    return (
+        <Link to="/preview/alt_f_arena" style={{ display: 'block', textDecoration: 'none', marginBottom: 18 }}>
+            <div style={{ borderRadius: 14, padding: '12px 14px', background: hot ? 'linear-gradient(135deg, rgba(255,103,121,0.15), rgba(242,120,10,0.08))' : S_CONT, border: `1px solid ${hot ? 'rgba(255,103,121,0.3)' : BORDER}`, display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ width: 32, height: 32, borderRadius: 9, background: `${TERTIARY}22`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <Zap size={16} color={TERTIARY} />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12, fontWeight: 800, color: TEXT }}>
+                        {hot ? `${summary.waiting} waiting to battle` : `${summary.inMatch} battle${summary.inMatch > 1 ? 's' : ''} live`}
+                    </div>
+                    <div style={{ fontSize: 11, color: SUB, display: 'flex', alignItems: 'center', gap: 4 }}>
+                        {hot && <span style={{ width: 6, height: 6, borderRadius: '50%', background: TERTIARY, display: 'inline-block' }} />}
+                        Enter the Arena →
+                    </div>
+                </div>
+            </div>
+        </Link>
+    );
+};
 
 export const AltActivitySidebar: React.FC<{ topSlot?: React.ReactNode; showCommunity?: boolean; railSections?: RailSection[] }> = ({ topSlot, showCommunity = true, railSections }) => {
     const { player } = usePlayer();
@@ -68,6 +99,8 @@ export const AltActivitySidebar: React.FC<{ topSlot?: React.ReactNode; showCommu
 
     const communityContent = (
         <>
+        {/* Arena lobby teaser */}
+        <ArenaTeaser />
         {/* Active Battles */}
         {battles.length > 0 && (
             <section>

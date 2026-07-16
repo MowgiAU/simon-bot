@@ -17,7 +17,7 @@ interface Settings {
 }
 interface Profile { userId: string; username: string | null; displayName: string | null; avatar: string | null; anonymous?: boolean }
 interface Sample { id: string; name: string; fileUrl: string; fileType: string; category?: string }
-interface MatchInfo {
+export interface MatchInfo {
     id: string;
     status: string;
     challengerId: string;
@@ -54,7 +54,7 @@ interface MatchInfo {
     opponentEloAfter?: number | null;
     opponentEloBefore?: number | null;
 }
-interface MeData {
+export interface MeData {
     userId: string;
     globalRating: { elo: number; wins: number; losses: number; forfeits: number; matchesPlayed: number };
     genreRatings: { genreId: string; genreName: string; elo: number; wins: number; losses: number }[];
@@ -141,7 +141,7 @@ function Initials({ name }: { name: string }) {
 }
 
 // ── CSS injected once ──
-const ARENA_CSS = `
+export const ARENA_CSS = `
 @keyframes h2h-pulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.55; transform: scale(1.04); } }
 @keyframes h2h-glow-pulse { 0%,100% { box-shadow: 0 0 18px var(--glow-c, rgba(0,229,255,0.4)), 0 0 38px var(--glow-c, rgba(0,229,255,0.4)); } 50% { box-shadow: 0 0 28px var(--glow-c, rgba(0,229,255,0.4)), 0 0 60px var(--glow-c, rgba(0,229,255,0.4)); } }
 @keyframes h2h-shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
@@ -670,7 +670,7 @@ const STATUS_META: Record<string, { color: string; label: string; icon: React.Re
     forfeited:     { color: NEON.red,    label: 'FORFEITED',     icon: <Skull size={14} /> },
 };
 
-const ActiveMatchPanel: React.FC<{ match: MatchInfo; myUserId: string; onChange: () => void; onLeave: () => void }> = ({ match, myUserId, onChange, onLeave }) => {
+export const ActiveMatchPanel: React.FC<{ match: MatchInfo; myUserId: string; onChange: () => void; onLeave: () => void }> = ({ match, myUserId, onChange, onLeave }) => {
     const [, force] = useState(0);
     useEffect(() => { const t = setInterval(() => force(x => x + 1), 1000); return () => clearInterval(t); }, []);
 
