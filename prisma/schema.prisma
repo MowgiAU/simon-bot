@@ -3739,3 +3739,17 @@ model CollabUpdate {
   @@index([projectId, createdAt(sort: Desc)])
   @@map("collab_updates")
 }
+
+model ContactMessage {
+  id          String   @id @default(cuid())
+  name        String
+  email       String
+  discord     String?                          // optional Discord username/id the user provides
+  message     String   @db.Text
+  userId      String?                          // set if submitted while logged in
+  handled     Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@index([createdAt(sort: Desc)])
+  @@map("contact_messages")
+}

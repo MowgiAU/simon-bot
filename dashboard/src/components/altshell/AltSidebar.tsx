@@ -20,6 +20,8 @@ export const BG = '#0f131d', S_LOWEST = '#0a0e18', S_CONT = '#1c1f2a', S_HIGH = 
 export const PRIMARY = '#F2780A', SECONDARY = '#4cd7f6', TERTIARY = '#ff6779';
 export const TEXT = '#dfe2f1', SUB = '#9aa3b2', BORDER = 'rgba(255,255,255,0.06)';
 export const FONT = 'Inter, "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif';
+// Shared content container width for every Alt F page (outer container; ~1215px inner after 32px padding).
+export const CONTENT_MAX = 1280;
 export const arr = (d: any): any[] => Array.isArray(d) ? d : (d?.tracks || d?.profiles || d?.battles || d?.entries || d?.playlists || d?.data || []);
 
 const NAV = [
@@ -38,7 +40,7 @@ const LS_KEY = 'fuji_left_sidebar_collapsed';
 
 export const AltSidebar: React.FC<{ active?: string }> = ({ active }) => {
     const { player } = usePlayer();
-    const { user } = useAuth();
+    const { user, logout } = useAuth();
     const [playlists, setPlaylists] = useState<any[]>([]);
     const [collabStats, setCollabStats] = useState<{ activeProjects: number; pendingRequests: number } | null>(null);
     const bp = useAltBreakpoint();
@@ -248,13 +250,20 @@ export const AltSidebar: React.FC<{ active?: string }> = ({ active }) => {
             {!collapsed ? (
                 <div style={{ padding: '16px 12px', borderTop: `1px solid ${BORDER}`, display: 'flex', flexDirection: 'column', gap: 8, flexShrink: 0 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px', color: SUB }}>
-                        <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}><HelpCircle size={18} /> Support</span>
-                        <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>Logout <LogOut size={18} /></span>
+                        <Link to="/contact" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: SUB, textDecoration: 'none' }}
+                            onMouseEnter={e => (e.currentTarget.style.color = TEXT)} onMouseLeave={e => (e.currentTarget.style.color = SUB)}>
+                            <HelpCircle size={18} /> Support
+                        </Link>
+                        <button onClick={logout} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: SUB, background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: FONT }}
+                            onMouseEnter={e => (e.currentTarget.style.color = TEXT)} onMouseLeave={e => (e.currentTarget.style.color = SUB)}>
+                            Logout <LogOut size={18} />
+                        </button>
                     </div>
                 </div>
             ) : (
                 <div style={{ padding: '16px 8px', borderTop: `1px solid ${BORDER}`, display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center', flexShrink: 0 }}>
-                    <div style={{ color: SUB, cursor: 'pointer' }}><LogOut size={18} /></div>
+                    <Link to="/contact" title="Support" style={{ color: SUB, display: 'flex' }}><HelpCircle size={18} /></Link>
+                    <button onClick={logout} title="Logout" style={{ color: SUB, cursor: 'pointer', background: 'none', border: 'none', padding: 0, display: 'flex' }}><LogOut size={18} /></button>
                 </div>
             )}
         </aside>

@@ -22429,6 +22429,61 @@ app.post('/api/bug-reports', requireAuth, bugReportLimiter, bugReportUpload.sing
     }
 });
 
+// Public "Contact Us" form → store a ContactMessage row + drop it into the team
+// inbox (which fires the existing Discord new-mail alert). No auth required.
+app.post('/api/contact', async (req: any, res) => {
+    try {
+        const name    = String(req.body?.name || '').trim();
+        const email   = String(req.body?.email || '').trim();
+        const discord = req.body?.discord ? String(req.body.discord).trim().slice(0, 120) : null;
+        const message = String(req.body?.message || '').trim();
+        const userId  = req.session?.user?.id || null;
+
+        if (!name)    return res.status(400).json({ error: 'Please enter your name.' });
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'Please enter a valid email address.' });
+        if (message.length < 10) return res.status(400).json({ error: 'Please enter a message (at least 10 characters).' });
+
+        // Rate limit: max 3 submissions/hour per email (survives restarts via DB).
+        const since = new Date(Date.now() - 60 * 60 * 1000);
+        const recent = await db.contactMessage.count({ where: { email, createdAt: { gte: since } } });
+        if (recent >= 3) return res.status(429).json({ error: 'You’ve sent a few messages already — please wait a bit before sending more.' });
+
+        const row = await db.contactMessage.create({
+            data: {
+                name: name.slice(0, 200),
+                email: email.slice(0, 320),
+                discord,
+                message: message.slice(0, 5000),
+                userId,
+            },
+        });
+
+        // Surface in the team dashboard inbox (+ Discord alert via the un-notified poller).
+        try {
+            await emailService.addEmail({
+                threadId: `contact-${row.id}`,
+                from: name,
+                fromEmail: email,
+                toEmail: 'contact@fujistud.io',
+                subject: `Contact form: ${name}`,
+                body: `Name: ${name}\nEmail: ${email}${discord ? `\nDiscord: ${discord}` : ''}${userId ? `\nUser ID: ${userId}` : ''}\n\n${message}`,
+                date: row.createdAt.toISOString(),
+                category: 'inbox',
+                read: false,
+                notified: false,
+            });
+        } catch (mailErr) {
+            logger.warn(`[Contact] Stored row ${row.id} but failed to add to inbox: ${(mailErr as Error).message}`);
+        }
+
+        logger.info(`[Contact] New contact message ${row.id} from ${email}`);
+        res.json({ ok: true });
+    } catch (e: any) {
+        logger.error('POST /api/contact error', e);
+        res.status(500).json({ error: 'Failed to send your message. Please try again.' });
+    }
+});
+
 // Admin: list orphaned track upload files (on disk but no DB record)
 app.get('/api/admin/orphaned-uploads', requireAdmin, async (_req: any, res) => {
     try {

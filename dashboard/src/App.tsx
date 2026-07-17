@@ -111,6 +111,7 @@ const FrontpageAltFGenres      = lazy(() => import("./pages/FrontpageAltFGenres"
 const FrontpageAltFGenrePost   = lazy(() => import("./pages/FrontpageAltFGenrePost").then(m => ({ default: m.FrontpageAltFGenrePost })));
 const FrontpageAltFCreatePost  = lazy(() => import("./pages/FrontpageAltFCreatePost").then(m => ({ default: m.FrontpageAltFCreatePost })));
 const FrontpageAltFArena       = lazy(() => import("./pages/FrontpageAltFArena").then(m => ({ default: m.FrontpageAltFArena })));
+const FrontpageAltFContact     = lazy(() => import("./pages/FrontpageAltFContact"));
 const FrontpageAltFLearn       = lazy(() => import("./pages/FrontpageAltFLearn").then(m => ({ default: m.FrontpageAltFLearn })));
 const FrontpageAltFCollabs     = lazy(() => import("./pages/FrontpageAltFCollabs"));
 const FrontpageAltFCollabCallout = lazy(() => import("./pages/FrontpageAltFCollabCallout"));
@@ -1023,6 +1024,9 @@ const AppInternal: React.FC = () => {
   }
   if (currentPath === '/preview/alt_f_arena') {
     return <Suspense fallback={<PageSpinner />}><FrontpageAltFArena /></Suspense>;
+  }
+  if (currentPath === '/contact') {
+    return <Suspense fallback={<PageSpinner />}><FrontpageAltFContact /></Suspense>;
   }
   if (currentPath === '/preview/alt_f_learn') {
     return <Suspense fallback={<PageSpinner />}><FrontpageAltFLearn /></Suspense>;

@@ -267,7 +267,7 @@ export const AltActivitySidebar: React.FC<{ topSlot?: React.ReactNode; showCommu
         );
     }
 
-    const w = collapsed ? 48 : 288;
+    const w = collapsed ? 48 : 303;
     const pb = player.currentTrack ? 90 : 0;
 
     /* — collapsed strip — */
