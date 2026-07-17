@@ -449,7 +449,7 @@ export const FeedPage: React.FC = () => {
         return (
             <DiscoveryLayout>
                 <div style={{ display: 'flex', justifyContent: 'center', padding: '100px', color: colors.textSecondary }}>
-                    <a href="/api/auth/discord/login" style={{ color: colors.primary }}>Log in</a>&nbsp;to view your feed
+                    <a href="/login" style={{ color: colors.primary }}>Log in</a>&nbsp;to view your feed
                 </div>
             </DiscoveryLayout>
         );

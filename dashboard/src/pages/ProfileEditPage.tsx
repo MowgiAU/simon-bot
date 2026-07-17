@@ -208,7 +208,7 @@ export const ProfileEditPage: React.FC = () => {
     useEffect(() => {
         const fetchData = async () => {
             if (!user) {
-                if (!authLoading) window.location.href = '/api/auth/discord/login';
+                if (!authLoading) window.location.href = '/login';
                 return;
             }
             if (isAdminMode && (mutualAdminGuilds?.length ?? 0) === 0) {
@@ -480,10 +480,10 @@ export const ProfileEditPage: React.FC = () => {
                         You need to be logged in to manage your musician profile.
                     </p>
                     <button 
-                        onClick={() => window.location.href = '/api/auth/discord/login'}
+                        onClick={() => window.location.href = '/login'}
                         style={{ backgroundColor: colors.primary, color: 'white', border: 'none', padding: '12px 32px', borderRadius: borderRadius.md, fontWeight: 'bold', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '8px' }}
                     >
-                        Login with Discord
+                        Sign In
                     </button>
                 </div>
             </DiscoveryLayout>

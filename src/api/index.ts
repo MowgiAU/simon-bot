@@ -1309,22 +1309,13 @@ app.get('/api/auth/appeal/login', (req, res) => {
 });
 
 // Discord OAuth2 endpoints
-app.get('/api/auth/discord/login', (req, res) => {
-  // SEC-04: Generate state param to prevent CSRF on OAuth login
-  const state = crypto.randomBytes(32).toString('hex');
-  (req.session as any)._oauthState = state;
-  const params = new URLSearchParams({
-    client_id: DISCORD_CLIENT_ID,
-    redirect_uri: DISCORD_REDIRECT_URI,
-    response_type: 'code',
-    scope: 'identify guilds email',
-    prompt: 'none',
-    state,
-  });
-  logger.info(`[Auth] Redirecting to Discord with redirect_uri: ${DISCORD_REDIRECT_URI}`);
-  req.session.save(() => {
-    res.redirect(`https://discord.com/api/oauth2/authorize?${params.toString()}`);
-  });
+// Discord is no longer a sign-in/sign-up method — accounts are site accounts
+// (email/password) only. This route is kept so old links/bookmarks don't 404; it
+// simply sends the user to the site login page. Discord *linking*
+// (/api/auth/discord/link) and ban-appeal identity (/api/auth/appeal/login) are
+// unaffected.
+app.get('/api/auth/discord/login', (_req, res) => {
+  res.redirect(`${process.env.DASHBOARD_ORIGIN || ''}/login`);
 });
 
 
@@ -1507,139 +1498,14 @@ app.get('/api/auth/discord/callback', async (req, res) => {
         return;
     }
 
-    // ===== STANDARD DISCORD LOGIN FLOW =====
-    // If no account exists for this Discord user, auto-create one.
-    try {
-        let dbUser = await db.user.findUnique({ where: { discordId: user.id } });
-
-        // If not found via the normal (non-deleted) lookup, check whether a soft-deleted
-        // account with this discordId exists. If so, reactivate it instead of creating a
-        // duplicate — this is the root cause of double-account spam after admin deletions.
-        if (!dbUser) {
-            const deletedUser = await db.user.findFirst({
-                where: { discordId: user.id, deletedAt: { not: null } },
-            });
-            if (deletedUser) {
-                dbUser = await db.user.update({
-                    where: { id: deletedUser.id },
-                    data: { deletedAt: null, lastLoginAt: new Date(), avatar: user.avatar, displayName: user.global_name || user.username },
-                });
-                logger.info(`[Auth] Reactivated soft-deleted account ${deletedUser.id} for Discord user ${user.id}`);
-            }
-        }
-
-        if (!dbUser) {
-            // Auto-create account from Discord profile
-            const discordUsername = (user.username || `user_${user.id}`).toLowerCase().replace(/[^a-z0-9_-]/g, '_').slice(0, 30);
-
-            // Ensure username is unique
-            let finalUsername = discordUsername;
-            const existingUsername = await db.user.findUnique({ where: { username: finalUsername } });
-            if (existingUsername) {
-                finalUsername = `${discordUsername.slice(0, 25)}_${user.id.slice(-4)}`;
-            }
-
-            // Check if Discord email already belongs to a local account
-            let emailToUse = user.email || null;
-            if (emailToUse) {
-                const emailOwner = await db.user.findUnique({ where: { email: emailToUse } });
-                if (emailOwner) {
-                    // Link Discord to existing account that shares this email
-                    dbUser = await db.user.update({
-                        where: { id: emailOwner.id },
-                        data: {
-                            discordId: user.id,
-                            displayName: user.global_name || user.username,
-                            avatar: user.avatar,
-                            lastLoginAt: new Date(),
-                        },
-                    });
-                    logger.info(`[Auth] Linked Discord ${user.id} to existing email account ${emailOwner.id} (${emailToUse})`);
-                }
-            }
-
-            if (!dbUser) {
-                // No existing account found — do NOT auto-create.
-                // Discord is for login/linking only; new accounts must be registered via email.
-                logger.info(`[Auth] Discord login rejected for ${user.username} (${user.id}): no matching Fuji Studio account`);
-                return res.redirect(`${process.env.DASHBOARD_ORIGIN || ''}/login?error=discord_no_account`);
-            }
-        } else {
-            await db.user.update({
-                where: { id: dbUser.id },
-                data: {
-                    displayName: user.global_name || user.username,
-                    avatar: user.avatar,
-                    lastLoginAt: new Date(),
-                },
-            });
-        }
-        user._localId = dbUser.id;
-        user._hasPassword = !!dbUser.passwordHash;
-        user._email = dbUser.email;
-        user._emailVerified = !!dbUser.emailVerified;
-        user._totpEnabled = !!dbUser.totpEnabled;
-        user._loginMethod = 'discord';
-        user._invited = !!dbUser.invited;
-        user._role = dbUser.role || 'user';
-    } catch (e) {
-        logger.warn('[Auth] Failed to find/update account during Discord login', e);
-        return res.redirect(`${process.env.DASHBOARD_ORIGIN || ''}/login?error=server_error`);
-    }
-
-    req.session.user = user;
-    req.session.guilds = userGuilds;
-    req.session.mutualAdminGuilds = mutualAdminGuilds;
-    req.session.mutualStaffGuilds = mutualStaffGuilds;
-
-    // Check if user is a member of the primary community Discord server
-    const primaryGuildId = process.env.GUILD_ID;
-    let isGuildMember = false;
-    if (primaryGuildId) {
-      isGuildMember = userGuilds.some((g: any) => g.id === primaryGuildId);
-    }
-    req.session.isGuildMember = isGuildMember;
-
-    // ===== ROLE-BASED BETA ACCESS =====
-    // Auto-invite users who have specific Discord roles in the primary guild
-    if (isGuildMember && !user._invited && primaryGuildId) {
-        try {
-            const rows: any[] = await db.$queryRaw`SELECT "betaRoleIds" FROM "dashboard_access" WHERE "guildId" = ${primaryGuildId} LIMIT 1`;
-            const betaRoleIds: string[] = rows[0]?.betaRoleIds || [];
-            if (betaRoleIds.length > 0) {
-                const cacheKey = `${primaryGuildId}:${user.id}`;
-                let memberRoles: string[];
-                const cached = memberRoleCache.get(cacheKey);
-                if (cached && (Date.now() - cached.timestamp < MEMBER_ROLE_CACHE_TTL)) {
-                    memberRoles = cached.roles;
-                } else {
-                    const memberRes = await axios.get(`https://discord.com/api/v10/guilds/${primaryGuildId}/members/${user.id}`, {
-                        headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` },
-                        timeout: 5000
-                    });
-                    memberRoles = memberRes.data.roles || [];
-                    memberRoleCache.set(cacheKey, { roles: memberRoles, timestamp: Date.now() });
-                }
-                if (memberRoles.some((r: string) => betaRoleIds.includes(r))) {
-                    await db.user.update({ where: { id: user._localId }, data: { invited: true } });
-                    user._invited = true;
-                    logger.info(`[Auth] Auto-invited user ${user.username} (${user.id}) � has beta role`);
-                }
-            }
-        } catch (e) {
-            logger.warn(`[Auth] Failed to check beta roles for ${user.id}`, e);
-        }
-    }
-
-    // Save session before redirecting to ensure cookie is set
-    req.session.save((err) => {
-      if (err) {
-        logger.error('Session save error during callback', err);
-        return res.status(500).send('Session save error');
-      }
-      logActivity(req, 'auth.login', user._localId, 'user', { method: 'discord', username: user.username });
-      res.redirect(process.env.DASHBOARD_ORIGIN || '/');
-    });
+    // ===== STANDARD DISCORD LOGIN (DISABLED — site accounts only) =====
+    // Discord is no longer a sign-in method. Link + appeal flows already returned
+    // above, so anything reaching here is a plain Discord-login attempt → bounce to
+    // the site login page. Admin/staff access is preserved: when these users sign in
+    // with their site account, their linked Discord is resolved for guild access via
+    // resolveGuildAccessViaBotToken().
+    logger.info(`[Auth] Discord sign-in attempt (${user.username}/${user.id}) rejected — site accounts only.`);
+    return res.redirect(`${process.env.DASHBOARD_ORIGIN || ''}/login?error=use_site_account`);
   } catch (err) {
     logger.error('Discord OAuth2 callback error', err);
     res.status(500).send('OAuth2 error');

@@ -200,7 +200,7 @@ export const MyTracksPage: React.FC = () => {
     }, [profileError]);
 
     useEffect(() => {
-        if (!user && !authLoading) window.location.href = '/api/auth/discord/login';
+        if (!user && !authLoading) window.location.href = '/login';
     }, [user, authLoading]);
 
     useEffect(() => { setLoading(isFetching && !profileData); }, [isFetching, profileData]);

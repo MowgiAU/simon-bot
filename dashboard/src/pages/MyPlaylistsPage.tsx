@@ -71,7 +71,7 @@ export const MyPlaylistsPage: React.FC = () => {
         return (
             <DiscoveryLayout>
                 <div style={{ display: 'flex', justifyContent: 'center', padding: '100px', color: colors.textSecondary }}>
-                    <a href="/api/auth/discord/login" style={{ color: colors.primary }}>Log in</a>&nbsp;to view your playlists
+                    <a href="/login" style={{ color: colors.primary }}>Log in</a>&nbsp;to view your playlists
                 </div>
             </DiscoveryLayout>
         );

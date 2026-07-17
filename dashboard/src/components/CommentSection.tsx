@@ -564,7 +564,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ trackId, profile
                 </div>
             ) : (
                 <div style={{ padding: spacing.md, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: borderRadius.md, border: '1px solid rgba(255,255,255,0.06)', marginBottom: spacing.lg, textAlign: 'center' }}>
-                    <a href="/api/auth/discord/login" style={{ color: colors.primary, textDecoration: 'none', fontWeight: 600, fontSize: '14px' }}>
+                    <a href="/login" style={{ color: colors.primary, textDecoration: 'none', fontWeight: 600, fontSize: '14px' }}>
                         Log in to leave a comment
                     </a>
                 </div>

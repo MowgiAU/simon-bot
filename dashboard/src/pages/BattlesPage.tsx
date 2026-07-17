@@ -304,7 +304,7 @@ export const BattlesPage: React.FC = () => {
     // Cast / change / clear a ranked vote.
     // rank=1|2|3 assigns that slot. rank=null clears this entry's vote.
     const castVote = async (entryId: string, rank: 1 | 2 | 3 | null) => {
-        if (!user) { window.location.href = '/api/auth/discord/login'; return; }
+        if (!user) { window.location.href = '/login'; return; }
         if (assertVerified(emailVerified)) return;
         setVotingId(entryId);
         try {
@@ -518,7 +518,7 @@ export const BattlesPage: React.FC = () => {
                                                 );
                                             })()}
                                             {currentBattle.status === 'active' && !user && (
-                                                <a href="/api/auth/discord/login"
+                                                <a href="/login"
                                                     style={{ backgroundColor: colors.primary, color: '#fff', padding: '10px 24px', borderRadius: '8px', fontWeight: 700, fontSize: '13px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px', boxShadow: `0 8px 24px ${colors.primary}40` }}>
                                                     <LogIn size={14} /> Log in to Submit
                                                 </a>
@@ -690,7 +690,7 @@ export const BattlesPage: React.FC = () => {
                                     <span style={{ fontSize: '11px', color: colors.textSecondary, fontWeight: 400, textTransform: 'none', letterSpacing: 'normal' }}>{currentBattle.entries.length} entries</span>
                                 </h3>
                                 {(currentBattle.status === 'voting' || currentBattle.status === 'sudden_death') && !user && (
-                                    <a href="/api/auth/discord/login" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: colors.primary, textDecoration: 'none', backgroundColor: `${colors.primary}15`, padding: '5px 10px', borderRadius: '6px', border: `1px solid ${colors.primary}30` }}>
+                                    <a href="/login" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: colors.primary, textDecoration: 'none', backgroundColor: `${colors.primary}15`, padding: '5px 10px', borderRadius: '6px', border: `1px solid ${colors.primary}30` }}>
                                         <LogIn size={12} /> Log in to vote
                                     </a>
                                 )}

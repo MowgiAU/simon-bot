@@ -32,7 +32,10 @@ export const LoginPage: React.FC = () => {
     const [requiresTwoFactor, setRequiresTwoFactor] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(
-        urlError === 'server_error' ? 'Something went wrong during sign in. Please try again.' : ''
+        urlError === 'server_error' ? 'Something went wrong during sign in. Please try again.'
+        : urlError === 'use_site_account' ? 'Sign in with your Fuji Studio account below. You can connect Discord from account settings afterwards.'
+        : urlError === 'discord_no_account' ? 'No Fuji Studio account is linked to that Discord. Create an account below, then link Discord from your settings.'
+        : ''
     );
     const [success, setSuccess] = useState('');
     const [showResendVerification, setShowResendVerification] = useState(false);

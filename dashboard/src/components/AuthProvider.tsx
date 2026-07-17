@@ -188,7 +188,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (returnTo && returnTo !== '/') {
       localStorage.setItem(RETURN_TO_KEY, returnTo);
     }
-    window.location.href = '/api/auth/discord/login';
+    window.location.href = '/login';
   };
 
   const emailLogin = async (loginEmail: string, password: string, totpCode?: string): Promise<{ success?: boolean; requiresTwoFactor?: boolean; error?: string; code?: string }> => {
