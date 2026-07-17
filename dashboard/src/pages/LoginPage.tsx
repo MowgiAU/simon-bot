@@ -37,6 +37,9 @@ export const LoginPage: React.FC = () => {
         : urlError === 'discord_no_account' ? 'No Fuji Studio account is linked to that Discord. Create an account below, then link Discord from your settings.'
         : ''
     );
+    // Users who previously only logged in with Discord won't have a password yet —
+    // when they land here from the old Discord-login flow, point them at a reset.
+    const cameFromDiscord = urlError === 'use_site_account' || urlError === 'discord_no_account';
     const [success, setSuccess] = useState('');
     const [showResendVerification, setShowResendVerification] = useState(false);
     const [resendEmail, setResendEmail] = useState('');
@@ -196,6 +199,16 @@ export const LoginPage: React.FC = () => {
                         </button>
                     ))}
                 </div>
+
+                {/* Discord-migration hint — used to sign in with Discord, no password yet */}
+                {cameFromDiscord && tab === 'login' && (
+                    <div style={{ background: 'rgba(242,120,10,0.08)', border: `1px solid ${colors.primary}40`, borderRadius: borderRadius.lg, padding: '12px 14px', marginBottom: spacing.lg }}>
+                        <p style={{ margin: 0, fontSize: '13px', color: colors.textSecondary, lineHeight: 1.5 }}>
+                            Used to sign in with Discord? Accounts now use email &amp; password.{' '}
+                            <a href="/forgot-password" style={{ color: colors.primary, fontWeight: 600, textDecoration: 'none' }}>Set your password →</a>
+                        </p>
+                    </div>
+                )}
 
                 {/* Login Form */}
                 {tab === 'login' && (
