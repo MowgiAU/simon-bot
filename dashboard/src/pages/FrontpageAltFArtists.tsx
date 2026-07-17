@@ -8,10 +8,10 @@ import { Link } from 'react-router-dom';
 import { usePlayer } from '../components/PlayerProvider';
 import {
     AltSidebar, BG, S_LOWEST, S_CONT, S_HIGH, S_HIGHEST,
-    PRIMARY, SECONDARY, TERTIARY, TEXT, SUB, BORDER, FONT, arr,
+    PRIMARY, SECONDARY, TERTIARY, TEXT, SUB, BORDER, FONT, arr, CONTENT_MAX,
 } from '../components/altshell/AltSidebar';
 import { AltHeader } from '../components/altshell/AltHeader';
-import { AltActivitySidebar } from '../components/altshell/AltActivitySidebar';
+import { AltActivitySidebar, type RailSection } from '../components/altshell/AltActivitySidebar';
 import { AltSpinner } from '../components/altshell/AltSpinner';
 import { Search, Play, Users, Music, TrendingUp, Star, X } from 'lucide-react';
 
@@ -114,6 +114,84 @@ export const FrontpageAltFArtists: React.FC = () => {
         });
     };
 
+    // Pagination — show a page at a time instead of one long scroll.
+    const PAGE_SIZE = 24;
+    const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+    useEffect(() => { setVisibleCount(PAGE_SIZE); }, [activeGenre, search, sort]);
+    const visibleArtists = filtered.slice(0, visibleCount);
+
+    // Page controls relocated into the right activity rail.
+    const sortCard = (
+        <div style={{ ...glass, borderRadius: 16, overflow: 'hidden' }}>
+            <div style={{ padding: '13px 16px', borderBottom: `1px solid ${DIVIDER}`, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <TrendingUp size={14} color={PRIMARY} />
+                <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>Sort By</h3>
+            </div>
+            <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                {SORTS.map(s => (
+                    <button key={s.key} onClick={() => setSort(s.key)}
+                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 12px', borderRadius: 8, border: 'none', cursor: 'pointer', background: sort === s.key ? `${PRIMARY}18` : 'transparent', color: sort === s.key ? PRIMARY : SUB, fontSize: 13, fontWeight: sort === s.key ? 700 : 400, fontFamily: FONT, textAlign: 'left', transition: 'all 0.15s' }}>
+                        {s.label}
+                        {sort === s.key && <div style={{ width: 6, height: 6, borderRadius: '50%', background: PRIMARY }} />}
+                    </button>
+                ))}
+            </div>
+        </div>
+    );
+    const genreCard = genres.length > 0 ? (
+        <div style={{ ...glass, borderRadius: 16, overflow: 'hidden' }}>
+            <div style={{ padding: '13px 16px', borderBottom: `1px solid ${DIVIDER}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <Music size={14} color={PRIMARY} />
+                    <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>Genre</h3>
+                </div>
+                {activeGenre && (
+                    <button onClick={() => setActiveGenre(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: SUB, padding: 0, display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontFamily: FONT }}>
+                        <X size={12} /> Clear
+                    </button>
+                )}
+            </div>
+            <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 2, maxHeight: 360, overflowY: 'auto' }}>
+                {genres.map((g: any) => {
+                    const active = activeGenre === g.name;
+                    return (
+                        <button key={g.id} onClick={() => setActiveGenre(active ? null : g.name)}
+                            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', borderRadius: 8, border: 'none', cursor: 'pointer', background: active ? `${SECONDARY}18` : 'transparent', color: active ? SECONDARY : SUB, fontSize: 13, fontWeight: active ? 700 : 400, fontFamily: FONT, textAlign: 'left', transition: 'all 0.15s' }}>
+                            {g.name}
+                            <span style={{ fontSize: 11, color: active ? SECONDARY : 'rgba(154,163,178,0.5)' }}>{g._count?.profiles || 0}</span>
+                        </button>
+                    );
+                })}
+            </div>
+        </div>
+    ) : null;
+    const overviewCard = (
+        <div style={{ ...glass, borderRadius: 16, overflow: 'hidden' }}>
+            <div style={{ padding: '13px 16px', borderBottom: `1px solid ${DIVIDER}`, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Star size={14} color={PRIMARY} />
+                <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>Overview</h3>
+            </div>
+            <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 13 }}>
+                {[
+                    { label: 'Total Artists', value: fmtNum(profiles.length), color: TEXT },
+                    { label: 'Genres', value: String(genres.length), color: SECONDARY },
+                    { label: 'Showing', value: filtered.length === profiles.length ? 'All' : String(filtered.length), color: PRIMARY },
+                ].map(stat => (
+                    <div key={stat.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span style={{ fontSize: 13, color: SUB }}>{stat.label}</span>
+                        <span style={{ fontSize: 14, fontWeight: 700, color: stat.color }}>{stat.value}</span>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+    const railTop = (<>{sortCard}{genreCard}{overviewCard}</>);
+    const railSections: RailSection[] = [
+        { key: 'sort', label: 'Sort', icon: <TrendingUp size={20} />, content: sortCard },
+        ...(genreCard ? [{ key: 'genre', label: 'Genre', icon: <Music size={20} />, content: genreCard }] : []),
+        { key: 'overview', label: 'Overview', icon: <Star size={20} />, content: overviewCard },
+    ];
+
     return (
         <div style={{ height: '100vh', display: 'flex', overflow: 'hidden', background: BG, color: TEXT, fontFamily: FONT }}>
             <AltSidebar active="Artists" />
@@ -191,100 +269,8 @@ export const FrontpageAltFArtists: React.FC = () => {
                     ) : (
                         <>
                         {/* ── BODY GRID ── */}
-                        <div style={{ maxWidth: 1280, margin: '24px auto 0', padding: '0 32px 40px', display: 'grid', gridTemplateColumns: '280px 1fr', gap: 28, boxSizing: 'border-box' }}>
+                    <div style={{ maxWidth: CONTENT_MAX, margin: '24px auto 0', padding: '0 32px 40px', boxSizing: 'border-box' }}>
 
-                            {/* ── LEFT COLUMN ── */}
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-
-                                {/* Sort card */}
-                                <div style={{ ...glass, borderRadius: 20, overflow: 'hidden' }}>
-                                    <div style={{ padding: '14px 20px', borderBottom: `1px solid ${DIVIDER}`, display: 'flex', alignItems: 'center', gap: 8 }}>
-                                        <TrendingUp size={14} color={PRIMARY} />
-                                        <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>Sort By</h3>
-                                    </div>
-                                    <div style={{ padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 4 }}>
-                                        {SORTS.map(s => (
-                                            <button
-                                                key={s.key}
-                                                onClick={() => setSort(s.key)}
-                                                style={{
-                                                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                                                    padding: '9px 12px', borderRadius: 8, border: 'none', cursor: 'pointer',
-                                                    background: sort === s.key ? `${PRIMARY}18` : 'transparent',
-                                                    color: sort === s.key ? PRIMARY : SUB,
-                                                    fontSize: 13, fontWeight: sort === s.key ? 700 : 400,
-                                                    fontFamily: FONT, textAlign: 'left', transition: 'all 0.15s',
-                                                }}
-                                            >
-                                                {s.label}
-                                                {sort === s.key && <div style={{ width: 6, height: 6, borderRadius: '50%', background: PRIMARY }} />}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                {/* Genre filter card */}
-                                {genres.length > 0 && (
-                                    <div style={{ ...glass, borderRadius: 20, overflow: 'hidden' }}>
-                                        <div style={{ padding: '14px 20px', borderBottom: `1px solid ${DIVIDER}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                                <Music size={14} color={PRIMARY} />
-                                                <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>Genre</h3>
-                                            </div>
-                                            {activeGenre && (
-                                                <button onClick={() => setActiveGenre(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: SUB, padding: 0, display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontFamily: FONT }}>
-                                                    <X size={12} /> Clear
-                                                </button>
-                                            )}
-                                        </div>
-                                        <div style={{ padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 2, maxHeight: 400, overflowY: 'auto' }}>
-                                            {genres.map((g: any) => {
-                                                const active = activeGenre === g.name;
-                                                return (
-                                                    <button
-                                                        key={g.id}
-                                                        onClick={() => setActiveGenre(active ? null : g.name)}
-                                                        style={{
-                                                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                                                            padding: '8px 12px', borderRadius: 8, border: 'none', cursor: 'pointer',
-                                                            background: active ? `${SECONDARY}18` : 'transparent',
-                                                            color: active ? SECONDARY : SUB,
-                                                            fontSize: 13, fontWeight: active ? 700 : 400,
-                                                            fontFamily: FONT, textAlign: 'left', transition: 'all 0.15s',
-                                                        }}
-                                                    >
-                                                        {g.name}
-                                                        <span style={{ fontSize: 11, color: active ? SECONDARY : 'rgba(154,163,178,0.5)' }}>
-                                                            {g._count?.profiles || 0}
-                                                        </span>
-                                                    </button>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Stats card */}
-                                <div style={{ ...glass, borderRadius: 20, overflow: 'hidden' }}>
-                                    <div style={{ padding: '14px 20px', borderBottom: `1px solid ${DIVIDER}`, display: 'flex', alignItems: 'center', gap: 8 }}>
-                                        <Star size={14} color={PRIMARY} />
-                                        <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>Overview</h3>
-                                    </div>
-                                    <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-                                        {[
-                                            { label: 'Total Artists', value: fmtNum(profiles.length), color: TEXT },
-                                            { label: 'Genres', value: String(genres.length), color: SECONDARY },
-                                            { label: 'Showing', value: filtered.length === profiles.length ? 'All' : String(filtered.length), color: PRIMARY },
-                                        ].map(stat => (
-                                            <div key={stat.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                                <span style={{ fontSize: 13, color: SUB }}>{stat.label}</span>
-                                                <span style={{ fontSize: 14, fontWeight: 700, color: stat.color }}>{stat.value}</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-
-                            </div>
 
                             {/* ── RIGHT COLUMN ── */}
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
@@ -375,8 +361,8 @@ export const FrontpageAltFArtists: React.FC = () => {
                                             <div style={{ fontSize: 13, color: SUB }}>Try a different search or genre filter</div>
                                         </div>
                                     ) : (
-                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
-                                            {filtered.map((profile: any) => {
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 16 }}>
+                                            {visibleArtists.map((profile: any) => {
                                                 const name = profile.displayName || profile.username;
                                                 const genreList = (profile.genres || []).map((g: any) => g.genre?.name).filter(Boolean).slice(0, 2);
                                                 const topTrack = profile.tracks?.[0];
@@ -455,6 +441,13 @@ export const FrontpageAltFArtists: React.FC = () => {
                                             })}
                                         </div>
                                     )}
+                                    {filtered.length > visibleCount && (
+                                        <div style={{ textAlign: 'center', marginTop: 24 }}>
+                                            <button onClick={() => setVisibleCount(c => c + PAGE_SIZE)} style={{ padding: '11px 32px', background: S_CONT, border: `1px solid ${BORDER}`, borderRadius: 10, color: TEXT, fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: FONT }}>
+                                                Load more artists ({filtered.length - visibleCount} more)
+                                            </button>
+                                        </div>
+                                    )}
                                 </section>
 
                             </div>
@@ -463,7 +456,7 @@ export const FrontpageAltFArtists: React.FC = () => {
                     )}
 
                 </div>
-                <AltActivitySidebar />
+                <AltActivitySidebar topSlot={railTop} railSections={railSections} />
                 </div>
             </main>
         </div>

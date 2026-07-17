@@ -9,10 +9,10 @@ import { Link } from 'react-router-dom';
 import { usePlayer } from '../components/PlayerProvider';
 import {
     AltSidebar, BG, S_CONT, S_HIGH,
-    PRIMARY, SECONDARY, TERTIARY, TEXT, SUB, BORDER, FONT, arr,
+    PRIMARY, SECONDARY, TERTIARY, TEXT, SUB, BORDER, FONT, arr, CONTENT_MAX,
 } from '../components/altshell/AltSidebar';
 import { AltHeader } from '../components/altshell/AltHeader';
-import { AltActivitySidebar } from '../components/altshell/AltActivitySidebar';
+import { AltActivitySidebar, type RailSection } from '../components/altshell/AltActivitySidebar';
 import { AltSpinner } from '../components/altshell/AltSpinner';
 import { Play, Pause, Search, X, Music, TrendingUp, Clock, SortAsc, Library, Filter } from 'lucide-react';
 
@@ -104,6 +104,81 @@ export const FrontpageAltFLibrary: React.FC = () => {
 
     const isPlaying = (id: string) => player.currentTrack?.id === id && player.isPlaying;
 
+    // Page controls relocated into the right activity rail.
+    const sortCard = (
+        <div style={{ ...glass, borderRadius: 16, overflow: 'hidden' }}>
+            <div style={{ padding: '13px 16px', borderBottom: `1px solid ${DIVIDER}`, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Filter size={14} color={PRIMARY} />
+                <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>Sort</h3>
+            </div>
+            <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                {SORTS.map(s => {
+                    const Icon = s.icon;
+                    const active = sort === s.key;
+                    return (
+                        <button key={s.key} onClick={() => setSort(s.key)} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 12px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: FONT, background: active ? `${PRIMARY}18` : 'transparent', color: active ? PRIMARY : SUB, fontSize: 13, fontWeight: active ? 700 : 400, textAlign: 'left', transition: 'all 0.15s' }}>
+                            <Icon size={13} color={active ? PRIMARY : SUB} />
+                            {s.label}
+                            {active && <div style={{ marginLeft: 'auto', width: 6, height: 6, borderRadius: '50%', background: PRIMARY }} />}
+                        </button>
+                    );
+                })}
+            </div>
+        </div>
+    );
+    const genreCard = genres.length > 0 ? (
+        <div style={{ ...glass, borderRadius: 16, overflow: 'hidden' }}>
+            <div style={{ padding: '13px 16px', borderBottom: `1px solid ${DIVIDER}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <Music size={14} color={PRIMARY} />
+                    <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>Genre</h3>
+                </div>
+                {activeGenre && (
+                    <button onClick={() => setActiveGenre(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: SUB, padding: 0, display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontFamily: FONT }}>
+                        <X size={11} /> Clear
+                    </button>
+                )}
+            </div>
+            <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 2, maxHeight: 360, overflowY: 'auto' }}>
+                {genres.map((g: any) => {
+                    const active = activeGenre === g.name;
+                    return (
+                        <button key={g.id} onClick={() => setActiveGenre(active ? null : g.name)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: FONT, background: active ? `${SECONDARY}18` : 'transparent', color: active ? SECONDARY : SUB, fontSize: 13, fontWeight: active ? 700 : 400, textAlign: 'left', transition: 'all 0.15s' }}>
+                            {g.name}
+                            <span style={{ fontSize: 11, color: active ? SECONDARY : 'rgba(154,163,178,0.4)' }}>{g._count?.tracks || 0}</span>
+                        </button>
+                    );
+                })}
+            </div>
+        </div>
+    ) : null;
+    const overviewCard = (
+        <div style={{ ...glass, borderRadius: 16, overflow: 'hidden' }}>
+            <div style={{ padding: '13px 16px', borderBottom: `1px solid ${DIVIDER}`, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <TrendingUp size={14} color={PRIMARY} />
+                <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>Overview</h3>
+            </div>
+            <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 13 }}>
+                {[
+                    { label: 'Total Tracks', value: fmtNum(total), color: TEXT },
+                    { label: 'Genres', value: String(genres.length), color: SECONDARY },
+                    { label: 'Showing', value: search ? `${filtered.length} results` : (activeGenre ? `${filtered.length} in genre` : `${visibleCount < total ? visibleCount + '+' : 'All'}`), color: PRIMARY },
+                ].map(s => (
+                    <div key={s.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span style={{ fontSize: 13, color: SUB }}>{s.label}</span>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: s.color }}>{s.value}</span>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+    const railTop = (<>{sortCard}{genreCard}{overviewCard}</>);
+    const railSections: RailSection[] = [
+        { key: 'sort', label: 'Sort', icon: <Filter size={20} />, content: sortCard },
+        ...(genreCard ? [{ key: 'genre', label: 'Genre', icon: <Music size={20} />, content: genreCard }] : []),
+        { key: 'overview', label: 'Overview', icon: <TrendingUp size={20} />, content: overviewCard },
+    ];
+
     return (
         <div style={{ height: '100vh', display: 'flex', overflow: 'hidden', background: BG, color: TEXT, fontFamily: FONT }}>
             <AltSidebar active="Search" />
@@ -158,80 +233,8 @@ export const FrontpageAltFLibrary: React.FC = () => {
                     </section>
 
                     {/* ── BODY GRID ── */}
-                    <div style={{ maxWidth: 1280, margin: '24px auto 0', padding: '0 32px 40px', display: 'grid', gridTemplateColumns: '280px 1fr', gap: 28, boxSizing: 'border-box' }}>
+                    <div style={{ maxWidth: CONTENT_MAX, margin: '24px auto 0', padding: '0 32px 40px', boxSizing: 'border-box' }}>
 
-                        {/* ── LEFT COLUMN ── */}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-
-                            {/* Sort card */}
-                            <div style={{ ...glass, borderRadius: 20, overflow: 'hidden' }}>
-                                <div style={{ padding: '14px 20px', borderBottom: `1px solid ${DIVIDER}`, display: 'flex', alignItems: 'center', gap: 8 }}>
-                                    <Filter size={14} color={PRIMARY} />
-                                    <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>Sort</h3>
-                                </div>
-                                <div style={{ padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 4 }}>
-                                    {SORTS.map(s => {
-                                        const Icon = s.icon;
-                                        const active = sort === s.key;
-                                        return (
-                                            <button key={s.key} onClick={() => setSort(s.key)} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 12px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: FONT, background: active ? `${PRIMARY}18` : 'transparent', color: active ? PRIMARY : SUB, fontSize: 13, fontWeight: active ? 700 : 400, textAlign: 'left', transition: 'all 0.15s' }}>
-                                                <Icon size={13} color={active ? PRIMARY : SUB} />
-                                                {s.label}
-                                                {active && <div style={{ marginLeft: 'auto', width: 6, height: 6, borderRadius: '50%', background: PRIMARY }} />}
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-
-                            {/* Genre filter card */}
-                            {genres.length > 0 && (
-                                <div style={{ ...glass, borderRadius: 20, overflow: 'hidden' }}>
-                                    <div style={{ padding: '14px 20px', borderBottom: `1px solid ${DIVIDER}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                            <Music size={14} color={PRIMARY} />
-                                            <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>Genre</h3>
-                                        </div>
-                                        {activeGenre && (
-                                            <button onClick={() => setActiveGenre(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: SUB, padding: 0, display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontFamily: FONT }}>
-                                                <X size={11} /> Clear
-                                            </button>
-                                        )}
-                                    </div>
-                                    <div style={{ padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 2, maxHeight: 380, overflowY: 'auto' }}>
-                                        {genres.map((g: any) => {
-                                            const active = activeGenre === g.name;
-                                            return (
-                                                <button key={g.id} onClick={() => setActiveGenre(active ? null : g.name)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: FONT, background: active ? `${SECONDARY}18` : 'transparent', color: active ? SECONDARY : SUB, fontSize: 13, fontWeight: active ? 700 : 400, textAlign: 'left', transition: 'all 0.15s' }}>
-                                                    {g.name}
-                                                    <span style={{ fontSize: 11, color: active ? SECONDARY : 'rgba(154,163,178,0.4)' }}>{g._count?.tracks || 0}</span>
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Stats card */}
-                            <div style={{ ...glass, borderRadius: 20, overflow: 'hidden' }}>
-                                <div style={{ padding: '14px 20px', borderBottom: `1px solid ${DIVIDER}`, display: 'flex', alignItems: 'center', gap: 8 }}>
-                                    <TrendingUp size={14} color={PRIMARY} />
-                                    <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>Overview</h3>
-                                </div>
-                                <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-                                    {[
-                                        { label: 'Total Tracks', value: fmtNum(total), color: TEXT },
-                                        { label: 'Genres', value: String(genres.length), color: SECONDARY },
-                                        { label: 'Showing', value: search ? `${filtered.length} results` : (activeGenre ? `${filtered.length} in genre` : `${visibleCount < total ? visibleCount + '+' : 'All'}`), color: PRIMARY },
-                                    ].map(s => (
-                                        <div key={s.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                            <span style={{ fontSize: 13, color: SUB }}>{s.label}</span>
-                                            <span style={{ fontSize: 13, fontWeight: 700, color: s.color }}>{s.value}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
 
                         {/* ── RIGHT COLUMN ── */}
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
@@ -353,7 +356,7 @@ export const FrontpageAltFLibrary: React.FC = () => {
                     </div>
 
                 </div>
-                <AltActivitySidebar />
+                <AltActivitySidebar topSlot={railTop} railSections={railSections} />
                 </div>
             </main>
         </div>
