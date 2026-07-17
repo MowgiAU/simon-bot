@@ -28,7 +28,7 @@ export class MuzzlePlugin implements IPlugin {
 
     requiredPermissions: PermissionResolvable[] = ['ManageRoles', 'ModerateMembers'];
     commands: string[] = [];
-    events: string[] = ['messageCreate'];
+    events: string[] = ['messageCreate', 'guildMemberUpdate'];
     dashboardSections = ['muzzle'];
     defaultEnabled = true;
 
@@ -42,6 +42,10 @@ export class MuzzlePlugin implements IPlugin {
 
     // Active muzzles: `guildId:userId` → timeout handle (for auto-unmuzzle)
     private activeMuzzles = new Map<string, ReturnType<typeof setTimeout>>();
+
+    // Muzzle-role removal timers for members timed out via /timeout or Discord itself
+    // (mirrors the muzzle role to the member's timeout state): `guildId:userId` → handle
+    private timeoutRoleTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
     // Settings cache per guild (30-second TTL)
     private settingsCache = new Map<string, { settings: MuzzleSettings | null; expiresAt: number }>();
@@ -67,8 +71,73 @@ export class MuzzlePlugin implements IPlugin {
     async shutdown(): Promise<void> {
         for (const handle of this.activeMuzzles.values()) clearTimeout(handle);
         this.activeMuzzles.clear();
+        for (const handle of this.timeoutRoleTimers.values()) clearTimeout(handle);
+        this.timeoutRoleTimers.clear();
         this.tracker.clear();
         this.settingsCache.clear();
+    }
+
+    /**
+     * Mirror the muzzle role to a member's timeout state. Fires for timeouts applied
+     * by the bot's /timeout command, by Discord's native timeout UI, and by our own
+     * spam-muzzle — all of them set `communicationDisabledUntil`, which surfaces here
+     * as a guildMemberUpdate. The role is added when a timeout starts and removed when
+     * it ends (scheduled at the expiry, with an early-removal if the timeout is lifted).
+     */
+    async onGuildMemberUpdate(oldMember: GuildMember, newMember: GuildMember): Promise<void> {
+        if (!this.context || newMember.user?.bot) return;
+
+        const settings = await this.getSettings(newMember.guild.id);
+        const roleId = settings?.muzzleRoleId;
+        if (!roleId) return; // No muzzle role configured — nothing to mirror.
+
+        const now = Date.now();
+        const oldUntil = (oldMember?.communicationDisabledUntilTimestamp ?? null);
+        const newUntil = (newMember.communicationDisabledUntilTimestamp ?? null);
+        const wasTimedOut = !!oldUntil && oldUntil > now;
+        const isTimedOut  = !!newUntil && newUntil > now;
+
+        const key = `${newMember.guild.id}:${newMember.id}`;
+
+        // Timeout started (or its expiry changed) → ensure role + (re)schedule removal.
+        if (isTimedOut && (!wasTimedOut || oldUntil !== newUntil)) {
+            try {
+                if (!newMember.roles.cache.has(roleId)) {
+                    await newMember.roles.add(roleId, 'Timed out — muzzle role for timeout duration');
+                }
+            } catch (err: any) {
+                this.logger.warn(`Failed to add muzzle role on timeout for ${newMember.user.tag}: ${err.message}`);
+            }
+            const existing = this.timeoutRoleTimers.get(key);
+            if (existing) clearTimeout(existing);
+            // setTimeout caps at ~24.8 days; timeouts max out at 28 days, so clamp.
+            const delay = Math.min(newUntil! - now, 24 * 24 * 60 * 60 * 1000);
+            const handle = setTimeout(async () => {
+                this.timeoutRoleTimers.delete(key);
+                try {
+                    const fresh = await newMember.guild.members.fetch(newMember.id).catch(() => null);
+                    // Only remove if the timeout has actually ended (not extended since).
+                    if (fresh && !fresh.isCommunicationDisabled()) {
+                        await fresh.roles.remove(roleId, 'Timeout expired — removing muzzle role').catch(() => {});
+                    }
+                } catch { /* member may have left */ }
+            }, delay);
+            this.timeoutRoleTimers.set(key, handle);
+            return;
+        }
+
+        // Timeout lifted early → remove role now + cancel the scheduled removal.
+        if (!isTimedOut && wasTimedOut) {
+            const existing = this.timeoutRoleTimers.get(key);
+            if (existing) { clearTimeout(existing); this.timeoutRoleTimers.delete(key); }
+            try {
+                if (newMember.roles.cache.has(roleId)) {
+                    await newMember.roles.remove(roleId, 'Timeout removed — removing muzzle role');
+                }
+            } catch (err: any) {
+                this.logger.warn(`Failed to remove muzzle role after timeout ended for ${newMember.user.tag}: ${err.message}`);
+            }
+        }
     }
 
     async onMessageCreate(msg: Message): Promise<void> {
