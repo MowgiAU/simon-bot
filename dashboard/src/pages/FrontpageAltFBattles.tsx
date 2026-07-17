@@ -50,16 +50,6 @@ function formatPrize(b: any): string | null {
     return null;
 }
 
-// Animated waveform bars hook
-function useWaveform(n = 10) {
-    const [heights, setHeights] = useState(() => Array.from({ length: n }, () => 30 + Math.random() * 70));
-    useEffect(() => {
-        const id = setInterval(() => setHeights(Array.from({ length: n }, () => 30 + Math.random() * 70)), 400);
-        return () => clearInterval(id);
-    }, [n]);
-    return heights;
-}
-
 // Glass card style matching mainbattles.html
 const glass: React.CSSProperties = {
     background: 'rgba(15,19,29,0.7)',
@@ -75,7 +65,6 @@ export const FrontpageAltFBattles: React.FC = () => {
     const [battles, setBattles] = useState<any[]>([]);
     const [archive, setArchive] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
-    const waveHeights = useWaveform(12);
 
     useEffect(() => {
         Promise.all([
@@ -242,19 +231,6 @@ export const FrontpageAltFBattles: React.FC = () => {
                                                 <Link to="/preview/alt_f_battle" style={{ padding: '14px 36px', borderRadius: 12, background: PRIMARY, color: '#fff', fontWeight: 800, fontSize: 15, boxShadow: `0 0 24px ${PRIMARY}55`, letterSpacing: '-0.01em', textDecoration: 'none', display: 'inline-block' }}>
                                                     Join Battle
                                                 </Link>
-                                            </div>
-                                        </div>
-
-                                        {/* Animated waveform */}
-                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-                                            <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'center', gap: 4, height: 48, overflow: 'hidden', maskImage: 'linear-gradient(to right, transparent, black 15%, black 85%, transparent)' }}>
-                                                {waveHeights.map((h, i) => (
-                                                    <div key={i} style={{ width: 6, height: `${h}%`, background: SECONDARY, borderRadius: '3px 3px 0 0', transition: 'height 0.4s ease-in-out', flexShrink: 0 }} />
-                                                ))}
-                                            </div>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', width: 280, fontSize: 10, fontWeight: 700, color: SUB, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                                                <span style={{ color: SECONDARY }}>Waveform Activity</span>
-                                                <span>{Math.round(Math.min(100, (featured._count?.entries || 0) / 15))}% Participation</span>
                                             </div>
                                         </div>
                                     </div>
