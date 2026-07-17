@@ -1359,7 +1359,7 @@ export const BattleEntryPage: React.FC = () => {
                                         <div>
                                             <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', padding: '10px 14px', backgroundColor: 'rgba(255,255,255,0.03)', border: '1px dashed rgba(255,255,255,0.15)', borderRadius: borderRadius.md, color: colors.textSecondary, fontSize: '0.9rem' }}>
                                                 <Upload size={16} />
-                                                {editAudioFile ? editAudioFile.name : 'Replace audio file (MP3, WAV, FLAC) · Max 300MB'}
+                                                {editAudioFile ? editAudioFile.name : 'Replace audio file (MP3, WAV, FLAC) · Max 100MB'}
                                                 <input type="file" accept=".mp3,.wav,.flac,audio/*" style={{ display: 'none' }} onChange={e => setEditAudioFile(e.target.files?.[0] || null)} />
                                             </label>
                                         </div>

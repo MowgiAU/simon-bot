@@ -251,8 +251,8 @@ export const TrackUploadForm: React.FC<TrackUploadFormProps> = ({
     const handleSubmit = async () => {
         setError('');
         if (!audioFile) { setError('Please select an audio file.'); return; }
-        if (audioFile.size > 300 * 1024 * 1024) {
-            setError(`File "${audioFile.name}" is ${(audioFile.size / 1024 / 1024).toFixed(1)}MB — max allowed is 300MB.`);
+        if (audioFile.size > 100 * 1024 * 1024) {
+            setError(`File "${audioFile.name}" is ${(audioFile.size / 1024 / 1024).toFixed(1)}MB — max allowed is 100MB.`);
             return;
         }
         if (!tosAgreed) { setError('You must confirm you own the rights to this audio.'); return; }
@@ -399,7 +399,7 @@ export const TrackUploadForm: React.FC<TrackUploadFormProps> = ({
                             Audio File *
                         </div>
                         <div style={{ fontSize: '11px', color: audioFile ? colors.primary : dragOver === 'audio' ? colors.primary : colors.textTertiary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {audioFile ? `${audioFile.name} (${(audioFile.size / 1024 / 1024).toFixed(1)}MB)` : dragOver === 'audio' ? 'Drop to select' : 'Drop audio here or click — MP3, WAV, FLAC, OGG · Max 300MB'}
+                            {audioFile ? `${audioFile.name} (${(audioFile.size / 1024 / 1024).toFixed(1)}MB)` : dragOver === 'audio' ? 'Drop to select' : 'Drop audio here or click — MP3, WAV, FLAC, OGG · Max 100MB'}
                         </div>
                     </div>
                     <input type="file" accept="audio/*" onChange={e => setAudioFile(e.target.files?.[0] || null)} style={{ display: 'none' }} />
@@ -475,7 +475,7 @@ export const TrackUploadForm: React.FC<TrackUploadFormProps> = ({
             </div>
 
             <p style={{ margin: '-8px 0 16px', fontSize: '11px', color: colors.textTertiary }}>
-                Max 300MB. Large WAV files will be auto-converted to 320kbps MP3.
+                Max 100MB. Large WAV files will be auto-converted to 320kbps MP3.
             </p>
 
             {projectFile?.name.endsWith('.zip') && (
