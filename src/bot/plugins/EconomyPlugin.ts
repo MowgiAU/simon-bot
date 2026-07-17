@@ -447,19 +447,36 @@ export class EconomyPlugin implements IPlugin {
                 });
             }
 
-            // Add to recipient's inventory
-            await this.db.economyInventory.upsert({
-                where: { guildId_userId_itemId: { guildId: interaction.guildId, userId: recipientId, itemId: item.id } },
-                update: { quantity: { increment: 1 } },
-                create: { guildId: interaction.guildId, userId: recipientId, itemId: item.id, quantity: 1 }
-            });
+            // Feedback-points items are an instant grant — credit the recipient's
+            // feedback-points balance directly rather than holding a shop item.
+            let fpAmount = 0;
+            if (item.type === 'FEEDBACK_POINTS') {
+                fpAmount = Number((item.metadata as any)?.amount) || 0;
+                if (fpAmount > 0) {
+                    await this.db.feedbackPoints.upsert({
+                        where: { guildId_userId: { guildId: interaction.guildId, userId: recipientId } },
+                        update: { balance: { increment: fpAmount } },
+                        create: { guildId: interaction.guildId, userId: recipientId, balance: fpAmount, totalEarned: 0 },
+                    });
+                    await this.db.feedbackPointsTransaction.create({
+                        data: { guildId: interaction.guildId, userId: recipientId, amount: fpAmount, type: 'PURCHASED', reason: `Bought ${item.name}` },
+                    });
+                }
+            } else {
+                // Add to recipient's inventory
+                await this.db.economyInventory.upsert({
+                    where: { guildId_userId_itemId: { guildId: interaction.guildId, userId: recipientId, itemId: item.id } },
+                    update: { quantity: { increment: 1 } },
+                    create: { guildId: interaction.guildId, userId: recipientId, itemId: item.id, quantity: 1 }
+                });
 
-            // Apply role effect to recipient
-            if (item.type === 'ROLE') {
-                const roleId = (item.metadata as any)?.roleId;
-                if (roleId) {
-                    const member = await interaction.guild?.members.fetch(recipientId);
-                    await member?.roles.add(roleId).catch(e => this.logger.error('Failed to add role', e));
+                // Apply role effect to recipient
+                if (item.type === 'ROLE') {
+                    const roleId = (item.metadata as any)?.roleId;
+                    if (roleId) {
+                        const member = await interaction.guild?.members.fetch(recipientId);
+                        await member?.roles.add(roleId).catch(e => this.logger.error('Failed to add role', e));
+                    }
                 }
             }
 
@@ -470,12 +487,14 @@ export class EconomyPlugin implements IPlugin {
                 details: { item: item.name, price: item.price, ...(isGift && { giftedTo: recipientId }) }
             });
 
+            const fpGift = fpAmount > 0 ? ` They received **${fpAmount}** feedback point${fpAmount === 1 ? '' : 's'}.` : '';
+            const fpSelf = fpAmount > 0 ? ` You received **${fpAmount}** feedback point${fpAmount === 1 ? '' : 's'}.` : '';
             if (isGift) {
                 interaction.reply({
-                    content: `🎁 You gifted **${item.name}** to <@${recipientId}> for ${settings.currencyEmoji} ${item.price}!`,
+                    content: `🎁 You gifted **${item.name}** to <@${recipientId}> for ${settings.currencyEmoji} ${item.price}!${fpGift}`,
                 });
             } else {
-                interaction.reply({ content: `Successfully purchased **${item.name}** for ${settings.currencyEmoji} ${item.price}!` });
+                interaction.reply({ content: `Successfully purchased **${item.name}** for ${settings.currencyEmoji} ${item.price}!${fpSelf}` });
             }
 
         } catch (e) {

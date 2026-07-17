@@ -323,6 +323,7 @@ const InventoryTab = ({ items, refresh, guildId, currency, isMobile }: { items: 
                              <option value="ROLE">Role (Grants a role on purchase)</option>
                              <option value="ITEM">Item (Simple inventory item)</option>
                              <option value="TOKEN">Token (Consumable — grants a temporary role)</option>
+                             <option value="FEEDBACK_POINTS">Feedback Points (Grants feedback points on purchase)</option>
                          </select>
                          <input placeholder="Stock (Leave empty for infinite)" type="number" value={editing.stock || ''} onChange={e => setEditing({...editing, stock: e.target.value ? Number(e.target.value) : null})} style={inputStyle} />
                     </div>
@@ -330,6 +331,15 @@ const InventoryTab = ({ items, refresh, guildId, currency, isMobile }: { items: 
 
                     {editing.type === 'ROLE' && (
                         <input placeholder="Role ID to grant on purchase" value={editing.metadata?.roleId || ''} onChange={e => setEditing({...editing, metadata: { ...editing.metadata, roleId: e.target.value }})} style={{ ...inputStyle, width: '100%', marginBottom: '10px' }} />
+                    )}
+
+                    {editing.type === 'FEEDBACK_POINTS' && (
+                        <div style={{ marginBottom: '10px' }}>
+                            <input placeholder="Feedback points granted on purchase (e.g. 5)" type="number" min={1} value={editing.metadata?.amount || ''} onChange={e => setEditing({...editing, metadata: { ...editing.metadata, amount: e.target.value ? Number(e.target.value) : 0 }})} style={{ ...inputStyle, width: '100%' }} />
+                            <p style={{ margin: '6px 0 0', fontSize: '11px', color: colors.textTertiary }}>
+                                Buyers spend {renderCurrency(currency)} coins and instantly receive this many feedback points (usable to post feedback threads). Delivered on purchase — not held in inventory.
+                            </p>
+                        </div>
                     )}
 
                     {editing.type === 'TOKEN' && (
