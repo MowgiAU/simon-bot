@@ -7,10 +7,10 @@ import axios from 'axios';
 import { usePlayer } from '../components/PlayerProvider';
 import {
     AltSidebar, BG, S_CONT, S_HIGH, S_HIGHEST,
-    PRIMARY, SECONDARY, TERTIARY, TEXT, SUB, BORDER, FONT, arr,
+    PRIMARY, SECONDARY, TERTIARY, TEXT, SUB, BORDER, FONT, arr, CONTENT_MAX,
 } from '../components/altshell/AltSidebar';
 import { AltHeader } from '../components/altshell/AltHeader';
-import { AltActivitySidebar } from '../components/altshell/AltActivitySidebar';
+import { AltActivitySidebar, type RailSection } from '../components/altshell/AltActivitySidebar';
 import { AltSpinner } from '../components/altshell/AltSpinner';
 import {
     Play, Pause, Heart, Repeat2, UserPlus, Swords, Music,
@@ -438,6 +438,104 @@ export const FrontpageAltFFeed: React.FC = () => {
         ? 'Latest music from artists you follow'
         : 'What\'s happening in the Fuji Studio community';
 
+    // Page controls relocated into the right activity rail (Your Feed / Filter / Trending / Legend).
+    const feedCard = tab === 'Feed' ? (
+        <div style={{ ...glass, borderRadius: 16, overflow: 'hidden' }}>
+            <div style={{ padding: '13px 16px', borderBottom: `1px solid ${DIVIDER}`, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Home size={14} color={PRIMARY} />
+                <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>Your Feed</h3>
+            </div>
+            <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <p style={{ margin: 0, fontSize: 12, color: SUB, lineHeight: 1.5 }}>Posts and tracks from genres you've subscribed to, sorted by relevance.</p>
+                <Link to="/preview/alt_f_genres" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, background: `${PRIMARY}18`, border: `1px solid ${PRIMARY}30`, color: PRIMARY, fontSize: 12, fontWeight: 700, textDecoration: 'none' }}>
+                    <Music size={12} /> Manage Genres
+                </Link>
+            </div>
+        </div>
+    ) : null;
+    const filterCard = tab === 'Discover' ? (
+        <div style={{ ...glass, borderRadius: 16, overflow: 'hidden' }}>
+            <div style={{ padding: '13px 16px', borderBottom: `1px solid ${DIVIDER}`, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Rss size={14} color={PRIMARY} />
+                <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>Filter</h3>
+            </div>
+            <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                {FILTERS.map(f => {
+                    const meta = f === 'Music' ? TYPE_ICONS.track_upload : f === 'Battles' ? TYPE_ICONS.battle_entry : f === 'Follows' ? TYPE_ICONS.follow : null;
+                    const Icon = meta?.icon;
+                    return (
+                        <button key={f} onClick={() => setFilter(f)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 12px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: FONT, background: filter === f ? `${PRIMARY}18` : 'transparent', color: filter === f ? PRIMARY : SUB, fontSize: 13, fontWeight: filter === f ? 700 : 400, textAlign: 'left', transition: 'all 0.15s' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                {Icon && <Icon size={13} color={filter === f ? PRIMARY : meta?.color} />}
+                                {f}
+                            </div>
+                            <span style={{ fontSize: 11, color: filter === f ? PRIMARY : 'rgba(154,163,178,0.4)' }}>
+                                {f === 'All' ? publicItems.length : publicItems.filter(i => filterMatch(i.type, f)).length}
+                            </span>
+                        </button>
+                    );
+                })}
+            </div>
+        </div>
+    ) : null;
+    const trendingCard = trending.length > 0 ? (
+        <div style={{ ...glass, borderRadius: 16, overflow: 'hidden' }}>
+            <div style={{ padding: '13px 16px', borderBottom: `1px solid ${DIVIDER}`, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <TrendingUp size={14} color={PRIMARY} />
+                <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>Trending Now</h3>
+            </div>
+            <div style={{ padding: '8px 0' }}>
+                {trending.map((t: any, i: number) => {
+                    const title = t.title || t.track?.title;
+                    const artist = t.profile?.displayName || t.profile?.username || t.artist;
+                    const cover = t.coverUrl || t.track?.coverUrl;
+                    const trackId = t.id || t.track?.id;
+                    const isPlaying = isCurrentlyPlaying(trackId);
+                    return (
+                        <Link key={trackId || i} to="/preview/alt_f_track"
+                            style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 16px', transition: 'background 0.15s', textDecoration: 'none', color: 'inherit' }}
+                            onMouseEnter={ev => ((ev.currentTarget as HTMLElement).style.background = 'rgba(38,42,53,0.4)')}
+                            onMouseLeave={ev => ((ev.currentTarget as HTMLElement).style.background = 'transparent')}>
+                            <span style={{ fontSize: 11, fontWeight: 700, color: i < 3 ? PRIMARY : SUB, width: 16, flexShrink: 0, textAlign: 'center' }}>{i + 1}</span>
+                            {cover
+                                ? <img src={cover} referrerPolicy="no-referrer" style={{ width: 32, height: 32, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }} />
+                                : <div style={{ width: 32, height: 32, borderRadius: 6, background: S_HIGH, flexShrink: 0 }} />
+                            }
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontSize: 13, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</div>
+                                <div style={{ fontSize: 11, color: SUB, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{artist}</div>
+                            </div>
+                            {isPlaying && <div style={{ width: 6, height: 6, borderRadius: '50%', background: PRIMARY, flexShrink: 0 }} />}
+                        </Link>
+                    );
+                })}
+            </div>
+        </div>
+    ) : null;
+    const legendCard = tab === 'Discover' ? (
+        <div style={{ ...glass, borderRadius: 16, overflow: 'hidden' }}>
+            <div style={{ padding: '13px 16px', borderBottom: `1px solid ${DIVIDER}`, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>Activity Types</h3>
+            </div>
+            <div style={{ padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {Object.entries(TYPE_ICONS).map(([type, { icon: Icon, color, label }]) => (
+                    <div key={type} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <div style={{ width: 26, height: 26, borderRadius: '50%', background: `${color}18`, border: `1px solid ${color}40`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            <Icon size={12} color={color} />
+                        </div>
+                        <span style={{ fontSize: 12, color: SUB }}>{label}</span>
+                    </div>
+                ))}
+            </div>
+        </div>
+    ) : null;
+    const railTop = (<>{feedCard}{filterCard}{trendingCard}{legendCard}</>);
+    const railSections: RailSection[] = [
+        ...(feedCard ? [{ key: 'feed', label: 'Feed', icon: <Home size={20} />, content: feedCard }] : []),
+        ...(filterCard ? [{ key: 'filter', label: 'Filter', icon: <Rss size={20} />, content: filterCard }] : []),
+        ...(trendingCard ? [{ key: 'trending', label: 'Trending', icon: <TrendingUp size={20} />, content: trendingCard }] : []),
+    ];
+
     return (
         <div style={{ height: '100vh', display: 'flex', overflow: 'hidden', background: BG, color: TEXT, fontFamily: FONT }}>
             <AltSidebar />
@@ -475,111 +573,8 @@ export const FrontpageAltFFeed: React.FC = () => {
                     </div>
 
                     {/* ── BODY GRID ── */}
-                    <div style={{ maxWidth: 1280, margin: '24px auto 0', padding: '0 32px 40px', display: 'grid', gridTemplateColumns: '280px 1fr', gap: 28, boxSizing: 'border-box' }}>
+                    <div style={{ maxWidth: CONTENT_MAX, margin: '24px auto 0', padding: '0 32px 40px', boxSizing: 'border-box' }}>
 
-                        {/* ── LEFT COLUMN ── */}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-
-                            {/* Subscriptions shortcut — Feed tab */}
-                            {tab === 'Feed' && (
-                                <div style={{ ...glass, borderRadius: 20, overflow: 'hidden' }}>
-                                    <div style={{ padding: '14px 20px', borderBottom: `1px solid ${DIVIDER}`, display: 'flex', alignItems: 'center', gap: 8 }}>
-                                        <Home size={14} color={PRIMARY} />
-                                        <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>Your Feed</h3>
-                                    </div>
-                                    <div style={{ padding: '14px 20px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-                                        <p style={{ margin: 0, fontSize: 12, color: SUB, lineHeight: 1.5 }}>Posts and tracks from genres you've subscribed to, sorted by relevance.</p>
-                                        <Link to="/preview/alt_f_genres" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, background: `${PRIMARY}18`, border: `1px solid ${PRIMARY}30`, color: PRIMARY, fontSize: 12, fontWeight: 700, textDecoration: 'none' }}>
-                                            <Music size={12} /> Manage Genres
-                                        </Link>
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Filter card — only for Discover tab */}
-                            {tab === 'Discover' && (
-                                <div style={{ ...glass, borderRadius: 20, overflow: 'hidden' }}>
-                                    <div style={{ padding: '14px 20px', borderBottom: `1px solid ${DIVIDER}`, display: 'flex', alignItems: 'center', gap: 8 }}>
-                                        <Rss size={14} color={PRIMARY} />
-                                        <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>Filter</h3>
-                                    </div>
-                                    <div style={{ padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 4 }}>
-                                        {FILTERS.map(f => {
-                                            const meta = f === 'Music' ? TYPE_ICONS.track_upload : f === 'Battles' ? TYPE_ICONS.battle_entry : f === 'Follows' ? TYPE_ICONS.follow : null;
-                                            const Icon = meta?.icon;
-                                            return (
-                                                <button key={f} onClick={() => setFilter(f)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 12px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: FONT, background: filter === f ? `${PRIMARY}18` : 'transparent', color: filter === f ? PRIMARY : SUB, fontSize: 13, fontWeight: filter === f ? 700 : 400, textAlign: 'left', transition: 'all 0.15s' }}>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                                        {Icon && <Icon size={13} color={filter === f ? PRIMARY : meta?.color} />}
-                                                        {f}
-                                                    </div>
-                                                    <span style={{ fontSize: 11, color: filter === f ? PRIMARY : 'rgba(154,163,178,0.4)' }}>
-                                                        {f === 'All' ? publicItems.length : publicItems.filter(i => filterMatch(i.type, f)).length}
-                                                    </span>
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Trending Now */}
-                            {trending.length > 0 && (
-                                <div style={{ ...glass, borderRadius: 20, overflow: 'hidden' }}>
-                                    <div style={{ padding: '14px 20px', borderBottom: `1px solid ${DIVIDER}`, display: 'flex', alignItems: 'center', gap: 8 }}>
-                                        <TrendingUp size={14} color={PRIMARY} />
-                                        <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>Trending Now</h3>
-                                    </div>
-                                    <div style={{ padding: '8px 0' }}>
-                                        {trending.map((t: any, i: number) => {
-                                            const title = t.title || t.track?.title;
-                                            const artist = t.profile?.displayName || t.profile?.username || t.artist;
-                                            const cover = t.coverUrl || t.track?.coverUrl;
-                                            const trackId = t.id || t.track?.id;
-                                            const isPlaying = isCurrentlyPlaying(trackId);
-                                            return (
-                                                <Link key={trackId || i}
-                                                    to="/preview/alt_f_track"
-                                                    style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 16px', transition: 'background 0.15s', textDecoration: 'none', color: 'inherit' }}
-                                                    onMouseEnter={ev => ((ev.currentTarget as HTMLElement).style.background = 'rgba(38,42,53,0.4)')}
-                                                    onMouseLeave={ev => ((ev.currentTarget as HTMLElement).style.background = 'transparent')}
-                                                >
-                                                    <span style={{ fontSize: 11, fontWeight: 700, color: i < 3 ? PRIMARY : SUB, width: 16, flexShrink: 0, textAlign: 'center' }}>{i + 1}</span>
-                                                    {cover
-                                                        ? <img src={cover} referrerPolicy="no-referrer" style={{ width: 32, height: 32, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }} />
-                                                        : <div style={{ width: 32, height: 32, borderRadius: 6, background: S_HIGH, flexShrink: 0 }} />
-                                                    }
-                                                    <div style={{ flex: 1, minWidth: 0 }}>
-                                                        <div style={{ fontSize: 13, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</div>
-                                                        <div style={{ fontSize: 11, color: SUB, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{artist}</div>
-                                                    </div>
-                                                    {isPlaying && <div style={{ width: 6, height: 6, borderRadius: '50%', background: PRIMARY, flexShrink: 0 }} />}
-                                                </Link>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Legend */}
-                            {tab === 'Discover' && (
-                                <div style={{ ...glass, borderRadius: 20, overflow: 'hidden' }}>
-                                    <div style={{ padding: '14px 20px', borderBottom: `1px solid ${DIVIDER}`, display: 'flex', alignItems: 'center', gap: 8 }}>
-                                        <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>Activity Types</h3>
-                                    </div>
-                                    <div style={{ padding: '12px 20px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-                                        {Object.entries(TYPE_ICONS).map(([type, { icon: Icon, color, label }]) => (
-                                            <div key={type} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                                <div style={{ width: 26, height: 26, borderRadius: '50%', background: `${color}18`, border: `1px solid ${color}40`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                                    <Icon size={12} color={color} />
-                                                </div>
-                                                <span style={{ fontSize: 12, color: SUB }}>{label}</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-                        </div>
 
                         {/* ── RIGHT COLUMN ── */}
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
@@ -727,7 +722,7 @@ export const FrontpageAltFFeed: React.FC = () => {
                     </div>
 
                 </div>
-                <AltActivitySidebar />
+                <AltActivitySidebar topSlot={railTop} railSections={railSections} />
                 </div>
             </main>
         </div>
