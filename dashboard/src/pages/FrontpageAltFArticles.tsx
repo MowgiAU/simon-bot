@@ -9,8 +9,9 @@ import { useNavigate } from 'react-router-dom';
 import { usePlayer } from '../components/PlayerProvider';
 import {
     AltSidebar, BG, S_CONT, S_HIGH,
-    PRIMARY, SECONDARY, TERTIARY, TEXT, SUB, BORDER, FONT, arr,
+    PRIMARY, SECONDARY, TERTIARY, TEXT, SUB, BORDER, FONT, arr, CONTENT_MAX,
 } from '../components/altshell/AltSidebar';
+import type { RailSection } from '../components/altshell/AltActivitySidebar';
 import { AltHeader } from '../components/altshell/AltHeader';
 import { AltActivitySidebar } from '../components/altshell/AltActivitySidebar';
 import { AltSpinner } from '../components/altshell/AltSpinner';
@@ -167,6 +168,76 @@ export const FrontpageAltFArticles: React.FC = () => {
         return counts;
     }, [articles]);
 
+    // Page controls that live in the right rail (Categories / Overview / Save for later).
+    const categoriesCard = (
+        <div style={{ ...glass, borderRadius: 16, overflow: 'hidden' }}>
+            <div style={{ padding: '13px 16px', borderBottom: `1px solid ${DIVIDER}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <Tag size={14} color={PRIMARY} />
+                    <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>Categories</h3>
+                </div>
+                {activeCategory && (
+                    <button onClick={() => setActiveCategory(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: SUB, padding: 0, display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontFamily: FONT }}>
+                        <X size={11} /> Clear
+                    </button>
+                )}
+            </div>
+            <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {CATEGORIES.map(cat => {
+                    const color = catColor(cat);
+                    const active = activeCategory === cat;
+                    const count = catCounts[cat] || 0;
+                    return (
+                        <button key={cat} onClick={() => setActiveCategory(active ? null : cat)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 12px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: FONT, background: active ? `${color}14` : 'transparent', color: active ? color : SUB, fontSize: 13, fontWeight: active ? 700 : 400, textAlign: 'left', transition: 'all 0.15s' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <div style={{ width: 8, height: 8, borderRadius: '50%', background: active ? color : `${color}55` }} />
+                                {cat}
+                            </div>
+                            {count > 0 && <span style={{ fontSize: 11, color: active ? color : `rgba(154,163,178,0.4)` }}>{count}</span>}
+                        </button>
+                    );
+                })}
+            </div>
+        </div>
+    );
+    const overviewCard = (
+        <div style={{ ...glass, borderRadius: 16, overflow: 'hidden' }}>
+            <div style={{ padding: '13px 16px', borderBottom: `1px solid ${DIVIDER}`, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <TrendingUp size={14} color={PRIMARY} />
+                <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>Overview</h3>
+            </div>
+            <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 13 }}>
+                {[
+                    { label: 'Total Articles', value: String(total), color: TEXT },
+                    { label: 'Categories', value: String(Object.keys(catCounts).length || CATEGORIES.length), color: SECONDARY },
+                    { label: 'Showing', value: activeCategory ? `${articles.length} in "${activeCategory}"` : 'All', color: PRIMARY },
+                ].map(s => (
+                    <div key={s.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span style={{ fontSize: 13, color: SUB }}>{s.label}</span>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: s.color }}>{s.value}</span>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+    const saveCard = (
+        <div style={{ ...glass, borderRadius: 16, padding: '16px 18px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                <Bookmark size={16} color={PRIMARY} />
+                <span style={{ fontSize: 14, fontWeight: 700 }}>Save for Later</span>
+            </div>
+            <p style={{ margin: '0 0 12px', fontSize: 13, color: SUB, lineHeight: 1.5 }}>
+                Bookmark articles to read at your own pace. Saved to your library.
+            </p>
+            <div style={{ fontSize: 12, color: `${SUB}88` }}>Sign in to use bookmarks</div>
+        </div>
+    );
+    const railTop = (<>{categoriesCard}{overviewCard}{saveCard}</>);
+    const railSections: RailSection[] = [
+        { key: 'categories', label: 'Categories', icon: <Tag size={20} />, content: categoriesCard },
+        { key: 'overview', label: 'Overview', icon: <TrendingUp size={20} />, content: overviewCard },
+    ];
+
     return (
         <div style={{ height: '100vh', display: 'flex', overflow: 'hidden', background: BG, color: TEXT, fontFamily: FONT }}>
             <AltSidebar active="Articles" />
@@ -238,114 +309,43 @@ export const FrontpageAltFArticles: React.FC = () => {
                         </div>
                     </section>
 
-                    {/* ── BODY GRID ── */}
-                    <div style={{ maxWidth: 1280, margin: '24px auto 0', padding: '0 32px 40px', display: 'grid', gridTemplateColumns: '280px 1fr', gap: 28, boxSizing: 'border-box' }}>
+                    {/* ── BODY (full width; filters live in the right rail) ── */}
+                    <div style={{ maxWidth: CONTENT_MAX, margin: '24px auto 0', padding: '0 32px 40px', boxSizing: 'border-box' }}>
+                        <section>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                                <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>
+                                    {activeCategory ? activeCategory : 'Latest Articles'}
+                                </h2>
+                                <span style={{ fontSize: 13, color: SUB }}>{total} article{total !== 1 ? 's' : ''}</span>
+                            </div>
 
-                        {/* ── LEFT COLUMN ── */}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-
-                            {/* Category filter */}
-                            <div style={{ ...glass, borderRadius: 20, overflow: 'hidden' }}>
-                                <div style={{ padding: '14px 20px', borderBottom: `1px solid ${DIVIDER}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                        <Tag size={14} color={PRIMARY} />
-                                        <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>Categories</h3>
-                                    </div>
-                                    {activeCategory && (
-                                        <button onClick={() => setActiveCategory(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: SUB, padding: 0, display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontFamily: FONT }}>
-                                            <X size={11} /> Clear
-                                        </button>
-                                    )}
+                            {loading ? (
+                                <div style={{ ...glass, borderRadius: 20, padding: '60px 24px', textAlign: 'center', color: SUB }}><AltSpinner /></div>
+                            ) : articles.length === 0 ? (
+                                <div style={{ ...glass, borderRadius: 20, padding: '60px 24px', textAlign: 'center' }}>
+                                    <BookOpen size={36} color={SUB} style={{ marginBottom: 14 }} />
+                                    <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 6 }}>No articles yet</div>
+                                    <div style={{ fontSize: 13, color: SUB }}>Check back soon</div>
                                 </div>
-                                <div style={{ padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 2 }}>
-                                    {CATEGORIES.map(cat => {
-                                        const color = catColor(cat);
-                                        const active = activeCategory === cat;
-                                        const count = catCounts[cat] || 0;
-                                        return (
-                                            <button key={cat} onClick={() => setActiveCategory(active ? null : cat)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 12px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: FONT, background: active ? `${color}14` : 'transparent', color: active ? color : SUB, fontSize: 13, fontWeight: active ? 700 : 400, textAlign: 'left', transition: 'all 0.15s' }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                                    <div style={{ width: 8, height: 8, borderRadius: '50%', background: active ? color : `${color}55` }} />
-                                                    {cat}
-                                                </div>
-                                                {count > 0 && <span style={{ fontSize: 11, color: active ? color : `rgba(154,163,178,0.4)` }}>{count}</span>}
+                            ) : (
+                                <>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 16, marginBottom: 24 }}>
+                                        {articles.map(a => <ArticleCard key={a.id} article={a} onClick={() => openArticle(a.slug)} />)}
+                                    </div>
+                                    {page < totalPages && (
+                                        <div style={{ textAlign: 'center' }}>
+                                            <button onClick={loadMore} disabled={loadingMore} style={{ padding: '11px 32px', background: S_CONT, border: `1px solid ${BORDER}`, borderRadius: 10, color: TEXT, fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: FONT }}>
+                                                {loadingMore ? 'Loading…' : 'Load more'}
                                             </button>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-
-                            {/* Stats card */}
-                            <div style={{ ...glass, borderRadius: 20, overflow: 'hidden' }}>
-                                <div style={{ padding: '14px 20px', borderBottom: `1px solid ${DIVIDER}`, display: 'flex', alignItems: 'center', gap: 8 }}>
-                                    <TrendingUp size={14} color={PRIMARY} />
-                                    <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>Overview</h3>
-                                </div>
-                                <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-                                    {[
-                                        { label: 'Total Articles', value: String(total), color: TEXT },
-                                        { label: 'Categories', value: String(Object.keys(catCounts).length || CATEGORIES.length), color: SECONDARY },
-                                        { label: 'Showing', value: activeCategory ? `${articles.length} in "${activeCategory}"` : 'All', color: PRIMARY },
-                                    ].map(s => (
-                                        <div key={s.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                            <span style={{ fontSize: 13, color: SUB }}>{s.label}</span>
-                                            <span style={{ fontSize: 13, fontWeight: 700, color: s.color }}>{s.value}</span>
                                         </div>
-                                    ))}
-                                </div>
-                            </div>
-
-                            {/* Bookmark promo card */}
-                            <div style={{ ...glass, borderRadius: 20, padding: '18px 20px' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-                                    <Bookmark size={16} color={PRIMARY} />
-                                    <span style={{ fontSize: 14, fontWeight: 700 }}>Save for Later</span>
-                                </div>
-                                <p style={{ margin: '0 0 12px', fontSize: 13, color: SUB, lineHeight: 1.5 }}>
-                                    Bookmark articles to read at your own pace. Saved to your library.
-                                </p>
-                                <div style={{ fontSize: 12, color: `${SUB}88` }}>Sign in to use bookmarks</div>
-                            </div>
-                        </div>
-
-                        {/* ── RIGHT COLUMN ── */}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
-                            <section>
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-                                    <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>
-                                        {activeCategory ? activeCategory : 'Latest Articles'}
-                                    </h2>
-                                    <span style={{ fontSize: 13, color: SUB }}>{total} article{total !== 1 ? 's' : ''}</span>
-                                </div>
-
-                                {loading ? (
-                                    <div style={{ ...glass, borderRadius: 20, padding: '60px 24px', textAlign: 'center', color: SUB }}><AltSpinner /></div>
-                                ) : articles.length === 0 ? (
-                                    <div style={{ ...glass, borderRadius: 20, padding: '60px 24px', textAlign: 'center' }}>
-                                        <BookOpen size={36} color={SUB} style={{ marginBottom: 14 }} />
-                                        <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 6 }}>No articles yet</div>
-                                        <div style={{ fontSize: 13, color: SUB }}>Check back soon</div>
-                                    </div>
-                                ) : (
-                                    <>
-                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 24 }}>
-                                            {articles.map(a => <ArticleCard key={a.id} article={a} onClick={() => openArticle(a.slug)} />)}
-                                        </div>
-                                        {page < totalPages && (
-                                            <div style={{ textAlign: 'center' }}>
-                                                <button onClick={loadMore} disabled={loadingMore} style={{ padding: '11px 32px', background: S_CONT, border: `1px solid ${BORDER}`, borderRadius: 10, color: TEXT, fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: FONT }}>
-                                                    {loadingMore ? 'Loading…' : 'Load more'}
-                                                </button>
-                                            </div>
-                                        )}
-                                    </>
-                                )}
-                            </section>
-                        </div>
+                                    )}
+                                </>
+                            )}
+                        </section>
                     </div>
 
                 </div>
-                <AltActivitySidebar />
+                <AltActivitySidebar topSlot={railTop} railSections={railSections} />
                 </div>
             </main>
         </div>

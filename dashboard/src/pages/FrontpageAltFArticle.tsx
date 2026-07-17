@@ -50,6 +50,30 @@ export const FrontpageAltFArticle: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError]     = useState(false);
     const [related, setRelated] = useState<Article[]>([]);
+    const [saved, setSaved]     = useState(false);
+    const [copied, setCopied]   = useState(false);
+
+    // Bookmarks are stored locally for now (no server-side article library yet).
+    const SAVED_KEY = 'fuji_saved_articles';
+    const readSaved = (): string[] => { try { return JSON.parse(localStorage.getItem(SAVED_KEY) || '[]'); } catch { return []; } };
+    useEffect(() => { if (article?.slug) setSaved(readSaved().includes(article.slug)); }, [article?.slug]);
+
+    const toggleSave = () => {
+        if (!article?.slug) return;
+        const list = readSaved();
+        const next = list.includes(article.slug) ? list.filter(s => s !== article.slug) : [...list, article.slug];
+        try { localStorage.setItem(SAVED_KEY, JSON.stringify(next)); } catch {}
+        setSaved(next.includes(article.slug));
+    };
+
+    const shareArticle = async () => {
+        if (!article) return;
+        const url = `${window.location.origin}/article/${article.slug}`;
+        try {
+            if (navigator.share) { await navigator.share({ title: article.title, url }); return; }
+        } catch { /* user cancelled native share — fall through to copy */ }
+        try { await navigator.clipboard.writeText(url); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch {}
+    };
 
     useEffect(() => {
         if (!slug) {
@@ -178,11 +202,11 @@ export const FrontpageAltFArticle: React.FC = () => {
                                                 </div>
                                             </div>
                                             <div style={{ display: 'flex', gap: 8 }}>
-                                                <button style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', background: 'rgba(28,31,42,0.7)', backdropFilter: 'blur(8px)', border: `1px solid rgba(255,255,255,0.12)`, borderRadius: 8, color: SUB, cursor: 'pointer', fontFamily: FONT, fontSize: 12 }}>
-                                                    <Bookmark size={13} /> Save
+                                                <button onClick={toggleSave} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', background: saved ? `${PRIMARY}22` : 'rgba(28,31,42,0.7)', backdropFilter: 'blur(8px)', border: `1px solid ${saved ? `${PRIMARY}66` : 'rgba(255,255,255,0.12)'}`, borderRadius: 8, color: saved ? PRIMARY : SUB, cursor: 'pointer', fontFamily: FONT, fontSize: 12, fontWeight: saved ? 700 : 400 }}>
+                                                    <Bookmark size={13} fill={saved ? PRIMARY : 'none'} /> {saved ? 'Saved' : 'Save'}
                                                 </button>
-                                                <button style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', background: 'rgba(28,31,42,0.7)', backdropFilter: 'blur(8px)', border: `1px solid rgba(255,255,255,0.12)`, borderRadius: 8, color: SUB, cursor: 'pointer', fontFamily: FONT, fontSize: 12 }}>
-                                                    <Share2 size={13} /> Share
+                                                <button onClick={shareArticle} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', background: 'rgba(28,31,42,0.7)', backdropFilter: 'blur(8px)', border: `1px solid rgba(255,255,255,0.12)`, borderRadius: 8, color: copied ? PRIMARY : SUB, cursor: 'pointer', fontFamily: FONT, fontSize: 12 }}>
+                                                    <Share2 size={13} /> {copied ? 'Link copied!' : 'Share'}
                                                 </button>
                                             </div>
                                         </div>
