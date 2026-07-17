@@ -9,10 +9,10 @@ import { Link } from 'react-router-dom';
 import { usePlayer } from '../components/PlayerProvider';
 import {
     AltSidebar, BG, S_CONT, S_HIGH, S_LOWEST,
-    PRIMARY, SECONDARY, TERTIARY, TEXT, SUB, BORDER, FONT,
+    PRIMARY, SECONDARY, TERTIARY, TEXT, SUB, BORDER, FONT, CONTENT_MAX,
 } from '../components/altshell/AltSidebar';
 import { AltHeader } from '../components/altshell/AltHeader';
-import { AltActivitySidebar } from '../components/altshell/AltActivitySidebar';
+import { AltActivitySidebar, type RailSection } from '../components/altshell/AltActivitySidebar';
 import { AltSpinner } from '../components/altshell/AltSpinner';
 import { ListMusic, Plus, Lock, Globe, Pencil, Trash2, Check, X, Play, Layers, TrendingUp } from 'lucide-react';
 
@@ -141,6 +141,65 @@ export const FrontpageAltFMyPlaylists: React.FC = () => {
         );
     }
 
+    // Page controls relocated into the right activity rail.
+    const createCard = (
+        <div style={{ ...glass, borderRadius: 16, overflow: 'hidden' }}>
+            <div style={{ padding: '13px 16px', borderBottom: `1px solid ${DIVIDER}`, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Plus size={14} color={PRIMARY} />
+                <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>New Playlist</h3>
+            </div>
+            <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <input
+                    value={newName}
+                    onChange={e => setNewName(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && createPlaylist()}
+                    placeholder="Playlist name…"
+                    style={{ width: '100%', boxSizing: 'border-box', padding: '9px 12px', background: S_CONT, border: `1px solid ${BORDER}`, borderRadius: 8, color: TEXT, fontSize: 13, outline: 'none', fontFamily: FONT }}
+                />
+                <button
+                    onClick={() => setNewPublic(v => !v)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: newPublic ? `${SECONDARY}12` : `${SUB}0a`, border: `1px solid ${newPublic ? SECONDARY + '44' : BORDER}`, borderRadius: 8, cursor: 'pointer', color: newPublic ? SECONDARY : SUB, fontSize: 13, fontFamily: FONT, transition: 'all 0.15s' }}
+                >
+                    {newPublic ? <Globe size={13} /> : <Lock size={13} />}
+                    {newPublic ? 'Public' : 'Private'}
+                </button>
+                {createError && <div style={{ fontSize: 12, color: TERTIARY }}>{createError}</div>}
+                <button
+                    onClick={createPlaylist}
+                    disabled={!newName.trim() || creating}
+                    style={{ padding: '10px', background: newName.trim() ? PRIMARY : S_HIGH, border: 'none', borderRadius: 8, color: newName.trim() ? '#fff' : SUB, fontSize: 13, fontWeight: 700, cursor: newName.trim() ? 'pointer' : 'default', fontFamily: FONT, transition: 'all 0.15s' }}
+                >
+                    {creating ? 'Creating…' : 'Create Playlist'}
+                </button>
+            </div>
+        </div>
+    );
+    const overviewCard = (
+        <div style={{ ...glass, borderRadius: 16, overflow: 'hidden' }}>
+            <div style={{ padding: '13px 16px', borderBottom: `1px solid ${DIVIDER}`, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <TrendingUp size={14} color={PRIMARY} />
+                <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>Overview</h3>
+            </div>
+            <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 13 }}>
+                {[
+                    { label: 'Total Playlists', value: String(playlists.length), color: TEXT },
+                    { label: 'Total Tracks', value: fmtNum(totalTracks), color: SECONDARY },
+                    { label: 'Total Plays', value: fmtNum(totalPlays), color: PRIMARY },
+                ].map(s => (
+                    <div key={s.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: 13, color: SUB }}>{s.label}</span>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: s.color }}>{s.value}</span>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+    const railTop = (<>{createCard}{overviewCard}</>);
+    const railSections: RailSection[] = [
+        { key: 'new', label: 'New', icon: <Plus size={20} />, content: createCard },
+        { key: 'overview', label: 'Overview', icon: <TrendingUp size={20} />, content: overviewCard },
+    ];
+
     return (
         <div style={{ height: '100vh', display: 'flex', overflow: 'hidden', background: BG, color: TEXT, fontFamily: FONT }}>
             <AltSidebar active="My Playlists" />
@@ -182,63 +241,8 @@ export const FrontpageAltFMyPlaylists: React.FC = () => {
                     </section>
 
                     {/* Body grid */}
-                    <div style={{ maxWidth: 1280, margin: '24px auto 0', padding: '0 32px 40px', display: 'grid', gridTemplateColumns: '280px 1fr', gap: 28, boxSizing: 'border-box' }}>
+                    <div style={{ maxWidth: CONTENT_MAX, margin: '24px auto 0', padding: '0 32px 40px', boxSizing: 'border-box' }}>
 
-                        {/* LEFT */}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-
-                            {/* Create card */}
-                            <div style={{ ...glass, borderRadius: 20, overflow: 'hidden' }}>
-                                <div style={{ padding: '14px 20px', borderBottom: `1px solid ${DIVIDER}`, display: 'flex', alignItems: 'center', gap: 8 }}>
-                                    <Plus size={14} color={PRIMARY} />
-                                    <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>New Playlist</h3>
-                                </div>
-                                <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-                                    <input
-                                        value={newName}
-                                        onChange={e => setNewName(e.target.value)}
-                                        onKeyDown={e => e.key === 'Enter' && createPlaylist()}
-                                        placeholder="Playlist name…"
-                                        style={{ width: '100%', boxSizing: 'border-box', padding: '9px 12px', background: S_CONT, border: `1px solid ${BORDER}`, borderRadius: 8, color: TEXT, fontSize: 13, outline: 'none', fontFamily: FONT }}
-                                    />
-                                    <button
-                                        onClick={() => setNewPublic(v => !v)}
-                                        style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: newPublic ? `${SECONDARY}12` : `${SUB}0a`, border: `1px solid ${newPublic ? SECONDARY + '44' : BORDER}`, borderRadius: 8, cursor: 'pointer', color: newPublic ? SECONDARY : SUB, fontSize: 13, fontFamily: FONT, transition: 'all 0.15s' }}
-                                    >
-                                        {newPublic ? <Globe size={13} /> : <Lock size={13} />}
-                                        {newPublic ? 'Public' : 'Private'}
-                                    </button>
-                                    {createError && <div style={{ fontSize: 12, color: TERTIARY }}>{createError}</div>}
-                                    <button
-                                        onClick={createPlaylist}
-                                        disabled={!newName.trim() || creating}
-                                        style={{ padding: '10px', background: newName.trim() ? PRIMARY : S_HIGH, border: 'none', borderRadius: 8, color: newName.trim() ? '#fff' : SUB, fontSize: 13, fontWeight: 700, cursor: newName.trim() ? 'pointer' : 'default', fontFamily: FONT, transition: 'all 0.15s' }}
-                                    >
-                                        {creating ? 'Creating…' : 'Create Playlist'}
-                                    </button>
-                                </div>
-                            </div>
-
-                            {/* Stats */}
-                            <div style={{ ...glass, borderRadius: 20, overflow: 'hidden' }}>
-                                <div style={{ padding: '14px 20px', borderBottom: `1px solid ${DIVIDER}`, display: 'flex', alignItems: 'center', gap: 8 }}>
-                                    <TrendingUp size={14} color={PRIMARY} />
-                                    <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>Overview</h3>
-                                </div>
-                                <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-                                    {[
-                                        { label: 'Total Playlists', value: String(playlists.length), color: TEXT },
-                                        { label: 'Total Tracks', value: fmtNum(totalTracks), color: SECONDARY },
-                                        { label: 'Total Plays', value: fmtNum(totalPlays), color: PRIMARY },
-                                    ].map(s => (
-                                        <div key={s.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <span style={{ fontSize: 13, color: SUB }}>{s.label}</span>
-                                            <span style={{ fontSize: 13, fontWeight: 700, color: s.color }}>{s.value}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
 
                         {/* RIGHT */}
                         <div>
@@ -250,7 +254,7 @@ export const FrontpageAltFMyPlaylists: React.FC = () => {
                                 <div style={{ ...glass, borderRadius: 20, padding: '60px 24px', textAlign: 'center' }}>
                                     <Layers size={36} color={SUB} style={{ marginBottom: 14 }} />
                                     <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 6 }}>No playlists yet</div>
-                                    <div style={{ fontSize: 13, color: SUB }}>Create your first playlist using the form on the left.</div>
+                                    <div style={{ fontSize: 13, color: SUB }}>Create your first playlist using the form in the sidebar.</div>
                                 </div>
                             ) : (
                                 <div style={{ ...glass, borderRadius: 20, overflow: 'hidden' }}>
@@ -342,7 +346,7 @@ export const FrontpageAltFMyPlaylists: React.FC = () => {
                     </div>
 
                 </div>
-                <AltActivitySidebar />
+                <AltActivitySidebar topSlot={railTop} railSections={railSections} />
                 </div>
             </main>
         </div>

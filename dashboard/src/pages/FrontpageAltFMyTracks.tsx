@@ -10,10 +10,10 @@ import { usePlayer } from '../components/PlayerProvider';
 import { useAuth } from '../components/AuthProvider';
 import {
     AltSidebar, BG, S_CONT, S_HIGH, S_LOWEST,
-    PRIMARY, SECONDARY, TERTIARY, TEXT, SUB, BORDER, FONT,
+    PRIMARY, SECONDARY, TERTIARY, TEXT, SUB, BORDER, FONT, CONTENT_MAX,
 } from '../components/altshell/AltSidebar';
 import { AltHeader } from '../components/altshell/AltHeader';
-import { AltActivitySidebar } from '../components/altshell/AltActivitySidebar';
+import { AltActivitySidebar, type RailSection } from '../components/altshell/AltActivitySidebar';
 import { AltSpinner } from '../components/altshell/AltSpinner';
 import {
     Music, Play, Pause, Globe, Lock, Trash2, Upload,
@@ -185,6 +185,120 @@ export const FrontpageAltFMyTracks: React.FC = () => {
         );
     }
 
+    // Page controls relocated into the right activity rail.
+    const sortCard = (
+        <div style={{ ...glass, borderRadius: 16, overflow: 'hidden' }}>
+            <div style={{ padding: '13px 16px', borderBottom: `1px solid ${DIVIDER}`, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <SortAsc size={14} color={PRIMARY} />
+                <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>Sort By</h3>
+            </div>
+            <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {SORTS.map(s => {
+                    const active = sort === s.key;
+                    return (
+                        <button key={s.key} onClick={() => setSort(s.key)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 12px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: FONT, background: active ? `${PRIMARY}14` : 'transparent', color: active ? PRIMARY : SUB, fontSize: 13, fontWeight: active ? 700 : 400, textAlign: 'left', transition: 'all 0.15s' }}>
+                            {s.label}
+                            {active && <div style={{ width: 6, height: 6, borderRadius: '50%', background: PRIMARY }} />}
+                        </button>
+                    );
+                })}
+            </div>
+        </div>
+    );
+    const filterCard = (
+        <div style={{ ...glass, borderRadius: 16, overflow: 'hidden' }}>
+            <div style={{ padding: '13px 16px', borderBottom: `1px solid ${DIVIDER}`, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Filter size={14} color={PRIMARY} />
+                <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>Filter</h3>
+            </div>
+            <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {([['all', 'All Tracks', tracks.length], ['public', 'Public', publicCount], ['private', 'Private', tracks.length - publicCount]] as [FilterKey, string, number][]).map(([key, label, count]) => {
+                    const active = filter === key;
+                    return (
+                        <button key={key} onClick={() => setFilter(key)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 12px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: FONT, background: active ? `${PRIMARY}14` : 'transparent', color: active ? PRIMARY : SUB, fontSize: 13, fontWeight: active ? 700 : 400, textAlign: 'left', transition: 'all 0.15s' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                {key === 'public' ? <Globe size={12} /> : key === 'private' ? <Lock size={12} /> : <Music size={12} />}
+                                {label}
+                            </div>
+                            <span style={{ fontSize: 11, color: active ? PRIMARY : `${SUB}88` }}>{count}</span>
+                        </button>
+                    );
+                })}
+            </div>
+        </div>
+    );
+    const storageCard = (
+        <div style={{ ...glass, borderRadius: 16, overflow: 'hidden' }}>
+            <div style={{ padding: '13px 16px', borderBottom: `1px solid ${DIVIDER}`, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <HardDrive size={14} color={PRIMARY} />
+                <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>Storage</h3>
+                {storage && (
+                    <span style={{ marginLeft: 'auto', fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', padding: '2px 8px', borderRadius: 9999, background: `${PRIMARY}18`, color: PRIMARY }}>
+                        {storage.tier}
+                    </span>
+                )}
+            </div>
+            <div style={{ padding: '14px 16px' }}>
+                {!storage ? (
+                    <div style={{ fontSize: 13, color: SUB }}><AltSpinner /></div>
+                ) : (
+                    <>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                            <span style={{ fontSize: 13, color: SUB }}>Used</span>
+                            <span style={{ fontSize: 13, fontWeight: 700, color: storageColor }}>{fmtBytes(storage.usedBytes)} / {fmtBytes(storage.quotaBytes)}</span>
+                        </div>
+                        <div style={{ height: 6, borderRadius: 3, background: S_HIGH, overflow: 'hidden' }}>
+                            <div style={{ height: '100%', width: `${storagePct}%`, borderRadius: 3, background: storageColor, transition: 'width 0.4s' }} />
+                        </div>
+                        <div style={{ fontSize: 11, color: `${SUB}88`, marginTop: 6 }}>{storagePct.toFixed(1)}% used</div>
+                    </>
+                )}
+            </div>
+        </div>
+    );
+    const overviewCard = (
+        <div style={{ ...glass, borderRadius: 16, overflow: 'hidden' }}>
+            <div style={{ padding: '13px 16px', borderBottom: `1px solid ${DIVIDER}`, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <TrendingUp size={14} color={PRIMARY} />
+                <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>Overview</h3>
+            </div>
+            <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 13 }}>
+                {[
+                    { label: 'Total Tracks',  value: String(tracks.length),             color: TEXT      },
+                    { label: 'Total Plays',   value: fmtNum(totalPlays),                color: PRIMARY   },
+                    { label: 'Public',        value: String(publicCount),               color: SECONDARY  },
+                    { label: 'Private',       value: String(tracks.length - publicCount), color: SUB    },
+                ].map(s => (
+                    <div key={s.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: 13, color: SUB }}>{s.label}</span>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: s.color }}>{s.value}</span>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+    const uploadCard = (
+        <div style={{ ...glass, borderRadius: 16, padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <Upload size={16} color={PRIMARY} />
+                <span style={{ fontSize: 14, fontWeight: 700 }}>Upload a Track</span>
+            </div>
+            <p style={{ margin: 0, fontSize: 13, color: SUB, lineHeight: 1.5 }}>
+                Share your music with the community. Supports audio, artwork, FL Studio project files, and stems.
+            </p>
+            <a href="/my-tracks" style={{ display: 'block', padding: '10px', background: PRIMARY, borderRadius: 8, color: '#fff', fontSize: 13, fontWeight: 700, textAlign: 'center', textDecoration: 'none' }}>
+                Go to Upload →
+            </a>
+        </div>
+    );
+    const railTop = (<>{sortCard}{filterCard}{storageCard}{overviewCard}{uploadCard}</>);
+    const railSections: RailSection[] = [
+        { key: 'sort', label: 'Sort', icon: <SortAsc size={20} />, content: sortCard },
+        { key: 'filter', label: 'Filter', icon: <Filter size={20} />, content: filterCard },
+        { key: 'storage', label: 'Storage', icon: <HardDrive size={20} />, content: storageCard },
+        { key: 'overview', label: 'Overview', icon: <TrendingUp size={20} />, content: overviewCard },
+    ];
+
     return (
         <div style={{ height: '100vh', display: 'flex', overflow: 'hidden', background: BG, color: TEXT, fontFamily: FONT }}>
             <AltSidebar active="My Tracks" />
@@ -226,116 +340,8 @@ export const FrontpageAltFMyTracks: React.FC = () => {
                     </section>
 
                     {/* ── BODY GRID ── */}
-                    <div style={{ maxWidth: 1280, margin: '24px auto 0', padding: '0 32px 40px', display: 'grid', gridTemplateColumns: '280px 1fr', gap: 28, boxSizing: 'border-box' }}>
+                    <div style={{ maxWidth: CONTENT_MAX, margin: '24px auto 0', padding: '0 32px 40px', boxSizing: 'border-box' }}>
 
-                        {/* ── LEFT ── */}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-
-                            {/* Sort */}
-                            <div style={{ ...glass, borderRadius: 20, overflow: 'hidden' }}>
-                                <div style={{ padding: '14px 20px', borderBottom: `1px solid ${DIVIDER}`, display: 'flex', alignItems: 'center', gap: 8 }}>
-                                    <SortAsc size={14} color={PRIMARY} />
-                                    <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>Sort By</h3>
-                                </div>
-                                <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 2 }}>
-                                    {SORTS.map(s => {
-                                        const active = sort === s.key;
-                                        return (
-                                            <button key={s.key} onClick={() => setSort(s.key)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 12px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: FONT, background: active ? `${PRIMARY}14` : 'transparent', color: active ? PRIMARY : SUB, fontSize: 13, fontWeight: active ? 700 : 400, textAlign: 'left', transition: 'all 0.15s' }}>
-                                                {s.label}
-                                                {active && <div style={{ width: 6, height: 6, borderRadius: '50%', background: PRIMARY }} />}
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-
-                            {/* Filter */}
-                            <div style={{ ...glass, borderRadius: 20, overflow: 'hidden' }}>
-                                <div style={{ padding: '14px 20px', borderBottom: `1px solid ${DIVIDER}`, display: 'flex', alignItems: 'center', gap: 8 }}>
-                                    <Filter size={14} color={PRIMARY} />
-                                    <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>Filter</h3>
-                                </div>
-                                <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 2 }}>
-                                    {([['all', 'All Tracks', tracks.length], ['public', 'Public', publicCount], ['private', 'Private', tracks.length - publicCount]] as [FilterKey, string, number][]).map(([key, label, count]) => {
-                                        const active = filter === key;
-                                        return (
-                                            <button key={key} onClick={() => setFilter(key)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 12px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: FONT, background: active ? `${PRIMARY}14` : 'transparent', color: active ? PRIMARY : SUB, fontSize: 13, fontWeight: active ? 700 : 400, textAlign: 'left', transition: 'all 0.15s' }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                                    {key === 'public' ? <Globe size={12} /> : key === 'private' ? <Lock size={12} /> : <Music size={12} />}
-                                                    {label}
-                                                </div>
-                                                <span style={{ fontSize: 11, color: active ? PRIMARY : `${SUB}88` }}>{count}</span>
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-
-                            {/* Storage */}
-                            <div style={{ ...glass, borderRadius: 20, overflow: 'hidden' }}>
-                                <div style={{ padding: '14px 20px', borderBottom: `1px solid ${DIVIDER}`, display: 'flex', alignItems: 'center', gap: 8 }}>
-                                    <HardDrive size={14} color={PRIMARY} />
-                                    <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>Storage</h3>
-                                    {storage && (
-                                        <span style={{ marginLeft: 'auto', fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', padding: '2px 8px', borderRadius: 9999, background: `${PRIMARY}18`, color: PRIMARY }}>
-                                            {storage.tier}
-                                        </span>
-                                    )}
-                                </div>
-                                <div style={{ padding: '16px 20px' }}>
-                                    {!storage ? (
-                                        <div style={{ fontSize: 13, color: SUB }}><AltSpinner /></div>
-                                    ) : (
-                                        <>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                                                <span style={{ fontSize: 13, color: SUB }}>Used</span>
-                                                <span style={{ fontSize: 13, fontWeight: 700, color: storageColor }}>{fmtBytes(storage.usedBytes)} / {fmtBytes(storage.quotaBytes)}</span>
-                                            </div>
-                                            <div style={{ height: 6, borderRadius: 3, background: S_HIGH, overflow: 'hidden' }}>
-                                                <div style={{ height: '100%', width: `${storagePct}%`, borderRadius: 3, background: storageColor, transition: 'width 0.4s' }} />
-                                            </div>
-                                            <div style={{ fontSize: 11, color: `${SUB}88`, marginTop: 6 }}>{storagePct.toFixed(1)}% used</div>
-                                        </>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* Stats */}
-                            <div style={{ ...glass, borderRadius: 20, overflow: 'hidden' }}>
-                                <div style={{ padding: '14px 20px', borderBottom: `1px solid ${DIVIDER}`, display: 'flex', alignItems: 'center', gap: 8 }}>
-                                    <TrendingUp size={14} color={PRIMARY} />
-                                    <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>Overview</h3>
-                                </div>
-                                <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-                                    {[
-                                        { label: 'Total Tracks',  value: String(tracks.length),             color: TEXT      },
-                                        { label: 'Total Plays',   value: fmtNum(totalPlays),                color: PRIMARY   },
-                                        { label: 'Public',        value: String(publicCount),               color: SECONDARY  },
-                                        { label: 'Private',       value: String(tracks.length - publicCount), color: SUB    },
-                                    ].map(s => (
-                                        <div key={s.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <span style={{ fontSize: 13, color: SUB }}>{s.label}</span>
-                                            <span style={{ fontSize: 13, fontWeight: 700, color: s.color }}>{s.value}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-
-                            {/* Upload CTA */}
-                            <div style={{ ...glass, borderRadius: 20, padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                    <Upload size={16} color={PRIMARY} />
-                                    <span style={{ fontSize: 14, fontWeight: 700 }}>Upload a Track</span>
-                                </div>
-                                <p style={{ margin: 0, fontSize: 13, color: SUB, lineHeight: 1.5 }}>
-                                    Share your music with the community. Supports audio, artwork, FL Studio project files, and stems.
-                                </p>
-                                <a href="/my-tracks" style={{ display: 'block', padding: '10px', background: PRIMARY, borderRadius: 8, color: '#fff', fontSize: 13, fontWeight: 700, textAlign: 'center', textDecoration: 'none' }}>
-                                    Go to Upload →
-                                </a>
-                            </div>
-                        </div>
 
                         {/* ── RIGHT ── */}
                         <div>
@@ -355,7 +361,7 @@ export const FrontpageAltFMyTracks: React.FC = () => {
                                         {tracks.length === 0 ? 'No tracks yet' : 'No tracks match this filter'}
                                     </div>
                                     <div style={{ fontSize: 13, color: SUB }}>
-                                        {tracks.length === 0 ? 'Upload your first track using the button on the left.' : 'Try changing your filter.'}
+                                        {tracks.length === 0 ? 'Upload your first track using the button in the sidebar.' : 'Try changing your filter.'}
                                     </div>
                                 </div>
                             ) : (
@@ -515,7 +521,7 @@ export const FrontpageAltFMyTracks: React.FC = () => {
                         </div>
                     </div>
                 </div>
-                <AltActivitySidebar />
+                <AltActivitySidebar topSlot={railTop} railSections={railSections} />
                 </div>
             </main>
         </div>

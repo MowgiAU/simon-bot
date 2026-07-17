@@ -10,10 +10,10 @@ import { usePlayer } from '../components/PlayerProvider';
 import { useAuth } from '../components/AuthProvider';
 import {
     AltSidebar, BG, S_CONT, S_HIGH,
-    PRIMARY, SECONDARY, TERTIARY, TEXT, SUB, BORDER, FONT,
+    PRIMARY, SECONDARY, TERTIARY, TEXT, SUB, BORDER, FONT, CONTENT_MAX,
 } from '../components/altshell/AltSidebar';
 import { AltHeader } from '../components/altshell/AltHeader';
-import { AltActivitySidebar } from '../components/altshell/AltActivitySidebar';
+import { AltActivitySidebar, type RailSection } from '../components/altshell/AltActivitySidebar';
 import { AltSpinner } from '../components/altshell/AltSpinner';
 import {
     Heart, Play, Pause, Music, Lock, SortAsc,
@@ -147,6 +147,74 @@ export const FrontpageAltFFavourites: React.FC = () => {
         );
     }
 
+    // Page controls relocated into the right activity rail.
+    const sortCard = (
+        <div style={{ ...glass, borderRadius: 16, overflow: 'hidden' }}>
+            <div style={{ padding: '13px 16px', borderBottom: `1px solid ${DIVIDER}`, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <SortAsc size={14} color={PRIMARY} />
+                <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>Sort By</h3>
+            </div>
+            <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {SORTS.map(s => {
+                    const Icon = s.icon;
+                    const active = sort === s.key;
+                    return (
+                        <button key={s.key} onClick={() => setSort(s.key)} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 12px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: FONT, background: active ? `${PRIMARY}14` : 'transparent', color: active ? PRIMARY : SUB, fontSize: 13, fontWeight: active ? 700 : 400, textAlign: 'left', transition: 'all 0.15s' }}>
+                            <Icon size={13} color={active ? PRIMARY : SUB} />
+                            {s.label}
+                            {active && <div style={{ marginLeft: 'auto', width: 6, height: 6, borderRadius: '50%', background: PRIMARY }} />}
+                        </button>
+                    );
+                })}
+            </div>
+        </div>
+    );
+    const overviewCard = (
+        <div style={{ ...glass, borderRadius: 16, overflow: 'hidden' }}>
+            <div style={{ padding: '13px 16px', borderBottom: `1px solid ${DIVIDER}`, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <TrendingUp size={14} color={PRIMARY} />
+                <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>Overview</h3>
+            </div>
+            <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 13 }}>
+                {[
+                    { label: 'Total Liked',  value: String(tracks.length), color: TEXT     },
+                    { label: 'Total Plays',  value: fmtNum(totalPlays),     color: PRIMARY  },
+                    { label: 'Top Genre',    value: topGenre,               color: SECONDARY },
+                    { label: 'Showing',      value: search ? `${displayed.length} results` : 'All', color: SUB },
+                ].map(s => (
+                    <div key={s.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: 13, color: SUB }}>{s.label}</span>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: s.color }}>{s.value}</span>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+    const discoverCard = (
+        <div style={{ ...glass, borderRadius: 16, padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <Music size={16} color={PRIMARY} />
+                <span style={{ fontSize: 14, fontWeight: 700 }}>Discover More</span>
+            </div>
+            <p style={{ margin: 0, fontSize: 13, color: SUB, lineHeight: 1.5 }}>
+                Find new tracks to love in the Library or browse by artist.
+            </p>
+            <div style={{ display: 'flex', gap: 8 }}>
+                <Link to="/preview/alt_f_library" style={{ flex: 1, padding: '9px', background: PRIMARY, borderRadius: 8, color: '#fff', fontSize: 12, fontWeight: 700, textDecoration: 'none', textAlign: 'center' }}>
+                    Library
+                </Link>
+                <Link to="/preview/alt_f_artists" style={{ flex: 1, padding: '9px', background: S_CONT, borderRadius: 8, color: TEXT, fontSize: 12, fontWeight: 600, border: `1px solid rgba(255,255,255,0.08)`, textDecoration: 'none', textAlign: 'center' }}>
+                    Artists
+                </Link>
+            </div>
+        </div>
+    );
+    const railTop = (<>{sortCard}{overviewCard}{discoverCard}</>);
+    const railSections: RailSection[] = [
+        { key: 'sort', label: 'Sort', icon: <SortAsc size={20} />, content: sortCard },
+        { key: 'overview', label: 'Overview', icon: <TrendingUp size={20} />, content: overviewCard },
+    ];
+
     return (
         <div style={{ height: '100vh', display: 'flex', overflow: 'hidden', background: BG, color: TEXT, fontFamily: FONT }}>
             <AltSidebar />
@@ -188,72 +256,8 @@ export const FrontpageAltFFavourites: React.FC = () => {
                     </section>
 
                     {/* ── BODY GRID ── */}
-                    <div style={{ maxWidth: 1280, margin: '24px auto 0', padding: '0 32px 40px', display: 'grid', gridTemplateColumns: '280px 1fr', gap: 28, boxSizing: 'border-box' }}>
+                    <div style={{ maxWidth: CONTENT_MAX, margin: '24px auto 0', padding: '0 32px 40px', boxSizing: 'border-box' }}>
 
-                        {/* ── LEFT ── */}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-
-                            {/* Sort */}
-                            <div style={{ ...glass, borderRadius: 20, overflow: 'hidden' }}>
-                                <div style={{ padding: '14px 20px', borderBottom: `1px solid ${DIVIDER}`, display: 'flex', alignItems: 'center', gap: 8 }}>
-                                    <SortAsc size={14} color={PRIMARY} />
-                                    <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>Sort By</h3>
-                                </div>
-                                <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 2 }}>
-                                    {SORTS.map(s => {
-                                        const Icon = s.icon;
-                                        const active = sort === s.key;
-                                        return (
-                                            <button key={s.key} onClick={() => setSort(s.key)} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 12px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: FONT, background: active ? `${PRIMARY}14` : 'transparent', color: active ? PRIMARY : SUB, fontSize: 13, fontWeight: active ? 700 : 400, textAlign: 'left', transition: 'all 0.15s' }}>
-                                                <Icon size={13} color={active ? PRIMARY : SUB} />
-                                                {s.label}
-                                                {active && <div style={{ marginLeft: 'auto', width: 6, height: 6, borderRadius: '50%', background: PRIMARY }} />}
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-
-                            {/* Stats */}
-                            <div style={{ ...glass, borderRadius: 20, overflow: 'hidden' }}>
-                                <div style={{ padding: '14px 20px', borderBottom: `1px solid ${DIVIDER}`, display: 'flex', alignItems: 'center', gap: 8 }}>
-                                    <TrendingUp size={14} color={PRIMARY} />
-                                    <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>Overview</h3>
-                                </div>
-                                <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-                                    {[
-                                        { label: 'Total Liked',  value: String(tracks.length), color: TEXT     },
-                                        { label: 'Total Plays',  value: fmtNum(totalPlays),     color: PRIMARY  },
-                                        { label: 'Top Genre',    value: topGenre,               color: SECONDARY },
-                                        { label: 'Showing',      value: search ? `${displayed.length} results` : 'All', color: SUB },
-                                    ].map(s => (
-                                        <div key={s.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <span style={{ fontSize: 13, color: SUB }}>{s.label}</span>
-                                            <span style={{ fontSize: 13, fontWeight: 700, color: s.color }}>{s.value}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-
-                            {/* Discover more */}
-                            <div style={{ ...glass, borderRadius: 20, padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                    <Music size={16} color={PRIMARY} />
-                                    <span style={{ fontSize: 14, fontWeight: 700 }}>Discover More</span>
-                                </div>
-                                <p style={{ margin: 0, fontSize: 13, color: SUB, lineHeight: 1.5 }}>
-                                    Find new tracks to love in the Library or browse by artist.
-                                </p>
-                                <div style={{ display: 'flex', gap: 8 }}>
-                                    <Link to="/preview/alt_f_library" style={{ flex: 1, padding: '9px', background: PRIMARY, borderRadius: 8, color: '#fff', fontSize: 12, fontWeight: 700, textDecoration: 'none', textAlign: 'center' }}>
-                                        Library
-                                    </Link>
-                                    <Link to="/preview/alt_f_artists" style={{ flex: 1, padding: '9px', background: S_CONT, borderRadius: 8, color: TEXT, fontSize: 12, fontWeight: 600, border: `1px solid rgba(255,255,255,0.08)`, textDecoration: 'none', textAlign: 'center' }}>
-                                        Artists
-                                    </Link>
-                                </div>
-                            </div>
-                        </div>
 
                         {/* ── RIGHT ── */}
                         <div>
@@ -397,7 +401,7 @@ export const FrontpageAltFFavourites: React.FC = () => {
                         </div>
                     </div>
                 </div>
-                <AltActivitySidebar />
+                <AltActivitySidebar topSlot={railTop} railSections={railSections} />
                 </div>
             </main>
         </div>
