@@ -1,18 +1,36 @@
 /**
  * Alt F — Single battle detail page (/preview/alt_f_battle)
  */
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import axios from 'axios';
 import { usePlayer } from '../components/PlayerProvider';
 import { AltSidebar, BG, S_CONT, S_HIGH, PRIMARY, SECONDARY, TERTIARY, TEXT, SUB, BORDER, FONT } from '../components/altshell/AltSidebar';
 import { AltHeader, BreadcrumbItem } from '../components/altshell/AltHeader';
 import { AltActivitySidebar } from '../components/altshell/AltActivitySidebar';
 import { AltSpinner } from '../components/altshell/AltSpinner';
+import { BattleSubmitModal } from '../components/BattleSubmitModal';
 import { appendSponsorRef, trackSponsorClick, trackPromoLinkClick } from '../lib/sponsorUtils';
 import {
     Play, Pause, Clock, Users, Trophy, Music, Star, Download,
-    Tag, ExternalLink, CheckCircle, ChevronRight, Zap, Gift,
+    Tag, ExternalLink, CheckCircle, ChevronRight, Zap, Gift, Shuffle,
 } from 'lucide-react';
+
+// Deterministic shuffle so anonymised submissions keep a stable (but non-ranked)
+// order within a session instead of re-shuffling on every render.
+function seededShuffle<T>(arr: T[], seed: string): T[] {
+    let h = 2166136261;
+    for (let i = 0; i < seed.length; i++) { h ^= seed.charCodeAt(i); h = Math.imul(h, 16777619); }
+    const rng = () => { h += 0x6D2B79F5; let t = h; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+    const a = [...arr];
+    for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+    return a;
+}
+
+// Localised date + time in the viewer's own timezone/locale.
+const fmtDateTime = (d?: string | null) => d
+    ? new Date(d).toLocaleString(undefined, { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' })
+    : '';
+const MEDAL = ['🥇', '🥈', '🥉'];
 
 const fmtNum = (n?: number) => { n = n || 0; if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M'; if (n >= 1e3) return (n / 1e3).toFixed(1) + 'k'; return String(n); };
 function bars(seed: string, n = 30) { let h = 5381; for (let i = 0; i < seed.length; i++) h = (h * 33 ^ seed.charCodeAt(i)) >>> 0; return Array.from({ length: n }, () => { h = (h * 1664525 + 1013904223) >>> 0; return 10 + (h % 90); }); }
@@ -47,29 +65,33 @@ export const FrontpageAltFBattle: React.FC = () => {
     const { player, setTrack } = usePlayer();
     const [battle, setBattle] = useState<any>(null);
     const [loading, setLoading] = useState(true);
-    const [joined, setJoined] = useState(false);
+    const [showSubmit, setShowSubmit] = useState(false);
+    const [leaderboardOpen, setLeaderboardOpen] = useState(false);
     const [countdownStr, setCountdownStr] = useState<string | null>(null);
+    const [voting, setVoting] = useState<string | null>(null);
 
-    useEffect(() => {
-        // Resolve the target battle from the URL. Live route is /battles/:idOrSlug; the
-        // preview URL falls back to ?id= / ?slug=, then the first active battle (demo).
+    // Resolve the target battle from the URL. Live route is /battles/:idOrSlug; the
+    // preview URL falls back to ?id= / ?slug=, then the first active battle (demo).
+    const target = useMemo(() => {
         const pathMatch = window.location.pathname.match(/^\/battles\/([^/]+)\/?$/);
         const sp = new URLSearchParams(window.location.search);
-        const target = pathMatch ? decodeURIComponent(pathMatch[1]) : (sp.get('id') || sp.get('slug') || 'baby-audio-presents');
+        return pathMatch ? decodeURIComponent(pathMatch[1]) : (sp.get('id') || sp.get('slug') || 'baby-audio-presents');
+    }, []);
+
+    const loadBattle = React.useCallback(() => {
         axios.get(`/api/beat-battle/battles/${encodeURIComponent(target)}`).then(r => {
-            setBattle(r.data);
-            setLoading(false);
+            setBattle(r.data); setLoading(false);
         }).catch(() => {
             axios.get('/api/beat-battle/battles').then(r => {
                 const list: any[] = Array.isArray(r.data) ? r.data : r.data?.battles || [];
                 const active = list.find((b: any) => b.status === 'active' || b.status === 'open' || b.status === 'voting') || list[0];
-                if (active?.id) {
-                    return axios.get(`/api/beat-battle/battles/${active.slug || active.id}`).then(r2 => { setBattle(r2.data); setLoading(false); });
-                }
+                if (active?.id) return axios.get(`/api/beat-battle/battles/${active.slug || active.id}`).then(r2 => { setBattle(r2.data); setLoading(false); });
                 setBattle(active); setLoading(false);
             }).catch(() => setLoading(false));
         });
-    }, []);
+    }, [target]);
+
+    useEffect(() => { loadBattle(); }, [loadBattle]);
 
     // Live countdown ticker
     useEffect(() => {
@@ -86,7 +108,23 @@ export const FrontpageAltFBattle: React.FC = () => {
 
     const playingId = player.currentTrack?.id;
     const status = battle ? statusBadge(battle) : null;
-    const entries: any[] = (battle?.entries || []).sort((a: any, b: any) => (b.voteCount || 0) - (a.voteCount || 0));
+
+    // Stage gating — winners are only "announced" (final stage) when the battle is completed.
+    const now = Date.now();
+    const winnersAnnounced = battle?.status === 'completed';
+    const submissionsOpen = !!battle && (battle.submissionEnd ? new Date(battle.submissionEnd).getTime() > now : (battle.status === 'active' || battle.status === 'upcoming'));
+    const votingOpen = !!battle && !winnersAnnounced && !submissionsOpen && (battle.votingEnd ? new Date(battle.votingEnd).getTime() > now : battle.status === 'voting');
+
+    // Entries: ranked by votes ONLY once winners are announced; otherwise a stable
+    // random order with vote counts hidden, so the standings can't influence voting.
+    const rankedEntries: any[] = useMemo(
+        () => [...(battle?.entries || [])].sort((a: any, b: any) => (b.voteCount || 0) - (a.voteCount || 0)),
+        [battle?.entries]
+    );
+    const entries: any[] = useMemo(
+        () => winnersAnnounced ? rankedEntries : seededShuffle(battle?.entries || [], String(battle?.id || 'x')),
+        [battle?.id, battle?.entries, winnersAnnounced, rankedEntries]
+    );
     const rulesArr: any[] = Array.isArray(battle?.rulesData) ? battle.rulesData : [];
     const rules: string[] = rulesArr.length > 0
         ? rulesArr.map((r: any) => r.text).filter(Boolean)
@@ -99,8 +137,18 @@ export const FrontpageAltFBattle: React.FC = () => {
     const mkTrack = (e: any) => ({ id: e.track?.id || e.id, title: e.track?.title || 'Entry', artist: e.track?.profile?.displayName || e.track?.profile?.username || e.track?.artist || 'Unknown', cover: e.track?.coverUrl, url: e.track?.url, profile: e.track?.profile });
     const playEntry = (e: any) => setTrack(mkTrack(e), entries.map(mkTrack));
 
+    const voteEntry = async (entryId: string) => {
+        if (voting) return;
+        setVoting(entryId);
+        try {
+            await axios.post(`/api/beat-battle/entries/${entryId}/vote`, {}, { withCredentials: true });
+            loadBattle();
+        } catch { /* not logged in / already voted / voting closed — silent */ }
+        finally { setVoting(null); }
+    };
+
     const breadcrumb: BreadcrumbItem[] = [
-        { label: 'Battles', to: '/preview/alt_f_battles' },
+        { label: 'Battles', to: '/battles' },
         { label: battle?.title || '…' },
     ];
 
@@ -139,65 +187,75 @@ export const FrontpageAltFBattle: React.FC = () => {
             <h3 style={{ margin: '0 0 16px', fontSize: 15, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Clock size={16} color={SECONDARY} /> Timeline
             </h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                 {[
+                    { label: 'Submissions open', date: battle.submissionStart },
                     { label: 'Submissions close', date: battle.submissionEnd },
-                    { label: 'Voting ends', date: battle.votingEnd },
+                    { label: 'Voting opens', date: battle.votingStart },
+                    { label: 'Winners announced', date: battle.votingEnd },
                 ].filter(t => t.date).map((t, i) => (
-                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13 }}>
-                        <span style={{ color: SUB }}>{t.label}</span>
-                        <span style={{ color: TEXT, fontWeight: 600 }}>{new Date(t.date!).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                    <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                        <span style={{ color: SUB, fontSize: 12 }}>{t.label}</span>
+                        <span style={{ color: TEXT, fontWeight: 600, fontSize: 13 }}>{fmtDateTime(t.date)}</span>
                     </div>
                 ))}
             </div>
         </div>
     ) : null;
 
-    // Top entries podium
-    const podiumSection = battle && entries.length >= 2 ? (
+    // Winners podium — place medals + votes. ONLY shown once winners are announced
+    // (final stage); hidden during voting so the standings can't influence votes.
+    // "View Full Leaderboard" expands from the top 3 to every ranked entry.
+    const winnersSection = battle && winnersAnnounced && rankedEntries.length > 0 ? (
         <div style={{ ...glass, borderRadius: 20, padding: '20px 20px' }}>
-            <h3 style={{ margin: '0 0 16px', fontSize: 15, fontWeight: 700 }}>
-                {status?.label === 'Ended' ? 'Final Podium' : 'Leading Right Now'}
+            <h3 style={{ margin: '0 0 16px', fontSize: 15, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Trophy size={16} color={PRIMARY} /> Winners
             </h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {entries.slice(0, 3).map((e: any, i: number) => {
-                    const placeColor = i === 0 ? PRIMARY : i === 1 ? SECONDARY : TERTIARY;
-                    const avatar = e.track?.profile?.avatar;
-                    const userId = e.track?.profile?.userId;
+                {(leaderboardOpen ? rankedEntries : rankedEntries.slice(0, 3)).map((e: any, i: number) => {
+                    const placeColor = i === 0 ? PRIMARY : i === 1 ? SECONDARY : i === 2 ? TERTIARY : SUB;
+                    const avatar = e.track?.profile?.avatar || e.track?.profile?.avatarUrl;
                     return (
-                        <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', background: S_HIGH, borderRadius: 12, position: 'relative', overflow: 'hidden', borderLeft: `3px solid ${placeColor}` }}>
-                            <span style={{ position: 'absolute', right: 8, bottom: -4, fontSize: 28, fontWeight: 900, color: `${placeColor}18`, fontStyle: 'italic', lineHeight: 1 }}>0{i + 1}</span>
-                            <div style={{ width: 40, height: 40, borderRadius: '50%', overflow: 'hidden', background: S_CONT, flexShrink: 0 }}>
-                                {avatar && userId
-                                    ? <img src={`https://cdn.discordapp.com/avatars/${userId}/${avatar}.png?size=64`} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                    : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Music size={16} color={SUB} /></div>}
+                        <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: S_HIGH, borderRadius: 12, borderLeft: `3px solid ${placeColor}` }}>
+                            <span style={{ width: 24, textAlign: 'center', flexShrink: 0, fontSize: i < 3 ? 20 : 13, fontWeight: 800, color: i < 3 ? undefined : SUB }}>{i < 3 ? MEDAL[i] : i + 1}</span>
+                            <div style={{ width: 36, height: 36, borderRadius: '50%', overflow: 'hidden', background: S_CONT, flexShrink: 0 }}>
+                                {avatar
+                                    ? <img src={avatar} referrerPolicy="no-referrer" alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Music size={15} color={SUB} /></div>}
                             </div>
                             <div style={{ flex: 1, minWidth: 0 }}>
                                 <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: TEXT, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.track?.profile?.displayName || e.track?.profile?.username || 'Unknown'}</p>
-                                <p style={{ margin: '1px 0 0', fontSize: 11, color: SUB, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Track: {e.track?.title || 'Untitled'}</p>
+                                <p style={{ margin: '1px 0 0', fontSize: 11, color: SUB, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.track?.title || 'Untitled'}</p>
+                            </div>
+                            <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                                <p style={{ margin: 0, fontSize: 14, fontWeight: 800, color: placeColor }}>{fmtNum(e.voteCount)}</p>
+                                <p style={{ margin: 0, fontSize: 9, color: SUB, textTransform: 'uppercase', letterSpacing: '0.05em' }}>votes</p>
                             </div>
                         </div>
                     );
                 })}
             </div>
-            <button style={{ width: '100%', marginTop: 14, padding: '8px 0', background: 'none', border: 'none', color: SUB, fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                View Full Leaderboard <ChevronRight size={14} />
-            </button>
+            {rankedEntries.length > 3 && (
+                <button onClick={() => setLeaderboardOpen(o => !o)} style={{ width: '100%', marginTop: 14, padding: '8px 0', background: 'none', border: 'none', color: SUB, fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                    {leaderboardOpen ? 'Show top 3' : `View Full Leaderboard (${rankedEntries.length})`}
+                    <ChevronRight size={14} style={{ transform: leaderboardOpen ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s' }} />
+                </button>
+            )}
         </div>
     ) : null;
 
     const railExtras = battle ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {winnersSection}
             {prizesSection}
             {timelineSection}
-            {podiumSection}
         </div>
     ) : undefined;
 
     const railSections = battle ? [
+        ...(winnersSection ? [{ key: 'winners', label: 'Winners', icon: <Trophy size={20} />, content: winnersSection }] : []),
         { key: 'prizes', label: 'Prizes', icon: <Gift size={20} />, content: prizesSection },
         { key: 'timeline', label: 'Timeline', icon: <Clock size={20} />, content: timelineSection },
-        { key: 'podium', label: 'Podium', icon: <Trophy size={20} />, content: podiumSection },
     ] : undefined;
 
     return (
@@ -236,16 +294,16 @@ export const FrontpageAltFBattle: React.FC = () => {
                                         </div>
                                         <h1 style={{ margin: '0 0 10px', fontSize: 46, fontWeight: 900, color: '#fff', letterSpacing: '-0.03em', lineHeight: 1.05, maxWidth: 720 }}>{battle.title}</h1>
                                         {shortDescription && <p style={{ margin: '0 0 18px', maxWidth: 580, color: 'rgba(223,226,241,0.75)', fontSize: 15, lineHeight: 1.65 }}>{shortDescription}</p>}
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 20, color: SUB, fontSize: 13, marginBottom: status?.label !== 'Ended' ? 20 : 0 }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 20, color: SUB, fontSize: 13, marginBottom: submissionsOpen ? 20 : 0 }}>
                                             <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Users size={14} /> {fmtNum(battle._count?.entries || entries.length)} entries</span>
                                             {Array.isArray(battle.prizes) && battle.prizes.length > 0 && (
                                                 <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Trophy size={14} color={PRIMARY} /> <span style={{ color: PRIMARY, fontWeight: 700 }}>{battle.prizes.length} prize{battle.prizes.length !== 1 ? 's' : ''}</span></span>
                                             )}
                                             {sponsor && <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Zap size={14} color={SECONDARY} /> <span style={{ color: SECONDARY }}>Sponsored by {sponsor.name}</span></span>}
                                         </div>
-                                        {status?.label !== 'Ended' && (
-                                            <button onClick={() => setJoined(j => !j)} style={{ padding: '14px 40px', borderRadius: 14, background: joined ? 'transparent' : PRIMARY, border: joined ? `2px solid ${PRIMARY}` : 'none', color: joined ? PRIMARY : BG, fontWeight: 800, fontSize: 15, cursor: 'pointer', boxShadow: joined ? 'none' : `0 0 32px ${PRIMARY}55`, letterSpacing: '0.02em', transition: 'all 0.2s' }}>
-                                                {joined ? 'Entry Submitted ✓' : 'Join Battle'}
+                                        {submissionsOpen && (
+                                            <button onClick={() => setShowSubmit(true)} style={{ padding: '14px 40px', borderRadius: 14, background: PRIMARY, border: 'none', color: BG, fontWeight: 800, fontSize: 15, cursor: 'pointer', boxShadow: `0 0 32px ${PRIMARY}55`, letterSpacing: '0.02em', transition: 'all 0.2s' }}>
+                                                Enter Battle
                                             </button>
                                         )}
                                     </div>
@@ -364,12 +422,13 @@ export const FrontpageAltFBattle: React.FC = () => {
                                     <section>
                                     <h2 style={{ margin: '0 0 16px', fontSize: 20, fontWeight: 700 }}>Current Submissions</h2>
                                     <div style={{ ...glass, borderRadius: 20, overflow: 'hidden' }}>
-                                        <div style={{ padding: '12px 20px', background: 'rgba(38,42,53,0.5)', borderBottom: `1px solid ${DIVIDER}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <div style={{ padding: '12px 20px', background: 'rgba(38,42,53,0.5)', borderBottom: `1px solid ${DIVIDER}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
                                             <span style={{ fontSize: 13, color: SUB }}>{fmtNum(battle._count?.entries || entries.length)} entries</span>
-                                            <div style={{ display: 'flex', gap: 6 }}>
-                                                <span style={{ padding: '4px 14px', borderRadius: 9999, fontSize: 11, fontWeight: 700, background: S_HIGH, border: `1px solid ${BORDER}`, color: TEXT }}>Hottest</span>
-                                                <span style={{ padding: '4px 14px', borderRadius: 9999, fontSize: 11, fontWeight: 700, background: 'transparent', border: `1px solid ${BORDER}`, color: SUB, cursor: 'pointer' }}>Newest</span>
-                                            </div>
+                                            <span style={{ fontSize: 11, color: SUB, display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                {winnersAnnounced
+                                                    ? <><Trophy size={12} color={PRIMARY} /> Final results — ranked by votes</>
+                                                    : <><Shuffle size={12} color={SECONDARY} /> Random order · votes hidden until winners are announced</>}
+                                            </span>
                                         </div>
                                         {entries.length === 0 ? (
                                             <div style={{ padding: 40, textAlign: 'center', color: SUB, fontSize: 14 }}>No entries yet — be the first!</div>
@@ -402,13 +461,17 @@ export const FrontpageAltFBattle: React.FC = () => {
                                                                     <p style={{ margin: '2px 0 0', fontSize: 12, color: SECONDARY }}>by {artist}</p>
                                                                 </div>
                                                                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0, marginLeft: 12 }}>
-                                                                    <div style={{ textAlign: 'center' }}>
-                                                                        <p style={{ margin: 0, fontSize: 16, fontWeight: 800, color: PRIMARY }}>{fmtNum(e.voteCount)}</p>
-                                                                        <p style={{ margin: 0, fontSize: 10, fontWeight: 700, color: SUB, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Votes</p>
-                                                                    </div>
-                                                                    <button style={{ width: 40, height: 40, borderRadius: 10, background: PRIMARY, color: BG, border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, boxShadow: `0 4px 12px ${PRIMARY}44` }}>
-                                                                        <Star size={17} fill={BG} color={BG} />
-                                                                    </button>
+                                                                    {winnersAnnounced && (
+                                                                        <div style={{ textAlign: 'center' }}>
+                                                                            <p style={{ margin: 0, fontSize: 16, fontWeight: 800, color: PRIMARY }}>{fmtNum(e.voteCount)}</p>
+                                                                            <p style={{ margin: 0, fontSize: 10, fontWeight: 700, color: SUB, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Votes</p>
+                                                                        </div>
+                                                                    )}
+                                                                    {votingOpen && (
+                                                                        <button onClick={() => voteEntry(e.id)} disabled={!!voting} title="Vote for this entry" style={{ width: 40, height: 40, borderRadius: 10, background: PRIMARY, color: BG, border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: voting ? 'default' : 'pointer', opacity: voting && voting !== e.id ? 0.5 : 1, flexShrink: 0, boxShadow: `0 4px 12px ${PRIMARY}44` }}>
+                                                                            <Star size={17} fill={BG} color={BG} />
+                                                                        </button>
+                                                                    )}
                                                                 </div>
                                                             </div>
                                                             {/* Mini waveform */}
@@ -431,9 +494,19 @@ export const FrontpageAltFBattle: React.FC = () => {
                         </>
                     )}
                 </div>
-                <AltActivitySidebar topSlot={railExtras} railSections={railSections} showCommunity={false} />
+                <AltActivitySidebar topSlot={railExtras} railSections={railSections} showCommunity={false}
+                    primaryAction={submissionsOpen ? { label: 'Enter Battle', onClick: () => setShowSubmit(true) } : undefined} />
                 </div>
             </main>
+            {battle && (
+                <BattleSubmitModal
+                    battleId={battle.id}
+                    requireProjectFile={battle.requireProjectFile}
+                    open={showSubmit}
+                    onClose={() => setShowSubmit(false)}
+                    onSubmitted={() => { setShowSubmit(false); loadBattle(); }}
+                />
+            )}
         </div>
     );
 };

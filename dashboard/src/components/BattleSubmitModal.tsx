@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { colors, borderRadius } from '../theme/theme';
-import { X, Upload, Music, Check, Loader2, Library } from 'lucide-react';
+import { X, Upload, Music, Check, Loader2, Library, AlertCircle } from 'lucide-react';
 import { TrackUploadForm } from './TrackUploadForm';
 
 const API = import.meta.env.VITE_API_URL || '';

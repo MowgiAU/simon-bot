@@ -54,7 +54,7 @@ const ArenaTeaser: React.FC = () => {
     );
 };
 
-export const AltActivitySidebar: React.FC<{ topSlot?: React.ReactNode; showCommunity?: boolean; railSections?: RailSection[] }> = ({ topSlot, showCommunity = true, railSections }) => {
+export const AltActivitySidebar: React.FC<{ topSlot?: React.ReactNode; showCommunity?: boolean; railSections?: RailSection[]; primaryAction?: { label: string; onClick: () => void } }> = ({ topSlot, showCommunity = true, railSections, primaryAction }) => {
     const { player } = usePlayer();
     const navigate = useNavigate();
     const [battles, setBattles] = useState<any[]>([]);
@@ -245,7 +245,7 @@ export const AltActivitySidebar: React.FC<{ topSlot?: React.ReactNode; showCommu
     // desktop rail shows.
     if (bp === 'xs') {
         const wedgeItems: PieItem[] = [
-            { key: 'post', label: 'Post', icon: <Plus size={20} />, onClick: () => navigate('/preview/alt_f_create_post') },
+            { key: 'post', label: primaryAction ? primaryAction.label : 'Post', icon: primaryAction ? <Zap size={20} /> : <Plus size={20} />, onClick: primaryAction ? primaryAction.onClick : () => navigate('/preview/alt_f_create_post') },
             ...(railSections && railSections.length > 0
                 ? railSections.map(s => ({ key: s.key, label: s.label, icon: s.icon, onClick: () => setMobileSheet({ title: s.label, content: s.content }) }))
                 : topSlot ? [{ key: 'page', label: 'Page', icon: <Layers size={20} />, onClick: () => setMobileSheet({ title: 'Page', content: topSlot }) }] : []),
@@ -297,12 +297,19 @@ export const AltActivitySidebar: React.FC<{ topSlot?: React.ReactNode; showCommu
                 </button>
             </div>
 
-            {/* Create Post */}
+            {/* Primary action — page-specific override (e.g. "Enter Battle") or default "Create Post" */}
             <div style={{ padding: '12px 16px', borderBottom: `1px solid ${BORDER}`, flexShrink: 0 }}>
-                <Link to="/preview/alt_f_create_post"
-                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, width: '100%', padding: '9px 0', background: PRIMARY, borderRadius: 9, color: '#fff', textDecoration: 'none', fontSize: 13, fontWeight: 800, letterSpacing: '0.01em', boxSizing: 'border-box' }}>
-                    <Plus size={15} /> Create Post
-                </Link>
+                {primaryAction ? (
+                    <button onClick={primaryAction.onClick}
+                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, width: '100%', padding: '9px 0', background: PRIMARY, border: 'none', borderRadius: 9, color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 800, letterSpacing: '0.01em', boxSizing: 'border-box', fontFamily: FONT }}>
+                        <Zap size={15} /> {primaryAction.label}
+                    </button>
+                ) : (
+                    <Link to="/preview/alt_f_create_post"
+                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, width: '100%', padding: '9px 0', background: PRIMARY, borderRadius: 9, color: '#fff', textDecoration: 'none', fontSize: 13, fontWeight: 800, letterSpacing: '0.01em', boxSizing: 'border-box' }}>
+                        <Plus size={15} /> Create Post
+                    </Link>
+                )}
             </div>
 
             {/* Content — scrollable */}
