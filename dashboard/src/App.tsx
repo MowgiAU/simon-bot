@@ -43,7 +43,6 @@ const StagingTest            = lazy(() => import("./pages/StagingTest").then(m =
 const PluginManagementPage   = lazy(() => import("./pages/PluginManagement").then(m => ({ default: m.PluginManagementPage })));
 const PluginRegistryPage     = lazy(() => import("./pages/PluginRegistry").then(m => ({ default: m.PluginRegistry })));
 const ArtistDiscoveryPage    = lazy(() => import("./pages/ArtistDiscovery").then(m => ({ default: m.ArtistDiscoveryPage })));
-const ArtistsPage            = lazy(() => import("./pages/ArtistsPage").then(m => ({ default: m.ArtistsPage })));
 const GenresPage             = lazy(() => import("./pages/GenresPage").then(m => ({ default: m.GenresPage })));
 const AntiPiracySettingsPage = lazy(() => import("./pages/AntiPiracySettings").then(m => ({ default: m.AntiPiracySettings })));
 const LevelingSettingsPage   = lazy(() => import("./pages/LevelingSettings").then(m => ({ default: m.LevelingSettings })));
@@ -52,21 +51,14 @@ const FeaturesPage           = lazy(() => import("./pages/FeaturesPage").then(m 
 const DownloadPage           = lazy(() => import("./pages/DownloadPage").then(m => ({ default: m.DownloadPage })));
 const OAuthDevicePage        = lazy(() => import("./pages/OAuthDevicePage").then(m => ({ default: m.OAuthDevicePage })));
 const CategoryResultsPage    = lazy(() => import("./pages/CategoryResultsPage").then(m => ({ default: m.CategoryResultsPage })));
-const FujiStudio             = lazy(() => import("./pages/FujiStudio").then(m => ({ default: m.FujiStudio })));
 const LibrarySettings        = lazy(() => import("./pages/LibrarySettings").then(m => ({ default: m.LibrarySettings })));
 const BeatBattlePage         = lazy(() => import("./pages/BeatBattle").then(m => ({ default: m.BeatBattlePage })));
 const HeadToHeadAdminPage    = lazy(() => import("./pages/HeadToHead").then(m => ({ default: m.HeadToHeadAdminPage })));
 const HeadToHeadArenaPage    = lazy(() => import("./pages/HeadToHeadArena").then(m => ({ default: m.HeadToHeadArenaPage })));
 const BattleArchivePage      = lazy(() => import("./pages/BattleArchive").then(m => ({ default: m.BattleArchivePage })));
-const BattlesPage            = lazy(() => import("./pages/BattlesPage").then(m => ({ default: m.BattlesPage })));
 const BattleEntryPage        = lazy(() => import("./pages/BattleEntryPage").then(m => ({ default: m.BattleEntryPage })));
 const BattleDetailPage       = lazy(() => import("./pages/BattleDetailPage").then(m => ({ default: m.BattleDetailPage })));
 const ProjectCleanupGuide    = lazy(() => import("./pages/ProjectCleanupGuide").then(m => ({ default: m.ProjectCleanupGuide })));
-const PlaylistPage           = lazy(() => import("./pages/PlaylistPage").then(m => ({ default: m.PlaylistPage })));
-const MyPlaylistsPage        = lazy(() => import("./pages/MyPlaylistsPage").then(m => ({ default: m.MyPlaylistsPage })));
-const MyFavouritesPage       = lazy(() => import("./pages/MyFavouritesPage").then(m => ({ default: m.MyFavouritesPage })));
-const FeedPage               = lazy(() => import("./pages/FeedPage").then(m => ({ default: m.FeedPage })));
-const ChartsPage             = lazy(() => import("./pages/ChartsPage").then(m => ({ default: m.ChartsPage })));
 const LatestReleasesPage     = lazy(() => import("./pages/LatestReleasesPage").then(m => ({ default: m.LatestReleasesPage })));
 const AccountSettingsPage    = lazy(() => import("./pages/AccountSettingsPage").then(m => ({ default: m.AccountSettingsPage })));
 const AcademyPage            = lazy(() => import("./pages/Academy").then(m => ({ default: m.AcademyPage })));
@@ -97,7 +89,6 @@ const FrontpageAltFTrack     = lazy(() => import("./pages/FrontpageAltFTrack").t
 const FrontpageAltFBattle    = lazy(() => import("./pages/FrontpageAltFBattle").then(m => ({ default: m.FrontpageAltFBattle })));
 const FrontpageAltFBattles   = lazy(() => import("./pages/FrontpageAltFBattles").then(m => ({ default: m.FrontpageAltFBattles })));
 const FrontpageAltFArtists   = lazy(() => import("./pages/FrontpageAltFArtists").then(m => ({ default: m.FrontpageAltFArtists })));
-const FrontpageAltFIndex     = lazy(() => import("./pages/FrontpageAltFIndex").then(m => ({ default: m.FrontpageAltFIndex })));
 const FrontpageAltFFeed      = lazy(() => import("./pages/FrontpageAltFFeed").then(m => ({ default: m.FrontpageAltFFeed })));
 const FrontpageAltFLibrary   = lazy(() => import("./pages/FrontpageAltFLibrary").then(m => ({ default: m.FrontpageAltFLibrary })));
 const FrontpageAltFMessages  = lazy(() => import("./pages/FrontpageAltFMessages").then(m => ({ default: m.FrontpageAltFMessages })));
@@ -138,15 +129,12 @@ const AdminToolsPage         = lazy(() => import("./pages/AdminTools").then(m =>
 const ActivityLogsPage       = lazy(() => import("./pages/ActivityLogs").then(m => ({ default: m.ActivityLogsPage })));
 const ArticlesPage           = lazy(() => import("./pages/Articles").then(m => ({ default: m.ArticlesPage })));
 const ArticleReviewPage      = lazy(() => import("./pages/ArticleReview").then(m => ({ default: m.ArticleReviewPage })));
-const ArticlePage            = lazy(() => import("./pages/ArticlePage").then(m => ({ default: m.ArticlePage })));
-const ArticlesArchivePage    = lazy(() => import("./pages/ArticlesArchivePage").then(m => ({ default: m.ArticlesArchivePage })));
 const WritingStudio          = lazy(() => import("./pages/WritingStudio").then(m => ({ default: m.WritingStudio })));
 const ProgressionPage        = lazy(() => import("./pages/Progression").then(m => ({ default: m.ProgressionPage })));
 const MessagesPage           = lazy(() => import("./pages/Messages").then(m => ({ default: m.MessagesPage })));
 const SetupPasswordModal     = lazy(() => import("./components/SetupPasswordModal").then(m => ({ default: m.SetupPasswordModal })));
 const UniversalSearch        = lazy(() => import("./components/UniversalSearch").then(m => ({ default: m.UniversalSearch })));
 const NotificationMenu       = lazy(() => import("./components/NotificationMenu").then(m => ({ default: m.NotificationMenu })));
-const LearnPage              = lazy(() => import("./pages/LearnPage").then(m => ({ default: m.LearnPage })));
 const DrumKitGeneratorPage   = lazy(() => import("./pages/DrumKitGenerator").then(m => ({ default: m.DrumKitGeneratorPage })));
 const ProjectListPage        = lazy(() => import("./pages/ProjectListPage").then(m => ({ default: m.ProjectListPage })));
 const ProjectDetailPage      = lazy(() => import("./pages/ProjectDetailPage").then(m => ({ default: m.ProjectDetailPage })));
@@ -960,90 +948,6 @@ const AppInternal: React.FC = () => {
   if (currentPath === '/preview/alt_e') {
     return <Suspense fallback={<PageSpinner />}><FrontpageNeon /></Suspense>;
   }
-  // ACTIVE CANDIDATE — Alt F desktop suite (Spotify-style sidebar+header shell)
-  // Shell: components/altshell/AltSidebar.tsx + AltHeader.tsx
-  if (currentPath === '/preview/alt_f') {
-    return <Suspense fallback={<PageSpinner />}><FrontpageAltF /></Suspense>;
-  }
-  if (currentPath === '/preview/alt_f_artist') {
-    return <Suspense fallback={<PageSpinner />}><FrontpageAltFArtist /></Suspense>;
-  }
-  if (currentPath === '/preview/alt_f_charts') {
-    return <Suspense fallback={<PageSpinner />}><FrontpageAltFCharts /></Suspense>;
-  }
-  if (currentPath === '/preview/alt_f_track') {
-    return <Suspense fallback={<PageSpinner />}><FrontpageAltFTrack /></Suspense>;
-  }
-  if (currentPath === '/preview/alt_f_battle') {
-    return <Suspense fallback={<PageSpinner />}><FrontpageAltFBattle /></Suspense>;
-  }
-  if (currentPath === '/preview/alt_f_battles') {
-    return <Suspense fallback={<PageSpinner />}><FrontpageAltFBattles /></Suspense>;
-  }
-  if (currentPath === '/preview/alt_f_artists') {
-    return <Suspense fallback={<PageSpinner />}><FrontpageAltFArtists /></Suspense>;
-  }
-  if (currentPath === '/preview/alt_f_index') {
-    return <Suspense fallback={<PageSpinner />}><FrontpageAltFIndex /></Suspense>;
-  }
-  if (currentPath === '/preview/alt_f_feed') {
-    return <Suspense fallback={<PageSpinner />}><FrontpageAltFFeed /></Suspense>;
-  }
-  if (currentPath === '/preview/alt_f_library') {
-    return <Suspense fallback={<PageSpinner />}><FrontpageAltFLibrary /></Suspense>;
-  }
-  if (currentPath === '/preview/alt_f_messages') {
-    return <Suspense fallback={<PageSpinner />}><FrontpageAltFMessages /></Suspense>;
-  }
-  if (currentPath === '/preview/alt_f_articles') {
-    return <Suspense fallback={<PageSpinner />}><FrontpageAltFArticles /></Suspense>;
-  }
-  if (currentPath === '/preview/alt_f_article') {
-    return <Suspense fallback={<PageSpinner />}><FrontpageAltFArticle /></Suspense>;
-  }
-  if (currentPath === '/preview/alt_f_my_playlists') {
-    return <Suspense fallback={<PageSpinner />}><FrontpageAltFMyPlaylists /></Suspense>;
-  }
-  if (currentPath === '/preview/alt_f_playlist') {
-    return <Suspense fallback={<PageSpinner />}><FrontpageAltFPlaylist /></Suspense>;
-  }
-  if (currentPath === '/preview/alt_f_my_tracks') {
-    return <Suspense fallback={<PageSpinner />}><FrontpageAltFMyTracks /></Suspense>;
-  }
-  if (currentPath === '/preview/alt_f_favourites') {
-    return <Suspense fallback={<PageSpinner />}><FrontpageAltFFavourites /></Suspense>;
-  }
-  if (currentPath === '/preview/alt_f_create_post') {
-    return <Suspense fallback={<PageSpinner />}><FrontpageAltFCreatePost /></Suspense>;
-  }
-  if (currentPath.startsWith('/preview/alt_f_genres')) {
-    return <Suspense fallback={<PageSpinner />}><FrontpageAltFGenres /></Suspense>;
-  }
-  if (currentPath.startsWith('/preview/alt_f_genre_post')) {
-    return <Suspense fallback={<PageSpinner />}><FrontpageAltFGenrePost /></Suspense>;
-  }
-  if (currentPath === '/preview/alt_f_arena') {
-    return <Suspense fallback={<PageSpinner />}><FrontpageAltFArena /></Suspense>;
-  }
-  if (currentPath === '/contact') {
-    return <Suspense fallback={<PageSpinner />}><FrontpageAltFContact /></Suspense>;
-  }
-  if (currentPath === '/preview/alt_f_learn') {
-    return <Suspense fallback={<PageSpinner />}><FrontpageAltFLearn /></Suspense>;
-  }
-  if (currentPath === '/preview/alt_f_collabs') {
-    return <Suspense fallback={<PageSpinner />}><FrontpageAltFCollabs /></Suspense>;
-  }
-  if (currentPath === '/preview/alt_f_collab_callout') {
-    return <Suspense fallback={<PageSpinner />}><FrontpageAltFCollabCallout /></Suspense>;
-  }
-  if (currentPath === '/preview/alt_f_collab_workspace') {
-    return <Suspense fallback={<PageSpinner />}><FrontpageAltFCollabWorkspace /></Suspense>;
-  }
-  if (currentPath === '/preview/alt_f_my_collabs') {
-    return <Suspense fallback={<PageSpinner />}><FrontpageAltFMyCollabs /></Suspense>;
-  }
-
   // ── Collabs (live) — detail pages read ?id= from the query string ──
   if (currentPath === '/my-collabs') {
     return <Suspense fallback={<PageSpinner />}><FrontpageAltFMyCollabs /></Suspense>;
