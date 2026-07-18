@@ -35,7 +35,7 @@ const ArenaTeaser: React.FC = () => {
     if (!summary || (summary.waiting === 0 && summary.inMatch === 0)) return null;
     const hot = summary.waiting > 0;
     return (
-        <Link to="/preview/alt_f_arena" style={{ display: 'block', textDecoration: 'none', marginBottom: 18 }}>
+        <Link to="/arena" style={{ display: 'block', textDecoration: 'none', marginBottom: 18 }}>
             <div style={{ borderRadius: 14, padding: '12px 14px', background: hot ? 'linear-gradient(135deg, rgba(255,103,121,0.15), rgba(242,120,10,0.08))' : S_CONT, border: `1px solid ${hot ? 'rgba(255,103,121,0.3)' : BORDER}`, display: 'flex', alignItems: 'center', gap: 10 }}>
                 <div style={{ width: 32, height: 32, borderRadius: 9, background: `${TERTIARY}22`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                     <Zap size={16} color={TERTIARY} />
@@ -109,7 +109,7 @@ export const AltActivitySidebar: React.FC<{ topSlot?: React.ReactNode; showCommu
                         <Swords size={14} color={TERTIARY} />
                         <span style={{ fontSize: 10, color: SUB, textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700 }}>Battles</span>
                     </div>
-                    <Link to="/preview/alt_f_battles" style={{ fontSize: 10, color: PRIMARY, fontWeight: 700, textDecoration: 'none', fontFamily: FONT }}>More →</Link>
+                    <Link to="/battles" style={{ fontSize: 10, color: PRIMARY, fontWeight: 700, textDecoration: 'none', fontFamily: FONT }}>More →</Link>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                     {battles.map((b: any) => {
@@ -144,10 +144,10 @@ export const AltActivitySidebar: React.FC<{ topSlot?: React.ReactNode; showCommu
                         <Newspaper size={14} color={SECONDARY} />
                         <span style={{ fontSize: 10, color: SUB, textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700 }}>Latest News</span>
                     </div>
-                    <Link to="/preview/alt_f_articles" style={{ fontSize: 10, color: PRIMARY, fontWeight: 700, textDecoration: 'none', fontFamily: FONT }}>More →</Link>
+                    <Link to="/articles" style={{ fontSize: 10, color: PRIMARY, fontWeight: 700, textDecoration: 'none', fontFamily: FONT }}>More →</Link>
                 </div>
                 <Link
-                    to="/preview/alt_f_article"
+                    to={latestArticle.slug ? `/article/${latestArticle.slug}` : '/articles'}
                     style={{ display: 'block', borderRadius: 12, overflow: 'hidden', textDecoration: 'none', color: 'inherit', background: 'rgba(15,19,29,0.7)', border: '1px solid rgba(255,255,255,0.1)', backdropFilter: 'blur(20px)', transition: 'border-color 0.2s' }}
                     onMouseEnter={ev => (ev.currentTarget.style.borderColor = `${PRIMARY}66`)}
                     onMouseLeave={ev => (ev.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)')}

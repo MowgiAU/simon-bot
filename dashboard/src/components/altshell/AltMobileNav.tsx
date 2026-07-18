@@ -13,22 +13,22 @@ import { RadialPieMenu, PieItem } from './RadialPieMenu';
 export const MOBILE_NAV_HEIGHT = 60;
 
 const TABS: { label: string; icon: typeof Home; to: string }[] = [
-    { label: 'Home',    icon: Home,      to: '/preview/alt_f' },
-    { label: 'Search',  icon: Search,    to: '/preview/alt_f_library' },
-    { label: 'Charts',  icon: BarChart3, to: '/preview/alt_f_charts' },
-    { label: 'Battles', icon: Swords,    to: '/preview/alt_f_battles' },
+    { label: 'Home',    icon: Home,      to: '/' },
+    { label: 'Search',  icon: Search,    to: '/library' },
+    { label: 'Charts',  icon: BarChart3, to: '/charts' },
+    { label: 'Battles', icon: Swords,    to: '/battles' },
     { label: 'Genres',  icon: Tag,       to: '/preview/alt_f_genres' },
 ];
 
 // Full primary nav for the "More" pie menu — same 8 destinations as the desktop AltSidebar.
 const PIE_NAV: { key: string; label: string; icon: React.ReactNode; to: string }[] = [
-    { key: 'Home',    label: 'Home',    icon: <Home size={20} />,      to: '/preview/alt_f' },
-    { key: 'Search',  label: 'Search',  icon: <Search size={20} />,    to: '/preview/alt_f_library' },
-    { key: 'Artists', label: 'Artists', icon: <User size={20} />,      to: '/preview/alt_f_artists' },
-    { key: 'News',    label: 'News',    icon: <Newspaper size={20} />, to: '/preview/alt_f_articles' },
-    { key: 'Charts',  label: 'Charts',  icon: <BarChart3 size={20} />, to: '/preview/alt_f_charts' },
-    { key: 'Battles', label: 'Battles', icon: <Swords size={20} />,    to: '/preview/alt_f_battles' },
-    { key: 'Arena',   label: 'Arena',   icon: <Zap size={20} />,       to: '/preview/alt_f_arena' },
+    { key: 'Home',    label: 'Home',    icon: <Home size={20} />,      to: '/' },
+    { key: 'Search',  label: 'Search',  icon: <Search size={20} />,    to: '/library' },
+    { key: 'Artists', label: 'Artists', icon: <User size={20} />,      to: '/artists' },
+    { key: 'News',    label: 'News',    icon: <Newspaper size={20} />, to: '/articles' },
+    { key: 'Charts',  label: 'Charts',  icon: <BarChart3 size={20} />, to: '/charts' },
+    { key: 'Battles', label: 'Battles', icon: <Swords size={20} />,    to: '/battles' },
+    { key: 'Arena',   label: 'Arena',   icon: <Zap size={20} />,       to: '/arena' },
     { key: 'Genres',  label: 'Genres',  icon: <Tag size={20} />,       to: '/preview/alt_f_genres' },
     { key: 'Collabs', label: 'Collabs', icon: <Users size={20} />,     to: '/preview/alt_f_collabs' },
 ];

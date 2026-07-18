@@ -228,7 +228,7 @@ export const FrontpageAltFBattles: React.FC = () => {
                                             </div>
                                             <div style={{ width: 1, height: 48, background: 'rgba(87,66,54,0.5)' }} />
                                             <div style={{ padding: '0 0 0 28px' }}>
-                                                <Link to="/preview/alt_f_battle" style={{ padding: '14px 36px', borderRadius: 12, background: PRIMARY, color: '#fff', fontWeight: 800, fontSize: 15, boxShadow: `0 0 24px ${PRIMARY}55`, letterSpacing: '-0.01em', textDecoration: 'none', display: 'inline-block' }}>
+                                                <Link to={`/battles/${featured.slug || featured.id}`} style={{ padding: '14px 36px', borderRadius: 12, background: PRIMARY, color: '#fff', fontWeight: 800, fontSize: 15, boxShadow: `0 0 24px ${PRIMARY}55`, letterSpacing: '-0.01em', textDecoration: 'none', display: 'inline-block' }}>
                                                     Join Battle
                                                 </Link>
                                             </div>
@@ -291,7 +291,7 @@ export const FrontpageAltFBattles: React.FC = () => {
                                                     const desc = b.description ? stripHtml(b.description) : '';
                                                     const genres: string[] = (b.genres || []).map((g: any) => typeof g === 'string' ? g : g.name || g.genre?.name).filter(Boolean);
                                                     return (
-                                                        <Link key={b.id} to="/preview/alt_f_battle"
+                                                        <Link key={b.id} to={`/battles/${b.slug || b.id}`}
                                                             style={{ ...glass, borderRadius: 20, overflow: 'hidden', transition: 'border-color 0.2s, transform 0.15s', display: 'flex', flexDirection: 'column', border: '1px solid rgba(255,255,255,0.1)', textDecoration: 'none', color: 'inherit' }}
                                                             onMouseEnter={ev => { (ev.currentTarget as HTMLElement).style.borderColor = `${PRIMARY}66`; (ev.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'; }}
                                                             onMouseLeave={ev => { (ev.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.1)'; (ev.currentTarget as HTMLElement).style.transform = 'translateY(0)'; }}>
@@ -358,7 +358,7 @@ export const FrontpageAltFBattles: React.FC = () => {
                                                     const winnerColor = [PRIMARY, SECONDARY, '#A78BFA'][i % 3];
                                                     const prize = formatPrize(b);
                                                     return (
-                                                        <Link key={b.id} to="/preview/alt_f_battle"
+                                                        <Link key={b.id} to={`/battles/${b.slug || b.id}`}
                                                             style={{ display: 'grid', gridTemplateColumns: '1fr 180px 100px 48px', padding: '14px 24px', alignItems: 'center', borderBottom: i < Math.min(archive.length, 12) - 1 ? `1px solid ${DIVIDER}` : 'none', transition: 'background 0.15s', textDecoration: 'none', color: 'inherit' }}
                                                             onMouseEnter={ev => ((ev.currentTarget as HTMLElement).style.background = 'rgba(38,42,53,0.4)')}
                                                             onMouseLeave={ev => ((ev.currentTarget as HTMLElement).style.background = 'transparent')}>

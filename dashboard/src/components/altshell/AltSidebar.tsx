@@ -25,13 +25,14 @@ export const CONTENT_MAX = 1280;
 export const arr = (d: any): any[] => Array.isArray(d) ? d : (d?.tracks || d?.profiles || d?.battles || d?.entries || d?.playlists || d?.data || []);
 
 const NAV = [
-    { icon: Home,      label: 'Home',    to: '/preview/alt_f' },
-    { icon: Search,    label: 'Search',  to: '/preview/alt_f_library' },
-    { icon: User,      label: 'Artists', to: '/preview/alt_f_artists' },
-    { icon: Newspaper, label: 'News',    to: '/preview/alt_f_articles' },
-    { icon: BarChart3, label: 'Charts',  to: '/preview/alt_f_charts' },
-    { icon: Swords,    label: 'Battles', to: '/preview/alt_f_battles' },
-    { icon: Zap,       label: 'Arena',   to: '/preview/alt_f_arena' },
+    { icon: Home,      label: 'Home',    to: '/' },
+    { icon: Search,    label: 'Search',  to: '/library' },
+    { icon: User,      label: 'Artists', to: '/artists' },
+    { icon: Newspaper, label: 'News',    to: '/articles' },
+    { icon: BarChart3, label: 'Charts',  to: '/charts' },
+    { icon: Swords,    label: 'Battles', to: '/battles' },
+    { icon: Zap,       label: 'Arena',   to: '/arena' },
+    // Genres + Collabs stay on /preview until their live routes are migrated (later stage).
     { icon: Tag,       label: 'Genres',  to: '/preview/alt_f_genres' },
     { icon: Users,     label: 'Collabs', to: '/preview/alt_f_collabs' },
 ];
@@ -239,7 +240,7 @@ export const AltSidebar: React.FC<{ active?: string }> = ({ active }) => {
                         <span style={{ fontSize: 10, color: SUB, textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700, display: 'block', marginBottom: 8 }}>Your Playlists</span>
                         <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 4 }}>
                             {playlists.map((pl: any) => (
-                                <li key={pl.id}><Link to={`/preview/alt_f_playlist?id=${pl.id}`} style={{ display: 'block', padding: '4px 8px', color: SUB, fontSize: 14, textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pl.name || pl.title}</Link></li>
+                                <li key={pl.id}><Link to={`/playlist/${pl.id}`} style={{ display: 'block', padding: '4px 8px', color: SUB, fontSize: 14, textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pl.name || pl.title}</Link></li>
                             ))}
                         </ul>
                     </div>

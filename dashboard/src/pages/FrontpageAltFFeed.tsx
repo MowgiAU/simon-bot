@@ -131,7 +131,7 @@ function ActivityCard({ item, onPlay, isPlaying }: { item: any; onPlay: (item: a
             {/* Track preview body */}
             {isTrack && item.target && (
                 <Link
-                    to="/preview/alt_f_track"
+                    to={item.target?.slug && item.target?.profile?.username ? `/profile/${item.target.profile.username}/${item.target.slug}` : '/library'}
                     style={{ padding: '12px 20px 14px', display: 'flex', alignItems: 'center', gap: 14, textDecoration: 'none', color: 'inherit' }}
                 >
                     {item.target.coverUrl && (
@@ -157,7 +157,7 @@ function ActivityCard({ item, onPlay, isPlaying }: { item: any; onPlay: (item: a
                 <div style={{ padding: '10px 20px 14px', display: 'flex', alignItems: 'center', gap: 12 }}>
                     <Swords size={14} color={TERTIARY} />
                     <span style={{ fontSize: 13, color: SUB }}>Submitted to a battle — </span>
-                    <Link to="/preview/alt_f_battle" style={{ fontSize: 13, color: TERTIARY, fontWeight: 700, textDecoration: 'none' }}>View Battle →</Link>
+                    <Link to={item.target?.battleSlug || item.target?.battleId ? `/battles/${item.target.battleSlug || item.target.battleId}` : '/battles'} style={{ fontSize: 13, color: TERTIARY, fontWeight: 700, textDecoration: 'none' }}>View Battle →</Link>
                 </div>
             )}
 
@@ -202,7 +202,7 @@ function TrackFeedCard({ track, onPlay, isPlaying }: { track: any; onPlay: (t: a
 
                     {/* Track preview */}
                     <Link
-                        to="/preview/alt_f_track"
+                        to={track.slug && track.profile?.username ? `/profile/${track.profile.username}/${track.slug}` : '/library'}
                         style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', textDecoration: 'none', color: 'inherit' }}
                     >
                         {track.coverUrl && (
@@ -492,7 +492,7 @@ export const FrontpageAltFFeed: React.FC = () => {
                     const trackId = t.id || t.track?.id;
                     const isPlaying = isCurrentlyPlaying(trackId);
                     return (
-                        <Link key={trackId || i} to="/preview/alt_f_track"
+                        <Link key={trackId || i} to={(t.slug || t.track?.slug) && t.profile?.username ? `/profile/${t.profile.username}/${t.slug || t.track?.slug}` : '/library'}
                             style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 16px', transition: 'background 0.15s', textDecoration: 'none', color: 'inherit' }}
                             onMouseEnter={ev => ((ev.currentTarget as HTMLElement).style.background = 'rgba(38,42,53,0.4)')}
                             onMouseLeave={ev => ((ev.currentTarget as HTMLElement).style.background = 'transparent')}>

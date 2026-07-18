@@ -920,7 +920,7 @@ const AppInternal: React.FC = () => {
 
   // /my-tracks → Track management page
   if (currentPath === '/my-tracks') {
-    return <Suspense fallback={<PageSpinner />}><MyTracksPage /></Suspense>;
+    return <Suspense fallback={<PageSpinner />}><FrontpageAltFMyTracks /></Suspense>;
   }
 
   // /profile → Musician profile (hub or public view)
@@ -928,14 +928,14 @@ const AppInternal: React.FC = () => {
     // Check if it's /profile/:username/:trackSlug
     const parts = currentPath.split('/').filter(Boolean); // [profile, username, trackSlug?]
     if (parts.length >= 3) {
-      return <Suspense fallback={<PageSpinner />}><TrackPage /></Suspense>;
+      return <Suspense fallback={<PageSpinner />}><FrontpageAltFTrack /></Suspense>;
     }
-    return <Suspense fallback={<PageSpinner />}><MusicianProfilePage /></Suspense>;
+    return <Suspense fallback={<PageSpinner />}><FrontpageAltFArtist /></Suspense>;
   }
 
   // /track → Direct track link (alias for /profile/:user/:track)
   if (currentPath.startsWith('/track')) {
-    return <Suspense fallback={<PageSpinner />}><TrackPage /></Suspense>;
+    return <Suspense fallback={<PageSpinner />}><FrontpageAltFTrack /></Suspense>;
   }
 
   // ── Design Candidates — not linked from nav, accessible by direct URL only ──
@@ -1060,17 +1060,17 @@ const AppInternal: React.FC = () => {
 
   // Artist Discovery homepage
   if (currentPath === '/') {
-    return <Suspense fallback={<PageSpinner />}><ArtistDiscoveryPage /></Suspense>;
+    return <Suspense fallback={<PageSpinner />}><FrontpageAltF /></Suspense>;
   }
 
   // /artists → Full artists list
   if (currentPath === '/artists') {
-    return <Suspense fallback={<PageSpinner />}><ArtistsPage /></Suspense>;
+    return <Suspense fallback={<PageSpinner />}><FrontpageAltFArtists /></Suspense>;
   }
 
   // /library → Browse all tracks
   if (currentPath === '/library') {
-    return <Suspense fallback={<PageSpinner />}><FujiStudio /></Suspense>;
+    return <Suspense fallback={<PageSpinner />}><FrontpageAltFLibrary /></Suspense>;
   }
 
   // /genres → All Genres page
@@ -1147,22 +1147,22 @@ const AppInternal: React.FC = () => {
 
   // /playlist/:id → View a playlist
   if (currentPath.startsWith('/playlist/')) {
-    return <Suspense fallback={<PageSpinner />}><PlaylistPage /></Suspense>;
+    return <Suspense fallback={<PageSpinner />}><FrontpageAltFPlaylist /></Suspense>;
   }
 
   // /my-favourites → User's favourited tracks
   if (currentPath === '/my-favourites') {
-    return <Suspense fallback={<PageSpinner />}><MyFavouritesPage /></Suspense>;
+    return <Suspense fallback={<PageSpinner />}><FrontpageAltFFavourites /></Suspense>;
   }
 
   // /feed → Subscription feed from followed artists
   if (currentPath === '/feed') {
-    return <Suspense fallback={<PageSpinner />}><FeedPage /></Suspense>;
+    return <Suspense fallback={<PageSpinner />}><FrontpageAltFFeed /></Suspense>;
   }
 
   // /messages → Private messaging
   if (currentPath === '/messages') {
-    return <Suspense fallback={<PageSpinner />}><MessagesPage /></Suspense>;
+    return <Suspense fallback={<PageSpinner />}><FrontpageAltFMessages /></Suspense>;
   }
 
   // /projects → Project sync management
@@ -1178,12 +1178,12 @@ const AppInternal: React.FC = () => {
 
   // /my-playlists → User's playlists
   if (currentPath === '/my-playlists') {
-    return <Suspense fallback={<PageSpinner />}><MyPlaylistsPage /></Suspense>;
+    return <Suspense fallback={<PageSpinner />}><FrontpageAltFMyPlaylists /></Suspense>;
   }
 
   // /charts → Music charts page
   if (currentPath === '/charts') {
-    return <Suspense fallback={<PageSpinner />}><ChartsPage /></Suspense>;
+    return <Suspense fallback={<PageSpinner />}><FrontpageAltFCharts /></Suspense>;
   }
 
   // /new → Latest releases page
@@ -1198,17 +1198,17 @@ const AppInternal: React.FC = () => {
 
   // /battles/:battleId → Individual battle detail page
   if (currentPath.startsWith('/battles/') && !currentPath.startsWith('/battles/entry/')) {
-    return <Suspense fallback={<PageSpinner />}><BattleDetailPage /></Suspense>;
+    return <Suspense fallback={<PageSpinner />}><FrontpageAltFBattle /></Suspense>;
   }
 
   // /battles → Public Beat Battles page
   if (currentPath === '/battles') {
-    return <Suspense fallback={<PageSpinner />}><BattlesPage /></Suspense>;
+    return <Suspense fallback={<PageSpinner />}><FrontpageAltFBattles /></Suspense>;
   }
 
   // /arena → Public Head-to-Head arena (formerly /h2h)
   if (currentPath === '/arena' || currentPath.startsWith('/arena/')) {
-    return <Suspense fallback={<PageSpinner />}><HeadToHeadArenaPage /></Suspense>;
+    return <Suspense fallback={<PageSpinner />}><FrontpageAltFArena /></Suspense>;
   }
   // Legacy /h2h redirect
   if (currentPath === '/h2h' || currentPath.startsWith('/h2h/')) {
@@ -1220,15 +1220,15 @@ const AppInternal: React.FC = () => {
 
   // /article/:slug → Public article view
   if (currentPath === '/articles') {
-    return <Suspense fallback={<PageSpinner />}><ArticlesArchivePage /></Suspense>;
+    return <Suspense fallback={<PageSpinner />}><FrontpageAltFArticles /></Suspense>;
   }
   if (currentPath.startsWith('/article/')) {
-    return <Suspense fallback={<PageSpinner />}><ArticlePage /></Suspense>;
+    return <Suspense fallback={<PageSpinner />}><FrontpageAltFArticle /></Suspense>;
   }
 
   // /learn → Public Academy lesson browser + player
   if (currentPath === '/learn' || currentPath.startsWith('/learn/')) {
-    return <Suspense fallback={<PageSpinner />}><LearnPage /></Suspense>;
+    return <Suspense fallback={<PageSpinner />}><FrontpageAltFLearn /></Suspense>;
   }
 
   // /appeal or /support → Ban appeal / support ticket system (auth required, checked internally)

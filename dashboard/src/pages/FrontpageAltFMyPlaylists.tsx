@@ -269,7 +269,7 @@ export const FrontpageAltFMyPlaylists: React.FC = () => {
                                                 style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 20px', borderBottom: isLast ? 'none' : `1px solid ${DIVIDER}` }}
                                             >
                                                 {/* Cover mosaic */}
-                                                <Link to={`/preview/alt_f_playlist?id=${pl.id}`} style={{ flexShrink: 0 }}>
+                                                <Link to={`/playlist/${pl.id}`} style={{ flexShrink: 0 }}>
                                                     <MosaicCover playlist={pl} size={52} />
                                                 </Link>
 
@@ -289,7 +289,7 @@ export const FrontpageAltFMyPlaylists: React.FC = () => {
                                                         </div>
                                                     ) : (
                                                         <Link
-                                                            to={`/preview/alt_f_playlist?id=${pl.id}`}
+                                                            to={`/playlist/${pl.id}`}
                                                             style={{ fontSize: 14, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block', textDecoration: 'none', color: 'inherit' }}
                                                         >
                                                             {pl.name}
@@ -323,7 +323,7 @@ export const FrontpageAltFMyPlaylists: React.FC = () => {
                                                     </div>
                                                 ) : !isEditing ? (
                                                     <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-                                                        <Link to={`/preview/alt_f_playlist?id=${pl.id}`} title="Open" style={{ width: 28, height: 28, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', color: SUB, transition: 'all 0.1s', textDecoration: 'none' }}
+                                                        <Link to={`/playlist/${pl.id}`} title="Open" style={{ width: 28, height: 28, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', color: SUB, transition: 'all 0.1s', textDecoration: 'none' }}
                                                             onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = S_HIGH; (e.currentTarget as HTMLElement).style.color = TEXT; }}
                                                             onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'none'; (e.currentTarget as HTMLElement).style.color = SUB; }}
                                                         ><Play size={13} /></Link>

@@ -279,7 +279,7 @@ export const FrontpageAltFLibrary: React.FC = () => {
                                             return (
                                                 <Link
                                                     key={t.id}
-                                                    to="/preview/alt_f_track"
+                                                    to={t.slug && t.profile?.username ? `/profile/${t.profile.username}/${t.slug}` : '/library'}
                                                     style={{ display: 'grid', gridTemplateColumns: '36px 44px 1fr 130px 56px 60px 68px', gap: 0, padding: '10px 20px', borderBottom: isLast ? 'none' : `1px solid ${DIVIDER}`, alignItems: 'center', transition: 'background 0.15s', background: playing ? `${PRIMARY}08` : 'transparent', textDecoration: 'none', color: 'inherit' }}
                                                     onMouseEnter={ev => { if (!playing) (ev.currentTarget as HTMLElement).style.background = 'rgba(38,42,53,0.35)'; }}
                                                     onMouseLeave={ev => { if (!playing) (ev.currentTarget as HTMLElement).style.background = 'transparent'; }}

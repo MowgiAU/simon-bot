@@ -72,7 +72,9 @@ function MosaicHero({ playlist }: { playlist: Playlist }) {
 
 export const FrontpageAltFPlaylist: React.FC = () => {
     const { player, setTrack, togglePlay } = usePlayer();
-    const id = new URLSearchParams(window.location.search).get('id');
+    // Live route is /playlist/:id; the preview URL falls back to ?id=.
+    const id = window.location.pathname.match(/^\/playlist\/([^/?#]+)/)?.[1]
+        || new URLSearchParams(window.location.search).get('id');
 
     const [playlist, setPlaylist] = useState<Playlist | null>(null);
     const [loading, setLoading]   = useState(true);
@@ -313,7 +315,7 @@ export const FrontpageAltFPlaylist: React.FC = () => {
                                         <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: TERTIARY, flexShrink: 0 }}>Battle</div>
                                         <div style={{ flex: 1, fontSize: 14, fontWeight: 600 }}>{playlist.battle.title}</div>
                                         <span style={{ fontSize: 11, padding: '3px 10px', borderRadius: 9999, background: `${SECONDARY}15`, color: SECONDARY, fontWeight: 700 }}>{playlist.battle.status}</span>
-                                        <Link to="/preview/alt_f_battle" style={{ background: 'none', border: `1px solid ${BORDER}`, borderRadius: 8, padding: '6px 14px', color: SUB, fontSize: 12, textDecoration: 'none', display: 'inline-block' }}>View Battle</Link>
+                                        <Link to={playlist.battle.slug || playlist.battle.id ? `/battles/${playlist.battle.slug || playlist.battle.id}` : '/battles'} style={{ background: 'none', border: `1px solid ${BORDER}`, borderRadius: 8, padding: '6px 14px', color: SUB, fontSize: 12, textDecoration: 'none', display: 'inline-block' }}>View Battle</Link>
                                     </div>
                                 )}
                             </div>

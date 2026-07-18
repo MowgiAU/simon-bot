@@ -295,7 +295,7 @@ export const FrontpageAltFArtists: React.FC = () => {
                                                 return (
                                                     <Link
                                                         key={profile.id || i}
-                                                        to="/preview/alt_f_artist"
+                                                        to={`/profile/${username}`}
                                                         style={{
                                                             ...glass, borderRadius: 20, overflow: 'hidden',
                                                             display: 'flex', flexDirection: 'column',
@@ -370,7 +370,7 @@ export const FrontpageAltFArtists: React.FC = () => {
                                                 return (
                                                     <Link
                                                         key={profile.id}
-                                                        to="/preview/alt_f_artist"
+                                                        to={`/profile/${profile.username}`}
                                                         style={{
                                                             ...glass, borderRadius: 20, overflow: 'hidden',
                                                             display: 'flex', flexDirection: 'column',

@@ -258,8 +258,8 @@ export const FrontpageAltF: React.FC = () => {
                 stat1Label: 'Entries', stat1Value: fmtNum(b._count?.entries),
                 stat2Label: 'Prize',   stat2Value: prize || 'Community',
                 actionLabel: 'View Battle',
-                href: '/preview/alt_f_battles',
-                onAction: () => navigate('/preview/alt_f_battles'),
+                href: '/battles',
+                onAction: () => navigate('/battles'),
             });
         }
 
@@ -339,8 +339,8 @@ export const FrontpageAltF: React.FC = () => {
                 stat1Label: 'Entries', stat1Value: fmtNum(fBattle._count?.entries),
                 stat2Label: 'Prize',   stat2Value: prize || 'Community',
                 actionLabel: 'View Battle',
-                href: '/preview/alt_f_battles',
-                onAction: () => navigate('/preview/alt_f_battles'),
+                href: '/battles',
+                onAction: () => navigate('/battles'),
             });
         }
         if (fPlaylist) {
@@ -393,7 +393,7 @@ export const FrontpageAltF: React.FC = () => {
                     <Users size={15} color={SECONDARY} />
                     <span style={{ fontSize: 14, fontWeight: 700, color: TEXT }}>Top Artists</span>
                 </div>
-                <Link to="/preview/alt_f_artists"
+                <Link to="/artists"
                     style={{ color: PRIMARY, fontSize: 11, fontWeight: 700, fontFamily: FONT, textDecoration: 'none' }}>
                     View All
                 </Link>
@@ -657,7 +657,7 @@ export const FrontpageAltF: React.FC = () => {
 
                                             {/* CTA */}
                                             {sp.websiteUrl && (
-                                                <a href={appendSponsorRef(sp.websiteUrl, '/preview/alt_f')} target="_blank" rel="noopener noreferrer"
+                                                <a href={appendSponsorRef(sp.websiteUrl, '/')} target="_blank" rel="noopener noreferrer"
                                                     onClick={() => trackSponsorClick(sp.id, 'alt_f')}
                                                     style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 10, background: PRIMARY, color: '#000', fontSize: 13, fontWeight: 700, textDecoration: 'none', flexShrink: 0 }}>
                                                     <ExternalLink size={13} />

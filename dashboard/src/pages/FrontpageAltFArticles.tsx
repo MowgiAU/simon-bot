@@ -159,7 +159,7 @@ export const FrontpageAltFArticles: React.FC = () => {
         }).catch(() => setLoadingMore(false));
     };
 
-    const openArticle = (slug: string) => navigate(`/preview/alt_f_article?slug=${slug}`);
+    const openArticle = (slug: string) => navigate(`/article/${slug}`);
 
     // Count by category (client-side approximation — just show all known categories)
     const catCounts = useMemo(() => {

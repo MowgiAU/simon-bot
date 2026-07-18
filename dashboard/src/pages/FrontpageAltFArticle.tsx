@@ -43,7 +43,9 @@ interface Article {
 export const FrontpageAltFArticle: React.FC = () => {
     const navigate = useNavigate();
     const { player } = usePlayer();
-    const slug = new URLSearchParams(window.location.search).get('slug');
+    // Live route is /article/:slug; the preview URL falls back to ?slug=.
+    const slug = decodeURIComponent(window.location.pathname.match(/^\/article\/([^/?#]+)/)?.[1] || '')
+        || new URLSearchParams(window.location.search).get('slug');
     const contentRef = useRef<HTMLDivElement>(null);
 
     const [article, setArticle] = useState<Article | null>(null);
@@ -285,7 +287,7 @@ export const FrontpageAltFArticle: React.FC = () => {
                                     <h2 style={{ margin: '0 0 20px', fontSize: 20, fontWeight: 700 }}>More in {article.category}</h2>
                                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
                                         {related.map(a => (
-                                            <div key={a.id} onClick={() => navigate(`/preview/alt_f_article?slug=${a.slug}`)} style={{ ...glass, borderRadius: 16, overflow: 'hidden', cursor: 'pointer', transition: 'border-color 0.2s' }}
+                                            <div key={a.id} onClick={() => navigate(`/article/${a.slug}`)} style={{ ...glass, borderRadius: 16, overflow: 'hidden', cursor: 'pointer', transition: 'border-color 0.2s' }}
                                                 onMouseEnter={e => e.currentTarget.style.borderColor = `${PRIMARY}44`}
                                                 onMouseLeave={e => e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'}
                                             >
