@@ -333,13 +333,16 @@ export const AltActivitySidebar: React.FC<{ topSlot?: React.ReactNode; showCommu
                 )}
             </div>
 
-            {/* Content — scrollable */}
-            <div style={{ flex: 1, overflowY: 'auto', padding: 16, display: 'flex', flexDirection: 'column', gap: 28 }}>
-
-                {/* Page-specific extras (e.g. Home injects Top Artists + Trending Tracks) */}
-                {topSlot}
-
-{communityContent}
+            {/* Content — scrollable. The scroll viewport and the flex column are kept
+               separate: if they were the same element, flexbox would shrink the cards
+               (whose overflow:hidden removes their min-content floor) to nothing instead
+               of scrolling, hiding the sort/genre/overview card bodies. */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
+                    {/* Page-specific extras (e.g. Home injects Top Artists + Trending Tracks) */}
+                    {topSlot}
+                    {communityContent}
+                </div>
             </div>
         </aside>
     );
