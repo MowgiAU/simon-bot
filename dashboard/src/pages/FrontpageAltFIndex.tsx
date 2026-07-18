@@ -56,7 +56,7 @@ const SECTIONS: { title: string; pages: Page[] }[] = [
             { label: 'Charts',            route: '/preview/alt_f_charts',  icon: BarChart3, accent: '#4ade80' },
             { label: 'Feed',              route: '/preview/alt_f_feed',    icon: Activity,  accent: '#4ade80' },
             { label: 'Artists Directory', route: '/preview/alt_f_artists', icon: Users,     accent: SECONDARY },
-            { label: 'Genres',            route: '/preview/alt_f_genres',  icon: List,      accent: '#a78bfa' },
+            { label: 'Genres',            route: '/genres',  icon: List,      accent: '#a78bfa' },
         ],
     },
     {

@@ -17,7 +17,7 @@ const TABS: { label: string; icon: typeof Home; to: string }[] = [
     { label: 'Search',  icon: Search,    to: '/library' },
     { label: 'Charts',  icon: BarChart3, to: '/charts' },
     { label: 'Battles', icon: Swords,    to: '/battles' },
-    { label: 'Genres',  icon: Tag,       to: '/preview/alt_f_genres' },
+    { label: 'Genres',  icon: Tag,       to: '/genres' },
 ];
 
 // Full primary nav for the "More" pie menu — same 8 destinations as the desktop AltSidebar.
@@ -29,7 +29,7 @@ const PIE_NAV: { key: string; label: string; icon: React.ReactNode; to: string }
     { key: 'Charts',  label: 'Charts',  icon: <BarChart3 size={20} />, to: '/charts' },
     { key: 'Battles', label: 'Battles', icon: <Swords size={20} />,    to: '/battles' },
     { key: 'Arena',   label: 'Arena',   icon: <Zap size={20} />,       to: '/arena' },
-    { key: 'Genres',  label: 'Genres',  icon: <Tag size={20} />,       to: '/preview/alt_f_genres' },
+    { key: 'Genres',  label: 'Genres',  icon: <Tag size={20} />,       to: '/genres' },
     { key: 'Collabs', label: 'Collabs', icon: <Users size={20} />,     to: '/preview/alt_f_collabs' },
 ];
 

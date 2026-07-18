@@ -33,7 +33,7 @@ const NAV = [
     { icon: Swords,    label: 'Battles', to: '/battles' },
     { icon: Zap,       label: 'Arena',   to: '/arena' },
     // Genres + Collabs stay on /preview until their live routes are migrated (later stage).
-    { icon: Tag,       label: 'Genres',  to: '/preview/alt_f_genres' },
+    { icon: Tag,       label: 'Genres',  to: '/genres' },
     { icon: Users,     label: 'Collabs', to: '/preview/alt_f_collabs' },
 ];
 

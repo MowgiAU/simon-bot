@@ -1,5 +1,5 @@
 /**
- * Alt F — Genres (/preview/alt_f_genres, /preview/alt_f_genres/:slug, ?g=slug1,slug2, ?group=id)
+ * Alt F — Genres (/genres, /genres/:slug, ?g=slug1,slug2, ?group=id)
  * Genre grid with subreddit-style feeds, multi-select, and saveable genre groups.
  */
 import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
@@ -93,7 +93,7 @@ const GenrePostCard: React.FC<{
     const { player, setTrack, togglePlay } = usePlayer();
     const [hovered, setHovered] = useState(false);
     const isCommunityPost = !!post.communityId;
-    const postLink = `/preview/alt_f_genre_post/${post.id}${isCommunityPost ? '?kind=community' : ''}`;
+    const postLink = `/post/${post.id}${isCommunityPost ? '?kind=community' : ''}`;
 
     const trackUrl = post.track?.mp3Url || post.track?.url;
     const isActiveTrack = player.currentTrack?.id === post.track?.id;
@@ -140,11 +140,11 @@ const GenrePostCard: React.FC<{
                     <div style={{ fontSize: 11, color: SUB, marginBottom: 5, display: 'flex', alignItems: 'center', gap: 4 }}>
                         <Share2 size={10} />
                         Cross-posted from{' '}
-                        <Link to={`/preview/alt_f_genre_post/${post.crossPostOf.id}`} style={{ color: post.crossPostOf.genre ? genreAccent(post.crossPostOf.genre.name) : PRIMARY, textDecoration: 'none', fontWeight: 600 }}>
+                        <Link to={`/post/${post.crossPostOf.id}`} style={{ color: post.crossPostOf.genre ? genreAccent(post.crossPostOf.genre.name) : PRIMARY, textDecoration: 'none', fontWeight: 600 }}>
                             {post.crossPostOf.title.length > 40 ? post.crossPostOf.title.slice(0, 40) + '…' : post.crossPostOf.title}
                         </Link>
                         {post.crossPostOf.genre && (
-                            <span> in <Link to={`/preview/alt_f_genres/${post.crossPostOf.genre.slug}`} style={{ color: genreAccent(post.crossPostOf.genre.name), textDecoration: 'none', fontWeight: 600 }}>{post.crossPostOf.genre.name}</Link></span>
+                            <span> in <Link to={`/genres/${post.crossPostOf.genre.slug}`} style={{ color: genreAccent(post.crossPostOf.genre.name), textDecoration: 'none', fontWeight: 600 }}>{post.crossPostOf.genre.name}</Link></span>
                         )}
                     </div>
                 )}
@@ -160,7 +160,7 @@ const GenrePostCard: React.FC<{
                 {/* Flair pill */}
                 {post.flair && (
                     <div style={{ marginBottom: 6 }}>
-                        <Link to={isCommunityPost ? `/preview/alt_f_genres/${post.community?.slug || ''}?kind=community&flair=${encodeURIComponent(post.flair)}` : `/preview/alt_f_genres/${post.genre?.slug || ''}?flair=${encodeURIComponent(post.flair)}`}
+                        <Link to={isCommunityPost ? `/genres/${post.community?.slug || ''}?kind=community&flair=${encodeURIComponent(post.flair)}` : `/genres/${post.genre?.slug || ''}?flair=${encodeURIComponent(post.flair)}`}
                             style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 9999, background: `${flairColor(post.flair)}18`, border: `1px solid ${flairColor(post.flair)}44`, color: flairColor(post.flair), fontSize: 11, fontWeight: 700, textDecoration: 'none' }}>
                             <Tag size={9} /> {post.flair}
                         </Link>
@@ -272,7 +272,7 @@ const GenrePostCard: React.FC<{
                     {showGenre && post.genre && (
                         <>
                             <span>·</span>
-                            <Link to={`/preview/alt_f_genres/${post.genre.slug}`} style={{ color: genreAccent(post.genre.name), fontWeight: 600, textDecoration: 'none' }}
+                            <Link to={`/genres/${post.genre.slug}`} style={{ color: genreAccent(post.genre.name), fontWeight: 600, textDecoration: 'none' }}
                                 onMouseEnter={e => (e.currentTarget.style.opacity = '0.8')}
                                 onMouseLeave={e => (e.currentTarget.style.opacity = '1')}>
                                 {post.genre.name}
@@ -402,7 +402,7 @@ const ShareModal: React.FC<{
     const isCommunityPost = !!post.communityId;
 
     const copyLink = () => {
-        const url = `${window.location.origin}/preview/alt_f_genre_post/${post.id}${isCommunityPost ? '?kind=community' : ''}`;
+        const url = `${window.location.origin}/post/${post.id}${isCommunityPost ? '?kind=community' : ''}`;
         navigator.clipboard.writeText(url).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); }).catch(() => {});
     };
 
@@ -497,7 +497,7 @@ export const FrontpageAltFGenres: React.FC = () => {
 
     // ── Parse URL ─────────────────────────────────────────────────────────────
     const { genreSlug, multiSlugsFromUrl, groupIdFromUrl, flairFromUrl, isCommunityKind } = useMemo(() => {
-        const pathAfter = location.pathname.replace('/preview/alt_f_genres', '');
+        const pathAfter = location.pathname.replace('/genres', '');
         const segments = pathAfter.split('/').filter(Boolean);
         const sp = new URLSearchParams(location.search);
         return {
@@ -712,7 +712,7 @@ export const FrontpageAltFGenres: React.FC = () => {
         try {
             await axios.delete(`/api/genre-groups/${groupIdFromUrl}`, { withCredentials: true });
             setGroups(prev => prev.filter(g => g.id !== groupIdFromUrl));
-            navigate('/preview/alt_f_genres');
+            navigate('/genres');
         } catch {}
     };
 
@@ -721,20 +721,20 @@ export const FrontpageAltFGenres: React.FC = () => {
         if (!activeGenre) return;
         if (selectedSubSlugs.size === 0) return;
         const slugs = [activeGenre.slug, ...Array.from(selectedSubSlugs)];
-        navigate(`/preview/alt_f_genres?g=${slugs.join(',')}`);
+        navigate(`/genres?g=${slugs.join(',')}`);
     };
 
     const removeSlugFromMulti = (slug: string) => {
         const newSlugs = multiSlugsFromUrl.filter(s => s !== slug);
-        if (newSlugs.length === 0) navigate('/preview/alt_f_genres');
-        else if (newSlugs.length === 1) navigate(`/preview/alt_f_genres/${newSlugs[0]}`);
-        else navigate(`/preview/alt_f_genres?g=${newSlugs.join(',')}`);
+        if (newSlugs.length === 0) navigate('/genres');
+        else if (newSlugs.length === 1) navigate(`/genres/${newSlugs[0]}`);
+        else navigate(`/genres?g=${newSlugs.join(',')}`);
     };
 
     const viewMultiSelected = () => {
         if (multiSelected.size === 0) return;
-        if (multiSelected.size === 1) navigate(`/preview/alt_f_genres/${Array.from(multiSelected)[0]}`);
-        else navigate(`/preview/alt_f_genres?g=${Array.from(multiSelected).join(',')}`);
+        if (multiSelected.size === 1) navigate(`/genres/${Array.from(multiSelected)[0]}`);
+        else navigate(`/genres?g=${Array.from(multiSelected).join(',')}`);
         setMultiSelectMode(false);
         setMultiSelected(new Set());
     };
@@ -749,30 +749,30 @@ export const FrontpageAltFGenres: React.FC = () => {
 
     const breadcrumb = useMemo(() => {
         if (isCommunityKind) {
-            if (activeCommunity) return [{ label: 'Genres', to: '/preview/alt_f_genres' }, { label: activeCommunity.name }];
-            return [{ label: 'Genres', to: '/preview/alt_f_genres' }];
+            if (activeCommunity) return [{ label: 'Genres', to: '/genres' }, { label: activeCommunity.name }];
+            return [{ label: 'Genres', to: '/genres' }];
         }
         if (viewMode === 'grid') return [{ label: 'Genres' }];
-        if (viewMode === 'group' && activeGroup) return [{ label: 'Genres', to: '/preview/alt_f_genres' }, { label: activeGroup.name }];
-        if (viewMode === 'multi') return [{ label: 'Genres', to: '/preview/alt_f_genres' }, { label: `${activeGenreIds.length} Genres` }];
+        if (viewMode === 'group' && activeGroup) return [{ label: 'Genres', to: '/genres' }, { label: activeGroup.name }];
+        if (viewMode === 'multi') return [{ label: 'Genres', to: '/genres' }, { label: `${activeGenreIds.length} Genres` }];
         if (activeGenre) {
-            const crumbs: any[] = [{ label: 'Genres', to: '/preview/alt_f_genres' }];
+            const crumbs: any[] = [{ label: 'Genres', to: '/genres' }];
             if (activeGenre.parentId) {
                 const parent = allGenres.find(g => g.id === activeGenre.parentId);
-                if (parent) crumbs.push({ label: parent.name, to: `/preview/alt_f_genres/${parent.slug}` });
+                if (parent) crumbs.push({ label: parent.name, to: `/genres/${parent.slug}` });
             }
             crumbs.push({ label: activeGenre.name });
             return crumbs;
         }
-        return [{ label: 'Genres', to: '/preview/alt_f_genres' }];
+        return [{ label: 'Genres', to: '/genres' }];
     }, [viewMode, activeGroup, activeGenre, activeGenreIds.length, allGenres, isCommunityKind, activeCommunity]);
 
     // ── Feed create genre (for modal) ─────────────────────────────────────────
     const createGenreId = viewMode === 'single' ? activeGenre?.id : multiSlugsFromUrl.length > 0 ? allGenres.find(g => g.slug === multiSlugsFromUrl[0])?.id : undefined;
     const createGenreName = viewMode === 'single' ? (activeGenre?.name || 'Genre') : activeGenreNames[0] || 'Genre';
     const createLink = isCommunityKind && activeCommunity
-        ? `/preview/alt_f_create_post?communityId=${activeCommunity.id}&kind=community`
-        : (createGenreId ? `/preview/alt_f_create_post?genreId=${createGenreId}` : undefined);
+        ? `/create-post?communityId=${activeCommunity.id}&kind=community`
+        : (createGenreId ? `/create-post?genreId=${createGenreId}` : undefined);
 
     // ── Common sort bar ───────────────────────────────────────────────────────
     const SortBar = () => (
@@ -868,7 +868,7 @@ export const FrontpageAltFGenres: React.FC = () => {
                                                     const firstGenreName = group.genres[0]?.genre.name || '';
                                                     const accent = firstGenreName ? genreAccent(firstGenreName) : PRIMARY;
                                                     return (
-                                                        <Link key={group.id} to={`/preview/alt_f_genres?group=${group.id}`}
+                                                        <Link key={group.id} to={`/genres?group=${group.id}`}
                                                             style={{ ...glass, borderRadius: 12, padding: '12px 16px', minWidth: 160, maxWidth: 220, flexShrink: 0, textDecoration: 'none', display: 'block', transition: 'border-color 0.15s', borderColor: 'rgba(255,255,255,0.1)' }}
                                                             onMouseEnter={e => (e.currentTarget.style.borderColor = `${accent}55`)}
                                                             onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)')}>
@@ -900,7 +900,7 @@ export const FrontpageAltFGenres: React.FC = () => {
                                                 {communities.map(c => {
                                                     const subbed = communitySubscribedIds.has(c.id);
                                                     return (
-                                                        <Link key={c.id} to={`/preview/alt_f_genres/${c.slug}?kind=community`}
+                                                        <Link key={c.id} to={`/genres/${c.slug}?kind=community`}
                                                             style={{ ...glass, borderRadius: 18, overflow: 'hidden', display: 'flex', flexDirection: 'column', textDecoration: 'none', transition: 'border-color 0.2s, transform 0.15s', borderColor: 'rgba(255,255,255,0.1)' }}
                                                             onMouseEnter={ev => { ev.currentTarget.style.borderColor = `${PRIMARY}55`; ev.currentTarget.style.transform = 'translateY(-2px)'; }}
                                                             onMouseLeave={ev => { ev.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; ev.currentTarget.style.transform = 'translateY(0)'; }}>
@@ -992,7 +992,7 @@ export const FrontpageAltFGenres: React.FC = () => {
                                                 const isSelected = multiSelected.has(g.slug);
                                                 return (
                                                     <Link key={g.id}
-                                                        to={`/preview/alt_f_genres/${g.slug}`}
+                                                        to={`/genres/${g.slug}`}
                                                         onClick={multiSelectMode ? (e) => {
                                                             e.preventDefault();
                                                             setMultiSelected(prev => { const s = new Set(prev); if (s.has(g.slug)) s.delete(g.slug); else s.add(g.slug); return s; });
@@ -1038,7 +1038,7 @@ export const FrontpageAltFGenres: React.FC = () => {
                                                                     {g.children.slice(0, 5).map(c => {
                                                                         const cAccent = genreAccent(c.name);
                                                                         return (
-                                                                            <Link key={c.id} to={`/preview/alt_f_genres/${c.slug}`}
+                                                                            <Link key={c.id} to={`/genres/${c.slug}`}
                                                                                 onClick={e => e.stopPropagation()}
                                                                                 style={{ padding: '2px 8px', borderRadius: 9999, background: `${cAccent}15`, border: `1px solid ${cAccent}33`, color: cAccent, fontSize: 10, fontWeight: 700, textDecoration: 'none', lineHeight: 1.7, flexShrink: 0 }}>
                                                                                 {c.name}
@@ -1123,7 +1123,7 @@ export const FrontpageAltFGenres: React.FC = () => {
                                                         if (!genre) return null;
                                                         const accent = genreAccent(genre.name);
                                                         return (
-                                                            <Link key={slug} to={`/preview/alt_f_genres/${slug}`}
+                                                            <Link key={slug} to={`/genres/${slug}`}
                                                                 style={{ padding: '4px 10px', borderRadius: 9999, background: `${accent}18`, border: `1px solid ${accent}44`, color: accent, fontSize: 12, fontWeight: 600, textDecoration: 'none' }}>
                                                                 {genre.name}
                                                             </Link>
@@ -1138,7 +1138,7 @@ export const FrontpageAltFGenres: React.FC = () => {
                                     <div>
                                     {/* Action bar */}
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 18, flexWrap: 'wrap' }}>
-                                        <Link to="/preview/alt_f_genres"
+                                        <Link to="/genres"
                                             style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', background: S_CONT, border: `1px solid ${BORDER}`, borderRadius: 8, color: SUB, textDecoration: 'none', fontSize: 13 }}>
                                             <ChevronLeft size={13} /> Genres
                                         </Link>
@@ -1193,7 +1193,7 @@ export const FrontpageAltFGenres: React.FC = () => {
                                             </button>
                                             {subgenresOpen && <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                                                 {activeGenre?.parentId ? null : (
-                                                    <Link to={`/preview/alt_f_genres/${activeGenre!.slug}`}
+                                                    <Link to={`/genres/${activeGenre!.slug}`}
                                                         style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 13px', borderRadius: 9999, background: !genreSlug || genreSlug === activeGenre?.slug ? `${genreAccent(activeGenre!.name)}28` : 'transparent', border: `1px solid ${!genreSlug || genreSlug === activeGenre?.slug ? genreAccent(activeGenre!.name) : BORDER}`, color: !genreSlug || genreSlug === activeGenre?.slug ? genreAccent(activeGenre!.name) : SUB, fontSize: 12, fontWeight: 700, textDecoration: 'none', transition: 'all 0.15s' }}>
                                                         All
                                                     </Link>
@@ -1202,7 +1202,7 @@ export const FrontpageAltFGenres: React.FC = () => {
                                                     const accent = genreAccent(sg.name);
                                                     const isActive = genreSlug === sg.slug;
                                                     return (
-                                                        <Link key={sg.id} to={`/preview/alt_f_genres/${sg.slug}`}
+                                                        <Link key={sg.id} to={`/genres/${sg.slug}`}
                                                             style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 13px', borderRadius: 9999, background: isActive ? `${accent}28` : 'transparent', border: `1px solid ${isActive ? accent : BORDER}`, color: isActive ? accent : TEXT, fontSize: 12, fontWeight: 700, textDecoration: 'none', transition: 'all 0.15s' }}
                                                             onMouseEnter={e => { if (!isActive) { (e.currentTarget as HTMLElement).style.borderColor = `${accent}66`; (e.currentTarget as HTMLElement).style.color = accent; } }}
                                                             onMouseLeave={e => { if (!isActive) { (e.currentTarget as HTMLElement).style.borderColor = BORDER; (e.currentTarget as HTMLElement).style.color = TEXT; } }}>

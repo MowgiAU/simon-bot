@@ -1073,15 +1073,19 @@ const AppInternal: React.FC = () => {
     return <Suspense fallback={<PageSpinner />}><FrontpageAltFLibrary /></Suspense>;
   }
 
-  // /genres → All Genres page
-  if (currentPath === '/genres') {
-    return <Suspense fallback={<PageSpinner />}><GenresPage /></Suspense>;
+  // /genres (+ /genres/:slug) → Alt F genre communities (list + per-genre feed)
+  if (currentPath === '/genres' || currentPath.startsWith('/genres/')) {
+    return <Suspense fallback={<PageSpinner />}><FrontpageAltFGenres /></Suspense>;
   }
 
-  // /genres/:slug → Filtered tracks page (same as /category/:slug)
-  if (currentPath.startsWith('/genres/')) {
-    const slug = currentPath.split('/genres/')[1];
-    return <Suspense fallback={<PageSpinner />}><CategoryResultsPage slug={slug} /></Suspense>;
+  // /post/:id → Alt F genre/community post detail
+  if (currentPath.startsWith('/post/')) {
+    return <Suspense fallback={<PageSpinner />}><FrontpageAltFGenrePost /></Suspense>;
+  }
+
+  // /create-post → Alt F create genre/community post
+  if (currentPath === '/create-post') {
+    return <Suspense fallback={<PageSpinner />}><FrontpageAltFCreatePost /></Suspense>;
   }
   
   // /category/:slug → Filtered tracks page (legacy, keep working)

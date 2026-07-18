@@ -273,10 +273,10 @@ function GenrePostFeedCard({ post, onVote }: { post: any; onVote: (id: string, t
             {/* Content */}
             <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-                    {post.genre && <Link to={`/preview/alt_f_genres/${post.genre.slug}`} style={{ background: `${accent}18`, border: `1px solid ${accent}44`, color: accent, padding: '1px 7px', borderRadius: 9999, fontSize: 10, fontWeight: 700, textDecoration: 'none' }}>{post.genre.name}</Link>}
+                    {post.genre && <Link to={`/genres/${post.genre.slug}`} style={{ background: `${accent}18`, border: `1px solid ${accent}44`, color: accent, padding: '1px 7px', borderRadius: 9999, fontSize: 10, fontWeight: 700, textDecoration: 'none' }}>{post.genre.name}</Link>}
                     <span style={{ fontSize: 11, color: SUB }}>{post.type === 'track' ? '🎵 Track' : '💬 Discussion'}</span>
                 </div>
-                <Link to={`/preview/alt_f_genre_post/${post.id}`} style={{ textDecoration: 'none' }}>
+                <Link to={`/post/${post.id}`} style={{ textDecoration: 'none' }}>
                     <p style={{ margin: '0 0 6px', fontSize: 14, fontWeight: 700, color: TEXT, cursor: 'pointer' }}
                         onMouseEnter={e => (e.currentTarget.style.color = PRIMARY)} onMouseLeave={e => (e.currentTarget.style.color = TEXT)}>
                         {post.title}
@@ -299,7 +299,7 @@ function GenrePostFeedCard({ post, onVote }: { post: any; onVote: (id: string, t
                     </Link>
                     <span>·</span>
                     <span>{timeAgo(post.createdAt)}</span>
-                    <Link to={`/preview/alt_f_genre_post/${post.id}`} style={{ display: 'flex', alignItems: 'center', gap: 3, color: SUB, textDecoration: 'none', marginLeft: 'auto' }}>
+                    <Link to={`/post/${post.id}`} style={{ display: 'flex', alignItems: 'center', gap: 3, color: SUB, textDecoration: 'none', marginLeft: 'auto' }}>
                         <MessageCircle size={11} /> {post.commentCount}
                     </Link>
                 </div>
@@ -447,7 +447,7 @@ export const FrontpageAltFFeed: React.FC = () => {
             </div>
             <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <p style={{ margin: 0, fontSize: 12, color: SUB, lineHeight: 1.5 }}>Posts and tracks from genres you've subscribed to, sorted by relevance.</p>
-                <Link to="/preview/alt_f_genres" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, background: `${PRIMARY}18`, border: `1px solid ${PRIMARY}30`, color: PRIMARY, fontSize: 12, fontWeight: 700, textDecoration: 'none' }}>
+                <Link to="/genres" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, background: `${PRIMARY}18`, border: `1px solid ${PRIMARY}30`, color: PRIMARY, fontSize: 12, fontWeight: 700, textDecoration: 'none' }}>
                     <Music size={12} /> Manage Genres
                 </Link>
             </div>
@@ -641,7 +641,7 @@ export const FrontpageAltFFeed: React.FC = () => {
                                             <Music size={32} color={SUB} style={{ marginBottom: 12 }} />
                                             <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}>Your feed is empty</div>
                                             <div style={{ fontSize: 13, color: SUB, marginBottom: 20 }}>Subscribe to genres to see their posts here</div>
-                                            <Link to="/preview/alt_f_genres" style={{ display: 'inline-block', padding: '10px 28px', borderRadius: 10, background: PRIMARY, color: '#fff', fontSize: 13, fontWeight: 700, textDecoration: 'none' }}>
+                                            <Link to="/genres" style={{ display: 'inline-block', padding: '10px 28px', borderRadius: 10, background: PRIMARY, color: '#fff', fontSize: 13, fontWeight: 700, textDecoration: 'none' }}>
                                                 Explore Genres
                                             </Link>
                                         </div>

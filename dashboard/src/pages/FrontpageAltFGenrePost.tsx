@@ -1,5 +1,5 @@
 /**
- * Alt F — Genre Post Detail (/preview/alt_f_genre_post/:postId)
+ * Alt F — Genre Post Detail (/post/:postId)
  * Full post view with voting, comments, track player, share, admin controls.
  */
 import React, { useEffect, useState } from 'react';
@@ -226,7 +226,7 @@ export const FrontpageAltFGenrePost: React.FC = () => {
 
     // Share: copy link
     const copyLink = () => {
-        const url = `${window.location.origin}/preview/alt_f_genre_post/${postId}${isCommunityKind ? '?kind=community' : ''}`;
+        const url = `${window.location.origin}/post/${postId}${isCommunityKind ? '?kind=community' : ''}`;
         navigator.clipboard.writeText(url).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); }).catch(() => {});
     };
 
@@ -288,9 +288,9 @@ export const FrontpageAltFGenrePost: React.FC = () => {
             <AltSidebar />
             <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', height: '100%' }}>
                 <AltHeader breadcrumb={[
-                    { label: 'Genres', to: '/preview/alt_f_genres' },
-                    ...(post.genre ? [{ label: post.genre.name, to: `/preview/alt_f_genres/${post.genre.slug}` }] : []),
-                    ...(post.community ? [{ label: post.community.name, to: `/preview/alt_f_genres/${post.community.slug}?kind=community` }] : []),
+                    { label: 'Genres', to: '/genres' },
+                    ...(post.genre ? [{ label: post.genre.name, to: `/genres/${post.genre.slug}` }] : []),
+                    ...(post.community ? [{ label: post.community.name, to: `/genres/${post.community.slug}?kind=community` }] : []),
                     { label: post.title.length > 40 ? post.title.slice(0, 40) + '…' : post.title },
                 ]} />
 
@@ -342,18 +342,18 @@ export const FrontpageAltFGenrePost: React.FC = () => {
                                         {/* Genre pill + meta */}
                                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, fontSize: 12, color: SUB, flexWrap: 'wrap' }}>
                                             {post.genre && (
-                                                <Link to={`/preview/alt_f_genres/${post.genre.slug}`} style={{ background: `${accent}18`, border: `1px solid ${accent}44`, color: accent, padding: '2px 9px', borderRadius: 9999, fontWeight: 700, fontSize: 11, textDecoration: 'none' }}>
+                                                <Link to={`/genres/${post.genre.slug}`} style={{ background: `${accent}18`, border: `1px solid ${accent}44`, color: accent, padding: '2px 9px', borderRadius: 9999, fontWeight: 700, fontSize: 11, textDecoration: 'none' }}>
                                                     {post.genre.name}
                                                 </Link>
                                             )}
                                             {post.community && (
-                                                <Link to={`/preview/alt_f_genres/${post.community.slug}?kind=community`} style={{ background: `${PRIMARY}18`, border: `1px solid ${PRIMARY}44`, color: PRIMARY, padding: '2px 9px', borderRadius: 9999, fontWeight: 700, fontSize: 11, textDecoration: 'none' }}>
+                                                <Link to={`/genres/${post.community.slug}?kind=community`} style={{ background: `${PRIMARY}18`, border: `1px solid ${PRIMARY}44`, color: PRIMARY, padding: '2px 9px', borderRadius: 9999, fontWeight: 700, fontSize: 11, textDecoration: 'none' }}>
                                                     {post.community.name}
                                                 </Link>
                                             )}
                                             {/* Flair pill */}
                                             {post.flair && (
-                                                <Link to={isCommunityKind ? `/preview/alt_f_genres/${post.community?.slug || ''}?kind=community&flair=${encodeURIComponent(post.flair)}` : `/preview/alt_f_genres/${post.genre?.slug || ''}?flair=${encodeURIComponent(post.flair)}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: `${flairColor(post.flair)}18`, border: `1px solid ${flairColor(post.flair)}44`, color: flairColor(post.flair), padding: '2px 9px', borderRadius: 9999, fontWeight: 700, fontSize: 11, textDecoration: 'none' }}>
+                                                <Link to={isCommunityKind ? `/genres/${post.community?.slug || ''}?kind=community&flair=${encodeURIComponent(post.flair)}` : `/genres/${post.genre?.slug || ''}?flair=${encodeURIComponent(post.flair)}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: `${flairColor(post.flair)}18`, border: `1px solid ${flairColor(post.flair)}44`, color: flairColor(post.flair), padding: '2px 9px', borderRadius: 9999, fontWeight: 700, fontSize: 11, textDecoration: 'none' }}>
                                                     <Tag size={9} /> {post.flair}
                                                 </Link>
                                             )}
@@ -371,11 +371,11 @@ export const FrontpageAltFGenrePost: React.FC = () => {
                                             <div style={{ padding: '8px 12px', background: S_CONT, border: `1px solid ${BORDER}`, borderRadius: 8, marginBottom: 12, fontSize: 12, color: SUB, display: 'flex', alignItems: 'center', gap: 6 }}>
                                                 <Share2 size={12} color={SUB} style={{ flexShrink: 0 }} />
                                                 <span>Cross-posted from{' '}
-                                                    <Link to={`/preview/alt_f_genre_post/${crossPostOf.id}`} style={{ color: crossPostOf.genre ? genreAccent(crossPostOf.genre.name) : PRIMARY, fontWeight: 600, textDecoration: 'none' }}>
+                                                    <Link to={`/post/${crossPostOf.id}`} style={{ color: crossPostOf.genre ? genreAccent(crossPostOf.genre.name) : PRIMARY, fontWeight: 600, textDecoration: 'none' }}>
                                                         {crossPostOf.title.length > 50 ? crossPostOf.title.slice(0, 50) + '…' : crossPostOf.title}
                                                     </Link>
                                                     {crossPostOf.genre && (
-                                                        <> in <Link to={`/preview/alt_f_genres/${crossPostOf.genre.slug}`} style={{ color: genreAccent(crossPostOf.genre.name), fontWeight: 600, textDecoration: 'none' }}>{crossPostOf.genre.name}</Link></>
+                                                        <> in <Link to={`/genres/${crossPostOf.genre.slug}`} style={{ color: genreAccent(crossPostOf.genre.name), fontWeight: 600, textDecoration: 'none' }}>{crossPostOf.genre.name}</Link></>
                                                     )}
                                                 </span>
                                             </div>

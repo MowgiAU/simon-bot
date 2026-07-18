@@ -1256,7 +1256,7 @@ export const MusicianProfilePublic: React.FC<{ identifier: string; onEdit?: () =
                             ) : (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                                     {genrePosts.map((gp: any) => (
-                                        <Link key={gp.id} to={`/preview/alt_f_genre_post/${gp.id}`}
+                                        <Link key={gp.id} to={`/post/${gp.id}`}
                                             style={{ display: 'flex', gap: 12, padding: '12px 14px', backgroundColor: isLightCard ? 'rgba(0,0,0,0.04)' : '#1A1E2E', borderRadius: 10, border: `1px solid ${cardBorder}`, textDecoration: 'none', color: 'inherit', transition: 'border-color 0.15s' }}
                                             onMouseEnter={e => (e.currentTarget.style.borderColor = accent + '66')}
                                             onMouseLeave={e => (e.currentTarget.style.borderColor = cardBorder)}>

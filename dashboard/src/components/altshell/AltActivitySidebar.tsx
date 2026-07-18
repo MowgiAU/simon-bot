@@ -252,7 +252,7 @@ export const AltActivitySidebar: React.FC<{ topSlot?: React.ReactNode; showCommu
     // desktop rail shows.
     if (bp === 'xs' || (bp === 'sm' && hasPageContent)) {
         const wedgeItems: PieItem[] = [
-            { key: 'post', label: primaryAction ? primaryAction.label : 'Post', icon: primaryAction ? <Zap size={20} /> : <Plus size={20} />, onClick: primaryAction ? primaryAction.onClick : () => navigate('/preview/alt_f_create_post') },
+            { key: 'post', label: primaryAction ? primaryAction.label : 'Post', icon: primaryAction ? <Zap size={20} /> : <Plus size={20} />, onClick: primaryAction ? primaryAction.onClick : () => navigate('/create-post') },
             ...(railSections && railSections.length > 0
                 ? railSections.map(s => ({ key: s.key, label: s.label, icon: s.icon, onClick: () => setMobileSheet({ title: s.label, content: s.content }) }))
                 : topSlot ? [{ key: 'page', label: 'Page', icon: <Layers size={20} />, onClick: () => setMobileSheet({ title: 'Page', content: topSlot }) }] : []),
@@ -326,7 +326,7 @@ export const AltActivitySidebar: React.FC<{ topSlot?: React.ReactNode; showCommu
                         <Zap size={15} /> {primaryAction.label}
                     </button>
                 ) : (
-                    <Link to="/preview/alt_f_create_post"
+                    <Link to="/create-post"
                         style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, width: '100%', padding: '9px 0', background: PRIMARY, borderRadius: 9, color: '#fff', textDecoration: 'none', fontSize: 13, fontWeight: 800, letterSpacing: '0.01em', boxSizing: 'border-box' }}>
                         <Plus size={15} /> Create Post
                     </Link>

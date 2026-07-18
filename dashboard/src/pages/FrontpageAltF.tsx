@@ -707,7 +707,7 @@ export const FrontpageAltF: React.FC = () => {
                                                 </div>
                                             </div>
                                         </div>
-                                        <Link to="/preview/alt_f_genres"
+                                        <Link to="/genres"
                                             style={{ display: 'flex', alignItems: 'center', gap: 6, color: PRIMARY, fontSize: 12, fontWeight: 700, textDecoration: 'none', padding: '7px 14px', borderRadius: 9999, background: `${PRIMARY}14`, border: `1px solid ${PRIMARY}33` }}
                                             onMouseEnter={ev => (ev.currentTarget.style.background = `${PRIMARY}26`)}
                                             onMouseLeave={ev => (ev.currentTarget.style.background = `${PRIMARY}14`)}>
@@ -736,7 +736,7 @@ export const FrontpageAltF: React.FC = () => {
                                             <Hash size={32} color={SUB} style={{ marginBottom: 12 }} />
                                             <div style={{ color: TEXT, fontWeight: 700, marginBottom: 6 }}>No posts yet</div>
                                             <div style={{ color: SUB, fontSize: 13, marginBottom: 16 }}>Be the first to post in a genre community.</div>
-                                            <Link to="/preview/alt_f_genres"
+                                            <Link to="/genres"
                                                 style={{ padding: '8px 20px', background: PRIMARY, color: '#fff', borderRadius: 10, textDecoration: 'none', fontSize: 13, fontWeight: 700 }}>
                                                 Explore Genres
                                             </Link>
@@ -766,7 +766,7 @@ export const FrontpageAltF: React.FC = () => {
                                                         <div key={post.id} style={{ background: S_CONT, borderRadius: 12, padding: '12px 14px' }}>
                                                             {/* Header row */}
                                                             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, flexWrap: 'wrap' }}>
-                                                                <Link to={`/preview/alt_f_genres/${post.genre?.slug}`}
+                                                                <Link to={`/genres/${post.genre?.slug}`}
                                                                     style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 12, fontWeight: 700, color: accent, textDecoration: 'none' }}>
                                                                     <Hash size={11} /> {post.genre?.name}
                                                                 </Link>
@@ -785,7 +785,7 @@ export const FrontpageAltF: React.FC = () => {
                                                             </div>
 
                                                             {/* Title */}
-                                                            <Link to={`/preview/alt_f_genre_post/${post.id}`}
+                                                            <Link to={`/post/${post.id}`}
                                                                 style={{ display: 'block', fontSize: 15, fontWeight: 700, color: TEXT, textDecoration: 'none', marginBottom: post.track ? 8 : 4, lineHeight: 1.35 }}>
                                                                 {post.title}
                                                             </Link>
@@ -840,11 +840,11 @@ export const FrontpageAltF: React.FC = () => {
                                                                         <ArrowDown size={15} fill={voteDir === 'down' ? SECONDARY : 'none'} />
                                                                     </button>
                                                                 </div>
-                                                                <Link to={`/preview/alt_f_genre_post/${post.id}`}
+                                                                <Link to={`/post/${post.id}`}
                                                                     style={{ display: 'flex', alignItems: 'center', gap: 5, color: SUB, fontSize: 12, fontWeight: 700, textDecoration: 'none', background: S_HIGH, borderRadius: 9999, padding: '6px 12px' }}>
                                                                     <MessageSquare size={14} /> {post.commentCount ?? 0}
                                                                 </Link>
-                                                                <button onClick={() => navigator.share ? navigator.share({ title: post.title, url: `${window.location.origin}/preview/alt_f_genre_post/${post.id}` }).catch(() => {}) : navigator.clipboard.writeText(`${window.location.origin}/preview/alt_f_genre_post/${post.id}`)}
+                                                                <button onClick={() => navigator.share ? navigator.share({ title: post.title, url: `${window.location.origin}/post/${post.id}` }).catch(() => {}) : navigator.clipboard.writeText(`${window.location.origin}/post/${post.id}`)}
                                                                     style={{ display: 'flex', alignItems: 'center', gap: 5, color: SUB, fontSize: 12, fontWeight: 700, background: S_HIGH, border: 'none', borderRadius: 9999, padding: '6px 12px', cursor: 'pointer' }}>
                                                                     <Share2 size={14} />
                                                                 </button>
@@ -882,7 +882,7 @@ export const FrontpageAltF: React.FC = () => {
                                                                         <Flame size={10} /> Trending
                                                                     </span>
                                                                 )}
-                                                                <Link to={`/preview/alt_f_genres/${post.genre?.slug}`}
+                                                                <Link to={`/genres/${post.genre?.slug}`}
                                                                     style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 700, color: accent, background: `${accent}1c`, border: `1px solid ${accent}3a`, padding: '2px 9px', borderRadius: 9999, textDecoration: 'none', letterSpacing: '0.02em' }}>
                                                                     <Hash size={10} /> {post.genre?.name}
                                                                 </Link>
@@ -900,7 +900,7 @@ export const FrontpageAltF: React.FC = () => {
                                                             </div>
 
                                                             {/* Title */}
-                                                            <Link to={`/preview/alt_f_genre_post/${post.id}`}
+                                                            <Link to={`/post/${post.id}`}
                                                                 style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 15, fontWeight: 700, color: TEXT, textDecoration: 'none', marginBottom: post.track ? 10 : 0, lineHeight: 1.4 }}
                                                                 onMouseEnter={ev => (ev.currentTarget.style.color = accent)}
                                                                 onMouseLeave={ev => (ev.currentTarget.style.color = TEXT)}>
@@ -990,7 +990,7 @@ export const FrontpageAltF: React.FC = () => {
 
                                                             {/* Footer row */}
                                                             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10 }}>
-                                                                <Link to={`/preview/alt_f_genre_post/${post.id}`}
+                                                                <Link to={`/post/${post.id}`}
                                                                     style={{ display: 'flex', alignItems: 'center', gap: 6, color: SUB, fontSize: 11, fontWeight: 700, textDecoration: 'none', padding: '5px 11px', borderRadius: 9999, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)', transition: 'all 0.15s' }}
                                                                     onMouseEnter={ev => { ev.currentTarget.style.color = accent; ev.currentTarget.style.borderColor = `${accent}44`; ev.currentTarget.style.background = `${accent}12`; }}
                                                                     onMouseLeave={ev => { ev.currentTarget.style.color = SUB; ev.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)'; ev.currentTarget.style.background = 'rgba(255,255,255,0.04)'; }}>
@@ -999,7 +999,7 @@ export const FrontpageAltF: React.FC = () => {
                                                                     <span style={{ color: `${SUB}99`, fontWeight: 500 }}>{(post.commentCount ?? 0) === 1 ? 'reply' : 'replies'}</span>
                                                                 </Link>
                                                                 <div style={{ flex: 1 }} />
-                                                                <Link to={`/preview/alt_f_genre_post/${post.id}`}
+                                                                <Link to={`/post/${post.id}`}
                                                                     style={{ fontSize: 11, fontWeight: 700, color: accent, textDecoration: 'none', opacity: 0.85 }}
                                                                     onMouseEnter={ev => (ev.currentTarget.style.opacity = '1')}
                                                                     onMouseLeave={ev => (ev.currentTarget.style.opacity = '0.85')}>
@@ -1026,7 +1026,7 @@ export const FrontpageAltF: React.FC = () => {
                                     {!genreHasSubs && genrePosts.length > 0 && (
                                         <div style={{ marginTop: 16, padding: '12px 16px', background: `${PRIMARY}0d`, border: `1px solid ${PRIMARY}33`, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
                                             <span style={{ fontSize: 12, color: SUB }}>Subscribe to genres to see a personalised feed.</span>
-                                            <Link to="/preview/alt_f_genres"
+                                            <Link to="/genres"
                                                 style={{ fontSize: 12, fontWeight: 700, color: PRIMARY, textDecoration: 'none', flexShrink: 0 }}>
                                                 Browse Genres →
                                             </Link>

@@ -1,5 +1,5 @@
 /**
- * Alt F — Create Genre Post (/preview/alt_f_create_post?genreId=xxx)
+ * Alt F — Create Genre Post (/create-post?genreId=xxx)
  * Reddit-style dedicated post creation page with WYSIWYG body, media attachments,
  * extra genre tags (max 2), flair, and community rules sidebar.
  */
@@ -175,7 +175,7 @@ export const FrontpageAltFCreatePost: React.FC = () => {
             if (mediaTab === 'video' && videoUrl.trim()) payload.videoUrl = videoUrl.trim();
             if (mediaTab === 'audio' && audioUrl) payload.audioUrl = audioUrl;
             const r = await axios.post(isCommunityKind ? '/api/community-posts' : '/api/genre-posts', payload, { withCredentials: true });
-            navigate(`/preview/alt_f_genre_post/${r.data.id}${isCommunityKind ? '?kind=community' : ''}`);
+            navigate(`/post/${r.data.id}${isCommunityKind ? '?kind=community' : ''}`);
         } catch (e: any) {
             setError(e?.response?.data?.error ?? 'Failed to post. Please try again.');
         } finally {
@@ -185,13 +185,13 @@ export const FrontpageAltFCreatePost: React.FC = () => {
 
     const breadcrumb = isCommunityKind
         ? [
-            { label: 'Genres', to: '/preview/alt_f_genres' },
-            ...(activeCommunity ? [{ label: activeCommunity.name, to: `/preview/alt_f_genres/${activeCommunity.slug}?kind=community` }] : []),
+            { label: 'Genres', to: '/genres' },
+            ...(activeCommunity ? [{ label: activeCommunity.name, to: `/genres/${activeCommunity.slug}?kind=community` }] : []),
             { label: 'Create Post' },
         ]
         : [
-            { label: 'Genres', to: '/preview/alt_f_genres' },
-            ...(primaryGenre ? [{ label: primaryGenre.name, to: `/preview/alt_f_genres/${primaryGenre.slug}` }] : []),
+            { label: 'Genres', to: '/genres' },
+            ...(primaryGenre ? [{ label: primaryGenre.name, to: `/genres/${primaryGenre.slug}` }] : []),
             { label: 'Create Post' },
         ];
 
@@ -207,7 +207,7 @@ export const FrontpageAltFCreatePost: React.FC = () => {
                     <div style={{ maxWidth: 1080, margin: '0 auto', padding: '24px 24px 64px', boxSizing: 'border-box' }}>
 
                         {/* Back link */}
-                        <Link to={isCommunityKind ? (activeCommunity ? `/preview/alt_f_genres/${activeCommunity.slug}?kind=community` : '/preview/alt_f_genres') : (primaryGenre ? `/preview/alt_f_genres/${primaryGenre.slug}` : '/preview/alt_f_genres')}
+                        <Link to={isCommunityKind ? (activeCommunity ? `/genres/${activeCommunity.slug}?kind=community` : '/genres') : (primaryGenre ? `/genres/${primaryGenre.slug}` : '/genres')}
                             style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, color: SUB, textDecoration: 'none', marginBottom: 20 }}
                             onMouseEnter={e => (e.currentTarget.style.color = TEXT)}
                             onMouseLeave={e => (e.currentTarget.style.color = SUB)}>
