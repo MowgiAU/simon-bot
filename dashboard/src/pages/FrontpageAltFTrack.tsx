@@ -86,9 +86,21 @@ export const FrontpageAltFTrack: React.FC = () => {
 
     useEffect(() => {
         let on = true;
+        // Resolve the target track from the URL. Live route is /profile/:username/:slug
+        // (or /track/:username/:slug); the preview URL falls back to ?u=&slug=, then the demo.
+        const resolveTarget = (): { username: string; slug: string } => {
+            const m = window.location.pathname.match(/^\/(?:profile|track)\/([^/]+)\/([^/]+)\/?$/);
+            if (m) return { username: decodeURIComponent(m[1]), slug: decodeURIComponent(m[2]) };
+            const sp = new URLSearchParams(window.location.search);
+            const u = sp.get('u') || sp.get('username');
+            const s = sp.get('slug') || sp.get('track');
+            if (u && s) return { username: u, slug: s };
+            return { username: 'thomas', slug: 'testing-new-stems-feature' };
+        };
         const load = async () => {
             try {
-                const r = await axios.get('/api/musician/tracks/thomas/testing-new-stems-feature', { withCredentials: true });
+                const target = resolveTarget();
+                const r = await axios.get(`/api/musician/tracks/${encodeURIComponent(target.username)}/${encodeURIComponent(target.slug)}`, { withCredentials: true });
                 if (!on) return;
                 const t = r.data;
                 setTrackData(t);

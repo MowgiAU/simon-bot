@@ -22,7 +22,15 @@ import {
     UserPlus, UserCheck, MessageCircle, Play, MoreVertical, Globe, Music, Youtube, Instagram, Headphones, Repeat2, Trophy, Edit3,
 } from 'lucide-react';
 
-const REF_USER = 'thomas';
+// Resolve the target artist from the URL. Live route is /profile/:username; the
+// /preview/alt_f_artist URL falls back to ?username= (or the demo 'thomas').
+function resolveArtistUsername(): string {
+    const path = window.location.pathname;
+    const m = path.match(/^\/profile\/([^/]+)\/?$/);   // single segment (not a track page)
+    if (m) return decodeURIComponent(m[1]);
+    const sp = new URLSearchParams(window.location.search);
+    return sp.get('username') || sp.get('u') || 'thomas';
+}
 
 const fmtDur = (s?: number) => { if (!s || !isFinite(s)) return ''; const m = Math.floor(s / 60); const c = Math.floor(s % 60); return `${m}:${c.toString().padStart(2, '0')}`; };
 const fmtNum = (n?: number) => { n = n || 0; if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M'; if (n >= 1e3) return (n / 1e3).toFixed(1) + 'k'; return String(n); };
@@ -47,6 +55,8 @@ export const FrontpageAltFArtist: React.FC = () => {
     const [followerCount, setFollowerCount] = useState(0);
     const [followingCount, setFollowingCount] = useState(0);
     const [startingChat, setStartingChat] = useState(false);
+
+    const REF_USER = resolveArtistUsername();
 
     useEffect(() => {
         let on = true;

@@ -51,7 +51,12 @@ export const FrontpageAltFBattle: React.FC = () => {
     const [countdownStr, setCountdownStr] = useState<string | null>(null);
 
     useEffect(() => {
-        axios.get('/api/beat-battle/battles/baby-audio-presents').then(r => {
+        // Resolve the target battle from the URL. Live route is /battles/:idOrSlug; the
+        // preview URL falls back to ?id= / ?slug=, then the first active battle (demo).
+        const pathMatch = window.location.pathname.match(/^\/battles\/([^/]+)\/?$/);
+        const sp = new URLSearchParams(window.location.search);
+        const target = pathMatch ? decodeURIComponent(pathMatch[1]) : (sp.get('id') || sp.get('slug') || 'baby-audio-presents');
+        axios.get(`/api/beat-battle/battles/${encodeURIComponent(target)}`).then(r => {
             setBattle(r.data);
             setLoading(false);
         }).catch(() => {
