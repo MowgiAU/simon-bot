@@ -56,7 +56,7 @@ export const AltHeader: React.FC<AltHeaderProps> = ({ breadcrumb = [], leftSlot,
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 {/* Upload: icon-only at xs */}
-                <Link to="/my-tracks" style={{ display: 'flex', alignItems: 'center', gap: bp === 'xs' ? 0 : 8, background: accent, color: '#fff', fontWeight: 700, fontSize: 13, padding: bp === 'xs' ? '9px' : '8px 16px', borderRadius: 9999, textDecoration: 'none' }}>
+                <Link to="/upload" style={{ display: 'flex', alignItems: 'center', gap: bp === 'xs' ? 0 : 8, background: accent, color: '#fff', fontWeight: 700, fontSize: 13, padding: bp === 'xs' ? '9px' : '8px 16px', borderRadius: 9999, textDecoration: 'none' }}>
                     <Upload size={18} />{bp !== 'xs' && ' Upload'}
                 </Link>
                 <div style={{ position: 'relative' }}>

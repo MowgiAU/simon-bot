@@ -286,7 +286,7 @@ export const FrontpageAltFMyTracks: React.FC = () => {
             <p style={{ margin: 0, fontSize: 13, color: SUB, lineHeight: 1.5 }}>
                 Share your music with the community. Supports audio, artwork, FL Studio project files, and stems.
             </p>
-            <a href="/my-tracks" style={{ display: 'block', padding: '10px', background: PRIMARY, borderRadius: 8, color: '#fff', fontSize: 13, fontWeight: 700, textAlign: 'center', textDecoration: 'none' }}>
+            <a href="/upload" style={{ display: 'block', padding: '10px', background: PRIMARY, borderRadius: 8, color: '#fff', fontSize: 13, fontWeight: 700, textAlign: 'center', textDecoration: 'none' }}>
                 Go to Upload →
             </a>
         </div>

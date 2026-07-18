@@ -103,6 +103,7 @@ const FrontpageAltFGenrePost   = lazy(() => import("./pages/FrontpageAltFGenrePo
 const FrontpageAltFCreatePost  = lazy(() => import("./pages/FrontpageAltFCreatePost").then(m => ({ default: m.FrontpageAltFCreatePost })));
 const FrontpageAltFArena       = lazy(() => import("./pages/FrontpageAltFArena").then(m => ({ default: m.FrontpageAltFArena })));
 const FrontpageAltFContact     = lazy(() => import("./pages/FrontpageAltFContact"));
+const FrontpageAltFUpload       = lazy(() => import("./pages/FrontpageAltFUpload"));
 const FrontpageAltFLearn       = lazy(() => import("./pages/FrontpageAltFLearn").then(m => ({ default: m.FrontpageAltFLearn })));
 const FrontpageAltFCollabs     = lazy(() => import("./pages/FrontpageAltFCollabs"));
 const FrontpageAltFCollabCallout = lazy(() => import("./pages/FrontpageAltFCollabCallout"));
@@ -1004,6 +1005,11 @@ const AppInternal: React.FC = () => {
   // /create-post → Alt F create genre/community post
   if (currentPath === '/create-post') {
     return <Suspense fallback={<PageSpinner />}><FrontpageAltFCreatePost /></Suspense>;
+  }
+
+  // /upload → Alt F upload track (supports ?battle=<idOrSlug> for battle entry)
+  if (currentPath === '/upload') {
+    return <Suspense fallback={<PageSpinner />}><FrontpageAltFUpload /></Suspense>;
   }
   
   // /category/:slug → Filtered tracks page (legacy, keep working)
