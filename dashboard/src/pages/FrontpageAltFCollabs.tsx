@@ -31,7 +31,7 @@ function CalloutCard({ c }: { c: any }) {
     const [hover, setHover] = useState(false);
     return (
         <Link
-            to={`/preview/alt_f_collab_callout?id=${c.id}`}
+            to={`/collabs/callout?id=${c.id}`}
             onMouseEnter={e => { setHover(true); (e.currentTarget as HTMLElement).style.borderColor = `${PRIMARY}55`; (e.currentTarget as HTMLElement).style.background = S_HIGH; }}
             onMouseLeave={e => { setHover(false); (e.currentTarget as HTMLElement).style.borderColor = BORDER; (e.currentTarget as HTMLElement).style.background = S_CONT; }}
             style={{ display: 'block', background: S_CONT, border: `1px solid ${BORDER}`, borderRadius: 12, padding: 20, textDecoration: 'none', color: TEXT, transition: 'all 0.15s' }}
@@ -127,7 +127,7 @@ export default function FrontpageAltFCollabs() {
                         </div>
                         <div style={{ display: 'flex', gap: 8 }}>
                             {user && (
-                                <Link to="/preview/alt_f_my_collabs" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 18px', borderRadius: 99, background: S_CONT, border: `1px solid ${BORDER}`, color: TEXT, textDecoration: 'none', fontWeight: 600, fontSize: 14 }}>
+                                <Link to="/my-collabs" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 18px', borderRadius: 99, background: S_CONT, border: `1px solid ${BORDER}`, color: TEXT, textDecoration: 'none', fontWeight: 600, fontSize: 14 }}>
                                     <FolderOpen size={16} /> My Collabs
                                 </Link>
                             )}

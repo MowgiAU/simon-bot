@@ -111,7 +111,7 @@ export default function FrontpageAltFCollabCallout() {
             const { data } = await axios.patch(`/api/collab/requests/${requestId}`, { action }, { withCredentials: true });
             setRequests(prev => prev.map(r => r.id === requestId ? { ...r, status: data.status } : r));
             if (action === 'accept' && data.project) {
-                navigate(`/preview/alt_f_collab_workspace?id=${data.project.id}`);
+                navigate(`/collabs/workspace?id=${data.project.id}`);
             }
         } catch { /* ignore */ }
         setResolving(null);
@@ -138,7 +138,7 @@ export default function FrontpageAltFCollabCallout() {
                 <AltHeader />
                 <div style={{ flex: 1, overflowY: 'auto', padding: '24px 32px', maxWidth: 800, width: '100%', margin: '0 auto' }}>
 
-                    <Link to="/preview/alt_f_collabs" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: SUB, textDecoration: 'none', fontSize: 13, marginBottom: 20 }}>
+                    <Link to="/collabs" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: SUB, textDecoration: 'none', fontSize: 13, marginBottom: 20 }}>
                         <ArrowLeft size={14} /> Back to Collabs
                     </Link>
 
@@ -228,7 +228,7 @@ export default function FrontpageAltFCollabCallout() {
                                             )}
                                             {r.status === 'accepted' && r.project && (
                                                 <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                                                    <Link to={`/preview/alt_f_collab_workspace?id=${r.project.id}`} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 8, background: `${PRIMARY}22`, color: PRIMARY, textDecoration: 'none', fontSize: 13, fontWeight: 700 }}>
+                                                    <Link to={`/collabs/workspace?id=${r.project.id}`} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 8, background: `${PRIMARY}22`, color: PRIMARY, textDecoration: 'none', fontSize: 13, fontWeight: 700 }}>
                                                         <ExternalLink size={14} /> Open Workspace
                                                     </Link>
                                                 </div>
@@ -255,7 +255,7 @@ export default function FrontpageAltFCollabCallout() {
                                         {myRequest.status === 'pending' ? 'Your request is pending review.' : myRequest.status === 'accepted' ? 'Your request was accepted!' : 'Your request was not accepted this time.'}
                                     </p>
                                     {myRequest.status === 'accepted' && myRequest.project && (
-                                        <Link to={`/preview/alt_f_collab_workspace?id=${myRequest.project.id}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 8, padding: '9px 20px', borderRadius: 99, background: PRIMARY, color: '#fff', textDecoration: 'none', fontWeight: 700 }}>
+                                        <Link to={`/collabs/workspace?id=${myRequest.project.id}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 8, padding: '9px 20px', borderRadius: 99, background: PRIMARY, color: '#fff', textDecoration: 'none', fontWeight: 700 }}>
                                             <ExternalLink size={14} /> Open Workspace
                                         </Link>
                                     )}

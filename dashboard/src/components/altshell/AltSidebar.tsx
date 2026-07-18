@@ -34,7 +34,7 @@ const NAV = [
     { icon: Zap,       label: 'Arena',   to: '/arena' },
     // Genres + Collabs stay on /preview until their live routes are migrated (later stage).
     { icon: Tag,       label: 'Genres',  to: '/genres' },
-    { icon: Users,     label: 'Collabs', to: '/preview/alt_f_collabs' },
+    { icon: Users,     label: 'Collabs', to: '/collabs' },
 ];
 
 const LS_KEY = 'fuji_left_sidebar_collapsed';

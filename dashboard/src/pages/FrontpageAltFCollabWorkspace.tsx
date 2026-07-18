@@ -364,7 +364,10 @@ export default function FrontpageAltFCollabWorkspace() {
         try {
             const { data } = await axios.patch(`/api/collab/projects/${id}/approve`, { trackTitle: releaseTrackTitle }, { withCredentials: true });
             setProject((p: any) => ({ ...p, ...data.project }));
-            if (data.released && data.track) navigate(`/preview/alt_f_track?id=${data.track.id}`);
+            if (data.released && data.track) {
+                const t = data.track;
+                navigate(t.slug && t.profile?.username ? `/profile/${t.profile.username}/${t.slug}` : '/my-tracks');
+            }
         } catch (e: any) {
             setReleaseError(e.response?.data?.error || 'Failed');
         }
@@ -392,7 +395,7 @@ export default function FrontpageAltFCollabWorkspace() {
 
                 {/* ── Header ────────────────────────────────────────────── */}
                 <div style={{ padding: '12px 24px', borderBottom: `1px solid ${BORDER}`, flexShrink: 0 }}>
-                    <Link to="/preview/alt_f_my_collabs" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: SUB, textDecoration: 'none', fontSize: 12, marginBottom: 8 }}>
+                    <Link to="/my-collabs" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: SUB, textDecoration: 'none', fontSize: 12, marginBottom: 8 }}>
                         <ArrowLeft size={13} /> My Collabs
                     </Link>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>

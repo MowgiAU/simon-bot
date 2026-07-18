@@ -103,10 +103,10 @@ export default function FrontpageAltFMyCollabs() {
                             </div>
                         </div>
                         <div style={{ display: 'flex', gap: 8 }}>
-                            <Link to="/preview/alt_f_collabs" style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 16px', borderRadius: 99, background: S_CONT, border: `1px solid ${BORDER}`, color: TEXT, textDecoration: 'none', fontSize: 13 }}>
+                            <Link to="/collabs" style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 16px', borderRadius: 99, background: S_CONT, border: `1px solid ${BORDER}`, color: TEXT, textDecoration: 'none', fontSize: 13 }}>
                                 Browse Callouts <ArrowRight size={14} />
                             </Link>
-                            <button onClick={() => navigate('/preview/alt_f_collabs')} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 16px', borderRadius: 99, background: PRIMARY, border: 'none', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+                            <button onClick={() => navigate('/collabs')} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 16px', borderRadius: 99, background: PRIMARY, border: 'none', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
                                 <Plus size={14} /> Post Callout
                             </button>
                         </div>
@@ -130,7 +130,7 @@ export default function FrontpageAltFMyCollabs() {
                                     <div style={{ textAlign: 'center', padding: '60px 0' }}>
                                         <Users size={36} color={SUB} style={{ margin: '0 auto 12px', display: 'block' }} />
                                         <p style={{ color: SUB, marginBottom: 16 }}>You haven't posted any callouts yet</p>
-                                        <Link to="/preview/alt_f_collabs" style={{ display: 'inline-block', padding: '10px 24px', borderRadius: 99, background: PRIMARY, color: '#fff', textDecoration: 'none', fontWeight: 700 }}>Post Your First Callout</Link>
+                                        <Link to="/collabs" style={{ display: 'inline-block', padding: '10px 24px', borderRadius: 99, background: PRIMARY, color: '#fff', textDecoration: 'none', fontWeight: 700 }}>Post Your First Callout</Link>
                                     </div>
                                 ) : (
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -138,7 +138,7 @@ export default function FrontpageAltFMyCollabs() {
                                             <div key={c.id} style={{ background: S_CONT, border: `1px solid ${BORDER}`, borderRadius: 12, padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 12 }}>
                                                 <div style={{ flex: 1, minWidth: 0 }}>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                                                        <Link to={`/preview/alt_f_collab_callout?id=${c.id}`} style={{ fontWeight: 700, fontSize: 15, color: TEXT, textDecoration: 'none' }}>{c.title}</Link>
+                                                        <Link to={`/collabs/callout?id=${c.id}`} style={{ fontWeight: 700, fontSize: 15, color: TEXT, textDecoration: 'none' }}>{c.title}</Link>
                                                         <StatusPill status={c.status} map={calloutStatusMap} />
                                                     </div>
                                                     <div style={{ fontSize: 12, color: SUB }}>
@@ -146,7 +146,7 @@ export default function FrontpageAltFMyCollabs() {
                                                     </div>
                                                 </div>
                                                 <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-                                                    <Link to={`/preview/alt_f_collab_callout?id=${c.id}`} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', borderRadius: 8, background: S_HIGH, color: TEXT, textDecoration: 'none', fontSize: 12 }}>
+                                                    <Link to={`/collabs/callout?id=${c.id}`} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', borderRadius: 8, background: S_HIGH, color: TEXT, textDecoration: 'none', fontSize: 12 }}>
                                                         <ExternalLink size={13} /> View
                                                     </Link>
                                                     {c.status === 'open' && (
@@ -169,7 +169,7 @@ export default function FrontpageAltFMyCollabs() {
                                 requests.length === 0 ? (
                                     <div style={{ textAlign: 'center', padding: '60px 0' }}>
                                         <p style={{ color: SUB, marginBottom: 16 }}>You haven't submitted any requests yet</p>
-                                        <Link to="/preview/alt_f_collabs" style={{ display: 'inline-block', padding: '10px 24px', borderRadius: 99, background: PRIMARY, color: '#fff', textDecoration: 'none', fontWeight: 700 }}>Browse Callouts</Link>
+                                        <Link to="/collabs" style={{ display: 'inline-block', padding: '10px 24px', borderRadius: 99, background: PRIMARY, color: '#fff', textDecoration: 'none', fontWeight: 700 }}>Browse Callouts</Link>
                                     </div>
                                 ) : (
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -180,13 +180,13 @@ export default function FrontpageAltFMyCollabs() {
                                                 </div>
                                                 <div style={{ flex: 1, minWidth: 0 }}>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                                                        <Link to={`/preview/alt_f_collab_callout?id=${r.calloutId}`} style={{ fontWeight: 700, fontSize: 14, color: TEXT, textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.callout?.title}</Link>
+                                                        <Link to={`/collabs/callout?id=${r.calloutId}`} style={{ fontWeight: 700, fontSize: 14, color: TEXT, textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.callout?.title}</Link>
                                                         <StatusPill status={r.status} map={requestStatusMap} />
                                                     </div>
                                                     <div style={{ fontSize: 12, color: SUB }}>by {r.callout?.profile?.displayName || r.callout?.profile?.username} · {timeAgo(r.createdAt)}</div>
                                                 </div>
                                                 {r.status === 'accepted' && r.project && (
-                                                    <Link to={`/preview/alt_f_collab_workspace?id=${r.project.id}`} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 99, background: `${PRIMARY}22`, color: PRIMARY, textDecoration: 'none', fontSize: 13, fontWeight: 700, flexShrink: 0 }}>
+                                                    <Link to={`/collabs/workspace?id=${r.project.id}`} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 99, background: `${PRIMARY}22`, color: PRIMARY, textDecoration: 'none', fontSize: 13, fontWeight: 700, flexShrink: 0 }}>
                                                         <ExternalLink size={13} /> Workspace
                                                     </Link>
                                                 )}
@@ -205,7 +205,7 @@ export default function FrontpageAltFMyCollabs() {
                                 ) : (
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                                         {projects.map(p => (
-                                            <Link key={p.id} to={`/preview/alt_f_collab_workspace?id=${p.id}`} style={{ display: 'flex', gap: 14, alignItems: 'center', background: S_CONT, border: `1px solid ${BORDER}`, borderRadius: 12, padding: '16px 20px', textDecoration: 'none', color: TEXT }}>
+                                            <Link key={p.id} to={`/collabs/workspace?id=${p.id}`} style={{ display: 'flex', gap: 14, alignItems: 'center', background: S_CONT, border: `1px solid ${BORDER}`, borderRadius: 12, padding: '16px 20px', textDecoration: 'none', color: TEXT }}>
                                                 <div style={{ display: 'flex', alignItems: 'center' }}>
                                                     <div style={{ width: 36, height: 36, borderRadius: '50%', overflow: 'hidden', background: S_HIGH, border: `2px solid ${BG}` }}>
                                                         {p.initiator?.avatar && <img src={p.initiator.avatar} alt="" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}

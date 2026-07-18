@@ -1044,6 +1044,20 @@ const AppInternal: React.FC = () => {
     return <Suspense fallback={<PageSpinner />}><FrontpageAltFMyCollabs /></Suspense>;
   }
 
+  // ── Collabs (live) — detail pages read ?id= from the query string ──
+  if (currentPath === '/my-collabs') {
+    return <Suspense fallback={<PageSpinner />}><FrontpageAltFMyCollabs /></Suspense>;
+  }
+  if (currentPath === '/collabs/callout') {
+    return <Suspense fallback={<PageSpinner />}><FrontpageAltFCollabCallout /></Suspense>;
+  }
+  if (currentPath === '/collabs/workspace') {
+    return <Suspense fallback={<PageSpinner />}><FrontpageAltFCollabWorkspace /></Suspense>;
+  }
+  if (currentPath === '/collabs') {
+    return <Suspense fallback={<PageSpinner />}><FrontpageAltFCollabs /></Suspense>;
+  }
+
   // Mobile redesign previews (Stitch mockups rebuilt as CSP-safe React) — access by URL only
   if (currentPath === '/preview/mobile-now-playing') {
     return <Suspense fallback={<PageSpinner />}><MobilePreviewNowPlaying /></Suspense>;
