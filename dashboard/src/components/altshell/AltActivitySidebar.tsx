@@ -65,20 +65,27 @@ export const AltActivitySidebar: React.FC<{ topSlot?: React.ReactNode; showCommu
     const [mobileSheet, setMobileSheet] = useState<{ title: string; content: React.ReactNode } | null>(null);
     const bp = useAltBreakpoint();
 
+    // Pages that inject their own controls (topSlot / railSections) treat that content as
+    // essential — the rail stays expanded down to md (≥900) instead of auto-collapsing to a
+    // narrow icon strip that hides the sort/genre/overview cards. Community-only rails keep
+    // the old behaviour (collapse < lg).
+    const hasPageContent = !!topSlot || ((railSections?.length ?? 0) > 0);
+
     const [collapsed, setCollapsed] = useState(() => {
-        const narrow = typeof window !== 'undefined' && window.innerWidth < 1100;
-        if (narrow) return true;
+        const w = typeof window !== 'undefined' ? window.innerWidth : 1200;
+        if (w < (hasPageContent ? 900 : 1100)) return true;
         try { return localStorage.getItem(LS_KEY) === 'true'; } catch { return false; }
     });
 
-    // Mirror left sidebar: auto-collapse on narrow resize, restore preference at lg.
+    // Auto-collapse on narrow resize, restore preference otherwise.
     useEffect(() => {
-        if (bp !== 'lg') {
+        const forceCollapse = hasPageContent ? (bp === 'xs' || bp === 'sm') : (bp !== 'lg');
+        if (forceCollapse) {
             setCollapsed(true);
         } else {
             try { setCollapsed(localStorage.getItem(LS_KEY) === 'true'); } catch {}
         }
-    }, [bp]);
+    }, [bp, hasPageContent]);
 
     const toggle = () => setCollapsed(c => {
         const next = !c;
@@ -243,7 +250,7 @@ export const AltActivitySidebar: React.FC<{ topSlot?: React.ReactNode; showCommu
     // pie menu for this page's content — Create Post is a direct action, the rest
     // (page sections / community) open a bottom sheet with the same content the
     // desktop rail shows.
-    if (bp === 'xs') {
+    if (bp === 'xs' || (bp === 'sm' && hasPageContent)) {
         const wedgeItems: PieItem[] = [
             { key: 'post', label: primaryAction ? primaryAction.label : 'Post', icon: primaryAction ? <Zap size={20} /> : <Plus size={20} />, onClick: primaryAction ? primaryAction.onClick : () => navigate('/preview/alt_f_create_post') },
             ...(railSections && railSections.length > 0
@@ -273,13 +280,27 @@ export const AltActivitySidebar: React.FC<{ topSlot?: React.ReactNode; showCommu
     /* — collapsed strip — */
     if (collapsed) {
         return (
-            <aside style={{ width: w, minWidth: w, background: BG, borderLeft: `1px solid ${BORDER}`, display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: 16, paddingBottom: pb, gap: 20, flexShrink: 0, transition: 'width 0.25s ease, min-width 0.25s ease', fontFamily: FONT, overflowX: 'hidden' }}>
+            <>
+            <aside style={{ width: w, minWidth: w, background: BG, borderLeft: `1px solid ${BORDER}`, display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: 16, paddingBottom: pb, gap: 18, flexShrink: 0, transition: 'width 0.25s ease, min-width 0.25s ease', fontFamily: FONT, overflowX: 'hidden' }}>
                 <button onClick={toggle} title="Expand activity" style={{ background: 'none', border: 'none', cursor: 'pointer', color: SUB, padding: 4, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <PanelRightOpen size={18} />
                 </button>
-                <div title="Battles" style={{ color: TERTIARY, opacity: 0.7, display: 'flex' }}><Swords size={16} /></div>
-                <div title="Activity" style={{ color: SECONDARY, opacity: 0.7, display: 'flex' }}><Activity size={16} /></div>
+                {/* Page controls stay reachable while collapsed — each opens a sheet. */}
+                {railSections?.map(s => (
+                    <button key={s.key} onClick={() => setMobileSheet({ title: s.label, content: s.content })} title={s.label}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: SUB, padding: 4, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        {s.icon}
+                    </button>
+                ))}
+                {showCommunity && <>
+                    <div title="Battles" style={{ color: TERTIARY, opacity: 0.7, display: 'flex' }}><Swords size={16} /></div>
+                    <div title="Activity" style={{ color: SECONDARY, opacity: 0.7, display: 'flex' }}><Activity size={16} /></div>
+                </>}
             </aside>
+            <AltMobileSheet open={!!mobileSheet} onClose={() => setMobileSheet(null)} title={mobileSheet?.title}>
+                {mobileSheet?.content}
+            </AltMobileSheet>
+            </>
         );
     }
 

@@ -12,14 +12,15 @@ import { useAuth } from '../components/AuthProvider';
 import { useChat } from '../components/ChatProvider';
 import { StyledUsername, StyledAvatar } from '../components/StyledUsername';
 import { CommentSection } from '../components/CommentSection';
-import { AltSidebar, BG, S_CONT, S_HIGH, PRIMARY, SECONDARY, TERTIARY, TEXT, SUB, BORDER, FONT } from '../components/altshell/AltSidebar';
+import { AltSidebar, BG, S_CONT, S_HIGH, PRIMARY, SECONDARY, TERTIARY, TEXT, SUB, BORDER, FONT, CONTENT_MAX } from '../components/altshell/AltSidebar';
 import { AltHeader } from '../components/altshell/AltHeader';
-import { AltActivitySidebar } from '../components/altshell/AltActivitySidebar';
+import { AltActivitySidebar, type RailSection } from '../components/altshell/AltActivitySidebar';
 import { useAltBreakpoint } from '../components/altshell/useAltBreakpoint';
 import { AltSpinner } from '../components/altshell/AltSpinner';
 import {
     Swords, MapPin, Mail,
     UserPlus, UserCheck, MessageCircle, Play, MoreVertical, Globe, Music, Youtube, Instagram, Headphones, Repeat2, Trophy, Edit3,
+    Info, Users, Wrench,
 } from 'lucide-react';
 
 // Resolve the target artist from the URL. Live route is /profile/:username; the
@@ -148,6 +149,56 @@ export const FrontpageAltFArtist: React.FC = () => {
         );
     };
 
+    // Profile info cards relocated into the right activity rail.
+    const aboutCard = (
+        <div style={{ ...glass, borderRadius: 16, overflow: 'hidden' }}>
+            <div style={{ padding: '13px 16px', borderBottom: `1px solid ${DIVIDER}`, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>About</h3>
+            </div>
+            <div style={{ padding: '14px 16px' }}>
+                <p style={{ margin: 0, fontSize: 13, color: SUB, lineHeight: 1.6 }}>{p?.bio || 'No bio yet.'}</p>
+                {p?.showSocialLinks !== false && (p?.socials || []).length > 0 && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 16 }}>
+                        {(p.socials || []).map((s: any, i: number) => { const Icon = socialIcon[s.platform] || Globe; return <a key={i} href={s.url} target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 12, color: SECONDARY, fontSize: 13, textDecoration: 'none', textTransform: 'capitalize' }}><Icon size={18} /> {s.platform}</a>; })}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+    const friendsCard = p?.showFeaturedFriends !== false && topFriends.length > 0 ? (
+        <div style={{ ...glass, borderRadius: 16, overflow: 'hidden' }}>
+            <div style={{ padding: '13px 16px', borderBottom: `1px solid ${DIVIDER}`, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>Top Friends</h3>
+            </div>
+            <div style={{ padding: '14px 16px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 12 }}>
+                    {topFriends.map((f: any) => (
+                        <Link key={f.profileId || f.userId} to={`/profile/${f.username}`} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, textDecoration: 'none', minWidth: 0 }}>
+                            <div style={{ width: '100%', aspectRatio: '1 / 1', borderRadius: '50%', overflow: 'hidden', background: S_HIGH, border: `1px solid ${BORDER}` }}>{f.avatar && <img src={f.avatar} alt="" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}</div>
+                            <span style={{ fontSize: 11, color: SUB, maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.displayName || f.username}</span>
+                        </Link>
+                    ))}
+                </div>
+            </div>
+        </div>
+    ) : null;
+    const gearCard = p?.showGearSection && gear.length > 0 ? (
+        <div style={{ ...glass, borderRadius: 16, overflow: 'hidden' }}>
+            <div style={{ padding: '13px 16px', borderBottom: `1px solid ${DIVIDER}`, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>Studio Gear</h3>
+            </div>
+            <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {gear.map((g, i) => <span key={i} style={{ background: S_HIGH, color: TEXT, padding: '8px 12px', borderRadius: 8, fontSize: 12, border: `1px solid ${BORDER}`, textAlign: 'center' }}>{g}</span>)}
+            </div>
+        </div>
+    ) : null;
+    const profileRailTop = (<>{aboutCard}{friendsCard}{gearCard}</>);
+    const profileRailSections: RailSection[] = [
+        { key: 'about', label: 'About', icon: <Info size={20} />, content: aboutCard },
+        ...(friendsCard ? [{ key: 'friends', label: 'Top Friends', icon: <Users size={20} />, content: friendsCard }] : []),
+        ...(gearCard ? [{ key: 'gear', label: 'Studio Gear', icon: <Wrench size={20} />, content: gearCard }] : []),
+    ];
+
     return (
         <div style={{ height: '100vh', display: 'flex', overflow: 'hidden', background: pageBg, color: TEXT, fontFamily: FONT }}>
             <AltSidebar active="Artists" />
@@ -270,60 +321,7 @@ export const FrontpageAltFArtist: React.FC = () => {
                     )}
 
                     {/* Body */}
-                    <div style={{ maxWidth: 1280, margin: '0 auto', width: '100%', boxSizing: 'border-box', padding: isMobile ? '16px 16px 24px' : '24px 32px 40px', display: isMobile ? 'flex' : 'grid', flexDirection: isMobile ? 'column' : undefined, gridTemplateColumns: isMobile ? undefined : '280px 1fr', gap: isMobile ? 24 : 24, alignItems: 'flex-start' }}>
-                        {/* Left column: About, Friends, Gear */}
-                        <aside style={{ display: 'flex', flexDirection: 'column', gap: 20, minWidth: 0, width: isMobile ? '100%' : undefined, boxSizing: 'border-box' }}>
-                            <section>
-                                <div style={{ ...glass, borderRadius: 20, overflow: 'hidden' }}>
-                                    <div style={{ padding: '16px 20px', borderBottom: `1px solid ${DIVIDER}`, display: 'flex', alignItems: 'center', gap: 8 }}>
-                                        <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>About</h3>
-                                    </div>
-                                    <div style={{ padding: '16px 20px' }}>
-                                        <p style={{ margin: 0, fontSize: 14, color: SUB, lineHeight: 1.6 }}>{p?.bio || 'No bio yet.'}</p>
-                                        {p?.showSocialLinks !== false && (p?.socials || []).length > 0 && (
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 16 }}>
-                                                {(p.socials || []).map((s: any, i: number) => { const Icon = socialIcon[s.platform] || Globe; return <a key={i} href={s.url} target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 12, color: SECONDARY, fontSize: 14, textDecoration: 'none', textTransform: 'capitalize' }}><Icon size={20} /> {s.platform}</a>; })}
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            </section>
-
-                            {p?.showFeaturedFriends !== false && topFriends.length > 0 && (
-                                <section>
-                                    <div style={{ ...glass, borderRadius: 20, overflow: 'hidden' }}>
-                                        <div style={{ padding: '16px 20px', borderBottom: `1px solid ${DIVIDER}`, display: 'flex', alignItems: 'center', gap: 8 }}>
-                                            <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>Top Friends</h3>
-                                        </div>
-                                        <div style={{ padding: '16px 20px' }}>
-                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 12 }}>
-                                                {topFriends.map((f: any) => (
-                                                    <Link key={f.profileId || f.userId} to={`/profile/${f.username}`} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, textDecoration: 'none', minWidth: 0 }}>
-                                                        <div style={{ width: '100%', aspectRatio: '1 / 1', borderRadius: '50%', overflow: 'hidden', background: S_HIGH, border: `1px solid ${BORDER}` }}>{f.avatar && <img src={f.avatar} alt="" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}</div>
-                                                        <span style={{ fontSize: 11, color: SUB, maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.displayName || f.username}</span>
-                                                    </Link>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    </div>
-                                </section>
-                            )}
-
-                            {p?.showGearSection && gear.length > 0 && (
-                                <section>
-                                    <div style={{ ...glass, borderRadius: 20, overflow: 'hidden' }}>
-                                        <div style={{ padding: '16px 20px', borderBottom: `1px solid ${DIVIDER}`, display: 'flex', alignItems: 'center', gap: 8 }}>
-                                            <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>Studio Gear</h3>
-                                        </div>
-                                        <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                            {gear.map((g, i) => <span key={i} style={{ background: S_HIGH, color: TEXT, padding: '8px 12px', borderRadius: 8, fontSize: 12, border: `1px solid ${BORDER}`, textAlign: 'center' }}>{g}</span>)}
-                                        </div>
-                                    </div>
-                                </section>
-                            )}
-                        </aside>
-
-                        {/* Right column: tracks, battles, comments */}
+                    <div style={{ maxWidth: CONTENT_MAX, margin: '0 auto', width: '100%', boxSizing: 'border-box', padding: isMobile ? '16px 16px 24px' : '24px 32px 40px' }}>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? 20 : 28, minWidth: 0, width: isMobile ? '100%' : undefined, boxSizing: 'border-box' }}>
                             {featured && (
                                 <section>
@@ -411,7 +409,7 @@ export const FrontpageAltFArtist: React.FC = () => {
                     </div>
                     {!p && <div style={{ padding: 80, textAlign: 'center', color: SUB }}><AltSpinner /></div>}
                 </div>
-                <AltActivitySidebar />
+                <AltActivitySidebar topSlot={profileRailTop} railSections={profileRailSections} />
                 </div>
             </main>
         </div>
