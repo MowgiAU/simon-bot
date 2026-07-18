@@ -560,6 +560,11 @@ export const FrontpageAltFGenres: React.FC = () => {
         groupIdFromUrl ? groups.find(g => g.id === groupIdFromUrl) || null : null,
         [groups, groupIdFromUrl]);
 
+    useEffect(() => {
+        const name = activeCommunity?.name || activeGenre?.name || activeGroup?.name;
+        if (name) document.title = `${name} | Fuji Studio`;
+    }, [activeCommunity, activeGenre, activeGroup]);
+
     const activeGenreIds = useMemo(() => {
         if (viewMode === 'single' && activeGenre) return [activeGenre.id];
         if (viewMode === 'multi') return multiSlugsFromUrl.map(s => allGenres.find(g => g.slug === s)?.id).filter(Boolean) as string[];

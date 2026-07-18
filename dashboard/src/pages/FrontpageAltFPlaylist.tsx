@@ -88,6 +88,8 @@ export const FrontpageAltFPlaylist: React.FC = () => {
             .catch(() => { setError(true); setLoading(false); });
     }, [id]);
 
+    useEffect(() => { const n = (playlist as any)?.name || (playlist as any)?.title; if (n) document.title = `${n} | Fuji Studio`; }, [playlist]);
+
     const playTrack = (t: Track) => {
         if (!t.url) return;
         if (player.currentTrack?.id === t.id) { togglePlay(); return; }

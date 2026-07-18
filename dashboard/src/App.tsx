@@ -801,40 +801,59 @@ const AppInternal: React.FC = () => {
   const { user, invited, role, dashboardGuilds, loading, loginMethod, hasPassword, email, emailVerified } = useAuth();
 
   useEffect(() => {
+    // Path → default browser-tab title. Exact/specific matches come first; the trailing
+    // `startsWith` entries are DETAIL pages that set a generic default here, then get
+    // overridden with the real entity name (artist/track/battle/article/genre/post) by
+    // the page component once its data loads.
     const titles: { test: (p: string) => boolean; title: string }[] = [
       { test: p => p.startsWith('/dashboard'), title: 'Fuji Studio | Dashboard' },
       { test: p => p === '/profile/edit',      title: 'Fuji Studio | Edit Profile' },
       { test: p => p === '/profile/setup',     title: 'Fuji Studio | Profile Setup' },
       { test: p => p === '/my-tracks',         title: 'Fuji Studio | My Tracks' },
+      { test: p => p === '/my-playlists',      title: 'Fuji Studio | My Playlists' },
+      { test: p => p === '/my-favourites',     title: 'Fuji Studio | My Favourites' },
+      { test: p => p === '/my-collabs',        title: 'Fuji Studio | My Collabs' },
       { test: p => p === '/artists',           title: 'Fuji Studio | Artists' },
       { test: p => p === '/library',           title: 'Fuji Studio | Library' },
+      { test: p => p === '/charts',            title: 'Fuji Studio | Charts' },
+      { test: p => p === '/battles',           title: 'Fuji Studio | Beat Battles' },
+      { test: p => p === '/arena' || p.startsWith('/arena/'), title: 'Fuji Studio | Arena' },
+      { test: p => p === '/articles',          title: 'Fuji Studio | Articles' },
+      { test: p => p === '/feed',              title: 'Fuji Studio | Feed' },
+      { test: p => p === '/messages',          title: 'Fuji Studio | Messages' },
+      { test: p => p === '/learn' || p.startsWith('/learn/'), title: 'Fuji Studio | Academy' },
       { test: p => p === '/genres',            title: 'Fuji Studio | Genres' },
-      { test: p => p.startsWith('/genres/'),   title: 'Fuji Studio | Genre' },
-      { test: p => p.startsWith('/category/'), title: 'Fuji Studio | Category' },
+      { test: p => p === '/collabs',           title: 'Fuji Studio | Collabs' },
+      { test: p => p.startsWith('/collabs/'),  title: 'Fuji Studio | Collab' },
+      { test: p => p === '/upload',            title: 'Fuji Studio | Upload a Track' },
+      { test: p => p === '/create-post',       title: 'Fuji Studio | Create Post' },
+      { test: p => p === '/contact',           title: 'Fuji Studio | Contact Us' },
+      { test: p => p === '/projects' || p.startsWith('/projects/'), title: 'Fuji Studio | Projects' },
+      { test: p => p === '/new',               title: 'Fuji Studio | New Releases' },
+      { test: p => p === '/download',          title: 'Fuji Studio | Download' },
+      { test: p => p === '/features',          title: 'Fuji Studio | Features' },
       { test: p => p === '/terms',             title: 'Fuji Studio | Terms & Privacy' },
       { test: p => p === '/login' || p === '/register', title: 'Fuji Studio | Sign In' },
       { test: p => p === '/forgot-password',   title: 'Fuji Studio | Forgot Password' },
       { test: p => p === '/reset-password',    title: 'Fuji Studio | Reset Password' },
       { test: p => p === '/account',           title: 'Fuji Studio | Account Settings' },
-      { test: p => p === '/complete-account',    title: 'Fuji Studio | Complete Account' },
-      { test: p => p.startsWith('/battles/entry/'), title: 'Fuji Studio | Beat Battle Entry' },
-      { test: p => p.startsWith('/playlist/'), title: 'Fuji Studio | Playlist' },
-      { test: p => p === '/my-favourites', title: 'Fuji Studio | My Favourites' },
-      { test: p => p === '/my-playlists', title: 'Fuji Studio | My Playlists' },
-      { test: p => p === '/feed', title: 'Fuji Studio | Feed' },
-      { test: p => p.startsWith('/article/'), title: 'Fuji Studio | Article' },
-      { test: p => p === '/',                  title: 'Fuji Studio | Discover Music' },
+      { test: p => p === '/complete-account',  title: 'Fuji Studio | Complete Account' },
+      { test: p => p === '/write' || p.startsWith('/write/'), title: 'Fuji Studio | Writing Studio' },
       { test: p => p === '/appeal' || p === '/support', title: 'Fuji Studio | Support' },
+      { test: p => p === '/',                  title: 'Fuji Studio | Discover Music' },
+      // ── Detail pages (generic default; page overrides with the entity name) ──
+      { test: p => p.startsWith('/battles/entry/'), title: 'Fuji Studio | Beat Battle Entry' },
+      { test: p => p.startsWith('/battles/'), title: 'Fuji Studio | Beat Battle' },
+      { test: p => p === '/category' || p.startsWith('/category/'), title: 'Fuji Studio | Category' },
+      { test: p => p.startsWith('/genres/'), title: 'Fuji Studio | Genre' },
+      { test: p => p.startsWith('/article/'), title: 'Fuji Studio | Article' },
+      { test: p => p.startsWith('/post/'),    title: 'Fuji Studio | Community Post' },
+      { test: p => p.startsWith('/playlist/'), title: 'Fuji Studio | Playlist' },
+      { test: p => p.startsWith('/track/'),   title: 'Fuji Studio | Track' },
+      { test: p => p.startsWith('/profile/'), title: 'Fuji Studio | Artist' },
     ];
     const match = titles.find(t => t.test(currentPath));
-    // Only set a default title if the page component won't set its own dynamic title
-    // (profile/:username and track pages set their own via document.title in effects)
-    const isDynamic = currentPath.startsWith('/profile/') && currentPath !== '/profile/edit' && currentPath !== '/profile/setup';
-    if (match && !isDynamic) {
-      document.title = match.title;
-    } else if (!match && !isDynamic) {
-      document.title = 'Fuji Studio';
-    }
+    document.title = match ? match.title : 'Fuji Studio';
   }, [currentPath]);
 
   // Public pages that render without waiting for auth

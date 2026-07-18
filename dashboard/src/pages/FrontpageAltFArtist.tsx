@@ -74,6 +74,8 @@ export const FrontpageAltFArtist: React.FC = () => {
         return () => { on = false; };
     }, []);
 
+    useEffect(() => { if (p) document.title = `${p.displayName || p.username || REF_USER} | Fuji Studio`; }, [p]);
+
     const toggleFollow = async () => {
         if (!p) return;
         try {

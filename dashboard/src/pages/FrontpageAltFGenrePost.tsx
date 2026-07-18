@@ -65,6 +65,7 @@ export const FrontpageAltFGenrePost: React.FC = () => {
     const [commentBarFocused, setCommentBarFocused] = useState(false);
 
     const [post, setPost] = useState<any>(null);
+    useEffect(() => { if (post?.title) document.title = `${post.title} | Fuji Studio`; }, [post]);
     const [loading, setLoading] = useState(true);
     const [comments, setComments] = useState<any[]>([]);
     const [commentsLoading, setCommentsLoading] = useState(false);

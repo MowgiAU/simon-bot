@@ -93,6 +93,8 @@ export const FrontpageAltFArticle: React.FC = () => {
         }
     }, [slug]);
 
+    useEffect(() => { if (article?.title) document.title = `${article.title} | Fuji Studio`; }, [article]);
+
     function fetchArticle(s: string) {
         setLoading(true);
         axios.get(`/api/articles/${s}`).then(r => {

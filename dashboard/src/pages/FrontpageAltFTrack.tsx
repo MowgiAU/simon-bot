@@ -128,6 +128,13 @@ export const FrontpageAltFTrack: React.FC = () => {
     }, []);
 
     useEffect(() => {
+        if (track) {
+            const artist = track.profile?.displayName || track.profile?.username || track.artist || 'Unknown';
+            document.title = `${track.title || 'Track'} by ${artist} | Fuji Studio`;
+        }
+    }, [track]);
+
+    useEffect(() => {
         if (!track?.profile?.userId) return;
         axios.get(`/api/artists/${track.profile.userId}/follow`).then(r => setFollowing(r.data.following)).catch(() => {});
     }, [track?.profile?.userId]);

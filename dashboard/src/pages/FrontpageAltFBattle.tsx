@@ -93,6 +93,8 @@ export const FrontpageAltFBattle: React.FC = () => {
 
     useEffect(() => { loadBattle(); }, [loadBattle]);
 
+    useEffect(() => { if (battle?.title) document.title = `${battle.title} | Fuji Studio`; }, [battle]);
+
     // Live countdown ticker
     useEffect(() => {
         if (!battle) return;
