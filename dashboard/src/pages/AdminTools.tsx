@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { Wrench, HardDrive, GitMerge, Settings, Database, FileText, CheckCircle, Loader2, UserPlus } from 'lucide-react';
+import { Wrench, HardDrive, GitMerge, Settings, Database, FileText, CheckCircle, Loader2, UserPlus, ShieldOff, Search, UserX, UserCheck } from 'lucide-react';
 import { colors, spacing, borderRadius } from '../theme/theme';
 import axios from 'axios';
 import { OrphanedUploads } from './OrphanedUploads';
 import { DuplicateProfilesPage } from './DuplicateProfiles';
 
-type AdminTab = 'orphaned' | 'duplicates' | 'maintenance' | 'backfill' | 'sync-authors';
+type AdminTab = 'orphaned' | 'duplicates' | 'maintenance' | 'backfill' | 'sync-authors' | 'appeal-block';
 
 const TABS: { key: AdminTab; label: string; icon: React.ReactNode }[] = [
     { key: 'orphaned',     label: 'Orphaned Uploads',   icon: <HardDrive size={15} /> },
@@ -13,7 +13,99 @@ const TABS: { key: AdminTab; label: string; icon: React.ReactNode }[] = [
     { key: 'maintenance',  label: 'System Maintenance', icon: <Settings size={15} /> },
     { key: 'backfill',     label: 'Backfill Follows',   icon: <Database size={15} /> },
     { key: 'sync-authors', label: 'Sync Article Authors', icon: <FileText size={15} /> },
+    { key: 'appeal-block', label: 'Ban Appeals',        icon: <ShieldOff size={15} /> },
 ];
+
+interface UserLookupResult {
+    id: string;
+    discordId: string | null;
+    username: string;
+    displayName: string | null;
+    isAppealBlocked: boolean;
+    isTicketBlocked: boolean;
+}
+
+const AppealBlockTab: React.FC = () => {
+    const [query, setQuery] = useState('');
+    const [result, setResult] = useState<UserLookupResult | null>(null);
+    const [searching, setSearching] = useState(false);
+    const [toggling, setToggling] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    const search = async () => {
+        const q = query.trim();
+        if (!q) return;
+        setSearching(true);
+        setError(null);
+        setResult(null);
+        try {
+            const res = await axios.get('/api/admin/users/lookup', { params: { q }, withCredentials: true });
+            setResult(res.data);
+        } catch (err: any) {
+            setError(err.response?.data?.error || 'User not found');
+        } finally { setSearching(false); }
+    };
+
+    const toggleBlock = async () => {
+        if (!result?.discordId) return;
+        setToggling(true);
+        setError(null);
+        try {
+            const res = await axios.patch(`/api/web-tickets/appeal-block/${result.discordId}`, {}, { withCredentials: true });
+            setResult(r => r ? { ...r, isAppealBlocked: res.data.isAppealBlocked } : r);
+        } catch (err: any) {
+            setError(err.response?.data?.error || 'Failed to update block status');
+        } finally { setToggling(false); }
+    };
+
+    return (
+        <div style={{ backgroundColor: colors.surface, padding: spacing.lg, borderRadius: borderRadius.lg, border: `1px solid ${colors.glassBorder}` }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: spacing.md }}>
+                <div style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: 'rgba(239,68,68,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <ShieldOff size={18} color="#ef4444" />
+                </div>
+                <div>
+                    <div style={{ fontWeight: 700, fontSize: '15px' }}>Ban-Appeal Blocklist</div>
+                    <div style={{ fontSize: '12px', color: colors.textSecondary, marginTop: '2px' }}>Look up a user by Discord ID or site username and block them from submitting ban appeals via fujistud.io/appeal.</div>
+                </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: spacing.sm, marginBottom: spacing.md }}>
+                <input
+                    value={query}
+                    onChange={e => setQuery(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') search(); }}
+                    placeholder="Discord ID or username"
+                    style={{ flex: 1, padding: '10px 14px', borderRadius: borderRadius.md, border: `1px solid ${colors.glassBorder}`, backgroundColor: colors.background, color: colors.textPrimary, fontSize: '13px', outline: 'none' }}
+                />
+                <button onClick={search} disabled={searching || !query.trim()}
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 18px', borderRadius: borderRadius.md, backgroundColor: colors.primary, color: '#fff', border: 'none', cursor: searching ? 'default' : 'pointer', fontWeight: 700, fontSize: '13px', opacity: searching || !query.trim() ? 0.7 : 1 }}>
+                    {searching ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Search size={14} />} Search
+                </button>
+            </div>
+
+            {error && (
+                <div style={{ padding: '10px 14px', borderRadius: borderRadius.md, backgroundColor: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.3)', marginBottom: spacing.md, fontSize: '13px', color: '#ef4444' }}>
+                    {error}
+                </div>
+            )}
+
+            {result && (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: spacing.md, borderRadius: borderRadius.md, backgroundColor: colors.background, border: `1px solid ${colors.glassBorder}` }}>
+                    <div>
+                        <div style={{ fontWeight: 600, fontSize: '14px' }}>{result.displayName || result.username}</div>
+                        <div style={{ fontSize: '12px', color: colors.textSecondary, marginTop: '2px' }}>@{result.username}{result.discordId ? ` · Discord ID ${result.discordId}` : ' · no Discord account linked'}</div>
+                    </div>
+                    <button onClick={toggleBlock} disabled={toggling || !result.discordId} title={!result.discordId ? 'User has no linked Discord account' : undefined}
+                        style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 18px', borderRadius: borderRadius.md, border: 'none', cursor: toggling || !result.discordId ? 'default' : 'pointer', fontWeight: 700, fontSize: '13px', background: result.isAppealBlocked ? 'rgba(239,68,68,0.15)' : 'rgba(34,197,94,0.15)', color: result.isAppealBlocked ? '#ef4444' : '#22c55e', opacity: toggling || !result.discordId ? 0.6 : 1 }}>
+                        {result.isAppealBlocked ? <UserCheck size={14} /> : <UserX size={14} />}
+                        {toggling ? 'Updating…' : result.isAppealBlocked ? 'Unblock from Appeals' : 'Block from Appeals'}
+                    </button>
+                </div>
+            )}
+        </div>
+    );
+};
 
 const MaintenanceTab: React.FC = () => {
     const [reprocessing, setReprocessing] = useState(false);
@@ -236,6 +328,7 @@ export const AdminToolsPage: React.FC = () => {
             {tab === 'maintenance'  && <MaintenanceTab />}
             {tab === 'backfill'     && <BackfillTab />}
             {tab === 'sync-authors' && <SyncAuthorsTab />}
+            {tab === 'appeal-block' && <AppealBlockTab />}
         </div>
     );
 };

@@ -58,6 +58,9 @@ model User {
   // Support ticket system
   isTicketBlocked Boolean @default(false)
 
+  // Ban-appeal system (separate from general ticket blocking)
+  isAppealBlocked Boolean @default(false)
+
   // Vote fraud / account ban
   banned    Boolean   @default(false)
   bannedAt  DateTime?

@@ -1357,6 +1357,10 @@ app.get('/api/auth/discord/callback', async (req, res) => {
     // ===== APPEAL / SUPPORT FLOW =====
     // No account creation, no guilds lookup — just set Discord identity in session.
     if (isAppealFlow) {
+      const appealBlockCheck = await db.user.findFirst({ where: { discordId: user.id }, select: { isAppealBlocked: true } });
+      if (appealBlockCheck?.isAppealBlocked) {
+        return res.redirect(`${process.env.DASHBOARD_ORIGIN || ''}/appeal?blocked=1`);
+      }
       req.session.user = {
         id: user.id,
         username: user.username || `user_${user.id}`,
@@ -24044,6 +24048,9 @@ app.post('/api/web-tickets/create', requireAuth, async (req: any, res) => {
         if (dbUser?.isTicketBlocked) {
             return res.status(403).json({ error: 'Your access to the support system has been revoked.' });
         }
+        if (dbUser?.isAppealBlocked) {
+            return res.status(403).json({ error: 'You have been blocked from submitting ban appeals.' });
+        }
 
         // Spam guard: max 1 open ticket at a time (any type)
         const existingOpenTicket = await db.ticket.findFirst({
@@ -24253,6 +24260,40 @@ app.patch('/api/web-tickets/block/:userId', requireAdmin, async (req: any, res) 
         res.json({ isTicketBlocked: updated.isTicketBlocked });
     } catch (e) {
         logger.error('Failed to toggle ticket block', e);
+        res.status(500).json({ error: 'Failed to update user' });
+    }
+});
+
+// Admin: look up a user by Discord ID or site username, for the appeal-blocklist tool
+app.get('/api/admin/users/lookup', requireAdmin, async (req: any, res) => {
+    try {
+        const q = String(req.query.q || '').trim();
+        if (!q) return res.status(400).json({ error: 'Query required' });
+        const user = await db.user.findFirst({
+            where: { OR: [{ discordId: q }, { username: q }] },
+            select: { id: true, discordId: true, username: true, displayName: true, isAppealBlocked: true, isTicketBlocked: true },
+        });
+        if (!user) return res.status(404).json({ error: 'User not found' });
+        res.json(user);
+    } catch (e) {
+        logger.error('Failed to look up user', e);
+        res.status(500).json({ error: 'Failed to look up user' });
+    }
+});
+
+// Admin: toggle ban-appeal block for a Discord user
+app.patch('/api/web-tickets/appeal-block/:userId', requireAdmin, async (req: any, res) => {
+    try {
+        const { userId } = req.params;
+        const user = await db.user.findFirst({ where: { discordId: userId } });
+        if (!user) return res.status(404).json({ error: 'User not found' });
+        const updated = await db.user.update({
+            where: { id: user.id },
+            data: { isAppealBlocked: !user.isAppealBlocked }
+        });
+        res.json({ isAppealBlocked: updated.isAppealBlocked });
+    } catch (e) {
+        logger.error('Failed to toggle appeal block', e);
         res.status(500).json({ error: 'Failed to update user' });
     }
 });

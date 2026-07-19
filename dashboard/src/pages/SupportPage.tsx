@@ -77,6 +77,12 @@ export const SupportPage: React.FC = () => {
 
   useEffect(() => { document.title = 'Fuji Studio | Support'; }, []);
 
+  // The appeal login redirects here with ?blocked=1 if the Discord account is
+  // blocked from submitting appeals (checked before a session is ever created).
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('blocked') === '1') setBlocked(true);
+  }, []);
+
   useEffect(() => {
     if (user) loadTickets();
     else if (!loading) setFetchLoading(false);
@@ -162,7 +168,8 @@ export const SupportPage: React.FC = () => {
   const statusColor = (s: string) => s === 'open' ? colors.success : colors.textTertiary;
 
   if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: colors.background, color: colors.textSecondary }}>Loading...</div>;
-  if (!user) return <SignInGate />;
+  // Checked before the sign-in gate: an appeal-blocked Discord account never gets a session
+  // (rejected in the OAuth callback itself), so `user` is null here too.
   if (blocked) return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: colors.background }}>
       <div style={{ textAlign: 'center', padding: spacing.xxl, maxWidth: 400 }}>
@@ -172,6 +179,7 @@ export const SupportPage: React.FC = () => {
       </div>
     </div>
   );
+  if (!user) return <SignInGate />;
   if (fetchLoading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: colors.background, color: colors.textSecondary }}>Loading tickets...</div>;
 
   return (
