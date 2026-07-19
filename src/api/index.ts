@@ -10424,9 +10424,13 @@ app.get('/api/genre-subscriptions', requireAuth, async (req: any, res) => {
 // periodic "age decay" pass. Higher = hotter.
 const HOT_EPOCH = 1_134_028_003;   // fixed anchor (seconds); only shifts all scores by a constant
 const HOT_TIME_DIVISOR = 33_000;   // seconds of freshness worth one order of magnitude of votes (~9.2h)
-function computeHotScore(score: number, createdAt: Date): number {
-    const order = Math.log10(Math.max(Math.abs(score), 1));
-    const sign = score > 0 ? 1 : score < 0 ? -1 : 0;
+// Track plays count toward hot ranking as "vote-equivalents" so track posts still
+// differentiate before they accumulate votes (10 plays ≈ 1 upvote of ranking weight).
+const PLAY_VOTE_EQUIV = 0.1;
+function computeHotScore(score: number, createdAt: Date, plays = 0): number {
+    const eff = score + (plays > 0 ? plays * PLAY_VOTE_EQUIV : 0);
+    const order = Math.log10(Math.max(Math.abs(eff), 1));
+    const sign = eff > 0 ? 1 : eff < 0 ? -1 : 0;
     const seconds = createdAt.getTime() / 1000 - HOT_EPOCH;
     return Number((sign * order + seconds / HOT_TIME_DIVISOR).toFixed(7));
 }
@@ -10716,8 +10720,9 @@ app.post('/api/genre-posts/:postId/vote', requireAuth, async (req: any, res) => 
                 downvotes: { increment: delta.downvotes },
                 score: { increment: delta.upvotes - delta.downvotes },
             },
+            include: { track: { select: { playCount: true } } },
         });
-        const newHotScore = computeHotScore(updated.score, updated.createdAt);
+        const newHotScore = computeHotScore(updated.score, updated.createdAt, updated.track?.playCount || 0);
         await db.genrePost.update({ where: { id: postId }, data: { hotScore: newHotScore } });
 
         res.json({ postId, score: updated.score, upvotes: updated.upvotes, downvotes: updated.downvotes, userVote, hotScore: newHotScore });
@@ -10726,26 +10731,38 @@ app.post('/api/genre-posts/:postId/vote', requireAuth, async (req: any, res) => 
     }
 });
 
-// One-time hot-score backfill on boot. The Reddit-style score is anchored to
-// absolute post time, so it never decays with wall-clock and needs no periodic
-// refresh — this pass only repairs rows written before the formula changed
-// (notably unvoted posts that were stuck at hotScore = 0). Recomputed live on
-// each vote and set at creation thereafter.
-(async () => {
+// Hot scores are anchored to absolute post time (no wall-clock decay), but track
+// posts also fold their play count into the ranking as vote-equivalents (see
+// computeHotScore). Votes update the score live on each vote; plays keep accruing, so
+// track posts are recomputed on boot + periodically. Discussion posts (no track) only
+// depend on votes + time, so a single SQL pass repairs their baseline.
+async function refreshGenrePostHotScores() {
     try {
-        const affected = await db.$executeRaw`
+        await db.$executeRaw`
             UPDATE genre_posts
             SET "hotScore" =
                 (CASE WHEN score > 0 THEN 1 WHEN score < 0 THEN -1 ELSE 0 END)::float
                 * LOG(GREATEST(ABS(score), 1)::numeric)::float
                 + (EXTRACT(EPOCH FROM "createdAt") - ${HOT_EPOCH}::float) / ${HOT_TIME_DIVISOR}::float
-            WHERE "deletedAt" IS NULL
+            WHERE "deletedAt" IS NULL AND "trackId" IS NULL
         `;
-        logger.info(`[GenrePost] Hot scores backfilled (${affected} rows)`);
+        const trackPosts = await db.genrePost.findMany({
+            where: { deletedAt: null, trackId: { not: null } },
+            select: { id: true, score: true, createdAt: true, track: { select: { playCount: true } } },
+        });
+        for (const p of trackPosts) {
+            await db.genrePost.update({
+                where: { id: p.id },
+                data: { hotScore: computeHotScore(p.score, p.createdAt, (p as any).track?.playCount || 0) },
+            });
+        }
+        logger.info(`[GenrePost] Hot scores refreshed (${trackPosts.length} track posts + discussion baseline)`);
     } catch (e: any) {
-        logger.warn(`[GenrePost] Hot score backfill failed: ${e.message}`);
+        logger.warn(`[GenrePost] Hot score refresh failed: ${e.message}`);
     }
-})();
+}
+refreshGenrePostHotScores();
+setInterval(refreshGenrePostHotScores, 20 * 60 * 1000);
 
 // ===== Genre Post Admin Actions =====
 

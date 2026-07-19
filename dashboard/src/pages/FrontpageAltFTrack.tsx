@@ -75,6 +75,10 @@ export const FrontpageAltFTrack: React.FC = () => {
     const [repostCount, setRepostCount] = useState(0);
     const [following, setFollowing] = useState(false);
     const [zoom, setZoom] = useState(5.5);
+    // The track endpoint returns only the profile's scalar fields, so follower/track
+    // counts aren't included — fetch them from the artist endpoints (as the profile page does).
+    const [artistFollowers, setArtistFollowers] = useState<number | null>(null);
+    const [artistTrackCount, setArtistTrackCount] = useState<number | null>(null);
     const [pluginsSamplesOpen, setPluginsSamplesOpen] = useState(false);
     const [expandedSamples, setExpandedSamples] = useState(false);
     const [activePlugin, setActivePlugin] = useState<{ rawName: string; known: any } | null>(null);
@@ -133,6 +137,17 @@ export const FrontpageAltFTrack: React.FC = () => {
             document.title = `${track.title || 'Track'} by ${artist} | Fuji Studio`;
         }
     }, [track]);
+
+    useEffect(() => {
+        const prof = track?.profile;
+        if (!prof?.id) return;
+        axios.get(`/api/artists/${prof.id}/follower-count`).then(r => setArtistFollowers(r.data?.count ?? 0)).catch(() => {});
+        if (prof.username) {
+            axios.get(`/api/musician/profile/${prof.username}`).then(r => {
+                setArtistTrackCount((r.data?.tracks || []).filter((t: any) => t.isPublic !== false).length);
+            }).catch(() => {});
+        }
+    }, [track?.profile?.id]);
 
     useEffect(() => {
         if (!track?.profile?.userId) return;
@@ -218,7 +233,7 @@ export const FrontpageAltFTrack: React.FC = () => {
                             </div>
                         </div>
                         <div style={{ padding: '12px 18px', display: 'flex', justifyContent: 'space-between', borderBottom: `1px solid ${DIVIDER}` }}>
-                            {[{ val: fmtNum(track.profile.followerCount), lbl: 'Followers' }, { val: fmtNum(track.profile.totalPlays || track.profile.playCount), lbl: 'Plays' }, { val: fmtNum((track.profile.tracks || []).length || track.profile.trackCount), lbl: 'Tracks' }].map((s, i) => (
+                            {[{ val: fmtNum(artistFollowers ?? track.profile.followerCount), lbl: 'Followers' }, { val: fmtNum(track.profile.totalPlays || track.profile.playCount), lbl: 'Plays' }, { val: fmtNum(artistTrackCount ?? ((track.profile.tracks || []).length || track.profile.trackCount)), lbl: 'Tracks' }].map((s, i) => (
                                 <div key={i} style={{ textAlign: 'center' }}>
                                     <div style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>{s.val}</div>
                                     <div style={{ fontSize: 10, color: SUB, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{s.lbl}</div>
