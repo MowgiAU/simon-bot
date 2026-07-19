@@ -10424,17 +10424,24 @@ app.get('/api/genre-subscriptions', requireAuth, async (req: any, res) => {
 // periodic "age decay" pass. Higher = hotter.
 const HOT_EPOCH = 1_134_028_003;   // fixed anchor (seconds); only shifts all scores by a constant
 const HOT_TIME_DIVISOR = 33_000;   // seconds of freshness worth one order of magnitude of votes (~9.2h)
-// Track plays add a direct boost to the hot score so track posts differentiate by
+// Track plays add a direct boost to post ranking so track posts differentiate by
 // popularity before they accumulate votes. One order of magnitude of plays ≈
-// PLAY_HOT_WEIGHT * HOT_TIME_DIVISOR seconds of freshness (~13.7h per 10x plays at
-// weight 1.5): a track with ~100 plays outranks posts up to ~27h newer, 1k plays ~41h.
-const PLAY_HOT_WEIGHT = 1.5;
+// PLAY_HOT_WEIGHT * HOT_TIME_DIVISOR seconds of freshness (~27.5h per 10x plays at
+// weight 3): a track with ~100 plays outranks posts up to ~2.3 days newer, 1k ~3.4d.
+const PLAY_HOT_WEIGHT = 3;
+function playBoost(plays: number): number {
+    return plays > 0 ? Math.log10(plays + 1) * PLAY_HOT_WEIGHT : 0;
+}
 function computeHotScore(score: number, createdAt: Date, plays = 0): number {
     const order = Math.log10(Math.max(Math.abs(score), 1));
     const sign = score > 0 ? 1 : score < 0 ? -1 : 0;
-    const playBoost = plays > 0 ? Math.log10(plays + 1) * PLAY_HOT_WEIGHT : 0;
     const seconds = createdAt.getTime() / 1000 - HOT_EPOCH;
-    return Number((sign * order + playBoost + seconds / HOT_TIME_DIVISOR).toFixed(7));
+    return Number((sign * order + playBoost(plays) + seconds / HOT_TIME_DIVISOR).toFixed(7));
+}
+// "Top" = raw popularity (votes + play boost), no time decay — the query already
+// filters by period. Stored so Top can order + cursor-paginate like hot.
+function computeTopScore(score: number, plays = 0): number {
+    return Number((score + playBoost(plays)).toFixed(7));
 }
 
 // Get genre posts feed (or personalised subscribed feed)
@@ -10492,7 +10499,7 @@ app.get('/api/genre-posts', async (req: any, res) => {
         // pagination stays stable.
         const orderBy: any =
             sort === 'new'  ? [{ createdAt: 'desc' }, { id: 'desc' }] :
-            sort === 'top'  ? [{ score: 'desc' }, { createdAt: 'desc' }, { id: 'desc' }] :
+            sort === 'top'  ? [{ topScore: 'desc' }, { score: 'desc' }, { createdAt: 'desc' }, { id: 'desc' }] :
                               [{ hotScore: 'desc' }, { createdAt: 'desc' }, { id: 'desc' }];
 
         // For single-genre views with non-new sort, fetch pinned posts separately first
@@ -10724,8 +10731,10 @@ app.post('/api/genre-posts/:postId/vote', requireAuth, async (req: any, res) => 
             },
             include: { track: { select: { playCount: true } } },
         });
-        const newHotScore = computeHotScore(updated.score, updated.createdAt, updated.track?.playCount || 0);
-        await db.genrePost.update({ where: { id: postId }, data: { hotScore: newHotScore } });
+        const votePlays = updated.track?.playCount || 0;
+        const newHotScore = computeHotScore(updated.score, updated.createdAt, votePlays);
+        const newTopScore = computeTopScore(updated.score, votePlays);
+        await db.genrePost.update({ where: { id: postId }, data: { hotScore: newHotScore, topScore: newTopScore } });
 
         res.json({ postId, score: updated.score, upvotes: updated.upvotes, downvotes: updated.downvotes, userVote, hotScore: newHotScore });
     } catch (e: any) {
@@ -10745,7 +10754,8 @@ async function refreshGenrePostHotScores() {
             SET "hotScore" =
                 (CASE WHEN score > 0 THEN 1 WHEN score < 0 THEN -1 ELSE 0 END)::float
                 * LOG(GREATEST(ABS(score), 1)::numeric)::float
-                + (EXTRACT(EPOCH FROM "createdAt") - ${HOT_EPOCH}::float) / ${HOT_TIME_DIVISOR}::float
+                + (EXTRACT(EPOCH FROM "createdAt") - ${HOT_EPOCH}::float) / ${HOT_TIME_DIVISOR}::float,
+                "topScore" = score::float
             WHERE "deletedAt" IS NULL AND "trackId" IS NULL
         `;
         const trackPosts = await db.genrePost.findMany({
@@ -10753,9 +10763,10 @@ async function refreshGenrePostHotScores() {
             select: { id: true, score: true, createdAt: true, track: { select: { playCount: true } } },
         });
         for (const p of trackPosts) {
+            const plays = (p as any).track?.playCount || 0;
             await db.genrePost.update({
                 where: { id: p.id },
-                data: { hotScore: computeHotScore(p.score, p.createdAt, (p as any).track?.playCount || 0) },
+                data: { hotScore: computeHotScore(p.score, p.createdAt, plays), topScore: computeTopScore(p.score, plays) },
             });
         }
         logger.info(`[GenrePost] Hot scores refreshed (${trackPosts.length} track posts + discussion baseline)`);

@@ -1352,6 +1352,7 @@ model GenrePost {
   downvotes    Int   @default(0)
   score        Int   @default(0) // upvotes - downvotes (denormalized)
   hotScore     Float @default(0) // Reddit hot algorithm score, stored for fast ORDER BY
+  topScore     Float @default(0) // popularity (votes + track-play boost), for "Top" sort
   commentCount Int   @default(0) // denormalized; incremented on comment creation
 
   flair         String?
@@ -1375,6 +1376,7 @@ model GenrePost {
   @@index([genreId, hotScore(sort: Desc)])
   @@index([genreId, createdAt(sort: Desc)])
   @@index([genreId, score(sort: Desc)])
+  @@index([genreId, topScore(sort: Desc)])
   @@index([userId])
   @@index([trackId])
   @@index([crossPostOfId])
