@@ -4,7 +4,7 @@
  * Left col: artist card → cover/video → actions + description → waveform + transport → FL timeline → lyrics
  * Right col: stems mixer → comments
  */
-import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
 import { usePlayer } from '../components/PlayerProvider';
@@ -45,33 +45,89 @@ const MemoArrangement: React.FC<{ track: any; player: any; isPlaying: boolean; z
     return <ArrangementViewer arrangement={track.arrangement!} duration={track.duration} currentTimeRef={ctRef} isPlayingRef={ipRef} projectFileUrl={track.projectFileUrl} projectZipUrl={track.projectZipUrl} trackId={track.id} zoom={zoom} setZoom={setZoom} samplesMap={samplesMap} />;
 });
 
+// Loads the official YouTube IFrame Player API script once per page (module-level cache).
+// The hand-rolled postMessage protocol used previously had no ready/handshake confirmation,
+// so commands (seekTo in particular) could silently be dropped by the embed with no way to
+// detect it. The official API gives a real Player object + onReady/onStateChange callbacks.
+let ytApiPromise: Promise<any> | null = null;
+function loadYouTubeApi(): Promise<any> {
+    if ((window as any).YT?.Player) return Promise.resolve((window as any).YT);
+    if (ytApiPromise) return ytApiPromise;
+    ytApiPromise = new Promise((resolve) => {
+        const prevReady = (window as any).onYouTubeIframeAPIReady;
+        (window as any).onYouTubeIframeAPIReady = () => { prevReady?.(); resolve((window as any).YT); };
+        if (!document.querySelector('script[src="https://www.youtube.com/iframe_api"]')) {
+            const s = document.createElement('script');
+            s.src = 'https://www.youtube.com/iframe_api';
+            document.head.appendChild(s);
+        }
+    });
+    return ytApiPromise;
+}
+
 const MemoYouTube: React.FC<{ videoId: string; trackId: string; player: any; isPlaying: boolean; onUserPause: () => void }> = React.memo(({ videoId, trackId, player, isPlaying, onUserPause }) => {
-    const iframeRef = useRef<HTMLIFrameElement>(null);
-    const ctRef = useRef(0); const ipRef = useRef(false); const lastSent = useRef<boolean | null>(null); const progRef = useRef(false); const progTimer = useRef<any>(null); const lastTimeRef = useRef(0);
+    const mountRef = useRef<HTMLDivElement>(null);
+    const ytPlayerRef = useRef<any>(null);
+    const readyRef = useRef(false);
+    const ctRef = useRef(0); const ipRef = useRef(false); const lastSent = useRef<boolean | null>(null); const lastTimeRef = useRef(0);
     const isThis = player.currentTrack?.id === trackId;
     ctRef.current = isThis ? player.currentTime : 0; ipRef.current = isPlaying && isThis;
-    const cmd = useCallback((fn: string, args: any[] = [], prog = false) => { if (prog) { progRef.current = true; if (progTimer.current) clearTimeout(progTimer.current); progTimer.current = setTimeout(() => { progRef.current = false; }, 600); } iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ event: 'command', func: fn, args }), '*'); }, []);
-    useEffect(() => { const h = (e: MessageEvent) => { if (e.source !== iframeRef.current?.contentWindow) return; let d: any; try { d = typeof e.data === 'string' ? JSON.parse(e.data) : e.data; } catch { return; } if (d?.event !== 'onStateChange') return; if (progRef.current) return; if (d.info === 2 && ipRef.current) onUserPause(); }; window.addEventListener('message', h); return () => window.removeEventListener('message', h); }, [onUserPause]);
+    const onUserPauseRef = useRef(onUserPause);
+    onUserPauseRef.current = onUserPause;
+
+    useEffect(() => {
+        let cancelled = false;
+        let suppressStateEvent = false;
+        loadYouTubeApi().then((YT) => {
+            if (cancelled || !mountRef.current) return;
+            const p = new YT.Player(mountRef.current, {
+                videoId,
+                playerVars: { enablejsapi: 1, mute: 1, autoplay: 0, controls: 1, modestbranding: 1, rel: 0 },
+                events: {
+                    onReady: () => { readyRef.current = true; },
+                    onStateChange: (e: any) => {
+                        // Ignore state changes we caused ourselves (seekTo/play/pause below briefly
+                        // transitions through buffering/playing) so we don't treat our own sync
+                        // commands as a manual pause from the video's native controls.
+                        if (suppressStateEvent) return;
+                        if (e.data === 2 /* paused */ && ipRef.current) onUserPauseRef.current();
+                    },
+                },
+            });
+            ytPlayerRef.current = p;
+            (p as any)._markOwnChange = () => { suppressStateEvent = true; setTimeout(() => { suppressStateEvent = false; }, 600); };
+        });
+        return () => {
+            cancelled = true;
+            try { ytPlayerRef.current?.destroy?.(); } catch {}
+            ytPlayerRef.current = null;
+            readyRef.current = false;
+        };
+    }, [videoId]);
+
     // Every tick: sync play/pause state on transitions, and re-seek the video whenever the
     // audio position jumps by more than natural playback drift (manual scrub/skip), not just
     // on play/pause toggles.
-    useEffect(() => { const t = setInterval(() => {
-        const sp = ipRef.current; const ct = ctRef.current;
-        const jumped = Math.abs(ct - lastTimeRef.current) > 1.5;
-        if (sp !== lastSent.current) {
-            if (sp) { cmd('seekTo', [ct, true], true); cmd('playVideo', [], true); } else { cmd('pauseVideo', [], true); }
-            lastSent.current = sp;
-        } else if (jumped) {
-            cmd('seekTo', [ct, true], true);
-        }
-        lastTimeRef.current = ct;
-    }, 500); return () => clearInterval(t); }, [cmd]);
-    return (
-        <iframe ref={iframeRef} key={videoId}
-            src={`https://www.youtube.com/embed/${videoId}?enablejsapi=1&mute=1&autoplay=0&controls=1&modestbranding=1&rel=0`}
-            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 'none' }}
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
-    );
+    useEffect(() => {
+        const t = setInterval(() => {
+            const p = ytPlayerRef.current;
+            if (!p || !readyRef.current) return;
+            const sp = ipRef.current; const ct = ctRef.current;
+            const jumped = Math.abs(ct - lastTimeRef.current) > 1.5;
+            if (sp !== lastSent.current) {
+                (p as any)._markOwnChange?.();
+                if (sp) { p.seekTo(ct, true); p.playVideo(); } else { p.pauseVideo(); }
+                lastSent.current = sp;
+            } else if (jumped) {
+                (p as any)._markOwnChange?.();
+                p.seekTo(ct, true);
+            }
+            lastTimeRef.current = ct;
+        }, 500);
+        return () => clearInterval(t);
+    }, []);
+
+    return <div ref={mountRef} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} />;
 });
 
 export const FrontpageAltFTrack: React.FC = () => {
