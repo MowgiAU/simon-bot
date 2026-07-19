@@ -292,10 +292,12 @@ export const AltActivitySidebar: React.FC<{ topSlot?: React.ReactNode; showCommu
                         {s.icon}
                     </button>
                 ))}
-                {showCommunity && <>
-                    <div title="Battles" style={{ color: TERTIARY, opacity: 0.7, display: 'flex' }}><Swords size={16} /></div>
-                    <div title="Activity" style={{ color: SECONDARY, opacity: 0.7, display: 'flex' }}><Activity size={16} /></div>
-                </>}
+                {showCommunity && (
+                    <button onClick={() => setMobileSheet({ title: 'Community', content: communityContent })} title="Community"
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: SECONDARY, padding: 4, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <Activity size={16} />
+                    </button>
+                )}
             </aside>
             <AltMobileSheet open={!!mobileSheet} onClose={() => setMobileSheet(null)} title={mobileSheet?.title}>
                 {mobileSheet?.content}

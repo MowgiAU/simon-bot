@@ -45,12 +45,25 @@ const MemoArrangement: React.FC<{ track: any; player: any; isPlaying: boolean; z
 
 const MemoYouTube: React.FC<{ videoId: string; trackId: string; player: any; isPlaying: boolean; onUserPause: () => void }> = React.memo(({ videoId, trackId, player, isPlaying, onUserPause }) => {
     const iframeRef = useRef<HTMLIFrameElement>(null);
-    const ctRef = useRef(0); const ipRef = useRef(false); const lastSent = useRef<boolean | null>(null); const progRef = useRef(false); const progTimer = useRef<any>(null);
+    const ctRef = useRef(0); const ipRef = useRef(false); const lastSent = useRef<boolean | null>(null); const progRef = useRef(false); const progTimer = useRef<any>(null); const lastTimeRef = useRef(0);
     const isThis = player.currentTrack?.id === trackId;
     ctRef.current = isThis ? player.currentTime : 0; ipRef.current = isPlaying && isThis;
     const cmd = useCallback((fn: string, args: any[] = [], prog = false) => { if (prog) { progRef.current = true; if (progTimer.current) clearTimeout(progTimer.current); progTimer.current = setTimeout(() => { progRef.current = false; }, 600); } iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ event: 'command', func: fn, args }), '*'); }, []);
     useEffect(() => { const h = (e: MessageEvent) => { if (e.source !== iframeRef.current?.contentWindow) return; let d: any; try { d = typeof e.data === 'string' ? JSON.parse(e.data) : e.data; } catch { return; } if (d?.event !== 'onStateChange') return; if (progRef.current) return; if (d.info === 2 && ipRef.current) onUserPause(); }; window.addEventListener('message', h); return () => window.removeEventListener('message', h); }, [onUserPause]);
-    useEffect(() => { const t = setInterval(() => { const sp = ipRef.current; if (sp === lastSent.current) return; if (sp) { cmd('seekTo', [ctRef.current, true], true); cmd('playVideo', [], true); } else { cmd('pauseVideo', [], true); } lastSent.current = sp; }, 500); return () => clearInterval(t); }, [cmd]);
+    // Every tick: sync play/pause state on transitions, and re-seek the video whenever the
+    // audio position jumps by more than natural playback drift (manual scrub/skip), not just
+    // on play/pause toggles.
+    useEffect(() => { const t = setInterval(() => {
+        const sp = ipRef.current; const ct = ctRef.current;
+        const jumped = Math.abs(ct - lastTimeRef.current) > 1.5;
+        if (sp !== lastSent.current) {
+            if (sp) { cmd('seekTo', [ct, true], true); cmd('playVideo', [], true); } else { cmd('pauseVideo', [], true); }
+            lastSent.current = sp;
+        } else if (jumped) {
+            cmd('seekTo', [ct, true], true);
+        }
+        lastTimeRef.current = ct;
+    }, 500); return () => clearInterval(t); }, [cmd]);
     return (
         <iframe ref={iframeRef} key={videoId}
             src={`https://www.youtube.com/embed/${videoId}?enablejsapi=1&mute=1&autoplay=0&controls=1&modestbranding=1&rel=0`}

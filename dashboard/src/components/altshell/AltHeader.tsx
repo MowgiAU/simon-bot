@@ -6,11 +6,12 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useChat } from '../ChatProvider';
+import { useAuth } from '../AuthProvider';
 import { MusicNotificationMenu } from '../MusicNotificationMenu';
 import { MessengerPopup } from '../MessengerPopup';
 import { BG, S_CONT, PRIMARY, TERTIARY, TEXT, SUB, BORDER } from './AltSidebar';
 import { useAltBreakpoint } from './useAltBreakpoint';
-import { ChevronRight, Search, Upload, MessageCircle, Settings } from 'lucide-react';
+import { ChevronRight, Search, Upload, MessageCircle, Settings, User as UserIcon } from 'lucide-react';
 
 export interface BreadcrumbItem {
     label: string;
@@ -25,7 +26,10 @@ interface AltHeaderProps {
 
 export const AltHeader: React.FC<AltHeaderProps> = ({ breadcrumb = [], leftSlot, accent = PRIMARY }) => {
     const { dropdownOpen: messengerOpen, setDropdownOpen: setMessengerOpen, unreadTotal: unreadMsgCount } = useChat();
+    const { user } = useAuth();
     const bp = useAltBreakpoint();
+    const profileHref = user ? `/profile/${user.profileUsername || user.username}` : '/login';
+    const profileAvatar = user?.profileAvatar || user?.avatar;
 
     return (
         <header style={{ height: 64, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', borderBottom: `1px solid ${BORDER}`, background: 'rgba(15,19,29,0.7)', backdropFilter: 'blur(20px)', position: 'relative', zIndex: 50 }}>
@@ -76,7 +80,12 @@ export const AltHeader: React.FC<AltHeaderProps> = ({ breadcrumb = [], leftSlot,
                 <div style={{ position: 'relative' }} onClick={() => setMessengerOpen(false)}>
                     <MusicNotificationMenu />
                 </div>
-                <Link to="/account" style={{ width: 36, height: 36, borderRadius: '50%', background: S_CONT, border: `1px solid ${BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: SUB, textDecoration: 'none' }}>
+                <Link to={profileHref} title="Your profile" style={{ width: 36, height: 36, borderRadius: '50%', background: S_CONT, border: `1px solid ${BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: SUB, textDecoration: 'none', overflow: 'hidden' }}>
+                    {profileAvatar
+                        ? <img src={profileAvatar} alt="" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        : <UserIcon size={18} />}
+                </Link>
+                <Link to="/account" title="Settings" style={{ width: 36, height: 36, borderRadius: '50%', background: S_CONT, border: `1px solid ${BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: SUB, textDecoration: 'none' }}>
                     <Settings size={18} />
                 </Link>
             </div>

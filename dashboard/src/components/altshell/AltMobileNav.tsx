@@ -9,6 +9,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Home, Search, BarChart3, Swords, Tag, User, Newspaper, Users, Zap, MoreHorizontal } from 'lucide-react';
 import { PRIMARY, SUB, BORDER, FONT } from './AltSidebar';
 import { RadialPieMenu, PieItem } from './RadialPieMenu';
+import { useAuth } from '../AuthProvider';
 
 export const MOBILE_NAV_HEIGHT = 60;
 
@@ -20,7 +21,8 @@ const TABS: { label: string; icon: typeof Home; to: string }[] = [
     { label: 'Genres',  icon: Tag,       to: '/genres' },
 ];
 
-// Full primary nav for the "More" pie menu — same 8 destinations as the desktop AltSidebar.
+// Full primary nav for the "More" pie menu — same 8 destinations as the desktop AltSidebar,
+// plus "Profile" (linked dynamically to the signed-in user's own profile below).
 const PIE_NAV: { key: string; label: string; icon: React.ReactNode; to: string }[] = [
     { key: 'Home',    label: 'Home',    icon: <Home size={20} />,      to: '/' },
     { key: 'Search',  label: 'Search',  icon: <Search size={20} />,    to: '/library' },
@@ -35,12 +37,19 @@ const PIE_NAV: { key: string; label: string; icon: React.ReactNode; to: string }
 
 export const AltMobileNav: React.FC<{ active: string }> = ({ active }) => {
     const navigate = useNavigate();
+    const { user } = useAuth();
     const [pieOpen, setPieOpen] = useState(false);
 
     const pieItems: PieItem[] = PIE_NAV.map(n => ({
         key: n.key, label: n.label, icon: n.icon, active: active === n.key,
         onClick: () => navigate(n.to),
     }));
+    if (user) {
+        pieItems.push({
+            key: 'Profile', label: 'Profile', icon: <User size={20} />, active: active === 'Profile',
+            onClick: () => navigate(`/profile/${user.profileUsername || user.username}`),
+        });
+    }
 
     return (
         <>
