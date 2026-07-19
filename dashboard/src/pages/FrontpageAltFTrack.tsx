@@ -9,15 +9,17 @@ import axios from 'axios';
 import { Link } from 'react-router-dom';
 import { usePlayer } from '../components/PlayerProvider';
 import { useAuth } from '../components/AuthProvider';
+import { useChat } from '../components/ChatProvider';
 import { CommentSection } from '../components/CommentSection';
 import { StemsMixer } from '../components/StemsMixer';
+import { AddToPlaylistModal } from '../components/AddToPlaylistModal';
+import { showToast } from '../components/Toast';
 import { ArrangementViewer, usePluginRegistry, matchPlugin, PluginModal, PluginList } from '../components/ArrangementViewer';
 import { AltSidebar, BG, S_CONT, S_HIGH, PRIMARY, SECONDARY, TERTIARY, TEXT, SUB, BORDER, FONT } from '../components/altshell/AltSidebar';
 import { AltHeader } from '../components/altshell/AltHeader';
 import { AltActivitySidebar, RailSection } from '../components/altshell/AltActivitySidebar';
 import { AltSpinner } from '../components/altshell/AltSpinner';
 import { useAltBreakpoint } from '../components/altshell/useAltBreakpoint';
-import { useChat } from '../components/ChatProvider';
 import {
     Play, Pause, SkipBack, SkipForward, Heart, Repeat2, Share2, ListPlus, Download,
     ChevronDown, ChevronUp, AlignLeft, Zap, FileAudio,
@@ -75,7 +77,7 @@ const MemoYouTube: React.FC<{ videoId: string; trackId: string; player: any; isP
 export const FrontpageAltFTrack: React.FC = () => {
     const { player, setTrack, togglePlay, seek } = usePlayer();
     const { user } = useAuth();
-    const { startConversation } = useChat();
+    const { startConversation, setDropdownOpen: setMessengerOpen } = useChat();
     const pluginRegistry = usePluginRegistry();
     const bp = useAltBreakpoint();
     const isMobile = bp === 'xs';
@@ -100,6 +102,8 @@ export const FrontpageAltFTrack: React.FC = () => {
     const [timedComments, setTimedComments] = useState<any[]>([]);
     const [hoveredComment, setHoveredComment] = useState<string | null>(null);
     const [descExpanded, setDescExpanded] = useState(false);
+    const [startingChat, setStartingChat] = useState(false);
+    const [playlistModalOpen, setPlaylistModalOpen] = useState(false);
 
     useEffect(() => {
         let on = true;
@@ -124,7 +128,7 @@ export const FrontpageAltFTrack: React.FC = () => {
                 setLikeCount(t.likeCount || 0);
                 setRepostCount(t.repostCount || 0);
                 try { const tc = await axios.get(`/api/tracks/${t.id}/comments?timed=true`); if (on) setTimedComments((tc.data || []).filter((c: any) => c.trackTimestamp != null)); } catch {}
-                try { const [lk, rp] = await Promise.all([axios.get(`/api/tracks/${t.id}/favourite-status`), axios.get(`/api/tracks/${t.id}/repost-status`)]); if (on) { setLiked(lk.data.favourited); setReposted(rp.data.reposted); } } catch {}
+                try { const [lk, rp] = await Promise.all([axios.get(`/api/tracks/${t.id}/favourite`, { withCredentials: true }), axios.get(`/api/tracks/${t.id}/repost`, { withCredentials: true })]); if (on) { setLiked(lk.data.favourited); setReposted(rp.data.reposted); } } catch {}
                 setLoading(false);
             } catch {
                 try {
@@ -181,10 +185,45 @@ export const FrontpageAltFTrack: React.FC = () => {
     const progress = track ? (isThis ? player.currentTime / (player.duration || track.duration || 1) : 0) : 0;
 
     const playTrack = () => { if (track) setTrack(track, [track]); };
-    const toggleLike = () => { setLiked(l => !l); setLikeCount(n => liked ? n - 1 : n + 1); if (track?.id) axios.post(`/api/tracks/${track.id}/favourite`).catch(() => {}); };
-    const handleRepost = () => { setReposted(r => !r); setRepostCount(n => reposted ? n - 1 : n + 1); if (track?.id) axios.post(`/api/tracks/${track.id}/repost`).catch(() => {}); };
-    const toggleFollow = () => { setFollowing(f => !f); if (track?.profile?.userId) axios.post(`/api/artists/${track.profile.userId}/follow`).catch(() => {}); };
-    const msgArtist = async () => { if (!track?.profile?.userId) return; try { await startConversation(track.profile.userId); } catch {} };
+    const toggleLike = () => {
+        if (!user) { showToast('Log in to like tracks', 'info'); return; }
+        if (!track?.id) return;
+        setLiked(l => !l); setLikeCount(n => liked ? n - 1 : n + 1);
+        axios.post(`/api/tracks/${track.id}/favourite`, {}, { withCredentials: true }).catch(() => {
+            setLiked(l => !l); setLikeCount(n => liked ? n + 1 : n - 1);
+            showToast('Could not like this track — please try again', 'error');
+        });
+    };
+    const handleRepost = () => {
+        if (!user) { showToast('Log in to repost tracks', 'info'); return; }
+        if (!track?.id) return;
+        if (track.profile?.userId === user.id) { showToast("You can't repost your own track", 'info'); return; }
+        setReposted(r => !r); setRepostCount(n => reposted ? n - 1 : n + 1);
+        axios.post(`/api/tracks/${track.id}/repost`, {}, { withCredentials: true }).catch(() => {
+            setReposted(r => !r); setRepostCount(n => reposted ? n + 1 : n - 1);
+            showToast('Could not repost this track — please try again', 'error');
+        });
+    };
+    const toggleFollow = () => {
+        if (!user) { showToast('Log in to follow artists', 'info'); return; }
+        if (!track?.profile?.userId) return;
+        setFollowing(f => !f);
+        axios.post(`/api/artists/${track.profile.userId}/follow`, {}, { withCredentials: true }).catch(() => {
+            setFollowing(f => !f);
+            showToast('Could not follow this artist — please try again', 'error');
+        });
+    };
+    const msgArtist = async () => {
+        if (!user) { showToast('Log in to message artists', 'info'); return; }
+        if (!track?.profile?.userId || startingChat) return;
+        setStartingChat(true);
+        try {
+            const id = await startConversation([track.profile.userId]);
+            if (id) setMessengerOpen(true);
+            else showToast('Could not start a conversation — please try again', 'error');
+        } catch { showToast('Could not start a conversation — please try again', 'error'); }
+        finally { setStartingChat(false); }
+    };
     const refreshTimedComments = async () => { if (!track?.id) return; try { const r = await axios.get(`/api/tracks/${track.id}/comments?timed=true`); setTimedComments((r.data || []).filter((c: any) => c.trackTimestamp != null)); } catch {} };
 
     const handleWaveformClick = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -223,6 +262,7 @@ export const FrontpageAltFTrack: React.FC = () => {
                     <AltActivitySidebar topSlot={sideExtras} showCommunity={!sideExtras} railSections={railSectionsParam} />
                 </div>
             </main>
+            {track && <AddToPlaylistModal trackId={track.id} open={playlistModalOpen} onClose={() => setPlaylistModalOpen(false)} />}
         </div>
     );
 
@@ -257,7 +297,7 @@ export const FrontpageAltFTrack: React.FC = () => {
                             <button onClick={toggleFollow} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: following ? 'transparent' : PRIMARY, color: following ? PRIMARY : '#fff', border: following ? `1px solid ${PRIMARY}` : 'none', padding: '8px 0', borderRadius: 8, fontWeight: 700, fontSize: 12, cursor: 'pointer', transition: 'all 0.2s' }}>
                                 {following ? <UserCheck size={14} /> : <UserPlus size={14} />} {following ? 'Following' : 'Follow'}
                             </button>
-                            <button onClick={msgArtist} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: 'transparent', color: SECONDARY, border: `1px solid ${SECONDARY}`, padding: '8px 0', borderRadius: 8, fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>
+                            <button onClick={msgArtist} disabled={startingChat} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: 'transparent', color: SECONDARY, border: `1px solid ${SECONDARY}`, padding: '8px 0', borderRadius: 8, fontWeight: 700, fontSize: 12, cursor: startingChat ? 'default' : 'pointer', opacity: startingChat ? 0.6 : 1 }}>
                                 <MessageCircle size={14} /> Message
                             </button>
                         </div>
@@ -271,8 +311,15 @@ export const FrontpageAltFTrack: React.FC = () => {
                             {[
                                 { icon: <Heart size={14} fill={liked ? '#EF4444' : 'none'} color={liked ? '#EF4444' : SUB} />, label: fmtNum(likeCount), active: liked, activeColor: '#EF4444', onClick: toggleLike },
                                 { icon: <Repeat2 size={14} color={reposted ? PRIMARY : SUB} />, label: fmtNum(repostCount), active: reposted, activeColor: PRIMARY, onClick: handleRepost },
-                                { icon: <Share2 size={14} color={SUB} />, label: 'Share', active: false, activeColor: '#fff', onClick: () => navigator.clipboard.writeText(window.location.href) },
-                                { icon: <ListPlus size={14} color={SUB} />, label: 'Playlist', active: false, activeColor: '#fff', onClick: () => {} },
+                                { icon: <Share2 size={14} color={SUB} />, label: 'Share', active: false, activeColor: '#fff', onClick: () => {
+                                    navigator.clipboard?.writeText(window.location.href)
+                                        .then(() => showToast('Link copied to clipboard', 'success'))
+                                        .catch(() => showToast('Could not copy link', 'error'));
+                                } },
+                                { icon: <ListPlus size={14} color={SUB} />, label: 'Playlist', active: false, activeColor: '#fff', onClick: () => {
+                                    if (!user) { showToast('Log in to add tracks to a playlist', 'info'); return; }
+                                    setPlaylistModalOpen(true);
+                                } },
                             ].map((btn, i) => (
                                 <button key={i} onClick={btn.onClick} style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', padding: '6px 10px', borderRadius: 8, cursor: 'pointer', fontSize: 11, fontWeight: 700, color: btn.active ? btn.activeColor : SUB, transition: 'all 0.15s' }}>
                                     {btn.icon} {btn.label}
