@@ -10424,15 +10424,17 @@ app.get('/api/genre-subscriptions', requireAuth, async (req: any, res) => {
 // periodic "age decay" pass. Higher = hotter.
 const HOT_EPOCH = 1_134_028_003;   // fixed anchor (seconds); only shifts all scores by a constant
 const HOT_TIME_DIVISOR = 33_000;   // seconds of freshness worth one order of magnitude of votes (~9.2h)
-// Track plays count toward hot ranking as "vote-equivalents" so track posts still
-// differentiate before they accumulate votes (10 plays ≈ 1 upvote of ranking weight).
-const PLAY_VOTE_EQUIV = 0.1;
+// Track plays add a direct boost to the hot score so track posts differentiate by
+// popularity before they accumulate votes. One order of magnitude of plays ≈
+// PLAY_HOT_WEIGHT * HOT_TIME_DIVISOR seconds of freshness (~13.7h per 10x plays at
+// weight 1.5): a track with ~100 plays outranks posts up to ~27h newer, 1k plays ~41h.
+const PLAY_HOT_WEIGHT = 1.5;
 function computeHotScore(score: number, createdAt: Date, plays = 0): number {
-    const eff = score + (plays > 0 ? plays * PLAY_VOTE_EQUIV : 0);
-    const order = Math.log10(Math.max(Math.abs(eff), 1));
-    const sign = eff > 0 ? 1 : eff < 0 ? -1 : 0;
+    const order = Math.log10(Math.max(Math.abs(score), 1));
+    const sign = score > 0 ? 1 : score < 0 ? -1 : 0;
+    const playBoost = plays > 0 ? Math.log10(plays + 1) * PLAY_HOT_WEIGHT : 0;
     const seconds = createdAt.getTime() / 1000 - HOT_EPOCH;
-    return Number((sign * order + seconds / HOT_TIME_DIVISOR).toFixed(7));
+    return Number((sign * order + playBoost + seconds / HOT_TIME_DIVISOR).toFixed(7));
 }
 
 // Get genre posts feed (or personalised subscribed feed)
@@ -10504,7 +10506,7 @@ app.get('/api/genre-posts', async (req: any, res) => {
                 orderBy: { pinnedAt: 'desc' },
                 include: {
                     genre: { select: { id: true, name: true, slug: true } },
-                    track: { select: { id: true, title: true, slug: true, coverUrl: true, url: true, mp3Url: true, duration: true, waveformPeaks: true, profile: { select: { username: true, displayName: true } } } },
+                    track: { select: { id: true, title: true, slug: true, coverUrl: true, url: true, mp3Url: true, duration: true, waveformPeaks: true, playCount: true, profile: { select: { username: true, displayName: true } } } },
                     votes: userId ? { where: { userId }, select: { type: true } } : false,
                     crossPostOf: { select: { id: true, title: true, genre: { select: { name: true, slug: true } } } },
                 },
@@ -10523,7 +10525,7 @@ app.get('/api/genre-posts', async (req: any, res) => {
             ...(cursor ? { cursor: { id: cursor as string }, skip: 1 } : {}),
             include: {
                 genre: { select: { id: true, name: true, slug: true } },
-                track: { select: { id: true, title: true, slug: true, coverUrl: true, url: true, mp3Url: true, duration: true, waveformPeaks: true, profile: { select: { username: true, displayName: true } } } },
+                track: { select: { id: true, title: true, slug: true, coverUrl: true, url: true, mp3Url: true, duration: true, waveformPeaks: true, playCount: true, profile: { select: { username: true, displayName: true } } } },
                 votes: userId ? { where: { userId }, select: { type: true } } : false,
                 crossPostOf: { select: { id: true, title: true, genre: { select: { name: true, slug: true } } } },
             },
@@ -10569,7 +10571,7 @@ app.get('/api/genre-posts/:postId', async (req: any, res) => {
             where: { id: postId, deletedAt: null },
             include: {
                 genre: { select: { id: true, name: true, slug: true } },
-                track: { select: { id: true, title: true, slug: true, coverUrl: true, url: true, mp3Url: true, duration: true, waveformPeaks: true, profile: { select: { username: true, displayName: true } } } },
+                track: { select: { id: true, title: true, slug: true, coverUrl: true, url: true, mp3Url: true, duration: true, waveformPeaks: true, playCount: true, profile: { select: { username: true, displayName: true } } } },
                 votes: userId ? { where: { userId }, select: { type: true } } : false,
                 crossPostOf: { select: { id: true, title: true, username: true, flair: true, genre: { select: { name: true, slug: true } } } },
             },
