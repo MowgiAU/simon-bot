@@ -206,6 +206,10 @@ export const FrontpageAltFTrack: React.FC = () => {
     const isThis = player.currentTrack?.id === track?.id;
     const isPlaying = isThis && player.isPlaying;
     const progress = track ? (isThis ? player.currentTime / (player.duration || track.duration || 1) : 0) : 0;
+    // MusicianProfile.userId is a legacy Discord ID, not the native site User.id — compare
+    // by username instead (same pattern used by FrontpageAltFArtist's isOwnProfile check).
+    const isOwnTrack = !!user && !!track?.profile?.username &&
+        track.profile.username === ((user as any).profileUsername || user.username);
 
     const playTrack = () => { if (track) setTrack(track, [track]); };
     const togglePlayback = () => isPlaying ? togglePlay() : playTrack();
@@ -221,7 +225,7 @@ export const FrontpageAltFTrack: React.FC = () => {
     const handleRepost = () => {
         if (!user) { showToast('Log in to repost tracks', 'info'); return; }
         if (!track?.id) return;
-        if (track.profile?.userId === user.id) { showToast("You can't repost your own track", 'info'); return; }
+        if (isOwnTrack) { showToast("You can't repost your own track", 'info'); return; }
         setReposted(r => !r); setRepostCount(n => reposted ? n - 1 : n + 1);
         axios.post(`/api/tracks/${track.id}/repost`, {}, { withCredentials: true }).catch(() => {
             setReposted(r => !r); setRepostCount(n => reposted ? n + 1 : n - 1);
@@ -408,7 +412,6 @@ export const FrontpageAltFTrack: React.FC = () => {
                         </section>
     ) : null;
 
-    const isOwnTrack = !!user && track.profile?.userId === user.id;
     const editSection = isOwnTrack ? (
                         <Link to={`/my-tracks?edit=${track.id}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, ...glass, borderRadius: 20, padding: '14px 18px', color: PRIMARY, textDecoration: 'none', fontWeight: 700, fontSize: 13 }}>
                             <Pencil size={15} /> Edit Track
