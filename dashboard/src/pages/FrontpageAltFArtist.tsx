@@ -268,6 +268,11 @@ export const FrontpageAltFArtist: React.FC = () => {
                                                 <Edit3 size={18} /> {isAdmin && !isOwnProfile ? 'Edit Profile (Admin)' : 'Edit Profile'}
                                             </button>
                                         )}
+                                        {isOwnProfile && (
+                                            <button onClick={() => navigate('/my-tracks')} style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'transparent', color: SUB, border: `1px solid ${BORDER}`, padding: '10px 24px', borderRadius: 8, fontWeight: 600, fontSize: 15, cursor: 'pointer', transition: 'all 0.2s' }}>
+                                                <Music size={18} /> Manage Tracks
+                                            </button>
+                                        )}
                                     </div>
                                     )}
                                 </div>
@@ -316,6 +321,11 @@ export const FrontpageAltFArtist: React.FC = () => {
                                         style={{ flex: 1, minWidth: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: isAdmin && !isOwnProfile ? 'rgba(255,152,0,0.1)' : `${accent}1A`, color: isAdmin && !isOwnProfile ? '#ff9800' : accent, border: `1px solid ${isAdmin && !isOwnProfile ? 'rgba(255,152,0,0.5)' : `${accent}4D`}`, padding: '9px 14px', borderRadius: 8, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}
                                     >
                                         <Edit3 size={14} /> {isAdmin && !isOwnProfile ? 'Edit (Admin)' : 'Edit Profile'}
+                                    </button>
+                                )}
+                                {isOwnProfile && (
+                                    <button onClick={() => navigate('/my-tracks')} style={{ flex: 1, minWidth: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: 'transparent', color: SUB, border: `1px solid ${BORDER}`, padding: '9px 14px', borderRadius: 8, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
+                                        <Music size={14} /> Manage Tracks
                                     </button>
                                 )}
                             </div>
