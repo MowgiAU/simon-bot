@@ -15,10 +15,11 @@ import {
 import { AltHeader } from '../components/altshell/AltHeader';
 import { AltActivitySidebar, type RailSection } from '../components/altshell/AltActivitySidebar';
 import { AltSpinner } from '../components/altshell/AltSpinner';
+import { TrackEditModal, type EditableTrack } from '../components/TrackEditModal';
 import {
     Music, Play, Pause, Globe, Lock, Trash2, Upload,
     SortAsc, Filter, HardDrive, TrendingUp, Eye, Clock,
-    Pencil, Check, X,
+    Pencil,
 } from 'lucide-react';
 
 const glass: React.CSSProperties = {
@@ -45,12 +46,12 @@ const SORTS: { key: SortKey; label: string }[] = [
     { key: 'oldest', label: 'Oldest First' },
 ];
 
-interface Track {
-    id: string; title: string; slug?: string; url: string | null;
+interface Track extends Omit<EditableTrack, 'genres'> {
+    id: string; title: string; slug?: string | null; url: string | null;
     coverUrl: string | null; duration: number | null;
     playCount: number; bpm: number | null; key: string | null;
     isPublic: boolean; createdAt: string; position: number;
-    genres?: { genre: { name: string } }[];
+    genres?: { genre: { id: string; name: string } }[];
 }
 interface StorageInfo { usedBytes: number; quotaBytes: number; tier: string }
 
@@ -68,10 +69,7 @@ export const FrontpageAltFMyTracks: React.FC = () => {
     const [sort,   setSort]   = useState<SortKey>('newest');
     const [filter, setFilter] = useState<FilterKey>('all');
 
-    const [editId,    setEditId]    = useState<string | null>(null);
-    const [editTitle, setEditTitle] = useState('');
-    const [editBpm,   setEditBpm]   = useState('');
-    const [saving,    setSaving]    = useState(false);
+    const [editTrack, setEditTrack] = useState<Track | null>(null);
 
     const load = useCallback(() => {
         if (!user?.id) return;
@@ -88,15 +86,8 @@ export const FrontpageAltFMyTracks: React.FC = () => {
 
     useEffect(() => { if (!authLoading) load(); }, [authLoading, load]);
 
-    const startEdit = (t: Track) => {
-        setEditId(t.id);
-        setEditTitle(t.title);
-        setEditBpm(t.bpm ? String(t.bpm) : '');
-        setDeleteId(null);
-    };
-
     // Deep-link support: ?edit=<trackId> (e.g. from the "Edit Track" link on the track page
-    // itself) jumps straight into editing that track once the list has loaded.
+    // itself) opens the full edit modal for that track once the list has loaded.
     const appliedDeepLinkRef = useRef(false);
     useEffect(() => {
         if (appliedDeepLinkRef.current || loading || tracks.length === 0) return;
@@ -105,28 +96,12 @@ export const FrontpageAltFMyTracks: React.FC = () => {
         const target = tracks.find(t => t.id === editTrackId);
         if (target) {
             appliedDeepLinkRef.current = true;
-            startEdit(target);
+            setEditTrack(target);
             requestAnimationFrame(() => {
                 document.getElementById(`track-row-${editTrackId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
             });
         }
     }, [loading, tracks]);
-
-    const saveEdit = async (id: string) => {
-        const title = editTitle.trim();
-        if (!title) return;
-        setSaving(true);
-        const bpmNum = editBpm.trim() ? parseInt(editBpm, 10) : null;
-        const payload: any = { title };
-        if (bpmNum && !isNaN(bpmNum) && bpmNum > 0) payload.bpm = bpmNum;
-        else if (!editBpm.trim()) payload.bpm = null;
-        setTracks(prev => prev.map(t => t.id === id ? { ...t, title: payload.title, bpm: payload.bpm !== undefined ? payload.bpm : t.bpm } : t));
-        setEditId(null);
-        try {
-            await axios.patch(`/api/musician/tracks/${id}`, payload, { withCredentials: true });
-        } catch { load(); }
-        finally { setSaving(false); }
-    };
 
     const togglePublic = async (track: Track) => {
         if (toggling) return;
@@ -404,7 +379,6 @@ export const FrontpageAltFMyTracks: React.FC = () => {
                                         const hovered = hoverId === t.id;
                                         const isLast  = i === displayed.length - 1;
                                         const isDel   = deleteId === t.id;
-                                        const isEdit  = editId === t.id;
                                         const genre   = t.genres?.[0]?.genre?.name;
 
                                         return (
@@ -417,7 +391,7 @@ export const FrontpageAltFMyTracks: React.FC = () => {
                                             >
                                                 {/* Position / play */}
                                                 <div style={{ textAlign: 'center' }}>
-                                                    {hovered && t.url && !isEdit && !isDel ? (
+                                                    {hovered && t.url && !isDel ? (
                                                         <button onClick={() => handlePlay(t)} style={{ width: 22, height: 22, background: 'none', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
                                                             {playing ? <Pause size={14} color={PRIMARY} fill={PRIMARY} /> : <Play size={14} color={TEXT} fill={TEXT} />}
                                                         </button>
@@ -427,7 +401,7 @@ export const FrontpageAltFMyTracks: React.FC = () => {
                                                 </div>
 
                                                 {/* Cover */}
-                                                <div onClick={() => !isEdit && !isDel && handlePlay(t)} style={{ cursor: t.url && !isEdit ? 'pointer' : 'default' }}>
+                                                <div onClick={() => !isDel && handlePlay(t)} style={{ cursor: t.url ? 'pointer' : 'default' }}>
                                                     {t.coverUrl
                                                         ? <img src={t.coverUrl} referrerPolicy="no-referrer" style={{ width: 36, height: 36, borderRadius: 6, objectFit: 'cover', display: 'block' }} />
                                                         : <div style={{ width: 36, height: 36, borderRadius: 6, background: S_HIGH, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Music size={14} color={SUB} /></div>
@@ -442,22 +416,6 @@ export const FrontpageAltFMyTracks: React.FC = () => {
                                                             <button onClick={() => deleteTrack(t.id)} style={{ padding: '3px 10px', background: TERTIARY, border: 'none', borderRadius: 5, color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: FONT }}>Delete</button>
                                                             <button onClick={() => setDeleteId(null)} style={{ padding: '3px 10px', background: S_HIGH, border: 'none', borderRadius: 5, color: SUB, fontSize: 11, cursor: 'pointer', fontFamily: FONT }}>Cancel</button>
                                                         </div>
-                                                    ) : isEdit ? (
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                                            <input
-                                                                value={editTitle}
-                                                                onChange={e => setEditTitle(e.target.value)}
-                                                                onKeyDown={e => { if (e.key === 'Enter') saveEdit(t.id); if (e.key === 'Escape') setEditId(null); }}
-                                                                autoFocus
-                                                                style={{ flex: 1, minWidth: 0, padding: '5px 10px', background: S_HIGH, border: `1px solid ${PRIMARY}66`, borderRadius: 6, color: TEXT, fontSize: 13, fontFamily: FONT, outline: 'none' }}
-                                                            />
-                                                            <input
-                                                                value={editBpm}
-                                                                onChange={e => setEditBpm(e.target.value.replace(/\D/g, ''))}
-                                                                placeholder="BPM"
-                                                                style={{ width: 56, padding: '5px 8px', background: S_HIGH, border: `1px solid ${BORDER}`, borderRadius: 6, color: TEXT, fontSize: 13, fontFamily: FONT, outline: 'none' }}
-                                                            />
-                                                        </div>
                                                     ) : (
                                                         <>
                                                             <div style={{ fontSize: 14, fontWeight: playing ? 700 : 600, color: playing ? PRIMARY : TEXT, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 2 }}>{t.title}</div>
@@ -468,38 +426,29 @@ export const FrontpageAltFMyTracks: React.FC = () => {
 
                                                 {/* Genre */}
                                                 <div>
-                                                    {genre && !isDel && !isEdit && (
+                                                    {genre && !isDel && (
                                                         <span style={{ padding: '3px 7px', borderRadius: 4, background: `${SECONDARY}15`, border: `1px solid ${SECONDARY}30`, fontSize: 10, color: SECONDARY, fontWeight: 600, whiteSpace: 'nowrap' }}>{genre}</span>
                                                     )}
                                                 </div>
 
                                                 {/* BPM */}
                                                 <div style={{ textAlign: 'center', fontSize: 12, color: t.bpm ? TEXT : `${SUB}66`, fontWeight: t.bpm ? 600 : 400 }}>
-                                                    {!isDel && !isEdit && (t.bpm || '—')}
+                                                    {!isDel && (t.bpm || '—')}
                                                 </div>
 
                                                 {/* Plays */}
                                                 <div style={{ textAlign: 'center', fontSize: 12, color: SUB, fontVariantNumeric: 'tabular-nums' }}>
-                                                    {!isDel && !isEdit && fmtNum(t.playCount)}
+                                                    {!isDel && fmtNum(t.playCount)}
                                                 </div>
 
                                                 {/* Duration */}
                                                 <div style={{ textAlign: 'right', fontSize: 12, color: SUB, fontVariantNumeric: 'tabular-nums' }}>
-                                                    {!isDel && !isEdit && fmtDur(t.duration)}
+                                                    {!isDel && fmtDur(t.duration)}
                                                 </div>
 
-                                                {/* Actions: visibility + edit + delete  |  save + cancel when editing */}
+                                                {/* Actions: visibility + edit + delete */}
                                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}>
-                                                    {isEdit ? (
-                                                        <>
-                                                            <button onClick={() => saveEdit(t.id)} disabled={saving || !editTitle.trim()} title="Save" style={{ width: 28, height: 28, borderRadius: 6, background: `${PRIMARY}22`, border: `1px solid ${PRIMARY}55`, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: PRIMARY }}>
-                                                                <Check size={13} />
-                                                            </button>
-                                                            <button onClick={() => setEditId(null)} title="Cancel" style={{ width: 28, height: 28, borderRadius: 6, background: 'none', border: `1px solid ${BORDER}`, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: SUB }}>
-                                                                <X size={13} />
-                                                            </button>
-                                                        </>
-                                                    ) : !isDel ? (
+                                                    {!isDel ? (
                                                         <>
                                                             {/* Visibility toggle — icon only to save space */}
                                                             <button
@@ -511,7 +460,7 @@ export const FrontpageAltFMyTracks: React.FC = () => {
                                                                 {t.isPublic ? <Globe size={12} /> : <Lock size={12} />}
                                                             </button>
                                                             <button
-                                                                onClick={() => startEdit(t)}
+                                                                onClick={() => setEditTrack(t)}
                                                                 title="Edit track"
                                                                 style={{ width: 28, height: 28, borderRadius: 6, background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: `${SUB}66`, transition: 'all 0.15s', flexShrink: 0 }}
                                                                 onMouseEnter={e => { e.currentTarget.style.background = `${SECONDARY}1a`; e.currentTarget.style.color = SECONDARY; }}
@@ -542,6 +491,14 @@ export const FrontpageAltFMyTracks: React.FC = () => {
                 <AltActivitySidebar topSlot={railTop} railSections={railSections} />
                 </div>
             </main>
+            {editTrack && (
+                <TrackEditModal
+                    track={editTrack}
+                    open={!!editTrack}
+                    onClose={() => setEditTrack(null)}
+                    onSaved={patch => setTracks(prev => prev.map(t => t.id === editTrack.id ? { ...t, ...patch } : t))}
+                />
+            )}
         </div>
     );
 };
