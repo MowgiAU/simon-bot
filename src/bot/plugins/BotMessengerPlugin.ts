@@ -67,9 +67,11 @@ export class BotMessengerPlugin implements IPlugin {
         this.logger.info('Bot Messenger Plugin initialized');
 
         // Self-destructing reaction roles: periodically strip expired mappings from
-        // everyone they granted the role to, then delete the mapping.
-        this.expirySweepTimer = setInterval(() => this.processExpiredReactionRoles(), 5 * 60 * 1000);
-        setTimeout(() => this.processExpiredReactionRoles(), 30_000);
+        // everyone they granted the role to, then delete the mapping. Polled every 30s
+        // (not minutes) since durations as short as a few minutes are a supported use
+        // case and a coarser interval means waiting up to ~2x the interval past expiry.
+        this.expirySweepTimer = setInterval(() => this.processExpiredReactionRoles(), 30_000);
+        setTimeout(() => this.processExpiredReactionRoles(), 10_000);
     }
 
     async shutdown(): Promise<void> {
