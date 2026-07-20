@@ -51,22 +51,22 @@ const MemoArrangement: React.FC<{ track: any; player: any; isPlaying: boolean; z
 // ever created). We talk to the embedded iframe directly via postMessage instead, which only
 // needs frame-src permission. Verified in production that the postMessage command reaches the
 // iframe's contentWindow correctly (intercepted via a Proxy around contentWindow for testing).
-const MemoYouTube: React.FC<{ videoId: string; trackId: string; player: any; isPlaying: boolean; onUserPause: () => void; onUserPlay: () => void }> = React.memo(({ videoId, trackId, player, isPlaying, onUserPause, onUserPlay }) => {
+// The video is muted and exists purely as a visual companion to the site's audio player —
+// it is not an independent playback surface. We drive it one-way (audio state -> video
+// seekTo/play/pause commands via postMessage, confirmed reliable in production) and disable
+// its own native controls entirely, because listening for events BACK from the embed
+// (onStateChange) turned out to be unreliable without the official YT.Player API — which
+// this site's CSP blocks from loading (script-src doesn't include youtube.com, only
+// frame-src does). Without reliable inbound events, letting users click the video's native
+// play/pause silently did nothing to the actual song. Instead, clicks on the video area are
+// caught by an overlay and routed straight to the same play/pause used everywhere else on
+// the page, exactly like the non-video cover-art fallback below.
+const MemoYouTube: React.FC<{ videoId: string; trackId: string; player: any; isPlaying: boolean; onToggle: () => void }> = React.memo(({ videoId, trackId, player, isPlaying, onToggle }) => {
     const iframeRef = useRef<HTMLIFrameElement>(null);
-    const ctRef = useRef(0); const ipRef = useRef(false); const lastSent = useRef<boolean | null>(null); const progRef = useRef(false); const progTimer = useRef<any>(null); const lastTimeRef = useRef(0);
+    const ctRef = useRef(0); const ipRef = useRef(false); const lastSent = useRef<boolean | null>(null); const lastTimeRef = useRef(0);
     const isThis = player.currentTrack?.id === trackId;
     ctRef.current = isThis ? player.currentTime : 0; ipRef.current = isPlaying && isThis;
-    const cmd = (fn: string, args: any[] = [], prog = false) => { if (prog) { progRef.current = true; if (progTimer.current) clearTimeout(progTimer.current); progTimer.current = setTimeout(() => { progRef.current = false; }, 600); } iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ event: 'command', func: fn, args }), '*'); };
-    // Establish the widget's message channel — without this initial handshake the embed may
-    // silently drop commands or never broadcast onStateChange back to the parent.
-    useEffect(() => {
-        const iv = setInterval(() => { iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ event: 'listening', id: iframeRef.current, channel: 'widget' }), '*'); }, 250);
-        const timeout = setTimeout(() => clearInterval(iv), 3000);
-        return () => { clearInterval(iv); clearTimeout(timeout); };
-    }, []);
-    // YouTube state codes: -1 unstarted, 0 ended, 1 playing, 2 paused, 3 buffering, 5 cued.
-    // progRef guards against reacting to state changes caused by our own sync commands below.
-    useEffect(() => { const h = (e: MessageEvent) => { if (e.source !== iframeRef.current?.contentWindow) return; let d: any; try { d = typeof e.data === 'string' ? JSON.parse(e.data) : e.data; } catch { return; } if (d?.event !== 'onStateChange') return; if (progRef.current) return; if (d.info === 2 && ipRef.current) onUserPause(); if (d.info === 1 && !ipRef.current) onUserPlay(); }; window.addEventListener('message', h); return () => window.removeEventListener('message', h); }, [onUserPause, onUserPlay]);
+    const cmd = (fn: string, args: any[] = []) => { iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ event: 'command', func: fn, args }), '*'); };
     // Every tick: sync play/pause state on transitions, and re-seek the video whenever the
     // audio position jumps by more than natural playback drift (manual scrub/skip), not just
     // on play/pause toggles.
@@ -74,18 +74,26 @@ const MemoYouTube: React.FC<{ videoId: string; trackId: string; player: any; isP
         const sp = ipRef.current; const ct = ctRef.current;
         const jumped = Math.abs(ct - lastTimeRef.current) > 1.5;
         if (sp !== lastSent.current) {
-            if (sp) { cmd('seekTo', [ct, true], true); cmd('playVideo', [], true); } else { cmd('pauseVideo', [], true); }
+            if (sp) { cmd('seekTo', [ct, true]); cmd('playVideo'); } else { cmd('pauseVideo'); }
             lastSent.current = sp;
         } else if (jumped) {
-            cmd('seekTo', [ct, true], true);
+            cmd('seekTo', [ct, true]);
         }
         lastTimeRef.current = ct;
     }, 500); return () => clearInterval(t); }, []);
     return (
-        <iframe ref={iframeRef} key={videoId}
-            src={`https://www.youtube.com/embed/${videoId}?enablejsapi=1&mute=1&autoplay=0&controls=1&modestbranding=1&rel=0`}
-            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 'none' }}
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
+        <>
+            <iframe ref={iframeRef} key={videoId}
+                src={`https://www.youtube.com/embed/${videoId}?enablejsapi=1&mute=1&autoplay=0&controls=0&modestbranding=1&rel=0`}
+                style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 'none', pointerEvents: 'none' }}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
+            <button onClick={onToggle} aria-label={isPlaying ? 'Pause' : 'Play'}
+                style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ width: 80, height: 80, borderRadius: '50%', background: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', border: '1px solid rgba(255,255,255,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: isPlaying ? 0 : 1, transition: 'opacity 0.2s' }}>
+                    <Play size={40} fill="#fff" color="#fff" style={{ marginLeft: 4 }} />
+                </div>
+            </button>
+        </>
     );
 });
 
@@ -200,10 +208,7 @@ export const FrontpageAltFTrack: React.FC = () => {
     const progress = track ? (isThis ? player.currentTime / (player.duration || track.duration || 1) : 0) : 0;
 
     const playTrack = () => { if (track) setTrack(track, [track]); };
-    // Fired when the user presses play directly on the YouTube video's own controls —
-    // starts (or resumes) the site's audio player so the "song" actually plays too,
-    // instead of just the silent/muted video.
-    const startPlaybackFromVideo = () => { if (isThis) { if (!isPlaying) togglePlay(); } else { playTrack(); } };
+    const togglePlayback = () => isPlaying ? togglePlay() : playTrack();
     const toggleLike = () => {
         if (!user) { showToast('Log in to like tracks', 'info'); return; }
         if (!track?.id) return;
@@ -429,12 +434,12 @@ export const FrontpageAltFTrack: React.FC = () => {
                     {/* Album art / Music video */}
                     <section style={{ ...glass, borderRadius: 20, overflow: 'hidden', position: 'relative', aspectRatio: '16/9' }}>
                         {showVideo
-                            ? <MemoYouTube videoId={youtubeId!} trackId={track.id} player={player} isPlaying={isPlaying} onUserPause={togglePlay} onUserPlay={startPlaybackFromVideo} />
+                            ? <MemoYouTube videoId={youtubeId!} trackId={track.id} player={player} isPlaying={isPlaying} onToggle={togglePlayback} />
                             : <>
                                 {track.coverUrl && <img src={track.coverUrl} alt={track.title} referrerPolicy="no-referrer" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: 0.7 }} />}
                                 <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(10,14,24,0.9) 0%, rgba(10,14,24,0.2) 60%, transparent 100%)' }} />
                                 <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    <button onClick={() => isPlaying ? togglePlay() : playTrack()} style={{ width: 80, height: 80, borderRadius: '50%', background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'transform 0.2s' }}>
+                                    <button onClick={togglePlayback} style={{ width: 80, height: 80, borderRadius: '50%', background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'transform 0.2s' }}>
                                         {isPlaying ? <Pause size={40} fill="#fff" color="#fff" /> : <Play size={40} fill="#fff" color="#fff" style={{ marginLeft: 4 }} />}
                                     </button>
                                 </div>
@@ -460,7 +465,7 @@ export const FrontpageAltFTrack: React.FC = () => {
                                 <span style={{ fontSize: 12, fontFamily: 'monospace', color: SECONDARY }}>{fmtDur(isThis ? player.currentTime : 0)} / {fmtDur(track.duration)}</span>
                                 <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
                                     <button onClick={() => { if (isThis) seek(Math.max(0, player.currentTime - 10)); }} style={{ background: 'none', border: 'none', color: SUB, cursor: 'pointer', padding: 6 }}><SkipBack size={18} /></button>
-                                    <button onClick={() => isPlaying ? togglePlay() : playTrack()} style={{ width: 44, height: 44, borderRadius: '50%', background: PRIMARY, color: '#fff', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: `0 0 16px ${PRIMARY}55` }}>
+                                    <button onClick={togglePlayback} style={{ width: 44, height: 44, borderRadius: '50%', background: PRIMARY, color: '#fff', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: `0 0 16px ${PRIMARY}55` }}>
                                         {isPlaying ? <Pause size={20} fill="#fff" /> : <Play size={20} fill="#fff" style={{ marginLeft: 2 }} />}
                                     </button>
                                     <button onClick={() => { if (isThis) seek(Math.min(player.duration, player.currentTime + 10)); }} style={{ background: 'none', border: 'none', color: SUB, cursor: 'pointer', padding: 6 }}><SkipForward size={18} /></button>
