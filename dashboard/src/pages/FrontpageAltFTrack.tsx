@@ -25,7 +25,7 @@ import {
     ChevronDown, ChevronUp, AlignLeft, Zap, FileAudio,
     Clock, Activity, Tag, Music, UserPlus, UserCheck,
     MessageCircle, Package, ExternalLink, Swords, BadgeCheck, Flag,
-    User, FileText,
+    User, FileText, Pencil,
 } from 'lucide-react';
 
 const fmtNum = (n?: number) => { n = n || 0; if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M'; if (n >= 1e3) return (n / 1e3).toFixed(1) + 'k'; return String(n); };
@@ -408,10 +408,18 @@ export const FrontpageAltFTrack: React.FC = () => {
                         </section>
     ) : null;
 
+    const isOwnTrack = !!user && track.profile?.userId === user.id;
+    const editSection = isOwnTrack ? (
+                        <Link to={`/my-tracks?edit=${track.id}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, ...glass, borderRadius: 20, padding: '14px 18px', color: PRIMARY, textDecoration: 'none', fontWeight: 700, fontSize: 13 }}>
+                            <Pencil size={15} /> Edit Track
+                        </Link>
+    ) : null;
+
     const trackSide = (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
                     {artistSection}
                     {actionsSection}
+                    {editSection}
                     {lyricsSection}
                 </div>
     );
@@ -419,6 +427,7 @@ export const FrontpageAltFTrack: React.FC = () => {
     const railSections: RailSection[] = [
         { key: 'artist', label: 'Artist', icon: <User size={20} />, content: artistSection },
         { key: 'actions', label: 'Actions', icon: <Heart size={20} />, content: actionsSection },
+        ...(isOwnTrack ? [{ key: 'edit', label: 'Edit Track', icon: <Pencil size={20} />, content: editSection }] : []),
         ...((track.lyrics || track.lyricsSync?.length > 0)
             ? [{ key: 'lyrics', label: 'Lyrics', icon: <FileText size={20} />, content: lyricsSection }]
             : []),

@@ -4,7 +4,7 @@
  * APIs: GET /api/musician/profile/:userId, GET /api/users/me/storage,
  *       PATCH /api/musician/tracks/:id, DELETE /api/musician/tracks/:id
  */
-import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import axios from 'axios';
 import { usePlayer } from '../components/PlayerProvider';
 import { useAuth } from '../components/AuthProvider';
@@ -94,6 +94,23 @@ export const FrontpageAltFMyTracks: React.FC = () => {
         setEditBpm(t.bpm ? String(t.bpm) : '');
         setDeleteId(null);
     };
+
+    // Deep-link support: ?edit=<trackId> (e.g. from the "Edit Track" link on the track page
+    // itself) jumps straight into editing that track once the list has loaded.
+    const appliedDeepLinkRef = useRef(false);
+    useEffect(() => {
+        if (appliedDeepLinkRef.current || loading || tracks.length === 0) return;
+        const editTrackId = new URLSearchParams(window.location.search).get('edit');
+        if (!editTrackId) return;
+        const target = tracks.find(t => t.id === editTrackId);
+        if (target) {
+            appliedDeepLinkRef.current = true;
+            startEdit(target);
+            requestAnimationFrame(() => {
+                document.getElementById(`track-row-${editTrackId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            });
+        }
+    }, [loading, tracks]);
 
     const saveEdit = async (id: string) => {
         const title = editTitle.trim();
@@ -393,6 +410,7 @@ export const FrontpageAltFMyTracks: React.FC = () => {
                                         return (
                                             <div
                                                 key={t.id}
+                                                id={`track-row-${t.id}`}
                                                 onMouseEnter={() => setHoverId(t.id)}
                                                 onMouseLeave={() => setHoverId(null)}
                                                 style={{ display: 'grid', gridTemplateColumns: '40px 44px 1fr 88px 46px 54px 64px 112px', gap: 0, padding: '10px 20px', borderBottom: isLast ? 'none' : `1px solid ${DIVIDER}`, alignItems: 'center', background: playing ? `${PRIMARY}08` : hovered ? 'rgba(38,42,53,0.35)' : 'transparent', transition: 'background 0.1s' }}
