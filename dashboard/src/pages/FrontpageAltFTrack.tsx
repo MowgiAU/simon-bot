@@ -51,7 +51,7 @@ const MemoArrangement: React.FC<{ track: any; player: any; isPlaying: boolean; z
 // ever created). We talk to the embedded iframe directly via postMessage instead, which only
 // needs frame-src permission. Verified in production that the postMessage command reaches the
 // iframe's contentWindow correctly (intercepted via a Proxy around contentWindow for testing).
-const MemoYouTube: React.FC<{ videoId: string; trackId: string; player: any; isPlaying: boolean; onUserPause: () => void }> = React.memo(({ videoId, trackId, player, isPlaying, onUserPause }) => {
+const MemoYouTube: React.FC<{ videoId: string; trackId: string; player: any; isPlaying: boolean; onUserPause: () => void; onUserPlay: () => void }> = React.memo(({ videoId, trackId, player, isPlaying, onUserPause, onUserPlay }) => {
     const iframeRef = useRef<HTMLIFrameElement>(null);
     const ctRef = useRef(0); const ipRef = useRef(false); const lastSent = useRef<boolean | null>(null); const progRef = useRef(false); const progTimer = useRef<any>(null); const lastTimeRef = useRef(0);
     const isThis = player.currentTrack?.id === trackId;
@@ -64,7 +64,9 @@ const MemoYouTube: React.FC<{ videoId: string; trackId: string; player: any; isP
         const timeout = setTimeout(() => clearInterval(iv), 3000);
         return () => { clearInterval(iv); clearTimeout(timeout); };
     }, []);
-    useEffect(() => { const h = (e: MessageEvent) => { if (e.source !== iframeRef.current?.contentWindow) return; let d: any; try { d = typeof e.data === 'string' ? JSON.parse(e.data) : e.data; } catch { return; } if (d?.event !== 'onStateChange') return; if (progRef.current) return; if (d.info === 2 && ipRef.current) onUserPause(); }; window.addEventListener('message', h); return () => window.removeEventListener('message', h); }, [onUserPause]);
+    // YouTube state codes: -1 unstarted, 0 ended, 1 playing, 2 paused, 3 buffering, 5 cued.
+    // progRef guards against reacting to state changes caused by our own sync commands below.
+    useEffect(() => { const h = (e: MessageEvent) => { if (e.source !== iframeRef.current?.contentWindow) return; let d: any; try { d = typeof e.data === 'string' ? JSON.parse(e.data) : e.data; } catch { return; } if (d?.event !== 'onStateChange') return; if (progRef.current) return; if (d.info === 2 && ipRef.current) onUserPause(); if (d.info === 1 && !ipRef.current) onUserPlay(); }; window.addEventListener('message', h); return () => window.removeEventListener('message', h); }, [onUserPause, onUserPlay]);
     // Every tick: sync play/pause state on transitions, and re-seek the video whenever the
     // audio position jumps by more than natural playback drift (manual scrub/skip), not just
     // on play/pause toggles.
@@ -198,6 +200,10 @@ export const FrontpageAltFTrack: React.FC = () => {
     const progress = track ? (isThis ? player.currentTime / (player.duration || track.duration || 1) : 0) : 0;
 
     const playTrack = () => { if (track) setTrack(track, [track]); };
+    // Fired when the user presses play directly on the YouTube video's own controls —
+    // starts (or resumes) the site's audio player so the "song" actually plays too,
+    // instead of just the silent/muted video.
+    const startPlaybackFromVideo = () => { if (isThis) { if (!isPlaying) togglePlay(); } else { playTrack(); } };
     const toggleLike = () => {
         if (!user) { showToast('Log in to like tracks', 'info'); return; }
         if (!track?.id) return;
@@ -423,7 +429,7 @@ export const FrontpageAltFTrack: React.FC = () => {
                     {/* Album art / Music video */}
                     <section style={{ ...glass, borderRadius: 20, overflow: 'hidden', position: 'relative', aspectRatio: '16/9' }}>
                         {showVideo
-                            ? <MemoYouTube videoId={youtubeId!} trackId={track.id} player={player} isPlaying={isPlaying} onUserPause={togglePlay} />
+                            ? <MemoYouTube videoId={youtubeId!} trackId={track.id} player={player} isPlaying={isPlaying} onUserPause={togglePlay} onUserPlay={startPlaybackFromVideo} />
                             : <>
                                 {track.coverUrl && <img src={track.coverUrl} alt={track.title} referrerPolicy="no-referrer" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: 0.7 }} />}
                                 <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(10,14,24,0.9) 0%, rgba(10,14,24,0.2) 60%, transparent 100%)' }} />
