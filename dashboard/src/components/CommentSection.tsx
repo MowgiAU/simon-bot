@@ -110,7 +110,9 @@ const GifPicker: React.FC<{ onSelect: (url: string) => void; onClose: () => void
             position: 'absolute', bottom: '100%', left: 0, right: 0,
             backgroundColor: '#1a1e2e', border: '1px solid rgba(255,255,255,0.1)',
             borderRadius: borderRadius.md, boxShadow: '0 -8px 32px rgba(0,0,0,0.5)',
-            zIndex: 100, maxHeight: '360px', display: 'flex', flexDirection: 'column',
+            // Above the fixed global player bar (zIndex 999-1010), which otherwise renders
+            // on top of this popup when it opens near the bottom of the page.
+            zIndex: 2100, maxHeight: '360px', display: 'flex', flexDirection: 'column',
             marginBottom: '8px',
         }}>
             <div style={{ padding: '10px 12px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -176,7 +178,7 @@ const EmojiPicker: React.FC<{ onSelect: (emoji: string) => void; onClose: () => 
             position: 'absolute', bottom: '100%', left: 0,
             backgroundColor: '#1a1e2e', border: '1px solid rgba(255,255,255,0.1)',
             borderRadius: borderRadius.md, boxShadow: '0 -8px 32px rgba(0,0,0,0.5)',
-            zIndex: 100, width: '320px', maxHeight: '340px', display: 'flex', flexDirection: 'column',
+            zIndex: 2100, width: '320px', maxHeight: '340px', display: 'flex', flexDirection: 'column',
             marginBottom: '8px',
         }}>
             {/* Search + tabs */}

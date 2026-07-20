@@ -600,7 +600,11 @@ export const FrontpageAltFTrack: React.FC = () => {
                     )}
 
                     {/* 6. Comments */}
-                    <section style={{ ...glass, overflow: 'hidden', padding: '0 20px 20px' }}>
+                    {/* overflow: visible (not hidden) — the GIF/emoji picker popups inside
+                        CommentSection are absolutely positioned above the input and need to
+                        escape this section's bounds, especially when there are few/no
+                        comments and the section is short. */}
+                    <section style={{ ...glass, overflow: 'visible', padding: '0 20px 20px' }}>
                         <CommentSection
                             trackId={track.id}
                             ownerId={track.profile.userId}
