@@ -6797,8 +6797,14 @@ app.post('/api/bot-messenger/:guildId/reaction-roles', async (req: any, res) => 
     if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
     const { guildId } = req.params;
     if (!hasDashboardAccess(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
-    const { channelId, messageId, emoji, roleId } = req.body;
+    const { channelId, messageId, emoji, roleId, durationMinutes } = req.body;
     if (!channelId || !messageId || !emoji || !roleId) return res.status(400).json({ error: 'Missing required fields' });
+    let expiresAt: Date | undefined;
+    if (durationMinutes !== undefined && durationMinutes !== null && durationMinutes !== '') {
+        const mins = Number(durationMinutes);
+        if (!Number.isFinite(mins) || mins <= 0) return res.status(400).json({ error: 'Duration must be a positive number of minutes' });
+        expiresAt = new Date(Date.now() + mins * 60_000);
+    }
     try {
         // Make the bot react on the target message so users can click it
         try {
@@ -6807,7 +6813,7 @@ app.post('/api/bot-messenger/:guildId/reaction-roles', async (req: any, res) => 
         } catch (err: any) {
             logger.warn('Could not add bot reaction (message may not exist)', err?.message);
         }
-        const rr = await db.reactionRole.create({ data: { guildId, channelId, messageId, emoji, roleId } });
+        const rr = await db.reactionRole.create({ data: { guildId, channelId, messageId, emoji, roleId, expiresAt } });
         res.json(rr);
     } catch (e: any) {
         if (e?.code === 'P2002') return res.status(409).json({ error: 'That emoji is already mapped on this message' });
@@ -6831,8 +6837,17 @@ app.delete('/api/bot-messenger/:guildId/reaction-roles/:id', async (req: any, re
         } catch (err: any) {
             logger.warn('Could not remove bot reaction', err?.message);
         }
+        // Strip the role from everyone it was granted to, same as an expiry sweep would
+        const grants = await db.reactionRoleGrant.findMany({ where: { reactionRoleId: id } });
+        for (const grant of grants) {
+            try {
+                await discordReq('delete', `/guilds/${guildId}/members/${grant.userId}/roles/${rr.roleId}`);
+            } catch (err: any) {
+                logger.warn(`Could not remove role from ${grant.userId} on manual delete`, err?.message);
+            }
+        }
         await db.reactionRole.delete({ where: { id } });
-        res.json({ success: true });
+        res.json({ success: true, membersUpdated: grants.length });
     } catch (e) {
         logger.error('DELETE reaction-role', e);
         res.status(500).json({ error: 'Failed to delete reaction role' });

@@ -1027,8 +1027,29 @@ const EmbedPreview: React.FC<{ embed: EmbedData }> = ({ embed }) => {
 // ---------------------------------------------------------------------------
 // Reaction Roles Tab
 // ---------------------------------------------------------------------------
-interface ReactionRoleEntry { id: string; guildId: string; channelId: string; messageId: string; emoji: string; roleId: string; createdAt: string; }
+interface ReactionRoleEntry { id: string; guildId: string; channelId: string; messageId: string; emoji: string; roleId: string; createdAt: string; expiresAt: string | null; }
 interface GuildRole { id: string; name: string; color: number; }
+
+const DURATION_PRESETS: { label: string; minutes: string }[] = [
+    { label: 'Permanent', minutes: '' },
+    { label: '1 hour', minutes: String(60) },
+    { label: '6 hours', minutes: String(6 * 60) },
+    { label: '1 day', minutes: String(24 * 60) },
+    { label: '3 days', minutes: String(3 * 24 * 60) },
+    { label: '7 days', minutes: String(7 * 24 * 60) },
+    { label: 'Custom…', minutes: 'custom' },
+];
+
+function fmtExpiry(expiresAt: string | null): string {
+    if (!expiresAt) return 'Permanent';
+    const ms = new Date(expiresAt).getTime() - Date.now();
+    if (ms <= 0) return 'Expiring…';
+    const mins = Math.round(ms / 60_000);
+    if (mins < 60) return `Expires in ${mins}m`;
+    const hours = Math.round(mins / 60);
+    if (hours < 48) return `Expires in ${hours}h`;
+    return `Expires in ${Math.round(hours / 24)}d`;
+}
 
 function ReactionRolesTab({ guildId }: { guildId: string }) {
     const [entries, setEntries] = useState<ReactionRoleEntry[]>([]);
@@ -1042,6 +1063,8 @@ function ReactionRolesTab({ guildId }: { guildId: string }) {
     const [emoji, setEmoji] = useState('');
     const [roleId, setRoleId] = useState('');
     const [adding, setAdding] = useState(false);
+    const [durationPreset, setDurationPreset] = useState('');
+    const [customMinutes, setCustomMinutes] = useState('');
 
     // "Send new message as the bot" — replaces the manual right-click-Copy-ID flow.
     const [newMessageContent, setNewMessageContent] = useState('');
@@ -1088,16 +1111,20 @@ function ReactionRolesTab({ guildId }: { guildId: string }) {
 
     const handleAdd = async () => {
         if (!channelId || !messageId || !emoji || !roleId) { setMsg({ type: 'error', text: 'All fields are required' }); return; }
+        const durationMinutes = durationPreset === 'custom' ? customMinutes : durationPreset;
+        if (durationPreset === 'custom' && (!customMinutes.trim() || Number(customMinutes) <= 0)) {
+            setMsg({ type: 'error', text: 'Enter a valid custom duration in minutes' }); return;
+        }
         setAdding(true);
         try {
             const res = await fetch(`/api/bot-messenger/${guildId}/reaction-roles`, {
                 method: 'POST', credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ channelId, messageId, emoji: emoji.trim(), roleId }),
+                body: JSON.stringify({ channelId, messageId, emoji: emoji.trim(), roleId, durationMinutes: durationMinutes || undefined }),
             });
             if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error || 'Failed to add'); }
-            setMsg({ type: 'success', text: 'Reaction role added! The bot has reacted on the message.' });
-            setMessageId(''); setEmoji(''); setRoleId('');
+            setMsg({ type: 'success', text: durationMinutes ? 'Self-destructing reaction role added! The bot has reacted on the message.' : 'Reaction role added! The bot has reacted on the message.' });
+            setMessageId(''); setEmoji(''); setRoleId(''); setDurationPreset(''); setCustomMinutes('');
             fetchData();
         } catch (e: any) {
             setMsg({ type: 'error', text: e.message || 'Failed to create reaction role' });
@@ -1191,6 +1218,16 @@ function ReactionRolesTab({ guildId }: { guildId: string }) {
                             ))}
                         </select>
                     </div>
+                    <div>
+                        <label style={labelStyle}>Duration <span style={{ color: colors.textTertiary, fontWeight: 400 }}>(self-destructing)</span></label>
+                        <select style={{ ...inputStyle, cursor: 'pointer' }} value={durationPreset} onChange={e => setDurationPreset(e.target.value)}>
+                            {DURATION_PRESETS.map(p => <option key={p.label} value={p.minutes}>{p.label}</option>)}
+                        </select>
+                        {durationPreset === 'custom' && (
+                            <input style={{ ...inputStyle, marginTop: '6px' }} value={customMinutes} onChange={e => setCustomMinutes(e.target.value.replace(/\D/g, ''))} placeholder="Minutes" />
+                        )}
+                        <p style={{ margin: '2px 0 0', fontSize: '11px', color: colors.textTertiary }}>After this time, the role is automatically removed from everyone who got it here.</p>
+                    </div>
                 </div>
                 <button onClick={handleAdd} disabled={adding} style={{ ...btnPrimary, opacity: adding ? 0.6 : 1 }}>
                     <Plus size={16} /> {adding ? 'Adding...' : 'Add Reaction Role'}
@@ -1214,6 +1251,9 @@ function ReactionRolesTab({ guildId }: { guildId: string }) {
                                 <div style={{ flex: 1, minWidth: 0 }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                                         <span style={{ fontWeight: 600, color: roleColor(e.roleId), fontSize: '14px' }}>@{roleName(e.roleId)}</span>
+                                        <span style={{ fontSize: '10px', fontWeight: 700, padding: '2px 8px', borderRadius: '9999px', textTransform: 'uppercase', letterSpacing: '0.04em', background: e.expiresAt ? 'rgba(249,115,22,0.15)' : 'rgba(148,163,184,0.15)', color: e.expiresAt ? '#F97316' : colors.textTertiary }}>
+                                            {fmtExpiry(e.expiresAt)}
+                                        </span>
                                     </div>
                                     <div style={{ fontSize: '11px', color: colors.textTertiary, marginTop: '2px' }}>
                                         Channel: <code>{e.channelId}</code> · Message: <code>{e.messageId}</code>

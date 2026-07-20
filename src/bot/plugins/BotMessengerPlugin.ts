@@ -48,6 +48,7 @@ export class BotMessengerPlugin implements IPlugin {
     private context: IPluginContext | null = null;
     private logger = new Logger('BotMessengerPlugin');
     private db: any;
+    private expirySweepTimer: NodeJS.Timeout | null = null;
 
     // In-memory store for pending whispers: notification message ID → whisper data
     private pendingWhispers = new Map<string, {
@@ -64,9 +65,16 @@ export class BotMessengerPlugin implements IPlugin {
         this.context = context;
         this.db = context.db;
         this.logger.info('Bot Messenger Plugin initialized');
+
+        // Self-destructing reaction roles: periodically strip expired mappings from
+        // everyone they granted the role to, then delete the mapping.
+        this.expirySweepTimer = setInterval(() => this.processExpiredReactionRoles(), 5 * 60 * 1000);
+        setTimeout(() => this.processExpiredReactionRoles(), 30_000);
     }
 
-    async shutdown(): Promise<void> {}
+    async shutdown(): Promise<void> {
+        if (this.expirySweepTimer) clearInterval(this.expirySweepTimer);
+    }
 
     async registerCommands(): Promise<any[]> {
         const sendCommand = new SlashCommandBuilder()
@@ -353,6 +361,11 @@ export class BotMessengerPlugin implements IPlugin {
             if (!member) return;
 
             await member.roles.add(mapping.roleId, 'Reaction role');
+            await this.db.reactionRoleGrant.upsert({
+                where: { reactionRoleId_userId: { reactionRoleId: mapping.id, userId: user.id } },
+                create: { reactionRoleId: mapping.id, guildId: guild.id, userId: user.id, roleId: mapping.roleId },
+                update: {},
+            }).catch(() => {});
             this.logger.info(`Reaction role: added role ${mapping.roleId} to ${user.id} in ${guild.id}`);
         } catch (err: any) {
             this.logger.error(`Reaction role add error: ${err.message}`);
@@ -377,9 +390,50 @@ export class BotMessengerPlugin implements IPlugin {
             if (!member) return;
 
             await member.roles.remove(mapping.roleId, 'Reaction role removed');
+            await this.db.reactionRoleGrant.deleteMany({ where: { reactionRoleId: mapping.id, userId: user.id } }).catch(() => {});
             this.logger.info(`Reaction role: removed role ${mapping.roleId} from ${user.id} in ${guild.id}`);
         } catch (err: any) {
             this.logger.error(`Reaction role remove error: ${err.message}`);
+        }
+    }
+
+    // Strips an expired reaction role from every member it granted, removes the bot's own
+    // reaction from the message, then deletes the mapping (grants cascade-delete with it).
+    private async processExpiredReactionRoles(): Promise<void> {
+        try {
+            const expired = await this.db.reactionRole.findMany({
+                where: { expiresAt: { lte: new Date() } },
+                include: { grants: true },
+                take: 25,
+            });
+            for (const rr of expired) {
+                try {
+                    const guild = await this.context?.client.guilds.fetch(rr.guildId).catch(() => null);
+                    if (guild) {
+                        for (const grant of rr.grants) {
+                            const member = await guild.members.fetch(grant.userId).catch(() => null);
+                            if (member?.roles.cache.has(rr.roleId)) {
+                                await member.roles.remove(rr.roleId, 'Reaction role expired')
+                                    .catch((e: any) => this.logger.warn(`Failed removing expired reaction role from ${grant.userId}: ${e.message}`));
+                            }
+                        }
+                        // Remove the bot's own reaction so the option visibly disappears from the message.
+                        const channel = await guild.channels.fetch(rr.channelId).catch(() => null);
+                        if (channel?.isTextBased()) {
+                            const message = await channel.messages.fetch(rr.messageId).catch(() => null);
+                            const botReaction = message?.reactions.cache.find(r => this.normalizeEmoji(r) === rr.emoji);
+                            const botUserId = this.context?.client.user?.id;
+                            if (botReaction && botUserId) await botReaction.users.remove(botUserId).catch(() => {});
+                        }
+                    }
+                    await this.db.reactionRole.delete({ where: { id: rr.id } });
+                    this.logger.info(`Reaction role ${rr.id} expired — stripped from ${rr.grants.length} member(s)`);
+                } catch (err: any) {
+                    this.logger.error(`Failed to process expired reaction role ${rr.id}: ${err.message}`);
+                }
+            }
+        } catch (err: any) {
+            this.logger.error(`Reaction role expiry sweep failed: ${err.message}`);
         }
     }
 }

@@ -2690,19 +2690,41 @@ model ServerBoostSettings {
 // Reaction Roles (Bot Messenger)
 // ──────────────────────────────────────────────
 model ReactionRole {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   guildId   String
   channelId String
   messageId String
   emoji     String // unicode emoji or custom <name:id>
   roleId    String // Discord role ID to assign
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
+  expiresAt DateTime? // null = permanent. When set, a background sweep strips the role
+  // from every user it granted and deletes this mapping once expiresAt passes.
 
-  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  guild  Guild               @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  grants ReactionRoleGrant[]
 
   @@unique([messageId, emoji])
   @@index([guildId])
+  @@index([expiresAt])
   @@map("reaction_roles")
+}
+
+// Tracks which members were granted a role by a specific ReactionRole mapping, so an
+// expiring (self-destructing) reaction role only strips the role from users it actually
+// granted — not from anyone who has the same role through some other means.
+model ReactionRoleGrant {
+  id             String   @id @default(cuid())
+  reactionRoleId String
+  guildId        String
+  userId         String
+  roleId         String
+  grantedAt      DateTime @default(now())
+
+  reactionRole ReactionRole @relation(fields: [reactionRoleId], references: [id], onDelete: Cascade)
+
+  @@unique([reactionRoleId, userId])
+  @@index([reactionRoleId])
+  @@map("reaction_role_grants")
 }
 
 model AutoResponderRule {
