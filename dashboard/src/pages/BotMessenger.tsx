@@ -1043,6 +1043,11 @@ function ReactionRolesTab({ guildId }: { guildId: string }) {
     const [roleId, setRoleId] = useState('');
     const [adding, setAdding] = useState(false);
 
+    // "Send new message as the bot" — replaces the manual right-click-Copy-ID flow.
+    const [newMessageContent, setNewMessageContent] = useState('');
+    const [sendingMessage, setSendingMessage] = useState(false);
+    const [sentMessageId, setSentMessageId] = useState('');
+
     useEffect(() => { if (msg) { const t = setTimeout(() => setMsg(null), 4000); return () => clearTimeout(t); } }, [msg]);
 
     const fetchData = useCallback(async () => {
@@ -1060,6 +1065,26 @@ function ReactionRolesTab({ guildId }: { guildId: string }) {
     }, [guildId]);
 
     useEffect(() => { fetchData(); }, [fetchData]);
+
+    const handleSendMessage = async () => {
+        if (!channelId) { setMsg({ type: 'error', text: 'Select a channel first' }); return; }
+        if (!newMessageContent.trim()) { setMsg({ type: 'error', text: 'Message content is required' }); return; }
+        setSendingMessage(true);
+        try {
+            const res = await fetch(`/api/bot-messenger/${guildId}/send`, {
+                method: 'POST', credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ channelId, content: newMessageContent }),
+            });
+            const d = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(d.error || 'Failed to send message');
+            setMessageId(d.id);
+            setSentMessageId(d.id);
+            setMsg({ type: 'success', text: 'Message sent! Its ID has been filled in below — now add your emoji → role mappings.' });
+        } catch (e: any) {
+            setMsg({ type: 'error', text: e.message || 'Failed to send message' });
+        } finally { setSendingMessage(false); }
+    };
 
     const handleAdd = async () => {
         if (!channelId || !messageId || !emoji || !roleId) { setMsg({ type: 'error', text: 'All fields are required' }); return; }
@@ -1110,8 +1135,33 @@ function ReactionRolesTab({ guildId }: { guildId: string }) {
             <div className="settings-explanation" style={{ background: 'linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))', border: '1px solid #3E455633', padding: spacing.md, borderRadius: borderRadius.md, borderLeft: `4px solid ${colors.primary}` }}>
                 <p style={{ margin: 0, color: colors.textPrimary, fontSize: '13px', lineHeight: 1.6 }}>
                     Set up reaction roles so users can react to a message and receive a role automatically.
-                    First send a message using the <strong>Send Message</strong> or <strong>Embed Builder</strong> tab, copy its Message ID,
-                    then add a reaction role mapping below. The bot will add its own reaction to the message so users can click it.
+                    Send a new message as the bot below (or paste the ID of a message you already sent, from the
+                    <strong> Send Message</strong> / <strong>Embed Builder</strong> tab or Discord's right-click → Copy Message ID),
+                    then add a reaction role mapping. The bot will add its own reaction to the message so users can click it.
+                </p>
+            </div>
+
+            {/* Send new message as the bot */}
+            <div style={{ ...cardStyle, padding: spacing.lg }}>
+                <div style={{ fontWeight: 700, fontSize: '15px', color: colors.textPrimary, marginBottom: spacing.md, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Send size={16} /> Send New Message as the Bot
+                </div>
+                <div style={{ marginBottom: '12px' }}>
+                    <label style={labelStyle}>Message Content</label>
+                    <textarea style={{ ...inputStyle, minHeight: '80px', resize: 'vertical', fontFamily: 'inherit' }} value={newMessageContent}
+                        onChange={e => setNewMessageContent(e.target.value)} placeholder="React below to get a role!" />
+                </div>
+                <button onClick={handleSendMessage} disabled={sendingMessage} style={{ ...btnPrimary, opacity: sendingMessage ? 0.6 : 1 }}>
+                    <Send size={16} /> {sendingMessage ? 'Sending...' : 'Send to Channel'}
+                </button>
+                {sentMessageId && (
+                    <p style={{ margin: '10px 0 0', fontSize: '12px', color: colors.success }}>
+                        <CheckCircle size={12} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '4px' }} />
+                        Sent — message ID <code>{sentMessageId}</code> is filled in below.
+                    </p>
+                )}
+                <p style={{ margin: '10px 0 0', fontSize: '11px', color: colors.textTertiary }}>
+                    Uses the channel selected below. For a richer embed, use the Embed Builder tab instead, then paste its message ID here.
                 </p>
             </div>
 
@@ -1125,7 +1175,7 @@ function ReactionRolesTab({ guildId }: { guildId: string }) {
                     </div>
                     <div>
                         <label style={labelStyle}>Message ID</label>
-                        <input style={inputStyle} value={messageId} onChange={e => setMessageId(e.target.value)} placeholder="Right-click message → Copy ID" />
+                        <input style={inputStyle} value={messageId} onChange={e => setMessageId(e.target.value)} placeholder="Auto-filled after sending, or paste one manually" />
                     </div>
                     <div>
                         <label style={labelStyle}>Emoji</label>
