@@ -148,6 +148,8 @@ export class ServerBoostPlugin implements IPlugin {
             if (content) payload.content = content;
             if (embed) payload.embeds = [embed];
             if (!payload.content && !payload.embeds) return;
+            // Admin-authored template with an opt-in {user}/{mention} placeholder for the booster.
+            payload.allowedMentions = { users: [userId] };
 
             await (channel as TextChannel).send(payload);
         } catch (e) {

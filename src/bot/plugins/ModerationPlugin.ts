@@ -775,7 +775,7 @@ export class ModerationPlugin implements IPlugin {
 
             const created = await forumChannel.threads.create({
                 name: threadName,
-                message: { content: `📂 **Case file opened for <@${targetId}>**` },
+                message: { content: `📂 **Case file opened for <@${targetId}>**`, allowedMentions: { users: [targetId] } },
             });
             thread = created;
         }
@@ -958,7 +958,7 @@ export class ModerationPlugin implements IPlugin {
             );
 
             const pingContent = alertRoleId ? `<@&${alertRoleId}>` : undefined;
-            const reviewMsg = await reviewChannel.send({ content: pingContent, embeds: [embed], components: [row] });
+            const reviewMsg = await reviewChannel.send({ content: pingContent, embeds: [embed], components: [row], allowedMentions: alertRoleId ? { roles: [alertRoleId] } : undefined });
 
             // Store pending review in memory
             this.pendingRemovals.set(reviewKey, {

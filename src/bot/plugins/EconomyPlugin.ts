@@ -492,6 +492,7 @@ export class EconomyPlugin implements IPlugin {
             if (isGift) {
                 interaction.reply({
                     content: `🎁 You gifted **${item.name}** to <@${recipientId}> for ${settings.currencyEmoji} ${item.price}!${fpGift}`,
+                    allowedMentions: { users: [recipientId] },
                 });
             } else {
                 interaction.reply({ content: `Successfully purchased **${item.name}** for ${settings.currencyEmoji} ${item.price}!${fpSelf}` });
@@ -624,7 +625,7 @@ export class EconomyPlugin implements IPlugin {
                 .setColor('#F2780A')
                 .setDescription(`🎉🎂 Everyone wish <@${userId}> a very **Happy Birthday**! 🎉🎂`);
 
-            await channel.send({ content: `<@${userId}>`, embeds: [embed] });
+            await channel.send({ content: `<@${userId}>`, embeds: [embed], allowedMentions: { users: [userId] } });
         } catch (e) {
             this.logger.error('Failed to send birthday announcement', e);
         }

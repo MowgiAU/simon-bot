@@ -378,8 +378,9 @@ export class TicketPlugin implements IPlugin {
         const userPing = `<@${userId}>`;
         const fullPing = rolePings ? `${userPing} ${rolePings}` : userPing;
 
-        await channel.send({ 
-            content: fullPing
+        await channel.send({
+            content: fullPing,
+            allowedMentions: { users: [userId], roles: settings.staffRoleIds || [] },
         });
 
         await channel.send({ 

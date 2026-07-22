@@ -92,6 +92,13 @@ export class SimonBot {
         Partials.Reaction,
         Partials.User,
       ],
+      // Global safety net: nothing the bot sends pings anyone by default — no @everyone,
+      // @here, roles, users, or reply-pings. Call sites that legitimately need to ping
+      // (staff-role notifications, level-up/DM pings, Bot Messenger's deliberate send)
+      // opt back in explicitly via their own `allowedMentions`. Without this default,
+      // any reply that echoes user-controlled text — "No track found matching
+      // \"@everyone\"" being the exact exploit reported — pings on send.
+      allowedMentions: { parse: [], repliedUser: false },
     });
 
     // Increase max listeners to prevent warnings from many plugins
@@ -121,7 +128,7 @@ export class SimonBot {
 
       // Login second bot for auto responder if configured — wait for ready so channel cache is populated
       if (process.env.SIMON_BOT_TOKEN) {
-        this.simonClient = new Client({ intents: [GatewayIntentBits.Guilds] });
+        this.simonClient = new Client({ intents: [GatewayIntentBits.Guilds], allowedMentions: { parse: [], repliedUser: false } });
         await new Promise<void>((resolve, reject) => {
           this.simonClient!.once(Events.ClientReady, () => resolve());
           this.simonClient!.login(process.env.SIMON_BOT_TOKEN!).catch(reject);

@@ -633,7 +633,10 @@ export class ProductionFeedbackPlugin implements IPlugin {
 
                      reviewMessage = await reviewChannel.send({
                          content: `**Pending Audio Review**\nUser: <@${message.author.id}>\nThread: <#${message.channel.id}>\nOriginal Content: "${message.content}"`,
-                         files
+                         files,
+                         // Original Content above is raw user text and could contain @everyone/other
+                         // mentions — only allow the one legitimate ping (the review's own author).
+                         allowedMentions: { users: [message.author.id] },
                      });
                      // storedUrl = the feedback file (last attachment)
                      const attachments = [...reviewMessage.attachments.values()];
@@ -686,7 +689,10 @@ export class ProductionFeedbackPlugin implements IPlugin {
         }
 
         // Notify user
-        const response = await (message.channel as TextChannel).send(`<@${message.author.id}> your audio reply has been queued for moderation. It will appear once approved.`);
+        const response = await (message.channel as TextChannel).send({
+            content: `<@${message.author.id}> your audio reply has been queued for moderation. It will appear once approved.`,
+            allowedMentions: { users: [message.author.id] },
+        });
         setTimeout(() => response.delete().catch(() => {}), 10000);
     }
 
@@ -785,7 +791,10 @@ export class ProductionFeedbackPlugin implements IPlugin {
                     const thread = interaction.guild!.channels.cache.get(post.threadId);
                     if (thread && thread.isThread()) {
                         await thread.send({
-                            content: `**Feedback from <@${post.userId}>**:\n${post.content}\n${post.audioUrl}`
+                            content: `**Feedback from <@${post.userId}>**:\n${post.content}\n${post.audioUrl}`,
+                            // post.content is raw user text and could contain @everyone/other
+                            // mentions — only allow the one legitimate ping (the post's own author).
+                            allowedMentions: { users: [post.userId] },
                         });
                     }
                 }

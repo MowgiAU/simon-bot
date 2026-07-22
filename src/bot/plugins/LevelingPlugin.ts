@@ -542,7 +542,7 @@ export class LevelingPlugin implements IPlugin {
                     if (milestoneBonus > 0) content += ` (includes **${milestoneBonus.toLocaleString()}** milestone bonus!)`;
                 }
 
-                channel.send(content).catch(() => {});
+                channel.send({ content, allowedMentions: { users: [userId] } }).catch(() => {});
             }
         }
     }

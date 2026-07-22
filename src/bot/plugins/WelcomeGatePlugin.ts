@@ -329,6 +329,7 @@ export class WelcomeGatePlugin implements IPlugin {
 
         await channel.send({
             content: `<@${user.id}>`,
+            allowedMentions: { users: [user.id] },
             embeds: [new EmbedBuilder()
                 .setTitle('Verification Required')
                 .setDescription(

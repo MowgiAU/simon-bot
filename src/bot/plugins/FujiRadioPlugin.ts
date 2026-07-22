@@ -153,6 +153,7 @@ export class FujiRadioPlugin implements IPlugin {
                         GatewayIntentBits.Guilds,
                         GatewayIntentBits.GuildVoiceStates,
                     ],
+                    allowedMentions: { parse: [], repliedUser: false },
                 });
                 await this.radioClient.login(radioToken);
                 await new Promise<void>(resolve => {

@@ -361,6 +361,11 @@ export class AutoResponderPlugin implements IPlugin {
                 const sendPayload: any = {};
                 if (content) sendPayload.content = content;
                 if (embed) sendPayload.embeds = [embed];
+                // Only restore the specific, admin-opted-in {user}/{mention}/mentionUser ping —
+                // never anything else that might end up in rule.response.
+                if (rule.mentionUser || /\{user\}|\{mention\}/i.test(rule.response || '')) {
+                    sendPayload.allowedMentions = { users: [msg.author.id] };
+                }
 
                 // React to the message if reactionEmoji is set
                 if (rule.reactionEmoji) {

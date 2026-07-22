@@ -79,8 +79,8 @@ export class EmailPlugin implements IPlugin {
                     .setFooter({ text: 'Check dashboard to reply' });
 
                 const content = settings.roleId ? `<@&${settings.roleId}>` : undefined;
-                
-                await channel.send({ content, embeds: [embed] });
+
+                await channel.send({ content, embeds: [embed], allowedMentions: settings.roleId ? { roles: [settings.roleId] } : undefined });
                 
                 // Mark notified
                 await this.emailService.updateEmail(email.threadId, { notified: true });

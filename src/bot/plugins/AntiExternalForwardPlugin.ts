@@ -120,6 +120,7 @@ export class AntiExternalForwardPlugin implements IPlugin {
                 if (typeof ch.send === 'function') {
                     const warn = await ch.send({
                         content: `<@${message.author.id}>, ${blockReason}`,
+                        allowedMentions: { users: [message.author.id] },
                     });
                     setTimeout(() => warn.delete().catch(() => {}), 5000);
                 }

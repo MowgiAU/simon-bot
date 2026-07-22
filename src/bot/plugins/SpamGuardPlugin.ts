@@ -221,7 +221,7 @@ export class SpamGuardPlugin implements IPlugin {
             const row = new ActionRowBuilder<ButtonBuilder>().addComponents(disabledBtn);
             await interaction.message.edit({ components: [row] }).catch(() => {});
 
-            await interaction.editReply({ content: `✅ <@${userId}> has been kicked. Reason: **${REASON}**\nA moderation case has been opened.` });
+            await interaction.editReply({ content: `✅ <@${userId}> has been kicked. Reason: **${REASON}**\nA moderation case has been opened.`, allowedMentions: { users: [userId] } });
         } catch (err) {
             this.logger.error('[SpamGuard] Failed to kick via button', err);
             await interaction.editReply({ content: '❌ Failed to kick the user. They may have already left, or the bot lacks permission.' });

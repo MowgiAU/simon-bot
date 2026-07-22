@@ -175,7 +175,9 @@ export class BotMessengerPlugin implements IPlugin {
         }
 
         try {
-            const opts: any = { content };
+            // Bot Messenger is the one deliberate exception to the client-wide no-mentions
+            // default — an admin explicitly composing a message here can choose to ping.
+            const opts: any = { content, allowedMentions: { parse: ['users', 'roles', 'everyone'] } };
             if (replyTo) {
                 opts.reply = { messageReference: replyTo, failIfNotExists: false };
             }
@@ -265,6 +267,8 @@ export class BotMessengerPlugin implements IPlugin {
             const notification = await channel.send({
                 content: `📨 <@${target.id}> — you have a private message waiting.`,
                 components: [row],
+                // Deliberately pings the specific resolved recipient — not user-controlled text.
+                allowedMentions: { users: [target.id] },
             });
 
             this.pendingWhispers.set(notification.id, {
