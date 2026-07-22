@@ -12,7 +12,7 @@ export const LoginPage: React.FC = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const searchParams = new URLSearchParams(location.search);
-    const initialTab = searchParams.get('tab') === 'register' ? 'register' : 'login';
+    const initialTab = (searchParams.get('tab') === 'register' || location.pathname === '/register') ? 'register' : 'login';
     const urlError = searchParams.get('error');
 
     // Redirect already-authenticated users away from the login page

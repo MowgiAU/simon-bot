@@ -59,35 +59,48 @@ export const AltHeader: React.FC<AltHeaderProps> = ({ breadcrumb = [], leftSlot,
                 )}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                {/* Upload: icon-only at xs */}
-                <Link to="/upload" style={{ display: 'flex', alignItems: 'center', gap: bp === 'xs' ? 0 : 8, background: accent, color: '#fff', fontWeight: 700, fontSize: 13, padding: bp === 'xs' ? '9px' : '8px 16px', borderRadius: 9999, textDecoration: 'none' }}>
-                    <Upload size={18} />{bp !== 'xs' && ' Upload'}
-                </Link>
-                <div style={{ position: 'relative' }}>
-                    <button
-                        onClick={() => setMessengerOpen(!messengerOpen)}
-                        style={{ width: 36, height: 36, borderRadius: '50%', background: messengerOpen ? `${accent}22` : S_CONT, border: messengerOpen ? `1px solid ${accent}55` : `1px solid ${BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: messengerOpen ? accent : SUB, cursor: 'pointer', position: 'relative' }}
-                    >
-                        <MessageCircle size={18} />
-                        {unreadMsgCount > 0 && (
-                            <span style={{ position: 'absolute', top: -4, right: -4, background: TERTIARY, color: '#fff', fontSize: 10, fontWeight: 700, borderRadius: 9999, minWidth: 16, height: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 3px' }}>
-                                {unreadMsgCount > 9 ? '9+' : unreadMsgCount}
-                            </span>
-                        )}
-                    </button>
-                    <MessengerPopup />
-                </div>
-                <div style={{ position: 'relative' }} onClick={() => setMessengerOpen(false)}>
-                    <MusicNotificationMenu />
-                </div>
-                <Link to={profileHref} title="Your profile" style={{ width: 36, height: 36, borderRadius: '50%', background: S_CONT, border: `1px solid ${BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: SUB, textDecoration: 'none', overflow: 'hidden' }}>
-                    {profileAvatar
-                        ? <img src={profileAvatar} alt="" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                        : <UserIcon size={18} />}
-                </Link>
-                <Link to="/account" title="Settings" style={{ width: 36, height: 36, borderRadius: '50%', background: S_CONT, border: `1px solid ${BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: SUB, textDecoration: 'none' }}>
-                    <Settings size={18} />
-                </Link>
+                {user ? (
+                    <>
+                        {/* Upload: icon-only at xs */}
+                        <Link to="/upload" style={{ display: 'flex', alignItems: 'center', gap: bp === 'xs' ? 0 : 8, background: accent, color: '#fff', fontWeight: 700, fontSize: 13, padding: bp === 'xs' ? '9px' : '8px 16px', borderRadius: 9999, textDecoration: 'none' }}>
+                            <Upload size={18} />{bp !== 'xs' && ' Upload'}
+                        </Link>
+                        <div style={{ position: 'relative' }}>
+                            <button
+                                onClick={() => setMessengerOpen(!messengerOpen)}
+                                style={{ width: 36, height: 36, borderRadius: '50%', background: messengerOpen ? `${accent}22` : S_CONT, border: messengerOpen ? `1px solid ${accent}55` : `1px solid ${BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: messengerOpen ? accent : SUB, cursor: 'pointer', position: 'relative' }}
+                            >
+                                <MessageCircle size={18} />
+                                {unreadMsgCount > 0 && (
+                                    <span style={{ position: 'absolute', top: -4, right: -4, background: TERTIARY, color: '#fff', fontSize: 10, fontWeight: 700, borderRadius: 9999, minWidth: 16, height: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 3px' }}>
+                                        {unreadMsgCount > 9 ? '9+' : unreadMsgCount}
+                                    </span>
+                                )}
+                            </button>
+                            <MessengerPopup />
+                        </div>
+                        <div style={{ position: 'relative' }} onClick={() => setMessengerOpen(false)}>
+                            <MusicNotificationMenu />
+                        </div>
+                        <Link to={profileHref} title="Your profile" style={{ width: 36, height: 36, borderRadius: '50%', background: S_CONT, border: `1px solid ${BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: SUB, textDecoration: 'none', overflow: 'hidden' }}>
+                            {profileAvatar
+                                ? <img src={profileAvatar} alt="" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                : <UserIcon size={18} />}
+                        </Link>
+                        <Link to="/account" title="Settings" style={{ width: 36, height: 36, borderRadius: '50%', background: S_CONT, border: `1px solid ${BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: SUB, textDecoration: 'none' }}>
+                            <Settings size={18} />
+                        </Link>
+                    </>
+                ) : (
+                    <>
+                        <Link to="/login" style={{ display: 'flex', alignItems: 'center', gap: 6, color: TEXT, fontWeight: 700, fontSize: 13, padding: '8px 16px', borderRadius: 9999, textDecoration: 'none', border: `1px solid ${BORDER}` }}>
+                            <UserIcon size={16} /> {bp === 'xs' ? '' : 'Log In'}
+                        </Link>
+                        <Link to="/register" style={{ display: 'flex', alignItems: 'center', gap: 6, background: accent, color: '#fff', fontWeight: 700, fontSize: 13, padding: '8px 16px', borderRadius: 9999, textDecoration: 'none' }}>
+                            Sign Up
+                        </Link>
+                    </>
+                )}
             </div>
         </header>
     );
