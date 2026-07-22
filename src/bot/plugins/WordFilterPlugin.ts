@@ -105,14 +105,20 @@ export class WordFilterPlugin implements IPlugin {
     
     if (!filtered) return;
     
+    // A message containing @everyone/@here/role mentions already pinged everyone the
+    // instant it was sent — deleting it doesn't undo that. But reposting it (even with
+    // pings suppressed on the repost itself) is unnecessary risk for zero benefit, so
+    // skip the repost entirely for these and just delete.
+    const hasMassMention = message.mentions.everyone || message.mentions.roles.size > 0;
+
     try {
       if (message.deletable) {
         await message.delete();
       }
-      if (settings.repostEnabled) {
+      if (settings.repostEnabled && !hasMassMention) {
         await this.repostMessage(message, content);
       }
-      
+
       this.logger.info(`Filtered message from ${message.author.username} in ${message.guild.name}`);
       
       // Log action to DB
