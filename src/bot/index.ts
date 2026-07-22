@@ -13,6 +13,7 @@ import {
 import { PrismaClient } from '@prisma/client';
 import dotenv from 'dotenv';
 import { Logger } from './utils/logger';
+import { installMentionSafetyPatches } from './utils/mentionSafety';
 import { PluginManager } from './core/PluginManager';
 import { PluginLoader } from './utils/PluginLoader';
 import { WordFilterPlugin } from './plugins/WordFilterPlugin';
@@ -74,7 +75,13 @@ export class SimonBot {
 
   constructor() {
     this.logger = new Logger('SimonBot');
-    
+
+    // Patch reply/send methods on the underlying discord.js classes so no outgoing
+    // message can ping without an explicit, per-call opt-in — see mentionSafety.ts
+    // for why this exists alongside (not instead of) the Client-level default below.
+    const mentionPatchCount = installMentionSafetyPatches();
+    this.logger.info(`Mention-safety patches installed on ${mentionPatchCount} method(s)`);
+
     // Initialize Discord client
     this.client = new Client({
       intents: [
