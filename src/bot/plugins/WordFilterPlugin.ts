@@ -210,33 +210,58 @@ export class WordFilterPlugin implements IPlugin {
   }
 
   /**
+   * Strips all Discord mention syntax from content and replaces it with plain,
+   * non-mentionable text. allowedMentions:{parse:[]} only stops the notification —
+   * Discord still renders <@id>/<@&id> as a clickable highlighted mention "tag" in
+   * the message even when it can't ping. Reposted content must not look like a tag
+   * either, so every mention token is rewritten to plain "@name" text (a leading
+   * "@" with no <> wrapper is never parsed as a mention by Discord).
+   */
+  private stripMentions(message: Message, content: string): string {
+    let out = content;
+    for (const user of message.mentions.users.values()) {
+      out = out.split(`<@${user.id}>`).join(`@${user.username}`).split(`<@!${user.id}>`).join(`@${user.username}`);
+    }
+    for (const role of message.mentions.roles.values()) {
+      out = out.split(`<@&${role.id}>`).join(`@${role.name}`);
+    }
+    for (const channel of message.mentions.channels.values()) {
+      const name = 'name' in channel ? channel.name : channel.id;
+      out = out.split(`<#${channel.id}>`).join(`#${name}`);
+    }
+    out = out.replace(/@everyone/gi, '@​everyone').replace(/@here/gi, '@​here');
+    return out;
+  }
+
+  /**
    * Repost message with filtered word replaced
    */
   private async repostMessage(message: Message, content: string): Promise<void> {
     if (!this.context || !message.guild) return;
-    
+
     const nickname = message.member?.nickname || message.author.username;
     const avatar = message.author.avatarURL();
-    
+
     // Only use webhook if channel is a TextChannel
     if (message.channel.type !== 0) return;
-    
+
     const textChannel = message.channel as TextChannel;
     const webhooks = await textChannel.fetchWebhooks();
     let webhook = webhooks.find((w: Webhook) => w.owner?.id === message.client.user?.id);
-    
+
     if (!webhook) {
       webhook = await textChannel.createWebhook({
         name: 'Fuji Studio Filter',
         avatar: message.client.user?.avatarURL(),
       });
     }
-    
+
     await webhook.send({
-      content: content,
+      content: this.stripMentions(message, content),
       username: nickname,
       avatarURL: avatar || undefined,
-      // Reposted messages must never ping anyone — no users, no roles, no @everyone/@here.
+      // Belt-and-suspenders: content is already de-fanged above, but suppress any
+      // notification outright too in case something slips through.
       allowedMentions: { parse: [] },
     });
   }
