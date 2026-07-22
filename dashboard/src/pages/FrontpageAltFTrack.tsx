@@ -190,9 +190,11 @@ export const FrontpageAltFTrack: React.FC = () => {
     }, [track?.profile?.id]);
 
     useEffect(() => {
-        if (!track?.profile?.userId) return;
-        axios.get(`/api/artists/${track.profile.userId}/follow`).then(r => setFollowing(r.data.following)).catch(() => {});
-    }, [track?.profile?.userId]);
+        if (!track?.profile?.id) return;
+        // /api/artists/:artistId/follow looks up by MusicianProfile.id, not the legacy
+        // profile.userId (Discord ID) field — matches FrontpageAltFArtist's isOwnProfile pattern.
+        axios.get(`/api/artists/${track.profile.id}/follow`).then(r => setFollowing(r.data.following)).catch(() => {});
+    }, [track?.profile?.id]);
 
     useEffect(() => {
         if (!track?.lyricsSync?.length) return;
@@ -234,9 +236,9 @@ export const FrontpageAltFTrack: React.FC = () => {
     };
     const toggleFollow = () => {
         if (!user) { showToast('Log in to follow artists', 'info'); return; }
-        if (!track?.profile?.userId) return;
+        if (!track?.profile?.id) return;
         setFollowing(f => !f);
-        axios.post(`/api/artists/${track.profile.userId}/follow`, {}, { withCredentials: true }).catch(() => {
+        axios.post(`/api/artists/${track.profile.id}/follow`, {}, { withCredentials: true }).catch(() => {
             setFollowing(f => !f);
             showToast('Could not follow this artist — please try again', 'error');
         });
