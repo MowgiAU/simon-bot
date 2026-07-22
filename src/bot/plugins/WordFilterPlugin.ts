@@ -236,11 +236,8 @@ export class WordFilterPlugin implements IPlugin {
       content: content,
       username: nickname,
       avatarURL: avatar || undefined,
-      // Reposting must not actually ping anyone — a filtered message containing
-      // @everyone/@here/role mentions would otherwise still notify the whole server
-      // even though the original (deleted) message never should have. User mentions
-      // are still allowed through so a legitimate "@someone" in the message still works.
-      allowedMentions: { parse: ['users'] },
+      // Reposted messages must never ping anyone — no users, no roles, no @everyone/@here.
+      allowedMentions: { parse: [] },
     });
   }
 
