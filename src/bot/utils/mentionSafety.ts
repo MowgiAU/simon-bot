@@ -29,13 +29,27 @@ import {
 
 const SAFE_DEFAULT = { parse: [] as const, repliedUser: false };
 
+// @everyone/@here are recognised by Discord's client purely by literal text match for the
+// red "mention" highlight/pill — independent of allowedMentions, which only controls whether
+// a *notification* fires. A message can carry allowedMentions:{parse:[]} and still render
+// "@everyone" as a highlighted mention (e.g. once it becomes a thread-starter via
+// Message#startThread, which reuses the already-created message's content verbatim — no
+// second send() call for that patched methods here would catch). Inserting a zero-width
+// space breaks the literal match so it can't be highlighted *or* notify, while still reading
+// as "@everyone" to a human.
+function defangLiteralMassMentions(content: string): string {
+    return content.replace(/@everyone/gi, '@​everyone').replace(/@here/gi, '@​here');
+}
+
 function withSafeMentions(options: any): any {
     if (options === undefined) return options;
     if (typeof options === 'string') {
-        return { content: options, allowedMentions: SAFE_DEFAULT };
+        return { content: defangLiteralMassMentions(options), allowedMentions: SAFE_DEFAULT };
     }
     if (options && typeof options === 'object' && !('allowedMentions' in options)) {
-        return { ...options, allowedMentions: SAFE_DEFAULT };
+        const next = { ...options, allowedMentions: SAFE_DEFAULT };
+        if (typeof next.content === 'string') next.content = defangLiteralMassMentions(next.content);
+        return next;
     }
     return options;
 }
