@@ -17,6 +17,7 @@ import { z } from 'zod';
 import { PrismaClient } from '@prisma/client';
 import axios from 'axios';
 import sharp from 'sharp';
+import { R2Storage } from '../../services/R2Storage';
 
 // ─── Perceptual Hash ─────────────────────────────────────────────────────────
 // Difference hash (dHash) — 8x8 grid, 64 bits, stored as 16 hex chars.
@@ -99,6 +100,7 @@ export class SpamGuardPlugin implements IPlugin {
     private db!: PrismaClient;
     private logger: any;
     private plugins!: IPluginRegistry;
+    private logAction!: IPluginContext['logAction'];
 
     // Per-guild, per-user activity tracker (cleared every hour to prevent memory leak)
     private activity: Map<string, Map<string, UserActivity>> = new Map();
@@ -120,6 +122,7 @@ export class SpamGuardPlugin implements IPlugin {
         this.db = context.db;
         this.logger = context.logger;
         this.plugins = context.plugins;
+        this.logAction = context.logAction;
 
         // Clean stale activity entries hourly
         this.cleanupInterval = setInterval(() => {
@@ -391,11 +394,26 @@ export class SpamGuardPlugin implements IPlugin {
         // they survive independently of the original (deleted) message.
         const imageAttachments = [...message.attachments.values()].filter(a => a.contentType?.startsWith('image/'));
         const previewFiles: { name: string; attachment: Buffer }[] = [];
+        // Durable copies for the audit log — the Discord alert message above can itself be
+        // deleted/archived, but R2 URLs keep working independently of any Discord message.
+        const imageUrls: string[] = [];
         for (const [i, att] of imageAttachments.slice(0, 3).entries()) {
             try {
                 const res = await axios.get(att.url, { responseType: 'arraybuffer', timeout: 5000, maxContentLength: 8 * 1024 * 1024 });
+                const buf = Buffer.from(res.data);
                 const ext = att.name?.split('.').pop()?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'png';
-                previewFiles.push({ name: `spam-preview-${i}.${ext}`, attachment: Buffer.from(res.data) });
+                const fileName = `spam-preview-${i}.${ext}`;
+                previewFiles.push({ name: fileName, attachment: buf });
+
+                if (R2Storage.isConfigured()) {
+                    try {
+                        const key = R2Storage.buildKey('spam-guard', `${guildId}-${message.id}`, fileName);
+                        const url = await R2Storage.uploadBuffer(key, buf, att.contentType || 'image/png');
+                        imageUrls.push(url);
+                    } catch (err) {
+                        this.logger.error('[SpamGuard] Failed to archive image to R2', err);
+                    }
+                }
             } catch { /* image gone or unfetchable — alert still sends without it */ }
         }
 
@@ -448,6 +466,28 @@ export class SpamGuardPlugin implements IPlugin {
             });
         } catch (err) {
             this.logger.error('[SpamGuard] Failed to log incident', err);
+        }
+
+        // Also record to the shared audit log (dashboard → Logs) so spam triggers show up
+        // alongside every other moderation action, with the flagged image(s) attached.
+        try {
+            await this.logAction({
+                guildId,
+                actionType: 'spam_detected',
+                executorId: member.id,
+                targetId: message.channelId,
+                details: {
+                    triggerType,
+                    triggerLabel: triggerLabels[triggerType] ?? triggerType,
+                    action: actionTaken,
+                    username: member.user.tag,
+                    channelId: message.channelId,
+                    messageIds,
+                    imageUrls,
+                },
+            });
+        } catch (err) {
+            this.logger.error('[SpamGuard] Failed to write audit log entry', err);
         }
 
         // Send alert embed to mod channel

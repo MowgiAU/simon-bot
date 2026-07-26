@@ -117,6 +117,7 @@ const ACTION_CATEGORY_MAP: Record<string, { label: string; color: string; catego
   // AutoMod
   message_filtered:         { label: 'AutoMod',       color: '#A78BFA', categoryId: 'AUTOMOD' },
   automod_block:            { label: 'AutoMod',       color: '#A78BFA', categoryId: 'AUTOMOD' },
+  spam_detected:            { label: 'SpamGuard',     color: '#F87171', categoryId: 'AUTOMOD' },
   // Currency
   item_bought:              { label: 'Currency',      color: '#FBBF24', categoryId: 'CURRENCY' },
   transaction:              { label: 'Currency',      color: '#FBBF24', categoryId: 'CURRENCY' },
@@ -764,6 +765,36 @@ export const Logs: React.FC<LogsProps> = ({ guildId, searchParam }) => {
                         const isExpanded = expandedLogId === log.id;
                         
                         const renderLogContent = () => {
+                            // 0. SpamGuard triggers — show the flagged image(s) so a false
+                            // positive can actually be diagnosed after the fact.
+                            if (log.action === 'spam_detected') {
+                                const imageUrls: string[] = Array.isArray(log.details?.imageUrls) ? log.details.imageUrls : [];
+                                return (
+                                    <div style={{ fontSize: '13px' }}>
+                                        <div>
+                                            <span style={{ color: colors.error, fontWeight: 600 }}>{log.details?.triggerLabel || 'Spam detected'}</span>
+                                            {log.details?.action && (
+                                                <span style={{ color: colors.textSecondary }}> — {String(log.details.action).replace(/_/g, ' ')}</span>
+                                            )}
+                                        </div>
+                                        {imageUrls.length > 0 && (
+                                            <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+                                                {imageUrls.map((url, i) => (
+                                                    <a key={i} href={url} target="_blank" rel="noopener noreferrer" title="Open full image">
+                                                        <img
+                                                            src={url}
+                                                            alt=""
+                                                            referrerPolicy="no-referrer"
+                                                            style={{ width: 64, height: 64, borderRadius: borderRadius.sm, objectFit: 'cover', border: `1px solid ${colors.border}` }}
+                                                        />
+                                                    </a>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            }
+
                             // 1. Check for Word Filter JSON structure
                             if (log.action === 'message_filtered' && log.details?.triggers) {
                                 return (
