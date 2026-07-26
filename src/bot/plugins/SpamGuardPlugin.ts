@@ -384,6 +384,21 @@ export class SpamGuardPlugin implements IPlugin {
 
         let actionTaken = 'deleted_messages';
 
+        // Grab the flagged image(s) BEFORE deleting the message — once the message is gone
+        // the CDN URL stops resolving and there is no way to see what actually triggered the
+        // detection after the fact (this is exactly why a past "Known spam image" incident
+        // couldn't be diagnosed). Re-uploaded as fresh attachments on the alert embed below so
+        // they survive independently of the original (deleted) message.
+        const imageAttachments = [...message.attachments.values()].filter(a => a.contentType?.startsWith('image/'));
+        const previewFiles: { name: string; attachment: Buffer }[] = [];
+        for (const [i, att] of imageAttachments.slice(0, 3).entries()) {
+            try {
+                const res = await axios.get(att.url, { responseType: 'arraybuffer', timeout: 5000, maxContentLength: 8 * 1024 * 1024 });
+                const ext = att.name?.split('.').pop()?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'png';
+                previewFiles.push({ name: `spam-preview-${i}.${ext}`, attachment: Buffer.from(res.data) });
+            } catch { /* image gone or unfetchable — alert still sends without it */ }
+        }
+
         // Delete offending messages
         try {
             if (message.deletable) await message.delete();
@@ -452,6 +467,13 @@ export class SpamGuardPlugin implements IPlugin {
                         .setTimestamp()
                         .setFooter({ text: 'SpamGuard' });
 
+                    if (previewFiles.length > 0) {
+                        embed.setImage(`attachment://${previewFiles[0].name}`);
+                        if (previewFiles.length > 1) {
+                            embed.addFields({ name: 'Images', value: `${previewFiles.length} attached below`, inline: true });
+                        }
+                    }
+
                     const kickBtn = new ButtonBuilder()
                         .setCustomId(`SPAMGUARD_KICK_${member.id}_${guildId}`)
                         .setLabel('Kick — Compromised Account')
@@ -459,7 +481,7 @@ export class SpamGuardPlugin implements IPlugin {
                         .setEmoji('🔴');
 
                     const row = new ActionRowBuilder<ButtonBuilder>().addComponents(kickBtn);
-                    await alertChannel.send({ embeds: [embed], components: [row] });
+                    await alertChannel.send({ embeds: [embed], components: [row], files: previewFiles });
                 }
             } catch { /* ignore alert failures */ }
         }
