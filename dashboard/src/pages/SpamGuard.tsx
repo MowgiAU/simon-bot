@@ -102,6 +102,7 @@ export const SpamGuardPage: React.FC = () => {
 
     // Compute hash from URL
     const [hashUrl, setHashUrl] = useState('');
+    const [computedImageUrl, setComputedImageUrl] = useState(''); // survives hashUrl being cleared below
     const [computing, setComputing] = useState(false);
 
     const computeHashFromUrl = async () => {
@@ -117,6 +118,7 @@ export const SpamGuardPage: React.FC = () => {
             const data = await res.json();
             if (data.error) throw new Error(data.error);
             setNewHash(data.hash);
+            setComputedImageUrl(hashUrl.trim());
             setHashUrl('');
             showMsg('success', `Hash computed: ${data.hash}`);
         } catch (e: any) {
@@ -188,7 +190,10 @@ export const SpamGuardPage: React.FC = () => {
                     description: newHashDesc.trim() || null,
                     // Stores the reference image so mods can visually review this entry later —
                     // a bare hash number tells you nothing when auditing the blocklist.
-                    imageUrl: hashUrl.trim() || null,
+                    // computedImageUrl is the URL that was actually used to compute this hash
+                    // (Step 1) — hashUrl itself gets cleared right after computing, but covers
+                    // the case where a URL was typed but "Compute Hash" was never clicked.
+                    imageUrl: computedImageUrl.trim() || hashUrl.trim() || null,
                 }),
             });
             const data = await res.json();
@@ -197,6 +202,7 @@ export const SpamGuardPage: React.FC = () => {
             setNewHash('');
             setNewHashDesc('');
             setHashUrl('');
+            setComputedImageUrl('');
             showMsg('success', 'Hash added to blocklist');
         } catch (e: any) {
             showMsg('error', e.message || 'Failed to add hash');
@@ -829,6 +835,12 @@ export const SpamGuardPage: React.FC = () => {
                                     placeholder="Description (optional, e.g. 'Crypto scam Apr 2026')"
                                     value={newHashDesc}
                                     onChange={e => setNewHashDesc(e.target.value)}
+                                    style={{ ...inputStyle, flex: '2 1 280px' }}
+                                />
+                                <input
+                                    placeholder="Image URL (optional — for pasted/pre-computed hashes)"
+                                    value={computedImageUrl}
+                                    onChange={e => setComputedImageUrl(e.target.value)}
                                     style={{ ...inputStyle, flex: '2 1 280px' }}
                                 />
                                 <button
