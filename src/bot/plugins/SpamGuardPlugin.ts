@@ -256,10 +256,10 @@ export class SpamGuardPlugin implements IPlugin {
 
             if (hit) {
                 // Increment hit count in background
-                void this.db.spamBlockedPhrase.updateMany({
+                this.db.spamBlockedPhrase.updateMany({
                     where: { guildId, phrase: entry.phrase },
                     data: { hitCount: { increment: 1 } },
-                });
+                }).catch((err: any) => this.logger.error('[SpamGuard] Failed to increment phrase hit count', err));
 
                 await this.handleViolation(message, member, settings, 'blocked_phrase', [message.id]);
                 return true;
@@ -348,10 +348,10 @@ export class SpamGuardPlugin implements IPlugin {
                 for (const blocked of blockedHashes) {
                     if (hammingDistance(hash, blocked) <= HASH_MATCH_THRESHOLD) {
                         // Increment hit count in background
-                        void this.db.spamImageHash.updateMany({
+                        this.db.spamImageHash.updateMany({
                             where: { guildId, hash: blocked },
                             data: { hitCount: { increment: 1 } },
-                        });
+                        }).catch((err: any) => this.logger.error('[SpamGuard] Failed to increment hash hit count', err));
 
                         await this.handleViolation(message, member, settings, 'known_hash', [message.id]);
                         return;

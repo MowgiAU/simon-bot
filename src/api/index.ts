@@ -23548,19 +23548,27 @@ app.post('/api/spam-guard/hashes/:guildId', async (req, res) => {
         const { guildId } = req.params;
         if (!await checkPluginAccess(guildId, req, 'spam-guard')) return res.status(403).json({ error: 'Forbidden' });
 
-        const { hash, description } = req.body;
+        const { hash, description, imageUrl } = req.body;
         if (!hash || typeof hash !== 'string' || hash.length !== 16) {
-            return res.status(400).json({ error: 'Invalid hash � must be 16-char hex string' });
+            return res.status(400).json({ error: 'Invalid hash — must be 16-char hex string' });
+        }
+        let safeImageUrl: string | null = null;
+        if (imageUrl && typeof imageUrl === 'string') {
+            try {
+                const parsed = new URL(imageUrl);
+                if (['http:', 'https:'].includes(parsed.protocol)) safeImageUrl = imageUrl;
+            } catch { /* ignore invalid URL, just don't store it */ }
         }
 
         await db.guild.upsert({ where: { id: guildId }, update: {}, create: { id: guildId, name: 'Unknown' } });
         const entry = await db.spamImageHash.upsert({
             where: { guildId_hash: { guildId, hash } },
-            update: { description: description || null, addedByMod: (req as any).session?.user?.id },
+            update: { description: description || null, ...(safeImageUrl && { imageUrl: safeImageUrl }), addedByMod: (req as any).session?.user?.id },
             create: {
                 guildId,
                 hash,
                 description: description || null,
+                imageUrl: safeImageUrl,
                 addedByMod: (req as any).session?.user?.id,
             },
         });

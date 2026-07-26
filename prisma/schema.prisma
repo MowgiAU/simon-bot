@@ -3023,6 +3023,8 @@ model SpamImageHash {
   guildId     String
   hash        String // 64-char hex perceptual hash
   description String? // Optional label e.g. "Crypto scam Jan 2026"
+  imageUrl    String? // Reference image the hash was computed from, so mods can visually
+  // review what a hash actually represents later — the hash number alone isn't reviewable.
   addedByMod  String? // Discord user ID of mod who added it
   hitCount    Int     @default(0) // How many times this hash blocked a message
 

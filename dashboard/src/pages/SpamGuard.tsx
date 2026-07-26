@@ -30,6 +30,7 @@ interface SpamImageHash {
     guildId: string;
     hash: string;
     description: string | null;
+    imageUrl: string | null;
     addedByMod: string | null;
     hitCount: number;
     createdAt: string;
@@ -182,13 +183,20 @@ export const SpamGuardPage: React.FC = () => {
                 method: 'POST',
                 credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ hash: newHash.trim().toLowerCase(), description: newHashDesc.trim() || null }),
+                body: JSON.stringify({
+                    hash: newHash.trim().toLowerCase(),
+                    description: newHashDesc.trim() || null,
+                    // Stores the reference image so mods can visually review this entry later —
+                    // a bare hash number tells you nothing when auditing the blocklist.
+                    imageUrl: hashUrl.trim() || null,
+                }),
             });
             const data = await res.json();
             if (data.error) throw new Error(data.error);
             setHashes(prev => [data, ...prev.filter(h => h.id !== data.id)]);
             setNewHash('');
             setNewHashDesc('');
+            setHashUrl('');
             showMsg('success', 'Hash added to blocklist');
         } catch (e: any) {
             showMsg('error', e.message || 'Failed to add hash');
@@ -868,6 +876,21 @@ export const SpamGuardPage: React.FC = () => {
                                         flexWrap: 'wrap',
                                     }}
                                 >
+                                    {h.imageUrl ? (
+                                        <a href={h.imageUrl} target="_blank" rel="noopener noreferrer" title="Open full image">
+                                            <img
+                                                src={h.imageUrl}
+                                                alt=""
+                                                referrerPolicy="no-referrer"
+                                                style={{ width: 40, height: 40, borderRadius: borderRadius.sm, objectFit: 'cover', flexShrink: 0, border: `1px solid ${colors.border}` }}
+                                                onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                                            />
+                                        </a>
+                                    ) : (
+                                        <div title="No reference image saved for this entry" style={{ width: 40, height: 40, borderRadius: borderRadius.sm, flexShrink: 0, border: `1px dashed ${colors.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                            <ImageOff size={16} color={colors.textTertiary} />
+                                        </div>
+                                    )}
                                     <div style={{ flex: 1, minWidth: 0 }}>
                                         <code style={{
                                             color: colors.accent,
