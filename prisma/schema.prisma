@@ -170,6 +170,7 @@ model Guild {
   feedbackPosts    FeedbackPost[]
   feedbackSettings FeedbackSettings?
   echoSettings     EchoSettings?
+  commandGuardSettings CommandGuardSettings?
   feedbackPoints   FeedbackPoints[]
   feedbackPointsTransactions FeedbackPointsTransaction[]
 
@@ -840,6 +841,28 @@ model EchoSettings {
   guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
 
   @@map("echo_settings")
+}
+
+// Locks down channels to "our bot only" — deletes other bots' messages and
+// human-typed prefix commands (!play, .skip, …) in the guarded channels,
+// with per-channel whitelists for trusted bots and specific command prefixes.
+model CommandGuardSettings {
+  id      String @id @default(cuid())
+  guildId String @unique
+
+  enabled Boolean @default(false)
+
+  guardedChannelIds       String[] @default([]) // channels where non-Fuji commands are blocked
+  whitelistedBotIds       String[] @default([]) // other bots exempt from message deletion
+  whitelistedCommandPrefixes String[] @default([]) // literal prefixes (e.g. "!poll") exempt from deletion
+
+  deleteMessage Boolean @default(true)
+  warnUser      Boolean @default(true)
+  logChannelId  String?
+
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  @@map("command_guard_settings")
 }
 
 model FeedbackPoints {

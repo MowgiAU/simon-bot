@@ -4428,7 +4428,7 @@ app.get('/api/guilds/:guildId/my-permissions', async (req, res) => {
         if (isAdmin) {
             return res.json({ 
                 canManagePlugins: true, 
-                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content', 'account-management', 'anti-piracy', 'leveling', 'fuji-radio', 'studio-guide', 'bot-identity', 'bot-messenger', 'booster-color', 'private-messages', 'auto-messages', 'auto-responder', 'server-boost', 'reports', 'articles', 'article-review', 'pause', 'voice-stats', 'spam-guard', 'muzzle', 'track-announcer', 'profile-styles', 'academy', 'head-to-head', 'drum-kit', 'bug-reports', 'plugin-registry', 'activity-logs', 'duplicate-profiles', 'projects', 'vote-fraud', 'slots', 'platform-analytics', 'collabs', 'echo']
+                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content', 'account-management', 'anti-piracy', 'leveling', 'fuji-radio', 'studio-guide', 'bot-identity', 'bot-messenger', 'booster-color', 'private-messages', 'auto-messages', 'auto-responder', 'server-boost', 'reports', 'articles', 'article-review', 'pause', 'voice-stats', 'spam-guard', 'muzzle', 'track-announcer', 'profile-styles', 'academy', 'head-to-head', 'drum-kit', 'bug-reports', 'plugin-registry', 'activity-logs', 'duplicate-profiles', 'projects', 'vote-fraud', 'slots', 'platform-analytics', 'collabs', 'echo', 'command-guard']
             });
         }
 
@@ -5675,6 +5675,50 @@ app.post('/api/echo/settings/:guildId', async (req, res) => {
         if (whitelistUserIds !== undefined) data.whitelistUserIds = Array.isArray(whitelistUserIds) ? whitelistUserIds : [];
 
         const updated = await db.echoSettings.upsert({
+            where: { guildId },
+            create: { guildId, ...data },
+            update: data,
+        });
+        res.json(updated);
+    } catch (e: any) {
+        res.status(500).json({ error: e?.message ?? 'Failed' });
+    }
+});
+
+// ── Command Guard Plugin ─────────────────────────────────────────────────────
+
+app.get('/api/command-guard/:guildId', async (req, res) => {
+    try {
+        const { guildId } = req.params;
+        if (!await checkPluginAccess(guildId, req, 'command-guard')) return res.status(403).json({ error: 'Forbidden' });
+
+        let settings = await db.commandGuardSettings.findUnique({ where: { guildId } });
+        if (!settings) {
+            settings = await db.commandGuardSettings.create({ data: { guildId } });
+        }
+        res.json(settings);
+    } catch (e: any) {
+        res.status(500).json({ error: e?.message ?? 'Failed' });
+    }
+});
+
+app.post('/api/command-guard/:guildId', async (req: any, res) => {
+    try {
+        const { guildId } = req.params;
+        if (!isTrueAdmin(guildId, req)) return res.status(403).json({ error: 'Forbidden — admin only' });
+
+        const { enabled, guardedChannelIds, whitelistedBotIds, whitelistedCommandPrefixes, deleteMessage, warnUser, logChannelId } = req.body;
+
+        const data: any = {};
+        if (enabled !== undefined) data.enabled = Boolean(enabled);
+        if (guardedChannelIds !== undefined) data.guardedChannelIds = Array.isArray(guardedChannelIds) ? guardedChannelIds : [];
+        if (whitelistedBotIds !== undefined) data.whitelistedBotIds = Array.isArray(whitelistedBotIds) ? whitelistedBotIds : [];
+        if (whitelistedCommandPrefixes !== undefined) data.whitelistedCommandPrefixes = Array.isArray(whitelistedCommandPrefixes) ? whitelistedCommandPrefixes : [];
+        if (deleteMessage !== undefined) data.deleteMessage = Boolean(deleteMessage);
+        if (warnUser !== undefined) data.warnUser = Boolean(warnUser);
+        if (logChannelId !== undefined) data.logChannelId = logChannelId || null;
+
+        const updated = await db.commandGuardSettings.upsert({
             where: { guildId },
             create: { guildId, ...data },
             update: data,

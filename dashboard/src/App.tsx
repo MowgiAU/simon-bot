@@ -77,6 +77,7 @@ const PrivateMessagesPage    = lazy(() => import("./pages/PrivateMessages").then
 const AutoMessagesPage       = lazy(() => import("./pages/AutoMessages").then(m => ({ default: m.AutoMessagesPage })));
 const AutoResponderPage      = lazy(() => import("./pages/AutoResponder").then(m => ({ default: m.AutoResponderPage })));
 const EchoPluginPage         = lazy(() => import("./pages/EchoPlugin").then(m => ({ default: m.EchoPluginPage })));
+const CommandGuardPage       = lazy(() => import("./pages/CommandGuard").then(m => ({ default: m.CommandGuardPage })));
 const FrontpageStitch        = lazy(() => import("./pages/FrontpageStitch").then(m => ({ default: m.FrontpageStitch })));
 const FrontpageEditorialB    = lazy(() => import("./pages/FrontpageEditorialB").then(m => ({ default: m.FrontpageEditorialB })));
 const FrontpageVHub          = lazy(() => import("./pages/FrontpageVHub").then(m => ({ default: m.FrontpageVHub })));
@@ -213,7 +214,8 @@ type Section =
   | "activity-logs"
   | "vote-fraud"
   | "platform-analytics"
-  | "echo";
+  | "echo"
+  | "command-guard";
 
 const WelcomeScreen: React.FC<{ login: () => void }> = ({ login }) => {
   const navigate = useNavigate();
@@ -410,6 +412,7 @@ const AdminDashboard: React.FC = () => {
     'auto-messages': 'auto-messages',
     'auto-responder': 'auto-responder',
     'echo': 'echo',
+    'command-guard': 'command-guard',
     'pause': 'pause',
     'server-boost': 'server-boost',
     'booster-color': 'booster-color',
@@ -530,6 +533,8 @@ const AdminDashboard: React.FC = () => {
           return <AutoResponderPage />;
         case "echo":
           return <EchoPluginPage />;
+        case "command-guard":
+          return <CommandGuardPage />;
         case "pause":
           return <PausePage />;
         case "server-boost":
@@ -699,6 +704,7 @@ const AdminDashboard: React.FC = () => {
                 "auto-messages": "overview",
                 "auto-responder": "overview",
                 "echo": "overview",
+                "command-guard": "overview",
                 "server-boost": "overview",
                 "voice-stats": "stats",
                 "spam-guard": "overview",

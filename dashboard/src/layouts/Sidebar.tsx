@@ -54,6 +54,7 @@ import {
   Dices,
   VolumeX,
   Repeat,
+  Ban,
 } from 'lucide-react';
 import { AnimatedWrapper } from '../components/AnimatedWrapper';
 import logoUrl from '../assets/logo.svg'; 
@@ -248,7 +249,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
         </NavGroup>
 
         {/* ── Automation ── */}
-        {['welcome-gate', 'auto-messages', 'auto-responder', 'channel-rules', 'spam-guard', 'word-filter', 'email-client', 'tickets', 'echo'].some(p => permissions.accessiblePlugins.includes(p)) && (
+        {['welcome-gate', 'auto-messages', 'auto-responder', 'channel-rules', 'spam-guard', 'word-filter', 'email-client', 'tickets', 'echo', 'command-guard'].some(p => permissions.accessiblePlugins.includes(p)) && (
           <NavGroup id="automation" label="Automation" icon={<Zap size={12} style={{ marginRight: 6, verticalAlign: 'middle', opacity: 0.5 }} />} collapsed={collapsed}>
             {['welcome-gate', 'auto-messages', 'auto-responder', 'channel-rules', 'spam-guard'].some(p => permissions.accessiblePlugins.includes(p)) && (
               <button className={`nav-item ${activeSection === 'automation' ? 'active' : ''}`} onClick={() => onNavigate('automation')} title={collapsed ? "Automation" : ""}>
@@ -278,6 +279,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
               <button className={`nav-item ${activeSection === 'echo' ? 'active' : ''}`} onClick={() => onNavigate('echo')} title={collapsed ? "Message Echo" : ""}>
                 <span className="nav-icon"><AnimatedWrapper icon={Repeat} size={20} /></span>
                 <span className="nav-label">Message Echo</span>
+              </button>
+            )}
+            {permissions.accessiblePlugins.includes('command-guard') && (
+              <button className={`nav-item ${activeSection === 'command-guard' ? 'active' : ''}`} onClick={() => onNavigate('command-guard')} title={collapsed ? "Command Guard" : ""}>
+                <span className="nav-icon"><AnimatedWrapper icon={Ban} size={20} /></span>
+                <span className="nav-label">Command Guard</span>
               </button>
             )}
           </NavGroup>
