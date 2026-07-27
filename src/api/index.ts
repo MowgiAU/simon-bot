@@ -11635,6 +11635,56 @@ app.get('/api/discovery/playlists/search', requireAdmin, async (req: any, res) =
 });
 
 // Search all tracks (for admin featured track picker)
+// Combined sitewide search — powers the header search bar. Fans out to tracks, artist
+// profiles, and genres in parallel rather than requiring three separate round-trips.
+app.get('/api/search', publicCache(30), async (req, res) => {
+    try {
+        const q = String(req.query.q || '').trim();
+        if (q.length < 2) return res.json({ tracks: [], profiles: [], genres: [] });
+
+        const [tracks, profiles, genres] = await Promise.all([
+            db.track.findMany({
+                where: {
+                    isPublic: true,
+                    OR: [
+                        { title: { contains: q, mode: 'insensitive' as const } },
+                        { artist: { contains: q, mode: 'insensitive' as const } },
+                        { profile: { displayName: { contains: q, mode: 'insensitive' as const } } },
+                        { profile: { username: { contains: q, mode: 'insensitive' as const } } },
+                    ],
+                },
+                select: {
+                    id: true, title: true, slug: true, coverUrl: true, playCount: true,
+                    profile: { select: { username: true, displayName: true, avatar: true } },
+                },
+                orderBy: { playCount: 'desc' },
+                take: 8,
+            }),
+            db.musicianProfile.findMany({
+                where: {
+                    deletedAt: null,
+                    status: 'active',
+                    OR: [
+                        { username: { contains: q, mode: 'insensitive' as const } },
+                        { displayName: { contains: q, mode: 'insensitive' as const } },
+                    ],
+                },
+                select: { id: true, username: true, displayName: true, avatar: true },
+                take: 8,
+            }),
+            db.genre.findMany({
+                where: { name: { contains: q, mode: 'insensitive' as const } },
+                select: { id: true, name: true, slug: true },
+                take: 5,
+            }),
+        ]);
+
+        res.json({ tracks, profiles, genres });
+    } catch (e: any) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 app.get('/api/discovery/tracks/search', publicCache(60), async (req, res) => {
     try {
         const search = req.query.search as string;

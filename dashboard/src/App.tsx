@@ -89,6 +89,7 @@ const FrontpageAltFTrack     = lazy(() => import("./pages/FrontpageAltFTrack").t
 const FrontpageAltFBattle    = lazy(() => import("./pages/FrontpageAltFBattle").then(m => ({ default: m.FrontpageAltFBattle })));
 const FrontpageAltFBattles   = lazy(() => import("./pages/FrontpageAltFBattles").then(m => ({ default: m.FrontpageAltFBattles })));
 const FrontpageAltFArtists   = lazy(() => import("./pages/FrontpageAltFArtists").then(m => ({ default: m.FrontpageAltFArtists })));
+const FrontpageAltFSearch    = lazy(() => import("./pages/FrontpageAltFSearch").then(m => ({ default: m.FrontpageAltFSearch })));
 const FrontpageAltFFeed      = lazy(() => import("./pages/FrontpageAltFFeed").then(m => ({ default: m.FrontpageAltFFeed })));
 const FrontpageAltFLibrary   = lazy(() => import("./pages/FrontpageAltFLibrary").then(m => ({ default: m.FrontpageAltFLibrary })));
 const FrontpageAltFMessages  = lazy(() => import("./pages/FrontpageAltFMessages").then(m => ({ default: m.FrontpageAltFMessages })));
@@ -814,6 +815,7 @@ const AppInternal: React.FC = () => {
       { test: p => p === '/my-favourites',     title: 'Fuji Studio | My Favourites' },
       { test: p => p === '/my-collabs',        title: 'Fuji Studio | My Collabs' },
       { test: p => p === '/artists',           title: 'Fuji Studio | Artists' },
+      { test: p => p === '/search',            title: 'Fuji Studio | Search' },
       { test: p => p === '/library',           title: 'Fuji Studio | Library' },
       { test: p => p === '/charts',            title: 'Fuji Studio | Charts' },
       { test: p => p === '/battles',           title: 'Fuji Studio | Beat Battles' },
@@ -1004,6 +1006,11 @@ const AppInternal: React.FC = () => {
   // /artists → Full artists list
   if (currentPath === '/artists') {
     return <Suspense fallback={<PageSpinner />}><FrontpageAltFArtists /></Suspense>;
+  }
+
+  // /search → Sitewide search results (header search bar)
+  if (currentPath === '/search') {
+    return <Suspense fallback={<PageSpinner />}><FrontpageAltFSearch /></Suspense>;
   }
 
   // /library → Browse all tracks

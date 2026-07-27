@@ -3,8 +3,8 @@
  * Breadcrumb + search (left), Upload + Messages + Notifications + Settings (right).
  * Accept an optional leftSlot for page-specific controls (e.g. slider arrows on Home).
  */
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useChat } from '../ChatProvider';
 import { useAuth } from '../AuthProvider';
 import { MusicNotificationMenu } from '../MusicNotificationMenu';
@@ -28,8 +28,27 @@ export const AltHeader: React.FC<AltHeaderProps> = ({ breadcrumb = [], leftSlot,
     const { dropdownOpen: messengerOpen, setDropdownOpen: setMessengerOpen, unreadTotal: unreadMsgCount } = useChat();
     const { user } = useAuth();
     const bp = useAltBreakpoint();
+    const navigate = useNavigate();
+    const location = useLocation();
     const profileHref = user ? `/profile/${user.profileUsername || user.username}` : '/login';
     const profileAvatar = user?.profileAvatar || user?.avatar;
+
+    // Keep the search box in sync with the URL when already on the results page
+    // (so browser back/forward and repeat searches from elsewhere both work).
+    const [searchValue, setSearchValue] = useState('');
+    useEffect(() => {
+        if (location.pathname === '/search') {
+            setSearchValue(new URLSearchParams(location.search).get('q') || '');
+        } else {
+            setSearchValue('');
+        }
+    }, [location.pathname, location.search]);
+
+    const runSearch = () => {
+        const q = searchValue.trim();
+        if (!q) return;
+        navigate(`/search?q=${encodeURIComponent(q)}`);
+    };
 
     return (
         <header style={{ height: 64, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', borderBottom: `1px solid ${BORDER}`, background: 'rgba(15,19,29,0.7)', backdropFilter: 'blur(20px)', position: 'relative', zIndex: 50 }}>
@@ -50,8 +69,11 @@ export const AltHeader: React.FC<AltHeaderProps> = ({ breadcrumb = [], leftSlot,
                 {/* Hide search at xs; shrink at md */}
                 {bp !== 'xs' && (
                     <div style={{ position: 'relative', maxWidth: bp === 'md' ? 200 : 360, flex: 1 }}>
-                        <Search size={18} color={SUB} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)' }} />
+                        <Search size={18} color={SUB} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', cursor: 'pointer' }} onClick={runSearch} />
                         <input
+                            value={searchValue}
+                            onChange={e => setSearchValue(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Enter') runSearch(); }}
                             placeholder="Search producers, tracks…"
                             style={{ width: '100%', background: S_CONT, border: `1px solid ${BORDER}`, borderRadius: 9999, padding: '8px 16px 8px 38px', color: TEXT, fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }}
                         />
