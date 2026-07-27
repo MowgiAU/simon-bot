@@ -3108,6 +3108,17 @@ model SpamGuardIncident {
   channelId   String?
   messageIds  String[] @default([])
   details     String?
+  matchedHash String? // the specific spamImageHash.hash that matched, when triggerType is known_hash
+
+  // "Not Spam" undo — a mod decided this was a false positive
+  falsePositive Boolean   @default(false)
+  resolvedBy    String?   // Discord user ID of the mod who marked it
+  resolvedAt    DateTime?
+
+  // Alert-thread consolidation — repeat triggers from the same user reply into the
+  // same thread instead of posting a new alert message each time.
+  alertMessageId String?
+  alertThreadId  String?
 
   createdAt DateTime @default(now())
 

@@ -65,6 +65,10 @@ function hammingDistance(a: string, b: string): number {
 // Threshold: <= 10 bits different = same image (tolerates minor compression artifacts)
 const HASH_MATCH_THRESHOLD = 10;
 
+// How long a repeat offender's alert thread stays "active" — a new trigger from the same
+// user within this window replies into the existing thread instead of posting a fresh alert.
+const ALERT_THREAD_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
+
 // ─── In-memory rate tracking ─────────────────────────────────────────────────
 
 interface UserActivity {
@@ -106,6 +110,10 @@ export class SpamGuardPlugin implements IPlugin {
     private activity: Map<string, Map<string, UserActivity>> = new Map();
     private cleanupInterval?: NodeJS.Timeout;
 
+    // Per "guildId:userId" active alert thread, so repeat triggers consolidate into one
+    // thread instead of spamming the alert channel with a new message every time.
+    private activeAlertThreads: Map<string, { alertMessageId: string; threadId: string; channelId: string; lastAt: number }> = new Map();
+
     // Per-guild hash cache to avoid DB round-trip on every message
     private hashCache: Map<string, { hashes: string[]; loadedAt: number }> = new Map();
     private readonly HASH_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
@@ -138,6 +146,9 @@ export class SpamGuardPlugin implements IPlugin {
                     }
                 }
                 if (users.size === 0) this.activity.delete(guildId);
+            }
+            for (const [key, entry] of this.activeAlertThreads) {
+                if (Date.now() - entry.lastAt > ALERT_THREAD_TTL_MS) this.activeAlertThreads.delete(key);
             }
         }, 60 * 60 * 1000);
 
@@ -188,10 +199,24 @@ export class SpamGuardPlugin implements IPlugin {
 
     // ─── Button Interaction Handler ───────────────────────────────────────────
 
+    private async disableAlertButtons(interaction: any, resolvedLabel: string): Promise<void> {
+        const disabledRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
+            new ButtonBuilder().setCustomId('SPAMGUARD_RESOLVED_KICK').setLabel(resolvedLabel).setStyle(ButtonStyle.Secondary).setDisabled(true),
+        );
+        await interaction.message.edit({ components: [disabledRow] }).catch(() => {});
+    }
+
     async onInteractionCreate(interaction: ButtonInteraction | any): Promise<void> {
         if (!interaction.isButton()) return;
-        if (!interaction.customId.startsWith('SPAMGUARD_KICK_')) return;
 
+        if (interaction.customId.startsWith('SPAMGUARD_KICK_')) {
+            await this.handleKickButton(interaction);
+        } else if (interaction.customId.startsWith('SPAMGUARD_UNDO_')) {
+            await this.handleUndoButton(interaction);
+        }
+    }
+
+    private async handleKickButton(interaction: any): Promise<void> {
         const parts = interaction.customId.split('_'); // ['SPAMGUARD', 'KICK', userId, guildId]
         const userId = parts[2];
         const guildId = parts[3];
@@ -215,19 +240,74 @@ export class SpamGuardPlugin implements IPlugin {
                 }
             }
 
-            // Disable the button on the original message
-            const disabledBtn = new ButtonBuilder()
-                .setCustomId(interaction.customId)
-                .setLabel(`Kicked by ${interaction.user.username}`)
-                .setStyle(ButtonStyle.Secondary)
-                .setDisabled(true);
-            const row = new ActionRowBuilder<ButtonBuilder>().addComponents(disabledBtn);
-            await interaction.message.edit({ components: [row] }).catch(() => {});
-
+            await this.disableAlertButtons(interaction, `Kicked by ${interaction.user.username}`);
             await interaction.editReply({ content: `✅ <@${userId}> has been kicked. Reason: **${REASON}**\nA moderation case has been opened.`, allowedMentions: { users: [userId] } });
         } catch (err) {
             this.logger.error('[SpamGuard] Failed to kick via button', err);
             await interaction.editReply({ content: '❌ Failed to kick the user. They may have already left, or the bot lacks permission.' });
+        }
+    }
+
+    // "Not Spam — Undo": reverses whatever action was taken (removes timeout / unbans —
+    // a kick can't be undone since the member already left) and, if the trigger was a
+    // known-hash match, removes that hash from the blocklist since it's now proven to
+    // false-positive on legitimate content.
+    private async handleUndoButton(interaction: any): Promise<void> {
+        const incidentId = interaction.customId.replace('SPAMGUARD_UNDO_', '');
+        if (!incidentId || incidentId === 'none') {
+            await interaction.reply({ content: '❌ This alert has no linked incident to undo.', flags: 64 });
+            return;
+        }
+
+        await interaction.deferReply({ ephemeral: true });
+
+        try {
+            const incident = await this.db.spamGuardIncident.findUnique({ where: { id: incidentId } });
+            if (!incident) {
+                await interaction.editReply({ content: '❌ Could not find the incident for this alert.' });
+                return;
+            }
+            if (incident.falsePositive) {
+                await interaction.editReply({ content: `ℹ️ Already marked as a false positive by <@${incident.resolvedBy}>.`, allowedMentions: { users: incident.resolvedBy ? [incident.resolvedBy] : [] } });
+                return;
+            }
+
+            const guild = this.client.guilds.cache.get(incident.guildId);
+            const notes: string[] = [];
+
+            if (guild) {
+                if (incident.action.startsWith('timeout')) {
+                    const member = await guild.members.fetch(incident.userId).catch(() => null);
+                    if (member) {
+                        await member.timeout(null, 'SpamGuard: marked as false positive').catch(() => {});
+                        notes.push('Timeout removed.');
+                    } else {
+                        notes.push('User is no longer in the server — nothing to un-timeout.');
+                    }
+                } else if (incident.action === 'ban') {
+                    await guild.members.unban(incident.userId, 'SpamGuard: marked as false positive').catch(() => {});
+                    notes.push('User unbanned.');
+                } else if (incident.action === 'kick') {
+                    notes.push("Kick can't be undone — the user already left. They're welcome to rejoin.");
+                }
+            }
+
+            if (incident.matchedHash) {
+                await this.db.spamImageHash.deleteMany({ where: { guildId: incident.guildId, hash: incident.matchedHash } });
+                this.invalidateHashCache(incident.guildId);
+                notes.push('The matching image hash was removed from the blocklist.');
+            }
+
+            await this.db.spamGuardIncident.update({
+                where: { id: incidentId },
+                data: { falsePositive: true, resolvedBy: interaction.user.id, resolvedAt: new Date() },
+            });
+
+            await this.disableAlertButtons(interaction, `Marked not spam by ${interaction.user.username}`);
+            await interaction.editReply({ content: `✅ Marked as a false positive.${notes.length ? '\n' + notes.join(' ') : ''}` });
+        } catch (err) {
+            this.logger.error('[SpamGuard] Failed to process undo button', err);
+            await interaction.editReply({ content: '❌ Failed to undo — check the logs.' }).catch(() => {});
         }
     }
 
@@ -356,7 +436,7 @@ export class SpamGuardPlugin implements IPlugin {
                             data: { hitCount: { increment: 1 } },
                         }).catch((err: any) => this.logger.error('[SpamGuard] Failed to increment hash hit count', err));
 
-                        await this.handleViolation(message, member, settings, 'known_hash', [message.id]);
+                        await this.handleViolation(message, member, settings, 'known_hash', [message.id], blocked);
                         return;
                     }
                 }
@@ -374,6 +454,7 @@ export class SpamGuardPlugin implements IPlugin {
         settings: any,
         triggerType: string,
         messageIds: string[],
+        matchedHash?: string,
     ): Promise<void> {
         const guild = message.guild!;
         const guildId = guild.id;
@@ -450,9 +531,11 @@ export class SpamGuardPlugin implements IPlugin {
             }
         }
 
-        // Log incident
+        // Log incident — created before the alert is sent so the alert's buttons can
+        // reference incident.id (the "Not Spam" undo button needs it to look up what to reverse).
+        let incidentId: string | null = null;
         try {
-            await this.db.spamGuardIncident.create({
+            const incident = await this.db.spamGuardIncident.create({
                 data: {
                     guildId,
                     userId: member.id,
@@ -462,8 +545,10 @@ export class SpamGuardPlugin implements IPlugin {
                     channelId: message.channelId,
                     messageIds,
                     details: triggerLabels[triggerType],
+                    matchedHash: matchedHash || null,
                 },
             });
+            incidentId = incident.id;
         } catch (err) {
             this.logger.error('[SpamGuard] Failed to log incident', err);
         }
@@ -490,38 +575,94 @@ export class SpamGuardPlugin implements IPlugin {
             this.logger.error('[SpamGuard] Failed to write audit log entry', err);
         }
 
-        // Send alert embed to mod channel
+        // Send alert to mod channel — repeat triggers from the same user within
+        // ALERT_THREAD_TTL_MS consolidate into one thread instead of a new message each time.
         if (settings.alertChannelId) {
             try {
                 const alertChannel = guild.channels.cache.get(settings.alertChannelId) as TextChannel | undefined;
                 if (alertChannel?.isTextBased()) {
-                    const embed = new EmbedBuilder()
-                        .setColor(Colors.Red)
-                        .setTitle('🚨 SpamGuard — Spam Detected')
-                        .addFields(
-                            { name: 'User', value: `<@${member.id}> (${member.user.tag})`, inline: true },
-                            { name: 'Trigger', value: triggerLabels[triggerType] ?? triggerType, inline: true },
-                            { name: 'Action', value: actionTaken.replace(/_/g, ' '), inline: true },
-                            { name: 'Channel', value: `<#${message.channelId}>`, inline: true },
-                        )
-                        .setTimestamp()
-                        .setFooter({ text: 'SpamGuard' });
+                    const threadKey = `${guildId}:${member.id}`;
+                    const existing = this.activeAlertThreads.get(threadKey);
+                    const stillActive = existing && Date.now() - existing.lastAt < ALERT_THREAD_TTL_MS;
 
-                    if (previewFiles.length > 0) {
-                        embed.setImage(`attachment://${previewFiles[0].name}`);
-                        if (previewFiles.length > 1) {
-                            embed.addFields({ name: 'Images', value: `${previewFiles.length} attached below`, inline: true });
+                    if (stillActive) {
+                        // Reply into the existing thread instead of posting a new alert message.
+                        try {
+                            const thread = await this.client.channels.fetch(existing!.threadId).catch(() => null);
+                            if (thread?.isTextBased()) {
+                                const followUp = new EmbedBuilder()
+                                    .setColor(Colors.Red)
+                                    .setDescription(`🚨 **Triggered again** — ${triggerLabels[triggerType] ?? triggerType} · ${actionTaken.replace(/_/g, ' ')} · <#${message.channelId}>`)
+                                    .setTimestamp();
+                                if (previewFiles.length > 0) followUp.setImage(`attachment://${previewFiles[0].name}`);
+                                await (thread as TextChannel).send({ embeds: [followUp], files: previewFiles });
+                                existing!.lastAt = Date.now();
+                                if (incidentId) {
+                                    await this.db.spamGuardIncident.update({
+                                        where: { id: incidentId },
+                                        data: { alertMessageId: existing!.alertMessageId, alertThreadId: existing!.threadId },
+                                    }).catch(() => {});
+                                }
+                            }
+                        } catch (err) {
+                            this.logger.error('[SpamGuard] Failed to post into existing alert thread', err);
+                        }
+                    } else {
+                        const embed = new EmbedBuilder()
+                            .setColor(Colors.Red)
+                            .setTitle('🚨 SpamGuard — Spam Detected')
+                            .addFields(
+                                { name: 'User', value: `<@${member.id}> (${member.user.tag})`, inline: true },
+                                { name: 'Trigger', value: triggerLabels[triggerType] ?? triggerType, inline: true },
+                                { name: 'Action', value: actionTaken.replace(/_/g, ' '), inline: true },
+                                { name: 'Channel', value: `<#${message.channelId}>`, inline: true },
+                            )
+                            .setTimestamp()
+                            .setFooter({ text: 'SpamGuard' });
+
+                        if (previewFiles.length > 0) {
+                            embed.setImage(`attachment://${previewFiles[0].name}`);
+                            if (previewFiles.length > 1) {
+                                embed.addFields({ name: 'Images', value: `${previewFiles.length} attached below`, inline: true });
+                            }
+                        }
+
+                        const kickBtn = new ButtonBuilder()
+                            .setCustomId(`SPAMGUARD_KICK_${member.id}_${guildId}`)
+                            .setLabel('Kick — Compromised Account')
+                            .setStyle(ButtonStyle.Danger)
+                            .setEmoji('🔴');
+                        const undoBtn = new ButtonBuilder()
+                            .setCustomId(`SPAMGUARD_UNDO_${incidentId ?? 'none'}`)
+                            .setLabel('Not Spam — Undo')
+                            .setStyle(ButtonStyle.Secondary)
+                            .setEmoji('✅')
+                            .setDisabled(!incidentId);
+
+                        const row = new ActionRowBuilder<ButtonBuilder>().addComponents(kickBtn, undoBtn);
+                        const sent = await alertChannel.send({ embeds: [embed], components: [row], files: previewFiles });
+
+                        // Start a thread on this message so any repeat trigger has somewhere to go.
+                        let threadId: string | null = null;
+                        try {
+                            const thread = await sent.startThread({
+                                name: `Spam: ${member.user.username}`.slice(0, 100),
+                                autoArchiveDuration: 1440,
+                                reason: 'SpamGuard: consolidating repeat triggers',
+                            });
+                            threadId = thread.id;
+                            this.activeAlertThreads.set(threadKey, { alertMessageId: sent.id, threadId: thread.id, channelId: alertChannel.id, lastAt: Date.now() });
+                        } catch (err) {
+                            this.logger.error('[SpamGuard] Failed to start alert thread', err);
+                        }
+
+                        if (incidentId) {
+                            await this.db.spamGuardIncident.update({
+                                where: { id: incidentId },
+                                data: { alertMessageId: sent.id, alertThreadId: threadId },
+                            }).catch(() => {});
                         }
                     }
-
-                    const kickBtn = new ButtonBuilder()
-                        .setCustomId(`SPAMGUARD_KICK_${member.id}_${guildId}`)
-                        .setLabel('Kick — Compromised Account')
-                        .setStyle(ButtonStyle.Danger)
-                        .setEmoji('🔴');
-
-                    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(kickBtn);
-                    await alertChannel.send({ embeds: [embed], components: [row], files: previewFiles });
                 }
             } catch { /* ignore alert failures */ }
         }
