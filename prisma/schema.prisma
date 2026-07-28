@@ -3412,6 +3412,8 @@ model H2HRating {
   losses        Int      @default(0)
   forfeits      Int      @default(0)
   matchesPlayed Int      @default(0)
+  winStreak     Int      @default(0) // current consecutive wins, reset to 0 on any loss
+  bestWinStreak Int      @default(0)
   updatedAt     DateTime @updatedAt
   createdAt     DateTime @default(now())
 

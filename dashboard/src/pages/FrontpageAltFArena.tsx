@@ -6,7 +6,7 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import axios from 'axios';
 import {
-    Swords, Trophy, Crown, Medal, Users, Zap, Target, TrendingUp, Clock, Loader2, Flame,
+    Swords, Trophy, Crown, Medal, Users, Zap, Target, TrendingUp, Clock, Loader2, Flame, History as HistoryIcon, ChevronDown, Filter,
 } from 'lucide-react';
 import {
     AltSidebar, BG, S_CONT, S_HIGH, PRIMARY, SECONDARY, TERTIARY, TEXT, SUB, BORDER, FONT,
@@ -48,7 +48,16 @@ function pName(p: any, uid: string) {
 interface LobbyEntry { id: string; tier: { name: string; color: string }; productionMinutes: number; genreId: string | null; waitedSeconds: number; isMine: boolean; }
 interface LobbySummary { waiting: number; inMatch: number; voting: number; }
 interface ActivityEvent { type: 'result' | 'join'; at: string; winner?: string; loser?: string; eloDelta?: number | null; genreName?: string | null; tier?: { name: string; color: string }; productionMinutes?: number; }
-interface LeaderRow { rank: number; userId: string; elo: number; wins: number; losses: number; matchesPlayed: number; profile: any; }
+interface LeaderRow { rank: number; userId: string; elo: number; wins: number; losses: number; matchesPlayed: number; winStreak: number; bestWinStreak: number; profile: any; }
+interface GenreOption { id: string; name: string; sampleCount: number; }
+interface HistoryMatch {
+    id: string; status: string; genreId: string | null; genreName: string | null; productionMinutes: number;
+    outcome: 'win' | 'loss' | 'cancelled'; forfeitReason: string | null;
+    opponentProfile: any; eloBefore: number | null; eloAfter: number | null; eloDelta: number | null; completedAt: string;
+}
+const HISTORY_FILTERS: { key: string; label: string }[] = [
+    { key: 'all', label: 'All' }, { key: 'win', label: 'Wins' }, { key: 'loss', label: 'Losses' }, { key: 'forfeit', label: 'Forfeits' },
+];
 
 const MEDAL_COLORS = ['#FFD700', '#C0C0C0', '#CD7F32'];
 
@@ -64,11 +73,19 @@ export const FrontpageAltFArena: React.FC = () => {
     const [summary, setSummary] = useState<LobbySummary>({ waiting: 0, inMatch: 0, voting: 0 });
     const [activity, setActivity] = useState<ActivityEvent[]>([]);
     const [leaderboard, setLeaderboard] = useState<LeaderRow[]>([]);
+    const [genres, setGenres] = useState<GenreOption[]>([]);
+    const [leaderboardGenre, setLeaderboardGenre] = useState('');
     const [enabled, setEnabled] = useState<boolean | null>(null);
     const [prodMin, setProdMin] = useState(60);
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [, forceTick] = useState(0);
+
+    const [history, setHistory] = useState<HistoryMatch[]>([]);
+    const [historyTotal, setHistoryTotal] = useState(0);
+    const [historyFilter, setHistoryFilter] = useState('all');
+    const [historyPage, setHistoryPage] = useState(1);
+    const [historyLoading, setHistoryLoading] = useState(false);
 
     // 1s ticker so lobby wait-times count up live
     useEffect(() => { const t = setInterval(() => forceTick(x => x + 1), 1000); return () => clearInterval(t); }, []);
@@ -91,8 +108,30 @@ export const FrontpageAltFArena: React.FC = () => {
     useEffect(() => {
         reloadMe(); reloadLobby(); reloadActivity();
         axios.get('/api/head-to-head/settings').then(r => { setEnabled(r.data?.enabled ?? null); if (r.data?.defaultProductionMinutes) setProdMin(r.data.defaultProductionMinutes); }).catch(() => {});
-        axios.get('/api/head-to-head/leaderboard').then(r => setLeaderboard(r.data || [])).catch(() => {});
+        axios.get('/api/head-to-head/genres').then(r => setGenres(r.data?.genres || [])).catch(() => {});
     }, [reloadMe, reloadLobby, reloadActivity]);
+
+    // Leaderboard reloads whenever the genre filter changes.
+    useEffect(() => {
+        const params = leaderboardGenre ? { genreId: leaderboardGenre } : {};
+        axios.get('/api/head-to-head/leaderboard', { params }).then(r => setLeaderboard(r.data || [])).catch(() => {});
+    }, [leaderboardGenre]);
+
+    const loadHistory = useCallback(async (page: number, result: string, append: boolean) => {
+        setHistoryLoading(true);
+        try {
+            const r = await axios.get('/api/head-to-head/history', { params: { page, result }, withCredentials: true });
+            setHistory(prev => append ? [...prev, ...(r.data.matches || [])] : (r.data.matches || []));
+            setHistoryTotal(r.data.total || 0);
+        } catch { /* not logged in or no history yet */ }
+        setHistoryLoading(false);
+    }, []);
+
+    useEffect(() => {
+        if (!loggedIn || !meLoaded) return;
+        setHistoryPage(1);
+        loadHistory(1, historyFilter, false);
+    }, [loggedIn, meLoaded, historyFilter, loadHistory]);
 
     // Adaptive poll: fast while actively waiting/matching, slow otherwise.
     useEffect(() => {
@@ -266,6 +305,14 @@ export const FrontpageAltFArena: React.FC = () => {
                                                 <div style={{ textAlign: 'center' }}><div style={{ fontSize: 20, fontWeight: 900, color: PRIMARY }}>{me.globalRating.wins}</div><div style={{ fontSize: 10, color: SUB }}>WINS</div></div>
                                                 <div style={{ textAlign: 'center' }}><div style={{ fontSize: 20, fontWeight: 900, color: TERTIARY }}>{me.globalRating.losses}</div><div style={{ fontSize: 10, color: SUB }}>LOSSES</div></div>
                                                 <div style={{ textAlign: 'center' }}><div style={{ fontSize: 20, fontWeight: 900, color: SECONDARY }}>{winRate}%</div><div style={{ fontSize: 10, color: SUB }}>WIN RATE</div></div>
+                                                {me.globalRating.winStreak >= 2 && (
+                                                    <div style={{ textAlign: 'center' }}>
+                                                        <div style={{ fontSize: 20, fontWeight: 900, color: '#FF8A3D', display: 'flex', alignItems: 'center', gap: 3, justifyContent: 'center' }}>
+                                                            <Flame size={16} color="#FF8A3D" />{me.globalRating.winStreak}
+                                                        </div>
+                                                        <div style={{ fontSize: 10, color: SUB }}>STREAK</div>
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                     )}
@@ -302,6 +349,66 @@ export const FrontpageAltFArena: React.FC = () => {
                                     </div>
                                 )}
                             </div>
+
+                            {/* Match history */}
+                            {loggedIn && meLoaded && (
+                                <div style={{ ...glass, borderRadius: 18, overflow: 'hidden' }}>
+                                    <div style={{ padding: '14px 20px', borderBottom: `1px solid ${DIVIDER}`, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                                        <HistoryIcon size={15} color={SECONDARY} />
+                                        <span style={{ fontSize: 14, fontWeight: 700, color: TEXT }}>Match History</span>
+                                        <span style={{ fontSize: 11, color: SUB }}>{historyTotal}</span>
+                                        <div style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
+                                            {HISTORY_FILTERS.map(f => (
+                                                <button key={f.key} onClick={() => setHistoryFilter(f.key)}
+                                                    style={{
+                                                        padding: '4px 10px', borderRadius: 999, fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                                                        border: `1px solid ${historyFilter === f.key ? PRIMARY : BORDER}`,
+                                                        background: historyFilter === f.key ? `${PRIMARY}22` : 'transparent',
+                                                        color: historyFilter === f.key ? PRIMARY : SUB,
+                                                    }}>{f.label}</button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    {history.length === 0 ? (
+                                        <div style={{ padding: '28px 20px', textAlign: 'center', color: SUB, fontSize: 13 }}>
+                                            {historyLoading ? <Loader2 size={18} className="h2h-spin" /> : 'No matches yet — get in the queue.'}
+                                        </div>
+                                    ) : (
+                                        <div>
+                                            {history.map((m, i) => (
+                                                <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 20px', borderBottom: i < history.length - 1 ? `1px solid ${DIVIDER}` : 'none', fontSize: 13 }}>
+                                                    <span style={{
+                                                        width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
+                                                        background: m.outcome === 'win' ? '#4ADE80' : m.outcome === 'loss' ? TERTIARY : SUB,
+                                                    }} />
+                                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                                        <div style={{ color: TEXT, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                            {m.outcome === 'win' ? 'Won' : m.outcome === 'loss' ? 'Lost' : 'Cancelled'} vs {pName(m.opponentProfile, m.opponentProfile?.userId || '')}
+                                                        </div>
+                                                        <div style={{ fontSize: 11, color: SUB, marginTop: 1 }}>
+                                                            {m.genreName || 'Any genre'} · {m.productionMinutes}m{m.status === 'forfeited' ? ' · forfeit' : ''}
+                                                        </div>
+                                                    </div>
+                                                    {m.eloDelta != null && (
+                                                        <span style={{ fontWeight: 800, flexShrink: 0, color: m.eloDelta >= 0 ? '#4ADE80' : TERTIARY }}>
+                                                            {m.eloDelta >= 0 ? '+' : ''}{m.eloDelta}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            ))}
+                                            {history.length < historyTotal && (
+                                                <div style={{ padding: '10px 20px', textAlign: 'center' }}>
+                                                    <button onClick={() => { const next = historyPage + 1; setHistoryPage(next); loadHistory(next, historyFilter, true); }}
+                                                        disabled={historyLoading}
+                                                        style={{ background: 'none', border: `1px solid ${BORDER}`, borderRadius: 8, color: SECONDARY, cursor: 'pointer', fontSize: 12, fontWeight: 700, padding: '6px 14px', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                                                        {historyLoading ? <Loader2 size={12} className="h2h-spin" /> : <ChevronDown size={12} />} Load more
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
 
                         {/* ── RIGHT: leaderboard ── */}
@@ -312,6 +419,16 @@ export const FrontpageAltFArena: React.FC = () => {
                                     <span style={{ fontSize: 14, fontWeight: 700, color: TEXT }}>Leaderboard</span>
                                     <span style={{ marginLeft: 'auto', fontSize: 11, color: SUB }}>{leaderboard.length}</span>
                                 </div>
+                                {genres.length > 0 && (
+                                    <div style={{ padding: '10px 20px', borderBottom: `1px solid ${DIVIDER}`, display: 'flex', alignItems: 'center', gap: 8 }}>
+                                        <Filter size={12} color={SUB} />
+                                        <select value={leaderboardGenre} onChange={e => setLeaderboardGenre(e.target.value)}
+                                            style={{ flex: 1, padding: '6px 8px', background: S_CONT, border: `1px solid ${BORDER}`, borderRadius: 8, color: TEXT, fontSize: 12, fontFamily: FONT, outline: 'none' }}>
+                                            <option value="">All genres</option>
+                                            {genres.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+                                        </select>
+                                    </div>
+                                )}
                                 {leaderboard.length === 0 ? (
                                     <div style={{ padding: '32px 20px', textAlign: 'center', color: SUB, fontSize: 13 }}>No ranked players yet.</div>
                                 ) : (
@@ -327,8 +444,18 @@ export const FrontpageAltFArena: React.FC = () => {
                                                             : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, color: t.color }}>{pName(r.profile, r.userId).slice(0, 2).toUpperCase()}</div>}
                                                     </div>
                                                     <div style={{ flex: 1, minWidth: 0 }}>
-                                                        <div style={{ fontSize: 12, fontWeight: 600, color: TEXT, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pName(r.profile, r.userId)}</div>
-                                                        <div style={{ fontSize: 10, color: SUB }}>{r.wins}W {r.losses}L</div>
+                                                        <div style={{ fontSize: 12, fontWeight: 600, color: TEXT, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 5 }}>
+                                                            {pName(r.profile, r.userId)}
+                                                            <span style={{ fontSize: 9, fontWeight: 800, color: t.color, textTransform: 'uppercase', letterSpacing: '0.04em', flexShrink: 0 }}>{t.name}</span>
+                                                        </div>
+                                                        <div style={{ fontSize: 10, color: SUB, display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                            <span>{r.wins}W {r.losses}L</span>
+                                                            {r.winStreak >= 2 && (
+                                                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2, color: '#FF8A3D', fontWeight: 700 }}>
+                                                                    <Flame size={10} color="#FF8A3D" />{r.winStreak}
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                     <span style={{ fontSize: 13, fontWeight: 800, color: TEXT, fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>{r.elo}</span>
                                                 </div>

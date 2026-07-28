@@ -116,7 +116,8 @@ export class HeadToHeadBattlePlugin implements IPlugin {
         }
         const lines = top.map((r, i) => {
             const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `**${i + 1}.**`;
-            return `${medal} <@${r.userId}> — **${r.elo}** Elo · ${r.wins}W ${r.losses}L`;
+            const streak = r.winStreak >= 2 ? ` · 🔥${r.winStreak}` : '';
+            return `${medal} <@${r.userId}> — **${r.elo}** Elo · ${r.wins}W ${r.losses}L${streak}`;
         });
         const embed = new EmbedBuilder()
             .setColor(0xF97316)
@@ -150,11 +151,14 @@ export class HeadToHeadBattlePlugin implements IPlugin {
         const elo = globalRating?.elo ?? 1200;
         const wins = globalRating?.wins ?? 0;
         const losses = globalRating?.losses ?? 0;
+        const winStreak = globalRating?.winStreak ?? 0;
+        const bestWinStreak = globalRating?.bestWinStreak ?? 0;
 
         const lines: string[] = [
             `**Elo:** ${elo}`,
-            `**Record:** ${wins}W · ${losses}L`,
+            `**Record:** ${wins}W · ${losses}L${winStreak >= 2 ? ` · 🔥${winStreak} streak` : ''}`,
         ];
+        if (bestWinStreak >= 3) lines.push(`**Best streak:** 🔥${bestWinStreak}`);
         if (activeMatch) {
             const phase = activeMatch.status.toUpperCase().replace('_', ' ');
             lines.push('', `**Active match:** \`${phase}\` ([open](${this.getApiUrl()}/h2h/match/${activeMatch.id}))`);

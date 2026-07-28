@@ -17526,23 +17526,31 @@ async function applyEloUpdate(match: any, winnerId: string, loserId: string): Pr
     const before = { winnerElo: winnerGlobal.elo, loserElo: loserGlobal.elo };
     const { winnerDelta, loserDelta } = calcEloDelta(winnerGlobal.elo, loserGlobal.elo, k);
 
+    const winnerNewStreak = winnerGlobal.winStreak + 1;
     await db.h2HRating.update({
         where: { id: winnerGlobal.id },
-        data: { elo: winnerGlobal.elo + winnerDelta, wins: winnerGlobal.wins + 1, matchesPlayed: winnerGlobal.matchesPlayed + 1 },
+        data: {
+            elo: winnerGlobal.elo + winnerDelta, wins: winnerGlobal.wins + 1, matchesPlayed: winnerGlobal.matchesPlayed + 1,
+            winStreak: winnerNewStreak, bestWinStreak: Math.max(winnerGlobal.bestWinStreak, winnerNewStreak),
+        },
     });
     await db.h2HRating.update({
         where: { id: loserGlobal.id },
-        data: { elo: Math.max(0, loserGlobal.elo + loserDelta), losses: loserGlobal.losses + 1, matchesPlayed: loserGlobal.matchesPlayed + 1 },
+        data: { elo: Math.max(0, loserGlobal.elo + loserDelta), losses: loserGlobal.losses + 1, matchesPlayed: loserGlobal.matchesPlayed + 1, winStreak: 0 },
     });
     if (winnerGenre && loserGenre) {
         const { winnerDelta: wd, loserDelta: ld } = calcEloDelta(winnerGenre.elo, loserGenre.elo, k);
+        const winnerGenreNewStreak = winnerGenre.winStreak + 1;
         await db.h2HRating.update({
             where: { id: winnerGenre.id },
-            data: { elo: winnerGenre.elo + wd, wins: winnerGenre.wins + 1, matchesPlayed: winnerGenre.matchesPlayed + 1 },
+            data: {
+                elo: winnerGenre.elo + wd, wins: winnerGenre.wins + 1, matchesPlayed: winnerGenre.matchesPlayed + 1,
+                winStreak: winnerGenreNewStreak, bestWinStreak: Math.max(winnerGenre.bestWinStreak, winnerGenreNewStreak),
+            },
         });
         await db.h2HRating.update({
             where: { id: loserGenre.id },
-            data: { elo: Math.max(0, loserGenre.elo + ld), losses: loserGenre.losses + 1, matchesPlayed: loserGenre.matchesPlayed + 1 },
+            data: { elo: Math.max(0, loserGenre.elo + ld), losses: loserGenre.losses + 1, matchesPlayed: loserGenre.matchesPlayed + 1, winStreak: 0 },
         });
     }
     return {
@@ -17672,6 +17680,8 @@ app.get('/api/head-to-head/leaderboard', publicCache(30), async (req: any, res) 
             losses: r.losses,
             forfeits: r.forfeits,
             matchesPlayed: r.matchesPlayed,
+            winStreak: r.winStreak,
+            bestWinStreak: r.bestWinStreak,
             genreId: r.genreId,
             genreName: r.genre?.name || null,
             profile: pmap.get(r.userId) || null,
@@ -17761,13 +17771,86 @@ app.get('/api/head-to-head/me', requireAuth, async (req: any, res) => {
         };
         res.json({
             userId,
-            globalRating: { elo: globalRating.elo, wins: globalRating.wins, losses: globalRating.losses, forfeits: globalRating.forfeits, matchesPlayed: globalRating.matchesPlayed },
-            genreRatings: genreRatings.map(g => ({ genreId: g.genreId, genreName: g.genre?.name, elo: g.elo, wins: g.wins, losses: g.losses })),
+            globalRating: { elo: globalRating.elo, wins: globalRating.wins, losses: globalRating.losses, forfeits: globalRating.forfeits, matchesPlayed: globalRating.matchesPlayed, winStreak: globalRating.winStreak, bestWinStreak: globalRating.bestWinStreak },
+            genreRatings: genreRatings.map(g => ({ genreId: g.genreId, genreName: g.genre?.name, elo: g.elo, wins: g.wins, losses: g.losses, winStreak: g.winStreak })),
             activeMatch: activeMatch ? attach(activeMatch) : null,
             recentMatches: recent.map(attach),
         });
     } catch (e: any) {
         logger.error('H2H me failed', e);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Full match history (paginated) — /me only ever returns the 10 most recent matches;
+// this covers everything, with optional result filtering.
+app.get('/api/head-to-head/history', requireAuth, async (req: any, res) => {
+    try {
+        const userId = req.session.user.id;
+        const page = Math.max(1, Number(req.query.page) || 1);
+        const pageSize = Math.min(50, Math.max(1, Number(req.query.pageSize) || 20));
+        const result = (req.query.result as string | undefined) || 'all'; // all | win | loss | forfeit
+
+        const where: any = {
+            OR: [{ challengerId: userId }, { opponentId: userId }],
+            // Queue abandonments (cancelled, never matched) aren't real games.
+            NOT: { status: 'cancelled', opponentId: null },
+            status: { in: ['completed', 'forfeited', 'cancelled'] },
+        };
+        if (result === 'win') where.winnerId = userId;
+        else if (result === 'loss') where.loserId = userId;
+        else if (result === 'forfeit') where.status = 'forfeited';
+
+        const [total, matches] = await Promise.all([
+            db.h2HMatch.count({ where }),
+            db.h2HMatch.findMany({
+                where,
+                orderBy: { updatedAt: 'desc' },
+                skip: (page - 1) * pageSize,
+                take: pageSize,
+                include: { genre: true },
+            }),
+        ]);
+
+        const opponentIds = new Set<string>();
+        for (const m of matches) {
+            const oppId = m.challengerId === userId ? m.opponentId : m.challengerId;
+            if (oppId) opponentIds.add(oppId);
+        }
+        const profiles = opponentIds.size
+            ? await db.musicianProfile.findMany({
+                where: { userId: { in: Array.from(opponentIds) } },
+                select: { userId: true, username: true, displayName: true, avatar: true },
+            })
+            : [];
+        const pmap = new Map(profiles.map(p => [p.userId, p]));
+
+        res.json({
+            total,
+            page,
+            pageSize,
+            matches: matches.map(m => {
+                const isChallenger = m.challengerId === userId;
+                const opponentId = isChallenger ? m.opponentId : m.challengerId;
+                const eloBefore = isChallenger ? m.challengerEloBefore : m.opponentEloBefore;
+                const eloAfter = isChallenger ? m.challengerEloAfter : m.opponentEloAfter;
+                return {
+                    id: m.id,
+                    status: m.status,
+                    genreId: m.genreId,
+                    genreName: m.genre?.name || null,
+                    productionMinutes: m.productionMinutes,
+                    outcome: m.winnerId === userId ? 'win' : m.loserId === userId ? 'loss' : 'cancelled',
+                    forfeitReason: m.forfeitReason,
+                    opponentProfile: opponentId ? (pmap.get(opponentId) || { userId: opponentId, username: null, displayName: null, avatar: null }) : null,
+                    eloBefore, eloAfter,
+                    eloDelta: (eloBefore != null && eloAfter != null) ? eloAfter - eloBefore : null,
+                    completedAt: m.updatedAt,
+                };
+            }),
+        });
+    } catch (e: any) {
+        logger.error('H2H history failed', e);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
@@ -18623,42 +18706,62 @@ async function runHeadToHeadLifecycle(): Promise<void> {
         if (!settings.enabled) return;
         const now = new Date();
 
-        // 1. Matchmaking � pair queued players within the same genre + production length, prefer closest Elo.
+        // 1. Matchmaking — pair queued players within the same production length, closest Elo first.
+        // The acceptable Elo gap widens the longer someone has waited (tier → adjacent tier → anyone),
+        // so ranked play is actually skill-matched instead of pure FIFO, while still guaranteeing a
+        // match eventually in a small queue.
         const queued = await db.h2HMatch.findMany({
             where: { status: 'queued', opponentId: null },
             orderBy: { createdAt: 'asc' },
         });
         const consumed = new Set<string>();
-        for (const a of queued) {
-            if (consumed.has(a.id)) continue;
-            const candidate = queued.find(b =>
-                !consumed.has(b.id) &&
-                b.id !== a.id &&
-                b.challengerId !== a.challengerId &&
-                b.productionMinutes === a.productionMinutes
-            );
-            if (!candidate) continue;
-            // Elo distance is informational � we still match within bucket since the queue is small.
-            const readyDeadline = new Date(now.getTime() + settings.readyUpMinutes * 60 * 1000);
-            await db.h2HMatch.update({
-                where: { id: a.id },
-                data: {
-                    opponentId: candidate.challengerId,
-                    status: 'ready_check',
-                    readyUpStartedAt: now,
-                    readyDeadline,
-                },
+        if (queued.length > 1) {
+            const ratings = await db.h2HRating.findMany({
+                where: { userId: { in: queued.map(q => q.challengerId) }, genreId: null },
             });
-            // Mark candidate as cancelled (it was a placeholder queue row) � its user is now opponent on `a`.
-            await db.h2HMatch.update({
-                where: { id: candidate.id },
-                data: { status: 'cancelled', forfeitReason: 'Merged into match ' + a.id },
-            });
-            consumed.add(a.id);
-            consumed.add(candidate.id);
-            // Notify both players they've been matched
-            sendPushIfEnabled(db, a.challengerId, 'h2hUpdates', { title: 'Your 1v1 match is ready!', body: 'Ready up before time runs out.', url: '/arena', channelId: 'battles' }).catch(() => {});
-            sendPushIfEnabled(db, candidate.challengerId, 'h2hUpdates', { title: 'Your 1v1 match is ready!', body: 'Ready up before time runs out.', url: '/arena', channelId: 'battles' }).catch(() => {});
+            const eloMap = new Map(ratings.map(r => [r.userId, r.elo]));
+            const eloOf = (challengerId: string) => eloMap.get(challengerId) ?? settings.startingElo;
+            const maxWaitMs = Math.max(1, settings.maxQueueWaitMinutes) * 60 * 1000;
+
+            for (const a of queued) {
+                if (consumed.has(a.id)) continue;
+                const waitedMs = now.getTime() - new Date(a.createdAt).getTime();
+                // Tight (same-tier) → medium (adjacent-tier) → open (anyone) as the wait grows.
+                const maxEloDiff = waitedMs >= maxWaitMs ? Infinity : waitedMs >= maxWaitMs / 2 ? 300 : 100;
+                const aElo = eloOf(a.challengerId);
+
+                let best: typeof a | null = null;
+                let bestDiff = Infinity;
+                for (const b of queued) {
+                    if (b.id === a.id || consumed.has(b.id)) continue;
+                    if (b.challengerId === a.challengerId) continue;
+                    if (b.productionMinutes !== a.productionMinutes) continue;
+                    const diff = Math.abs(eloOf(b.challengerId) - aElo);
+                    if (diff <= maxEloDiff && diff < bestDiff) { best = b; bestDiff = diff; }
+                }
+                if (!best) continue;
+                const candidate = best;
+                const readyDeadline = new Date(now.getTime() + settings.readyUpMinutes * 60 * 1000);
+                await db.h2HMatch.update({
+                    where: { id: a.id },
+                    data: {
+                        opponentId: candidate.challengerId,
+                        status: 'ready_check',
+                        readyUpStartedAt: now,
+                        readyDeadline,
+                    },
+                });
+                // Mark candidate as cancelled (it was a placeholder queue row) — its user is now opponent on `a`.
+                await db.h2HMatch.update({
+                    where: { id: candidate.id },
+                    data: { status: 'cancelled', forfeitReason: 'Merged into match ' + a.id },
+                });
+                consumed.add(a.id);
+                consumed.add(candidate.id);
+                // Notify both players they've been matched
+                sendPushIfEnabled(db, a.challengerId, 'h2hUpdates', { title: 'Your 1v1 match is ready!', body: 'Ready up before time runs out.', url: '/arena', channelId: 'battles' }).catch(() => {});
+                sendPushIfEnabled(db, candidate.challengerId, 'h2hUpdates', { title: 'Your 1v1 match is ready!', body: 'Ready up before time runs out.', url: '/arena', channelId: 'battles' }).catch(() => {});
+            }
         }
 
         // 2. Ready-check timeouts

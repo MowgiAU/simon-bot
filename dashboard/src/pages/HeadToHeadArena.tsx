@@ -56,8 +56,8 @@ export interface MatchInfo {
 }
 export interface MeData {
     userId: string;
-    globalRating: { elo: number; wins: number; losses: number; forfeits: number; matchesPlayed: number };
-    genreRatings: { genreId: string; genreName: string; elo: number; wins: number; losses: number }[];
+    globalRating: { elo: number; wins: number; losses: number; forfeits: number; matchesPlayed: number; winStreak: number; bestWinStreak: number };
+    genreRatings: { genreId: string; genreName: string; elo: number; wins: number; losses: number; winStreak: number }[];
     activeMatch: MatchInfo | null;
     recentMatches: MatchInfo[];
 }
@@ -71,6 +71,8 @@ interface LeaderRow {
     wins: number;
     losses: number;
     matchesPlayed: number;
+    winStreak: number;
+    bestWinStreak: number;
     profile: Profile | null;
     genreName: string | null;
 }
