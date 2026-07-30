@@ -1,8 +1,8 @@
-import { 
-    Client, 
-    ChatInputCommandInteraction, 
-    GuildMember, 
-    SlashCommandBuilder, 
+import {
+    Client,
+    ChatInputCommandInteraction,
+    GuildMember,
+    SlashCommandBuilder,
     PermissionFlagsBits,
     EmbedBuilder,
     TextChannel,
@@ -11,6 +11,10 @@ import {
     ActionRowBuilder,
     ChannelType,
     ButtonInteraction,
+    ModalBuilder,
+    ModalSubmitInteraction,
+    TextInputBuilder,
+    TextInputStyle,
     CategoryChannel,
     Colors,
     Collection,
@@ -119,7 +123,7 @@ export class TicketPlugin implements IPlugin {
         return [ticketCommand];
     }
 
-    async onInteractionCreate(interaction: ChatInputCommandInteraction | ButtonInteraction): Promise<void> {
+    async onInteractionCreate(interaction: ChatInputCommandInteraction | ButtonInteraction | ModalSubmitInteraction): Promise<void> {
         if (!interaction.guildId) return;
 
         if (interaction.isChatInputCommand()) {
@@ -153,6 +157,11 @@ export class TicketPlugin implements IPlugin {
             } else if (interaction.customId.startsWith('close_ticket_')) {
                 // Determine if we confirm or just close. For now, just close logic.
                 // Usually buttons inside the ticket might trigger close.
+            }
+        }
+        else if (interaction.isModalSubmit()) {
+            if (interaction.customId === 'create_ticket_modal') {
+                await this.handleTicketModalSubmit(interaction);
             }
         }
     }
@@ -263,7 +272,7 @@ export class TicketPlugin implements IPlugin {
         
         const embed = new EmbedBuilder()
             .setTitle('Support Tickets')
-            .setDescription('Click the button below to open a support ticket.')
+            .setDescription('Click the button below to open a support ticket. You\'ll be asked what you need help with before your ticket channel is created.')
             .setColor(Colors.Blue);
 
         const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
@@ -279,19 +288,48 @@ export class TicketPlugin implements IPlugin {
     }
 
     private async handleCreateTicket(interaction: ButtonInteraction) {
-        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         const guildId = interaction.guildId!;
         const userId = interaction.user.id;
 
-        // Check for existing open ticket
+        // Check for an existing open ticket before showing the modal — showModal() must be
+        // the interaction's first response, so this can't be deferred/replied to first.
         const existing = await this.db.ticket.findFirst({
-            where: {
-                guildId,
-                ownerId: userId,
-                status: 'open'
-            }
+            where: { guildId, ownerId: userId, status: 'open' }
         });
 
+        if (existing) {
+            await interaction.reply({ content: `You already have an open ticket: <#${existing.channelId}>`, flags: MessageFlags.Ephemeral });
+            return;
+        }
+
+        const modal = new ModalBuilder()
+            .setCustomId('create_ticket_modal')
+            .setTitle('Open a Support Ticket');
+
+        const queryInput = new TextInputBuilder()
+            .setCustomId('query')
+            .setLabel('What do you need help with?')
+            .setStyle(TextInputStyle.Paragraph)
+            .setPlaceholder('Describe your issue or question — the more detail, the faster staff can help.')
+            .setMinLength(5)
+            .setMaxLength(1000)
+            .setRequired(true);
+
+        modal.addComponents(new ActionRowBuilder<TextInputBuilder>().addComponents(queryInput));
+
+        await interaction.showModal(modal);
+    }
+
+    private async handleTicketModalSubmit(interaction: ModalSubmitInteraction) {
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        const guildId = interaction.guildId!;
+        const userId = interaction.user.id;
+        const query = interaction.fields.getTextInputValue('query').trim();
+
+        // Re-check in case another ticket was opened in the few seconds the modal was open.
+        const existing = await this.db.ticket.findFirst({
+            where: { guildId, ownerId: userId, status: 'open' }
+        });
         if (existing) {
             await interaction.editReply({ content: `You already have an open ticket: <#${existing.channelId}>` });
             return;
@@ -306,7 +344,7 @@ export class TicketPlugin implements IPlugin {
 
         const guild = interaction.guild!;
         const category = await guild.channels.fetch(settings.ticketCategoryId) as CategoryChannel;
-        
+
         if (!category) {
             await interaction.editReply({ content: 'Ticket category not found.' });
             return;
@@ -336,7 +374,7 @@ export class TicketPlugin implements IPlugin {
                     allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages]
                 });
             });
-        } 
+        }
         // Fallback or legacy support if needed, though we prioritize roleIds
         else if ((settings as any).staffRoleId) {
              overwrites.push({
@@ -346,6 +384,7 @@ export class TicketPlugin implements IPlugin {
         }
 
         const safeUsername = await this.censor.clean(guildId, interaction.user.username);
+        const safeQuery = await this.censor.clean(guildId, query);
         const channel = await guild.channels.create({
             name: `ticket-${safeUsername}`,
             type: ChannelType.GuildText,
@@ -353,26 +392,45 @@ export class TicketPlugin implements IPlugin {
             permissionOverwrites: overwrites,
         });
 
+        // Subject shown in the dashboard ticket list — a truncated version of their query.
+        const subject = safeQuery.length > 100 ? `${safeQuery.slice(0, 97)}...` : safeQuery;
+
         // Save to DB
-        await this.db.ticket.create({
+        const ticket = await this.db.ticket.create({
             data: {
                 guildId,
                 channelId: channel.id,
                 ownerId: userId,
                 ownerName: interaction.user.username,
-                status: 'open'
+                status: 'open',
+                type: 'discord',
+                subject,
             }
         });
 
-        // Send welcome message
+        // Store their initial query as the first ticket message, same as the web-appeal
+        // ticket flow — so it's visible in the dashboard even if they never write in the
+        // channel again.
+        await this.db.ticketMessage.create({
+            data: {
+                ticketId: ticket.id,
+                authorId: userId,
+                authorName: interaction.user.username,
+                content: query,
+            }
+        });
+
+        // Send welcome message — includes their query so staff see it immediately,
+        // without the user needing to repeat themselves in the channel.
         const embed = new EmbedBuilder()
             .setTitle(`Ticket: ${safeUsername}`)
             .setDescription('Support will be with you shortly. To close this ticket, use `/ticket close`.')
+            .addFields({ name: 'What they need help with', value: safeQuery.slice(0, 1024) })
             .setColor(Colors.Green);
 
         // Fetch settings again to be sure we have the latest
-        const rolePings = settings.staffRoleIds && settings.staffRoleIds.length > 0 
-            ? settings.staffRoleIds.map(id => `<@&${id}>`).join(' ') 
+        const rolePings = settings.staffRoleIds && settings.staffRoleIds.length > 0
+            ? settings.staffRoleIds.map(id => `<@&${id}>`).join(' ')
             : null;
 
         const userPing = `<@${userId}>`;
@@ -383,11 +441,25 @@ export class TicketPlugin implements IPlugin {
             allowedMentions: { users: [userId], roles: settings.staffRoleIds || [] },
         });
 
-        await channel.send({ 
-            embeds: [embed] 
+        await channel.send({
+            embeds: [embed]
         });
 
-        await interaction.editReply({ content: `Ticket created: ${channel}` });
+        // Ephemeral confirmation only the ticket opener can see, with a one-click jump
+        // link to the channel — the thing they were missing before.
+        const jumpUrl = `https://discord.com/channels/${guildId}/${channel.id}`;
+        const linkRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
+            new ButtonBuilder()
+                .setLabel('Open Your Ticket')
+                .setStyle(ButtonStyle.Link)
+                .setURL(jumpUrl)
+                .setEmoji(String.fromCodePoint(0x1F3AB))
+        );
+
+        await interaction.editReply({
+            content: `Your ticket has been created: ${channel}\nStaff can already see your message, so you don't need to repeat it — but feel free to add more detail there.`,
+            components: [linkRow],
+        });
     }
 
     private async handleClose(interaction: ChatInputCommandInteraction) {
