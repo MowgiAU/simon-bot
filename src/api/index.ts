@@ -10510,7 +10510,7 @@ function computeTopScore(score: number, plays = 0): number {
 // Get genre posts feed (or personalised subscribed feed)
 app.get('/api/genre-posts', async (req: any, res) => {
     try {
-        const { genreId, genreIds: genreIdsRaw, groupId, feed, sort = 'hot', cursor, period = 'week', authorId, flair: flairFilter } = req.query;
+        const { genreId, genreIds: genreIdsRaw, groupId, feed, sort = 'hot', cursor, period = 'week', authorId, flair: flairFilter, type: typeFilter } = req.query;
         const limit = Math.min(Number(req.query.limit) || 25, 50);
         const userId = req.session?.user?.id || null;
 
@@ -10548,6 +10548,8 @@ app.get('/api/genre-posts', async (req: any, res) => {
         if (!isAdmin) baseWhere.hiddenAt = null;
         if (authorId) baseWhere.userId = authorId as string;
         if (flairFilter) baseWhere.flair = flairFilter as string;
+        // Music-only feeds (the mobile shorts feed) ask for type=track
+        if (typeFilter === 'track' || typeFilter === 'discussion') baseWhere.type = typeFilter;
 
         const where: any = { ...baseWhere };
 
@@ -10571,6 +10573,7 @@ app.get('/api/genre-posts', async (req: any, res) => {
         if (isSingleGenre && sort !== 'new' && !cursor) {
             const pinnedWhere: any = { OR: [{ genreId: { in: genreIds } }, { extraGenreIds: { hasSome: genreIds } }], deletedAt: null, pinned: true };
             if (!isAdmin) pinnedWhere.hiddenAt = null;
+            if (baseWhere.type) pinnedWhere.type = baseWhere.type;
             const fetched = await (db as any).genrePost.findMany({
                 where: pinnedWhere,
                 orderBy: { pinnedAt: 'desc' },

@@ -395,7 +395,9 @@ export const GlobalPlayer: React.FC = () => {
             )}
 
             {/* ── Player Bar ── */}
-            <footer style={{
+            {/* data-global-player lets immersive surfaces (e.g. the mobile shorts
+                feed) hide the bar via CSS while they own transport controls. */}
+            <footer data-global-player="bar" style={{
                 height: `${playerHeight}px`,
                 backgroundColor: 'rgba(12,14,22,0.55)',
                 backdropFilter: 'blur(20px)',

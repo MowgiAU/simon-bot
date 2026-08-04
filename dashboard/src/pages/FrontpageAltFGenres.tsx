@@ -13,6 +13,8 @@ import {
 import { AltHeader } from '../components/altshell/AltHeader';
 import { AltActivitySidebar } from '../components/altshell/AltActivitySidebar';
 import { AltSpinner } from '../components/altshell/AltSpinner';
+import { AltShortsFeed } from '../components/altshell/AltShortsFeed';
+import { useAltBreakpoint } from '../components/altshell/useAltBreakpoint';
 import {
     Music, Play, Pause, Search, X, TrendingUp, Users,
     ChevronUp, ChevronDown, MessageCircle, Clock, Flame, Plus,
@@ -533,6 +535,13 @@ export const FrontpageAltFGenres: React.FC = () => {
     const [communities, setCommunities] = useState<Community[]>([]);
     const [communitySubscribedIds, setCommunitySubscribedIds] = useState<Set<string>>(new Set());
 
+    // ── Mobile shorts feed ────────────────────────────────────────────────────
+    // On phones a genre feed becomes a full-screen, snap-scrolled shorts feed
+    // built around track posts. Community feeds have no tracks, so they keep the
+    // classic card list.
+    const bp = useAltBreakpoint();
+    const [shortsMusicOnly, setShortsMusicOnly] = useState(true);
+
     // ── Derived from genres list ──────────────────────────────────────────────
     const allGenres = useMemo(() => {
         const flat: Genre[] = [];
@@ -547,6 +556,8 @@ export const FrontpageAltFGenres: React.FC = () => {
         if (genreSlug) return 'single';
         return 'grid';
     }, [genreSlug, multiSlugsFromUrl, groupIdFromUrl]);
+
+    const shortsMode = bp === 'xs' && viewMode !== 'grid' && !isCommunityKind;
 
     const activeGenre = useMemo(() =>
         (genreSlug && !isCommunityKind) ? allGenres.find(g => g.slug === genreSlug) || null : null,
@@ -625,8 +636,9 @@ export const FrontpageAltFGenres: React.FC = () => {
         else if (viewMode === 'group' && groupIdFromUrl) { p.groupId = groupIdFromUrl; }
         else if (activeGenreIds.length > 0) { p.genreIds = activeGenreIds.join(','); }
         if (flairFromUrl) p.flair = flairFromUrl;
+        if (shortsMode && shortsMusicOnly) p.type = 'track';
         return p;
-    }, [viewMode, groupIdFromUrl, activeGenreIds, sort, period, flairFromUrl, isCommunityKind, activeCommunity]);
+    }, [viewMode, groupIdFromUrl, activeGenreIds, sort, period, flairFromUrl, isCommunityKind, activeCommunity, shortsMode, shortsMusicOnly]);
 
     useEffect(() => {
         if (isCommunityKind) {
@@ -646,7 +658,7 @@ export const FrontpageAltFGenres: React.FC = () => {
         fetchPosts(buildParams());
         setSelectedSubSlugs(new Set());
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [genres, communities, viewMode, activeGenreIds.join(','), groupIdFromUrl, sort, period, flairFromUrl, isCommunityKind, activeCommunity]);
+    }, [genres, communities, viewMode, activeGenreIds.join(','), groupIdFromUrl, sort, period, flairFromUrl, isCommunityKind, activeCommunity, shortsMode, shortsMusicOnly]);
 
     // ── Close dropdown on outside click ──────────────────────────────────────
     useEffect(() => {
@@ -803,6 +815,36 @@ export const FrontpageAltFGenres: React.FC = () => {
             )}
         </div>
     );
+
+    // ── Mobile: full-screen shorts feed instead of the card list ──────────────
+    if (shortsMode) {
+        const shortsTitle = viewMode === 'group' && activeGroup ? activeGroup.name
+            : viewMode === 'multi' ? `${activeGenreIds.length} Genres`
+            : activeGenre?.name || 'Genres';
+        return (
+            <div style={{ background: '#06080e', color: TEXT, fontFamily: FONT, minHeight: '100vh' }}>
+                <AltShortsFeed
+                    posts={posts as any}
+                    loading={postsLoading}
+                    hasMore={hasMore}
+                    onLoadMore={() => { if (nextCursor) fetchPosts(buildParams(), nextCursor); }}
+                    onVote={handleVote}
+                    onShare={p => setSharePost(p as any)}
+                    title={shortsTitle}
+                    backTo="/genres"
+                    musicOnly={shortsMusicOnly}
+                    onToggleMusicOnly={setShortsMusicOnly}
+                    sort={sort}
+                    onSortChange={setSort}
+                    createLink={createLink}
+                />
+                <AltSidebar />
+                {sharePost && (
+                    <ShareModal post={sharePost} genres={genres} onClose={() => setSharePost(null)} />
+                )}
+            </div>
+        );
+    }
 
     return (
         <div style={{ height: '100vh', display: 'flex', overflow: 'hidden', background: BG, color: TEXT, fontFamily: FONT }}>
