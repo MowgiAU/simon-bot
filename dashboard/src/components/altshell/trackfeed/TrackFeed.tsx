@@ -32,7 +32,8 @@ const FEED_STYLES = `
 
 interface Props {
     params: FeedParams;
-    title: string;
+    /** Contextual label shown next to the wordmark (genre, artist, search…). */
+    title?: string;
     backTo?: string;
     browseTo?: string;
     createLink?: string;
@@ -147,9 +148,18 @@ export const TrackFeed: React.FC<Props> = ({ params, title, backTo, browseTo, cr
                     </Link>
                 )}
                 <div style={{ minWidth: 0, flex: 1 }}>
-                    <div style={{ fontSize: 15, fontWeight: 900, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textShadow: '0 2px 12px rgba(0,0,0,0.6)' }}>{title}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                        <Link to="/" aria-label="Fuji Studio" style={{ display: 'flex', flexShrink: 0 }}>
+                            <img src="/fujitext.svg" alt="Fuji Studio" style={{ height: 17, width: 'auto', display: 'block', filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.7))' }} />
+                        </Link>
+                        {title && (
+                            <span style={{ fontSize: 13.5, fontWeight: 800, color: 'rgba(255,255,255,0.92)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textShadow: '0 2px 12px rgba(0,0,0,0.6)', minWidth: 0 }}>
+                                {title}
+                            </span>
+                        )}
+                    </div>
                     {tracks.length > 0 && (
-                        <div style={{ fontSize: 10.5, color: 'rgba(255,255,255,0.6)', marginTop: 1 }}>
+                        <div style={{ fontSize: 10.5, color: 'rgba(255,255,255,0.6)', marginTop: 2 }}>
                             {active + 1} / {tracks.length}{hasMore ? '+' : ''}
                         </div>
                     )}

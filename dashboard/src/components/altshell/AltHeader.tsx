@@ -54,8 +54,15 @@ export const AltHeader: React.FC<AltHeaderProps> = ({ breadcrumb = [], leftSlot,
         <header style={{ height: 64, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', borderBottom: `1px solid ${BORDER}`, background: 'rgba(15,19,29,0.7)', backdropFilter: 'blur(20px)', position: 'relative', zIndex: 50 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0 }}>
                 {leftSlot && <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>{leftSlot}</div>}
+                {/* On phones the left sidebar (which carries the wordmark) is replaced by
+                    the bottom nav, so the brand lives here instead. */}
+                {bp === 'xs' && (
+                    <Link to="/" aria-label="Fuji Studio" style={{ display: 'flex', flexShrink: 0 }}>
+                        <img src="/fujitext.svg" alt="Fuji Studio" style={{ height: 17, width: 'auto', display: 'block' }} />
+                    </Link>
+                )}
                 {breadcrumb.length > 0 && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: SUB, flexShrink: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: SUB, flexShrink: bp === 'xs' ? 1 : 0, minWidth: 0, overflow: 'hidden', whiteSpace: 'nowrap' }}>
                         {breadcrumb.map((item, i) => (
                             <React.Fragment key={i}>
                                 {i > 0 && <ChevronRight size={14} color={SUB} />}

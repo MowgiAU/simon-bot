@@ -19,7 +19,6 @@ export const FrontpageAltFHomeFeed: React.FC = () => {
         <div style={{ background: '#06080e', color: TEXT, fontFamily: FONT, minHeight: '100vh' }}>
             <TrackFeed
                 params={{}}
-                title="Fuji Studio"
                 browseTo="/home"
                 createLink="/upload"
                 emptyMessage="No tracks have been uploaded yet. Be the first."
