@@ -1143,6 +1143,11 @@ model Track {
   trackType            String  @default("original") // "original" | "remix" | "cover"
   position             Int     @default(0) // display order on profile timeline
 
+  // Shorts feed ranking. Epoch-anchored like GenrePost.hotScore: freshness comes
+  // from createdAt, engagement (plays/likes/reposts/comments) adds a logarithmic
+  // bump on top. Stable — only recomputed when engagement changes, never decays.
+  feedScore Float @default(0)
+
   // Creative Commons license
   license String @default("all-rights-reserved") // "all-rights-reserved" | "cc-by" | "cc-by-sa" | "cc-by-nc" | "cc-by-nc-sa" | "cc-by-nd" | "cc-by-nc-nd" | "cc0"
 
@@ -1206,6 +1211,7 @@ model Track {
   @@index([isPublic, createdAt(sort: Desc)]) // Discovery: newest public tracks
   @@index([isPublic, status, playCount(sort: Desc)]) // Leaderboard with status filter
   @@index([isPublic, status, createdAt(sort: Desc)]) // Discovery with status filter
+  @@index([isPublic, status, feedScore(sort: Desc)]) // Shorts feed ranking + cursor pagination
   @@map("musician_tracks")
 }
 

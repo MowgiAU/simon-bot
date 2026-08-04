@@ -8317,6 +8317,9 @@ app.post('/api/musician/tracks', uploadLimiter, requireDesktopAuth, upload.field
             audioFileSizeBytes: audioFile.size,
         });
 
+        // Seed the shorts-feed ranking so the upload is placeable in the feed immediately
+        bumpFeedScore(track.id);
+
         // Log track upload
         await logAction('GLOBAL', 'track_uploaded', userId, track.id, { title: track.title });
 
@@ -9744,10 +9747,227 @@ app.post('/api/musician/tracks/:trackId/play', async (req, res) => {
             duration
         });
 
+        // A recorded play changes the track's ranking in the shorts feed
+        if ((result as any)?.recorded) bumpFeedScore(trackId);
+
         res.json(result);
     } catch (e: any) {
         res.status(500).json({ error: 'Internal server error' });
     }
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Shorts feed (tracks)
+// ═══════════════════════════════════════════════════════════════════════════
+// Ranking uses the same epoch-anchored shape as GenrePost.hotScore: freshness
+// comes from createdAt, engagement adds a logarithmic bump on top. Because the
+// value is anchored to absolute upload time it never needs a periodic decay
+// pass — it only changes when the track gains plays/likes/reposts/comments.
+const FEED_LIKE_WEIGHT = 2, FEED_REPOST_WEIGHT = 3, FEED_COMMENT_WEIGHT = 1;
+function computeFeedScore(createdAt: Date, plays = 0, likes = 0, reposts = 0, comments = 0): number {
+    const engagement = likes * FEED_LIKE_WEIGHT + reposts * FEED_REPOST_WEIGHT + comments * FEED_COMMENT_WEIGHT;
+    const order = engagement > 0 ? Math.log10(engagement + 1) : 0;
+    const seconds = createdAt.getTime() / 1000 - HOT_EPOCH;
+    return Number((order + playBoost(plays) + seconds / HOT_TIME_DIVISOR).toFixed(7));
+}
+
+async function refreshFeedScore(trackId: string): Promise<void> {
+    const t = await db.track.findUnique({
+        where: { id: trackId },
+        select: {
+            createdAt: true, playCount: true,
+            _count: { select: { favourites: true, reposts: true, comments: true } },
+        },
+    });
+    if (!t) return;
+    await db.track.update({
+        where: { id: trackId },
+        data: { feedScore: computeFeedScore(t.createdAt, t.playCount, t._count.favourites, t._count.reposts, t._count.comments) },
+    });
+}
+/** Fire-and-forget rescore — never let ranking upkeep fail a user action. */
+function bumpFeedScore(trackId?: string | null): void {
+    if (!trackId) return;
+    refreshFeedScore(trackId).catch(() => {});
+}
+
+// Everything a feed slide needs, in one round trip.
+const FEED_TRACK_SELECT = {
+    id: true, title: true, slug: true, url: true, mp3Url: true, coverUrl: true,
+    duration: true, playCount: true, bpm: true, key: true, description: true,
+    license: true, youtubeUrl: true, waveformPeaks: true, lyrics: true, lyricsSync: true,
+    allowAudioDownload: true, allowProjectDownload: true, allowStemsDownload: true,
+    projectFileUrl: true, projectZipUrl: true, createdAt: true, feedScore: true,
+    genres: { select: { genre: { select: { id: true, name: true, slug: true } } } },
+    profile: { select: { id: true, userId: true, username: true, displayName: true, avatar: true, totalPlays: true } },
+    _count: { select: { favourites: true, reposts: true, comments: true } },
+} as const;
+
+const encodeFeedCursor = (c: any) => Buffer.from(JSON.stringify(c)).toString('base64url');
+const decodeFeedCursor = (s?: string): any => {
+    if (!s) return null;
+    try { return JSON.parse(Buffer.from(s, 'base64url').toString()); } catch { return null; }
+};
+
+// GET /api/tracks/feed — the single endpoint behind every shorts feed surface.
+// Personalised without raw SQL: two independently cursored queries (tracks from
+// artists you follow or in your genres, and everything else) merged into one page.
+app.get('/api/tracks/feed', async (req: any, res) => {
+    try {
+        const { genre, search, artist, startTrackId } = req.query;
+        const limit = Math.min(Number(req.query.limit) || 12, 30);
+        const userId = req.session?.user?.id || null;
+        const cursor = decodeFeedCursor(req.query.cursor as string);
+
+        const base: any = { isPublic: true, deletedAt: null, status: 'active' };
+
+        if (genre) {
+            const g = await db.genre.findFirst({
+                where: { OR: [{ slug: { equals: genre as string, mode: 'insensitive' } }, { name: { equals: genre as string, mode: 'insensitive' } }] },
+                include: { children: { select: { id: true } } },
+            });
+            // Unknown genre → empty feed rather than silently showing everything
+            const ids = g ? [g.id, ...g.children.map(c => c.id)] : ['__none__'];
+            base.genres = { some: { genreId: { in: ids } } };
+        }
+        if (artist) base.profile = { username: { equals: artist as string, mode: 'insensitive' } };
+        if (search) {
+            base.OR = [
+                { title: { contains: search as string, mode: 'insensitive' } },
+                { artist: { contains: search as string, mode: 'insensitive' } },
+                { profile: { username: { contains: search as string, mode: 'insensitive' } } },
+                { profile: { displayName: { contains: search as string, mode: 'insensitive' } } },
+            ];
+        }
+
+        // ── Who is this feed for ──────────────────────────────────────────────
+        let followedProfileIds: string[] = [];
+        let viewerGenreIds: string[] = [];
+        if (userId) {
+            const [follows, me] = await Promise.all([
+                db.artistFollow.findMany({ where: { followerId: userId }, select: { artistId: true } }),
+                db.musicianProfile.findFirst({ where: { userId }, select: { genres: { select: { genreId: true } } } }),
+            ]);
+            followedProfileIds = follows.map(f => f.artistId);
+            viewerGenreIds = (me?.genres || []).map(g => g.genreId);
+        }
+        const personalOr: any[] = [];
+        if (followedProfileIds.length) personalOr.push({ profileId: { in: followedProfileIds } });
+        if (viewerGenreIds.length) personalOr.push({ genres: { some: { genreId: { in: viewerGenreIds } } } });
+        const hasPersonal = personalOr.length > 0;
+
+        const orderBy: any = [{ feedScore: 'desc' }, { id: 'desc' }];
+        const exclude: string[] = [];
+
+        // ── Deep link: the requested track leads, then the feed continues ─────
+        let lead: any = null;
+        if (startTrackId && !cursor) {
+            lead = await db.track.findFirst({
+                where: { id: startTrackId as string, deletedAt: null, status: 'active' },
+                select: FEED_TRACK_SELECT,
+            });
+            if (lead) exclude.push(lead.id);
+        }
+
+        const want = lead ? limit - 1 : limit;
+        // ~40% personalised so the feed still surfaces new artists
+        const personalWant = hasPersonal ? Math.max(1, Math.round(want * 0.4)) : 0;
+        const globalWant = want - personalWant;
+
+        const page = async (where: any, take: number, cur?: string | null) => {
+            if (take <= 0) return [];
+            return db.track.findMany({
+                where: exclude.length ? { AND: [where, { id: { notIn: exclude } }] } : where,
+                orderBy, take,
+                ...(cur ? { cursor: { id: cur }, skip: 1 } : {}),
+                select: FEED_TRACK_SELECT,
+            });
+        };
+
+        const personalWhere = hasPersonal ? { AND: [base, { OR: personalOr }] } : null;
+        const globalWhere = hasPersonal ? { AND: [base, { NOT: { OR: personalOr } }] } : base;
+
+        const [personal, global] = await Promise.all([
+            personalWhere && !cursor?.pDone ? page(personalWhere, personalWant + 1, cursor?.p) : Promise.resolve([]),
+            !cursor?.gDone ? page(globalWhere, globalWant + 1, cursor?.g) : Promise.resolve([]),
+        ]);
+
+        const pDone = personal.length <= personalWant;
+        const gDone = global.length <= globalWant;
+        const pTake = personal.slice(0, personalWant);
+        const gTake = global.slice(0, globalWant);
+
+        // Interleave 2 personalised : 3 global so neither source clumps
+        const merged: any[] = [];
+        let pi = 0, gi = 0;
+        while (pi < pTake.length || gi < gTake.length) {
+            for (let i = 0; i < 2 && pi < pTake.length; i++) merged.push(pTake[pi++]);
+            for (let i = 0; i < 3 && gi < gTake.length; i++) merged.push(gTake[gi++]);
+            if (pi >= pTake.length && gi >= gTake.length) break;
+        }
+        const tracks = lead ? [lead, ...merged] : merged;
+
+        // ── Viewer state for this page ────────────────────────────────────────
+        let liked = new Set<string>(), reposted = new Set<string>();
+        if (userId && tracks.length) {
+            const ids = tracks.map(t => t.id);
+            const [favs, rps] = await Promise.all([
+                db.trackFavourite.findMany({ where: { userId, trackId: { in: ids } }, select: { trackId: true } }),
+                db.trackRepost.findMany({ where: { userId, trackId: { in: ids } }, select: { trackId: true } }),
+            ]);
+            liked = new Set(favs.map(f => f.trackId));
+            reposted = new Set(rps.map(r => r.trackId));
+        }
+        const followedSet = new Set(followedProfileIds);
+
+        const result = tracks.map((t: any) => ({
+            ...t,
+            genres: (t.genres || []).map((g: any) => g.genre),
+            likeCount: t._count.favourites,
+            repostCount: t._count.reposts,
+            commentCount: t._count.comments,
+            _count: undefined,
+            liked: liked.has(t.id),
+            reposted: reposted.has(t.id),
+            following: followedSet.has(t.profile?.id),
+        }));
+
+        const hasMore = !pDone || !gDone;
+        res.json({
+            tracks: result,
+            hasMore,
+            nextCursor: hasMore ? encodeFeedCursor({
+                p: pTake.length ? pTake[pTake.length - 1].id : cursor?.p ?? null,
+                g: gTake.length ? gTake[gTake.length - 1].id : cursor?.g ?? null,
+                pDone: pDone || !!cursor?.pDone,
+                gDone: gDone || !!cursor?.gDone,
+            }) : null,
+        });
+    } catch (e: any) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// One-time (idempotent) scoring pass for tracks uploaded before feedScore existed
+app.post('/api/admin/tracks/feed-score/backfill', requireAdmin, async (_req, res) => {
+    try {
+        const tracks = await db.track.findMany({
+            where: { deletedAt: null },
+            select: {
+                id: true, createdAt: true, playCount: true,
+                _count: { select: { favourites: true, reposts: true, comments: true } },
+            },
+        });
+        let updated = 0;
+        for (const t of tracks) {
+            await db.track.update({
+                where: { id: t.id },
+                data: { feedScore: computeFeedScore(t.createdAt, t.playCount, t._count.favourites, t._count.reposts, t._count.comments) },
+            });
+            updated++;
+        }
+        res.json({ updated });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
 // Discovery (List all profiles)
@@ -19360,6 +19580,8 @@ app.post('/api/comments', requireAuth, requireVerified, async (req: any, res) =>
         if (resolvedCommunityPostId && !effectiveParentId) {
             db.communityPost.update({ where: { id: resolvedCommunityPostId }, data: { commentCount: { increment: 1 } } }).catch(() => {});
         }
+        // A comment moves the track up the shorts feed
+        bumpFeedScore(resolvedTrackId);
 
         // Audit log
         await db.commentLog.create({
@@ -19733,11 +19955,13 @@ app.post('/api/tracks/:trackId/favourite', requireAuth, requireVerified, async (
 
         if (existing) {
             await db.trackFavourite.delete({ where: { id: existing.id } });
+            bumpFeedScore(trackId);
             await logAction('GLOBAL', 'track_unfavourited', userId, trackId, { title: track.title }).catch(() => {});
             logActivity(req, 'track.unfavourite', trackId, 'track', { title: track.title });
             res.json({ favourited: false });
         } else {
             await db.trackFavourite.create({ data: { userId, trackId } });
+            bumpFeedScore(trackId);
             await logAction('GLOBAL', 'track_favourited', userId, trackId, { title: track.title }).catch(() => {});
             logActivity(req, 'track.favourite', trackId, 'track', { title: track.title });
             // Notify track owner
@@ -19847,11 +20071,13 @@ app.post('/api/tracks/:trackId/repost', requireAuth, requireVerified, async (req
 
         if (existing) {
             await db.trackRepost.delete({ where: { id: existing.id } });
+            bumpFeedScore(trackId);
             await logAction('GLOBAL', 'track_unreposted', userId, trackId, { title: track.title }).catch(() => {});
             logActivity(req, 'track.unrepost', trackId, 'track', { title: track.title });
             res.json({ reposted: false });
         } else {
             await db.trackRepost.create({ data: { userId, trackId } });
+            bumpFeedScore(trackId);
             await logAction('GLOBAL', 'track_reposted', userId, trackId, { title: track.title, owner: track.profile?.username }).catch(() => {});
             logActivity(req, 'track.repost', trackId, 'track', { title: track.title });
             // Notify track owner
