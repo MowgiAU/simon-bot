@@ -8,6 +8,7 @@ import { GlobalPlayer } from "./components/GlobalPlayer";
 import { ToastContainer } from "./components/Toast";
 import { ChatProvider, useChat } from "./components/ChatProvider";
 import { ChatHead } from "./components/ChatHead";
+import { useAltBreakpoint } from "./components/altshell/useAltBreakpoint";
 import './lib/errorCapture'; // initialise global error listener as side-effect
 import { registerPushNotifications, unregisterPushNotifications, initPushNotificationListeners } from './services/PushNotificationService';
 import { Sidebar } from "./layouts/Sidebar";
@@ -84,6 +85,7 @@ const FrontpageVHub          = lazy(() => import("./pages/FrontpageVHub").then(m
 const FrontpageEditorialMix  = lazy(() => import("./pages/FrontpageEditorialMix").then(m => ({ default: m.FrontpageEditorialMix })));
 const FrontpageNeon          = lazy(() => import("./pages/FrontpageNeon").then(m => ({ default: m.FrontpageNeon })));
 const FrontpageAltF          = lazy(() => import("./pages/FrontpageAltF").then(m => ({ default: m.FrontpageAltF })));
+const FrontpageAltFHomeFeed  = lazy(() => import("./pages/FrontpageAltFHomeFeed").then(m => ({ default: m.FrontpageAltFHomeFeed })));
 const FrontpageAltFArtist    = lazy(() => import("./pages/FrontpageAltFArtist").then(m => ({ default: m.FrontpageAltFArtist })));
 const FrontpageAltFCharts    = lazy(() => import("./pages/FrontpageAltFCharts").then(m => ({ default: m.FrontpageAltFCharts })));
 const FrontpageAltFTrack     = lazy(() => import("./pages/FrontpageAltFTrack").then(m => ({ default: m.FrontpageAltFTrack })));
@@ -806,6 +808,8 @@ const ImpersonationBanner: React.FC = () => {
 const AppInternal: React.FC = () => {
   const { pathname: currentPath } = useLocation();
   const { user, invited, role, dashboardGuilds, loading, loginMethod, hasPassword, email, emailVerified } = useAuth();
+  // Phones land on the shorts feed instead of the classic home page.
+  const isPhone = useAltBreakpoint() === 'xs';
 
   useEffect(() => {
     // Path → default browser-tab title. Exact/specific matches come first; the trailing
@@ -849,6 +853,7 @@ const AppInternal: React.FC = () => {
       { test: p => p === '/write' || p.startsWith('/write/'), title: 'Fuji Studio | Writing Studio' },
       { test: p => p === '/appeal' || p === '/support', title: 'Fuji Studio | Support' },
       { test: p => p === '/',                  title: 'Fuji Studio | Discover Music' },
+      { test: p => p === '/home',              title: 'Fuji Studio | Discover Music' },
       // ── Detail pages (generic default; page overrides with the entity name) ──
       { test: p => p.startsWith('/battles/entry/'), title: 'Fuji Studio | Beat Battle Entry' },
       { test: p => p.startsWith('/battles/'), title: 'Fuji Studio | Beat Battle' },
@@ -1004,8 +1009,17 @@ const AppInternal: React.FC = () => {
     return <Suspense fallback={<PageSpinner />}><MobilePreviewProfile /></Suspense>;
   }
 
-  // Artist Discovery homepage
+  // Artist Discovery homepage.
+  // On phones the landing surface is the snap-scroll shorts feed of music instead;
+  // the classic home stays available at /home (Browse button in the feed header).
   if (currentPath === '/') {
+    return (
+      <Suspense fallback={<PageSpinner />}>
+        {isPhone ? <FrontpageAltFHomeFeed /> : <FrontpageAltF />}
+      </Suspense>
+    );
+  }
+  if (currentPath === '/home') {
     return <Suspense fallback={<PageSpinner />}><FrontpageAltF /></Suspense>;
   }
 

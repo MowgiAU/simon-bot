@@ -20,6 +20,7 @@ import { MOBILE_NAV_HEIGHT } from './AltMobileNav';
 import {
     ChevronUp, ChevronDown, MessageCircle, Share2, Play, Pause, Music,
     FileText, ChevronLeft, Tag, Plus, Flame, Clock, TrendingUp, ChevronsUp,
+    LayoutGrid,
 } from 'lucide-react';
 
 const fmtNum = (n?: number) => { n = n || 0; if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M'; if (n >= 1e3) return (n / 1e3).toFixed(1) + 'k'; return String(n); };
@@ -80,7 +81,10 @@ interface Props {
     onVote: (postId: string, type: 'up' | 'down') => void;
     onShare: (post: ShortsPost) => void;
     title: string;
-    backTo: string;
+    /** Omit on the home feed — there is nothing to go back to. */
+    backTo?: string;
+    /** Optional "browse the classic page" escape hatch, shown next to the create button. */
+    browseTo?: string;
     musicOnly: boolean;
     onToggleMusicOnly: (v: boolean) => void;
     sort: 'hot' | 'new' | 'top';
@@ -90,7 +94,7 @@ interface Props {
 
 export const AltShortsFeed: React.FC<Props> = ({
     posts, loading, hasMore, onLoadMore, onVote, onShare,
-    title, backTo, musicOnly, onToggleMusicOnly, sort, onSortChange, createLink,
+    title, backTo, browseTo, musicOnly, onToggleMusicOnly, sort, onSortChange, createLink,
 }) => {
     const { player, setTrack, togglePlay, seek } = usePlayer();
     const scrollerRef = useRef<HTMLDivElement>(null);
@@ -199,19 +203,30 @@ export const AltShortsFeed: React.FC<Props> = ({
                 pointerEvents: 'none', fontFamily: FONT,
             }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, pointerEvents: 'auto' }}>
-                    <Link to={backTo} aria-label="Back" style={{
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', width: 34, height: 34,
-                        borderRadius: '50%', background: 'rgba(0,0,0,0.4)', color: '#fff', flexShrink: 0,
-                        backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', textDecoration: 'none',
-                    }}>
-                        <ChevronLeft size={19} />
-                    </Link>
+                    {backTo && (
+                        <Link to={backTo} aria-label="Back" style={{
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', width: 34, height: 34,
+                            borderRadius: '50%', background: 'rgba(0,0,0,0.4)', color: '#fff', flexShrink: 0,
+                            backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', textDecoration: 'none',
+                        }}>
+                            <ChevronLeft size={19} />
+                        </Link>
+                    )}
                     <div style={{ minWidth: 0, flex: 1 }}>
                         <div style={{ fontSize: 15, fontWeight: 900, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textShadow: '0 2px 12px rgba(0,0,0,0.6)' }}>{title}</div>
                         <div style={{ fontSize: 10.5, color: 'rgba(255,255,255,0.6)', marginTop: 1 }}>
                             {posts.length > 0 ? `${active + 1} / ${posts.length}${hasMore ? '+' : ''}` : ''}
                         </div>
                     </div>
+                    {browseTo && (
+                        <Link to={browseTo} aria-label="Browse" style={{
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', width: 34, height: 34,
+                            borderRadius: '50%', background: 'rgba(0,0,0,0.4)', color: '#fff', flexShrink: 0,
+                            backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', textDecoration: 'none',
+                        }}>
+                            <LayoutGrid size={17} />
+                        </Link>
+                    )}
                     {createLink && (
                         <Link to={createLink} aria-label="New post" style={{
                             display: 'flex', alignItems: 'center', justifyContent: 'center', width: 34, height: 34,
