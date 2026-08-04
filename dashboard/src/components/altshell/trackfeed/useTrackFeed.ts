@@ -14,15 +14,19 @@ export function useTrackFeed(params: FeedParams) {
     const [loading, setLoading] = useState(true);
     const [hasMore, setHasMore] = useState(false);
     const cursorRef = useRef<string | null>(null);
-    const loadingRef = useRef(false);
+    // The request currently open. Guards against firing the same page twice —
+    // but never against a *new* filter run: params can resolve asynchronously
+    // (e.g. a genre slug becoming known once the genre list loads) while the
+    // first request is still in flight, and that run must be allowed through.
+    const inFlight = useRef<{ run: number; cursor: string | null } | null>(null);
     // Serialises pages: a late response from a previous filter must not land.
     const runRef = useRef(0);
 
     const { genre, search, artist, startTrackId, sort } = params;
 
     const fetchPage = useCallback(async (cursor: string | null, run: number) => {
-        if (loadingRef.current) return;
-        loadingRef.current = true;
+        if (inFlight.current && inFlight.current.run === run && inFlight.current.cursor === cursor) return;
+        inFlight.current = { run, cursor };
         setLoading(true);
         try {
             const q: Record<string, string> = { limit: '12' };
@@ -47,8 +51,8 @@ export function useTrackFeed(params: FeedParams) {
         } catch {
             if (run === runRef.current && !cursor) setTracks([]);
         } finally {
+            if (inFlight.current?.run === run && inFlight.current?.cursor === cursor) inFlight.current = null;
             if (run === runRef.current) setLoading(false);
-            loadingRef.current = false;
         }
     }, [genre, search, artist, startTrackId, sort]);
 
@@ -61,7 +65,7 @@ export function useTrackFeed(params: FeedParams) {
     }, [fetchPage]);
 
     const loadMore = useCallback(() => {
-        if (!hasMore || loadingRef.current || !cursorRef.current) return;
+        if (!hasMore || inFlight.current || !cursorRef.current) return;
         fetchPage(cursorRef.current, runRef.current);
     }, [hasMore, fetchPage]);
 

@@ -820,11 +820,12 @@ export const FrontpageAltFGenres: React.FC = () => {
             : viewMode === 'multi' ? `${activeGenreIds.length} Genres`
             : activeGenre?.name || 'Genres';
         // The feed takes genre slugs — one, or a comma-separated set for the
-        // multi-genre and saved-group views.
-        const feedGenres = viewMode === 'group' && activeGroup
-            ? activeGroup.genres.map(g => g.genre.slug).join(',')
+        // multi-genre and saved-group views. Single/multi read straight from the
+        // URL (the API resolves slugs), so the feed doesn't wait on the genre list.
+        const feedGenres = viewMode === 'group'
+            ? (activeGroup?.genres.map(g => g.genre.slug).join(',') || '')
             : viewMode === 'multi' ? multiSlugsFromUrl.join(',')
-            : activeGenre?.slug || '';
+            : genreSlug || '';
         return (
             <div style={{ background: '#06080e', color: TEXT, fontFamily: FONT, minHeight: '100vh' }}>
                 <TrackFeed
