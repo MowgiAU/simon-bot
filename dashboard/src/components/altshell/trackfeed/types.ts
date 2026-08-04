@@ -47,11 +47,15 @@ export interface FeedTrack {
     following: boolean;
 }
 
+export type FeedSort = 'feed' | 'new' | 'plays';
+
 export interface FeedParams {
+    /** One genre slug, or a comma-separated set for multi-genre views. */
     genre?: string;
     search?: string;
     artist?: string;
     startTrackId?: string;
+    sort?: FeedSort;
 }
 
 export const fmtNum = (n?: number) => {

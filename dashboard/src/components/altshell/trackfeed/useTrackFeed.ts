@@ -18,7 +18,7 @@ export function useTrackFeed(params: FeedParams) {
     // Serialises pages: a late response from a previous filter must not land.
     const runRef = useRef(0);
 
-    const { genre, search, artist, startTrackId } = params;
+    const { genre, search, artist, startTrackId, sort } = params;
 
     const fetchPage = useCallback(async (cursor: string | null, run: number) => {
         if (loadingRef.current) return;
@@ -29,6 +29,7 @@ export function useTrackFeed(params: FeedParams) {
             if (genre) q.genre = genre;
             if (search) q.search = search;
             if (artist) q.artist = artist;
+            if (sort && sort !== 'feed') q.sort = sort;
             if (startTrackId && !cursor) q.startTrackId = startTrackId;
             if (cursor) q.cursor = cursor;
 
@@ -49,7 +50,7 @@ export function useTrackFeed(params: FeedParams) {
             if (run === runRef.current) setLoading(false);
             loadingRef.current = false;
         }
-    }, [genre, search, artist, startTrackId]);
+    }, [genre, search, artist, startTrackId, sort]);
 
     useEffect(() => {
         const run = ++runRef.current;

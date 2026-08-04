@@ -115,7 +115,7 @@ export const TrackFeed: React.FC<Props> = ({ params, title, backTo, browseTo, cr
     useEffect(() => {
         scrollerRef.current?.scrollTo({ top: 0 });
         setActive(0);
-    }, [params.genre, params.search, params.artist]);
+    }, [params.genre, params.search, params.artist, params.sort]);
 
     const share = useCallback(async (t: FeedTrack) => {
         const url = t.profile?.username && t.slug

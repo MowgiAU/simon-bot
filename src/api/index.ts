@@ -9814,7 +9814,7 @@ const decodeFeedCursor = (s?: string): any => {
 // artists you follow or in your genres, and everything else) merged into one page.
 app.get('/api/tracks/feed', async (req: any, res) => {
     try {
-        const { genre, search, artist, startTrackId } = req.query;
+        const { genre, search, artist, startTrackId, sort = 'feed' } = req.query;
         const limit = Math.min(Number(req.query.limit) || 12, 30);
         const userId = req.session?.user?.id || null;
         const cursor = decodeFeedCursor(req.query.cursor as string);
@@ -9822,12 +9822,16 @@ app.get('/api/tracks/feed', async (req: any, res) => {
         const base: any = { isPublic: true, deletedAt: null, status: 'active' };
 
         if (genre) {
-            const g = await db.genre.findFirst({
-                where: { OR: [{ slug: { equals: genre as string, mode: 'insensitive' } }, { name: { equals: genre as string, mode: 'insensitive' } }] },
+            // Accepts one slug or a comma-separated set (multi-genre views)
+            const slugs = (genre as string).split(',').map(s => s.trim()).filter(Boolean).slice(0, 20);
+            const gs = await db.genre.findMany({
+                where: { OR: [{ slug: { in: slugs, mode: 'insensitive' } }, { name: { in: slugs, mode: 'insensitive' } }] },
                 include: { children: { select: { id: true } } },
             });
             // Unknown genre → empty feed rather than silently showing everything
-            const ids = g ? [g.id, ...g.children.map(c => c.id)] : ['__none__'];
+            const ids = gs.length
+                ? gs.flatMap(g => [g.id, ...g.children.map(c => c.id)])
+                : ['__none__'];
             base.genres = { some: { genreId: { in: ids } } };
         }
         if (artist) base.profile = { username: { equals: artist as string, mode: 'insensitive' } };
@@ -9856,7 +9860,11 @@ app.get('/api/tracks/feed', async (req: any, res) => {
         if (viewerGenreIds.length) personalOr.push({ genres: { some: { genreId: { in: viewerGenreIds } } } });
         const hasPersonal = personalOr.length > 0;
 
-        const orderBy: any = [{ feedScore: 'desc' }, { id: 'desc' }];
+        // Library browsing wants explicit orders; the feed itself uses the ranking.
+        const orderBy: any =
+            sort === 'new'   ? [{ createdAt: 'desc' }, { id: 'desc' }] :
+            sort === 'plays' ? [{ playCount: 'desc' }, { id: 'desc' }] :
+                               [{ feedScore: 'desc' }, { id: 'desc' }];
         const exclude: string[] = [];
 
         // ── Deep link: the requested track leads, then the feed continues ─────

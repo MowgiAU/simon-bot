@@ -86,6 +86,8 @@ const FrontpageEditorialMix  = lazy(() => import("./pages/FrontpageEditorialMix"
 const FrontpageNeon          = lazy(() => import("./pages/FrontpageNeon").then(m => ({ default: m.FrontpageNeon })));
 const FrontpageAltF          = lazy(() => import("./pages/FrontpageAltF").then(m => ({ default: m.FrontpageAltF })));
 const FrontpageAltFHomeFeed  = lazy(() => import("./pages/FrontpageAltFHomeFeed").then(m => ({ default: m.FrontpageAltFHomeFeed })));
+const FrontpageAltFLibraryFeed = lazy(() => import("./pages/FrontpageAltFLibraryFeed").then(m => ({ default: m.FrontpageAltFLibraryFeed })));
+const FrontpageAltFTrackFeed = lazy(() => import("./pages/FrontpageAltFTrackFeed").then(m => ({ default: m.FrontpageAltFTrackFeed })));
 const FrontpageAltFArtist    = lazy(() => import("./pages/FrontpageAltFArtist").then(m => ({ default: m.FrontpageAltFArtist })));
 const FrontpageAltFCharts    = lazy(() => import("./pages/FrontpageAltFCharts").then(m => ({ default: m.FrontpageAltFCharts })));
 const FrontpageAltFTrack     = lazy(() => import("./pages/FrontpageAltFTrack").then(m => ({ default: m.FrontpageAltFTrack })));
@@ -949,14 +951,16 @@ const AppInternal: React.FC = () => {
     // Check if it's /profile/:username/:trackSlug
     const parts = currentPath.split('/').filter(Boolean); // [profile, username, trackSlug?]
     if (parts.length >= 3) {
-      return <Suspense fallback={<PageSpinner />}><FrontpageAltFTrack /></Suspense>;
+      // On phones a track link opens the shorts feed on that track and keeps
+      // scrolling; the full track page remains the desktop experience.
+      return <Suspense fallback={<PageSpinner />}>{isPhone ? <FrontpageAltFTrackFeed /> : <FrontpageAltFTrack />}</Suspense>;
     }
     return <Suspense fallback={<PageSpinner />}><FrontpageAltFArtist /></Suspense>;
   }
 
   // /track → Direct track link (alias for /profile/:user/:track)
   if (currentPath.startsWith('/track')) {
-    return <Suspense fallback={<PageSpinner />}><FrontpageAltFTrack /></Suspense>;
+    return <Suspense fallback={<PageSpinner />}>{isPhone ? <FrontpageAltFTrackFeed /> : <FrontpageAltFTrack />}</Suspense>;
   }
 
   // ── Design Candidates — not linked from nav, accessible by direct URL only ──
@@ -1033,9 +1037,10 @@ const AppInternal: React.FC = () => {
     return <Suspense fallback={<PageSpinner />}><FrontpageAltFSearch /></Suspense>;
   }
 
-  // /library → Browse all tracks
+  // /library → Browse all tracks. Phones get the shorts feed with the same
+  // search/sort/genre controls; the desktop grid is better for scanning many.
   if (currentPath === '/library') {
-    return <Suspense fallback={<PageSpinner />}><FrontpageAltFLibrary /></Suspense>;
+    return <Suspense fallback={<PageSpinner />}>{isPhone ? <FrontpageAltFLibraryFeed /> : <FrontpageAltFLibrary />}</Suspense>;
   }
 
   // /genres (+ /genres/:slug) → Alt F genre communities (list + per-genre feed)
