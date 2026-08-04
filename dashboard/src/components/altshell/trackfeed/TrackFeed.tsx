@@ -9,7 +9,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom';
 import { ChevronLeft, LayoutGrid, Plus, Music, ChevronsUp } from 'lucide-react';
 import { usePlayer } from '../../PlayerProvider';
-import { PRIMARY, SUB, TEXT, FONT } from '../AltSidebar';
+import { PRIMARY, SUB, TEXT, BORDER, FONT } from '../AltSidebar';
 import { AltSpinner } from '../AltSpinner';
 import { MOBILE_NAV_HEIGHT } from '../AltMobileNav';
 import { TrackSlide } from './TrackSlide';
@@ -26,9 +26,10 @@ const FEED_STYLES = `
 @keyframes fujiHint     { 0%,100%{transform:translateY(0);opacity:.4} 50%{transform:translateY(-9px);opacity:.95} }
 @keyframes fujiSheetIn  { from{transform:translateY(100%)} to{transform:translateY(0)} }
 @keyframes fujiFade     { from{opacity:0} to{opacity:1} }
-/* The global player bar would cover the feed's own transport */
-[data-global-player="bar"]{display:none!important}
 `;
+/* Phones only: the global player bar would cover the feed's own transport.
+   On desktop the feed is a column inside the shell, so the bar stays. */
+const HIDE_PLAYER_BAR = `[data-global-player="bar"]{display:none!important}`;
 
 interface Props {
     params: FeedParams;
@@ -40,9 +41,16 @@ interface Props {
     /** Filter chips etc. rendered under the title row. */
     headerExtra?: React.ReactNode;
     emptyMessage?: string;
+    /**
+     * 'mobile' — fixed, full-viewport, immersive (phones).
+     * 'desktop' — fills its parent as the centre column between the two
+     * sidebars, each track framed phone-shaped.
+     */
+    variant?: 'mobile' | 'desktop';
 }
 
-export const TrackFeed: React.FC<Props> = ({ params, title, backTo, browseTo, createLink, headerExtra, emptyMessage }) => {
+export const TrackFeed: React.FC<Props> = ({ params, title, backTo, browseTo, createLink, headerExtra, emptyMessage, variant = 'mobile' }) => {
+    const desktop = variant === 'desktop';
     const { player, setTrack, togglePlay, seek } = usePlayer();
     const { tracks, loading, hasMore, loadMore, toggleLike, toggleRepost, toggleFollow, bumpCommentCount } = useTrackFeed(params);
 
@@ -118,6 +126,30 @@ export const TrackFeed: React.FC<Props> = ({ params, title, backTo, browseTo, cr
         setActive(0);
     }, [params.genre, params.search, params.artist, params.sort]);
 
+    // Desktop has no swipe — arrows step between tracks, space toggles playback.
+    // Deliberately an instant jump: a mandatory snap container cancels
+    // scrollTo({behavior:'smooth'}) outright, and animating scrollTop by hand
+    // would leave snapping disabled if the frame loop stalls. Wheel and trackpad
+    // scrolling still glide, because CSS snap animates those itself.
+    const step = useCallback((delta: number) => {
+        const el = scrollerRef.current;
+        if (!el) return;
+        const h = el.clientHeight || 1;
+        // Read the position off the element, not off `active` — held or repeated
+        // keypresses fire faster than the scroll handler updates React state.
+        const from = Math.round(el.scrollTop / h);
+        el.scrollTop = Math.max(0, Math.min(el.scrollHeight - h, (from + delta) * h));
+    }, []);
+
+    const onKeyDown = useCallback((e: React.KeyboardEvent) => {
+        if (e.key === 'ArrowDown' || e.key === 'PageDown' || e.key === 'j') { e.preventDefault(); step(1); }
+        else if (e.key === 'ArrowUp' || e.key === 'PageUp' || e.key === 'k') { e.preventDefault(); step(-1); }
+        else if (e.key === ' ') {
+            e.preventDefault();
+            if (current) { setUnlocked(true); if (player.currentTrack?.id === current.id) togglePlay(); else play(current); }
+        }
+    }, [step, current, player.currentTrack?.id, togglePlay, play]);
+
     const share = useCallback(async (t: FeedTrack) => {
         const url = t.profile?.username && t.slug
             ? `${window.location.origin}/profile/${t.profile.username}/${t.slug}`
@@ -171,15 +203,42 @@ export const TrackFeed: React.FC<Props> = ({ params, title, backTo, browseTo, cr
         </div>
     ), [backTo, browseTo, createLink, title, tracks.length, active, hasMore, headerExtra]);
 
+    const slideProps = (t: FeedTrack, i: number) => ({
+        track: t,
+        active: i === active,
+        near: Math.abs(i - active) <= 2,
+        playing: i === active && playing,
+        currentTime: i === active ? currentTime : 0,
+        duration: i === active ? duration : (t.duration || 0),
+        framed: desktop,
+        onPlayPause: () => handlePlayPause(t),
+        onSeek: (s: number) => { if (i === active) seek(s); },
+        onLike: () => toggleLike(t),
+        onRepost: () => toggleRepost(t),
+        onFollow: () => toggleFollow(t),
+        onComments: () => setSheet('comments'),
+        onDetails: () => setSheet('details'),
+        onShare: () => share(t),
+    });
+
     return (
         <>
-            <style>{FEED_STYLES}</style>
-            {header}
+            <style>{desktop ? FEED_STYLES : FEED_STYLES + HIDE_PLAYER_BAR}</style>
+            {!desktop && header}
+            {desktop && headerExtra && (
+                <div style={{ flexShrink: 0, padding: '12px 20px 0', fontFamily: FONT }}>{headerExtra}</div>
+            )}
 
             <div
                 ref={scrollerRef}
                 onScroll={onScroll}
-                style={{
+                tabIndex={desktop ? 0 : undefined}
+                onKeyDown={desktop ? onKeyDown : undefined}
+                style={desktop ? {
+                    flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden',
+                    scrollSnapType: 'y mandatory', overscrollBehaviorY: 'contain',
+                    background: 'transparent', fontFamily: FONT, outline: 'none',
+                } : {
                     position: 'fixed', top: 0, left: 0, right: 0,
                     bottom: `calc(${MOBILE_NAV_HEIGHT}px + env(safe-area-inset-bottom))`,
                     overflowY: 'auto', overflowX: 'hidden',
@@ -195,24 +254,16 @@ export const TrackFeed: React.FC<Props> = ({ params, title, backTo, browseTo, cr
                         <div style={{ fontSize: 15, fontWeight: 700, color: TEXT }}>Nothing to play here yet</div>
                         <div style={{ fontSize: 13, color: SUB, maxWidth: 260 }}>{emptyMessage || 'No tracks matched. Try a different filter.'}</div>
                     </div>
-                ) : tracks.map((t, i) => (
-                    <TrackSlide
-                        key={t.id}
-                        track={t}
-                        active={i === active}
-                        near={Math.abs(i - active) <= 2}
-                        playing={i === active && playing}
-                        currentTime={i === active ? currentTime : 0}
-                        duration={i === active ? duration : (t.duration || 0)}
-                        onPlayPause={() => handlePlayPause(t)}
-                        onSeek={s => { if (i === active) seek(s); }}
-                        onLike={() => toggleLike(t)}
-                        onRepost={() => toggleRepost(t)}
-                        onFollow={() => toggleFollow(t)}
-                        onComments={() => setSheet('comments')}
-                        onDetails={() => setSheet('details')}
-                        onShare={() => share(t)}
-                    />
+                ) : desktop ? tracks.map((t, i) => (
+                    // Each track gets a phone-shaped frame, centred in the column —
+                    // the Reels proportions are the point, so don't stretch them.
+                    <div key={t.id} style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '10px 16px', boxSizing: 'border-box', scrollSnapAlign: 'start', scrollSnapStop: 'always' }}>
+                        <div style={{ height: '100%', aspectRatio: '9 / 16', maxWidth: '100%', position: 'relative', borderRadius: 18, overflow: 'hidden', boxShadow: '0 24px 70px rgba(0,0,0,0.55)', border: `1px solid ${BORDER}`, background: '#06080e' }}>
+                            <TrackSlide {...slideProps(t, i)} />
+                        </div>
+                    </div>
+                )) : tracks.map((t, i) => (
+                    <TrackSlide key={t.id} {...slideProps(t, i)} />
                 ))}
 
                 {hasMore && tracks.length > 0 && (
@@ -223,7 +274,7 @@ export const TrackFeed: React.FC<Props> = ({ params, title, backTo, browseTo, cr
             </div>
 
             {/* First-run affordance */}
-            {showHint && tracks.length > 1 && (
+            {showHint && tracks.length > 1 && !desktop && (
                 <div style={{ position: 'fixed', left: 0, right: 0, bottom: MOBILE_NAV_HEIGHT + 58, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, color: '#fff', pointerEvents: 'none', zIndex: 5, animation: 'fujiHint 1.9s ease-in-out infinite', textShadow: '0 2px 10px rgba(0,0,0,0.7)' }}>
                     <ChevronsUp size={20} />
                     <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.05em', fontFamily: FONT }}>Swipe for more</span>

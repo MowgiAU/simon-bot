@@ -88,6 +88,7 @@ const FrontpageAltF          = lazy(() => import("./pages/FrontpageAltF").then(m
 const FrontpageAltFHomeFeed  = lazy(() => import("./pages/FrontpageAltFHomeFeed").then(m => ({ default: m.FrontpageAltFHomeFeed })));
 const FrontpageAltFLibraryFeed = lazy(() => import("./pages/FrontpageAltFLibraryFeed").then(m => ({ default: m.FrontpageAltFLibraryFeed })));
 const FrontpageAltFTrackFeed = lazy(() => import("./pages/FrontpageAltFTrackFeed").then(m => ({ default: m.FrontpageAltFTrackFeed })));
+const FrontpageAltFDesktopFeed = lazy(() => import("./pages/FrontpageAltFDesktopFeed").then(m => ({ default: m.FrontpageAltFDesktopFeed })));
 const FrontpageAltFArtist    = lazy(() => import("./pages/FrontpageAltFArtist").then(m => ({ default: m.FrontpageAltFArtist })));
 const FrontpageAltFCharts    = lazy(() => import("./pages/FrontpageAltFCharts").then(m => ({ default: m.FrontpageAltFCharts })));
 const FrontpageAltFTrack     = lazy(() => import("./pages/FrontpageAltFTrack").then(m => ({ default: m.FrontpageAltFTrack })));
@@ -1019,7 +1020,7 @@ const AppInternal: React.FC = () => {
   if (currentPath === '/') {
     return (
       <Suspense fallback={<PageSpinner />}>
-        {isPhone ? <FrontpageAltFHomeFeed /> : <FrontpageAltF />}
+        {isPhone ? <FrontpageAltFHomeFeed /> : <FrontpageAltFDesktopFeed />}
       </Suspense>
     );
   }

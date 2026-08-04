@@ -31,10 +31,12 @@ interface Props {
     onComments: () => void;
     onDetails: () => void;
     onShare: () => void;
+    /** Rendered inside a phone-shaped frame (desktop) — the wrapper owns snapping. */
+    framed?: boolean;
 }
 
 export const TrackSlide: React.FC<Props> = ({
-    track, active, near, playing, currentTime, duration,
+    track, active, near, playing, currentTime, duration, framed,
     onPlayPause, onSeek, onLike, onRepost, onFollow, onComments, onDetails, onShare,
 }) => {
     const lastTap = useRef(0);
@@ -104,7 +106,7 @@ export const TrackSlide: React.FC<Props> = ({
     return (
         <section style={{
             position: 'relative', height: '100%', width: '100%',
-            scrollSnapAlign: 'start', scrollSnapStop: 'always',
+            ...(framed ? {} : { scrollSnapAlign: 'start', scrollSnapStop: 'always' }),
             overflow: 'hidden', background: '#06080e',
         }}>
             {/* ── Artwork ── */}
