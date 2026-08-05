@@ -208,13 +208,17 @@ export const TrackFeed: React.FC<Props> = ({ params, title, backTo, browseTo, cr
         try {
             if (navigator.share) {
                 await navigator.share({ title: t.title, text: `${t.title} by ${artistName(t)}`, url });
-            } else {
+            } else if (navigator.clipboard) {
                 // No share sheet (desktop, mostly) — copying silently looks broken
                 await navigator.clipboard.writeText(url);
                 flash('Link copied');
+            } else {
+                flash('Copying isn’t available here');
             }
-        } catch {
-            // AbortError just means they dismissed the sheet; anything else is a real failure
+        } catch (e: any) {
+            // Dismissing the share sheet isn't a failure; anything else is, and
+            // saying nothing at all is what made this feel broken in the first place.
+            if (e?.name !== 'AbortError') flash('Couldn’t copy the link');
         }
     }, [flash]);
 
