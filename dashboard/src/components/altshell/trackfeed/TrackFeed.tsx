@@ -70,6 +70,8 @@ export const TrackFeed: React.FC<Props> = ({ params, title, backTo, browseTo, cr
     const [toast, setToast] = useState<string | null>(null);
     // Timed comments per track, fetched once for whatever is on screen.
     const [timed, setTimed] = useState<Record<string, TimedComment[]>>({});
+    // Tracks a request is already open for — state lands too late to dedupe on.
+    const timedRequested = useRef<Set<string>>(new Set());
 
     const current = tracks[active];
     const isCurrent = !!current && player.currentTrack?.id === current.id;
@@ -110,20 +112,26 @@ export const TrackFeed: React.FC<Props> = ({ params, title, backTo, browseTo, cr
 
     // ── Timed comments for what's on screen ───────────────────────────────────
     useEffect(() => {
-        if (!current || !current.commentCount || timed[current.id]) return;
+        if (!current || !current.commentCount) return;
+        const id = current.id;
+        if (timedRequested.current.has(id)) return;
+        timedRequested.current.add(id);
         let on = true;
-        axios.get('/api/comments', { params: { trackId: current.id, limit: 50 } })
+        axios.get('/api/comments', { params: { trackId: id, limit: 50 } })
             .then(r => {
                 if (!on) return;
                 const list: TimedComment[] = (r.data?.comments || [])
                     .filter((c: any) => c.trackTimestamp != null && !c.deletedAt && !c.hiddenAt)
                     .map((c: any) => ({ id: c.id, username: c.username, avatarUrl: c.avatarUrl, content: c.content, trackTimestamp: c.trackTimestamp }))
                     .sort((a: TimedComment, b: TimedComment) => a.trackTimestamp - b.trackTimestamp);
-                setTimed(prev => ({ ...prev, [current.id]: list }));
+                setTimed(prev => ({ ...prev, [id]: list }));
             })
-            .catch(() => { if (on) setTimed(prev => ({ ...prev, [current.id]: [] })); });
+            .catch(() => {
+                timedRequested.current.delete(id); // let a later pass retry
+                if (on) setTimed(prev => ({ ...prev, [id]: [] }));
+            });
         return () => { on = false; };
-    }, [current?.id, current?.commentCount, timed]);
+    }, [current?.id, current?.commentCount]);
 
     // ── Autoplay the centred track ────────────────────────────────────────────
     useEffect(() => {
