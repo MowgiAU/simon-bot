@@ -12,6 +12,12 @@ const CREDIT_SCORE_DEFAULT_PENALTY = 60;
 // Postgres int4 ceiling — keeps arithmetic from overflowing the column.
 const MAX_AMOUNT = 1_000_000_000;
 
+// Transaction types that count toward the first-loan eligibility threshold.
+// Only rewards the bot grants for a member's own participation are listed:
+// PAY and TIP are excluded on purpose, since both just move existing coins
+// between accounts and would let someone top an alt up to the threshold.
+const ACTIVITY_EARNING_TYPES = ['MESSAGE', 'LEVELUP', 'DAILY', 'WEEKLY'];
+
 export interface BankSettings {
     currencyName: string;
     currencyEmoji: string;
@@ -23,7 +29,10 @@ export interface BankSettings {
     loanCap: number;
     creditScoreLoanBonus: number;
     minCreditScoreToBorrow: number;
+    minEarnedToBorrow: number;
 }
+
+export type BorrowBlockedReason = 'outstanding_loan' | 'credit_score' | 'activity' | null;
 
 function clampCreditScore(score: number): number {
     return Math.max(CREDIT_SCORE_MIN, Math.min(CREDIT_SCORE_MAX, score));
@@ -64,6 +73,22 @@ async function getAccount(db: any, guildId: string, userId: string) {
 }
 
 /**
+ * Coins this member earned through their own participation.
+ *
+ * Intentionally NOT EconomyAccount.totalEarned: that field also counts coins
+ * received via transfers, so a main account could /pay an alt past the
+ * first-loan threshold and farm an unrepaid loan off it. Summing only the
+ * bot-granted activity rewards makes the threshold reflect real time spent.
+ */
+async function getActivityEarned(db: any, guildId: string, userId: string): Promise<number> {
+    const result = await db.economyTransaction.aggregate({
+        where: { guildId, toUserId: userId, type: { in: ACTIVITY_EARNING_TYPES } },
+        _sum: { amount: true },
+    });
+    return result._sum.amount ?? 0;
+}
+
+/**
  * Runs a mutating bank operation under a row lock on the user's account.
  *
  * Every balance/loan rule here is "read state, decide, then write" — without a
@@ -93,10 +118,12 @@ async function withAccountLock<T>(
 }
 
 export async function getSummary(db: any, guildId: string, userId: string) {
-    const [account, settings, activeLoan, recentTransactions] = await Promise.all([
+    const [account, settings, activeLoan, priorLoanCount, activityEarned, recentTransactions] = await Promise.all([
         getAccount(db, guildId, userId),
         getSettings(db, guildId),
         db.economyLoan.findFirst({ where: { guildId, userId, status: { in: ['active', 'defaulted'] } } }),
+        db.economyLoan.count({ where: { guildId, userId } }),
+        getActivityEarned(db, guildId, userId),
         db.economyTransaction.findMany({
             where: {
                 guildId,
@@ -108,12 +135,21 @@ export async function getSummary(db: any, guildId: string, userId: string) {
         }),
     ]);
 
+    const isFirstLoan = priorLoanCount === 0;
+    let borrowBlockedReason: BorrowBlockedReason = null;
+    if (activeLoan) borrowBlockedReason = 'outstanding_loan';
+    else if (account.creditScore < settings.minCreditScoreToBorrow) borrowBlockedReason = 'credit_score';
+    else if (isFirstLoan && activityEarned < settings.minEarnedToBorrow) borrowBlockedReason = 'activity';
+
     return {
         wallet: account.balance,
         savings: account.savingsBalance,
         creditScore: account.creditScore,
         maxLoan: computeMaxLoan(account.creditScore, settings),
-        canBorrow: account.creditScore >= settings.minCreditScoreToBorrow && !activeLoan,
+        canBorrow: borrowBlockedReason === null,
+        borrowBlockedReason,
+        isFirstLoan,
+        activityEarned,
         activeLoan,
         settings,
         recentTransactions,
@@ -167,6 +203,17 @@ export async function requestLoan(db: any, guildId: string, userId: string, amou
         }
         if (account.creditScore < settings.minCreditScoreToBorrow) {
             throw new Error(`Your credit score (${account.creditScore}) is below the minimum (${settings.minCreditScoreToBorrow}) required to borrow.`);
+        }
+
+        // First-time borrowers must have earned their way in. Without this, a
+        // throwaway account can take a loan immediately and never repay it,
+        // since defaulting only costs credit score.
+        const priorLoanCount = await tx.economyLoan.count({ where: { guildId, userId } });
+        if (priorLoanCount === 0 && settings.minEarnedToBorrow > 0) {
+            const earned = await getActivityEarned(tx, guildId, userId);
+            if (earned < settings.minEarnedToBorrow) {
+                throw new Error(`You need to earn ${settings.currencyEmoji} ${settings.minEarnedToBorrow.toLocaleString()} from your own activity before your first loan. You've earned ${settings.currencyEmoji} ${earned.toLocaleString()} so far (coins sent to you by other members don't count).`);
+            }
         }
 
         const maxLoan = computeMaxLoan(account.creditScore, settings);

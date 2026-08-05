@@ -657,6 +657,10 @@ model EconomySettings {
   loanCap                      Int   @default(5000) // hard ceiling regardless of score
   creditScoreLoanBonus         Int   @default(5) // + max-loan per point above 650
   minCreditScoreToBorrow       Int   @default(500)
+  // Coins a member must have earned through their OWN activity (messages, level-ups,
+  // dailies) before their FIRST loan. Deliberately ignores transfers/tips so a main
+  // account can't pay an alt over the line just to farm an unrepaid loan.
+  minEarnedToBorrow            Int   @default(250)
 
   guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
 

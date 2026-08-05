@@ -1049,6 +1049,16 @@ export class EconomyPlugin implements IPlugin {
                 )
                 .setFooter({ text: 'Use /bank deposit, /bank withdraw, /bank loan, /bank repay' });
 
+            // First-time borrowers still working toward the activity requirement get
+            // to see how far along they are rather than just being told "no".
+            if (summary.borrowBlockedReason === 'activity') {
+                embed.addFields({
+                    name: 'First Loan Locked',
+                    value: `Earn ${settings.currencyEmoji} **${settings.minEarnedToBorrow.toLocaleString()}** from your own activity to unlock your first loan. You're at ${settings.currencyEmoji} **${summary.activityEarned.toLocaleString()}**. Coins other members send you don't count.`,
+                    inline: false,
+                });
+            }
+
             await interaction.editReply({ embeds: [embed] });
         } catch (e) {
             this.logger.error('Bank balance command failed', e);

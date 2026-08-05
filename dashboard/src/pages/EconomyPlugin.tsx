@@ -315,9 +315,13 @@ const BankTab = ({ settings, onSave, isMobile }: { settings: any, onSave: (d: an
                 {numField('loanCap', 'Hard Cap (regardless of score)')}
                 {numField('creditScoreLoanBonus', 'Extra Max-Loan per Point Above 650')}
                 {numField('minCreditScoreToBorrow', 'Minimum Credit Score to Borrow')}
+                {numField('minEarnedToBorrow', 'Minimum Earned Before First Loan')}
             </div>
             <p style={{ margin: 0, fontSize: '12px', color: colors.textTertiary }}>
                 Credit scores start at 650 (range 300 to 850). Repaying a loan on time gives +20, repaying late gives +10, and a defaulted (unpaid, overdue) loan costs -60, with no automatic collection, just a credit-score consequence. Everyone can hold only one outstanding loan at a time.
+            </p>
+            <p style={{ margin: 0, fontSize: '12px', color: colors.textTertiary }}>
+                <strong>Minimum Earned Before First Loan</strong> is an anti-alt measure: because defaulting only costs credit score, a brand new account could otherwise borrow once and never repay. This counts only coins the member earned themselves through messages, level-ups and dailies, so coins sent to them via /pay or tips do not help them qualify. It applies to the first loan only. Set to 0 to disable.
             </p>
 
             <button

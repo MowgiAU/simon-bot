@@ -4502,7 +4502,7 @@ app.post('/api/economy/settings/:guildId', async (req, res) => {
         
         const {
             currencyName, currencyEmoji, messageReward, messageCooldown, minMessageLength, autoNickname, allowTipping,
-            savingsInterestRatePct, savingsInterestIntervalHours, loanFeePct, loanTermDays, baseMaxLoan, loanCap, creditScoreLoanBonus, minCreditScoreToBorrow,
+            savingsInterestRatePct, savingsInterestIntervalHours, loanFeePct, loanTermDays, baseMaxLoan, loanCap, creditScoreLoanBonus, minCreditScoreToBorrow, minEarnedToBorrow,
         } = req.body;
         const allowedData: any = {};
         if (currencyName !== undefined) allowedData.currencyName = currencyName;
@@ -4520,6 +4520,7 @@ app.post('/api/economy/settings/:guildId', async (req, res) => {
         if (loanCap !== undefined) allowedData.loanCap = loanCap;
         if (creditScoreLoanBonus !== undefined) allowedData.creditScoreLoanBonus = creditScoreLoanBonus;
         if (minCreditScoreToBorrow !== undefined) allowedData.minCreditScoreToBorrow = minCreditScoreToBorrow;
+        if (minEarnedToBorrow !== undefined) allowedData.minEarnedToBorrow = minEarnedToBorrow;
 
         const settings = await db.economySettings.upsert({
             where: { guildId },

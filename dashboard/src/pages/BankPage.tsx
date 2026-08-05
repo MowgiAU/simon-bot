@@ -29,8 +29,11 @@ interface BankSummary {
     creditScore: number;
     maxLoan: number;
     canBorrow: boolean;
+    borrowBlockedReason: 'outstanding_loan' | 'credit_score' | 'activity' | null;
+    isFirstLoan: boolean;
+    activityEarned: number;
     activeLoan: { id: string; totalOwed: number; dueAt: string; status: string } | null;
-    settings: { currencyEmoji: string; currencyName: string; savingsInterestRatePct: number; savingsInterestIntervalHours: number; loanFeePct: number; loanTermDays: number };
+    settings: { currencyEmoji: string; currencyName: string; savingsInterestRatePct: number; savingsInterestIntervalHours: number; loanFeePct: number; loanTermDays: number; minCreditScoreToBorrow: number; minEarnedToBorrow: number };
     recentTransactions: { id: string; type: string; amount: number; reason: string | null; createdAt: string }[];
 }
 
@@ -162,7 +165,7 @@ export const BankPage: React.FC = () => {
                         </div>
                         <div>
                             <div style={{ color: YELLOW, fontWeight: 700, marginBottom: 4 }}>Loans</div>
-                            Borrow up to your max loan amount instantly. You'll owe the amount borrowed plus a flat <strong style={{ color: TEXT }}>{summary.settings.loanFeePct}% fee</strong>, due in <strong style={{ color: TEXT }}>{summary.settings.loanTermDays} days</strong>. You can only have <strong style={{ color: TEXT }}>one loan out at a time</strong>, so repay it (in full or partial amounts) before borrowing again.
+                            Borrow up to your max loan amount instantly. You'll owe the amount borrowed plus a flat <strong style={{ color: TEXT }}>{summary.settings.loanFeePct}% fee</strong>, due in <strong style={{ color: TEXT }}>{summary.settings.loanTermDays} days</strong>. You can only have <strong style={{ color: TEXT }}>one loan out at a time</strong>, so repay it (in full or partial amounts) before borrowing again. Your <strong style={{ color: TEXT }}>first</strong> loan unlocks once you've earned <strong style={{ color: TEXT }}>{em} {summary.settings.minEarnedToBorrow.toLocaleString()}</strong> from your own activity in the server.
                         </div>
                         <div>
                             <div style={{ color: SECONDARY, fontWeight: 700, marginBottom: 4 }}>Credit Score</div>
@@ -210,6 +213,16 @@ export const BankPage: React.FC = () => {
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
                             <input style={input} type="number" min={1} max={summary.maxLoan} placeholder={`Up to ${em} ${summary.maxLoan.toLocaleString()} · ${summary.settings.loanFeePct}% fee · ${summary.settings.loanTermDays}d term`} value={loanAmt} onChange={e => setLoanAmt(e.target.value)} />
                             <button style={btn(YELLOW)} disabled={busy || !loanAmt} onClick={doLoan}>Borrow</button>
+                        </div>
+                    ) : summary.borrowBlockedReason === 'activity' ? (
+                        <div style={{ fontSize: 13, color: SUB }}>
+                            <div style={{ marginBottom: 8 }}>
+                                Before your first loan you need to earn <strong style={{ color: TEXT }}>{em} {summary.settings.minEarnedToBorrow.toLocaleString()}</strong> through your own activity in the server. You're at <strong style={{ color: TEXT }}>{em} {summary.activityEarned.toLocaleString()}</strong>.
+                            </div>
+                            <div style={{ height: 6, borderRadius: 9999, background: 'rgba(255,255,255,0.08)', overflow: 'hidden', marginBottom: 8 }}>
+                                <div style={{ width: `${Math.min(100, (summary.activityEarned / Math.max(1, summary.settings.minEarnedToBorrow)) * 100)}%`, height: '100%', background: SECONDARY }} />
+                            </div>
+                            <div style={{ fontSize: 12 }}>Coins other members send you don't count toward this, only what you earn yourself by taking part.</div>
                         </div>
                     ) : (
                         <div style={{ color: SUB, fontSize: 13 }}>Your credit score is too low to borrow right now. Build it back up by repaying on time.</div>
