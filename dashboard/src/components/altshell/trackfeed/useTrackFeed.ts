@@ -8,6 +8,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import axios from 'axios';
 import { FeedParams, FeedTrack } from './types';
+import { getSeenIds } from './seen';
 
 export function useTrackFeed(params: FeedParams) {
     const [tracks, setTracks] = useState<FeedTrack[]>([]);
@@ -36,6 +37,11 @@ export function useTrackFeed(params: FeedParams) {
             if (sort && sort !== 'feed') q.sort = sort;
             if (startTrackId && !cursor) q.startTrackId = startTrackId;
             if (cursor) q.cursor = cursor;
+            if (!cursor) {
+                // Open on something they haven't just watched
+                const seen = getSeenIds();
+                if (seen.length) q.exclude = seen.join(',');
+            }
 
             const r = await axios.get('/api/tracks/feed', { params: q, withCredentials: true });
             if (run !== runRef.current) return; // superseded by a newer filter

@@ -7,15 +7,18 @@
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronLeft, LayoutGrid, Plus, Music, ChevronsUp } from 'lucide-react';
+import axios from 'axios';
+import { ChevronLeft, LayoutGrid, Plus, Music, ChevronsUp, Check } from 'lucide-react';
 import { usePlayer } from '../../PlayerProvider';
 import { PRIMARY, SUB, TEXT, BORDER, FONT } from '../AltSidebar';
 import { AltSpinner } from '../AltSpinner';
 import { MOBILE_NAV_HEIGHT } from '../AltMobileNav';
-import { TrackSlide } from './TrackSlide';
+import { TrackSlide, TimedComment } from './TrackSlide';
 import { TrackCommentsSheet } from './TrackCommentsSheet';
 import { TrackDetailsSheet } from './TrackDetailsSheet';
+import { FeedSkeleton } from './FeedSkeleton';
 import { useTrackFeed } from './useTrackFeed';
+import { markSeen } from './seen';
 import { FeedParams, FeedTrack, artistName, trackAudioUrl } from './types';
 
 const FEED_STYLES = `
@@ -26,6 +29,9 @@ const FEED_STYLES = `
 @keyframes fujiHint     { 0%,100%{transform:translateY(0);opacity:.4} 50%{transform:translateY(-9px);opacity:.95} }
 @keyframes fujiSheetIn  { from{transform:translateY(100%)} to{transform:translateY(0)} }
 @keyframes fujiFade     { from{opacity:0} to{opacity:1} }
+@keyframes fujiShimmer  { from{background-position:180% 0} to{background-position:-80% 0} }
+@keyframes fujiCommentIn{ from{opacity:0;transform:translateX(-14px)} to{opacity:1;transform:translateX(0)} }
+@keyframes fujiToastIn  { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
 `;
 /* Phones only: the global player bar would cover the feed's own transport.
    On desktop the feed is a column inside the shell, so the bar stays. */
@@ -61,6 +67,9 @@ export const TrackFeed: React.FC<Props> = ({ params, title, backTo, browseTo, cr
     // starts once the user has pressed play here at least once.
     const [unlocked, setUnlocked] = useState(false);
     const [sheet, setSheet] = useState<null | 'comments' | 'details'>(null);
+    const [toast, setToast] = useState<string | null>(null);
+    // Timed comments per track, fetched once for whatever is on screen.
+    const [timed, setTimed] = useState<Record<string, TimedComment[]>>({});
 
     const current = tracks[active];
     const isCurrent = !!current && player.currentTrack?.id === current.id;
@@ -83,9 +92,38 @@ export const TrackFeed: React.FC<Props> = ({ params, title, backTo, browseTo, cr
         const el = scrollerRef.current;
         if (!el) return;
         const i = Math.round(el.scrollTop / (el.clientHeight || 1));
-        setActive(prev => (prev === i ? prev : i));
+        setActive(prev => {
+            if (prev === i) return prev;
+            try { navigator.vibrate?.(6); } catch {} // a tick as each track locks in
+            return i;
+        });
         if (el.scrollTop > 8) setShowHint(false);
     }, []);
+
+    // ── Don't reopen on the same tracks next time ─────────────────────────────
+    useEffect(() => {
+        if (!current) return;
+        const id = current.id;
+        const t = setTimeout(() => markSeen(id), 2500); // only if they actually stayed
+        return () => clearTimeout(t);
+    }, [current?.id]);
+
+    // ── Timed comments for what's on screen ───────────────────────────────────
+    useEffect(() => {
+        if (!current || !current.commentCount || timed[current.id]) return;
+        let on = true;
+        axios.get('/api/comments', { params: { trackId: current.id, limit: 50 } })
+            .then(r => {
+                if (!on) return;
+                const list: TimedComment[] = (r.data?.comments || [])
+                    .filter((c: any) => c.trackTimestamp != null && !c.deletedAt && !c.hiddenAt)
+                    .map((c: any) => ({ id: c.id, username: c.username, avatarUrl: c.avatarUrl, content: c.content, trackTimestamp: c.trackTimestamp }))
+                    .sort((a: TimedComment, b: TimedComment) => a.trackTimestamp - b.trackTimestamp);
+                setTimed(prev => ({ ...prev, [current.id]: list }));
+            })
+            .catch(() => { if (on) setTimed(prev => ({ ...prev, [current.id]: [] })); });
+        return () => { on = false; };
+    }, [current?.id, current?.commentCount, timed]);
 
     // ── Autoplay the centred track ────────────────────────────────────────────
     useEffect(() => {
@@ -150,15 +188,27 @@ export const TrackFeed: React.FC<Props> = ({ params, title, backTo, browseTo, cr
         }
     }, [step, current, player.currentTrack?.id, togglePlay, play]);
 
+    const flash = useCallback((msg: string) => {
+        setToast(msg);
+        setTimeout(() => setToast(prev => (prev === msg ? null : prev)), 2200);
+    }, []);
+
     const share = useCallback(async (t: FeedTrack) => {
         const url = t.profile?.username && t.slug
             ? `${window.location.origin}/profile/${t.profile.username}/${t.slug}`
             : window.location.href;
         try {
-            if (navigator.share) await navigator.share({ title: t.title, text: `${t.title} by ${artistName(t)}`, url });
-            else await navigator.clipboard.writeText(url);
-        } catch {}
-    }, []);
+            if (navigator.share) {
+                await navigator.share({ title: t.title, text: `${t.title} by ${artistName(t)}`, url });
+            } else {
+                // No share sheet (desktop, mostly) — copying silently looks broken
+                await navigator.clipboard.writeText(url);
+                flash('Link copied');
+            }
+        } catch {
+            // AbortError just means they dismissed the sheet; anything else is a real failure
+        }
+    }, [flash]);
 
     const handlePlayPause = useCallback((t: FeedTrack) => {
         setUnlocked(true);
@@ -211,6 +261,7 @@ export const TrackFeed: React.FC<Props> = ({ params, title, backTo, browseTo, cr
         currentTime: i === active ? currentTime : 0,
         duration: i === active ? duration : (t.duration || 0),
         framed: desktop,
+        timedComments: i === active ? timed[t.id] : undefined,
         onPlayPause: () => handlePlayPause(t),
         onSeek: (s: number) => { if (i === active) seek(s); },
         onLike: () => toggleLike(t),
@@ -247,7 +298,11 @@ export const TrackFeed: React.FC<Props> = ({ params, title, backTo, browseTo, cr
                 }}>
 
                 {loading && tracks.length === 0 ? (
-                    <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><AltSpinner /></div>
+                    desktop ? (
+                        <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '10px 16px', boxSizing: 'border-box' }}>
+                            <div style={{ height: '100%', aspectRatio: '9 / 16', maxWidth: '100%' }}><FeedSkeleton framed /></div>
+                        </div>
+                    ) : <div style={{ height: '100%' }}><FeedSkeleton /></div>
                 ) : tracks.length === 0 ? (
                     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, padding: 32, textAlign: 'center' }}>
                         <Music size={34} color={SUB} />
@@ -278,6 +333,21 @@ export const TrackFeed: React.FC<Props> = ({ params, title, backTo, browseTo, cr
                 <div style={{ position: 'fixed', left: 0, right: 0, bottom: MOBILE_NAV_HEIGHT + 58, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, color: '#fff', pointerEvents: 'none', zIndex: 5, animation: 'fujiHint 1.9s ease-in-out infinite', textShadow: '0 2px 10px rgba(0,0,0,0.7)' }}>
                     <ChevronsUp size={20} />
                     <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.05em', fontFamily: FONT }}>Swipe for more</span>
+                </div>
+            )}
+
+            {toast && (
+                <div style={{
+                    position: 'fixed', left: '50%', transform: 'translateX(-50%)',
+                    bottom: desktop ? 110 : MOBILE_NAV_HEIGHT + 84, zIndex: 300,
+                    display: 'flex', alignItems: 'center', gap: 7,
+                    padding: '9px 16px', borderRadius: 9999,
+                    background: 'rgba(0,0,0,0.78)', color: '#fff',
+                    backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
+                    fontFamily: FONT, fontSize: 13, fontWeight: 700,
+                    animation: 'fujiToastIn 0.22s ease-out', pointerEvents: 'none',
+                }}>
+                    <Check size={14} color="#22C55E" /> {toast}
                 </div>
             )}
 

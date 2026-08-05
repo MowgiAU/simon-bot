@@ -33,10 +33,23 @@ interface Props {
     onShare: () => void;
     /** Rendered inside a phone-shaped frame (desktop) — the wrapper owns snapping. */
     framed?: boolean;
+    /** Comments pinned to a moment in this track, floated in as the playhead reaches them. */
+    timedComments?: TimedComment[];
 }
 
+export interface TimedComment {
+    id: string;
+    username: string;
+    avatarUrl?: string | null;
+    content: string;
+    trackTimestamp: number;
+}
+
+/** Window a timed comment stays on screen once the playhead passes it. */
+const TIMED_COMMENT_LIFETIME = 5;
+
 export const TrackSlide: React.FC<Props> = ({
-    track, active, near, playing, currentTime, duration, framed,
+    track, active, near, playing, currentTime, duration, framed, timedComments,
     onPlayPause, onSeek, onLike, onRepost, onFollow, onComments, onDetails, onShare,
 }) => {
     const lastTap = useRef(0);
@@ -54,9 +67,19 @@ export const TrackSlide: React.FC<Props> = ({
 
     const like = useCallback(() => {
         onLike();
+        try { navigator.vibrate?.(18); } catch {}
         setBurst(true);
         setTimeout(() => setBurst(false), 700);
     }, [onLike]);
+
+    // Comments the playhead has just passed — SoundCloud's timed comments, but
+    // floated over the artwork the way a live chat overlay would be.
+    const liveComments = React.useMemo(() => {
+        if (!active || !playing || !timedComments?.length) return [];
+        return timedComments
+            .filter(c => currentTime >= c.trackTimestamp && currentTime - c.trackTimestamp < TIMED_COMMENT_LIFETIME)
+            .slice(-2);
+    }, [active, playing, timedComments, currentTime]);
 
     // Single tap toggles playback, double tap likes — resolve after the
     // double-tap window so one gesture never fires both.
@@ -186,6 +209,28 @@ export const TrackSlide: React.FC<Props> = ({
                         : <Disc3 size={20} color={SUB} />}
                 </Link>
             </div>
+
+            {/* ── Timed comments floating past ── */}
+            {liveComments.length > 0 && (
+                <div style={{ position: 'absolute', left: 14, right: 78, bottom: 172, display: 'flex', flexDirection: 'column', gap: 6, zIndex: 3, pointerEvents: 'none' }}>
+                    {liveComments.map(c => (
+                        <div key={c.id} style={{
+                            display: 'flex', alignItems: 'center', gap: 7, alignSelf: 'flex-start',
+                            maxWidth: '100%', padding: '5px 11px 5px 5px', borderRadius: 9999,
+                            background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)',
+                            animation: 'fujiCommentIn 0.35s cubic-bezier(0.2,0.8,0.2,1)',
+                        }}>
+                            <div style={{ width: 22, height: 22, borderRadius: '50%', overflow: 'hidden', background: S_HIGH, flexShrink: 0 }}>
+                                {c.avatarUrl
+                                    ? <img src={c.avatarUrl} alt="" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800, color: TEXT }}>{c.username?.[0]?.toUpperCase()}</div>}
+                            </div>
+                            <span style={{ fontSize: 11.5, fontWeight: 800, color: '#fff', flexShrink: 0 }}>{c.username}</span>
+                            <span style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.85)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.content}</span>
+                        </div>
+                    ))}
+                </div>
+            )}
 
             {/* ── Caption ── */}
             <div style={{ position: 'absolute', left: 14, right: 74, bottom: 54, zIndex: 3, fontFamily: FONT }}>

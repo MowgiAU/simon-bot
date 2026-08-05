@@ -9870,10 +9870,16 @@ app.get('/api/tracks/feed', async (req: any, res) => {
         const personalWant = hasPersonal ? Math.max(1, Math.round(want * 0.4)) : 0;
         const globalWant = want - personalWant;
 
-        const page = async (where: any, take: number, cur?: string | null) => {
+        // Tracks the viewer already scrolled past recently — skipped on the first
+        // page so a refresh opens on something new (client sends them back).
+        const seen: string[] = !cursor
+            ? String(req.query.exclude || '').split(',').map(s => s.trim()).filter(Boolean).slice(0, 50)
+            : [];
+
+        const page = async (where: any, take: number, cur: string | null | undefined, skip: string[]) => {
             if (take <= 0) return [];
             return db.track.findMany({
-                where: exclude.length ? { AND: [where, { id: { notIn: exclude } }] } : where,
+                where: skip.length ? { AND: [where, { id: { notIn: skip } }] } : where,
                 orderBy, take,
                 ...(cur ? { cursor: { id: cur }, skip: 1 } : {}),
                 select: FEED_TRACK_SELECT,
@@ -9883,10 +9889,16 @@ app.get('/api/tracks/feed', async (req: any, res) => {
         const personalWhere = hasPersonal ? { AND: [base, { OR: personalOr }] } : null;
         const globalWhere = hasPersonal ? { AND: [base, { NOT: { OR: personalOr } }] } : base;
 
-        const [personal, global] = await Promise.all([
-            personalWhere && !cursor?.pDone ? page(personalWhere, personalWant + 1, cursor?.p) : Promise.resolve([]),
-            !cursor?.gDone ? page(globalWhere, globalWant + 1, cursor?.g) : Promise.resolve([]),
+        const fetchBoth = (skip: string[]) => Promise.all([
+            personalWhere && !cursor?.pDone ? page(personalWhere, personalWant + 1, cursor?.p, skip) : Promise.resolve([]),
+            !cursor?.gDone ? page(globalWhere, globalWant + 1, cursor?.g, skip) : Promise.resolve([]),
         ]);
+
+        let [personal, global] = await fetchBoth([...exclude, ...seen]);
+        // Everything they've seen? Better to repeat than to show an empty feed.
+        if (personal.length === 0 && global.length === 0 && seen.length > 0) {
+            [personal, global] = await fetchBoth(exclude);
+        }
 
         const pDone = personal.length <= personalWant;
         const gDone = global.length <= globalWant;
