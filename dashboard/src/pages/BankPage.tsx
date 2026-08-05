@@ -7,7 +7,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import axios from 'axios';
 import {
     Landmark, PiggyBank, TrendingUp, Wallet, ShieldCheck, ArrowDownToLine, ArrowUpFromLine,
-    HandCoins, Loader2, Link2,
+    HandCoins, Loader2, Link2, Info,
 } from 'lucide-react';
 import { AltSidebar, BG, PRIMARY, SECONDARY, TEXT, SUB, BORDER, FONT, CONTENT_MAX } from '../components/altshell/AltSidebar';
 import { AltHeader } from '../components/altshell/AltHeader';
@@ -146,6 +146,32 @@ export const BankPage: React.FC = () => {
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: SUB, fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}><ShieldCheck size={14} /> Credit Score</div>
                         <div style={{ fontSize: 26, fontWeight: 900, color: summary.creditScore >= 650 ? GREEN : summary.creditScore >= 500 ? YELLOW : RED }}>{summary.creditScore}</div>
                         <div style={{ fontSize: 11, color: SUB, marginTop: 4 }}>Max loan: {em} {summary.maxLoan.toLocaleString()}</div>
+                    </div>
+                </div>
+
+                {/* How it works */}
+                <div style={{ ...card, background: 'rgba(76,215,246,0.06)', border: `1px solid ${SECONDARY}33` }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                        <Info size={16} color={SECONDARY} />
+                        <div style={{ fontSize: 15, fontWeight: 800, color: '#fff' }}>How the Bank Works</div>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 18, fontSize: 13, color: SUB, lineHeight: 1.6 }}>
+                        <div>
+                            <div style={{ color: GREEN, fontWeight: 700, marginBottom: 4 }}>Savings</div>
+                            Coins you deposit sit safely in savings and quietly earn <strong style={{ color: TEXT }}>{summary.settings.savingsInterestRatePct}% interest every {summary.settings.savingsInterestIntervalHours} hours</strong> — just for leaving them there. Withdraw back to your wallet anytime, no penalty.
+                        </div>
+                        <div>
+                            <div style={{ color: YELLOW, fontWeight: 700, marginBottom: 4 }}>Loans</div>
+                            Borrow up to your max loan amount instantly. You'll owe the amount borrowed plus a flat <strong style={{ color: TEXT }}>{summary.settings.loanFeePct}% fee</strong>, due in <strong style={{ color: TEXT }}>{summary.settings.loanTermDays} days</strong>. You can only have <strong style={{ color: TEXT }}>one loan out at a time</strong> — repay it (in full or partial amounts) before borrowing again.
+                        </div>
+                        <div>
+                            <div style={{ color: SECONDARY, fontWeight: 700, marginBottom: 4 }}>Credit Score</div>
+                            Everyone starts at <strong style={{ color: TEXT }}>650</strong> (range 300–850). Repaying a loan <strong style={{ color: TEXT }}>on time</strong> gives <strong style={{ color: GREEN }}>+20</strong>; repaying <strong style={{ color: TEXT }}>late</strong> still gives <strong style={{ color: GREEN }}>+10</strong>. Missing the due date entirely marks the loan <strong style={{ color: RED }}>defaulted</strong> and costs <strong style={{ color: RED }}>−60</strong> — there's no forced collection, it's purely a credit hit, but a defaulted loan still has to be repaid before you can borrow again.
+                        </div>
+                        <div>
+                            <div style={{ color: TEXT, fontWeight: 700, marginBottom: 4 }}>Your max loan</div>
+                            Your credit score sets how much you can borrow — a higher score raises your limit, and you need at least <strong style={{ color: TEXT }}>{summary.settings.minCreditScoreToBorrow}</strong> credit to borrow at all. Right now your max is <strong style={{ color: TEXT }}>{em} {summary.maxLoan.toLocaleString()}</strong>.
+                        </div>
                     </div>
                 </div>
 
