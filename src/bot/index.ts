@@ -923,6 +923,13 @@ export class SimonBot {
         .addIntegerOption(opt => opt.setName('amount').setRequired(true).setMinValue(1).setDescription('Amount to send'));
     commands.push(payCommand.toJSON());
 
+    const requestPaymentCommand = new SlashCommandBuilder()
+        .setName('request-payment')
+        .setDescription('Ask another user to pay you — they can accept, deny, or modify the amount')
+        .addUserOption(opt => opt.setName('user').setRequired(true).setDescription('The user to request payment from'))
+        .addIntegerOption(opt => opt.setName('amount').setRequired(true).setMinValue(1).setDescription('Amount to request'));
+    commands.push(requestPaymentCommand.toJSON());
+
     // 4. Welcome Gate
     const setupWelcomeCommand = new SlashCommandBuilder()
         .setName('setup-welcome')

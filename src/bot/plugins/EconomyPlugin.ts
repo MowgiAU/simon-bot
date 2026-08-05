@@ -1,15 +1,18 @@
-import { 
-    Message, 
-    MessageReaction, 
-    User, 
-    GuildMember, 
-    Events, 
-    SlashCommandBuilder, 
-    PermissionsBitField, 
-    EmbedBuilder, 
-    ActionRowBuilder, 
-    ButtonBuilder, 
-    ButtonStyle, 
+import {
+    Message,
+    MessageReaction,
+    User,
+    GuildMember,
+    Events,
+    SlashCommandBuilder,
+    PermissionsBitField,
+    EmbedBuilder,
+    ActionRowBuilder,
+    ButtonBuilder,
+    ButtonStyle,
+    ModalBuilder,
+    TextInputBuilder,
+    TextInputStyle,
     ChatInputCommandInteraction,
     AutocompleteInteraction,
     Interaction,
@@ -51,7 +54,7 @@ export class EconomyPlugin implements IPlugin {
 
     configSchema = z.object({});
 
-    commands = ['wallet', 'wealth', 'market', 'buy', 'nick-optout', 'pay', 'use', 'slots'];
+    commands = ['wallet', 'wealth', 'market', 'buy', 'nick-optout', 'pay', 'request-payment', 'use', 'slots'];
 
     private client: any;
     private db: any;
@@ -125,6 +128,14 @@ export class EconomyPlugin implements IPlugin {
             return this.handleWealthButton(interaction);
         }
 
+        if (interaction.isButton() && interaction.customId.startsWith('payreq_')) {
+            return this.handlePayRequestButton(interaction);
+        }
+
+        if (interaction.isModalSubmit() && interaction.customId.startsWith('payreq_modify_modal_')) {
+            return this.handlePayRequestModifyModal(interaction);
+        }
+
         if (!interaction.isChatInputCommand()) return;
 
         const { commandName } = interaction;
@@ -135,6 +146,7 @@ export class EconomyPlugin implements IPlugin {
         else if (commandName === 'use') await this.handleUse(interaction);
         else if (commandName === 'nick-optout') await this.handleNickOptout(interaction);
         else if (commandName === 'pay') await this.handlePay(interaction);
+        else if (commandName === 'request-payment') await this.handleRequestPayment(interaction);
         else if (commandName === 'slots') await this.handleSlots(interaction);
     }
 
@@ -777,6 +789,170 @@ export class EconomyPlugin implements IPlugin {
             actionType: 'economy_pay',
             executorId: interaction.user.id,
             details: { recipient: recipient.id, amount },
+        });
+    }
+
+    /**
+     * Command: /request-payment — Ask another user to pay you; they can accept,
+     * deny, or modify the amount before anything moves.
+     */
+    private async handleRequestPayment(interaction: ChatInputCommandInteraction) {
+        if (!interaction.guildId) return;
+
+        const target = interaction.options.getUser('user', true);
+        const amount = interaction.options.getInteger('amount', true);
+
+        if (target.id === interaction.user.id) {
+            return interaction.reply({ content: 'You cannot request a payment from yourself.', flags: MessageFlags.Ephemeral });
+        }
+        if (target.bot) {
+            return interaction.reply({ content: 'You cannot request a payment from a bot.', flags: MessageFlags.Ephemeral });
+        }
+        if (amount <= 0) {
+            return interaction.reply({ content: 'Amount must be greater than zero.', flags: MessageFlags.Ephemeral });
+        }
+
+        const settings = await this.getSettings(interaction.guildId);
+        const { embed, row } = this.buildPayRequestMessage(interaction.user.id, target.id, amount, settings.currencyEmoji, 'pending');
+
+        await interaction.reply({ content: `<@${target.id}>`, embeds: [embed], components: [row], allowedMentions: { users: [target.id] } });
+    }
+
+    private buildPayRequestMessage(requesterId: string, targetId: string, amount: number, currencyEmoji: string, state: 'pending' | 'accepted' | 'denied' | 'modified', modifiedAmount?: number) {
+        const embed = new EmbedBuilder().setColor('#FEE75C').setTitle('💸 Payment Request');
+
+        if (state === 'pending') {
+            embed.setColor('#FEE75C')
+                .setDescription(`<@${requesterId}> is requesting ${currencyEmoji} **${amount.toLocaleString()}** from <@${targetId}>`)
+                .setFooter({ text: 'The recipient can accept, deny, or propose a different amount.' });
+        } else if (state === 'accepted') {
+            embed.setColor('#57F287')
+                .setDescription(`<@${targetId}> paid <@${requesterId}> ${currencyEmoji} **${amount.toLocaleString()}**`)
+                .setFooter({ text: 'Request accepted' });
+        } else if (state === 'modified') {
+            embed.setColor('#57F287')
+                .setDescription(`<@${targetId}> paid <@${requesterId}> ${currencyEmoji} **${(modifiedAmount ?? amount).toLocaleString()}** (originally requested ${currencyEmoji} ${amount.toLocaleString()})`)
+                .setFooter({ text: 'Request modified & paid' });
+        } else {
+            embed.setColor('#ED4245')
+                .setDescription(`<@${targetId}> denied <@${requesterId}>'s request for ${currencyEmoji} **${amount.toLocaleString()}**`)
+                .setFooter({ text: 'Request denied' });
+        }
+        embed.setTimestamp();
+
+        const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+            new ButtonBuilder().setCustomId(`payreq_accept_${requesterId}_${targetId}_${amount}`).setLabel('Accept').setStyle(ButtonStyle.Success).setEmoji('✅').setDisabled(state !== 'pending'),
+            new ButtonBuilder().setCustomId(`payreq_deny_${requesterId}_${targetId}_${amount}`).setLabel('Deny').setStyle(ButtonStyle.Danger).setEmoji('❌').setDisabled(state !== 'pending'),
+            new ButtonBuilder().setCustomId(`payreq_modify_${requesterId}_${targetId}_${amount}`).setLabel('Modify Amount').setStyle(ButtonStyle.Secondary).setEmoji('✏️').setDisabled(state !== 'pending'),
+        );
+
+        return { embed, row };
+    }
+
+    private async handlePayRequestButton(interaction: any): Promise<void> {
+        const parts = interaction.customId.split('_'); // ['payreq', action, requesterId, targetId, amount]
+        const action = parts[1];
+        const requesterId = parts[2];
+        const targetId = parts[3];
+        const amount = parseInt(parts[4], 10);
+        if (!requesterId || !targetId || !Number.isFinite(amount)) return;
+
+        if (interaction.user.id !== targetId) {
+            await interaction.reply({ content: "This payment request isn't yours to respond to.", flags: MessageFlags.Ephemeral });
+            return;
+        }
+
+        const guildId = interaction.guildId!;
+        const settings = await this.getSettings(guildId);
+
+        if (action === 'deny') {
+            const { embed, row } = this.buildPayRequestMessage(requesterId, targetId, amount, settings.currencyEmoji, 'denied');
+            await interaction.update({ embeds: [embed], components: [row] });
+            return;
+        }
+
+        if (action === 'modify') {
+            const modal = new ModalBuilder()
+                .setCustomId(`payreq_modify_modal_${requesterId}_${targetId}_${amount}`)
+                .setTitle('Modify Payment Amount');
+            const amountInput = new TextInputBuilder()
+                .setCustomId('amount')
+                .setLabel(`New amount (requested: ${amount})`)
+                .setStyle(TextInputStyle.Short)
+                .setPlaceholder(String(amount))
+                .setRequired(true)
+                .setMaxLength(12);
+            modal.addComponents(new ActionRowBuilder<TextInputBuilder>().addComponents(amountInput));
+            await interaction.showModal(modal);
+            return;
+        }
+
+        if (action === 'accept') {
+            await this.settlePayRequest(interaction, requesterId, targetId, amount, amount, settings, 'accepted');
+        }
+    }
+
+    private async handlePayRequestModifyModal(interaction: any): Promise<void> {
+        const parts = interaction.customId.split('_'); // ['payreq', 'modify', 'modal', requesterId, targetId, amount]
+        const requesterId = parts[3];
+        const targetId = parts[4];
+        const originalAmount = parseInt(parts[5], 10);
+        if (!requesterId || !targetId || !Number.isFinite(originalAmount)) return;
+
+        if (interaction.user.id !== targetId) {
+            await interaction.reply({ content: "This payment request isn't yours to respond to.", flags: MessageFlags.Ephemeral });
+            return;
+        }
+
+        const raw = interaction.fields.getTextInputValue('amount').trim();
+        const newAmount = parseInt(raw, 10);
+        if (!Number.isFinite(newAmount) || newAmount <= 0) {
+            await interaction.reply({ content: 'Please enter a whole number greater than zero.', flags: MessageFlags.Ephemeral });
+            return;
+        }
+
+        const guildId = interaction.guildId!;
+        const settings = await this.getSettings(guildId);
+        await this.settlePayRequest(interaction, requesterId, targetId, originalAmount, newAmount, settings, 'modified');
+    }
+
+    // Shared accept/modify settlement: moves coins targetId -> requesterId and
+    // updates the original request message to reflect the outcome. `canUpdate`
+    // is true for a direct button click (ButtonInteraction, always updatable)
+    // and for a modal submission that originated from a message component
+    // (ModalSubmitInteraction.isFromMessage()) — both support .update(). A modal
+    // submission that isn't from-message can't update the original message directly,
+    // so we edit interaction.message ourselves and confirm with an ephemeral reply.
+    private async settlePayRequest(interaction: any, requesterId: string, targetId: string, originalAmount: number, payAmount: number, settings: any, state: 'accepted' | 'modified'): Promise<void> {
+        const guildId = interaction.guildId!;
+        const targetAccount = await this.getAccount(guildId, targetId);
+
+        if (targetAccount.balance < payAmount) {
+            await interaction.reply({ content: `You only have ${settings.currencyEmoji} ${targetAccount.balance.toLocaleString()} and cannot pay ${settings.currencyEmoji} ${payAmount.toLocaleString()}.`, flags: MessageFlags.Ephemeral });
+            return;
+        }
+
+        const success = await this.transfer(guildId, targetId, requesterId, payAmount, 'PAY_REQUEST', `Payment request${state === 'modified' ? ' (modified)' : ''} settled between ${targetId} and ${requesterId}`);
+        if (!success) {
+            await interaction.reply({ content: 'Payment failed. You may not have enough funds.', flags: MessageFlags.Ephemeral });
+            return;
+        }
+
+        const { embed, row } = this.buildPayRequestMessage(requesterId, targetId, originalAmount, settings.currencyEmoji, state, payAmount);
+        const canUpdate = typeof interaction.update === 'function' && (typeof interaction.isFromMessage !== 'function' || interaction.isFromMessage());
+
+        if (canUpdate) {
+            await interaction.update({ embeds: [embed], components: [row] });
+        } else {
+            await interaction.message?.edit({ embeds: [embed], components: [row] }).catch(() => {});
+            await interaction.reply({ content: `✅ Paid ${settings.currencyEmoji} ${payAmount.toLocaleString()} to <@${requesterId}>.`, flags: MessageFlags.Ephemeral });
+        }
+
+        await this.logAction({
+            guildId,
+            actionType: 'economy_pay_request_settled',
+            executorId: targetId,
+            details: { requesterId, originalAmount, paidAmount: payAmount, modified: state === 'modified' },
         });
     }
 
