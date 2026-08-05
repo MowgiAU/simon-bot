@@ -113,7 +113,7 @@ export const BankPage: React.FC = () => {
                 <Link2 size={38} color={SECONDARY} style={{ opacity: 0.8, marginBottom: 12 }} />
                 <div style={{ fontSize: 20, fontWeight: 900, color: '#fff', marginBottom: 8 }}>Link your Discord account</div>
                 <p style={{ margin: '0 auto 20px', color: SUB, fontSize: 14, maxWidth: 380, lineHeight: 1.6 }}>
-                    The bank runs on the same coins you earn in Discord — link your account from Settings → Connections to use it here.
+                    The bank runs on the same coins you earn in Discord. Link your account from Settings → Connections to use it here.
                 </p>
                 <a href="/account" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '11px 24px', borderRadius: 10, background: `linear-gradient(135deg, ${SECONDARY}, ${PRIMARY})`, color: '#0a0d18', fontWeight: 800, fontSize: 14, textDecoration: 'none' }}>
                     <Link2 size={16} /> Go to Account Settings
@@ -158,19 +158,19 @@ export const BankPage: React.FC = () => {
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 18, fontSize: 13, color: SUB, lineHeight: 1.6 }}>
                         <div>
                             <div style={{ color: GREEN, fontWeight: 700, marginBottom: 4 }}>Savings</div>
-                            Coins you deposit sit safely in savings and quietly earn <strong style={{ color: TEXT }}>{summary.settings.savingsInterestRatePct}% interest every {summary.settings.savingsInterestIntervalHours} hours</strong> — just for leaving them there. Withdraw back to your wallet anytime, no penalty.
+                            Coins you deposit sit safely in savings and quietly earn <strong style={{ color: TEXT }}>{summary.settings.savingsInterestRatePct}% interest every {summary.settings.savingsInterestIntervalHours} hours</strong>, just for leaving them there. Withdraw back to your wallet anytime, no penalty.
                         </div>
                         <div>
                             <div style={{ color: YELLOW, fontWeight: 700, marginBottom: 4 }}>Loans</div>
-                            Borrow up to your max loan amount instantly. You'll owe the amount borrowed plus a flat <strong style={{ color: TEXT }}>{summary.settings.loanFeePct}% fee</strong>, due in <strong style={{ color: TEXT }}>{summary.settings.loanTermDays} days</strong>. You can only have <strong style={{ color: TEXT }}>one loan out at a time</strong> — repay it (in full or partial amounts) before borrowing again.
+                            Borrow up to your max loan amount instantly. You'll owe the amount borrowed plus a flat <strong style={{ color: TEXT }}>{summary.settings.loanFeePct}% fee</strong>, due in <strong style={{ color: TEXT }}>{summary.settings.loanTermDays} days</strong>. You can only have <strong style={{ color: TEXT }}>one loan out at a time</strong>, so repay it (in full or partial amounts) before borrowing again.
                         </div>
                         <div>
                             <div style={{ color: SECONDARY, fontWeight: 700, marginBottom: 4 }}>Credit Score</div>
-                            Everyone starts at <strong style={{ color: TEXT }}>650</strong> (range 300–850). Repaying a loan <strong style={{ color: TEXT }}>on time</strong> gives <strong style={{ color: GREEN }}>+20</strong>; repaying <strong style={{ color: TEXT }}>late</strong> still gives <strong style={{ color: GREEN }}>+10</strong>. Missing the due date entirely marks the loan <strong style={{ color: RED }}>defaulted</strong> and costs <strong style={{ color: RED }}>−60</strong> — there's no forced collection, it's purely a credit hit, but a defaulted loan still has to be repaid before you can borrow again.
+                            Everyone starts at <strong style={{ color: TEXT }}>650</strong> (range 300 to 850). Repaying a loan <strong style={{ color: TEXT }}>on time</strong> gives <strong style={{ color: GREEN }}>+20</strong>; repaying <strong style={{ color: TEXT }}>late</strong> still gives <strong style={{ color: GREEN }}>+10</strong>. Missing the due date entirely marks the loan <strong style={{ color: RED }}>defaulted</strong> and costs <strong style={{ color: RED }}>-60</strong>. Nothing is taken from you by force, it's purely a credit hit, but a defaulted loan still has to be repaid before you can borrow again.
                         </div>
                         <div>
                             <div style={{ color: TEXT, fontWeight: 700, marginBottom: 4 }}>Your max loan</div>
-                            Your credit score sets how much you can borrow — a higher score raises your limit, and you need at least <strong style={{ color: TEXT }}>{summary.settings.minCreditScoreToBorrow}</strong> credit to borrow at all. Right now your max is <strong style={{ color: TEXT }}>{em} {summary.maxLoan.toLocaleString()}</strong>.
+                            Your credit score sets how much you can borrow. A higher score raises your limit, and you need at least <strong style={{ color: TEXT }}>{summary.settings.minCreditScoreToBorrow}</strong> credit to borrow at all. Right now your max is <strong style={{ color: TEXT }}>{em} {summary.maxLoan.toLocaleString()}</strong>.
                         </div>
                     </div>
                 </div>
@@ -212,7 +212,7 @@ export const BankPage: React.FC = () => {
                             <button style={btn(YELLOW)} disabled={busy || !loanAmt} onClick={doLoan}>Borrow</button>
                         </div>
                     ) : (
-                        <div style={{ color: SUB, fontSize: 13 }}>Your credit score is too low to borrow right now — build it back up by repaying on time.</div>
+                        <div style={{ color: SUB, fontSize: 13 }}>Your credit score is too low to borrow right now. Build it back up by repaying on time.</div>
                     )}
                 </div>
 
@@ -229,7 +229,7 @@ export const BankPage: React.FC = () => {
                                     <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13 }}>
                                         <Icon size={14} color={SECONDARY} />
                                         <span style={{ fontWeight: 700, color: TEXT }}>{t.type}</span>
-                                        <span style={{ color: SUB }}>{em} {t.amount.toLocaleString()}{t.reason ? ` — ${t.reason}` : ''}</span>
+                                        <span style={{ color: SUB }}>{em} {t.amount.toLocaleString()}{t.reason ? ` · ${t.reason}` : ''}</span>
                                         <span style={{ marginLeft: 'auto', color: SUB, fontSize: 11 }}>{fmtDate(t.createdAt)}</span>
                                     </div>
                                 );

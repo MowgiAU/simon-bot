@@ -317,7 +317,7 @@ const BankTab = ({ settings, onSave, isMobile }: { settings: any, onSave: (d: an
                 {numField('minCreditScoreToBorrow', 'Minimum Credit Score to Borrow')}
             </div>
             <p style={{ margin: 0, fontSize: '12px', color: colors.textTertiary }}>
-                Credit scores start at 650 (range 300–850). Repaying a loan on time gives +20, repaying late gives +10, and a defaulted (unpaid, overdue) loan costs -60 — no automatic collection, just a credit-score consequence. Everyone can hold only one outstanding loan at a time.
+                Credit scores start at 650 (range 300 to 850). Repaying a loan on time gives +20, repaying late gives +10, and a defaulted (unpaid, overdue) loan costs -60, with no automatic collection, just a credit-score consequence. Everyone can hold only one outstanding loan at a time.
             </p>
 
             <button

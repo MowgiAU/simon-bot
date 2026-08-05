@@ -1023,7 +1023,7 @@ export class EconomyPlugin implements IPlugin {
         const dueTs = Math.floor(new Date(loan.dueAt).getTime() / 1000);
         const label = loan.status === 'defaulted' ? '⚠️ **Defaulted**' : 'Active';
         const dueText = loan.status === 'defaulted' ? `was due <t:${dueTs}:R>` : `due <t:${dueTs}:R>`;
-        return `${label} — owe ${settings.currencyEmoji} **${loan.totalOwed.toLocaleString()}**, ${dueText}`;
+        return `${label} · owe ${settings.currencyEmoji} **${loan.totalOwed.toLocaleString()}**, ${dueText}`;
     }
 
     private async handleBankBalance(interaction: ChatInputCommandInteraction) {
@@ -1162,7 +1162,7 @@ export class EconomyPlugin implements IPlugin {
             const typeEmoji: Record<string, string> = { DEPOSIT: '💰', WITHDRAW: '🏧', LOAN: '💸', REPAY: '✅', INTEREST: '📈' };
             const lines = transactions.map((t: any) => {
                 const ts = Math.floor(new Date(t.createdAt).getTime() / 1000);
-                return `${typeEmoji[t.type] || '•'} **${t.type}** — ${settings.currencyEmoji} ${t.amount.toLocaleString()} <t:${ts}:R>${t.reason ? ` — ${t.reason}` : ''}`;
+                return `${typeEmoji[t.type] || '•'} **${t.type}** · ${settings.currencyEmoji} ${t.amount.toLocaleString()} <t:${ts}:R>${t.reason ? ` · ${t.reason}` : ''}`;
             });
 
             const embed = new EmbedBuilder()
