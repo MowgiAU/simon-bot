@@ -4,13 +4,13 @@ import { useAuth } from '../components/AuthProvider';
 import axios from 'axios';
 import { showToast } from '../components/Toast';
 import { ConfirmModal } from '../components/ConfirmModal';
-import { Coins, ShoppingBag, Vault, Save, Edit, Trash2, Plus, User as UserIcon, Smile, X } from 'lucide-react';
+import { Coins, ShoppingBag, Vault, Save, Edit, Trash2, Plus, User as UserIcon, Smile, X, Landmark } from 'lucide-react';
 import { HybridEmojiPicker } from '../components/HybridEmojiPicker';
 import { useMobile } from '../hooks/useMobile';
 
 export const EconomyPluginPage: React.FC = () => {
     const { selectedGuild } = useAuth();
-    const [activeTab, setActiveTab] = useState<'settings' | 'inventory' | 'vault'>('settings');
+    const [activeTab, setActiveTab] = useState<'settings' | 'inventory' | 'vault' | 'bank'>('settings');
     const isMobile = useMobile();
     
     // Data State
@@ -126,6 +126,7 @@ export const EconomyPluginPage: React.FC = () => {
                         <option value="settings">Settings</option>
                         <option value="inventory">Inventory (Shop)</option>
                         <option value="vault">Vault (Balances)</option>
+                        <option value="bank">Bank (Savings & Loans)</option>
                     </select>
                 </div>
             ) : (
@@ -141,7 +142,8 @@ export const EconomyPluginPage: React.FC = () => {
                     {[
                         { id: 'settings', label: 'Settings', icon: <Coins size={18} /> },
                         { id: 'inventory', label: 'Inventory (Shop)', icon: <ShoppingBag size={18} /> },
-                        { id: 'vault', label: 'Vault (Balances)', icon: <Vault size={18} /> }
+                        { id: 'vault', label: 'Vault (Balances)', icon: <Vault size={18} /> },
+                        { id: 'bank', label: 'Bank (Savings & Loans)', icon: <Landmark size={18} /> }
                     ].map(tab => (
                         <button
                             key={tab.id}
@@ -172,6 +174,9 @@ export const EconomyPluginPage: React.FC = () => {
                 )}
                 {activeTab === 'vault' && (
                     <VaultTab guildId={selectedGuild?.id || ''} currency={settings?.currencyEmoji} isMobile={isMobile} />
+                )}
+                {activeTab === 'bank' && settings && (
+                    <BankTab settings={settings} onSave={saveSettings} isMobile={isMobile} />
                 )}
             </div>
         </div>
@@ -274,6 +279,56 @@ const SettingsTab = ({ settings, onSave, guildId, isMobile }: { settings: any, o
                 }}
             >
                 <Save size={18} /> Save Settings
+            </button>
+        </div>
+    );
+};
+
+// --- Bank Tab ---
+const BankTab = ({ settings, onSave, isMobile }: { settings: any, onSave: (d: any) => void, isMobile: boolean }) => {
+    const [data, setData] = useState(settings);
+    const numField = (key: string, label: string, step = 1, min = 0) => (
+        <div>
+            <label style={{ display: 'block', marginBottom: '8px' }}>{label}</label>
+            <input
+                type="number" step={step} min={min}
+                value={data[key]}
+                onChange={e => setData({ ...data, [key]: Number(e.target.value) })}
+                style={{ width: '100%', padding: '10px', background: colors.background, border: `1px solid ${colors.border}`, color: colors.textPrimary, borderRadius: borderRadius.sm }}
+            />
+        </div>
+    );
+
+    return (
+        <div style={{ display: 'grid', gap: '20px' }}>
+            <h3>Savings Interest</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '20px' }}>
+                {numField('savingsInterestRatePct', 'Interest Rate (% per interval)', 0.1)}
+                {numField('savingsInterestIntervalHours', 'Interval (hours)', 1, 1)}
+            </div>
+
+            <h3>Loans</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr', gap: '20px' }}>
+                {numField('loanFeePct', 'Flat Fee (%)', 0.5)}
+                {numField('loanTermDays', 'Term (days)', 1, 1)}
+                {numField('baseMaxLoan', 'Base Max Loan (at 650 credit score)')}
+                {numField('loanCap', 'Hard Cap (regardless of score)')}
+                {numField('creditScoreLoanBonus', 'Extra Max-Loan per Point Above 650')}
+                {numField('minCreditScoreToBorrow', 'Minimum Credit Score to Borrow')}
+            </div>
+            <p style={{ margin: 0, fontSize: '12px', color: colors.textTertiary }}>
+                Credit scores start at 650 (range 300–850). Repaying a loan on time gives +20, repaying late gives +10, and a defaulted (unpaid, overdue) loan costs -60 — no automatic collection, just a credit-score consequence. Everyone can hold only one outstanding loan at a time.
+            </p>
+
+            <button
+                onClick={() => onSave(data)}
+                style={{
+                    marginTop: '20px', padding: '12px', background: colors.primary, color: colors.textPrimary,
+                    border: 'none', borderRadius: borderRadius.sm, cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                }}
+            >
+                <Save size={18} /> Save Bank Settings
             </button>
         </div>
     );

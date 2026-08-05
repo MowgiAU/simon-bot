@@ -21,6 +21,7 @@ import {
 import { z } from 'zod';
 import { IPlugin, IPluginContext } from '../types/plugin';
 import { WordCensor } from '../../services/WordCensor.js';
+import * as BankService from '../../services/BankService.js';
 
 interface EconomyContext extends IPluginContext {}
 
@@ -54,7 +55,7 @@ export class EconomyPlugin implements IPlugin {
 
     configSchema = z.object({});
 
-    commands = ['wallet', 'wealth', 'market', 'buy', 'nick-optout', 'pay', 'request-payment', 'use', 'slots'];
+    commands = ['wallet', 'wealth', 'market', 'buy', 'nick-optout', 'pay', 'request-payment', 'use', 'slots', 'bank'];
 
     private client: any;
     private db: any;
@@ -65,6 +66,8 @@ export class EconomyPlugin implements IPlugin {
     private messageCooldowns = new Map<string, number>();
     private drainCooldowns = new Map<string, number>();
     private grantExpiryTimer: ReturnType<typeof setInterval> | null = null;
+    private bankInterestTimer: ReturnType<typeof setInterval> | null = null;
+    private bankOverdueTimer: ReturnType<typeof setInterval> | null = null;
     private blocklistCache = new Map<string, { set: Set<string>; expires: number }>();
     private drainerCache = new Map<string, { set: Set<string>; expires: number }>();
 
@@ -86,6 +89,10 @@ export class EconomyPlugin implements IPlugin {
         // Poll every 5 minutes for expired token grants and remove their roles
         this.grantExpiryTimer = setInterval(() => this.processExpiredGrants(), 5 * 60 * 1000);
         setTimeout(() => this.processExpiredGrants(), 30_000);
+
+        // Bank: savings interest (hourly) and loan overdue sweep (every 30 min), per guild.
+        this.bankInterestTimer = setInterval(() => this.runBankTickForAllGuilds('interest'), 60 * 60 * 1000);
+        this.bankOverdueTimer = setInterval(() => this.runBankTickForAllGuilds('overdue'), 30 * 60 * 1000);
     }
 
     async shutdown(): Promise<void> {
@@ -94,6 +101,15 @@ export class EconomyPlugin implements IPlugin {
         this.payRequestPairCooldowns.clear();
         this.payRequestGlobalCooldowns.clear();
         if (this.grantExpiryTimer) clearInterval(this.grantExpiryTimer);
+        if (this.bankInterestTimer) clearInterval(this.bankInterestTimer);
+        if (this.bankOverdueTimer) clearInterval(this.bankOverdueTimer);
+    }
+
+    private async runBankTickForAllGuilds(kind: 'interest' | 'overdue'): Promise<void> {
+        for (const guildId of this.client.guilds.cache.keys()) {
+            if (kind === 'interest') await BankService.runInterestTick(this.db, guildId, this.logger);
+            else await BankService.runLoanOverdueSweep(this.db, guildId, this.logger);
+        }
     }
 
     private async handleAutocomplete(interaction: AutocompleteInteraction) {
@@ -146,6 +162,10 @@ export class EconomyPlugin implements IPlugin {
             return this.handlePayRequestModifyModal(interaction);
         }
 
+        if (interaction.isButton() && interaction.customId.startsWith('bankhistory_')) {
+            return this.handleBankHistoryButton(interaction);
+        }
+
         if (!interaction.isChatInputCommand()) return;
 
         const { commandName } = interaction;
@@ -158,6 +178,7 @@ export class EconomyPlugin implements IPlugin {
         else if (commandName === 'pay') await this.handlePay(interaction);
         else if (commandName === 'request-payment') await this.handleRequestPayment(interaction);
         else if (commandName === 'slots') await this.handleSlots(interaction);
+        else if (commandName === 'bank') await this.handleBank(interaction);
     }
 
     /**
@@ -277,7 +298,8 @@ export class EconomyPlugin implements IPlugin {
                     { name: 'Balance', value: `${settings.currencyEmoji} ${account.balance}`, inline: true },
                     { name: 'Lifetime Earned', value: `${settings.currencyEmoji} ${account.totalEarned}`, inline: true },
                     { name: 'Rank', value: '#'+(await this.getRank(interaction.guildId, target.id)), inline: true }
-                );
+                )
+                .setFooter({ text: `💳 Credit Score: ${account.creditScore} · Use /bank for savings & loans` });
 
             await interaction.editReply({ embeds: [embed] });
         } catch (e) {
@@ -982,6 +1004,191 @@ export class EconomyPlugin implements IPlugin {
         });
     }
 
+    /**
+     * Command: /bank — savings + loans, dispatched by subcommand.
+     */
+    private async handleBank(interaction: ChatInputCommandInteraction) {
+        if (!interaction.guildId) return;
+        const sub = interaction.options.getSubcommand();
+        if (sub === 'balance') await this.handleBankBalance(interaction);
+        else if (sub === 'deposit') await this.handleBankDepositWithdraw(interaction, 'deposit');
+        else if (sub === 'withdraw') await this.handleBankDepositWithdraw(interaction, 'withdraw');
+        else if (sub === 'loan') await this.handleBankLoan(interaction);
+        else if (sub === 'repay') await this.handleBankRepay(interaction);
+        else if (sub === 'history') await this.handleBankHistory(interaction);
+    }
+
+    private formatLoanStatus(loan: any, settings: any): string {
+        if (!loan) return 'No active loan.';
+        const dueTs = Math.floor(new Date(loan.dueAt).getTime() / 1000);
+        const label = loan.status === 'defaulted' ? '⚠️ **Defaulted**' : 'Active';
+        const dueText = loan.status === 'defaulted' ? `was due <t:${dueTs}:R>` : `due <t:${dueTs}:R>`;
+        return `${label} — owe ${settings.currencyEmoji} **${loan.totalOwed.toLocaleString()}**, ${dueText}`;
+    }
+
+    private async handleBankBalance(interaction: ChatInputCommandInteraction) {
+        try {
+            await interaction.deferReply();
+            const summary = await BankService.getSummary(this.db, interaction.guildId!, interaction.user.id);
+            const { settings } = summary;
+
+            const nextInterestLine = settings.savingsInterestRatePct > 0
+                ? `${settings.savingsInterestRatePct}% every ${settings.savingsInterestIntervalHours}h`
+                : 'Disabled';
+
+            const embed = new EmbedBuilder()
+                .setTitle(`${await this.censor.clean(interaction.guildId!, interaction.user.username)}'s Bank`)
+                .setColor('#57F287')
+                .addFields(
+                    { name: 'Wallet', value: `${settings.currencyEmoji} ${summary.wallet.toLocaleString()}`, inline: true },
+                    { name: 'Savings', value: `${settings.currencyEmoji} ${summary.savings.toLocaleString()}`, inline: true },
+                    { name: 'Credit Score', value: `${summary.creditScore}`, inline: true },
+                    { name: 'Savings Interest', value: nextInterestLine, inline: true },
+                    { name: 'Max Loan', value: `${settings.currencyEmoji} ${summary.maxLoan.toLocaleString()}`, inline: true },
+                    { name: 'Loan Status', value: this.formatLoanStatus(summary.activeLoan, settings), inline: false },
+                )
+                .setFooter({ text: 'Use /bank deposit, /bank withdraw, /bank loan, /bank repay' });
+
+            await interaction.editReply({ embeds: [embed] });
+        } catch (e) {
+            this.logger.error('Bank balance command failed', e);
+            await interaction.editReply({ content: 'Failed to retrieve your bank account.' });
+        }
+    }
+
+    private async handleBankDepositWithdraw(interaction: ChatInputCommandInteraction, kind: 'deposit' | 'withdraw') {
+        const amount = interaction.options.getInteger('amount', true);
+        try {
+            await interaction.deferReply();
+            const settings = await this.getSettings(interaction.guildId!);
+            const account = kind === 'deposit'
+                ? await BankService.deposit(this.db, interaction.guildId!, interaction.user.id, amount)
+                : await BankService.withdraw(this.db, interaction.guildId!, interaction.user.id, amount);
+
+            const embed = new EmbedBuilder()
+                .setColor('#57F287')
+                .setDescription(`${kind === 'deposit' ? '💰 Deposited' : '🏧 Withdrew'} ${settings.currencyEmoji} **${amount.toLocaleString()}**\nWallet: ${settings.currencyEmoji} ${account.balance.toLocaleString()} · Savings: ${settings.currencyEmoji} ${account.savingsBalance.toLocaleString()}`);
+            await interaction.editReply({ embeds: [embed] });
+        } catch (e: any) {
+            await interaction.editReply({ content: `❌ ${e.message || 'Transaction failed.'}` });
+        }
+    }
+
+    private async handleBankLoan(interaction: ChatInputCommandInteraction) {
+        const amount = interaction.options.getInteger('amount', true);
+        try {
+            await interaction.deferReply();
+            const settings = await this.getSettings(interaction.guildId!);
+            const loan = await BankService.requestLoan(this.db, interaction.guildId!, interaction.user.id, amount);
+
+            const dueTs = Math.floor(new Date(loan.dueAt).getTime() / 1000);
+            const embed = new EmbedBuilder()
+                .setColor('#FEE75C')
+                .setTitle('💸 Loan Issued')
+                .setDescription(`Borrowed ${settings.currencyEmoji} **${loan.principal.toLocaleString()}** (fee: ${settings.currencyEmoji} ${loan.feeAmount.toLocaleString()})\nTotal owed: ${settings.currencyEmoji} **${loan.totalOwed.toLocaleString()}**\nDue <t:${dueTs}:R>`)
+                .setFooter({ text: 'Repay with /bank repay before it\'s due to boost your credit score.' });
+            await interaction.editReply({ embeds: [embed] });
+
+            await this.logAction({
+                guildId: interaction.guildId!,
+                actionType: 'economy_loan_issued',
+                executorId: interaction.user.id,
+                details: { principal: loan.principal, feeAmount: loan.feeAmount, totalOwed: loan.totalOwed, dueAt: loan.dueAt },
+            });
+        } catch (e: any) {
+            await interaction.editReply({ content: `❌ ${e.message || 'Loan request failed.'}` });
+        }
+    }
+
+    private async handleBankRepay(interaction: ChatInputCommandInteraction) {
+        const amount = interaction.options.getInteger('amount') ?? undefined;
+        try {
+            await interaction.deferReply();
+            const settings = await this.getSettings(interaction.guildId!);
+            const loan = await BankService.repayLoan(this.db, interaction.guildId!, interaction.user.id, amount ?? undefined);
+
+            const embed = new EmbedBuilder()
+                .setColor(loan.status === 'repaid' ? '#57F287' : '#FEE75C')
+                .setDescription(loan.status === 'repaid'
+                    ? `✅ Loan fully repaid! Your credit score has been updated.`
+                    : `Payment applied. Remaining balance: ${settings.currencyEmoji} **${loan.totalOwed.toLocaleString()}**`);
+            await interaction.editReply({ embeds: [embed] });
+
+            await this.logAction({
+                guildId: interaction.guildId!,
+                actionType: 'economy_loan_repaid',
+                executorId: interaction.user.id,
+                details: { loanId: loan.id, remaining: loan.totalOwed, status: loan.status },
+            });
+        } catch (e: any) {
+            await interaction.editReply({ content: `❌ ${e.message || 'Repayment failed.'}` });
+        }
+    }
+
+    private async handleBankHistory(interaction: ChatInputCommandInteraction) {
+        await interaction.deferReply();
+        await this.sendBankHistoryPage(interaction, interaction.user.id, 0);
+    }
+
+    private async handleBankHistoryButton(interaction: any) {
+        const parts = interaction.customId.split('_'); // ['bankhistory', userId, page]
+        const userId = parts[1];
+        const page = parseInt(parts[2], 10);
+        if (interaction.user.id !== userId || isNaN(page)) {
+            await interaction.reply({ content: "This isn't your bank history.", flags: MessageFlags.Ephemeral });
+            return;
+        }
+        await this.sendBankHistoryPage(interaction, userId, page);
+    }
+
+    private async sendBankHistoryPage(interaction: any, userId: string, page: number) {
+        const guildId = interaction.guildId!;
+        const perPage = 10;
+
+        try {
+            const settings = await this.getSettings(guildId);
+            const where = { guildId, type: { in: ['DEPOSIT', 'WITHDRAW', 'LOAN', 'REPAY', 'INTEREST'] }, OR: [{ fromUserId: userId }, { toUserId: userId }] };
+            const total = await this.db.economyTransaction.count({ where });
+            const maxPage = Math.max(0, Math.ceil(total / perPage) - 1);
+            page = Math.min(Math.max(0, page), maxPage);
+
+            const transactions = await this.db.economyTransaction.findMany({
+                where,
+                orderBy: { createdAt: 'desc' },
+                skip: page * perPage,
+                take: perPage,
+            });
+
+            const typeEmoji: Record<string, string> = { DEPOSIT: '💰', WITHDRAW: '🏧', LOAN: '💸', REPAY: '✅', INTEREST: '📈' };
+            const lines = transactions.map((t: any) => {
+                const ts = Math.floor(new Date(t.createdAt).getTime() / 1000);
+                return `${typeEmoji[t.type] || '•'} **${t.type}** — ${settings.currencyEmoji} ${t.amount.toLocaleString()} <t:${ts}:R>${t.reason ? ` — ${t.reason}` : ''}`;
+            });
+
+            const embed = new EmbedBuilder()
+                .setColor(0x57F287)
+                .setTitle('🏦 Bank History')
+                .setDescription(lines.join('\n') || 'No bank activity yet.')
+                .setFooter({ text: `Page ${page + 1}/${maxPage + 1} • ${total} transactions` });
+
+            const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+                new ButtonBuilder().setCustomId(`bankhistory_${userId}_${page - 1}`).setLabel('◀ Prev').setStyle(ButtonStyle.Secondary).setDisabled(page === 0),
+                new ButtonBuilder().setCustomId(`bankhistory_${userId}_${page + 1}`).setLabel('Next ▶').setStyle(ButtonStyle.Secondary).setDisabled(page >= maxPage),
+            );
+
+            if (interaction.replied || interaction.deferred) {
+                await interaction.editReply({ embeds: [embed], components: [row] });
+            } else {
+                await interaction.update({ embeds: [embed], components: [row] });
+            }
+        } catch (e) {
+            this.logger.error('Bank history command failed', e);
+            const msg = { content: 'Failed to retrieve bank history.' };
+            if (interaction.replied || interaction.deferred) await interaction.editReply(msg);
+            else await interaction.reply(msg);
+        }
+    }
+
     private async handleSlots(interaction: ChatInputCommandInteraction): Promise<void> {
         const guildId = interaction.guildId!;
         const [settings, account, slotSettings] = await Promise.all([
@@ -1068,7 +1275,30 @@ export class EconomyPlugin implements IPlugin {
         const cmd = new SlashCommandBuilder()
             .setName('slots')
             .setDescription('Get a link to the slot machine to spend your coins');
-        return [cmd];
+
+        const bankCmd = new SlashCommandBuilder()
+            .setName('bank')
+            .setDescription('Manage your savings and loans')
+            .addSubcommand((sub: any) => sub.setName('balance').setDescription('View your wallet, savings, credit score, and loan status'))
+            .addSubcommand((sub: any) => sub
+                .setName('deposit')
+                .setDescription('Move coins from your wallet into savings')
+                .addIntegerOption((opt: any) => opt.setName('amount').setRequired(true).setMinValue(1).setDescription('Amount to deposit')))
+            .addSubcommand((sub: any) => sub
+                .setName('withdraw')
+                .setDescription('Move coins from savings back into your wallet')
+                .addIntegerOption((opt: any) => opt.setName('amount').setRequired(true).setMinValue(1).setDescription('Amount to withdraw')))
+            .addSubcommand((sub: any) => sub
+                .setName('loan')
+                .setDescription('Borrow coins against your credit score (flat fee, due on a fixed date)')
+                .addIntegerOption((opt: any) => opt.setName('amount').setRequired(true).setMinValue(1).setDescription('Amount to borrow')))
+            .addSubcommand((sub: any) => sub
+                .setName('repay')
+                .setDescription('Repay your active loan (full or partial)')
+                .addIntegerOption((opt: any) => opt.setName('amount').setRequired(false).setMinValue(1).setDescription('Amount to repay (default: full remaining)')))
+            .addSubcommand((sub: any) => sub.setName('history').setDescription('View your recent bank activity'));
+
+        return [cmd, bankCmd];
     }
 
     // --- Helpers ---

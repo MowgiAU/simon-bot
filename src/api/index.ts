@@ -32,6 +32,7 @@ import { ProjectZipProcessor } from '../services/ProjectZipProcessor.js';
 import { R2Storage } from '../services/R2Storage.js';
 import { runBackup, pgDump } from '../services/DatabaseBackup.js';
 import { softDeleteMiddleware } from '../services/softDelete.js';
+import * as BankService from '../services/BankService.js';
 import { retryMiddleware } from '../services/prismaRetry.js';
 import { WaveformExtractor } from '../services/WaveformExtractor.js';
 import { StemProcessor } from '../services/StemProcessor.js';
@@ -4499,7 +4500,10 @@ app.post('/api/economy/settings/:guildId', async (req, res) => {
         const { guildId } = req.params;
         if (!await checkPluginAccess(guildId, req, 'economy')) return res.status(403).json({ error: 'Forbidden' });
         
-        const { currencyName, currencyEmoji, messageReward, messageCooldown, minMessageLength, autoNickname, allowTipping } = req.body;
+        const {
+            currencyName, currencyEmoji, messageReward, messageCooldown, minMessageLength, autoNickname, allowTipping,
+            savingsInterestRatePct, savingsInterestIntervalHours, loanFeePct, loanTermDays, baseMaxLoan, loanCap, creditScoreLoanBonus, minCreditScoreToBorrow,
+        } = req.body;
         const allowedData: any = {};
         if (currencyName !== undefined) allowedData.currencyName = currencyName;
         if (currencyEmoji !== undefined) allowedData.currencyEmoji = currencyEmoji;
@@ -4508,7 +4512,15 @@ app.post('/api/economy/settings/:guildId', async (req, res) => {
         if (minMessageLength !== undefined) allowedData.minMessageLength = minMessageLength;
         if (autoNickname !== undefined) allowedData.autoNickname = autoNickname;
         if (allowTipping !== undefined) allowedData.allowTipping = allowTipping;
-        
+        if (savingsInterestRatePct !== undefined) allowedData.savingsInterestRatePct = savingsInterestRatePct;
+        if (savingsInterestIntervalHours !== undefined) allowedData.savingsInterestIntervalHours = savingsInterestIntervalHours;
+        if (loanFeePct !== undefined) allowedData.loanFeePct = loanFeePct;
+        if (loanTermDays !== undefined) allowedData.loanTermDays = loanTermDays;
+        if (baseMaxLoan !== undefined) allowedData.baseMaxLoan = baseMaxLoan;
+        if (loanCap !== undefined) allowedData.loanCap = loanCap;
+        if (creditScoreLoanBonus !== undefined) allowedData.creditScoreLoanBonus = creditScoreLoanBonus;
+        if (minCreditScoreToBorrow !== undefined) allowedData.minCreditScoreToBorrow = minCreditScoreToBorrow;
+
         const settings = await db.economySettings.upsert({
             where: { guildId },
             update: allowedData,
@@ -4518,6 +4530,81 @@ app.post('/api/economy/settings/:guildId', async (req, res) => {
     } catch (e) {
         logger.error('Failed update economy settings', e);
         res.status(500).json({ error: 'Failed' });
+    }
+});
+
+// ── Bank (member-facing: savings + loans) ───────────────────────────────────
+// Personal-account surface like /api/tracks/:id/favourite — gated by requireAuth,
+// not checkPluginAccess/isTrueAdmin (this isn't a dashboard-admin route).
+
+async function resolveBankUser(req: any): Promise<{ discordId: string } | { error: string }> {
+    const localId = req.session?.user?._localId;
+    const dbUser = localId
+        ? await db.user.findUnique({ where: { id: localId } })
+        : await db.user.findUnique({ where: { id: req.session?.user?.id } });
+    if (!dbUser?.discordId) return { error: 'link_discord_required' };
+    return { discordId: dbUser.discordId };
+}
+
+app.get('/api/bank/me', requireAuth, async (req: any, res) => {
+    try {
+        const resolved = await resolveBankUser(req);
+        if ('error' in resolved) return res.status(400).json({ error: resolved.error });
+        const guildId = process.env.GUILD_ID!;
+        const summary = await BankService.getSummary(db, guildId, resolved.discordId);
+        res.json(summary);
+    } catch (e: any) {
+        logger.error('Bank /me failed', e);
+        res.status(500).json({ error: 'Failed' });
+    }
+});
+
+app.post('/api/bank/deposit', requireAuth, async (req: any, res) => {
+    try {
+        const resolved = await resolveBankUser(req);
+        if ('error' in resolved) return res.status(400).json({ error: resolved.error });
+        const guildId = process.env.GUILD_ID!;
+        const account = await BankService.deposit(db, guildId, resolved.discordId, Number(req.body.amount));
+        res.json(account);
+    } catch (e: any) {
+        res.status(400).json({ error: e.message || 'Deposit failed' });
+    }
+});
+
+app.post('/api/bank/withdraw', requireAuth, async (req: any, res) => {
+    try {
+        const resolved = await resolveBankUser(req);
+        if ('error' in resolved) return res.status(400).json({ error: resolved.error });
+        const guildId = process.env.GUILD_ID!;
+        const account = await BankService.withdraw(db, guildId, resolved.discordId, Number(req.body.amount));
+        res.json(account);
+    } catch (e: any) {
+        res.status(400).json({ error: e.message || 'Withdrawal failed' });
+    }
+});
+
+app.post('/api/bank/loan', requireAuth, async (req: any, res) => {
+    try {
+        const resolved = await resolveBankUser(req);
+        if ('error' in resolved) return res.status(400).json({ error: resolved.error });
+        const guildId = process.env.GUILD_ID!;
+        const loan = await BankService.requestLoan(db, guildId, resolved.discordId, Number(req.body.amount));
+        res.json(loan);
+    } catch (e: any) {
+        res.status(400).json({ error: e.message || 'Loan request failed' });
+    }
+});
+
+app.post('/api/bank/repay', requireAuth, async (req: any, res) => {
+    try {
+        const resolved = await resolveBankUser(req);
+        if ('error' in resolved) return res.status(400).json({ error: resolved.error });
+        const guildId = process.env.GUILD_ID!;
+        const amount = req.body.amount !== undefined ? Number(req.body.amount) : undefined;
+        const loan = await BankService.repayLoan(db, guildId, resolved.discordId, amount);
+        res.json(loan);
+    } catch (e: any) {
+        res.status(400).json({ error: e.message || 'Repayment failed' });
     }
 });
 

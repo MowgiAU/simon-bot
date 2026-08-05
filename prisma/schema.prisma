@@ -164,6 +164,7 @@ model Guild {
   economyTrans       EconomyTransaction[]
   economyPurchaseLog EconomyPurchaseLog[]
   economyTokenGrants EconomyTokenGrant[]
+  economyLoans       EconomyLoan[]
 
   // Feedback Plugin
   feedbackProfiles FeedbackProfile[]
@@ -600,11 +601,34 @@ model EconomyAccount {
   lastDaily   DateTime?
   lastWeekly  DateTime?
 
+  // Bank
+  savingsBalance Int       @default(0)
+  creditScore    Int       @default(650) // clamped 300-850
+  lastInterestAt DateTime? // null = never accrued yet
+
   // Relations
   guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
 
   @@unique([guildId, userId])
   @@map("economy_accounts")
+}
+
+model EconomyLoan {
+  id        String    @id @default(cuid())
+  guildId   String
+  userId    String
+  principal Int
+  feeAmount Int
+  totalOwed Int // remaining balance; decrements as repaid
+  status    String // 'active' | 'repaid' | 'defaulted'
+  issuedAt  DateTime  @default(now())
+  dueAt     DateTime
+  repaidAt  DateTime?
+
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  @@index([guildId, userId, status])
+  @@map("economy_loans")
 }
 
 model EconomySettings {
@@ -623,6 +647,16 @@ model EconomySettings {
   // Features
   autoNickname Boolean @default(false)
   allowTipping Boolean @default(true)
+
+  // Bank
+  savingsInterestRatePct       Float @default(0.5) // % credited per interval
+  savingsInterestIntervalHours Int   @default(24)
+  loanFeePct                   Float @default(10) // flat % fee on principal
+  loanTermDays                 Int   @default(7)
+  baseMaxLoan                  Int   @default(200) // max loan at credit score 650
+  loanCap                      Int   @default(5000) // hard ceiling regardless of score
+  creditScoreLoanBonus         Int   @default(5) // + max-loan per point above 650
+  minCreditScoreToBorrow       Int   @default(500)
 
   guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
 

@@ -106,6 +106,7 @@ const FrontpageAltFMyTracks    = lazy(() => import("./pages/FrontpageAltFMyTrack
 const FrontpageAltFFavourites  = lazy(() => import("./pages/FrontpageAltFFavourites").then(m => ({ default: m.FrontpageAltFFavourites })));
 const FrontpageAltFGenres      = lazy(() => import("./pages/FrontpageAltFGenres").then(m => ({ default: m.FrontpageAltFGenres })));
 const FrontpageAltFArena       = lazy(() => import("./pages/FrontpageAltFArena").then(m => ({ default: m.FrontpageAltFArena })));
+const BankPage                 = lazy(() => import("./pages/BankPage").then(m => ({ default: m.BankPage })));
 const FrontpageAltFContact     = lazy(() => import("./pages/FrontpageAltFContact"));
 const FrontpageAltFUpload       = lazy(() => import("./pages/FrontpageAltFUpload"));
 const FrontpageAltFLearn       = lazy(() => import("./pages/FrontpageAltFLearn").then(m => ({ default: m.FrontpageAltFLearn })));
@@ -1082,6 +1083,11 @@ const AppInternal: React.FC = () => {
   // /account → Account settings (password, email verification, 2FA, Discord)
   if (currentPath === '/account') {
     return <Suspense fallback={<PageSpinner />}><AccountSettingsPage /></Suspense>;
+  }
+
+  // /bank → Savings + loans (member-facing)
+  if (currentPath === '/bank') {
+    return <Suspense fallback={<PageSpinner />}><BankPage /></Suspense>;
   }
 
   // /login → Login/Register page

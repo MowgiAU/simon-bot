@@ -11,7 +11,7 @@ import { useAuth } from '../AuthProvider';
 import { useAltBreakpoint } from './useAltBreakpoint';
 import { AltMobileNav } from './AltMobileNav';
 import {
-    Home, Search, User, Newspaper, BarChart3, Swords, Tag, Users, Zap,
+    Home, Search, User, Newspaper, BarChart3, Swords, Tag, Users, Zap, Landmark,
     HelpCircle, LogOut, PanelLeftClose, PanelLeftOpen,
 } from 'lucide-react';
 
@@ -32,6 +32,7 @@ const NAV = [
     { icon: BarChart3, label: 'Charts',  to: '/charts' },
     { icon: Swords,    label: 'Battles', to: '/battles' },
     { icon: Zap,       label: 'Arena',   to: '/arena' },
+    { icon: Landmark,  label: 'Bank',    to: '/bank' },
     // Genres + Collabs stay on /preview until their live routes are migrated (later stage).
     { icon: Tag,       label: 'Genres',  to: '/genres' },
     { icon: Users,     label: 'Collabs', to: '/collabs' },
