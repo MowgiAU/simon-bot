@@ -68,6 +68,14 @@ export class EconomyPlugin implements IPlugin {
     private blocklistCache = new Map<string, { set: Set<string>; expires: number }>();
     private drainerCache = new Map<string, { set: Set<string>; expires: number }>();
 
+    // Anti-spam for /request-payment: a per-(requester, target) cooldown stops
+    // repeatedly pinging the same person, and a per-requester cooldown stops
+    // rapid-fire requests to lots of different people.
+    private payRequestPairCooldowns = new Map<string, number>();
+    private payRequestGlobalCooldowns = new Map<string, number>();
+    private static readonly PAY_REQUEST_PAIR_COOLDOWN_MS = 2 * 60 * 1000; // same target
+    private static readonly PAY_REQUEST_GLOBAL_COOLDOWN_MS = 15 * 1000;  // any target
+
     async initialize(context: EconomyContext): Promise<void> {
         this.client = context.client;
         this.db = context.db;
@@ -83,6 +91,8 @@ export class EconomyPlugin implements IPlugin {
     async shutdown(): Promise<void> {
         this.messageCooldowns.clear();
         this.drainCooldowns.clear();
+        this.payRequestPairCooldowns.clear();
+        this.payRequestGlobalCooldowns.clear();
         if (this.grantExpiryTimer) clearInterval(this.grantExpiryTimer);
     }
 
@@ -811,6 +821,22 @@ export class EconomyPlugin implements IPlugin {
         if (amount <= 0) {
             return interaction.reply({ content: 'Amount must be greater than zero.', flags: MessageFlags.Ephemeral });
         }
+
+        const now = Date.now();
+        const globalKey = `${interaction.guildId}:${interaction.user.id}`;
+        const pairKey = `${interaction.guildId}:${interaction.user.id}:${target.id}`;
+
+        const globalWait = (this.payRequestGlobalCooldowns.get(globalKey) || 0) - now;
+        if (globalWait > 0) {
+            return interaction.reply({ content: `Slow down — you can send another payment request in ${Math.ceil(globalWait / 1000)}s.`, flags: MessageFlags.Ephemeral });
+        }
+        const pairWait = (this.payRequestPairCooldowns.get(pairKey) || 0) - now;
+        if (pairWait > 0) {
+            return interaction.reply({ content: `You already sent <@${target.id}> a payment request recently — try again in ${Math.ceil(pairWait / 60000)}m.`, flags: MessageFlags.Ephemeral });
+        }
+
+        this.payRequestGlobalCooldowns.set(globalKey, now + EconomyPlugin.PAY_REQUEST_GLOBAL_COOLDOWN_MS);
+        this.payRequestPairCooldowns.set(pairKey, now + EconomyPlugin.PAY_REQUEST_PAIR_COOLDOWN_MS);
 
         const settings = await this.getSettings(interaction.guildId);
         const { embed, row } = this.buildPayRequestMessage(interaction.user.id, target.id, amount, settings.currencyEmoji, 'pending');
