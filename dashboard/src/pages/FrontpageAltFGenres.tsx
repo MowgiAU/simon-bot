@@ -1,26 +1,23 @@
 /**
- * Alt F — Genres (/genres, /genres/:slug, ?g=slug1,slug2, ?group=id)
- * Genre grid with subreddit-style feeds, multi-select, and saveable genre groups.
+ * Alt F — Genres (/genres, /genres/:slug, ?g=slug1,slug2)
+ *
+ * Genres are tags on tracks, not communities: this page is a browser for them.
+ * The grid lists every genre; opening one plays its tracks in the shorts feed —
+ * full-screen on phones, framed in the centre column on desktop.
  */
-import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import axios from 'axios';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { usePlayer } from '../components/PlayerProvider';
 import {
-    AltSidebar, BG, S_CONT, S_HIGH,
-    PRIMARY, SECONDARY, TERTIARY, TEXT, SUB, BORDER, FONT, arr,
+    AltSidebar, BG, PRIMARY, SECONDARY, TERTIARY, TEXT, SUB, BORDER, FONT, arr, CONTENT_MAX,
 } from '../components/altshell/AltSidebar';
 import { AltHeader } from '../components/altshell/AltHeader';
 import { AltActivitySidebar } from '../components/altshell/AltActivitySidebar';
 import { AltSpinner } from '../components/altshell/AltSpinner';
-import { TrackFeed } from '../components/altshell/trackfeed/TrackFeed';
 import { useAltBreakpoint } from '../components/altshell/useAltBreakpoint';
-import {
-    Music, Play, Pause, Search, X, TrendingUp, Users,
-    ChevronUp, ChevronDown, MessageCircle, Clock, Flame, Plus,
-    FileText, Layers, BookMarked, Trash2, Check, ChevronLeft,
-    Share2, Tag, Pin,
-} from 'lucide-react';
+import { TrackFeed } from '../components/altshell/trackfeed/TrackFeed';
+import { Music, Search, X, TrendingUp, Users } from 'lucide-react';
 
 const glass: React.CSSProperties = {
     background: 'rgba(15,19,29,0.7)',
@@ -31,15 +28,6 @@ const glass: React.CSSProperties = {
 };
 
 const fmtNum = (n?: number) => { n = n || 0; if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M'; if (n >= 1e3) return (n / 1e3).toFixed(1) + 'k'; return String(n); };
-const fmtDur = (s?: number) => { if (!s || !isFinite(s)) return '—'; const m = Math.floor(s / 60); const c = Math.floor(s % 60); return `${m}:${c.toString().padStart(2, '0')}`; };
-const timeAgo = (d: string) => {
-    const s = Math.floor((Date.now() - new Date(d).getTime()) / 1000);
-    if (s < 60) return `${s}s`;
-    if (s < 3600) return `${Math.floor(s / 60)}m`;
-    if (s < 86400) return `${Math.floor(s / 3600)}h`;
-    if (s < 604800) return `${Math.floor(s / 86400)}d`;
-    return new Date(d).toLocaleDateString();
-};
 
 function genreColor(name: string): string {
     let h = 5381;
@@ -52,548 +40,44 @@ function genreAccent(name: string): string {
     for (let i = 0; i < name.length; i++) h = (h * 33 ^ name.charCodeAt(i)) >>> 0;
     return `hsl(${h % 360},60%,65%)`;
 }
-function flairColor(flair: string): string {
-    let h = 5381;
-    for (let i = 0; i < flair.length; i++) h = (h * 33 ^ flair.charCodeAt(i)) >>> 0;
-    return `hsl(${h % 360},60%,65%)`;
-}
 
 interface Genre {
     id: string; name: string; slug: string; parentId: string | null;
     _count: { tracks: number; profiles: number; subscriptions: number };
     children: Genre[];
 }
-interface GenrePost {
-    id: string; type?: 'discussion' | 'track'; title: string; body?: string | null;
-    imageUrl?: string | null; videoUrl?: string | null; audioUrl?: string | null;
-    score: number; upvotes: number; downvotes: number;
-    hotScore: number; commentCount: number; createdAt: string;
-    userId: string; username: string; avatarUrl?: string | null;
-    genreId?: string; genre?: { id: string; name: string; slug: string };
-    communityId?: string; community?: { id: string; name: string; slug: string };
-    track?: { id: string; title: string; slug: string; coverUrl?: string | null; url?: string; mp3Url?: string | null; duration?: number; waveformPeaks?: number[] | null; profile?: { username: string; displayName?: string | null } } | null;
-    userVote: 'up' | 'down' | null;
-    flair?: string | null;
-    pinned?: boolean;
-    crossPostOfId?: string | null;
-    crossPostOf?: { id: string; title: string; genre?: { name: string; slug: string } | null } | null;
-}
-interface GenreGroup {
-    id: string; name: string; userId: string; createdAt: string;
-    genres: { genre: { id: string; name: string; slug: string } }[];
-}
-interface Community {
-    id: string; name: string; slug: string; description: string | null; icon: string | null;
-    _count: { subscriptions: number; posts: number };
-}
 
-// ── GenrePostCard ──────────────────────────────────────────────────────────────
-const GenrePostCard: React.FC<{
-    post: GenrePost; onVote: (id: string, type: 'up' | 'down') => void; showGenre?: boolean;
-    onShare?: (post: GenrePost) => void;
-}> = ({ post, onVote, showGenre, onShare }) => {
-    const { player, setTrack, togglePlay } = usePlayer();
-    const [hovered, setHovered] = useState(false);
-    const isCommunityPost = !!post.communityId;
-    const postLink = `/post/${post.id}${isCommunityPost ? '?kind=community' : ''}`;
-
-    const trackUrl = post.track?.mp3Url || post.track?.url;
-    const isActiveTrack = player.currentTrack?.id === post.track?.id;
-    const isPlaying = isActiveTrack && player.isPlaying;
-    const trackProgress = isActiveTrack ? (player.currentTime / (player.duration || post.track?.duration || 1)) : 0;
-
-    const playTrack = () => {
-        if (!trackUrl || !post.track) return;
-        if (isActiveTrack) { togglePlay(); return; }
-        const artist = post.track.profile?.displayName || post.track.profile?.username || post.username;
-        setTrack({ id: post.track.id, title: post.track.title, artist, url: trackUrl, coverUrl: post.track.coverUrl || undefined }, []);
-    };
-
-    const upColor = post.userVote === 'up' ? PRIMARY : SUB;
-    const downColor = post.userVote === 'down' ? TERTIARY : SUB;
-
-    return (
-        <div
-            onMouseEnter={() => setHovered(true)}
-            onMouseLeave={() => setHovered(false)}
-            style={{ ...glass, borderRadius: 14, padding: '14px 16px', display: 'flex', gap: 12, transition: 'border-color 0.15s', borderColor: hovered ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.1)' }}
-        >
-            {/* Vote column */}
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, minWidth: 36, paddingTop: 2 }}>
-                <button onClick={() => onVote(post.id, 'up')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: upColor, padding: 2, display: 'flex', transition: 'color 0.15s' }}>
-                    <ChevronUp size={18} />
-                </button>
-                <span style={{ fontSize: 13, fontWeight: 700, color: post.score > 0 ? PRIMARY : post.score < 0 ? TERTIARY : SUB, fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>{post.score}</span>
-                <button onClick={() => onVote(post.id, 'down')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: downColor, padding: 2, display: 'flex', transition: 'color 0.15s' }}>
-                    <ChevronDown size={18} />
-                </button>
-            </div>
-
-            {/* Content */}
-            <div style={{ flex: 1, minWidth: 0 }}>
-                {/* Pinned indicator */}
-                {post.pinned && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: SECONDARY, fontWeight: 700, marginBottom: 5 }}>
-                        <Pin size={11} /> Pinned
-                    </div>
-                )}
-                {/* Cross-post origin */}
-                {post.crossPostOf && (
-                    <div style={{ fontSize: 11, color: SUB, marginBottom: 5, display: 'flex', alignItems: 'center', gap: 4 }}>
-                        <Share2 size={10} />
-                        Cross-posted from{' '}
-                        <Link to={`/post/${post.crossPostOf.id}`} style={{ color: post.crossPostOf.genre ? genreAccent(post.crossPostOf.genre.name) : PRIMARY, textDecoration: 'none', fontWeight: 600 }}>
-                            {post.crossPostOf.title.length > 40 ? post.crossPostOf.title.slice(0, 40) + '…' : post.crossPostOf.title}
-                        </Link>
-                        {post.crossPostOf.genre && (
-                            <span> in <Link to={`/genres/${post.crossPostOf.genre.slug}`} style={{ color: genreAccent(post.crossPostOf.genre.name), textDecoration: 'none', fontWeight: 600 }}>{post.crossPostOf.genre.name}</Link></span>
-                        )}
-                    </div>
-                )}
-                <Link to={postLink} style={{ textDecoration: 'none', display: 'block', marginBottom: 6 }}>
-                    <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: TEXT, lineHeight: 1.35, cursor: 'pointer' }}
-                        onMouseEnter={e => (e.currentTarget.style.color = PRIMARY)}
-                        onMouseLeave={e => (e.currentTarget.style.color = TEXT)}>
-                        {post.type !== 'track' && <FileText size={13} color={SECONDARY} style={{ marginRight: 6, verticalAlign: 'middle', flexShrink: 0 }} />}
-                        {post.type === 'track' && <Music size={13} color={PRIMARY} style={{ marginRight: 6, verticalAlign: 'middle', flexShrink: 0 }} />}
-                        {post.title}
-                    </p>
-                </Link>
-                {/* Flair pill */}
-                {post.flair && (
-                    <div style={{ marginBottom: 6 }}>
-                        <Link to={isCommunityPost ? `/genres/${post.community?.slug || ''}?kind=community&flair=${encodeURIComponent(post.flair)}` : `/genres/${post.genre?.slug || ''}?flair=${encodeURIComponent(post.flair)}`}
-                            style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 9999, background: `${flairColor(post.flair)}18`, border: `1px solid ${flairColor(post.flair)}44`, color: flairColor(post.flair), fontSize: 11, fontWeight: 700, textDecoration: 'none' }}>
-                            <Tag size={9} /> {post.flair}
-                        </Link>
-                    </div>
-                )}
-
-                {post.type === 'track' && post.track && (() => {
-                    const peaks: number[] = post.track.waveformPeaks || [];
-                    const artist = post.track.profile?.displayName || post.track.profile?.username || '';
-                    return (
-                        <div style={{ borderRadius: 12, overflow: 'hidden', background: S_CONT, border: `1px solid ${BORDER}`, marginBottom: 8 }}>
-                            <div style={{ display: 'flex' }}>
-                                {/* Cover art with play overlay */}
-                                <div style={{ position: 'relative', width: 96, height: 96, flexShrink: 0 }}>
-                                    {post.track.coverUrl
-                                        ? <img src={post.track.coverUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                                        : <div style={{ width: '100%', height: '100%', background: S_HIGH, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Music size={24} color={SUB} /></div>
-                                    }
-                                    <button onClick={playTrack} style={{ position: 'absolute', inset: 0, background: isPlaying ? 'rgba(0,0,0,0.35)' : 'rgba(0,0,0,0.5)', border: 'none', cursor: trackUrl ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                        <div style={{ width: 36, height: 36, borderRadius: '50%', background: isPlaying ? PRIMARY : 'rgba(255,255,255,0.92)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 12px rgba(0,0,0,0.5)' }}>
-                                            {isPlaying
-                                                ? <Pause size={14} color="#fff" fill="#fff" />
-                                                : <Play  size={14} color="#111" fill="#111" style={{ marginLeft: 2 }} />}
-                                        </div>
-                                    </button>
-                                    {isPlaying && <div style={{ position: 'absolute', inset: 0, boxShadow: `inset 0 0 0 2px ${PRIMARY}`, pointerEvents: 'none' }} />}
-                                </div>
-
-                                {/* Right: title + waveform */}
-                                <div style={{ flex: 1, minWidth: 0, padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: 6 }}>
-                                    <div>
-                                        <div style={{ fontSize: 13, fontWeight: 700, color: isPlaying ? PRIMARY : TEXT, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{post.track.title}</div>
-                                        <div style={{ fontSize: 11, color: SUB, marginTop: 2, display: 'flex', alignItems: 'center', gap: 8 }}>
-                                            {artist && <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{artist}</span>}
-                                            {post.track.duration && <span style={{ flexShrink: 0, color: `${SUB}99` }}>{fmtDur(post.track.duration)}</span>}
-                                        </div>
-                                    </div>
-                                    {/* Waveform */}
-                                    <div style={{ flex: 1, minHeight: 36, cursor: trackUrl ? 'pointer' : 'default' }} onClick={playTrack}>
-                                        {peaks.length > 0 ? (
-                                            <svg width="100%" height="36" preserveAspectRatio="none" viewBox={`0 0 ${peaks.length} 36`} style={{ display: 'block' }}>
-                                                {peaks.map((peak, i) => {
-                                                    const h = Math.max(2, peak * 28); const y = (36 - h) / 2;
-                                                    const played = isActiveTrack && (i / peaks.length) < trackProgress;
-                                                    return <rect key={i} x={i} y={y} width={0.7} height={h} fill={played ? PRIMARY : 'rgba(255,255,255,0.18)'} rx={0.3} />;
-                                                })}
-                                            </svg>
-                                        ) : (() => {
-                                            let h = 5381;
-                                            for (const c of post.track!.id) h = (h * 33 ^ c.charCodeAt(0)) >>> 0;
-                                            return (
-                                                <div style={{ height: 36, display: 'flex', alignItems: 'center', gap: '1.5px', overflow: 'hidden' }}>
-                                                    {Array.from({ length: 80 }, (_, i) => {
-                                                        h = (h * 1664525 + 1013904223) >>> 0;
-                                                        const ht = 15 + (h % 65);
-                                                        const played = isActiveTrack && (i / 80) < trackProgress;
-                                                        return <div key={i} style={{ flex: 1, height: `${ht}%`, borderRadius: 9999, background: played ? PRIMARY : 'rgba(255,255,255,0.18)' }} />;
-                                                    })}
-                                                </div>
-                                            );
-                                        })()}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    );
-                })()}
-
-                {post.type !== 'track' && post.imageUrl && (
-                    <img src={post.imageUrl} alt="" style={{ maxWidth: '100%', maxHeight: 280, borderRadius: 8, objectFit: 'cover', marginBottom: 8, display: 'block' }} onError={e => (e.currentTarget.style.display = 'none')} />
-                )}
-
-                {post.type !== 'track' && post.videoUrl && (() => {
-                    const ytMatch = post.videoUrl.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([A-Za-z0-9_-]{11})/);
-                    if (ytMatch) return (
-                        <div style={{ borderRadius: 8, overflow: 'hidden', marginBottom: 8, position: 'relative', paddingBottom: '40%', background: S_CONT }}>
-                            <iframe src={`https://www.youtube.com/embed/${ytMatch[1]}`} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 'none' }} allowFullScreen title="Video" />
-                        </div>
-                    );
-                    return (
-                        <video src={post.videoUrl} controls style={{ maxWidth: '100%', maxHeight: 280, borderRadius: 8, display: 'block', marginBottom: 8 }} />
-                    );
-                })()}
-
-                {post.type !== 'track' && post.audioUrl && (
-                    <div style={{ background: S_CONT, borderRadius: 8, padding: '10px 12px', marginBottom: 8 }}>
-                        <audio src={post.audioUrl} controls style={{ width: '100%', height: 32 }} />
-                    </div>
-                )}
-
-                {post.type !== 'track' && post.body && (
-                    <div style={{ margin: '0 0 8px', fontSize: 13, color: SUB, lineHeight: 1.5, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' as any }}
-                        dangerouslySetInnerHTML={{ __html: post.body }} />
-                )}
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 11, color: SUB }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                        <div style={{ width: 18, height: 18, borderRadius: '50%', overflow: 'hidden', background: S_HIGH, flexShrink: 0 }}>
-                            {post.avatarUrl && <img src={post.avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
-                        </div>
-                        <Link to={`/profile/${post.username}`} style={{ fontWeight: 600, color: TEXT, textDecoration: 'none' }}
-                            onMouseEnter={e => (e.currentTarget.style.textDecoration = 'underline')}
-                            onMouseLeave={e => (e.currentTarget.style.textDecoration = 'none')}>
-                            {post.username}
-                        </Link>
-                    </div>
-                    <span>·</span>
-                    <span>{timeAgo(post.createdAt)}</span>
-                    {showGenre && post.genre && (
-                        <>
-                            <span>·</span>
-                            <Link to={`/genres/${post.genre.slug}`} style={{ color: genreAccent(post.genre.name), fontWeight: 600, textDecoration: 'none' }}
-                                onMouseEnter={e => (e.currentTarget.style.opacity = '0.8')}
-                                onMouseLeave={e => (e.currentTarget.style.opacity = '1')}>
-                                {post.genre.name}
-                            </Link>
-                        </>
-                    )}
-                    <Link to={postLink} style={{ display: 'flex', alignItems: 'center', gap: 4, color: SUB, textDecoration: 'none', marginLeft: 'auto' }}
-                        onMouseEnter={e => (e.currentTarget.style.color = TEXT)}
-                        onMouseLeave={e => (e.currentTarget.style.color = SUB)}>
-                        <MessageCircle size={12} />
-                        <span>{post.commentCount} comments</span>
-                    </Link>
-                    {onShare && (
-                        <button onClick={e => { e.preventDefault(); onShare(post); }}
-                            style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', cursor: 'pointer', color: SUB, padding: 0, fontFamily: FONT, fontSize: 11 }}
-                            onMouseEnter={e => (e.currentTarget.style.color = TEXT)}
-                            onMouseLeave={e => (e.currentTarget.style.color = SUB)}>
-                            <Share2 size={12} /> Share
-                        </button>
-                    )}
-                </div>
-            </div>
-        </div>
-    );
-};
-
-// ── Create Post Modal ──────────────────────────────────────────────────────────
-const CreatePostModal: React.FC<{
-    genreId?: string; communityId?: string; genreName: string; onClose: () => void; onCreated: (post: GenrePost) => void;
-}> = ({ genreId, communityId, genreName, onClose, onCreated }) => {
-    const [flair, setFlair] = useState('');
-    const [title, setTitle] = useState('');
-    const [body, setBody] = useState('');
-    const [saving, setSaving] = useState(false);
-    const [err, setErr] = useState('');
-
-    const submit = async () => {
-        if (!title.trim()) { setErr('Title is required'); return; }
-        setSaving(true); setErr('');
-        try {
-            const r = communityId
-                ? await axios.post('/api/community-posts', { communityId, title, body, flair: flair.trim() || undefined }, { withCredentials: true })
-                : await axios.post('/api/genre-posts', { genreId, title, body, type: 'discussion', flair: flair.trim() || undefined }, { withCredentials: true });
-            onCreated(r.data); onClose();
-        } catch (e: any) { setErr(e.response?.data?.error || 'Failed to post'); }
-        finally { setSaving(false); }
-    };
-
-    return (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }} onClick={onClose}>
-            <div onClick={e => e.stopPropagation()} style={{ ...glass, borderRadius: 18, padding: 28, width: '100%', maxWidth: 560, fontFamily: FONT }}>
-                <h3 style={{ margin: '0 0 6px', fontSize: 18, fontWeight: 800, color: TEXT }}>New post in {genreName}</h3>
-                <p style={{ margin: '0 0 20px', fontSize: 13, color: SUB }}>Start a discussion in this {communityId ? 'community' : 'genre community'}</p>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: SUB, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Topic <span style={{ fontWeight: 400, textTransform: 'none' }}>(optional)</span></label>
-                <input value={flair} onChange={e => setFlair(e.target.value)} maxLength={50} placeholder="e.g. Question, Tutorial, Showcase, Feedback…"
-                    style={{ width: '100%', boxSizing: 'border-box', padding: '10px 14px', background: S_CONT, border: `1px solid ${BORDER}`, borderRadius: 9, color: TEXT, fontSize: 14, fontFamily: FONT, outline: 'none', marginBottom: 4 }} />
-                <div style={{ fontSize: 11, color: SUB, textAlign: 'right', marginBottom: 16 }}>{flair.length}/50</div>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: SUB, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Title</label>
-                <input value={title} onChange={e => setTitle(e.target.value)} maxLength={300} placeholder="An interesting title…"
-                    style={{ width: '100%', boxSizing: 'border-box', padding: '10px 14px', background: S_CONT, border: `1px solid ${BORDER}`, borderRadius: 9, color: TEXT, fontSize: 14, fontFamily: FONT, outline: 'none', marginBottom: 4 }} />
-                <div style={{ fontSize: 11, color: SUB, textAlign: 'right', marginBottom: 16 }}>{title.length}/300</div>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: SUB, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Body <span style={{ fontWeight: 400, textTransform: 'none' }}>(optional)</span></label>
-                <textarea value={body} onChange={e => setBody(e.target.value)} maxLength={10000} rows={5} placeholder="Share your thoughts…"
-                    style={{ width: '100%', boxSizing: 'border-box', padding: '10px 14px', background: S_CONT, border: `1px solid ${BORDER}`, borderRadius: 9, color: TEXT, fontSize: 14, fontFamily: FONT, outline: 'none', resize: 'vertical', marginBottom: 4 }} />
-                <div style={{ fontSize: 11, color: SUB, textAlign: 'right', marginBottom: 16 }}>{body.length}/10,000</div>
-                {err && <p style={{ color: TERTIARY, fontSize: 13, marginBottom: 12 }}>{err}</p>}
-                <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-                    <button onClick={onClose} style={{ padding: '9px 18px', background: S_CONT, border: `1px solid ${BORDER}`, borderRadius: 8, color: SUB, cursor: 'pointer', fontFamily: FONT, fontSize: 14 }}>Cancel</button>
-                    <button onClick={submit} disabled={saving} style={{ padding: '9px 18px', background: PRIMARY, border: 'none', borderRadius: 8, color: '#fff', cursor: saving ? 'not-allowed' : 'pointer', fontFamily: FONT, fontSize: 14, fontWeight: 700, opacity: saving ? 0.6 : 1 }}>
-                        {saving ? 'Posting…' : 'Post'}
-                    </button>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-// ── Save Group Modal ───────────────────────────────────────────────────────────
-const SaveGroupModal: React.FC<{
-    genreNames: string[]; onSave: (name: string) => Promise<void>; onClose: () => void;
-}> = ({ genreNames, onSave, onClose }) => {
-    const [name, setName] = useState('');
-    const [saving, setSaving] = useState(false);
-
-    const submit = async () => {
-        if (!name.trim()) return;
-        setSaving(true);
-        await onSave(name.trim());
-        setSaving(false);
-    };
-
-    return (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }} onClick={onClose}>
-            <div onClick={e => e.stopPropagation()} style={{ ...glass, borderRadius: 18, padding: 28, width: '100%', maxWidth: 440, fontFamily: FONT }}>
-                <h3 style={{ margin: '0 0 6px', fontSize: 18, fontWeight: 800, color: TEXT }}>Save Genre Group</h3>
-                <p style={{ margin: '0 0 20px', fontSize: 13, color: SUB }}>Includes: {genreNames.join(', ')}</p>
-                <input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. My EDM Mix, Chill Sessions…" autoFocus
-                    onKeyDown={e => e.key === 'Enter' && submit()}
-                    style={{ width: '100%', boxSizing: 'border-box', padding: '10px 14px', background: S_CONT, border: `1px solid ${BORDER}`, borderRadius: 9, color: TEXT, fontSize: 14, fontFamily: FONT, outline: 'none', marginBottom: 20 }} />
-                <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-                    <button onClick={onClose} style={{ padding: '9px 18px', background: S_CONT, border: `1px solid ${BORDER}`, borderRadius: 8, color: SUB, cursor: 'pointer', fontFamily: FONT, fontSize: 14 }}>Cancel</button>
-                    <button onClick={submit} disabled={saving || !name.trim()} style={{ padding: '9px 18px', background: PRIMARY, border: 'none', borderRadius: 8, color: '#fff', cursor: (saving || !name.trim()) ? 'not-allowed' : 'pointer', fontFamily: FONT, fontSize: 14, fontWeight: 700, opacity: (saving || !name.trim()) ? 0.6 : 1 }}>
-                        {saving ? 'Saving…' : 'Save Group'}
-                    </button>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-// ── Share Modal ────────────────────────────────────────────────────────────────
-const ShareModal: React.FC<{
-    post: GenrePost; genres: Genre[]; onClose: () => void;
-}> = ({ post, genres, onClose }) => {
-    const [step, setStep] = useState<'menu' | 'crosspost'>('menu');
-    const [crossPostGenreId, setCrossPostGenreId] = useState('');
-    const [crossPostNote, setCrossPostNote] = useState('');
-    const [crossPosting, setCrossPosting] = useState(false);
-    const [done, setDone] = useState(false);
-    const [copied, setCopied] = useState(false);
-    const [err, setErr] = useState('');
-
-    const allFlat: Genre[] = [];
-    const walkAll = (gs: Genre[]) => gs.forEach(g => { allFlat.push(g); walkAll(g.children || []); });
-    walkAll(genres);
-
-    const isCommunityPost = !!post.communityId;
-
-    const copyLink = () => {
-        const url = `${window.location.origin}/post/${post.id}${isCommunityPost ? '?kind=community' : ''}`;
-        navigator.clipboard.writeText(url).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); }).catch(() => {});
-    };
-
-    const submitCrossPost = async () => {
-        if (!crossPostGenreId) { setErr('Please select a genre'); return; }
-        setCrossPosting(true); setErr('');
-        try {
-            await axios.post('/api/genre-posts', {
-                genreId: crossPostGenreId,
-                crossPostOfId: post.id,
-                title: post.title,
-                body: crossPostNote || undefined,
-                type: 'discussion',
-            }, { withCredentials: true });
-            setDone(true);
-        } catch (e: any) { setErr(e.response?.data?.error || 'Failed to cross-post'); }
-        finally { setCrossPosting(false); }
-    };
-
-    return (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }} onClick={onClose}>
-            <div onClick={e => e.stopPropagation()} style={{ ...glass, borderRadius: 18, padding: 28, width: '100%', maxWidth: 480, fontFamily: FONT }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-                    <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: TEXT, display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <Share2 size={16} color={PRIMARY} /> Share Post
-                    </h3>
-                    <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: SUB, padding: 0, display: 'flex' }}><X size={16} /></button>
-                </div>
-
-                {done ? (
-                    <div style={{ textAlign: 'center', padding: '20px 0' }}>
-                        <Check size={32} color={SECONDARY} style={{ marginBottom: 10 }} />
-                        <div style={{ fontSize: 15, fontWeight: 700, color: TEXT, marginBottom: 6 }}>Cross-posted!</div>
-                        <div style={{ fontSize: 13, color: SUB, marginBottom: 18 }}>The post has been shared to the selected genre.</div>
-                        <button onClick={onClose} style={{ padding: '9px 20px', background: PRIMARY, border: 'none', borderRadius: 8, color: '#fff', cursor: 'pointer', fontFamily: FONT, fontSize: 14, fontWeight: 700 }}>Done</button>
-                    </div>
-                ) : step === 'menu' ? (
-                    <>
-                        <div style={{ fontSize: 13, color: SUB, marginBottom: 16, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            "{post.title.length > 50 ? post.title.slice(0, 50) + '…' : post.title}"
-                        </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                            <button onClick={copyLink}
-                                style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', background: copied ? `${SECONDARY}18` : S_CONT, border: `1px solid ${copied ? SECONDARY : BORDER}`, borderRadius: 10, color: copied ? SECONDARY : TEXT, cursor: 'pointer', fontFamily: FONT, fontSize: 14, fontWeight: 600, transition: 'all 0.2s' }}>
-                                <Share2 size={16} color={copied ? SECONDARY : SUB} />
-                                {copied ? 'Link copied!' : 'Copy link'}
-                            </button>
-                            {!isCommunityPost && (
-                                <button onClick={() => setStep('crosspost')}
-                                    style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', background: S_CONT, border: `1px solid ${BORDER}`, borderRadius: 10, color: TEXT, cursor: 'pointer', fontFamily: FONT, fontSize: 14, fontWeight: 600 }}>
-                                    <Layers size={16} color={SUB} />
-                                    Cross-post to another genre
-                                </button>
-                            )}
-                        </div>
-                    </>
-                ) : (
-                    <>
-                        <button onClick={() => setStep('menu')} style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'none', border: 'none', cursor: 'pointer', color: SUB, fontFamily: FONT, fontSize: 12, padding: 0, marginBottom: 16 }}>
-                            <ChevronLeft size={13} /> Back
-                        </button>
-                        <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: SUB, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Post to Genre</label>
-                        <select value={crossPostGenreId} onChange={e => setCrossPostGenreId(e.target.value)}
-                            style={{ width: '100%', boxSizing: 'border-box', padding: '10px 14px', background: S_CONT, border: `1px solid ${BORDER}`, borderRadius: 9, color: crossPostGenreId ? TEXT : SUB, fontSize: 14, fontFamily: FONT, outline: 'none', marginBottom: 16, appearance: 'none' }}>
-                            <option value="">Select a genre…</option>
-                            {allFlat.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
-                        </select>
-                        <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: SUB, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Note <span style={{ fontWeight: 400, textTransform: 'none' }}>(optional)</span></label>
-                        <textarea value={crossPostNote} onChange={e => setCrossPostNote(e.target.value)} maxLength={2000} rows={3} placeholder="Add a note for the new community…"
-                            style={{ width: '100%', boxSizing: 'border-box', padding: '10px 14px', background: S_CONT, border: `1px solid ${BORDER}`, borderRadius: 9, color: TEXT, fontSize: 14, fontFamily: FONT, outline: 'none', resize: 'vertical', marginBottom: 4 }} />
-                        {err && <p style={{ color: TERTIARY, fontSize: 13, margin: '8px 0 0' }}>{err}</p>}
-                        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 16 }}>
-                            <button onClick={onClose} style={{ padding: '9px 18px', background: S_CONT, border: `1px solid ${BORDER}`, borderRadius: 8, color: SUB, cursor: 'pointer', fontFamily: FONT, fontSize: 14 }}>Cancel</button>
-                            <button onClick={submitCrossPost} disabled={crossPosting || !crossPostGenreId}
-                                style={{ padding: '9px 18px', background: PRIMARY, border: 'none', borderRadius: 8, color: '#fff', cursor: (crossPosting || !crossPostGenreId) ? 'not-allowed' : 'pointer', fontFamily: FONT, fontSize: 14, fontWeight: 700, opacity: (crossPosting || !crossPostGenreId) ? 0.6 : 1 }}>
-                                {crossPosting ? 'Posting…' : 'Cross-post'}
-                            </button>
-                        </div>
-                    </>
-                )}
-            </div>
-        </div>
-    );
-};
-
-// ── Main Component ─────────────────────────────────────────────────────────────
 export const FrontpageAltFGenres: React.FC = () => {
     const location = useLocation();
-    const navigate = useNavigate();
+    const bp = useAltBreakpoint();
+    const isPhone = bp === 'xs';
     const { player } = usePlayer();
-    const dropdownRef = useRef<HTMLDivElement>(null);
 
-    // ── Parse URL ─────────────────────────────────────────────────────────────
-    const { genreSlug, multiSlugsFromUrl, groupIdFromUrl, flairFromUrl, isCommunityKind } = useMemo(() => {
-        const pathAfter = location.pathname.replace('/genres', '');
-        const segments = pathAfter.split('/').filter(Boolean);
+    const { genreSlug, multiSlugs } = useMemo(() => {
+        const segments = location.pathname.replace('/genres', '').split('/').filter(Boolean);
         const sp = new URLSearchParams(location.search);
         return {
             genreSlug: segments[0] || null,
-            multiSlugsFromUrl: sp.get('g')?.split(',').filter(Boolean) || [],
-            groupIdFromUrl: sp.get('group') || null,
-            flairFromUrl: sp.get('flair') || null,
-            isCommunityKind: sp.get('kind') === 'community',
+            multiSlugs: sp.get('g')?.split(',').filter(Boolean) || [],
         };
     }, [location]);
 
-    // ── Data state ────────────────────────────────────────────────────────────
     const [genres, setGenres] = useState<Genre[]>([]);
-    const [genreLoading, setGenreLoading] = useState(true);
+    const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
-    const [posts, setPosts] = useState<GenrePost[]>([]);
-    const [postsLoading, setPostsLoading] = useState(false);
-    const [hasMore, setHasMore] = useState(false);
-    const [nextCursor, setNextCursor] = useState<string | null>(null);
-    const [sort, setSort] = useState<'hot' | 'new' | 'top'>('hot');
-    const [period, setPeriod] = useState<'day' | 'week' | 'month' | 'alltime'>('week');
-    const [subscribedIds, setSubscribedIds] = useState<Set<string>>(new Set());
-    const [subLoading, setSubLoading] = useState(false);
-    const [showCreate, setShowCreate] = useState(false);
-    const [groups, setGroups] = useState<GenreGroup[]>([]);
-    const [showSubgenreDropdown, setShowSubgenreDropdown] = useState(false);
-    const [selectedSubSlugs, setSelectedSubSlugs] = useState<Set<string>>(new Set());
-    const [showSaveGroup, setShowSaveGroup] = useState(false);
-    const [multiSelectMode, setMultiSelectMode] = useState(false);
-    const [multiSelected, setMultiSelected] = useState<Set<string>>(new Set());
-    const [sharePost, setSharePost] = useState<GenrePost | null>(null);
-    const [subgenresOpen, setSubgenresOpen] = useState(false);
-    const [communities, setCommunities] = useState<Community[]>([]);
-    const [communitySubscribedIds, setCommunitySubscribedIds] = useState<Set<string>>(new Set());
 
-    // ── Mobile shorts feed ────────────────────────────────────────────────────
-    // On phones a genre opens as a full-screen, snap-scrolled feed of that
-    // genre's tracks. Community feeds have no tracks, so they keep the card list.
-    const bp = useAltBreakpoint();
+    useEffect(() => {
+        axios.get('/api/musician/genres')
+            .then(r => { setGenres(arr(r.data)); setLoading(false); })
+            .catch(() => setLoading(false));
+    }, []);
 
-    // ── Derived from genres list ──────────────────────────────────────────────
     const allGenres = useMemo(() => {
         const flat: Genre[] = [];
         const walk = (gs: Genre[]) => gs.forEach(g => { flat.push(g); walk(g.children || []); });
         walk(genres);
         return flat;
     }, [genres]);
-
-    const viewMode = useMemo((): 'grid' | 'single' | 'multi' | 'group' => {
-        if (groupIdFromUrl) return 'group';
-        if (multiSlugsFromUrl.length > 0) return 'multi';
-        if (genreSlug) return 'single';
-        return 'grid';
-    }, [genreSlug, multiSlugsFromUrl, groupIdFromUrl]);
-
-    const shortsMode = bp === 'xs' && viewMode !== 'grid' && !isCommunityKind;
-
-    const activeGenre = useMemo(() =>
-        (genreSlug && !isCommunityKind) ? allGenres.find(g => g.slug === genreSlug) || null : null,
-        [allGenres, genreSlug, isCommunityKind]);
-
-    const activeCommunity = useMemo(() =>
-        (genreSlug && isCommunityKind) ? communities.find(c => c.slug === genreSlug) || null : null,
-        [communities, genreSlug, isCommunityKind]);
-
-    const activeGroup = useMemo(() =>
-        groupIdFromUrl ? groups.find(g => g.id === groupIdFromUrl) || null : null,
-        [groups, groupIdFromUrl]);
-
-    useEffect(() => {
-        const name = activeCommunity?.name || activeGenre?.name || activeGroup?.name;
-        if (name) document.title = `${name} | Fuji Studio`;
-    }, [activeCommunity, activeGenre, activeGroup]);
-
-    const activeGenreIds = useMemo(() => {
-        if (viewMode === 'single' && activeGenre) return [activeGenre.id];
-        if (viewMode === 'multi') return multiSlugsFromUrl.map(s => allGenres.find(g => g.slug === s)?.id).filter(Boolean) as string[];
-        return [];
-    }, [viewMode, activeGenre, multiSlugsFromUrl, allGenres]);
-
-    const activeGenreNames = useMemo(() =>
-        activeGenreIds.map(id => allGenres.find(g => g.id === id)?.name || '').filter(Boolean),
-        [activeGenreIds, allGenres]);
-
-    // Subgenres shown in dropdown (children of active genre, or siblings if active is a child)
-    const subgenres = useMemo(() => {
-        if (!activeGenre) return [];
-        if (activeGenre.children?.length > 0) return activeGenre.children;
-        if (activeGenre.parentId) {
-            const parent = allGenres.find(g => g.id === activeGenre.parentId);
-            return parent?.children || [];
-        }
-        return [];
-    }, [activeGenre, allGenres]);
 
     const topLevel = useMemo(() => genres.filter(g => !g.parentId), [genres]);
     const filtered = useMemo(() => {
@@ -602,254 +86,69 @@ export const FrontpageAltFGenres: React.FC = () => {
         return topLevel.filter(g => g.name.toLowerCase().includes(q) || (g.children || []).some(c => c.name.toLowerCase().includes(q)));
     }, [topLevel, search]);
 
-    // ── Load data on mount ────────────────────────────────────────────────────
-    useEffect(() => {
-        axios.get('/api/musician/genres').then(r => { setGenres(arr(r.data)); setGenreLoading(false); }).catch(() => setGenreLoading(false));
-        axios.get('/api/genre-subscriptions', { withCredentials: true }).then(r => { setSubscribedIds(new Set(arr(r.data.genreIds))); }).catch(() => {});
-        axios.get('/api/genre-groups', { withCredentials: true }).then(r => { setGroups(arr(r.data)); }).catch(() => {});
-        axios.get('/api/communities').then(r => { setCommunities(arr(r.data)); }).catch(() => {});
-        axios.get('/api/community-subscriptions', { withCredentials: true }).then(r => { setCommunitySubscribedIds(new Set(arr(r.data.communityIds))); }).catch(() => {});
-    }, []);
-
-    // ── Fetch posts on view change ────────────────────────────────────────────
-    const fetchPosts = useCallback(async (params: Record<string, string>, cursor?: string, community?: boolean) => {
-        setPostsLoading(true);
-        try {
-            const r = await axios.get(community ? '/api/community-posts' : '/api/genre-posts', { params: { ...params, ...(cursor ? { cursor } : {}) } });
-            if (cursor) setPosts(prev => {
-                const seenTrackIds = new Set(prev.map((p: any) => p.trackId).filter(Boolean));
-                return [...prev, ...arr(r.data.posts).filter((p: any) => !p.trackId || !seenTrackIds.has(p.trackId))];
-            });
-            else setPosts(arr(r.data.posts));
-            setHasMore(r.data.hasMore);
-            setNextCursor(r.data.nextCursor);
-        } catch {}
-        finally { setPostsLoading(false); }
-    }, []);
-
-    const buildParams = useCallback(() => {
-        const p: Record<string, string> = { sort };
-        if (sort === 'top') p.period = period;
-        if (isCommunityKind && activeCommunity) { p.communityId = activeCommunity.id; }
-        else if (viewMode === 'group' && groupIdFromUrl) { p.groupId = groupIdFromUrl; }
-        else if (activeGenreIds.length > 0) { p.genreIds = activeGenreIds.join(','); }
-        if (flairFromUrl) p.flair = flairFromUrl;
-        return p;
-    }, [viewMode, groupIdFromUrl, activeGenreIds, sort, period, flairFromUrl, isCommunityKind, activeCommunity]);
+    // Slugs come straight from the URL — the feed API resolves them, so the feed
+    // never waits on the genre list to load.
+    const feedSlugs = multiSlugs.length > 0 ? multiSlugs.join(',') : genreSlug;
+    const activeGenre = genreSlug ? allGenres.find(g => g.slug === genreSlug) : null;
+    const feedTitle = multiSlugs.length > 1
+        ? `${multiSlugs.length} genres`
+        : (activeGenre?.name || genreSlug || 'Genres');
 
     useEffect(() => {
-        if (isCommunityKind) {
-            if (communities.length === 0) return;
-            if (!activeCommunity) return;
-            setPosts([]);
-            setNextCursor(null);
-            fetchPosts(buildParams(), undefined, true);
-            return;
-        }
-        if (genres.length === 0) return;
-        if (viewMode === 'grid') return;
-        if (shortsMode) return; // phones render the track feed, not posts
-        if (viewMode === 'group' && !groupIdFromUrl) return;
-        if (viewMode !== 'group' && activeGenreIds.length === 0) return;
-        setPosts([]);
-        setNextCursor(null);
-        fetchPosts(buildParams());
-        setSelectedSubSlugs(new Set());
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [genres, communities, viewMode, activeGenreIds.join(','), groupIdFromUrl, sort, period, flairFromUrl, isCommunityKind, activeCommunity, shortsMode]);
+        document.title = feedSlugs ? `${feedTitle} | Fuji Studio` : 'Fuji Studio | Genres';
+    }, [feedSlugs, feedTitle]);
 
-    // ── Close dropdown on outside click ──────────────────────────────────────
-    useEffect(() => {
-        const handler = (e: MouseEvent) => {
-            if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-                setShowSubgenreDropdown(false);
-            }
-        };
-        document.addEventListener('mousedown', handler);
-        return () => document.removeEventListener('mousedown', handler);
-    }, []);
-
-    // ── Handlers ──────────────────────────────────────────────────────────────
-    const handleVote = async (postId: string, type: 'up' | 'down') => {
-        try {
-            const isCommunityPost = !!posts.find(p => p.id === postId)?.communityId;
-            const endpoint = isCommunityPost ? `/api/community-posts/${postId}/vote` : `/api/genre-posts/${postId}/vote`;
-            const r = await axios.post(endpoint, { type }, { withCredentials: true });
-            setPosts(prev => prev.map(p => p.id === postId ? { ...p, score: r.data.score, upvotes: r.data.upvotes, downvotes: r.data.downvotes, userVote: r.data.userVote } : p));
-        } catch {}
-    };
-
-    const toggleSubscribe = async (genreId?: string) => {
-        if (isCommunityKind) {
-            const id = activeCommunity?.id;
-            if (!id) return;
-            setSubLoading(true);
-            try {
-                if (communitySubscribedIds.has(id)) {
-                    await axios.delete(`/api/community-subscriptions/${id}`, { withCredentials: true });
-                    setCommunitySubscribedIds(prev => { const s = new Set(prev); s.delete(id); return s; });
-                } else {
-                    await axios.post(`/api/community-subscriptions/${id}`, {}, { withCredentials: true });
-                    setCommunitySubscribedIds(prev => new Set([...prev, id]));
-                }
-            } catch {}
-            finally { setSubLoading(false); }
-            return;
-        }
-        const id = genreId || activeGenre?.id;
-        if (!id) return;
-        setSubLoading(true);
-        try {
-            if (subscribedIds.has(id)) {
-                await axios.delete(`/api/genre-subscriptions/${id}`, { withCredentials: true });
-                setSubscribedIds(prev => { const s = new Set(prev); s.delete(id); return s; });
-            } else {
-                await axios.post(`/api/genre-subscriptions/${id}`, {}, { withCredentials: true });
-                setSubscribedIds(prev => new Set([...prev, id]));
-            }
-        } catch {}
-        finally { setSubLoading(false); }
-    };
-
-    const handleSaveGroup = async (name: string) => {
-        try {
-            const genreIds = viewMode === 'group'
-                ? (activeGroup?.genres.map(g => g.genre.id) || [])
-                : activeGenreIds;
-            const r = await axios.post('/api/genre-groups', { name, genreIds }, { withCredentials: true });
-            setGroups(prev => [...prev, r.data]);
-            setShowSaveGroup(false);
-        } catch {}
-    };
-
-    const handleDeleteGroup = async () => {
-        if (!groupIdFromUrl) return;
-        try {
-            await axios.delete(`/api/genre-groups/${groupIdFromUrl}`, { withCredentials: true });
-            setGroups(prev => prev.filter(g => g.id !== groupIdFromUrl));
-            navigate('/genres');
-        } catch {}
-    };
-
-    const applySubgenreFilter = () => {
-        setShowSubgenreDropdown(false);
-        if (!activeGenre) return;
-        if (selectedSubSlugs.size === 0) return;
-        const slugs = [activeGenre.slug, ...Array.from(selectedSubSlugs)];
-        navigate(`/genres?g=${slugs.join(',')}`);
-    };
-
-    const removeSlugFromMulti = (slug: string) => {
-        const newSlugs = multiSlugsFromUrl.filter(s => s !== slug);
-        if (newSlugs.length === 0) navigate('/genres');
-        else if (newSlugs.length === 1) navigate(`/genres/${newSlugs[0]}`);
-        else navigate(`/genres?g=${newSlugs.join(',')}`);
-    };
-
-    const viewMultiSelected = () => {
-        if (multiSelected.size === 0) return;
-        if (multiSelected.size === 1) navigate(`/genres/${Array.from(multiSelected)[0]}`);
-        else navigate(`/genres?g=${Array.from(multiSelected).join(',')}`);
-        setMultiSelectMode(false);
-        setMultiSelected(new Set());
-    };
-
-    // ── Computed view values ──────────────────────────────────────────────────
     const totalTracks = topLevel.reduce((s, g) => s + (g._count?.tracks || 0), 0);
     const totalArtists = topLevel.reduce((s, g) => s + (g._count?.profiles || 0), 0);
     const pb = player.currentTrack ? 90 : 0;
-    const isSubscribed = isCommunityKind
-        ? (activeCommunity ? communitySubscribedIds.has(activeCommunity.id) : false)
-        : (activeGenre ? subscribedIds.has(activeGenre.id) : false);
 
-    const breadcrumb = useMemo(() => {
-        if (isCommunityKind) {
-            if (activeCommunity) return [{ label: 'Genres', to: '/genres' }, { label: activeCommunity.name }];
-            return [{ label: 'Genres', to: '/genres' }];
-        }
-        if (viewMode === 'grid') return [{ label: 'Genres' }];
-        if (viewMode === 'group' && activeGroup) return [{ label: 'Genres', to: '/genres' }, { label: activeGroup.name }];
-        if (viewMode === 'multi') return [{ label: 'Genres', to: '/genres' }, { label: `${activeGenreIds.length} Genres` }];
-        if (activeGenre) {
-            const crumbs: any[] = [{ label: 'Genres', to: '/genres' }];
-            if (activeGenre.parentId) {
-                const parent = allGenres.find(g => g.id === activeGenre.parentId);
-                if (parent) crumbs.push({ label: parent.name, to: `/genres/${parent.slug}` });
-            }
-            crumbs.push({ label: activeGenre.name });
-            return crumbs;
-        }
-        return [{ label: 'Genres', to: '/genres' }];
-    }, [viewMode, activeGroup, activeGenre, activeGenreIds.length, allGenres, isCommunityKind, activeCommunity]);
-
-    // ── Feed create genre (for modal) ─────────────────────────────────────────
-    const createGenreId = viewMode === 'single' ? activeGenre?.id : multiSlugsFromUrl.length > 0 ? allGenres.find(g => g.slug === multiSlugsFromUrl[0])?.id : undefined;
-    const createGenreName = viewMode === 'single' ? (activeGenre?.name || 'Genre') : activeGenreNames[0] || 'Genre';
-    const createLink = isCommunityKind && activeCommunity
-        ? `/create-post?communityId=${activeCommunity.id}&kind=community`
-        : (createGenreId ? `/create-post?genreId=${createGenreId}` : undefined);
-
-    // ── Common sort bar ───────────────────────────────────────────────────────
-    const SortBar = () => (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            <div style={{ display: 'flex', gap: 4, background: S_CONT, borderRadius: 8, padding: 3, border: `1px solid ${BORDER}` }}>
-                {(['hot', 'new', 'top'] as const).map(s => (
-                    <button key={s} onClick={() => setSort(s)}
-                        style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 12px', borderRadius: 6, border: 'none', cursor: 'pointer', fontFamily: FONT, fontSize: 12, fontWeight: 700, background: sort === s ? PRIMARY : 'none', color: sort === s ? '#fff' : SUB, transition: 'all 0.15s' }}>
-                        {s === 'hot' && <Flame size={11} />}{s === 'new' && <Clock size={11} />}{s === 'top' && <TrendingUp size={11} />}
-                        {s.charAt(0).toUpperCase() + s.slice(1)}
-                    </button>
-                ))}
-            </div>
-            {sort === 'top' && (
-                <div style={{ display: 'flex', gap: 3 }}>
-                    {(['day', 'week', 'month', 'alltime'] as const).map(p => (
-                        <button key={p} onClick={() => setPeriod(p)}
-                            style={{ padding: '4px 10px', borderRadius: 6, border: `1px solid ${period === p ? PRIMARY : BORDER}`, background: period === p ? `${PRIMARY}18` : 'none', color: period === p ? PRIMARY : SUB, cursor: 'pointer', fontFamily: FONT, fontSize: 11, fontWeight: 700 }}>
-                            {p === 'alltime' ? 'All time' : p.charAt(0).toUpperCase() + p.slice(1)}
-                        </button>
-                    ))}
+    // ── A genre opens as a feed of its tracks ─────────────────────────────────
+    if (feedSlugs) {
+        if (isPhone) {
+            return (
+                <div style={{ background: '#06080e', color: TEXT, fontFamily: FONT, minHeight: '100vh' }}>
+                    <TrackFeed
+                        params={{ genre: feedSlugs }}
+                        title={feedTitle}
+                        backTo="/genres"
+                        createLink="/upload"
+                        emptyMessage={`No tracks tagged ${feedTitle} yet.`}
+                    />
+                    <AltSidebar active="Genres" />
                 </div>
-            )}
-        </div>
-    );
-
-    // ── Mobile: the genre opens as a full-screen feed of its tracks ───────────
-    if (shortsMode) {
-        const shortsTitle = viewMode === 'group' && activeGroup ? activeGroup.name
-            : viewMode === 'multi' ? `${activeGenreIds.length} Genres`
-            : activeGenre?.name || 'Genres';
-        // The feed takes genre slugs — one, or a comma-separated set for the
-        // multi-genre and saved-group views. Single/multi read straight from the
-        // URL (the API resolves slugs), so the feed doesn't wait on the genre list.
-        const feedGenres = viewMode === 'group'
-            ? (activeGroup?.genres.map(g => g.genre.slug).join(',') || '')
-            : viewMode === 'multi' ? multiSlugsFromUrl.join(',')
-            : genreSlug || '';
+            );
+        }
         return (
-            <div style={{ background: '#06080e', color: TEXT, fontFamily: FONT, minHeight: '100vh' }}>
-                <TrackFeed
-                    params={{ genre: feedGenres }}
-                    title={shortsTitle}
-                    backTo="/genres"
-                    createLink="/upload"
-                    emptyMessage={`No tracks tagged ${shortsTitle} yet.`}
-                />
+            <div style={{ height: '100vh', display: 'flex', overflow: 'hidden', background: BG, color: TEXT, fontFamily: FONT }}>
                 <AltSidebar active="Genres" />
+                <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', height: '100%' }}>
+                    <AltHeader breadcrumb={[{ label: 'Genres', to: '/genres' }, { label: feedTitle }]} />
+                    <div style={{ flex: 1, display: 'flex', minHeight: 0, overflow: 'hidden' }}>
+                        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', paddingBottom: pb }}>
+                            <TrackFeed
+                                variant="desktop"
+                                params={{ genre: feedSlugs }}
+                                emptyMessage={`No tracks tagged ${feedTitle} yet.`}
+                            />
+                        </div>
+                        <AltActivitySidebar />
+                    </div>
+                </main>
             </div>
         );
     }
 
+    // ── Genre grid ────────────────────────────────────────────────────────────
     return (
         <div style={{ height: '100vh', display: 'flex', overflow: 'hidden', background: BG, color: TEXT, fontFamily: FONT }}>
-            <AltSidebar />
+            <AltSidebar active="Genres" />
             <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', height: '100%' }}>
-                <AltHeader breadcrumb={breadcrumb} />
+                <AltHeader breadcrumb={[{ label: 'Genres' }]} />
 
                 <div style={{ flex: 1, display: 'flex', minHeight: 0, overflow: 'hidden' }}>
                     <div style={{ flex: 1, overflowY: 'auto', paddingBottom: pb }}>
 
-                        {/* ── Hero ── */}
+                        {/* Hero */}
                         <section style={{ position: 'relative', width: '100%', height: 200, overflow: 'hidden', borderBottom: `1px solid ${BORDER}` }}>
                             <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg, #0a1a3a 0%, #1a0a2a 40%, #0f131d 100%)' }} />
                             <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(15,19,29,1) 0%, rgba(15,19,29,0.2) 70%, transparent 100%)' }} />
@@ -857,437 +156,115 @@ export const FrontpageAltFGenres: React.FC = () => {
                                 <div key={g.id} style={{ position: 'absolute', width: 1, height: 1, left: `${8 + i * 12}%`, top: `${20 + (i % 3) * 25}%`, boxShadow: `0 0 ${60 + i * 10}px ${28 + i * 6}px ${genreAccent(g.name)}12`, borderRadius: '50%' }} />
                             ))}
                             <div style={{ position: 'relative', zIndex: 2, height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <div style={{ maxWidth: 1280, width: '100%', padding: '0 32px 20px', textAlign: 'center', boxSizing: 'border-box' }}>
+                                <div style={{ maxWidth: CONTENT_MAX, width: '100%', padding: '0 32px 20px', textAlign: 'center', boxSizing: 'border-box' }}>
                                     <h1 style={{ margin: '0 0 6px', fontSize: 36, fontWeight: 900, letterSpacing: '-0.03em', color: '#fff', lineHeight: 1 }}>
-                                        {isCommunityKind && activeCommunity ? activeCommunity.name
-                                            : viewMode === 'group' && activeGroup ? activeGroup.name
-                                            : viewMode === 'multi' ? `${activeGenreIds.length} Genres`
-                                            : viewMode === 'single' && activeGenre ? activeGenre.name
-                                            : 'Explore Genres'}
+                                        Explore Genres
                                     </h1>
-                                    <p style={{ margin: '0 0 16px', color: 'rgba(159,166,185,0.85)', fontSize: 13 }}>
-                                        {isCommunityKind && activeCommunity
-                                            ? (activeCommunity.description || `${fmtNum(activeCommunity._count?.posts)} posts · ${fmtNum(activeCommunity._count?.subscriptions)} members`)
-                                            : viewMode === 'single' && activeGenre
-                                            ? `${fmtNum(activeGenre._count?.tracks)} tracks · ${fmtNum(activeGenre._count?.profiles)} artists · ${fmtNum(activeGenre._count?.subscriptions)} members`
-                                            : viewMode === 'group' && activeGroup
-                                            ? activeGroup.genres.map(g => g.genre.name).join(' · ')
-                                            : viewMode === 'multi'
-                                            ? activeGenreNames.join(' · ')
-                                            : 'Subscribe to genres and join the community.'}
+                                    <p style={{ margin: 0, fontSize: 14, color: SUB }}>
+                                        Pick a genre and play everything in it.
                                     </p>
-                                    {viewMode === 'grid' && (
-                                        <div style={{ position: 'relative', width: '100%', maxWidth: 400, margin: '0 auto' }}>
-                                            <Search size={15} color={SUB} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
-                                            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search genres…"
-                                                style={{ width: '100%', boxSizing: 'border-box', padding: '11px 38px 11px 42px', background: 'rgba(28,31,42,0.85)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 12, color: TEXT, fontSize: 14, outline: 'none', fontFamily: FONT }} />
-                                            {search && (
-                                                <button onClick={() => setSearch('')} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: SUB, padding: 0, display: 'flex' }}><X size={14} /></button>
-                                            )}
-                                        </div>
-                                    )}
                                 </div>
                             </div>
                         </section>
 
-                        {/* ── Body ── */}
-                        <div style={{ maxWidth: 1280, margin: '0 auto', padding: '24px 32px 48px', boxSizing: 'border-box' }}>
+                        <div style={{ maxWidth: CONTENT_MAX, margin: '0 auto', padding: '24px 32px 48px', boxSizing: 'border-box' }}>
 
-                            {viewMode === 'grid' ? (
-                                /* ── GENRE GRID ── */
-                                <>
-                                    {/* My Groups strip */}
-                                    {groups.length > 0 && (
-                                        <div style={{ marginBottom: 28 }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                                                <span style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: SUB, display: 'flex', alignItems: 'center', gap: 6 }}>
-                                                    <Layers size={12} /> My Groups
-                                                </span>
-                                            </div>
-                                            <div style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 4 }}>
-                                                {groups.map(group => {
-                                                    const firstGenreName = group.genres[0]?.genre.name || '';
-                                                    const accent = firstGenreName ? genreAccent(firstGenreName) : PRIMARY;
-                                                    return (
-                                                        <Link key={group.id} to={`/genres?group=${group.id}`}
-                                                            style={{ ...glass, borderRadius: 12, padding: '12px 16px', minWidth: 160, maxWidth: 220, flexShrink: 0, textDecoration: 'none', display: 'block', transition: 'border-color 0.15s', borderColor: 'rgba(255,255,255,0.1)' }}
-                                                            onMouseEnter={e => (e.currentTarget.style.borderColor = `${accent}55`)}
-                                                            onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)')}>
-                                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                                                                <div style={{ width: 28, height: 28, borderRadius: 6, background: `${accent}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                                                    <BookMarked size={13} color={accent} />
-                                                                </div>
-                                                                <span style={{ fontSize: 13, fontWeight: 700, color: TEXT, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{group.name}</span>
-                                                            </div>
-                                                            <div style={{ fontSize: 11, color: SUB, lineHeight: 1.4, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any }}>
-                                                                {group.genres.map(g => g.genre.name).join(' · ')}
-                                                            </div>
-                                                        </Link>
-                                                    );
-                                                })}
-                                            </div>
-                                        </div>
-                                    )}
+                            {/* Search */}
+                            <div style={{ position: 'relative', marginBottom: 20, maxWidth: 420 }}>
+                                <Search size={15} color={SUB} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)' }} />
+                                <input
+                                    value={search}
+                                    onChange={e => setSearch(e.target.value)}
+                                    placeholder="Search genres…"
+                                    style={{ width: '100%', boxSizing: 'border-box', padding: '10px 36px', background: 'rgba(15,19,29,0.7)', border: `1px solid ${BORDER}`, borderRadius: 10, color: TEXT, fontSize: 14, fontFamily: FONT, outline: 'none' }}
+                                />
+                                {search && (
+                                    <button onClick={() => setSearch('')} aria-label="Clear search"
+                                        style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: SUB, display: 'flex' }}>
+                                        <X size={15} />
+                                    </button>
+                                )}
+                            </div>
 
-                                    {/* Communities strip */}
-                                    {communities.length > 0 && (
-                                        <div style={{ marginBottom: 28 }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                                                <span style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: SUB, display: 'flex', alignItems: 'center', gap: 6 }}>
-                                                    <Tag size={12} /> Communities
-                                                </span>
+                            {/* Stats */}
+                            <div style={{ display: 'flex', gap: 14, marginBottom: 20, alignItems: 'center', flexWrap: 'wrap' }}>
+                                {[
+                                    { label: 'Genres', value: topLevel.length, icon: Music, color: PRIMARY },
+                                    { label: 'Total Tracks', value: totalTracks, icon: TrendingUp, color: SECONDARY },
+                                    { label: 'Artists', value: totalArtists, icon: Users, color: TERTIARY },
+                                ].map(s => {
+                                    const Icon = s.icon;
+                                    return (
+                                        <div key={s.label} style={{ ...glass, borderRadius: 12, padding: '12px 18px', display: 'flex', alignItems: 'center', gap: 10 }}>
+                                            <div style={{ width: 28, height: 28, borderRadius: 7, background: `${s.color}18`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                <Icon size={13} color={s.color} />
                                             </div>
-                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 14 }}>
-                                                {communities.map(c => {
-                                                    const subbed = communitySubscribedIds.has(c.id);
-                                                    return (
-                                                        <Link key={c.id} to={`/genres/${c.slug}?kind=community`}
-                                                            style={{ ...glass, borderRadius: 18, overflow: 'hidden', display: 'flex', flexDirection: 'column', textDecoration: 'none', transition: 'border-color 0.2s, transform 0.15s', borderColor: 'rgba(255,255,255,0.1)' }}
-                                                            onMouseEnter={ev => { ev.currentTarget.style.borderColor = `${PRIMARY}55`; ev.currentTarget.style.transform = 'translateY(-2px)'; }}
-                                                            onMouseLeave={ev => { ev.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; ev.currentTarget.style.transform = 'translateY(0)'; }}>
-                                                            <div style={{ height: 72, background: `linear-gradient(135deg, ${PRIMARY}22 0%, ${SECONDARY}22 100%)`, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                                <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, transparent 40%, rgba(15,19,29,0.6) 100%)' }} />
-                                                                <span style={{ fontSize: 30, opacity: 0.5 }}>{c.icon || '📁'}</span>
-                                                                <div style={{ position: 'absolute', bottom: 8, left: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
-                                                                    <Tag size={12} color={PRIMARY} />
-                                                                    <span style={{ fontSize: 14, fontWeight: 800, color: '#fff' }}>{c.name}</span>
-                                                                </div>
-                                                                {subbed && (
-                                                                    <div style={{ position: 'absolute', top: 8, right: 10 }}>
-                                                                        <span style={{ background: `${PRIMARY}33`, border: `1px solid ${PRIMARY}55`, color: PRIMARY, padding: '2px 7px', borderRadius: 9999, fontSize: 9, fontWeight: 800 }}>JOINED</span>
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                            <div style={{ padding: '12px 14px 14px' }}>
-                                                                <div style={{ display: 'flex', gap: 14 }}>
-                                                                    <div>
-                                                                        <div style={{ fontSize: 15, fontWeight: 900, color: PRIMARY, lineHeight: 1 }}>{fmtNum(c._count?.posts)}</div>
-                                                                        <div style={{ fontSize: 10, color: SUB, textTransform: 'uppercase', letterSpacing: '0.07em', marginTop: 2 }}>Posts</div>
-                                                                    </div>
-                                                                    <div>
-                                                                        <div style={{ fontSize: 15, fontWeight: 900, color: SECONDARY, lineHeight: 1 }}>{fmtNum(c._count?.subscriptions)}</div>
-                                                                        <div style={{ fontSize: 10, color: SUB, textTransform: 'uppercase', letterSpacing: '0.07em', marginTop: 2 }}>Members</div>
-                                                                    </div>
-                                                                </div>
-                                                                {c.description && (
-                                                                    <div style={{ marginTop: 8, fontSize: 11, color: SUB, lineHeight: 1.4, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any }}>
-                                                                        {c.description}
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        </Link>
-                                                    );
-                                                })}
+                                            <div>
+                                                <div style={{ fontSize: 16, fontWeight: 900, color: s.color, lineHeight: 1 }}>{fmtNum(s.value)}</div>
+                                                <div style={{ fontSize: 10, color: SUB, textTransform: 'uppercase', letterSpacing: '0.08em', marginTop: 3 }}>{s.label}</div>
                                             </div>
                                         </div>
-                                    )}
+                                    );
+                                })}
+                            </div>
 
-                                    {/* Stats + multi-select toggle */}
-                                    <div style={{ display: 'flex', gap: 14, marginBottom: 20, alignItems: 'center', flexWrap: 'wrap' }}>
-                                        {[
-                                            { label: 'Genres', value: topLevel.length, icon: Music, color: PRIMARY },
-                                            { label: 'Total Tracks', value: totalTracks, icon: TrendingUp, color: SECONDARY },
-                                            { label: 'Artists', value: totalArtists, icon: Users, color: TERTIARY },
-                                        ].map(s => {
-                                            const Icon = s.icon;
-                                            return (
-                                                <div key={s.label} style={{ ...glass, borderRadius: 12, padding: '12px 18px', display: 'flex', alignItems: 'center', gap: 10 }}>
-                                                    <div style={{ width: 28, height: 28, borderRadius: 7, background: `${s.color}18`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                        <Icon size={13} color={s.color} />
-                                                    </div>
-                                                    <div>
-                                                        <div style={{ fontSize: 16, fontWeight: 900, color: s.color, lineHeight: 1 }}>{fmtNum(s.value)}</div>
-                                                        <div style={{ fontSize: 10, color: SUB, textTransform: 'uppercase', letterSpacing: '0.08em', marginTop: 1 }}>{s.label}</div>
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-                                        <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center' }}>
-                                            {multiSelectMode && multiSelected.size > 0 && (
-                                                <button onClick={viewMultiSelected}
-                                                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', background: PRIMARY, border: 'none', borderRadius: 8, color: '#fff', cursor: 'pointer', fontFamily: FONT, fontSize: 13, fontWeight: 700 }}>
-                                                    View {multiSelected.size} Genre{multiSelected.size > 1 ? 's' : ''} →
-                                                </button>
-                                            )}
-                                            <button onClick={() => { setMultiSelectMode(m => !m); setMultiSelected(new Set()); }}
-                                                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px', background: multiSelectMode ? `${PRIMARY}18` : S_CONT, border: `1px solid ${multiSelectMode ? PRIMARY : BORDER}`, borderRadius: 8, color: multiSelectMode ? PRIMARY : SUB, cursor: 'pointer', fontFamily: FONT, fontSize: 12, fontWeight: 700 }}>
-                                                <Layers size={12} /> {multiSelectMode ? 'Cancel' : 'Multi-select'}
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    {/* Genre grid */}
-                                    {genreLoading ? (
-                                        <div style={{ textAlign: 'center', padding: '60px 0', color: SUB }}><AltSpinner /></div>
-                                    ) : filtered.length === 0 ? (
-                                        <div style={{ ...glass, borderRadius: 20, padding: '60px 24px', textAlign: 'center' }}>
-                                            <Search size={32} color={SUB} style={{ marginBottom: 12 }} />
-                                            <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}>No genres found</div>
-                                        </div>
-                                    ) : (
-                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 14 }}>
-                                            {filtered.map(g => {
-                                                const accent = genreAccent(g.name);
-                                                const bgGrad = genreColor(g.name);
-                                                const subbed = subscribedIds.has(g.id);
-                                                const isSelected = multiSelected.has(g.slug);
-                                                return (
-                                                    <Link key={g.id}
-                                                        to={`/genres/${g.slug}`}
-                                                        onClick={multiSelectMode ? (e) => {
-                                                            e.preventDefault();
-                                                            setMultiSelected(prev => { const s = new Set(prev); if (s.has(g.slug)) s.delete(g.slug); else s.add(g.slug); return s; });
-                                                        } : undefined}
-                                                        style={{ ...glass, borderRadius: 18, overflow: 'hidden', display: 'flex', flexDirection: 'column', textDecoration: 'none', transition: 'border-color 0.2s, transform 0.15s', borderColor: isSelected ? PRIMARY : 'rgba(255,255,255,0.1)' }}
-                                                        onMouseEnter={ev => { ev.currentTarget.style.borderColor = isSelected ? PRIMARY : `${accent}55`; ev.currentTarget.style.transform = 'translateY(-2px)'; }}
-                                                        onMouseLeave={ev => { ev.currentTarget.style.borderColor = isSelected ? PRIMARY : 'rgba(255,255,255,0.1)'; ev.currentTarget.style.transform = 'translateY(0)'; }}>
-                                                        <div style={{ height: 72, background: bgGrad, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, transparent 40%, rgba(15,19,29,0.6) 100%)' }} />
-                                                            <Music size={30} color={`${accent}30`} strokeWidth={1.5} />
-                                                            <div style={{ position: 'absolute', bottom: 8, left: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
-                                                                <Music size={12} color={accent} />
-                                                                <span style={{ fontSize: 14, fontWeight: 800, color: '#fff' }}>{g.name}</span>
-                                                            </div>
-                                                            {subbed && !multiSelectMode && (
-                                                                <div style={{ position: 'absolute', top: 8, right: 10 }}>
-                                                                    <span style={{ background: `${PRIMARY}33`, border: `1px solid ${PRIMARY}55`, color: PRIMARY, padding: '2px 7px', borderRadius: 9999, fontSize: 9, fontWeight: 800 }}>JOINED</span>
-                                                                </div>
-                                                            )}
-                                                            {multiSelectMode && (
-                                                                <div style={{ position: 'absolute', top: 8, right: 10, width: 20, height: 20, borderRadius: 6, background: isSelected ? PRIMARY : 'rgba(0,0,0,0.5)', border: `2px solid ${isSelected ? PRIMARY : 'rgba(255,255,255,0.4)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                                    {isSelected && <Check size={12} color="#fff" />}
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                        <div style={{ padding: '12px 14px 14px' }}>
-                                                            <div style={{ display: 'flex', gap: 14, marginBottom: 8 }}>
-                                                                <div>
-                                                                    <div style={{ fontSize: 15, fontWeight: 900, color: accent, lineHeight: 1 }}>{fmtNum(g._count?.tracks)}</div>
-                                                                    <div style={{ fontSize: 10, color: SUB, textTransform: 'uppercase', letterSpacing: '0.07em', marginTop: 2 }}>Tracks</div>
-                                                                </div>
-                                                                <div>
-                                                                    <div style={{ fontSize: 15, fontWeight: 900, color: TEXT, lineHeight: 1 }}>{fmtNum(g._count?.profiles)}</div>
-                                                                    <div style={{ fontSize: 10, color: SUB, textTransform: 'uppercase', letterSpacing: '0.07em', marginTop: 2 }}>Artists</div>
-                                                                </div>
-                                                                <div>
-                                                                    <div style={{ fontSize: 15, fontWeight: 900, color: SECONDARY, lineHeight: 1 }}>{fmtNum(g._count?.subscriptions)}</div>
-                                                                    <div style={{ fontSize: 10, color: SUB, textTransform: 'uppercase', letterSpacing: '0.07em', marginTop: 2 }}>Members</div>
-                                                                </div>
-                                                            </div>
-                                                            {g.children.length > 0 && (
-                                                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                                                                    {g.children.slice(0, 5).map(c => {
-                                                                        const cAccent = genreAccent(c.name);
-                                                                        return (
-                                                                            <Link key={c.id} to={`/genres/${c.slug}`}
-                                                                                onClick={e => e.stopPropagation()}
-                                                                                style={{ padding: '2px 8px', borderRadius: 9999, background: `${cAccent}15`, border: `1px solid ${cAccent}33`, color: cAccent, fontSize: 10, fontWeight: 700, textDecoration: 'none', lineHeight: 1.7, flexShrink: 0 }}>
-                                                                                {c.name}
-                                                                            </Link>
-                                                                        );
-                                                                    })}
-                                                                    {g.children.length > 5 && (
-                                                                        <span style={{ fontSize: 10, color: SUB, alignSelf: 'center', flexShrink: 0 }}>+{g.children.length - 5} more</span>
-                                                                    )}
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    </Link>
-                                                );
-                                            })}
-                                        </div>
-                                    )}
-                                </>
+                            {/* Grid */}
+                            {loading ? (
+                                <div style={{ textAlign: 'center', padding: '60px 0', color: SUB }}><AltSpinner /></div>
+                            ) : filtered.length === 0 ? (
+                                <div style={{ ...glass, borderRadius: 20, padding: '60px 24px', textAlign: 'center' }}>
+                                    <Search size={32} color={SUB} style={{ marginBottom: 12 }} />
+                                    <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}>No genres found</div>
+                                </div>
                             ) : (
-                                /* ── FEED VIEW (single / multi / group) ── */
-                                <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr', gap: 28, alignItems: 'start' }}>
-
-                                    {/* ── LEFT SIDEBAR ── */}
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                                        {isCommunityKind && activeCommunity && (
-                                            <div style={{ ...glass, borderRadius: 16, overflow: 'hidden' }}>
-                                                <div style={{ height: 6, background: PRIMARY }} />
-                                                <div style={{ padding: '16px 18px' }}>
-                                                    <h3 style={{ margin: '0 0 14px', fontSize: 15, fontWeight: 800, color: TEXT }}>{activeCommunity.icon ? `${activeCommunity.icon} ` : ''}{activeCommunity.name}</h3>
-                                                    {activeCommunity.description && (
-                                                        <p style={{ margin: '0 0 14px', fontSize: 12, color: SUB, lineHeight: 1.5 }}>{activeCommunity.description}</p>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 14 }}>
+                                    {filtered.map(g => {
+                                        const accent = genreAccent(g.name);
+                                        return (
+                                            <Link key={g.id} to={`/genres/${g.slug}`}
+                                                style={{ ...glass, borderRadius: 18, overflow: 'hidden', display: 'flex', flexDirection: 'column', textDecoration: 'none', transition: 'all 0.18s' }}
+                                                onMouseEnter={ev => { ev.currentTarget.style.borderColor = `${accent}55`; ev.currentTarget.style.transform = 'translateY(-2px)'; }}
+                                                onMouseLeave={ev => { ev.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; ev.currentTarget.style.transform = 'none'; }}>
+                                                <div style={{ height: 72, background: genreColor(g.name), position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                    <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, transparent 40%, rgba(15,19,29,0.6) 100%)' }} />
+                                                    <Music size={30} color={`${accent}30`} strokeWidth={1.5} />
+                                                    <div style={{ position: 'absolute', bottom: 8, left: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                        <Music size={12} color={accent} />
+                                                        <span style={{ fontSize: 14, fontWeight: 800, color: '#fff' }}>{g.name}</span>
+                                                    </div>
+                                                </div>
+                                                <div style={{ padding: '12px 14px 14px' }}>
+                                                    <div style={{ display: 'flex', gap: 14, marginBottom: 8 }}>
+                                                        <div>
+                                                            <div style={{ fontSize: 15, fontWeight: 900, color: accent, lineHeight: 1 }}>{fmtNum(g._count?.tracks)}</div>
+                                                            <div style={{ fontSize: 10, color: SUB, textTransform: 'uppercase', letterSpacing: '0.07em', marginTop: 2 }}>Tracks</div>
+                                                        </div>
+                                                        <div>
+                                                            <div style={{ fontSize: 15, fontWeight: 900, color: TEXT, lineHeight: 1 }}>{fmtNum(g._count?.profiles)}</div>
+                                                            <div style={{ fontSize: 10, color: SUB, textTransform: 'uppercase', letterSpacing: '0.07em', marginTop: 2 }}>Artists</div>
+                                                        </div>
+                                                    </div>
+                                                    {g.children.length > 0 && (
+                                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                                                            {g.children.slice(0, 5).map(c => {
+                                                                const cAccent = genreAccent(c.name);
+                                                                return (
+                                                                    <Link key={c.id} to={`/genres/${c.slug}`}
+                                                                        onClick={e => e.stopPropagation()}
+                                                                        style={{ padding: '2px 8px', borderRadius: 9999, background: `${cAccent}15`, border: `1px solid ${cAccent}33`, color: cAccent, fontSize: 10, fontWeight: 700, textDecoration: 'none' }}>
+                                                                        {c.name}
+                                                                    </Link>
+                                                                );
+                                                            })}
+                                                            {g.children.length > 5 && (
+                                                                <span style={{ fontSize: 10, color: SUB, alignSelf: 'center', flexShrink: 0 }}>+{g.children.length - 5} more</span>
+                                                            )}
+                                                        </div>
                                                     )}
-                                                    <div style={{ display: 'flex', gap: 16, marginBottom: 14 }}>
-                                                        <div style={{ textAlign: 'center' }}>
-                                                            <div style={{ fontSize: 16, fontWeight: 800, color: TEXT }}>{fmtNum(activeCommunity._count?.posts ?? 0)}</div>
-                                                            <div style={{ fontSize: 10, color: SUB, textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 700 }}>Posts</div>
-                                                        </div>
-                                                        <div style={{ textAlign: 'center' }}>
-                                                            <div style={{ fontSize: 16, fontWeight: 800, color: TEXT }}>{fmtNum(activeCommunity._count?.subscriptions ?? 0)}</div>
-                                                            <div style={{ fontSize: 10, color: SUB, textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 700 }}>Members</div>
-                                                        </div>
-                                                    </div>
-                                                    <button onClick={() => toggleSubscribe()} disabled={subLoading}
-                                                        style={{ width: '100%', padding: '8px 0', background: isSubscribed ? 'transparent' : PRIMARY, border: `1.5px solid ${isSubscribed ? BORDER : PRIMARY}`, borderRadius: 9, color: isSubscribed ? SUB : '#fff', cursor: subLoading ? 'wait' : 'pointer', fontFamily: FONT, fontSize: 13, fontWeight: 700, transition: 'all 0.15s' }}>
-                                                        {isSubscribed ? 'Joined ✓' : 'Join Community'}
-                                                    </button>
                                                 </div>
-                                            </div>
-                                        )}
-                                        {viewMode === 'single' && activeGenre && (() => {
-                                            const accent = genreAccent(activeGenre.name);
-                                            return (
-                                                <div style={{ ...glass, borderRadius: 16, overflow: 'hidden' }}>
-                                                    <div style={{ height: 6, background: accent }} />
-                                                    <div style={{ padding: '16px 18px' }}>
-                                                        <h3 style={{ margin: '0 0 14px', fontSize: 15, fontWeight: 800, color: TEXT }}>{activeGenre.name}</h3>
-                                                        <div style={{ display: 'flex', gap: 16, marginBottom: 14 }}>
-                                                            <div style={{ textAlign: 'center' }}>
-                                                                <div style={{ fontSize: 16, fontWeight: 800, color: TEXT }}>{fmtNum(activeGenre._count?.tracks ?? 0)}</div>
-                                                                <div style={{ fontSize: 10, color: SUB, textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 700 }}>Tracks</div>
-                                                            </div>
-                                                            <div style={{ textAlign: 'center' }}>
-                                                                <div style={{ fontSize: 16, fontWeight: 800, color: TEXT }}>{fmtNum(activeGenre._count?.subscriptions ?? 0)}</div>
-                                                                <div style={{ fontSize: 10, color: SUB, textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 700 }}>Members</div>
-                                                            </div>
-                                                        </div>
-                                                        <button onClick={() => toggleSubscribe()} disabled={subLoading}
-                                                            style={{ width: '100%', padding: '8px 0', background: isSubscribed ? 'transparent' : accent, border: `1.5px solid ${isSubscribed ? BORDER : accent}`, borderRadius: 9, color: isSubscribed ? SUB : '#fff', cursor: subLoading ? 'wait' : 'pointer', fontFamily: FONT, fontSize: 13, fontWeight: 700, transition: 'all 0.15s' }}>
-                                                            {isSubscribed ? 'Joined ✓' : 'Join Community'}
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            );
-                                        })()}
-
-                                        {(viewMode === 'multi' || viewMode === 'group') && (
-                                            <div style={{ ...glass, borderRadius: 16, padding: '14px 16px' }}>
-                                                <div style={{ fontSize: 10, fontWeight: 800, color: SUB, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 10 }}>Browsing</div>
-                                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                                                    {(viewMode === 'multi' ? multiSlugsFromUrl : activeGroup?.genres.map(g => g.genre.slug) ?? []).map(slug => {
-                                                        const genre = allGenres.find(g => g.slug === slug);
-                                                        if (!genre) return null;
-                                                        const accent = genreAccent(genre.name);
-                                                        return (
-                                                            <Link key={slug} to={`/genres/${slug}`}
-                                                                style={{ padding: '4px 10px', borderRadius: 9999, background: `${accent}18`, border: `1px solid ${accent}44`, color: accent, fontSize: 12, fontWeight: 600, textDecoration: 'none' }}>
-                                                                {genre.name}
-                                                            </Link>
-                                                        );
-                                                    })}
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    {/* ── RIGHT COLUMN (posts) ── */}
-                                    <div>
-                                    {/* Action bar */}
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 18, flexWrap: 'wrap' }}>
-                                        <Link to="/genres"
-                                            style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', background: S_CONT, border: `1px solid ${BORDER}`, borderRadius: 8, color: SUB, textDecoration: 'none', fontSize: 13 }}>
-                                            <ChevronLeft size={13} /> Genres
-                                        </Link>
-
-                                        <SortBar />
-
-                                        {/* Right-side buttons */}
-                                        <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
-                                            {(viewMode === 'multi' || viewMode === 'group') && (
-                                                <button onClick={() => setShowSaveGroup(true)}
-                                                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px', background: S_CONT, border: `1px solid ${BORDER}`, borderRadius: 8, color: SECONDARY, cursor: 'pointer', fontFamily: FONT, fontSize: 12, fontWeight: 700 }}>
-                                                    <BookMarked size={12} /> Save Group
-                                                </button>
-                                            )}
-                                            {viewMode !== 'group' && createLink && (
-                                                <Link to={createLink}
-                                                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px', background: PRIMARY, borderRadius: 8, color: '#fff', textDecoration: 'none', fontSize: 13, fontWeight: 700 }}>
-                                                    <Plus size={13} /> Post
-                                                </Link>
-                                            )}
-                                            {viewMode === 'group' && (
-                                                <button onClick={handleDeleteGroup}
-                                                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px', background: S_CONT, border: `1px solid ${BORDER}`, borderRadius: 8, color: TERTIARY, cursor: 'pointer', fontFamily: FONT, fontSize: 12, fontWeight: 700 }}>
-                                                    <Trash2 size={12} /> Delete Group
-                                                </button>
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    {/* Active flair filter indicator */}
-                                    {flairFromUrl && (
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, padding: '8px 12px', background: `${flairColor(flairFromUrl)}12`, border: `1px solid ${flairColor(flairFromUrl)}40`, borderRadius: 8 }}>
-                                            <Tag size={12} color={flairColor(flairFromUrl)} />
-                                            <span style={{ fontSize: 12, color: flairColor(flairFromUrl), fontWeight: 700 }}>Flair: {flairFromUrl}</span>
-                                            <Link to={location.pathname} style={{ marginLeft: 'auto', fontSize: 11, color: SUB, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4 }}
-                                                onMouseEnter={e => (e.currentTarget.style.color = TEXT)}
-                                                onMouseLeave={e => (e.currentTarget.style.color = SUB)}>
-                                                ✕ Clear
                                             </Link>
-                                        </div>
-                                    )}
-
-                                    {/* Inline subgenre chips */}
-                                    {viewMode === 'single' && subgenres.length > 0 && (
-                                        <div style={{ marginBottom: 16 }}>
-                                            <button onClick={() => setSubgenresOpen(o => !o)}
-                                                style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '10px 14px', background: subgenresOpen ? `${PRIMARY}18` : `${SECONDARY}22`, border: `1.5px solid ${subgenresOpen ? PRIMARY : SECONDARY}`, borderRadius: 10, cursor: 'pointer', color: subgenresOpen ? PRIMARY : SECONDARY, fontSize: 13, fontWeight: 700, marginBottom: subgenresOpen ? 12 : 0, transition: 'all 0.15s', letterSpacing: '0.01em', boxShadow: subgenresOpen ? `0 0 0 3px ${PRIMARY}18` : `0 0 0 2px ${SECONDARY}22` }}>
-                                                <Layers size={14} color={subgenresOpen ? PRIMARY : SECONDARY} />
-                                                <span style={{ flex: 1, textAlign: 'left' }}>Subgenres</span>
-                                                <span style={{ fontSize: 11, fontWeight: 400, color: SUB, marginRight: 6 }}>{subgenres.length}</span>
-                                                {subgenresOpen ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
-                                            </button>
-                                            {subgenresOpen && <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                                                {activeGenre?.parentId ? null : (
-                                                    <Link to={`/genres/${activeGenre!.slug}`}
-                                                        style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 13px', borderRadius: 9999, background: !genreSlug || genreSlug === activeGenre?.slug ? `${genreAccent(activeGenre!.name)}28` : 'transparent', border: `1px solid ${!genreSlug || genreSlug === activeGenre?.slug ? genreAccent(activeGenre!.name) : BORDER}`, color: !genreSlug || genreSlug === activeGenre?.slug ? genreAccent(activeGenre!.name) : SUB, fontSize: 12, fontWeight: 700, textDecoration: 'none', transition: 'all 0.15s' }}>
-                                                        All
-                                                    </Link>
-                                                )}
-                                                {subgenres.map(sg => {
-                                                    const accent = genreAccent(sg.name);
-                                                    const isActive = genreSlug === sg.slug;
-                                                    return (
-                                                        <Link key={sg.id} to={`/genres/${sg.slug}`}
-                                                            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 13px', borderRadius: 9999, background: isActive ? `${accent}28` : 'transparent', border: `1px solid ${isActive ? accent : BORDER}`, color: isActive ? accent : TEXT, fontSize: 12, fontWeight: 700, textDecoration: 'none', transition: 'all 0.15s' }}
-                                                            onMouseEnter={e => { if (!isActive) { (e.currentTarget as HTMLElement).style.borderColor = `${accent}66`; (e.currentTarget as HTMLElement).style.color = accent; } }}
-                                                            onMouseLeave={e => { if (!isActive) { (e.currentTarget as HTMLElement).style.borderColor = BORDER; (e.currentTarget as HTMLElement).style.color = TEXT; } }}>
-                                                            {sg.name}
-                                                            {sg._count?.tracks > 0 && <span style={{ opacity: 0.6, fontWeight: 400, fontSize: 10 }}>{fmtNum(sg._count.tracks)}</span>}
-                                                        </Link>
-                                                    );
-                                                })}
-                                            </div>}
-                                        </div>
-                                    )}
-
-                                    {/* Post feed */}
-                                    {postsLoading && posts.length === 0 ? (
-                                        <div style={{ textAlign: 'center', padding: '60px 0', color: SUB, fontSize: 14 }}><AltSpinner /></div>
-                                    ) : posts.length === 0 ? (
-                                        <div style={{ ...glass, borderRadius: 18, padding: '60px 24px', textAlign: 'center' }}>
-                                            <FileText size={36} color={SUB} style={{ marginBottom: 14 }} />
-                                            <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}>No posts yet</div>
-                                            <div style={{ fontSize: 13, color: SUB, marginBottom: 18 }}>
-                                                {isCommunityKind ? `Be the first to post in ${activeCommunity?.name}.`
-                                                    : viewMode === 'single' ? `Be the first to post in ${activeGenre?.name}.` : 'No posts in these genres yet.'}
-                                            </div>
-                                            {((isCommunityKind && activeCommunity) || (viewMode === 'single' && activeGenre)) && createLink && (
-                                                <Link to={createLink}
-                                                    style={{ display: 'inline-block', padding: '9px 20px', background: PRIMARY, borderRadius: 9, color: '#fff', textDecoration: 'none', fontSize: 14, fontWeight: 700 }}>
-                                                    Create First Post
-                                                </Link>
-                                            )}
-                                        </div>
-                                    ) : (
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                                            {posts.map(p => (
-                                                <GenrePostCard key={p.id} post={p} onVote={handleVote} showGenre={viewMode !== 'single'} onShare={setSharePost} />
-                                            ))}
-                                            {hasMore && (
-                                                <button onClick={() => fetchPosts(buildParams(), nextCursor!, isCommunityKind)} disabled={postsLoading}
-                                                    style={{ padding: '11px 0', background: S_CONT, border: `1px solid ${BORDER}`, borderRadius: 12, color: SUB, cursor: postsLoading ? 'wait' : 'pointer', fontFamily: FONT, fontSize: 14, fontWeight: 600 }}>
-                                                    {postsLoading ? 'Loading…' : 'Load more'}
-                                                </button>
-                                            )}
-                                        </div>
-                                    )}
-                                    </div>
+                                        );
+                                    })}
                                 </div>
                             )}
                         </div>
@@ -1295,22 +272,6 @@ export const FrontpageAltFGenres: React.FC = () => {
                     <AltActivitySidebar />
                 </div>
             </main>
-
-            {showSaveGroup && (
-                <SaveGroupModal
-                    genreNames={viewMode === 'group' && activeGroup ? activeGroup.genres.map(g => g.genre.name) : activeGenreNames}
-                    onSave={handleSaveGroup}
-                    onClose={() => setShowSaveGroup(false)}
-                />
-            )}
-
-            {sharePost && (
-                <ShareModal
-                    post={sharePost}
-                    genres={genres}
-                    onClose={() => setSharePost(null)}
-                />
-            )}
         </div>
     );
 };

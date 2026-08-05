@@ -498,7 +498,6 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                         { key: 'discover', label: 'Home', icon: <Home size={20} />, path: '/' },
                         { key: 'artists', label: 'Artists', icon: <Mic2 size={20} />, path: '/artists' },
                         { key: 'charts', label: 'Charts', icon: <BarChart3 size={20} />, path: '/charts' },
-                        { key: 'feed', label: 'Feed', icon: <Rss size={20} />, path: '/feed' },
                         { key: 'profile', label: user ? 'Profile' : 'Log In', icon: user ? <User size={20} /> : <LogIn size={20} />, path: user ? `/profile/${user.profileUsername || user.username}` : '/login' },
                     ].map(item => {
                         const isActive = item.path === '/' ? pathname === '/' : item.path ? pathname.startsWith(item.path) : false;
@@ -562,7 +561,6 @@ export const DiscoveryLayout: React.FC<DiscoveryLayoutProps> = ({
                             { key: 'charts',    label: 'CHARTS',    icon: <BarChart3 size={22} />,  path: '/charts',       angle: 0   },
                             { key: 'battles',   label: 'BATTLES',   icon: <Swords size={22} />,     path: '/battles',      angle: 45  },
                             { key: 'h2h',       label: '1V1',       icon: <Swords size={22} />,     path: '/arena',          angle: 90  },
-                            { key: 'feed',      label: 'FEED',      icon: <Rss size={22} />,        path: '/feed',         angle: 135 },
                         ] as { key: string; label: string; icon: React.ReactNode; path: string; angle: number }[]).map(item => {
                             const rad = item.angle * (Math.PI / 180);
                             const r = 110;

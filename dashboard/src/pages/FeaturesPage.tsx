@@ -125,9 +125,9 @@ const SECTIONS: Section[] = [
             {
                 icon: <Rss size={20} />,
                 title: 'Feed',
-                description: 'Follow artists and see their new uploads, reposts, and activity in a personalised feed.',
+                description: 'A full-screen scrolling feed of new music, personalised to the artists you follow and the genres you play.',
                 tags: ['Website'],
-                link: '/feed',
+                link: '/',
             },
             {
                 icon: <BarChart3 size={20} />,

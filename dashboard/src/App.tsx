@@ -96,7 +96,6 @@ const FrontpageAltFBattle    = lazy(() => import("./pages/FrontpageAltFBattle").
 const FrontpageAltFBattles   = lazy(() => import("./pages/FrontpageAltFBattles").then(m => ({ default: m.FrontpageAltFBattles })));
 const FrontpageAltFArtists   = lazy(() => import("./pages/FrontpageAltFArtists").then(m => ({ default: m.FrontpageAltFArtists })));
 const FrontpageAltFSearch    = lazy(() => import("./pages/FrontpageAltFSearch").then(m => ({ default: m.FrontpageAltFSearch })));
-const FrontpageAltFFeed      = lazy(() => import("./pages/FrontpageAltFFeed").then(m => ({ default: m.FrontpageAltFFeed })));
 const FrontpageAltFLibrary   = lazy(() => import("./pages/FrontpageAltFLibrary").then(m => ({ default: m.FrontpageAltFLibrary })));
 const FrontpageAltFMessages  = lazy(() => import("./pages/FrontpageAltFMessages").then(m => ({ default: m.FrontpageAltFMessages })));
 const FrontpageAltFArticles    = lazy(() => import("./pages/FrontpageAltFArticles").then(m => ({ default: m.FrontpageAltFArticles })));
@@ -106,8 +105,6 @@ const FrontpageAltFPlaylist    = lazy(() => import("./pages/FrontpageAltFPlaylis
 const FrontpageAltFMyTracks    = lazy(() => import("./pages/FrontpageAltFMyTracks").then(m => ({ default: m.FrontpageAltFMyTracks })));
 const FrontpageAltFFavourites  = lazy(() => import("./pages/FrontpageAltFFavourites").then(m => ({ default: m.FrontpageAltFFavourites })));
 const FrontpageAltFGenres      = lazy(() => import("./pages/FrontpageAltFGenres").then(m => ({ default: m.FrontpageAltFGenres })));
-const FrontpageAltFGenrePost   = lazy(() => import("./pages/FrontpageAltFGenrePost").then(m => ({ default: m.FrontpageAltFGenrePost })));
-const FrontpageAltFCreatePost  = lazy(() => import("./pages/FrontpageAltFCreatePost").then(m => ({ default: m.FrontpageAltFCreatePost })));
 const FrontpageAltFArena       = lazy(() => import("./pages/FrontpageAltFArena").then(m => ({ default: m.FrontpageAltFArena })));
 const FrontpageAltFContact     = lazy(() => import("./pages/FrontpageAltFContact"));
 const FrontpageAltFUpload       = lazy(() => import("./pages/FrontpageAltFUpload"));
@@ -834,14 +831,12 @@ const AppInternal: React.FC = () => {
       { test: p => p === '/battles',           title: 'Fuji Studio | Beat Battles' },
       { test: p => p === '/arena' || p.startsWith('/arena/'), title: 'Fuji Studio | Arena' },
       { test: p => p === '/articles',          title: 'Fuji Studio | Articles' },
-      { test: p => p === '/feed',              title: 'Fuji Studio | Feed' },
       { test: p => p === '/messages',          title: 'Fuji Studio | Messages' },
       { test: p => p === '/learn' || p.startsWith('/learn/'), title: 'Fuji Studio | Academy' },
       { test: p => p === '/genres',            title: 'Fuji Studio | Genres' },
       { test: p => p === '/collabs',           title: 'Fuji Studio | Collabs' },
       { test: p => p.startsWith('/collabs/'),  title: 'Fuji Studio | Collab' },
       { test: p => p === '/upload',            title: 'Fuji Studio | Upload a Track' },
-      { test: p => p === '/create-post',       title: 'Fuji Studio | Create Post' },
       { test: p => p === '/contact',           title: 'Fuji Studio | Contact Us' },
       { test: p => p === '/projects' || p.startsWith('/projects/'), title: 'Fuji Studio | Projects' },
       { test: p => p === '/new',               title: 'Fuji Studio | New Releases' },
@@ -863,7 +858,6 @@ const AppInternal: React.FC = () => {
       { test: p => p === '/category' || p.startsWith('/category/'), title: 'Fuji Studio | Category' },
       { test: p => p.startsWith('/genres/'), title: 'Fuji Studio | Genre' },
       { test: p => p.startsWith('/article/'), title: 'Fuji Studio | Article' },
-      { test: p => p.startsWith('/post/'),    title: 'Fuji Studio | Community Post' },
       { test: p => p.startsWith('/playlist/'), title: 'Fuji Studio | Playlist' },
       { test: p => p.startsWith('/track/'),   title: 'Fuji Studio | Track' },
       { test: p => p.startsWith('/profile/'), title: 'Fuji Studio | Artist' },
@@ -1049,16 +1043,6 @@ const AppInternal: React.FC = () => {
     return <Suspense fallback={<PageSpinner />}><FrontpageAltFGenres /></Suspense>;
   }
 
-  // /post/:id → Alt F genre/community post detail
-  if (currentPath.startsWith('/post/')) {
-    return <Suspense fallback={<PageSpinner />}><FrontpageAltFGenrePost /></Suspense>;
-  }
-
-  // /create-post → Alt F create genre/community post
-  if (currentPath === '/create-post') {
-    return <Suspense fallback={<PageSpinner />}><FrontpageAltFCreatePost /></Suspense>;
-  }
-
   // /upload → Alt F upload track (supports ?battle=<idOrSlug> for battle entry)
   if (currentPath === '/upload') {
     return <Suspense fallback={<PageSpinner />}><FrontpageAltFUpload /></Suspense>;
@@ -1133,11 +1117,6 @@ const AppInternal: React.FC = () => {
   // /my-favourites → User's favourited tracks
   if (currentPath === '/my-favourites') {
     return <Suspense fallback={<PageSpinner />}><FrontpageAltFFavourites /></Suspense>;
-  }
-
-  // /feed → Subscription feed from followed artists
-  if (currentPath === '/feed') {
-    return <Suspense fallback={<PageSpinner />}><FrontpageAltFFeed /></Suspense>;
   }
 
   // /messages → Private messaging
