@@ -33,6 +33,7 @@ import { R2Storage } from '../services/R2Storage.js';
 import { runBackup, pgDump } from '../services/DatabaseBackup.js';
 import { softDeleteMiddleware } from '../services/softDelete.js';
 import * as BankService from '../services/BankService.js';
+import * as MarketService from '../services/MarketService.js';
 import { retryMiddleware } from '../services/prismaRetry.js';
 import { WaveformExtractor } from '../services/WaveformExtractor.js';
 import { StemProcessor } from '../services/StemProcessor.js';
@@ -18459,6 +18460,33 @@ async function runChartGeneration() {
 // Run chart generation on startup and every hour
 runChartGeneration();
 setInterval(runChartGeneration, 60 * 60 * 1000);
+
+// ─── Fuji Markets tick ──────────────────────────────────────────────────────
+// Unlike runChartGeneration above, this needs no in-memory guard: runTick is
+// idempotent against MarketTreasury.lastTickAt checked inside the treasury row
+// lock, so a PM2 restart (or the bot process racing us) can't double-apply a
+// price move.
+async function runMarketTick() {
+    const guildId = process.env.GUILD_ID;
+    if (!guildId) return;
+    try {
+        const settings = await MarketService.getSettings(db, guildId);
+        if (!settings.enabled) return;
+        await MarketService.syncListings(db, guildId, logger);
+        const applied = await MarketService.runTick(db, guildId, logger);
+        if (applied) {
+            const audit = await MarketService.auditConservation(db, guildId, logger);
+            if (!audit.healthy) {
+                logger.error(`[Market] conservation audit FAILED: reserve=${audit.shareReserve} liability=${audit.liability.toFixed(2)}`);
+            }
+        }
+    } catch (err: any) {
+        logger.error(`[Market] tick error: ${err.message}`);
+    }
+}
+
+setTimeout(runMarketTick, 30_000);
+setInterval(runMarketTick, 15 * 60 * 1000); // checks often; runTick itself enforces the real interval
 
 // ─── Comment System ─────────────────────────────────────────────────────
 

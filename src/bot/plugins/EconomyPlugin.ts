@@ -22,6 +22,7 @@ import { z } from 'zod';
 import { IPlugin, IPluginContext } from '../types/plugin';
 import { WordCensor } from '../../services/WordCensor.js';
 import * as BankService from '../../services/BankService.js';
+import * as MarketService from '../../services/MarketService.js';
 
 interface EconomyContext extends IPluginContext {}
 
@@ -55,7 +56,7 @@ export class EconomyPlugin implements IPlugin {
 
     configSchema = z.object({});
 
-    commands = ['wallet', 'wealth', 'market', 'buy', 'nick-optout', 'pay', 'request-payment', 'use', 'slots', 'bank'];
+    commands = ['wallet', 'wealth', 'market', 'buy', 'nick-optout', 'pay', 'request-payment', 'use', 'slots', 'bank', 'stocks'];
 
     private client: any;
     private db: any;
@@ -179,6 +180,7 @@ export class EconomyPlugin implements IPlugin {
         else if (commandName === 'request-payment') await this.handleRequestPayment(interaction);
         else if (commandName === 'slots') await this.handleSlots(interaction);
         else if (commandName === 'bank') await this.handleBank(interaction);
+        else if (commandName === 'stocks') await this.handleStocks(interaction);
     }
 
     /**
@@ -1239,6 +1241,150 @@ export class EconomyPlugin implements IPlugin {
         }
     }
 
+    // ─── Fuji Markets ────────────────────────────────────────────────────
+
+    private async handleStocks(interaction: ChatInputCommandInteraction) {
+        if (!interaction.guildId) return;
+        const sub = interaction.options.getSubcommand();
+        try {
+            if (sub === 'list') await this.handleStocksList(interaction);
+            else if (sub === 'view') await this.handleStocksView(interaction);
+            else if (sub === 'portfolio') await this.handleStocksPortfolio(interaction);
+            else if (sub === 'buy' || sub === 'sell') await this.handleStocksTrade(interaction, sub);
+        } catch (e: any) {
+            const msg = { content: `❌ ${e.message || 'Something went wrong.'}` };
+            if (interaction.deferred || interaction.replied) await interaction.editReply(msg).catch(() => {});
+            else await interaction.reply({ ...msg, flags: MessageFlags.Ephemeral }).catch(() => {});
+        }
+    }
+
+    private movePct(s: any): string {
+        if (!s.prevClose) return '—';
+        const pct = ((s.price - s.prevClose) / s.prevClose) * 100;
+        const arrow = pct > 0.05 ? '▲' : pct < -0.05 ? '▼' : '▬';
+        return `${arrow} ${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%`;
+    }
+
+    private async handleStocksList(interaction: ChatInputCommandInteraction) {
+        await interaction.deferReply();
+        const guildId = interaction.guildId!;
+        const [stocks, settings] = await Promise.all([
+            MarketService.listStocks(this.db, guildId),
+            this.getSettings(guildId),
+        ]);
+        if (!stocks.length) {
+            return interaction.editReply({ content: 'No stocks are listed yet. Artists become tradeable once they meet the listing requirements.' });
+        }
+
+        const em = settings.currencyEmoji;
+        const lines = stocks.slice(0, 25).map((s: any) => {
+            const kind = s.type === 'ETF' ? '📊' : '🎧';
+            const left = MarketService.SHARES_TOTAL - s.sharesOutstanding;
+            return `${kind} **${s.ticker}** · ${em} ${s.price.toFixed(1)} · ${this.movePct(s)} · ${left} free`;
+        });
+
+        const embed = new EmbedBuilder()
+            .setColor(0x4CD7F6)
+            .setTitle('📈 Fuji Markets')
+            .setDescription(lines.join('\n'))
+            .setFooter({ text: 'Zero-sum: one artist rising is funded by others falling · /stocks view <ticker>' });
+        await interaction.editReply({ embeds: [embed] });
+    }
+
+    private async handleStocksView(interaction: ChatInputCommandInteraction) {
+        await interaction.deferReply();
+        const guildId = interaction.guildId!;
+        const ticker = interaction.options.getString('ticker', true);
+        const stock = await MarketService.getStockByTicker(this.db, guildId, ticker);
+        if (!stock) return interaction.editReply({ content: `No stock with ticker \`${ticker.toUpperCase()}\`.` });
+
+        const settings = await this.getSettings(guildId);
+        const em = settings.currencyEmoji;
+        const history = await this.db.stockPricePoint.findMany({
+            where: { stockId: stock.id }, orderBy: { at: 'desc' }, take: 12, select: { price: true },
+        });
+        const spark = history.length > 1 ? this.sparkline(history.map((h: any) => h.price).reverse()) : '';
+
+        const embed = new EmbedBuilder()
+            .setColor(stock.price >= stock.prevClose ? 0x57F287 : 0xED4245)
+            .setTitle(`${stock.type === 'ETF' ? '📊' : '🎧'} ${stock.ticker} — ${stock.name}`)
+            .addFields(
+                { name: 'Price', value: `${em} ${stock.price.toFixed(2)}`, inline: true },
+                { name: 'Change', value: this.movePct(stock), inline: true },
+                { name: 'Shares Available', value: `${MarketService.SHARES_TOTAL - stock.sharesOutstanding} / ${MarketService.SHARES_TOTAL}`, inline: true },
+            )
+            .setFooter({ text: `${stock.status === 'active' ? 'Trading open' : stock.status} · /stocks buy ${stock.ticker} <shares>` });
+        if (spark) embed.setDescription(`\`${spark}\``);
+        await interaction.editReply({ embeds: [embed] });
+    }
+
+    private sparkline(values: number[]): string {
+        const blocks = '▁▂▃▄▅▆▇█';
+        const min = Math.min(...values), max = Math.max(...values);
+        if (max - min < 1e-9) return blocks[3].repeat(values.length);
+        return values.map(v => blocks[Math.min(7, Math.floor(((v - min) / (max - min)) * 7))]).join('');
+    }
+
+    private async handleStocksTrade(interaction: ChatInputCommandInteraction, action: 'buy' | 'sell') {
+        await interaction.deferReply();
+        const guildId = interaction.guildId!;
+        const ticker = interaction.options.getString('ticker', true);
+        const shares = interaction.options.getInteger('shares', true);
+
+        const stock = await MarketService.getStockByTicker(this.db, guildId, ticker);
+        if (!stock) return interaction.editReply({ content: `No stock with ticker \`${ticker.toUpperCase()}\`.` });
+
+        const settings = await this.getSettings(guildId);
+        const em = settings.currencyEmoji;
+
+        if (action === 'buy') {
+            const r = await MarketService.buy(this.db, guildId, interaction.user.id, stock.id, shares);
+            const note = r.partial ? `\n_Only ${r.shares} were available or within your position limit._` : '';
+            const embed = new EmbedBuilder()
+                .setColor(0x57F287)
+                .setDescription(`📈 Bought **${r.shares}** ${stock.ticker} for ${em} **${r.totalCharge.toLocaleString()}** (fee ${em} ${r.feeInt.toLocaleString()})\nNew price: ${em} ${r.price.toFixed(2)}${note}`);
+            await interaction.editReply({ embeds: [embed] });
+        } else {
+            const r = await MarketService.sell(this.db, guildId, interaction.user.id, stock.id, shares);
+            const note = r.flipped ? '\n_Flip fee applied for selling soon after buying._' : '';
+            const embed = new EmbedBuilder()
+                .setColor(0xFEE75C)
+                .setDescription(`📉 Sold **${r.shares}** ${stock.ticker} for ${em} **${r.payout.toLocaleString()}** (fee ${em} ${r.feePaid.toLocaleString()})\nNew price: ${em} ${r.price.toFixed(2)}${note}`);
+            await interaction.editReply({ embeds: [embed] });
+        }
+    }
+
+    private async handleStocksPortfolio(interaction: ChatInputCommandInteraction) {
+        await interaction.deferReply();
+        const guildId = interaction.guildId!;
+        const [p, settings] = await Promise.all([
+            MarketService.getPortfolio(this.db, guildId, interaction.user.id),
+            this.getSettings(guildId),
+        ]);
+        const em = settings.currencyEmoji;
+
+        if (!p.holdings.length) {
+            return interaction.editReply({ content: `You don't hold any stock yet. Browse with \`/stocks list\`.` });
+        }
+
+        const lines = p.holdings.map((h: any) => {
+            const sign = h.pnl >= 0 ? '+' : '';
+            return `**${h.ticker}** · ${h.shares} @ ${em} ${h.price.toFixed(1)} = ${em} ${Math.round(h.value).toLocaleString()} (${sign}${Math.round(h.pnl).toLocaleString()})`;
+        });
+        const totalPnl = p.holdings.reduce((a: number, h: any) => a + h.pnl, 0);
+
+        const embed = new EmbedBuilder()
+            .setColor(totalPnl >= 0 ? 0x57F287 : 0xED4245)
+            .setTitle(`${await this.censor.clean(guildId, interaction.user.username)}'s Portfolio`)
+            .setDescription(lines.join('\n'))
+            .addFields(
+                { name: 'Holdings Value', value: `${em} ${Math.round(p.holdingsValue).toLocaleString()}`, inline: true },
+                { name: 'Unrealised P/L', value: `${totalPnl >= 0 ? '+' : ''}${em} ${Math.round(totalPnl).toLocaleString()}`, inline: true },
+                { name: 'Wallet', value: `${em} ${p.wallet.toLocaleString()}`, inline: true },
+            );
+        await interaction.editReply({ embeds: [embed] });
+    }
+
     private async handleSlots(interaction: ChatInputCommandInteraction): Promise<void> {
         const guildId = interaction.guildId!;
         const [settings, account, slotSettings] = await Promise.all([
@@ -1348,7 +1494,28 @@ export class EconomyPlugin implements IPlugin {
                 .addIntegerOption((opt: any) => opt.setName('amount').setRequired(false).setMinValue(1).setDescription('Amount to repay (default: full remaining)')))
             .addSubcommand((sub: any) => sub.setName('history').setDescription('View your recent bank activity'));
 
-        return [cmd, bankCmd];
+        // Named /stocks rather than /market because /market is already the shop.
+        const stocksCmd = new SlashCommandBuilder()
+            .setName('stocks')
+            .setDescription('Fuji Markets — trade shares in artists and genre indexes')
+            .addSubcommand((sub: any) => sub.setName('list').setDescription('Browse every listed stock'))
+            .addSubcommand((sub: any) => sub
+                .setName('view')
+                .setDescription('View one stock in detail')
+                .addStringOption((o: any) => o.setName('ticker').setRequired(true).setDescription('Ticker symbol, e.g. FUJI')))
+            .addSubcommand((sub: any) => sub
+                .setName('buy')
+                .setDescription('Buy shares')
+                .addStringOption((o: any) => o.setName('ticker').setRequired(true).setDescription('Ticker symbol'))
+                .addIntegerOption((o: any) => o.setName('shares').setRequired(true).setMinValue(1).setDescription('How many shares')))
+            .addSubcommand((sub: any) => sub
+                .setName('sell')
+                .setDescription('Sell shares you hold')
+                .addStringOption((o: any) => o.setName('ticker').setRequired(true).setDescription('Ticker symbol'))
+                .addIntegerOption((o: any) => o.setName('shares').setRequired(true).setMinValue(1).setDescription('How many shares')))
+            .addSubcommand((sub: any) => sub.setName('portfolio').setDescription('Your holdings, value and profit/loss'));
+
+        return [cmd, bankCmd, stocksCmd];
     }
 
     // --- Helpers ---
