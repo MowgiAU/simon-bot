@@ -6,7 +6,7 @@ import {
     User, Music, Share2, Hammer, Save, Plus, X, Instagram, Youtube,
     MessageCircle, Radio, ExternalLink, Copy, Check, ArrowLeft, Play, AlertCircle,
     Camera, Link as LinkIcon, Disc3, Star, Link2, Unlink, CheckCircle, Image, Trash2,
-    Paintbrush, Swords, Users, Shield, GripVertical
+    Paintbrush, Swords, Users, Shield, GripVertical, LineChart
 } from 'lucide-react';
 import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
@@ -38,6 +38,7 @@ interface MusicianProfile {
     accentColor?: string | null;
     cardBgColor?: string | null;
     showH2HRank?: boolean;
+    marketOptOut?: boolean;
     featuredFriendIds?: string[];
     headerLayout?: string;
     trackDisplayStyle?: string;
@@ -134,6 +135,7 @@ export const ProfileEditPage: React.FC = () => {
     // Mutual friends (for featured friends picker)
     const [mutualFriends, setMutualFriends] = useState<Array<{ id: string; username: string; displayName: string | null; avatar: string | null; userId: string }>>([]);
     const [savingFriends, setSavingFriends] = useState(false);
+    const [marketBusy, setMarketBusy] = useState(false);
     const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
     // Discord linking
@@ -1270,6 +1272,63 @@ export const ProfileEditPage: React.FC = () => {
                                 })}
                             </div>
                         </div>
+                    </div>
+
+                    {/* ── Fuji Markets listing ── */}
+                    <div style={card}>
+                        <div style={sectionHeader('#4CD7F6')}><LineChart size={15} color="#4CD7F6" /> Market Listing</div>
+                        <p style={{ fontSize: '12px', color: colors.textTertiary, marginBottom: '16px', lineHeight: 1.5 }}>
+                            Fuji Markets lets members trade shares in artists, with your price driven by how many people
+                            are really listening. You can refuse to take part at any time. Leaving buys out everyone
+                            holding your shares at the current price, and you won't be listed again unless you opt back in.
+                        </p>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: marketBusy ? 'wait' : 'pointer', opacity: marketBusy ? 0.6 : 1 }}>
+                            <div
+                                onClick={async () => {
+                                    if (marketBusy) return;
+                                    const leaving = !profile?.marketOptOut;
+                                    if (leaving && !window.confirm('Leave Fuji Markets? Anyone holding your shares is bought out at the current price and your stock stops trading.')) return;
+                                    setMarketBusy(true);
+                                    try {
+                                        // Saved immediately rather than with the rest of the form: opting out
+                                        // pays real coins out to holders, so it can't sit in an unsaved state.
+                                        await axios.post('/api/market/opt-out', { optOut: leaving }, { withCredentials: true });
+                                        // setProfile, not updateProfile: this is already persisted, so
+                                        // flagging the form dirty would nag about a saved change.
+                                        setProfile(p => (p ? { ...p, marketOptOut: leaving } : null));
+                                        setMessage({ type: 'success', text: leaving ? 'You have left Fuji Markets.' : 'You can be listed on Fuji Markets again.' });
+                                    } catch (e: any) {
+                                        setMessage({ type: 'error', text: e?.response?.data?.error || 'Could not update your market listing.' });
+                                    } finally {
+                                        setMarketBusy(false);
+                                    }
+                                }}
+                                style={{
+                                    width: '42px', height: '24px', borderRadius: '12px', flexShrink: 0,
+                                    backgroundColor: !profile?.marketOptOut ? '#4CD7F6' : 'rgba(255,255,255,0.1)',
+                                    position: 'relative', cursor: 'inherit', transition: 'background 0.2s',
+                                    border: `1px solid ${!profile?.marketOptOut ? '#4CD7F6' : 'rgba(255,255,255,0.15)'}`,
+                                }}
+                            >
+                                <div style={{
+                                    position: 'absolute', top: '3px',
+                                    left: !profile?.marketOptOut ? '21px' : '3px',
+                                    width: '16px', height: '16px', borderRadius: '50%',
+                                    backgroundColor: 'white', transition: 'left 0.2s',
+                                    boxShadow: '0 1px 3px rgba(0,0,0,0.4)',
+                                }} />
+                            </div>
+                            <div>
+                                <span style={{ fontSize: '13px', fontWeight: 600, color: colors.textPrimary }}>
+                                    {profile?.marketOptOut ? "You've opted out of Fuji Markets" : 'You can be listed on Fuji Markets'}
+                                </span>
+                                <p style={{ margin: '2px 0 0', fontSize: '11px', color: colors.textTertiary }}>
+                                    {profile?.marketOptOut
+                                        ? 'Nobody can buy or trade shares in you.'
+                                        : 'Saves straight away — no need to press Save.'}
+                                </p>
+                            </div>
+                        </label>
                     </div>
 
                     {/* ── H2H Arena Rank ── */}
