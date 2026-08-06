@@ -166,6 +166,14 @@ model Guild {
   economyTokenGrants EconomyTokenGrant[]
   economyLoans       EconomyLoan[]
 
+  // Fuji Markets
+  marketSettings MarketSettings?
+  marketTreasury MarketTreasury?
+  stocks         Stock[]
+  stockHoldings  StockHolding[]
+  shortPositions ShortPosition[]
+  stockTrades    StockTrade[]
+
   // Feedback Plugin
   feedbackProfiles FeedbackProfile[]
   feedbackPosts    FeedbackPost[]
@@ -629,6 +637,188 @@ model EconomyLoan {
 
   @@index([guildId, userId, status])
   @@map("economy_loans")
+}
+
+// ─── Fuji Markets ────────────────────────────────────────────────────────────
+// Artist stocks + genre ETFs. Coins are STRICTLY CONSERVED: the treasury is the
+// counterparty and every coin a trader gains came from a treasury bucket. Prices
+// are normalised to the reserve each tick (see MarketService) so that total
+// liability always equals the reserve backing it, which makes a sell impossible
+// to reject for lack of funds.
+
+model MarketSettings {
+  id      String @id @default(cuid())
+  guildId String @unique
+
+  enabled Boolean @default(false)
+
+  // Pricing
+  pressureK           Float @default(1.0) // price spans (1 - k/2)x .. (1 + k/2)x of oracle
+  maxTickMovePct      Float @default(10) // hard per-tick oracle move cap; load-bearing for short collateral
+  oracleFloorPct      Float @default(90) // each tick floored at this % of trailing 7-day max
+  tickIntervalMinutes Int   @default(60)
+
+  // Fees (spread, never skimmed from the reserve)
+  feePct          Float @default(1)
+  flipFeePct      Float @default(3) // extra fee selling within flipWindowHours
+  flipWindowHours Int   @default(6)
+
+  // Position limits
+  minHoldHours        Int   @default(24)
+  maxUserSharesPct    Float @default(10) // per user, % of a stock's total shares
+  maxShortInterestPct Float @default(20)
+
+  // Shorts — defaults derived from C >= e*N*c / (1 - L - L*c); see MarketService
+  collateralPct  Float @default(100)
+  liquidationPct Float @default(50)
+
+  // Dividends
+  dividendPctOfFloat Float @default(10) // weekly payout ceiling as % of houseFloat
+
+  // Listing eligibility
+  minTracksToList    Int @default(3)
+  minListenersToList Int @default(5)
+  minProfileAgeDays  Int @default(30)
+
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  @@map("market_settings")
+}
+
+model MarketTreasury {
+  id      String @id @default(cuid())
+  guildId String @unique
+
+  // Three separate buckets. A single balance would let one subsystem eat
+  // another's backing (e.g. dividends spending the coins that back shares).
+  shareReserve    Int @default(0) // backs every outstanding share; untouchable
+  shortCollateral Int @default(0) // escrowed, trader-owned
+  houseFloat      Int @default(0) // fees + forfeited collateral; funds dividends & short profits
+
+  // Scalar mapping raw oracle scores to coin prices: oraclePrice = lambda * rawScore.
+  // Recomputed each tick as shareReserve / Σ(rawScore * G(shares)), which makes
+  // "reserve exactly backs liability" an identity. Provably unchanged by any trade
+  // or by delisting, so it only moves when raw scores move (which are capped).
+  lambda Float @default(1)
+
+  lastTickAt     DateTime? // DB-backed tick idempotency (in-memory guards die on PM2 restart)
+  lastDividendAt DateTime?
+
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  @@map("market_treasury")
+}
+
+model Stock {
+  id      String @id @default(cuid())
+  guildId String
+  type    String // 'ARTIST' | 'ETF'
+
+  profileId String? // MusicianProfile.id when type = ARTIST
+  genreId   String? // Genre.id when type = ETF
+  ticker    String
+  name      String
+
+  sharesTotal       Int   @default(1000) // global constant; per-stock caps create a low-float attack surface
+  sharesOutstanding Int   @default(0)
+  rawScore          Float @default(0) // unnormalised oracle score from community metrics
+  oraclePrice       Float @default(0) // rawScore after normalisation to the reserve
+  price             Float @default(0) // oraclePrice * pressure multiplier
+  prevClose         Float @default(0)
+
+  status      String  @default("active") // 'active' | 'frozen' | 'delisted'
+  optedOut    Boolean @default(false) // artist chose not to be tradeable
+  delistPrice Float?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  guild       Guild            @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  pricePoints StockPricePoint[]
+  holdings    StockHolding[]
+  shorts      ShortPosition[]
+  trades      StockTrade[]
+
+  @@unique([guildId, ticker])
+  @@index([guildId, status])
+  @@index([guildId, profileId])
+  @@map("stocks")
+}
+
+model StockPricePoint {
+  id                String   @id @default(cuid())
+  stockId           String
+  price             Float
+  oraclePrice       Float
+  sharesOutstanding Int
+  at                DateTime @default(now())
+
+  stock Stock @relation(fields: [stockId], references: [id], onDelete: Cascade)
+
+  @@index([stockId, at])
+  @@map("stock_price_points")
+}
+
+model StockHolding {
+  id      String @id @default(cuid())
+  guildId String
+  userId  String
+  stockId String
+
+  shares   Int   @default(0)
+  avgCost  Float @default(0)
+  // Powers three rules at once: minimum hold, flip fee, and time-weighted dividends.
+  openedAt DateTime @default(now())
+
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  stock Stock @relation(fields: [stockId], references: [id], onDelete: Cascade)
+
+  @@unique([guildId, userId, stockId])
+  @@index([stockId])
+  @@map("stock_holdings")
+}
+
+model ShortPosition {
+  id      String @id @default(cuid())
+  guildId String
+  userId  String
+  stockId String
+
+  shares      Int
+  entryPrice  Float
+  collateral  Int // escrowed in MarketTreasury.shortCollateral
+  status      String    @default("open") // 'open' | 'closed' | 'liquidated'
+  openedAt    DateTime  @default(now())
+  closedAt    DateTime?
+  settlePrice Float?
+
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  stock Stock @relation(fields: [stockId], references: [id], onDelete: Cascade)
+
+  @@index([guildId, userId, status])
+  @@index([stockId, status])
+  @@map("short_positions")
+}
+
+model StockTrade {
+  id      String @id @default(cuid())
+  guildId String
+  userId  String
+  stockId String
+
+  action    String // 'BUY' | 'SELL' | 'SHORT_OPEN' | 'SHORT_CLOSE' | 'LIQUIDATE' | 'DIVIDEND' | 'DELIST_BUYBACK'
+  shares    Int    @default(0)
+  price     Float  @default(0)
+  coinDelta Int    @default(0) // signed, from the trader's perspective
+  feePaid   Int    @default(0)
+  createdAt DateTime @default(now())
+
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  stock Stock @relation(fields: [stockId], references: [id], onDelete: Cascade)
+
+  @@index([guildId, userId, createdAt])
+  @@index([stockId, createdAt])
+  @@map("stock_trades")
 }
 
 model EconomySettings {
