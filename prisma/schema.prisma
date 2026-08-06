@@ -750,6 +750,7 @@ model StockPricePoint {
   stockId           String
   price             Float
   oraclePrice       Float
+  rawScore          Float    @default(0) // pre-normalisation; lambda drifts, so the raw score is what history must be compared against
   sharesOutstanding Int
   at                DateTime @default(now())
 

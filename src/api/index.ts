@@ -18470,10 +18470,15 @@ async function runMarketTick() {
     const guildId = process.env.GUILD_ID;
     if (!guildId) return;
     try {
-        const settings = await MarketService.getSettings(db, guildId);
-        if (!settings.enabled) return;
-        await MarketService.syncListings(db, guildId, logger);
-        const applied = await MarketService.runTick(db, guildId, logger);
+        // Bail before the expensive scoring queries when no tick is due; this poll
+        // runs every 15 minutes but the real interval is usually hourly.
+        if (!await MarketService.isTickDue(db, guildId)) return;
+
+        // Computed once and shared: listing eligibility and pricing both need it,
+        // and it is by far the heaviest query in the feature.
+        const scores = await MarketService.computeArtistScores(db, guildId);
+        await MarketService.syncListings(db, guildId, logger, scores);
+        const applied = await MarketService.runTick(db, guildId, logger, false, scores);
         if (applied) {
             const audit = await MarketService.auditConservation(db, guildId, logger);
             if (!audit.healthy) {

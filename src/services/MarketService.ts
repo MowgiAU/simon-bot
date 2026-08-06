@@ -425,7 +425,16 @@ export async function computeArtistScores(db: any, guildId: string): Promise<Map
  * that lock, because the in-memory guards used elsewhere in this codebase reset on
  * every PM2 restart and a double-run would mean a double price move.
  */
-export async function runTick(db: any, guildId: string, logger?: any, force = false): Promise<boolean> {
+/** Cheap pre-check so callers can skip the expensive scoring queries entirely. */
+export async function isTickDue(db: any, guildId: string): Promise<boolean> {
+    const settings = await getSettings(db, guildId);
+    if (!settings.enabled) return false;
+    const treasury = await getTreasury(db, guildId);
+    if (!treasury.lastTickAt) return true;
+    return Date.now() - new Date(treasury.lastTickAt).getTime() >= settings.tickIntervalMinutes * 60_000 * 0.9;
+}
+
+export async function runTick(db: any, guildId: string, logger?: any, force = false, precomputedScores?: Map<string, number>): Promise<boolean> {
     const settings = await getSettings(db, guildId);
     if (!settings.enabled) return false;
 
@@ -438,7 +447,7 @@ export async function runTick(db: any, guildId: string, logger?: any, force = fa
     const stocks = await db.stock.findMany({ where: { guildId, status: { in: ['active', 'frozen'] } } });
     if (!stocks.length) return false;
 
-    const artistScores = await computeArtistScores(db, guildId);
+    const artistScores = precomputedScores ?? await computeArtistScores(db, guildId);
 
     // ETFs are synthetic: their raw score is just the sum of their live constituents'
     // scores, so a delisted constituent simply drops out next tick — no basket to
@@ -473,14 +482,17 @@ export async function runTick(db: any, guildId: string, logger?: any, force = fa
         // Asymmetric floor: fast rises allowed, but a fall is floored against the
         // trailing 7-day peak so an artist can't crater their own stock in one tick
         // by deleting their tracks.
+        //
+        // Compared on RAW scores, not oracle prices: a historical oraclePrice was
+        // produced by the lambda in force at the time, so dividing it by today's
+        // lambda reconstructs the wrong score whenever lambda has drifted.
         const peakRow = await db.stockPricePoint.findFirst({
-            where: { stockId: s.id, at: { gte: new Date(Date.now() - 7 * 24 * 3600 * 1000) } },
-            orderBy: { oraclePrice: 'desc' },
-            select: { oraclePrice: true },
+            where: { stockId: s.id, at: { gte: new Date(Date.now() - 7 * 24 * 3600 * 1000) }, rawScore: { gt: 0 } },
+            orderBy: { rawScore: 'desc' },
+            select: { rawScore: true },
         });
-        if (peakRow && treasuryPre.lambda > 0) {
-            const peakRaw = peakRow.oraclePrice / treasuryPre.lambda;
-            capped = Math.max(capped, peakRaw * (settings.oracleFloorPct / 100));
+        if (peakRow) {
+            capped = Math.max(capped, peakRow.rawScore * (settings.oracleFloorPct / 100));
         }
 
         desired.set(s.id, Math.max(SCORE_FLOOR, capped));
@@ -514,7 +526,7 @@ export async function runTick(db: any, guildId: string, logger?: any, force = fa
                 data: { rawScore: raw, oraclePrice, price, prevClose: s.price },
             });
             await tx.stockPricePoint.create({
-                data: { stockId: s.id, price, oraclePrice, sharesOutstanding: s.sharesOutstanding },
+                data: { stockId: s.id, price, oraclePrice, rawScore: raw, sharesOutstanding: s.sharesOutstanding },
             });
         }
 
@@ -538,14 +550,14 @@ function tickerFor(name: string, taken: Set<string>): string {
 }
 
 /** Lists newly-eligible artists and genre ETFs. Honours soft-delete and moderation state. */
-export async function syncListings(db: any, guildId: string, logger?: any): Promise<number> {
+export async function syncListings(db: any, guildId: string, logger?: any, precomputedScores?: Map<string, number>): Promise<number> {
     const settings = await getSettings(db, guildId);
     const existing = await db.stock.findMany({ where: { guildId } });
     const taken = new Set<string>(existing.map((s: any) => s.ticker));
     const haveProfile = new Set(existing.filter((s: any) => s.profileId).map((s: any) => s.profileId));
     const haveGenre = new Set(existing.filter((s: any) => s.genreId).map((s: any) => s.genreId));
 
-    const scores = await computeArtistScores(db, guildId);
+    const scores = precomputedScores ?? await computeArtistScores(db, guildId);
     const ageCutoff = new Date(Date.now() - settings.minProfileAgeDays * 24 * 3600 * 1000);
 
     const candidates = await db.musicianProfile.findMany({
@@ -615,11 +627,21 @@ export async function delistStock(db: any, guildId: string, stockId: string, log
         const holdings = await tx.stockHolding.findMany({ where: { guildId, stockId, shares: { gt: 0 } } });
         const settlePrice = priceOf(stock.oraclePrice, stock.sharesOutstanding, k);
 
+        // Split this stock's OWN liability pro-rata by shares held.
+        //
+        // Valuing each holder on the top slice of the curve instead (i.e. as though
+        // they alone were selling into it) double-counts: two 500-share holders would
+        // each be priced on the top half and collectively drain more than the stock is
+        // worth. Because the reserve is pooled, the excess comes straight out of other
+        // stocks' backing — measured at 25% overpayment in testing, which left a
+        // second stock 5,000 coins short. Pro-rata is exact, fair, and order-independent.
+        const totalLiability = stock.oraclePrice * G(stock.sharesOutstanding, k);
+
         let paidOut = 0;
         for (const h of holdings) {
-            // Value each holder's slice on the same curve they'd have sold into.
-            const gross = costBetween(stock.oraclePrice, Math.max(0, stock.sharesOutstanding - h.shares), stock.sharesOutstanding, k);
-            const payout = Math.min(Math.floor(gross), treasury.shareReserve - paidOut);
+            const share = stock.sharesOutstanding > 0 ? h.shares / stock.sharesOutstanding : 0;
+            const gross = totalLiability * share;
+            const payout = Math.max(0, Math.min(Math.floor(gross), treasury.shareReserve - paidOut));
             if (payout > 0) {
                 await tx.economyAccount.update({
                     where: { guildId_userId: { guildId, userId: h.userId } },
