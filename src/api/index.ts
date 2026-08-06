@@ -18676,6 +18676,7 @@ async function runMarketTick() {
         const scores = await MarketService.computeArtistScores(db, guildId);
         await MarketService.syncListings(db, guildId, logger, scores);
         const applied = await MarketService.runTick(db, guildId, logger, false, scores);
+        await MarketService.runDividends(db, guildId, logger); // self-throttles to weekly
         if (applied) {
             const audit = await MarketService.auditConservation(db, guildId, logger);
             if (!audit.healthy) {

@@ -878,6 +878,74 @@ export async function delistStock(db: any, guildId: string, stockId: string, log
     }, { timeout: 30_000 });
 }
 
+// ─── Dividends ───────────────────────────────────────────────────────────────
+
+const DIVIDEND_PERIOD_MS = 7 * 24 * 3600 * 1000;
+
+/**
+ * Weekly payout to holders, funded ENTIRELY from houseFloat (accumulated trading
+ * fees). Never from shareReserve — that backs outstanding shares, and spending it
+ * would leave holders unbacked.
+ *
+ * Pro-rated by TIME-WEIGHTED holdings: a position bought moments before the
+ * snapshot earns almost nothing. Paying on a bare snapshot instead would make
+ * "buy just before, sell just after" a free income stream, which is the most
+ * likely abuse of the whole feature.
+ */
+export async function runDividends(db: any, guildId: string, logger?: any, force = false) {
+    const settings = await getSettings(db, guildId);
+    if (!settings.enabled || settings.dividendPctOfFloat <= 0) return { paid: 0, holders: 0 };
+
+    return db.$transaction(async (tx: any) => {
+        const [treasury] = await tx.$queryRaw`
+            SELECT * FROM market_treasury WHERE "guildId" = ${guildId} FOR UPDATE`;
+        if (!force && treasury.lastDividendAt && Date.now() - new Date(treasury.lastDividendAt).getTime() < DIVIDEND_PERIOD_MS * 0.9) {
+            return { paid: 0, holders: 0, skipped: true };
+        }
+
+        const pool = Math.floor(treasury.houseFloat * (settings.dividendPctOfFloat / 100));
+        const holdings = await tx.stockHolding.findMany({ where: { guildId, shares: { gt: 0 } } });
+
+        if (pool <= 0 || !holdings.length) {
+            await tx.marketTreasury.update({ where: { guildId }, data: { lastDividendAt: new Date() } });
+            return { paid: 0, holders: 0 };
+        }
+
+        const now = Date.now();
+        const weights = holdings.map((h: any) => ({
+            h,
+            w: h.shares * Math.min(1, (now - new Date(h.openedAt).getTime()) / DIVIDEND_PERIOD_MS),
+        }));
+        const total = weights.reduce((a: number, x: any) => a + x.w, 0);
+        if (total <= 0) {
+            await tx.marketTreasury.update({ where: { guildId }, data: { lastDividendAt: new Date() } });
+            return { paid: 0, holders: 0 };
+        }
+
+        let paid = 0, holders = 0;
+        for (const { h, w } of weights) {
+            const amount = Math.floor((pool * w) / total);
+            if (amount <= 0) continue;
+            await tx.economyAccount.update({
+                where: { guildId_userId: { guildId, userId: h.userId } },
+                data: { balance: { increment: amount } },
+            });
+            await tx.stockTrade.create({
+                data: { guildId, userId: h.userId, stockId: h.stockId, action: 'DIVIDEND', shares: h.shares, coinDelta: amount },
+            });
+            paid += amount;
+            holders++;
+        }
+
+        await tx.marketTreasury.update({
+            where: { guildId },
+            data: { houseFloat: { decrement: paid }, lastDividendAt: new Date() },
+        });
+        logger?.info?.(`[Market] dividends: paid ${paid} to ${holders} holder(s) in ${guildId}`);
+        return { paid, holders };
+    }, { timeout: 30_000 });
+}
+
 // ─── Conservation audit ──────────────────────────────────────────────────────
 
 /**
