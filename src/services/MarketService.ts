@@ -103,16 +103,17 @@ function validateShares(n: number): number {
 
 // ─── Settings / treasury ─────────────────────────────────────────────────────
 
+// upsert, not find-then-create: these are called concurrently (the admin endpoint
+// resolves settings, treasury and auditConservation in one Promise.all, and the
+// audit resolves settings/treasury again internally). Find-then-create let two
+// callers both see no row and both insert, so the loser died on the guildId unique
+// constraint — which is exactly what 500'd the very first load of the Market tab.
 export async function getSettings(db: any, guildId: string): Promise<any> {
-    let s = await db.marketSettings.findUnique({ where: { guildId } });
-    if (!s) s = await db.marketSettings.create({ data: { guildId } });
-    return s;
+    return db.marketSettings.upsert({ where: { guildId }, create: { guildId }, update: {} });
 }
 
 export async function getTreasury(db: any, guildId: string): Promise<any> {
-    let t = await db.marketTreasury.findUnique({ where: { guildId } });
-    if (!t) t = await db.marketTreasury.create({ data: { guildId } });
-    return t;
+    return db.marketTreasury.upsert({ where: { guildId }, create: { guildId }, update: {} });
 }
 
 /**

@@ -54,12 +54,11 @@ export function computeMaxLoan(creditScore: number, settings: BankSettings): num
     return Math.min(settings.loanCap, settings.baseMaxLoan + bonus);
 }
 
+// upsert for the same reason as getAccount below: two concurrent first-time
+// callers would otherwise both see no row and both insert, and the loser dies on
+// the guildId unique constraint.
 async function getSettings(db: any, guildId: string): Promise<BankSettings> {
-    let settings = await db.economySettings.findUnique({ where: { guildId } });
-    if (!settings) {
-        settings = await db.economySettings.create({ data: { guildId } });
-    }
-    return settings;
+    return db.economySettings.upsert({ where: { guildId }, create: { guildId }, update: {} });
 }
 
 async function getAccount(db: any, guildId: string, userId: string) {
