@@ -225,6 +225,11 @@ function assertTradeable(stock: any, settings: any) {
     if (!settings.enabled) throw new Error('The market is currently closed.');
     if (stock.status === 'delisted') throw new Error(`${stock.ticker} has been delisted.`);
     if (stock.status === 'frozen') throw new Error(`${stock.ticker} is frozen and cannot be traded right now.`);
+    // A stock listed this cycle has oraclePrice 0 until the next tick prices it.
+    // syncListings seeds an initial price now, but this stays as defense in depth
+    // — without it, buy() computes cost as oraclePrice * anything = 0 and hands out
+    // free shares. Caught live: 11 BOES shares given away for 0 coins this way.
+    if (stock.oraclePrice <= 0) throw new Error(`${stock.ticker} isn't priced yet — try again in a moment.`);
 }
 
 // ─── Buy ─────────────────────────────────────────────────────────────────────
@@ -724,6 +729,12 @@ function tickerFor(name: string, taken: Set<string>): string {
 /** Lists newly-eligible artists and genre ETFs. Honours soft-delete and moderation state. */
 export async function syncListings(db: any, guildId: string, logger?: any, precomputedScores?: Map<string, number>): Promise<number> {
     const settings = await getSettings(db, guildId);
+    // Seed a real initial price at listing time using the current lambda, rather
+    // than leaving the stock at oraclePrice 0 until the next tick. It'll be a rough
+    // estimate until the next tick recomputes lambda properly, but "priced roughly
+    // right" beats "free until someone notices" — see assertTradeable for the
+    // exploit this closes.
+    const treasury = await getTreasury(db, guildId);
     const existing = await db.stock.findMany({ where: { guildId } });
     const taken = new Set<string>(existing.map((s: any) => s.ticker));
     const haveProfile = new Set(existing.filter((s: any) => s.profileId).map((s: any) => s.profileId));
@@ -748,11 +759,13 @@ export async function syncListings(db: any, guildId: string, logger?: any, preco
         if (p._count.tracks < settings.minTracksToList) continue;
         if ((scores.get(p.id) ?? 0) < settings.minListenersToList) continue;
         const name = p.displayName || p.username;
+        const initialRaw = Math.max(SCORE_FLOOR, scores.get(p.id) ?? SCORE_FLOOR);
+        const initialOracle = treasury.lambda * initialRaw;
         await db.stock.create({
             data: {
                 guildId, type: 'ARTIST', profileId: p.id,
                 ticker: tickerFor(name, taken), name,
-                rawScore: SCORE_FLOOR, oraclePrice: 0, price: 0,
+                rawScore: initialRaw, oraclePrice: initialOracle, price: priceOf(initialOracle, 0, settings.pressureK),
             },
         });
         created++;
@@ -763,11 +776,14 @@ export async function syncListings(db: any, guildId: string, logger?: any, preco
         if (haveGenre.has(g.id)) continue;
         const memberCount = await db.profileGenre.count({ where: { genreId: g.id } });
         if (memberCount < 3) continue;
+        const members = await db.profileGenre.findMany({ where: { genreId: g.id }, select: { profileId: true } });
+        const initialRaw = Math.max(SCORE_FLOOR, members.reduce((a: number, m: any) => a + (scores.get(m.profileId) ?? 0), 0));
+        const initialOracle = treasury.lambda * initialRaw;
         await db.stock.create({
             data: {
                 guildId, type: 'ETF', genreId: g.id,
                 ticker: tickerFor(g.name, taken), name: `${g.name} Index`,
-                rawScore: SCORE_FLOOR, oraclePrice: 0, price: 0,
+                rawScore: initialRaw, oraclePrice: initialOracle, price: priceOf(initialOracle, 0, settings.pressureK),
             },
         });
         created++;
