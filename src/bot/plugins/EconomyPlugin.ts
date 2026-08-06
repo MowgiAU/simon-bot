@@ -290,16 +290,28 @@ export class EconomyPlugin implements IPlugin {
             const target = interaction.options.getUser('user') || interaction.user;
             const account = await this.getAccount(interaction.guildId, target.id);
             const settings = await this.getSettings(interaction.guildId);
+            const em = settings.currencyEmoji;
+
+            const debtRows: any[] = await this.db.$queryRaw`
+                SELECT COALESCE(SUM("totalOwed"), 0)::int AS debt
+                FROM economy_loans
+                WHERE "guildId" = ${interaction.guildId} AND "userId" = ${target.id}
+                  AND status IN ('active', 'defaulted')
+            `;
+            const debt = debtRows[0]?.debt ?? 0;
+            const netWorth = account.balance + account.savingsBalance - debt;
 
             const embed = new EmbedBuilder()
                 .setTitle(`${await this.censor.clean(interaction.guildId!, target.username)}'s Wallet`)
                 .setColor('#FFD700')
                 .addFields(
-                    { name: 'Balance', value: `${settings.currencyEmoji} ${account.balance}`, inline: true },
-                    { name: 'Lifetime Earned', value: `${settings.currencyEmoji} ${account.totalEarned}`, inline: true },
-                    { name: 'Rank', value: '#'+(await this.getRank(interaction.guildId, target.id)), inline: true }
+                    { name: 'Wallet', value: `${em} ${account.balance.toLocaleString()}`, inline: true },
+                    { name: 'Savings', value: `${em} ${account.savingsBalance.toLocaleString()}`, inline: true },
+                    { name: 'Net Worth', value: `${em} ${netWorth.toLocaleString()}${debt > 0 ? `\n(after ${em} ${debt.toLocaleString()} owed)` : ''}`, inline: true },
+                    { name: 'Lifetime Earned', value: `${em} ${account.totalEarned.toLocaleString()}`, inline: true },
+                    { name: 'Rank', value: '#' + (await this.getRank(interaction.guildId, target.id)), inline: true },
                 )
-                .setFooter({ text: `💳 Credit Score: ${account.creditScore} · Use /bank for savings & loans` });
+                .setFooter({ text: `💳 Credit Score: ${account.creditScore} · Rank is by net worth · Use /bank for savings & loans` });
 
             await interaction.editReply({ embeds: [embed] });
         } catch (e) {
@@ -318,36 +330,64 @@ export class EconomyPlugin implements IPlugin {
         await this.sendWealthPage(interaction, page);
     }
 
+    /**
+     * Net worth = wallet + savings - outstanding loan debt.
+     *
+     * Savings has to count or the board ignores everything a saver has banked.
+     * Debt has to be subtracted for the same reason: a loan lands in your wallet
+     * immediately, so without it someone could borrow their limit and climb the
+     * board on coins they still owe.
+     */
+    private async getNetWorthPage(guildId: string, skip: number, take: number): Promise<any[]> {
+        return this.db.$queryRaw`
+            SELECT a."userId",
+                   a.balance                                                    AS wallet,
+                   a."savingsBalance"                                           AS savings,
+                   COALESCE(l.debt, 0)                                          AS debt,
+                   (a.balance + a."savingsBalance" - COALESCE(l.debt, 0))       AS worth
+            FROM economy_accounts a
+            LEFT JOIN (
+                SELECT "userId", SUM("totalOwed")::int AS debt
+                FROM economy_loans
+                WHERE "guildId" = ${guildId} AND status IN ('active', 'defaulted')
+                GROUP BY "userId"
+            ) l ON l."userId" = a."userId"
+            WHERE a."guildId" = ${guildId}
+            ORDER BY worth DESC
+            LIMIT ${take} OFFSET ${skip}
+        `;
+    }
+
     private async sendWealthPage(interaction: any, page: number) {
         const guildId = interaction.guildId!;
         const perPage = 10;
 
         try {
             const settings = await this.getSettings(guildId);
+            const em = settings.currencyEmoji;
             const total = await this.db.economyAccount.count({ where: { guildId } });
             const maxPage = Math.max(0, Math.ceil(total / perPage) - 1);
             page = Math.min(Math.max(0, page), maxPage);
 
-            const accounts = await this.db.economyAccount.findMany({
-                where: { guildId },
-                orderBy: { balance: 'desc' },
-                skip: page * perPage,
-                take: perPage,
-            });
+            const rows = await this.getNetWorthPage(guildId, page * perPage, perPage);
 
             const lines: string[] = [];
-            for (let i = 0; i < accounts.length; i++) {
-                const acc = accounts[i];
+            for (let i = 0; i < rows.length; i++) {
+                const r = rows[i];
                 const rank = page * perPage + i + 1;
                 const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `**${rank}.**`;
-                lines.push(`${medal} <@${acc.userId}> — ${settings.currencyEmoji} ${acc.balance.toLocaleString()}`);
+                const parts: string[] = [];
+                if (r.savings > 0) parts.push(`🏦 ${r.savings.toLocaleString()} saved`);
+                if (r.debt > 0) parts.push(`⚠️ ${r.debt.toLocaleString()} owed`);
+                const detail = parts.length ? `  ·  ${parts.join(' · ')}` : '';
+                lines.push(`${medal} <@${r.userId}> · ${em} **${r.worth.toLocaleString()}**${detail}`);
             }
 
             const embed = new EmbedBuilder()
                 .setColor(0xFFD700)
                 .setTitle('💰 Wealth Leaderboard')
                 .setDescription(lines.join('\n') || 'No rich people here yet.')
-                .setFooter({ text: `Page ${page + 1}/${maxPage + 1} • ${total} accounts tracked` });
+                .setFooter({ text: `Net worth: wallet + savings, minus any loan debt • Page ${page + 1}/${maxPage + 1} • ${total} accounts tracked` });
 
             const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
                 new ButtonBuilder()
@@ -1442,16 +1482,28 @@ export class EconomyPlugin implements IPlugin {
         return true;
     }
 
+    // Ranks on the same net-worth figure /wealth sorts by, so the rank shown in
+    // /wallet always matches where that member actually appears on the board.
     private async getRank(guildId: string, userId: string): Promise<number> {
-        const count = await this.db.economyAccount.count({
-            where: {
-                guildId,
-                balance: {
-                    gt: (await this.getAccount(guildId, userId)).balance
-                }
-            }
-        });
-        return count + 1;
+        await this.getAccount(guildId, userId); // ensure the row exists
+        const rows: any[] = await this.db.$queryRaw`
+            WITH net AS (
+                SELECT a."userId",
+                       (a.balance + a."savingsBalance" - COALESCE(l.debt, 0)) AS worth
+                FROM economy_accounts a
+                LEFT JOIN (
+                    SELECT "userId", SUM("totalOwed")::int AS debt
+                    FROM economy_loans
+                    WHERE "guildId" = ${guildId} AND status IN ('active', 'defaulted')
+                    GROUP BY "userId"
+                ) l ON l."userId" = a."userId"
+                WHERE a."guildId" = ${guildId}
+            )
+            SELECT COUNT(*)::int AS ahead
+            FROM net
+            WHERE worth > (SELECT worth FROM net WHERE "userId" = ${userId})
+        `;
+        return (rows[0]?.ahead ?? 0) + 1;
     }
 
     public async refreshNickname(guildId: string, userId: string) {
