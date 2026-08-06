@@ -100,6 +100,9 @@ interface EmbedField {
 interface EmbedLink { title: string; url: string; description?: string; }
 interface EmbedLinkCategory { category: string; links: EmbedLink[]; }
 
+interface EmbedInfoItem { title: string; description?: string; }
+interface EmbedInfoCategory { category: string; items: EmbedInfoItem[]; }
+
 interface EmbedData {
     title: string;
     description: string;
@@ -108,6 +111,7 @@ interface EmbedData {
     fields: EmbedField[];
     links: EmbedLink[];
     linkCategories: EmbedLinkCategory[];
+    infoCategories: EmbedInfoCategory[];
     authorName: string;
     authorIconUrl: string;
     authorUrl: string;
@@ -126,6 +130,7 @@ const defaultEmbed: EmbedData = {
     fields: [],
     links: [],
     linkCategories: [],
+    infoCategories: [],
     authorName: '',
     authorIconUrl: '',
     authorUrl: '',
@@ -145,6 +150,12 @@ const cardStyle: React.CSSProperties = {
     borderRadius: borderRadius.lg,
     padding: spacing.lg,
 };
+
+/** Discord only linkifies [text](url) markdown when the URL has a scheme. */
+function normalizeUrl(url: string): string {
+    const trimmed = url.trim();
+    return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+}
 
 const inputStyle: React.CSSProperties = {
     width: '100%',
@@ -737,6 +748,23 @@ const EmbedBuilder: React.FC<{
         const c = [...cats]; const lnks = [...c[ci].links]; lnks[li] = { ...lnks[li], ...p }; c[ci] = { ...c[ci], links: lnks }; update({ linkCategories: c });
     };
 
+    // Info categories — same grouping idea as Links, but title + description only, no URL.
+    const infoCats = embed.infoCategories || [];
+    const addInfoCategory = () => update({ infoCategories: [...infoCats, { category: '', items: [{ title: '', description: '' }] }] });
+    const removeInfoCategory = (ci: number) => update({ infoCategories: infoCats.filter((_, idx) => idx !== ci) });
+    const updateInfoCategory = (ci: number, p: Partial<EmbedInfoCategory>) => {
+        const c = [...infoCats]; c[ci] = { ...c[ci], ...p }; update({ infoCategories: c });
+    };
+    const addInfoItem = (ci: number) => {
+        const c = [...infoCats]; c[ci] = { ...c[ci], items: [...c[ci].items, { title: '', description: '' }] }; update({ infoCategories: c });
+    };
+    const removeInfoItem = (ci: number, ii: number) => {
+        const c = [...infoCats]; c[ci] = { ...c[ci], items: c[ci].items.filter((_, idx) => idx !== ii) }; update({ infoCategories: c });
+    };
+    const updateInfoItem = (ci: number, ii: number, p: Partial<EmbedInfoItem>) => {
+        const c = [...infoCats]; const its = [...c[ci].items]; its[ii] = { ...its[ii], ...p }; c[ci] = { ...c[ci], items: its }; update({ infoCategories: c });
+    };
+
     const sectionTitle = (title: string) => (
         <div style={{ color: colors.textSecondary, fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: spacing.lg, marginBottom: spacing.sm }}>{title}</div>
     );
@@ -853,6 +881,41 @@ const EmbedBuilder: React.FC<{
                 <button onClick={addCategory} style={{ ...btnSecondary, alignSelf: 'flex-start' }}><Plus size={14} /> Add Link Category</button>
             )}
 
+            {/* Info (like Links, but no URL — just title + description) */}
+            {sectionTitle('Info')}
+            <p style={{ fontSize: '12px', color: colors.textTertiary, margin: `0 0 ${spacing.sm} 0` }}>
+                Same idea as Links, grouped under a category that becomes one field — but for plain text items with no URL.
+            </p>
+            {infoCats.map((cat, ci) => (
+                <div key={ci} style={{ background: colors.background, borderRadius: borderRadius.md, padding: spacing.md, border: `1px solid ${colors.border}`, marginBottom: spacing.sm }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.sm }}>
+                        <input style={{ ...inputStyle, flex: 1, marginRight: spacing.sm }}
+                            value={cat.category} onChange={e => updateInfoCategory(ci, { category: e.target.value })}
+                            placeholder="Category title (e.g. Rules, FAQ)" />
+                        <button onClick={() => removeInfoCategory(ci)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.error, padding: '2px', flexShrink: 0 }}><Trash2 size={14} /></button>
+                    </div>
+                    {cat.items.map((item, ii) => (
+                        <div key={ii} style={{ marginBottom: spacing.sm, padding: spacing.sm, background: 'rgba(255,255,255,0.02)', borderRadius: borderRadius.sm, border: `1px solid ${colors.border}` }}>
+                            <div style={{ display: 'flex', gap: spacing.sm, alignItems: 'center', marginBottom: '6px' }}>
+                                <input style={{ ...inputStyle, flex: 1 }} value={item.title}
+                                    onChange={e => updateInfoItem(ci, ii, { title: e.target.value })} placeholder="Title" />
+                                <button onClick={() => removeInfoItem(ci, ii)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.error, padding: '2px', flexShrink: 0 }}><Trash2 size={12} /></button>
+                            </div>
+                            <input style={{ ...inputStyle, fontSize: '12px' }} value={item.description || ''}
+                                onChange={e => updateInfoItem(ci, ii, { description: e.target.value })} placeholder="Description (optional)" />
+                        </div>
+                    ))}
+                    {cat.items.length < 25 && (
+                        <button onClick={() => addInfoItem(ci)} style={{ ...btnSecondary, fontSize: '12px', padding: '4px 10px' }}>
+                            <Plus size={12} /> Add Item
+                        </button>
+                    )}
+                </div>
+            ))}
+            {infoCats.length < 25 && (
+                <button onClick={addInfoCategory} style={{ ...btnSecondary, alignSelf: 'flex-start' }}><Plus size={14} /> Add Info Category</button>
+            )}
+
             {/* Images */}
             {sectionTitle('Images')}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: spacing.md }}>
@@ -944,7 +1007,8 @@ const EmbedBuilder: React.FC<{
 // ---------------------------------------------------------------------------
 const EmbedPreview: React.FC<{ embed: EmbedData }> = ({ embed }) => {
     const cats = embed.linkCategories || [];
-    const hasContent = embed.title || embed.description || embed.authorName || embed.footerText || embed.fields.length > 0 || embed.imageUrl || embed.thumbnailUrl || cats.some(c => c.links.some(l => l.title && l.url));
+    const infoCats = embed.infoCategories || [];
+    const hasContent = embed.title || embed.description || embed.authorName || embed.footerText || embed.fields.length > 0 || embed.imageUrl || embed.thumbnailUrl || cats.some(c => c.links.some(l => l.title && l.url)) || infoCats.some(c => c.items.some(i => i.title));
     if (!hasContent) return <div style={{ color: colors.textTertiary, textAlign: 'center', padding: spacing.xl }}>Embed preview will appear here</div>;
 
     return (
@@ -999,11 +1063,26 @@ const EmbedPreview: React.FC<{ embed: EmbedData }> = ({ embed }) => {
                     <div style={{ fontSize: '13px', fontWeight: 700, color: colors.textPrimary, marginBottom: '4px' }}>{cat.category}</div>
                     {cat.links.filter(l => l.title && l.url).map((l, li) => (
                         <div key={li} style={{ marginBottom: '3px' }}>
-                            <a href={l.url} target="_blank" rel="noopener noreferrer"
+                            <a href={normalizeUrl(l.url)} target="_blank" rel="noopener noreferrer"
                                 style={{ fontSize: '13px', color: '#5865F2', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '5px' }}>
                                 <span style={{ color: colors.textSecondary }}>•</span> {l.title}
                             </a>
                             {l.description && <div style={{ fontSize: '11px', color: colors.textTertiary, marginLeft: '13px', marginTop: '1px' }}>{l.description}</div>}
+                        </div>
+                    ))}
+                </div>
+            ))}
+
+            {/* Info categories */}
+            {infoCats.filter(c => c.category && c.items.some(i => i.title)).map((cat, ci) => (
+                <div key={ci} style={{ marginTop: '8px' }}>
+                    <div style={{ fontSize: '13px', fontWeight: 700, color: colors.textPrimary, marginBottom: '4px' }}>{cat.category}</div>
+                    {cat.items.filter(i => i.title).map((it, ii) => (
+                        <div key={ii} style={{ marginBottom: '3px' }}>
+                            <span style={{ fontSize: '13px', color: colors.textPrimary, display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                <span style={{ color: colors.textSecondary }}>•</span> {it.title}
+                            </span>
+                            {it.description && <div style={{ fontSize: '11px', color: colors.textTertiary, marginLeft: '13px', marginTop: '1px' }}>{it.description}</div>}
                         </div>
                     ))}
                 </div>
@@ -1439,13 +1518,35 @@ export function BotMessengerPage() {
                     name: `🔗 ${cat.category}`,
                     value: validLinks.map(l => {
                         const desc = l.description ? `\n  ${l.description}` : '';
-                        return `• [${l.title}](${l.url})${desc}`;
+                        // Discord only renders [text](url) as a clickable link when the URL
+                        // has a scheme — without http(s):// it shows the raw markdown as
+                        // literal text instead, which is exactly what was reported.
+                        return `• [${l.title}](${normalizeUrl(l.url)})${desc}`;
                     }).join('\n'),
                     inline: false,
                 });
             }
             if (linkFields.length > 0) {
                 embedPayload.fields = [...(embedPayload.fields || []), ...linkFields];
+            }
+
+            // Convert info categories to embed fields — same grouping as links, no URL.
+            const infoFields: any[] = [];
+            for (const cat of (embed.infoCategories || [])) {
+                if (!cat.category) continue;
+                const validItems = cat.items.filter(i => i.title);
+                if (validItems.length === 0) continue;
+                infoFields.push({
+                    name: cat.category,
+                    value: validItems.map(i => {
+                        const desc = i.description ? `\n  ${i.description}` : '';
+                        return `• ${i.title}${desc}`;
+                    }).join('\n'),
+                    inline: false,
+                });
+            }
+            if (infoFields.length > 0) {
+                embedPayload.fields = [...(embedPayload.fields || []), ...infoFields];
             }
 
             await axios.post(`${API}/api/bot-messenger/${guildId}/send`, {
