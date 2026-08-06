@@ -107,6 +107,7 @@ const FrontpageAltFFavourites  = lazy(() => import("./pages/FrontpageAltFFavouri
 const FrontpageAltFGenres      = lazy(() => import("./pages/FrontpageAltFGenres").then(m => ({ default: m.FrontpageAltFGenres })));
 const FrontpageAltFArena       = lazy(() => import("./pages/FrontpageAltFArena").then(m => ({ default: m.FrontpageAltFArena })));
 const BankPage                 = lazy(() => import("./pages/BankPage").then(m => ({ default: m.BankPage })));
+const MarketPage               = lazy(() => import("./pages/MarketPage").then(m => ({ default: m.MarketPage })));
 const FrontpageAltFContact     = lazy(() => import("./pages/FrontpageAltFContact"));
 const FrontpageAltFUpload       = lazy(() => import("./pages/FrontpageAltFUpload"));
 const FrontpageAltFLearn       = lazy(() => import("./pages/FrontpageAltFLearn").then(m => ({ default: m.FrontpageAltFLearn })));
@@ -1088,6 +1089,11 @@ const AppInternal: React.FC = () => {
   // /bank → Savings + loans (member-facing)
   if (currentPath === '/bank') {
     return <Suspense fallback={<PageSpinner />}><BankPage /></Suspense>;
+  }
+
+  // /market → Fuji Markets: artist stocks + genre ETFs
+  if (currentPath === '/market') {
+    return <Suspense fallback={<PageSpinner />}><MarketPage /></Suspense>;
   }
 
   // /login → Login/Register page
