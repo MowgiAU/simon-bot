@@ -4699,6 +4699,78 @@ app.post('/api/market/sell', requireAuth, async (req: any, res) => {
     }
 });
 
+// ── Fuji Markets (admin) ────────────────────────────────────────────────────
+
+app.get('/api/market/settings/:guildId', async (req, res) => {
+    try {
+        const { guildId } = req.params;
+        if (!await checkPluginAccess(guildId, req, 'economy')) return res.status(403).json({ error: 'Forbidden' });
+        const [settings, treasury, audit, stocks] = await Promise.all([
+            MarketService.getSettings(db, guildId),
+            MarketService.getTreasury(db, guildId),
+            MarketService.auditConservation(db, guildId, logger),
+            MarketService.listStocks(db, guildId),
+        ]);
+        res.json({ settings, treasury, audit, stocks });
+    } catch (e: any) {
+        logger.error('Market settings get failed', e);
+        res.status(500).json({ error: 'Failed' });
+    }
+});
+
+app.post('/api/market/settings/:guildId', async (req: any, res) => {
+    try {
+        const { guildId } = req.params;
+        if (!isTrueAdmin(guildId, req)) return res.status(403).json({ error: 'Forbidden — admin only' });
+
+        const allowed = [
+            'enabled', 'pressureK', 'maxTickMovePct', 'oracleFloorPct', 'tickIntervalMinutes',
+            'feePct', 'flipFeePct', 'flipWindowHours', 'minHoldHours', 'maxUserSharesPct',
+            'maxShortInterestPct', 'collateralPct', 'liquidationPct', 'dividendPctOfFloat',
+            'minTracksToList', 'minListenersToList', 'minProfileAgeDays',
+        ];
+        const data: any = {};
+        for (const key of allowed) {
+            if (req.body[key] === undefined) continue;
+            data[key] = key === 'enabled' ? Boolean(req.body[key]) : Number(req.body[key]);
+        }
+        const settings = await db.marketSettings.upsert({
+            where: { guildId }, create: { guildId, ...data }, update: data,
+        });
+        res.json(settings);
+    } catch (e: any) {
+        logger.error('Market settings save failed', e);
+        res.status(500).json({ error: 'Failed' });
+    }
+});
+
+/** Force an immediate tick (also runs listing sync) so admins aren't waiting an hour. */
+app.post('/api/market/admin/:guildId/tick', async (req: any, res) => {
+    try {
+        const { guildId } = req.params;
+        if (!isTrueAdmin(guildId, req)) return res.status(403).json({ error: 'Forbidden — admin only' });
+        const scores = await MarketService.computeArtistScores(db, guildId);
+        const listed = await MarketService.syncListings(db, guildId, logger, scores);
+        await MarketService.runTick(db, guildId, logger, true, scores);
+        const audit = await MarketService.auditConservation(db, guildId, logger);
+        res.json({ listed, audit });
+    } catch (e: any) {
+        logger.error('Market manual tick failed', e);
+        res.status(500).json({ error: e.message || 'Failed' });
+    }
+});
+
+app.post('/api/market/admin/:guildId/delist', async (req: any, res) => {
+    try {
+        const { guildId } = req.params;
+        if (!isTrueAdmin(guildId, req)) return res.status(403).json({ error: 'Forbidden — admin only' });
+        if (!req.body.stockId) return res.status(400).json({ error: 'stockId required' });
+        res.json(await MarketService.delistStock(db, guildId, String(req.body.stockId), logger));
+    } catch (e: any) {
+        res.status(400).json({ error: e.message || 'Delist failed' });
+    }
+});
+
 // Get Shop Items
 app.get('/api/economy/items/:guildId', async (req, res) => {
     try {

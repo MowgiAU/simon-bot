@@ -4,13 +4,13 @@ import { useAuth } from '../components/AuthProvider';
 import axios from 'axios';
 import { showToast } from '../components/Toast';
 import { ConfirmModal } from '../components/ConfirmModal';
-import { Coins, ShoppingBag, Vault, Save, Edit, Trash2, Plus, User as UserIcon, Smile, X, Landmark } from 'lucide-react';
+import { Coins, ShoppingBag, Vault, Save, Edit, Trash2, Plus, User as UserIcon, Smile, X, Landmark, LineChart, RefreshCw } from 'lucide-react';
 import { HybridEmojiPicker } from '../components/HybridEmojiPicker';
 import { useMobile } from '../hooks/useMobile';
 
 export const EconomyPluginPage: React.FC = () => {
     const { selectedGuild } = useAuth();
-    const [activeTab, setActiveTab] = useState<'settings' | 'inventory' | 'vault' | 'bank'>('settings');
+    const [activeTab, setActiveTab] = useState<'settings' | 'inventory' | 'vault' | 'bank' | 'market'>('settings');
     const isMobile = useMobile();
     
     // Data State
@@ -127,6 +127,7 @@ export const EconomyPluginPage: React.FC = () => {
                         <option value="inventory">Inventory (Shop)</option>
                         <option value="vault">Vault (Balances)</option>
                         <option value="bank">Bank (Savings & Loans)</option>
+                        <option value="market">Market (Stocks)</option>
                     </select>
                 </div>
             ) : (
@@ -143,7 +144,8 @@ export const EconomyPluginPage: React.FC = () => {
                         { id: 'settings', label: 'Settings', icon: <Coins size={18} /> },
                         { id: 'inventory', label: 'Inventory (Shop)', icon: <ShoppingBag size={18} /> },
                         { id: 'vault', label: 'Vault (Balances)', icon: <Vault size={18} /> },
-                        { id: 'bank', label: 'Bank (Savings & Loans)', icon: <Landmark size={18} /> }
+                        { id: 'bank', label: 'Bank (Savings & Loans)', icon: <Landmark size={18} /> },
+                        { id: 'market', label: 'Market (Stocks)', icon: <LineChart size={18} /> }
                     ].map(tab => (
                         <button
                             key={tab.id}
@@ -177,6 +179,9 @@ export const EconomyPluginPage: React.FC = () => {
                 )}
                 {activeTab === 'bank' && settings && (
                     <BankTab settings={settings} onSave={saveSettings} isMobile={isMobile} />
+                )}
+                {activeTab === 'market' && (
+                    <MarketTab guildId={selectedGuild?.id || ''} isMobile={isMobile} />
                 )}
             </div>
         </div>
@@ -334,6 +339,161 @@ const BankTab = ({ settings, onSave, isMobile }: { settings: any, onSave: (d: an
             >
                 <Save size={18} /> Save Bank Settings
             </button>
+        </div>
+    );
+};
+
+// --- Market Tab ---
+const MarketTab = ({ guildId, isMobile }: { guildId: string; isMobile: boolean }) => {
+    const [data, setData] = useState<any>(null);
+    const [form, setForm] = useState<any>(null);
+    const [busy, setBusy] = useState(false);
+
+    const load = React.useCallback(async () => {
+        if (!guildId) return;
+        try {
+            const r = await axios.get(`/api/market/settings/${guildId}`, { withCredentials: true });
+            setData(r.data);
+            setForm(r.data.settings);
+        } catch { showToast('Failed to load market settings', 'error'); }
+    }, [guildId]);
+
+    useEffect(() => { load(); }, [load]);
+
+    const save = async () => {
+        setBusy(true);
+        try {
+            await axios.post(`/api/market/settings/${guildId}`, form, { withCredentials: true });
+            showToast('Market settings saved', 'success');
+            await load();
+        } catch (e: any) { showToast(e?.response?.data?.error ?? 'Failed to save', 'error'); }
+        finally { setBusy(false); }
+    };
+
+    const runTick = async () => {
+        setBusy(true);
+        try {
+            const r = await axios.post(`/api/market/admin/${guildId}/tick`, {}, { withCredentials: true });
+            showToast(`Tick complete — ${r.data.listed} newly listed`, 'success');
+            await load();
+        } catch (e: any) { showToast(e?.response?.data?.error ?? 'Tick failed', 'error'); }
+        finally { setBusy(false); }
+    };
+
+    const delist = async (stockId: string, ticker: string) => {
+        if (!window.confirm(`Delist ${ticker}? All holders are bought out at the current price and it stops trading.`)) return;
+        setBusy(true);
+        try {
+            const r = await axios.post(`/api/market/admin/${guildId}/delist`, { stockId }, { withCredentials: true });
+            showToast(`${ticker} delisted — paid ${r.data.paidOut} to ${r.data.holders} holder(s)`, 'success');
+            await load();
+        } catch (e: any) { showToast(e?.response?.data?.error ?? 'Delist failed', 'error'); }
+        finally { setBusy(false); }
+    };
+
+    if (!form || !data) return <div style={{ color: colors.textSecondary }}>Loading…</div>;
+
+    const num = (key: string, label: string, step = 1) => (
+        <div key={key}>
+            <label style={{ display: 'block', marginBottom: '8px' }}>{label}</label>
+            <input type="number" step={step} value={form[key]}
+                onChange={e => setForm({ ...form, [key]: Number(e.target.value) })}
+                style={{ width: '100%', padding: '10px', background: colors.background, border: `1px solid ${colors.border}`, color: colors.textPrimary, borderRadius: borderRadius.sm }} />
+        </div>
+    );
+    const grid = { display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr', gap: '20px' } as React.CSSProperties;
+
+    return (
+        <div style={{ display: 'grid', gap: '20px' }}>
+            {/* Master switch */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', background: colors.background, borderRadius: borderRadius.md, gap: '16px' }}>
+                <div>
+                    <div style={{ fontWeight: 700 }}>Market Open</div>
+                    <div style={{ fontSize: '12px', color: colors.textSecondary }}>
+                        Turns trading on for <code>/stocks</code> and the public /market page. While off, the price tick and listing sync do not run.
+                    </div>
+                </div>
+                <input type="checkbox" checked={!!form.enabled} onChange={e => setForm({ ...form, enabled: e.target.checked })} style={{ width: 20, height: 20, cursor: 'pointer', flexShrink: 0 }} />
+            </div>
+
+            {/* Treasury health */}
+            <div style={{ background: colors.background, padding: '16px', borderRadius: borderRadius.md }}>
+                <h3 style={{ margin: '0 0 12px' }}>Treasury</h3>
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, 1fr)', gap: '12px', fontSize: '13px' }}>
+                    <div><div style={{ color: colors.textSecondary }}>Share Reserve</div><strong>{data.treasury.shareReserve.toLocaleString()}</strong></div>
+                    <div><div style={{ color: colors.textSecondary }}>House Float</div><strong>{data.treasury.houseFloat.toLocaleString()}</strong></div>
+                    <div><div style={{ color: colors.textSecondary }}>Short Collateral</div><strong>{data.treasury.shortCollateral.toLocaleString()}</strong></div>
+                    <div><div style={{ color: colors.textSecondary }}>Backing</div>
+                        <strong style={{ color: data.audit.healthy ? colors.success : colors.error }}>
+                            {data.audit.healthy ? 'Healthy' : 'SHORTFALL'}
+                        </strong>
+                    </div>
+                </div>
+                <p style={{ margin: '10px 0 0', fontSize: '11px', color: colors.textTertiary }}>
+                    The share reserve must always cover total liability ({Math.round(data.audit.liability).toLocaleString()}). The house float holds fees and funds dividends. Coins are never minted: the market is zero-sum by design.
+                </p>
+            </div>
+
+            <h3 style={{ margin: 0 }}>Pricing</h3>
+            <div style={grid}>
+                {num('pressureK', 'Pressure K (price band width)', 0.1)}
+                {num('maxTickMovePct', 'Max Oracle Move per Tick (%)', 0.5)}
+                {num('oracleFloorPct', 'Floor vs 7-day Peak (%)')}
+                {num('tickIntervalMinutes', 'Tick Interval (minutes)')}
+            </div>
+            <p style={{ margin: 0, fontSize: '12px', color: colors.textTertiary }}>
+                The per-tick move cap is load-bearing, not cosmetic: short-selling collateral is only provably sufficient because price steps are bounded. Raising it above ~10% weakens that guarantee.
+            </p>
+
+            <h3 style={{ margin: 0 }}>Fees & Limits</h3>
+            <div style={grid}>
+                {num('feePct', 'Trade Fee (%)', 0.1)}
+                {num('flipFeePct', 'Flip Fee (%)', 0.1)}
+                {num('flipWindowHours', 'Flip Window (hours)')}
+                {num('minHoldHours', 'Minimum Hold (hours)')}
+                {num('maxUserSharesPct', 'Max Shares per User (% of stock)')}
+                {num('maxShortInterestPct', 'Max Short Interest (%)')}
+            </div>
+
+            <h3 style={{ margin: 0 }}>Listing Requirements</h3>
+            <div style={grid}>
+                {num('minTracksToList', 'Minimum Public Tracks')}
+                {num('minListenersToList', 'Minimum Score to List')}
+                {num('minProfileAgeDays', 'Minimum Profile Age (days)')}
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px', flexDirection: isMobile ? 'column' : 'row' }}>
+                <button onClick={save} disabled={busy} style={{ ...btnStyle(colors.primary), display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}>
+                    <Save size={18} /> Save Market Settings
+                </button>
+                <button onClick={runTick} disabled={busy} style={{ ...btnStyle(colors.surfaceLight), display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}>
+                    <RefreshCw size={18} /> Run Tick Now
+                </button>
+            </div>
+
+            <h3 style={{ margin: '10px 0 0' }}>Listed Stocks ({data.stocks.length})</h3>
+            {data.stocks.length === 0 ? (
+                <p style={{ margin: 0, fontSize: '13px', color: colors.textSecondary }}>
+                    Nothing listed yet. Enable the market and hit “Run Tick Now” to list every artist that meets the requirements above.
+                </p>
+            ) : (
+                <div style={{ display: 'grid', gap: '8px', maxHeight: '320px', overflowY: 'auto' }}>
+                    {data.stocks.map((s: any) => (
+                        <div key={s.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', gap: '10px' }}>
+                            <div style={{ minWidth: 0 }}>
+                                <strong>{s.ticker}</strong> <span style={{ color: colors.textSecondary, fontSize: '13px' }}>{s.name}</span>
+                                <div style={{ fontSize: '11px', color: colors.textTertiary }}>
+                                    {s.type} · price {s.price.toFixed(2)} · {s.sharesOutstanding} held
+                                </div>
+                            </div>
+                            <button onClick={() => delist(s.id, s.ticker)} disabled={busy}
+                                style={{ background: 'none', border: `1px solid ${colors.error}`, color: colors.error, borderRadius: borderRadius.sm, padding: '6px 12px', cursor: 'pointer', fontSize: '12px', flexShrink: 0 }}>
+                                Delist
+                            </button>
+                        </div>
+                    ))}
+                </div>
+            )}
         </div>
     );
 };
