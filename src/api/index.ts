@@ -4535,11 +4535,12 @@ app.post('/api/economy/settings/:guildId', async (req, res) => {
     }
 });
 
-// ── Bank (member-facing: savings + loans) ───────────────────────────────────
-// Personal-account surface like /api/tracks/:id/favourite — gated by requireAuth,
-// not checkPluginAccess/isTrueAdmin (this isn't a dashboard-admin route).
+// ── Member-facing economy surfaces (bank + market) ──────────────────────────
+// Personal-account routes like /api/tracks/:id/favourite — gated by requireAuth,
+// not checkPluginAccess/isTrueAdmin (these aren't dashboard-admin routes).
 
-async function resolveBankUser(req: any): Promise<{ discordId: string } | { error: string }> {
+/** Maps the site session to the Discord id the coin economy is keyed on. */
+async function resolveDiscordUser(req: any): Promise<{ discordId: string } | { error: string }> {
     const localId = req.session?.user?._localId;
     const dbUser = localId
         ? await db.user.findUnique({ where: { id: localId } })
@@ -4550,7 +4551,7 @@ async function resolveBankUser(req: any): Promise<{ discordId: string } | { erro
 
 app.get('/api/bank/me', requireAuth, async (req: any, res) => {
     try {
-        const resolved = await resolveBankUser(req);
+        const resolved = await resolveDiscordUser(req);
         if ('error' in resolved) return res.status(400).json({ error: resolved.error });
         const guildId = process.env.GUILD_ID!;
         const summary = await BankService.getSummary(db, guildId, resolved.discordId);
@@ -4563,7 +4564,7 @@ app.get('/api/bank/me', requireAuth, async (req: any, res) => {
 
 app.post('/api/bank/deposit', requireAuth, async (req: any, res) => {
     try {
-        const resolved = await resolveBankUser(req);
+        const resolved = await resolveDiscordUser(req);
         if ('error' in resolved) return res.status(400).json({ error: resolved.error });
         const guildId = process.env.GUILD_ID!;
         const account = await BankService.deposit(db, guildId, resolved.discordId, Number(req.body.amount));
@@ -4575,7 +4576,7 @@ app.post('/api/bank/deposit', requireAuth, async (req: any, res) => {
 
 app.post('/api/bank/withdraw', requireAuth, async (req: any, res) => {
     try {
-        const resolved = await resolveBankUser(req);
+        const resolved = await resolveDiscordUser(req);
         if ('error' in resolved) return res.status(400).json({ error: resolved.error });
         const guildId = process.env.GUILD_ID!;
         const account = await BankService.withdraw(db, guildId, resolved.discordId, Number(req.body.amount));
@@ -4587,7 +4588,7 @@ app.post('/api/bank/withdraw', requireAuth, async (req: any, res) => {
 
 app.post('/api/bank/loan', requireAuth, async (req: any, res) => {
     try {
-        const resolved = await resolveBankUser(req);
+        const resolved = await resolveDiscordUser(req);
         if ('error' in resolved) return res.status(400).json({ error: resolved.error });
         const guildId = process.env.GUILD_ID!;
         const loan = await BankService.requestLoan(db, guildId, resolved.discordId, Number(req.body.amount));
@@ -4599,7 +4600,7 @@ app.post('/api/bank/loan', requireAuth, async (req: any, res) => {
 
 app.post('/api/bank/repay', requireAuth, async (req: any, res) => {
     try {
-        const resolved = await resolveBankUser(req);
+        const resolved = await resolveDiscordUser(req);
         if ('error' in resolved) return res.status(400).json({ error: resolved.error });
         const guildId = process.env.GUILD_ID!;
         const amount = req.body.amount !== undefined ? Number(req.body.amount) : undefined;
@@ -4607,6 +4608,94 @@ app.post('/api/bank/repay', requireAuth, async (req: any, res) => {
         res.json(loan);
     } catch (e: any) {
         res.status(400).json({ error: e.message || 'Repayment failed' });
+    }
+});
+
+// ── Fuji Markets (member-facing) ────────────────────────────────────────────
+// Every mutating path delegates straight to MarketService so the site and the
+// /stocks slash commands can never diverge on the rules.
+
+/** Public: the board itself is browsable logged-out. */
+app.get('/api/market/stocks', async (_req, res) => {
+    try {
+        const guildId = process.env.GUILD_ID!;
+        const [stocks, settings, economy] = await Promise.all([
+            MarketService.listStocks(db, guildId),
+            MarketService.getSettings(db, guildId),
+            db.economySettings.findUnique({ where: { guildId } }),
+        ]);
+        res.json({
+            enabled: settings.enabled,
+            sharesTotal: MarketService.SHARES_TOTAL,
+            currencyEmoji: economy?.currencyEmoji ?? '🪙',
+            currencyName: economy?.currencyName ?? 'Coins',
+            stocks,
+        });
+    } catch (e: any) {
+        logger.error('Market list failed', e);
+        res.status(500).json({ error: 'Failed' });
+    }
+});
+
+app.get('/api/market/stocks/:ticker', async (req, res) => {
+    try {
+        const guildId = process.env.GUILD_ID!;
+        const stock = await MarketService.getStockByTicker(db, guildId, req.params.ticker);
+        if (!stock) return res.status(404).json({ error: 'No such stock' });
+        const history = await db.stockPricePoint.findMany({
+            where: { stockId: stock.id },
+            orderBy: { at: 'desc' },
+            take: 60,
+            select: { price: true, at: true },
+        });
+        res.json({ stock, history: history.reverse() });
+    } catch (e: any) {
+        res.status(500).json({ error: 'Failed' });
+    }
+});
+
+app.get('/api/market/portfolio', requireAuth, async (req: any, res) => {
+    try {
+        const resolved = await resolveDiscordUser(req);
+        if ('error' in resolved) return res.status(400).json({ error: resolved.error });
+        const guildId = process.env.GUILD_ID!;
+        res.json(await MarketService.getPortfolio(db, guildId, resolved.discordId));
+    } catch (e: any) {
+        logger.error('Market portfolio failed', e);
+        res.status(500).json({ error: 'Failed' });
+    }
+});
+
+/** Accepts either a stockId or a ticker so the UI can use whichever it has. */
+async function resolveStockId(guildId: string, body: any): Promise<string> {
+    if (body.stockId) return String(body.stockId);
+    if (!body.ticker) throw new Error('A ticker is required.');
+    const stock = await MarketService.getStockByTicker(db, guildId, String(body.ticker));
+    if (!stock) throw new Error('No such stock.');
+    return stock.id;
+}
+
+app.post('/api/market/buy', requireAuth, async (req: any, res) => {
+    try {
+        const resolved = await resolveDiscordUser(req);
+        if ('error' in resolved) return res.status(400).json({ error: resolved.error });
+        const guildId = process.env.GUILD_ID!;
+        const stockId = await resolveStockId(guildId, req.body);
+        res.json(await MarketService.buy(db, guildId, resolved.discordId, stockId, Number(req.body.shares)));
+    } catch (e: any) {
+        res.status(400).json({ error: e.message || 'Buy failed' });
+    }
+});
+
+app.post('/api/market/sell', requireAuth, async (req: any, res) => {
+    try {
+        const resolved = await resolveDiscordUser(req);
+        if ('error' in resolved) return res.status(400).json({ error: resolved.error });
+        const guildId = process.env.GUILD_ID!;
+        const stockId = await resolveStockId(guildId, req.body);
+        res.json(await MarketService.sell(db, guildId, resolved.discordId, stockId, Number(req.body.shares)));
+    } catch (e: any) {
+        res.status(400).json({ error: e.message || 'Sell failed' });
     }
 });
 
