@@ -1304,6 +1304,10 @@ model MusicianProfile {
   tracks     Track[]
   totalPlays Int     @default(0)
 
+  // Fuji Markets: members trade shares in artists, so being listed is opt-out.
+  // Global rather than per-guild — refusing to be traded shouldn't need repeating.
+  marketOptOut Boolean @default(false)
+
   // Moderation
   status       String  @default("active") // "active" | "suspended" | "banned"
   statusReason String? // Admin-provided note for suspension/ban

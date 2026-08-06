@@ -1251,6 +1251,8 @@ export class EconomyPlugin implements IPlugin {
             else if (sub === 'view') await this.handleStocksView(interaction);
             else if (sub === 'portfolio') await this.handleStocksPortfolio(interaction);
             else if (sub === 'buy' || sub === 'sell') await this.handleStocksTrade(interaction, sub);
+            else if (sub === 'short' || sub === 'cover') await this.handleStocksShort(interaction, sub);
+            else if (sub === 'optout') await this.handleStocksOptOut(interaction);
         } catch (e: any) {
             const msg = { content: `❌ ${e.message || 'Something went wrong.'}` };
             if (interaction.deferred || interaction.replied) await interaction.editReply(msg).catch(() => {});
@@ -1352,6 +1354,50 @@ export class EconomyPlugin implements IPlugin {
                 .setDescription(`📉 Sold **${r.shares}** ${stock.ticker} for ${em} **${r.payout.toLocaleString()}** (fee ${em} ${r.feePaid.toLocaleString()})\nNew price: ${em} ${r.price.toFixed(2)}${note}`);
             await interaction.editReply({ embeds: [embed] });
         }
+    }
+
+    private async handleStocksShort(interaction: ChatInputCommandInteraction, action: 'short' | 'cover') {
+        await interaction.deferReply();
+        const guildId = interaction.guildId!;
+        const ticker = interaction.options.getString('ticker', true);
+        const stock = await MarketService.getStockByTicker(this.db, guildId, ticker);
+        if (!stock) return interaction.editReply({ content: `No stock with ticker \`${ticker.toUpperCase()}\`.` });
+
+        const settings = await this.getSettings(guildId);
+        const em = settings.currencyEmoji;
+
+        if (action === 'short') {
+            const shares = interaction.options.getInteger('shares', true);
+            const r = await MarketService.openShort(this.db, guildId, interaction.user.id, stock.id, shares);
+            const embed = new EmbedBuilder()
+                .setColor(0xED4245)
+                .setTitle(`📉 Short opened on ${stock.ticker}`)
+                .setDescription(`**${shares}** shares at ${em} ${r.entryPrice.toFixed(2)}\nCollateral held: ${em} **${r.collateral.toLocaleString()}**`)
+                .setFooter({ text: 'You profit if the price falls. If it rises far enough the position is auto-closed and you lose the collateral — never more.' });
+            await interaction.editReply({ embeds: [embed] });
+        } else {
+            const r = await MarketService.closeShort(this.db, guildId, interaction.user.id, stock.id);
+            const won = r.pnl >= 0;
+            const embed = new EmbedBuilder()
+                .setColor(won ? 0x57F287 : 0xED4245)
+                .setTitle(`Short closed on ${stock.ticker}`)
+                .setDescription(`Entry ${em} ${r.entryPrice.toFixed(2)} → exit ${em} ${r.exitPrice.toFixed(2)}\nReturned ${em} **${r.payout.toLocaleString()}** (${won ? '+' : ''}${r.pnl.toLocaleString()})`);
+            await interaction.editReply({ embeds: [embed] });
+        }
+    }
+
+    private async handleStocksOptOut(interaction: ChatInputCommandInteraction) {
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        const optOut = interaction.options.getBoolean('opt_out', true);
+        const r = await MarketService.setArtistOptOut(this.db, interaction.guildId!, interaction.user.id, optOut, this.logger);
+
+        if (!optOut) {
+            return interaction.editReply({ content: '✅ You can be listed on the market again from the next update.' });
+        }
+        const bought = r.delisted && !r.delisted.alreadyDelisted
+            ? ` Your stock was delisted and ${r.delisted.holders} holder(s) were bought out.`
+            : '';
+        await interaction.editReply({ content: `✅ You're out of the market and won't be listed again.${bought}` });
     }
 
     private async handleStocksPortfolio(interaction: ChatInputCommandInteraction) {
@@ -1513,7 +1559,20 @@ export class EconomyPlugin implements IPlugin {
                 .setDescription('Sell shares you hold')
                 .addStringOption((o: any) => o.setName('ticker').setRequired(true).setDescription('Ticker symbol'))
                 .addIntegerOption((o: any) => o.setName('shares').setRequired(true).setMinValue(1).setDescription('How many shares')))
-            .addSubcommand((sub: any) => sub.setName('portfolio').setDescription('Your holdings, value and profit/loss'));
+            .addSubcommand((sub: any) => sub.setName('portfolio').setDescription('Your holdings, value and profit/loss'))
+            .addSubcommand((sub: any) => sub
+                .setName('short')
+                .setDescription('Bet against a stock — profit if it falls, lose your collateral if it rises')
+                .addStringOption((o: any) => o.setName('ticker').setRequired(true).setDescription('Ticker symbol'))
+                .addIntegerOption((o: any) => o.setName('shares').setRequired(true).setMinValue(1).setDescription('How many shares to short')))
+            .addSubcommand((sub: any) => sub
+                .setName('cover')
+                .setDescription('Close an open short position')
+                .addStringOption((o: any) => o.setName('ticker').setRequired(true).setDescription('Ticker symbol')))
+            .addSubcommand((sub: any) => sub
+                .setName('optout')
+                .setDescription('Remove your own artist stock from the market (or opt back in)')
+                .addBooleanOption((o: any) => o.setName('opt_out').setRequired(true).setDescription('True to leave the market, false to rejoin')));
 
         return [cmd, bankCmd, stocksCmd];
     }

@@ -285,6 +285,9 @@ export async function buy(db: any, guildId: string, userId: string, stockId: str
             data: { guildId, userId, stockId, action: 'BUY', shares, price: newPrice, coinDelta: -totalCharge, feePaid: feeInt },
         });
 
+        // A buy pushes the price up, which is exactly what puts shorts underwater.
+        await liquidateShortsFor(tx, guildId, stockId, newPrice, settings);
+
         return { shares, totalCharge, feeInt, price: newPrice, partial: shares < want };
     });
 }
@@ -354,7 +357,161 @@ export async function sell(db: any, guildId: string, userId: string, stockId: st
             data: { guildId, userId, stockId, action: 'SELL', shares, price: newPrice, coinDelta: payout, feePaid: houseCredit },
         });
 
+        await liquidateShortsFor(tx, guildId, stockId, newPrice, settings);
+
         return { shares, payout, feePaid: houseCredit, price: newPrice, flipped: flip > 0 };
+    });
+}
+
+// ─── Short selling ───────────────────────────────────────────────────────────
+//
+// Shorts are SYNTHETIC positions against the house: no borrow, no share inventory
+// movement, no effect on sharesOutstanding or price. Real borrowing is incoherent
+// here — the only buyer of a treasury-owned share is the treasury itself, which
+// would be a free-coin faucet — and going synthetic also makes a short squeeze
+// structurally impossible, since nobody ever has to buy back to cover.
+//
+// Solvency: with C collateral, L the liquidation trigger as a fraction of C, and c
+// the largest price move between two checks, the loss at forced exit is bounded by
+// C only when C >= e·N·c / (1 − L − L·c), which needs L·(1+c) < 1. The intuitive
+// "liquidate at 90%" is infeasible for any c above ~11% (the denominator goes
+// negative — no finite collateral is safe). Defaults ship L = 0.5 with a 10%
+// per-tick oracle cap, giving C >= 0.222·e·N against 100% collateral: a 4.5x margin.
+
+/**
+ * Force-closes any short whose loss has eaten the liquidation share of its collateral.
+ *
+ * MUST be called inside every transaction that moves this stock's price, not just on
+ * the tick: price is oracle x pressure, and pressure swings live on every trade
+ * across the whole 0.5x-1.5x band, so tick-only checks would leave an unobserved
+ * move far larger than any collateral ratio could cover.
+ */
+async function liquidateShortsFor(tx: any, guildId: string, stockId: string, price: number, settings: any): Promise<number> {
+    const open = await tx.shortPosition.findMany({ where: { guildId, stockId, status: 'open' } });
+    if (!open.length) return 0;
+
+    let liquidated = 0;
+    for (const pos of open) {
+        const loss = (price - pos.entryPrice) * pos.shares;
+        if (loss < pos.collateral * (settings.liquidationPct / 100)) continue;
+
+        // Loss can never exceed collateral: the trader's wallet is untouched from
+        // the moment the position opens, so a negative balance is unreachable.
+        const payout = Math.max(0, Math.floor(pos.collateral - loss));
+        const toHouse = pos.collateral - payout;
+
+        await tx.shortPosition.update({
+            where: { id: pos.id },
+            data: { status: 'liquidated', closedAt: new Date(), settlePrice: price },
+        });
+        await tx.marketTreasury.update({
+            where: { guildId },
+            data: { shortCollateral: { decrement: pos.collateral }, houseFloat: { increment: toHouse } },
+        });
+        if (payout > 0) {
+            await tx.economyAccount.update({
+                where: { guildId_userId: { guildId, userId: pos.userId } },
+                data: { balance: { increment: payout } },
+            });
+        }
+        await tx.stockTrade.create({
+            data: { guildId, userId: pos.userId, stockId, action: 'LIQUIDATE', shares: pos.shares, price, coinDelta: payout },
+        });
+        liquidated++;
+    }
+    return liquidated;
+}
+
+export async function openShort(db: any, guildId: string, userId: string, stockId: string, requestedShares: number) {
+    const shares = validateShares(requestedShares);
+    const settings = await getSettings(db, guildId);
+
+    return withTradeLock(db, guildId, stockId, userId, async (tx, { treasury, stock, account }) => {
+        assertTradeable(stock, settings);
+        // Blocked in BOTH directions: an artist allowed to short their own stock
+        // could short it and then delete their tracks, which is a money printer.
+        await assertNotOwnStock(tx, stock, userId);
+
+        const existing = await tx.shortPosition.findFirst({ where: { guildId, userId, stockId, status: 'open' } });
+        if (existing) throw new Error(`You already have an open short on ${stock.ticker}.`);
+
+        const openOnStock = await tx.shortPosition.aggregate({
+            where: { guildId, stockId, status: 'open' }, _sum: { shares: true },
+        });
+        const shortInterest = (openOnStock._sum.shares ?? 0) + shares;
+        const maxInterest = Math.floor(SHARES_TOTAL * (settings.maxShortInterestPct / 100));
+        if (shortInterest > maxInterest) {
+            throw new Error(`Short interest on ${stock.ticker} is capped at ${maxInterest} shares.`);
+        }
+
+        const price = priceOf(stock.oraclePrice, stock.sharesOutstanding, settings.pressureK);
+        const collateral = Math.ceil(shares * price * (settings.collateralPct / 100));
+        if (account.balance < collateral) {
+            throw new Error(`Shorting ${shares} ${stock.ticker} needs ${collateral.toLocaleString()} coins as collateral; you have ${account.balance.toLocaleString()}.`);
+        }
+
+        // The house pays short profits out of houseFloat, and each position can win at
+        // most half its collateral, so refuse to open unless that exposure is pre-funded.
+        const allOpen = await tx.shortPosition.aggregate({
+            where: { guildId, status: 'open' }, _sum: { collateral: true },
+        });
+        const exposure = ((allOpen._sum.collateral ?? 0) + collateral) * 0.5;
+        if (treasury.houseFloat < exposure) {
+            throw new Error('The market cannot cover more short positions right now. Try again once more trading fees have built up.');
+        }
+
+        await tx.economyAccount.update({
+            where: { guildId_userId: { guildId, userId } },
+            data: { balance: { decrement: collateral } },
+        });
+        await tx.marketTreasury.update({
+            where: { guildId },
+            data: { shortCollateral: { increment: collateral } },
+        });
+        const pos = await tx.shortPosition.create({
+            data: { guildId, userId, stockId, shares, entryPrice: price, collateral, status: 'open' },
+        });
+        await tx.stockTrade.create({
+            data: { guildId, userId, stockId, action: 'SHORT_OPEN', shares, price, coinDelta: -collateral },
+        });
+
+        return { position: pos, collateral, entryPrice: price };
+    });
+}
+
+export async function closeShort(db: any, guildId: string, userId: string, stockId: string) {
+    const settings = await getSettings(db, guildId);
+
+    return withTradeLock(db, guildId, stockId, userId, async (tx, { stock }) => {
+        const pos = await tx.shortPosition.findFirst({ where: { guildId, userId, stockId, status: 'open' } });
+        if (!pos) throw new Error(`You have no open short on ${stock.ticker}.`);
+
+        const price = priceOf(stock.oraclePrice, stock.sharesOutstanding, settings.pressureK);
+        const rawPnl = (pos.entryPrice - price) * pos.shares;
+        const maxProfit = pos.collateral * 0.5; // bounded so houseFloat exposure stays pre-funded
+        const pnl = Math.min(rawPnl, maxProfit);
+        const payout = Math.max(0, Math.floor(pos.collateral + pnl));
+        const houseDelta = pos.collateral - payout; // negative when the house pays a winner
+
+        await tx.shortPosition.update({
+            where: { id: pos.id },
+            data: { status: 'closed', closedAt: new Date(), settlePrice: price },
+        });
+        await tx.marketTreasury.update({
+            where: { guildId },
+            data: { shortCollateral: { decrement: pos.collateral }, houseFloat: { increment: houseDelta } },
+        });
+        if (payout > 0) {
+            await tx.economyAccount.update({
+                where: { guildId_userId: { guildId, userId } },
+                data: { balance: { increment: payout } },
+            });
+        }
+        await tx.stockTrade.create({
+            data: { guildId, userId, stockId, action: 'SHORT_CLOSE', shares: pos.shares, price, coinDelta: payout },
+        });
+
+        return { shares: pos.shares, entryPrice: pos.entryPrice, exitPrice: price, collateral: pos.collateral, payout, pnl: payout - pos.collateral };
     });
 }
 
@@ -528,6 +685,7 @@ export async function runTick(db: any, guildId: string, logger?: any, force = fa
             await tx.stockPricePoint.create({
                 data: { stockId: s.id, price, oraclePrice, rawScore: raw, sharesOutstanding: s.sharesOutstanding },
             });
+            await liquidateShortsFor(tx, guildId, s.id, price, settings);
         }
 
         await tx.marketTreasury.update({
@@ -565,6 +723,7 @@ export async function syncListings(db: any, guildId: string, logger?: any, preco
             deletedAt: null,
             status: 'active',
             createdAt: { lte: ageCutoff },
+            marketOptOut: false,
         },
         select: { id: true, username: true, displayName: true, _count: { select: { tracks: true } } },
     });
@@ -602,6 +761,29 @@ export async function syncListings(db: any, guildId: string, logger?: any, preco
 
     if (created) logger?.info?.(`[Market] listed ${created} new stock(s) in ${guildId}`);
     return created;
+}
+
+/**
+ * Toggles an artist out of (or back into) the market.
+ *
+ * Opting out while listed triggers the full delisting protocol, so holders are
+ * bought out rather than stranded. Opting back in simply makes them eligible for
+ * the next listing sync again.
+ */
+export async function setArtistOptOut(db: any, guildId: string, userId: string, optOut: boolean, logger?: any) {
+    const profile = await db.musicianProfile.findUnique({ where: { userId }, select: { id: true, username: true } });
+    if (!profile) throw new Error("You don't have an artist profile, so you're not listable in the first place.");
+
+    await db.musicianProfile.update({ where: { id: profile.id }, data: { marketOptOut: optOut } });
+
+    let delisted: any = null;
+    if (optOut) {
+        const stock = await db.stock.findFirst({
+            where: { guildId, profileId: profile.id, status: { in: ['active', 'frozen'] } },
+        });
+        if (stock) delisted = await delistStock(db, guildId, stock.id, logger);
+    }
+    return { optOut, delisted };
 }
 
 // ─── Delisting ───────────────────────────────────────────────────────────────
@@ -653,6 +835,33 @@ export async function delistStock(db: any, guildId: string, stockId: string, log
                 data: { guildId, userId: h.userId, stockId, action: 'DELIST_BUYBACK', shares: h.shares, price: settlePrice, coinDelta: payout },
             });
             await tx.stockHolding.delete({ where: { id: h.id } });
+        }
+
+        // Settle open shorts at the DELIST price, not zero. Settling at zero would
+        // pay out in full for the "short your own stock, then delete your tracks"
+        // attack, which is the whole reason own-stock shorting is blocked.
+        const openShorts = await tx.shortPosition.findMany({ where: { guildId, stockId, status: 'open' } });
+        for (const pos of openShorts) {
+            const rawPnl = (pos.entryPrice - settlePrice) * pos.shares;
+            const pnl = Math.min(rawPnl, pos.collateral * 0.5);
+            const payout = Math.max(0, Math.floor(pos.collateral + pnl));
+            await tx.shortPosition.update({
+                where: { id: pos.id },
+                data: { status: 'closed', closedAt: new Date(), settlePrice },
+            });
+            await tx.marketTreasury.update({
+                where: { guildId },
+                data: { shortCollateral: { decrement: pos.collateral }, houseFloat: { increment: pos.collateral - payout } },
+            });
+            if (payout > 0) {
+                await tx.economyAccount.update({
+                    where: { guildId_userId: { guildId, userId: pos.userId } },
+                    data: { balance: { increment: payout } },
+                });
+            }
+            await tx.stockTrade.create({
+                data: { guildId, userId: pos.userId, stockId, action: 'SHORT_CLOSE', shares: pos.shares, price: settlePrice, coinDelta: payout },
+            });
         }
 
         await tx.marketTreasury.update({

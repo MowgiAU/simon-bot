@@ -4699,6 +4699,42 @@ app.post('/api/market/sell', requireAuth, async (req: any, res) => {
     }
 });
 
+app.post('/api/market/short', requireAuth, async (req: any, res) => {
+    try {
+        const resolved = await resolveDiscordUser(req);
+        if ('error' in resolved) return res.status(400).json({ error: resolved.error });
+        const guildId = process.env.GUILD_ID!;
+        const stockId = await resolveStockId(guildId, req.body);
+        res.json(await MarketService.openShort(db, guildId, resolved.discordId, stockId, Number(req.body.shares)));
+    } catch (e: any) {
+        res.status(400).json({ error: e.message || 'Short failed' });
+    }
+});
+
+app.post('/api/market/cover', requireAuth, async (req: any, res) => {
+    try {
+        const resolved = await resolveDiscordUser(req);
+        if ('error' in resolved) return res.status(400).json({ error: resolved.error });
+        const guildId = process.env.GUILD_ID!;
+        const stockId = await resolveStockId(guildId, req.body);
+        res.json(await MarketService.closeShort(db, guildId, resolved.discordId, stockId));
+    } catch (e: any) {
+        res.status(400).json({ error: e.message || 'Cover failed' });
+    }
+});
+
+/** Artists control whether they're tradeable at all. */
+app.post('/api/market/opt-out', requireAuth, async (req: any, res) => {
+    try {
+        const resolved = await resolveDiscordUser(req);
+        if ('error' in resolved) return res.status(400).json({ error: resolved.error });
+        const guildId = process.env.GUILD_ID!;
+        res.json(await MarketService.setArtistOptOut(db, guildId, resolved.discordId, Boolean(req.body.optOut), logger));
+    } catch (e: any) {
+        res.status(400).json({ error: e.message || 'Failed' });
+    }
+});
+
 // ── Fuji Markets (admin) ────────────────────────────────────────────────────
 
 app.get('/api/market/settings/:guildId', async (req, res) => {
