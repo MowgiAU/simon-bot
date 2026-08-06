@@ -35,6 +35,9 @@
 // both a governance question and a low-float attack surface.
 export const SHARES_TOTAL = 1000;
 
+// Shared with BankService — see its definition for why a plain upsert isn't enough.
+import { raceSafeGetOrCreate } from './BankService.js';
+
 // Transaction types that count as a member's own activity. Mirrors
 // BankService.ACTIVITY_EARNING_TYPES: PAY and TIP are excluded because both merely
 // move existing coins and would let someone qualify an alt for free.
@@ -103,17 +106,24 @@ function validateShares(n: number): number {
 
 // ─── Settings / treasury ─────────────────────────────────────────────────────
 
-// upsert, not find-then-create: these are called concurrently (the admin endpoint
-// resolves settings, treasury and auditConservation in one Promise.all, and the
-// audit resolves settings/treasury again internally). Find-then-create let two
-// callers both see no row and both insert, so the loser died on the guildId unique
-// constraint — which is exactly what 500'd the very first load of the Market tab.
+// These are hit concurrently: the admin endpoint resolves settings, treasury,
+// auditConservation and listings in one Promise.all, and the audit resolves
+// settings/treasury again internally. Find-then-create let every caller see no row
+// and all insert, which is what 500'd the very first load of the Market tab. A bare
+// upsert isn't enough either (Prisma's upsert isn't atomic on Postgres), hence
+// raceSafeGetOrCreate.
 export async function getSettings(db: any, guildId: string): Promise<any> {
-    return db.marketSettings.upsert({ where: { guildId }, create: { guildId }, update: {} });
+    return raceSafeGetOrCreate(
+        () => db.marketSettings.upsert({ where: { guildId }, create: { guildId }, update: {} }),
+        () => db.marketSettings.findUnique({ where: { guildId } }),
+    );
 }
 
 export async function getTreasury(db: any, guildId: string): Promise<any> {
-    return db.marketTreasury.upsert({ where: { guildId }, create: { guildId }, update: {} });
+    return raceSafeGetOrCreate(
+        () => db.marketTreasury.upsert({ where: { guildId }, create: { guildId }, update: {} }),
+        () => db.marketTreasury.findUnique({ where: { guildId } }),
+    );
 }
 
 /**
@@ -132,11 +142,14 @@ async function withTradeLock<T>(
     fn: (tx: any, ctx: { treasury: any; stock: any; account: any }) => Promise<T>,
 ): Promise<T> {
     await getTreasury(db, guildId);
-    await db.economyAccount.upsert({
-        where: { guildId_userId: { guildId, userId } },
-        create: { guildId, userId },
-        update: {},
-    });
+    await raceSafeGetOrCreate(
+        () => db.economyAccount.upsert({
+            where: { guildId_userId: { guildId, userId } },
+            create: { guildId, userId },
+            update: {},
+        }),
+        () => db.economyAccount.findUnique({ where: { guildId_userId: { guildId, userId } } }),
+    );
 
     return db.$transaction(async (tx: any) => {
         const [treasury] = await tx.$queryRaw`

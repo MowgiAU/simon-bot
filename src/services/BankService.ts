@@ -54,21 +54,43 @@ export function computeMaxLoan(creditScore: number, settings: BankSettings): num
     return Math.min(settings.loanCap, settings.baseMaxLoan + bonus);
 }
 
-// upsert for the same reason as getAccount below: two concurrent first-time
-// callers would otherwise both see no row and both insert, and the loser dies on
-// the guildId unique constraint.
-async function getSettings(db: any, guildId: string): Promise<BankSettings> {
-    return db.economySettings.upsert({ where: { guildId }, create: { guildId }, update: {} });
+/**
+ * Get-or-create that actually survives concurrency.
+ *
+ * Prisma's upsert is NOT atomic on Postgres — it reads, then inserts or updates —
+ * so two first-time callers can still both attempt the insert and the loser dies on
+ * the unique constraint (measured: 5 of 6 concurrent calls failing, and still 2 of 6
+ * after switching find-then-create to a plain upsert). Treat P2002 as "someone else
+ * created it a moment ago" and just read theirs.
+ */
+export async function raceSafeGetOrCreate<T>(write: () => Promise<T>, read: () => Promise<T | null>): Promise<T> {
+    try {
+        return await write();
+    } catch (e: any) {
+        if (e?.code === 'P2002') {
+            const existing = await read();
+            if (existing) return existing;
+        }
+        throw e;
+    }
 }
 
-async function getAccount(db: any, guildId: string, userId: string) {
-    // upsert rather than find-then-create so two concurrent first-time callers
-    // can't both try to insert the same (guildId, userId) row.
-    return db.economyAccount.upsert({
-        where: { guildId_userId: { guildId, userId } },
-        create: { guildId, userId },
-        update: {},
-    });
+async function getSettings(db: any, guildId: string): Promise<BankSettings> {
+    return raceSafeGetOrCreate(
+        () => db.economySettings.upsert({ where: { guildId }, create: { guildId }, update: {} }),
+        () => db.economySettings.findUnique({ where: { guildId } }),
+    );
+}
+
+async function getAccount(db: any, guildId: string, userId: string): Promise<any> {
+    return raceSafeGetOrCreate(
+        () => db.economyAccount.upsert({
+            where: { guildId_userId: { guildId, userId } },
+            create: { guildId, userId },
+            update: {},
+        }),
+        () => db.economyAccount.findUnique({ where: { guildId_userId: { guildId, userId } } }),
+    );
 }
 
 /**
