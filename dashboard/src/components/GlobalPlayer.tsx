@@ -11,7 +11,7 @@ import axios from 'axios';
 const SPEED_OPTIONS = [0.5, 0.75, 1, 1.25, 1.5, 2];
 
 export const GlobalPlayer: React.FC = () => {
-    const { player, togglePlay, setVolume, seek, nextTrack, prevTrack, toggleShuffle, setRepeatMode, removeFromQueue, jumpToIndex, setPlaybackRate } = usePlayer();
+    const { player, togglePlay, setVolume, seek, nextTrack, prevTrack, toggleShuffle, setRepeatMode, removeFromQueue, jumpToIndex, setPlaybackRate, mobileNavHidden } = usePlayer();
     const [isFavourited, setIsFavourited] = React.useState(false);
     const [isReposted, setIsReposted] = React.useState(false);
     const [showQueue, setShowQueue] = React.useState(false);
@@ -146,7 +146,12 @@ export const GlobalPlayer: React.FC = () => {
     const collapsedHeight = 44;
     const expandedHeight = isMobile ? 100 : 80;
     const playerHeight = isCollapsed ? collapsedHeight : expandedHeight;
-    const bottomOffset = isMobile ? 60 : 0;
+    // When AltMobileNav auto-hides for scroll, dock flush to the true bottom edge
+    // instead of leaving the 60px it normally occupies sitting empty underneath the
+    // player bar. mobileNavHidden only ever goes true while that nav is actually
+    // mounted (the <600px breakpoint), so this can't affect the wider tablet range
+    // that has no bottom nav to begin with.
+    const bottomOffset = isMobile ? (mobileNavHidden ? 0 : 60) : 0;
 
     const t = player.currentTrack as any;
     const trackSlugOrId = t.slug || t.id || null;
@@ -413,7 +418,7 @@ export const GlobalPlayer: React.FC = () => {
                 alignItems: 'center',
                 justifyContent: isCollapsed ? 'space-between' : isMobile ? 'flex-start' : 'space-between',
                 padding: isCollapsed ? '0 16px' : isMobile ? '0' : '0 24px',
-                transition: 'height 0.25s cubic-bezier(0.4,0,0.2,1)',
+                transition: 'height 0.25s cubic-bezier(0.4,0,0.2,1), bottom 0.25s ease',
             }}>
                 {/* ── Collapsed mini bar ── */}
                 {isCollapsed && (

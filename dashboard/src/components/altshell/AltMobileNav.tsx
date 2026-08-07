@@ -4,12 +4,13 @@
  * radial pie menu with the complete primary nav. Mirrors the pattern already
  * shipped on the main site (layouts/DiscoveryLayout.tsx: mobile bottom nav + pie menu).
  */
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Home, Search, BarChart3, Swords, Tag, User, Newspaper, Users, Zap, MoreHorizontal } from 'lucide-react';
 import { PRIMARY, SUB, BORDER, FONT } from './AltSidebar';
 import { RadialPieMenu, PieItem } from './RadialPieMenu';
 import { useAuth } from '../AuthProvider';
+import { usePlayer } from '../PlayerProvider';
 
 export const MOBILE_NAV_HEIGHT = 60;
 
@@ -39,11 +40,11 @@ const PIE_NAV: { key: string; label: string; icon: React.ReactNode; to: string }
 // flickering away from tiny rubber-band/overscroll jitter right at the top.
 const HIDE_AFTER_PX = 24;
 const DIRECTION_THRESHOLD_PX = 4;
-const STOPPED_SCROLLING_MS = 150;
 
 export const AltMobileNav: React.FC<{ active: string }> = ({ active }) => {
     const navigate = useNavigate();
     const { user } = useAuth();
+    const { setMobileNavHidden } = usePlayer();
     const [pieOpen, setPieOpen] = useState(false);
     const [hidden, setHidden] = useState(false);
 
@@ -51,9 +52,12 @@ export const AltMobileNav: React.FC<{ active: string }> = ({ active }) => {
     // window, and scroll events don't bubble — so this listens in the capture phase
     // on document, which does see scroll events fired anywhere in the tree, and
     // tracks each scrolling element's last position separately.
+    //
+    // Only reveals on an upward scroll (or being back near the top) — deliberately
+    // NOT on merely pausing, so the bar stays out of the way while reading and only
+    // comes back when you scroll back toward the top.
     useEffect(() => {
         const lastY = new WeakMap<EventTarget, number>();
-        let stopTimer: ReturnType<typeof setTimeout> | null = null;
 
         const onScroll = (e: Event) => {
             const el = e.target as HTMLElement | Document;
@@ -69,17 +73,20 @@ export const AltMobileNav: React.FC<{ active: string }> = ({ active }) => {
             } else if (delta < -DIRECTION_THRESHOLD_PX || y <= HIDE_AFTER_PX) {
                 setHidden(false);
             }
-
-            if (stopTimer) clearTimeout(stopTimer);
-            stopTimer = setTimeout(() => setHidden(false), STOPPED_SCROLLING_MS);
         };
 
         document.addEventListener('scroll', onScroll, { capture: true, passive: true });
-        return () => {
-            document.removeEventListener('scroll', onScroll, true);
-            if (stopTimer) clearTimeout(stopTimer);
-        };
+        return () => document.removeEventListener('scroll', onScroll, true);
     }, []);
+
+    // Tell GlobalPlayer whether we're hidden, so it can dock flush to the true
+    // bottom edge instead of leaving the vacated nav space empty underneath it.
+    // Reset on unmount so a stale "hidden" flag can't strand the player docked low
+    // after navigating to a page (or breakpoint) where this nav isn't rendered.
+    useEffect(() => {
+        setMobileNavHidden(hidden);
+        return () => setMobileNavHidden(false);
+    }, [hidden, setMobileNavHidden]);
 
     const pieItems: PieItem[] = PIE_NAV.map(n => ({
         key: n.key, label: n.label, icon: n.icon, active: active === n.key,

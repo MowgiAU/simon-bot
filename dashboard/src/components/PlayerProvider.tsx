@@ -39,6 +39,11 @@ interface PlayerContextType {
   jumpToIndex: (index: number) => void;
   setPlaybackRate: (rate: number) => void;
   setMuted: (muted: boolean) => void;
+  // True while AltMobileNav has auto-hidden itself for scroll. GlobalPlayer reads
+  // this to dock flush to the true bottom edge instead of leaving the space the
+  // nav bar normally occupies sitting empty underneath it.
+  mobileNavHidden: boolean;
+  setMobileNavHidden: (hidden: boolean) => void;
 }
 
 const PlayerContext = createContext<PlayerContextType | undefined>(undefined);
@@ -69,6 +74,8 @@ export const PlayerProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     playbackRate: 1,
     muted: false,
   });
+
+  const [mobileNavHidden, setMobileNavHidden] = useState(false);
 
   const [audio] = useState(new Audio());
   const hasRecordedPlay = useRef<string | null>(null);
@@ -335,6 +342,7 @@ export const PlayerProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       player, setTrack, togglePlay, setVolume, seek,
       nextTrack, prevTrack, toggleShuffle, setRepeatMode,
       addToQueue, removeFromQueue, jumpToIndex, setPlaybackRate, setMuted,
+      mobileNavHidden, setMobileNavHidden,
     }}>
       {children}
     </PlayerContext.Provider>

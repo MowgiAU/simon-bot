@@ -10,6 +10,8 @@ import {
 } from 'lucide-react';
 import { AltSidebar, BG, PRIMARY, SECONDARY, TEXT, SUB, BORDER, FONT, CONTENT_MAX } from '../components/altshell/AltSidebar';
 import { AltHeader } from '../components/altshell/AltHeader';
+import { MOBILE_NAV_HEIGHT } from '../components/altshell/AltMobileNav';
+import { useAltBreakpoint } from '../components/altshell/useAltBreakpoint';
 import { usePlayer } from '../components/PlayerProvider';
 import { useAuth } from '../components/AuthProvider';
 
@@ -51,6 +53,8 @@ function Spark({ points }: { points: { price: number }[] }) {
 
 export const MarketPage: React.FC = () => {
     const { player } = usePlayer();
+    const bp = useAltBreakpoint();
+    const isMobile = bp === 'xs';
     const { user, loading: authLoading } = useAuth();
 
     const [market, setMarket] = useState<{ enabled: boolean; sharesTotal: number; currencyEmoji: string; stocks: Stock[] } | null>(null);
@@ -108,7 +112,7 @@ export const MarketPage: React.FC = () => {
     };
 
     const em = coin(market?.currencyEmoji);
-    const card: React.CSSProperties = { ...glass, borderRadius: 18, padding: '20px 22px' };
+    const card: React.CSSProperties = { ...glass, borderRadius: 18, padding: isMobile ? '16px' : '20px 22px' };
     const input: React.CSSProperties = { flex: 1, background: 'rgba(255,255,255,0.05)', border: `1px solid ${BORDER}`, borderRadius: 10, padding: '10px 14px', color: TEXT, fontSize: 14, outline: 'none', minWidth: 0 };
     const btn = (bg: string): React.CSSProperties => ({ padding: '10px 18px', borderRadius: 10, border: 'none', background: bg, color: '#0a0d18', fontWeight: 800, fontSize: 13, cursor: busy ? 'not-allowed' : 'pointer', opacity: busy ? 0.6 : 1 });
 
@@ -157,10 +161,10 @@ export const MarketPage: React.FC = () => {
             <AltSidebar active="Market" />
             <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', height: '100%' }}>
                 <AltHeader breadcrumb={[{ label: 'Market' }]} />
-                <div style={{ flex: 1, overflowY: 'auto', paddingBottom: player.currentTrack ? 90 : 0 }}>
-                    <div style={{ maxWidth: CONTENT_MAX, margin: '0 auto', padding: 32, boxSizing: 'border-box' }}>
-                        <h1 style={{ margin: '0 0 8px', fontSize: 28, fontWeight: 900, letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: 10 }}>
-                            <LineChart size={26} color={PRIMARY} /> Fuji Markets
+                <div style={{ flex: 1, overflowY: 'auto', paddingBottom: (player.currentTrack ? (isMobile ? 130 : 90) : 0) + (isMobile ? MOBILE_NAV_HEIGHT : 0) }}>
+                    <div style={{ maxWidth: CONTENT_MAX, margin: '0 auto', padding: isMobile ? '16px' : 32, boxSizing: 'border-box' }}>
+                        <h1 style={{ margin: '0 0 8px', fontSize: isMobile ? 22 : 28, fontWeight: 900, letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <LineChart size={isMobile ? 22 : 26} color={PRIMARY} /> Fuji Markets
                         </h1>
                         <p style={{ margin: '0 0 24px', color: SUB, fontSize: 14 }}>Back the producers and genres you think are rising.</p>
 
@@ -173,7 +177,7 @@ export const MarketPage: React.FC = () => {
                                 <p style={{ color: SUB, fontSize: 13, margin: 0 }}>Trading hasn't opened in this server yet. Check back soon.</p>
                             </div>
                         ) : (
-                            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 320px', gap: 20, alignItems: 'start' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'minmax(0,1fr) 320px', gap: isMobile ? 14 : 20, alignItems: 'start' }}>
                                 {/* Board */}
                                 <div style={{ ...card, padding: 0, overflow: 'hidden' }}>
                                     <div style={{ padding: '16px 22px', borderBottom: `1px solid ${BORDER}`, fontSize: 15, fontWeight: 800, color: '#fff' }}>
@@ -195,18 +199,20 @@ export const MarketPage: React.FC = () => {
                                                         return (
                                                             <tr key={s.id} onClick={() => setSelected(s.ticker)}
                                                                 style={{ cursor: 'pointer', background: active ? 'rgba(255,255,255,0.05)' : 'transparent', borderBottom: `1px solid ${BORDER}` }}>
-                                                                <td style={{ padding: '12px 22px', whiteSpace: 'nowrap' }}>
+                                                                <td style={{ padding: isMobile ? '10px 12px' : '12px 22px', whiteSpace: 'nowrap' }}>
                                                                     {s.type === 'ETF' ? <BarChart3 size={13} color={SUB} style={{ verticalAlign: -2, marginRight: 6 }} /> : <Headphones size={13} color={SUB} style={{ verticalAlign: -2, marginRight: 6 }} />}
                                                                     <strong style={{ color: TEXT }}>{s.ticker}</strong>
-                                                                    <span style={{ color: SUB, marginLeft: 8 }}>{s.name}</span>
+                                                                    {!isMobile && <span style={{ color: SUB, marginLeft: 8 }}>{s.name}</span>}
                                                                 </td>
-                                                                <td style={{ padding: '12px 10px', textAlign: 'right', whiteSpace: 'nowrap', color: TEXT }}>{em} {s.price.toFixed(2)}</td>
-                                                                <td style={{ padding: '12px 10px', textAlign: 'right', whiteSpace: 'nowrap', color: col }}>
+                                                                <td style={{ padding: isMobile ? '10px 6px' : '12px 10px', textAlign: 'right', whiteSpace: 'nowrap', color: TEXT }}>{em} {s.price.toFixed(2)}</td>
+                                                                <td style={{ padding: isMobile ? '10px 6px' : '12px 10px', textAlign: 'right', whiteSpace: 'nowrap', color: col }}>
                                                                     <Icon size={12} style={{ verticalAlign: -1 }} /> {pct >= 0 ? '+' : ''}{pct.toFixed(1)}%
                                                                 </td>
-                                                                <td style={{ padding: '12px 22px', textAlign: 'right', whiteSpace: 'nowrap', color: SUB }}>
-                                                                    {market.sharesTotal - s.sharesOutstanding} free
-                                                                </td>
+                                                                {!isMobile && (
+                                                                    <td style={{ padding: '12px 22px', textAlign: 'right', whiteSpace: 'nowrap', color: SUB }}>
+                                                                        {market.sharesTotal - s.sharesOutstanding} free
+                                                                    </td>
+                                                                )}
                                                             </tr>
                                                         );
                                                     })}
