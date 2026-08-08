@@ -49,8 +49,9 @@ const commands = [
     // 3. Economy
     new SlashCommandBuilder().setName('wallet').setDescription('Check balance').addUserOption(opt => opt.setName('user').setDescription('User')).toJSON(),
     new SlashCommandBuilder().setName('wealth').setDescription('View richest users').addIntegerOption(opt => opt.setName('page').setDescription('Page number')).toJSON(),
-    new SlashCommandBuilder().setName('market').setDescription('View shop').toJSON(),
+    new SlashCommandBuilder().setName('shop').setDescription('View shop').toJSON(),
     new SlashCommandBuilder().setName('buy').setDescription('Buy item').addStringOption(opt => opt.setName('item').setRequired(true).setAutocomplete(true).setDescription('Item name')).toJSON(),
+    new SlashCommandBuilder().setName('refund').setDescription('Refund a shop purchase for a user (mods/admins only)').setDefaultMemberPermissions(0x20).addUserOption(opt => opt.setName('user').setRequired(true).setDescription('User to refund')).addStringOption(opt => opt.setName('item').setRequired(true).setAutocomplete(true).setDescription('Item to refund')).toJSON(),
     new SlashCommandBuilder().setName('nick-optout').setDescription('Toggle auto-nickname balance display on/off').toJSON(),
 
     // 4. Welcome Gate

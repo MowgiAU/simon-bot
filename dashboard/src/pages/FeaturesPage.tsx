@@ -198,7 +198,7 @@ const SECTIONS: Section[] = [
             {
                 icon: <Coins size={20} />,
                 title: 'Economy & Shop',
-                description: 'Earn and spend the server currency. Check your wallet with /wallet, view the leaderboard with /wealth, browse the shop with /market, and buy items with /buy.',
+                description: 'Earn and spend the server currency. Check your wallet with /wallet, view the leaderboard with /wealth, browse the shop with /shop, and buy items with /buy.',
                 tags: ['Discord'],
             },
             {

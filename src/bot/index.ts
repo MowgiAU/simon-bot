@@ -890,15 +890,22 @@ export class SimonBot {
         .setName('wealth')
         .setDescription('View the richest users');
 
-    const marketCommand = new SlashCommandBuilder()
-        .setName('market')
+    const shopCommand = new SlashCommandBuilder()
+        .setName('shop')
         .setDescription('View items available in the shop');
-    
+
     const buyCommand = new SlashCommandBuilder()
         .setName('buy')
         .setDescription('Buy an item from the shop')
         .addStringOption(opt => opt.setName('item').setRequired(true).setAutocomplete(true).setDescription('The name of the item to buy'))
         .addUserOption(opt => opt.setName('gift_to').setRequired(false).setDescription('Gift this item to another member (you still pay)'));
+
+    const refundCommand = new SlashCommandBuilder()
+        .setName('refund')
+        .setDescription('Refund a shop purchase for a user (mods/admins only)')
+        .addUserOption(opt => opt.setName('user').setRequired(true).setDescription('The user to refund'))
+        .addStringOption(opt => opt.setName('item').setRequired(true).setAutocomplete(true).setDescription('The item to refund'))
+        .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild);
 
     const useCommand = new SlashCommandBuilder()
         .setName('use')
@@ -907,8 +914,9 @@ export class SimonBot {
 
     commands.push(walletCommand.toJSON());
     commands.push(wealthCommand.toJSON());
-    commands.push(marketCommand.toJSON());
+    commands.push(shopCommand.toJSON());
     commands.push(buyCommand.toJSON());
+    commands.push(refundCommand.toJSON());
     commands.push(useCommand.toJSON());
 
     const nickOptoutCommand = new SlashCommandBuilder()

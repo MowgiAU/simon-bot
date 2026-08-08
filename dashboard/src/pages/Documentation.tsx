@@ -105,7 +105,7 @@ const docSections: DocSection[] = [
     icon: <DollarSign size={20} />,
     color: colors.success,
     content: 'Reward community engagement with a custom server currency. Users earn passively by chatting (with configurable cooldown and minimum message length), and can tip each other via emoji reactions (1 coin per reaction). The economy integrates with the Leveling system — earning bonuses scale at +2% per 5 levels. Includes a server shop where admins can list items with stock tracking, and a wealth leaderboard.',
-    commands: ['/wallet [user]', '/wealth', '/market', '/buy [item]'],
+    commands: ['/wallet [user]', '/wealth', '/shop', '/buy [item]', '/refund [user] [item]'],
     requirements: ['Database connectivity', 'Leveling plugin (optional, for scaled rewards)']
   },
   {

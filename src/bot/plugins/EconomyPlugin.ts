@@ -56,7 +56,7 @@ export class EconomyPlugin implements IPlugin {
 
     configSchema = z.object({});
 
-    commands = ['wallet', 'wealth', 'market', 'buy', 'nick-optout', 'pay', 'request-payment', 'use', 'slots', 'bank', 'stocks'];
+    commands = ['wallet', 'wealth', 'shop', 'buy', 'refund', 'nick-optout', 'pay', 'request-payment', 'use', 'slots', 'bank', 'stocks'];
 
     private client: any;
     private db: any;
@@ -148,6 +148,7 @@ export class EconomyPlugin implements IPlugin {
         if (interaction.isAutocomplete()) {
             if (interaction.commandName === 'buy')  await this.handleAutocomplete(interaction);
             if (interaction.commandName === 'use')  await this.handleUseAutocomplete(interaction);
+            if (interaction.commandName === 'refund') await this.handleRefundAutocomplete(interaction);
             return;
         }
 
@@ -172,8 +173,9 @@ export class EconomyPlugin implements IPlugin {
         const { commandName } = interaction;
         if (commandName === 'wallet') await this.handleWallet(interaction);
         else if (commandName === 'wealth') await this.handleWealth(interaction);
-        else if (commandName === 'market') await this.handleMarket(interaction);
+        else if (commandName === 'shop') await this.handleShop(interaction);
         else if (commandName === 'buy') await this.handleBuy(interaction);
+        else if (commandName === 'refund') await this.handleRefund(interaction);
         else if (commandName === 'use') await this.handleUse(interaction);
         else if (commandName === 'nick-optout') await this.handleNickOptout(interaction);
         else if (commandName === 'pay') await this.handlePay(interaction);
@@ -424,9 +426,9 @@ export class EconomyPlugin implements IPlugin {
     }
 
     /**
-     * Command: /market
+     * Command: /shop
      */
-    private async handleMarket(interaction: ChatInputCommandInteraction) {
+    private async handleShop(interaction: ChatInputCommandInteraction) {
         if (!interaction.guildId) return;
 
         try {
@@ -439,7 +441,7 @@ export class EconomyPlugin implements IPlugin {
             const settings = await this.getSettings(interaction.guildId);
 
             const embed = new EmbedBuilder()
-                .setTitle(`${interaction.guild?.name} Market`)
+                .setTitle(`${interaction.guild?.name} Shop`)
                 .setColor('#5865F2')
                 .setDescription('Use `/buy [item]` to purchase.');
 
@@ -457,8 +459,8 @@ export class EconomyPlugin implements IPlugin {
 
             await interaction.editReply({ embeds: [embed] });
         } catch (e) {
-            this.logger.error('Market command failed', e);
-            await interaction.editReply({ content: 'Failed to retrieve market.' });
+            this.logger.error('Shop command failed', e);
+            await interaction.editReply({ content: 'Failed to retrieve shop.' });
         }
     }
 
@@ -590,6 +592,108 @@ export class EconomyPlugin implements IPlugin {
         }
     }
 
+
+    /**
+     * Autocomplete: /refund item — only items the target user currently owns
+     */
+    private async handleRefundAutocomplete(interaction: AutocompleteInteraction) {
+        if (!interaction.guildId) return;
+        const targetUserId = interaction.options.get('user')?.value as string | undefined;
+        if (!targetUserId) {
+            return interaction.respond([]);
+        }
+
+        const focusedValue = interaction.options.getFocused();
+        const inventory = await this.db.economyInventory.findMany({
+            where: { guildId: interaction.guildId, userId: targetUserId, quantity: { gt: 0 } },
+            select: { itemId: true },
+        });
+        const itemIds = inventory.map((i: any) => i.itemId);
+        if (itemIds.length === 0) return interaction.respond([]);
+
+        const items = await this.db.economyItem.findMany({
+            where: {
+                guildId: interaction.guildId,
+                id: { in: itemIds },
+                name: { contains: focusedValue, mode: 'insensitive' },
+            },
+            orderBy: { name: 'asc' },
+            take: 25,
+        });
+
+        await interaction.respond(
+            items.map((item: any) => ({ name: `${item.name} ($${item.price})`, value: item.name }))
+        );
+    }
+
+    /**
+     * Command: /refund — mods/admins only. Removes an owned shop item from a
+     * user (and its role, if any) and returns the coins they paid.
+     */
+    private async handleRefund(interaction: ChatInputCommandInteraction) {
+        if (!interaction.guildId) return;
+
+        if (!interaction.memberPermissions?.has(PermissionsBitField.Flags.ManageGuild)) {
+            return interaction.reply({ content: 'You do not have permission to issue refunds.', flags: MessageFlags.Ephemeral });
+        }
+
+        const targetUser = interaction.options.getUser('user', true);
+        const itemName = interaction.options.getString('item', true);
+
+        const item = await this.db.economyItem.findUnique({
+            where: { guildId_name: { guildId: interaction.guildId, name: itemName } }
+        });
+        if (!item) {
+            return interaction.reply({ content: 'Item not found.', flags: MessageFlags.Ephemeral });
+        }
+
+        const invRecord = await this.db.economyInventory.findUnique({
+            where: { guildId_userId_itemId: { guildId: interaction.guildId, userId: targetUser.id, itemId: item.id } }
+        });
+        if (!invRecord || invRecord.quantity <= 0) {
+            return interaction.reply({ content: `<@${targetUser.id}> doesn't own **${item.name}**.`, flags: MessageFlags.Ephemeral });
+        }
+
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+        try {
+            if (invRecord.quantity <= 1) {
+                await this.db.economyInventory.delete({ where: { id: invRecord.id } });
+            } else {
+                await this.db.economyInventory.update({ where: { id: invRecord.id }, data: { quantity: { decrement: 1 } } });
+            }
+
+            // Remove the role if this was a role item
+            if (item.type === 'ROLE') {
+                const roleId = (item.metadata as any)?.roleId;
+                if (roleId) {
+                    const member = await interaction.guild?.members.fetch(targetUser.id).catch(() => null);
+                    await member?.roles.remove(roleId).catch(e => this.logger.error('Failed to remove role on refund', e));
+                }
+            }
+
+            // Return the coins
+            await this.addBalance(interaction.guildId, targetUser.id, item.price, 'ADMIN', `Refund: ${item.name} (by ${interaction.user.tag})`);
+
+            // Restore stock
+            if (item.stock !== null) {
+                await this.db.economyItem.update({ where: { id: item.id }, data: { stock: { increment: 1 } } });
+            }
+
+            await this.logAction({
+                guildId: interaction.guildId,
+                actionType: 'item_refunded',
+                executorId: interaction.user.id,
+                details: { item: item.name, price: item.price, refundedTo: targetUser.id }
+            });
+
+            const settings = await this.getSettings(interaction.guildId);
+            await interaction.editReply({ content: `Refunded **${item.name}** for <@${targetUser.id}> — ${settings.currencyEmoji} ${item.price} returned.` });
+        } catch (e) {
+            this.logger.error('Refund failed', e);
+            await interaction.editReply({ content: 'Refund failed due to a database error.' });
+        }
+    }
 
     /**
      * Autocomplete: /use — only TOKEN items the user has in inventory
@@ -1268,7 +1372,7 @@ export class EconomyPlugin implements IPlugin {
     }
 
     private async handleStocksList(interaction: ChatInputCommandInteraction) {
-        await interaction.deferReply();
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         const guildId = interaction.guildId!;
         const [stocks, settings] = await Promise.all([
             MarketService.listStocks(this.db, guildId),
@@ -1294,7 +1398,7 @@ export class EconomyPlugin implements IPlugin {
     }
 
     private async handleStocksView(interaction: ChatInputCommandInteraction) {
-        await interaction.deferReply();
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         const guildId = interaction.guildId!;
         const ticker = interaction.options.getString('ticker', true);
         const stock = await MarketService.getStockByTicker(this.db, guildId, ticker);
@@ -1328,7 +1432,7 @@ export class EconomyPlugin implements IPlugin {
     }
 
     private async handleStocksTrade(interaction: ChatInputCommandInteraction, action: 'buy' | 'sell') {
-        await interaction.deferReply();
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         const guildId = interaction.guildId!;
         const ticker = interaction.options.getString('ticker', true);
         const shares = interaction.options.getInteger('shares', true);
@@ -1357,7 +1461,7 @@ export class EconomyPlugin implements IPlugin {
     }
 
     private async handleStocksShort(interaction: ChatInputCommandInteraction, action: 'short' | 'cover') {
-        await interaction.deferReply();
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         const guildId = interaction.guildId!;
         const ticker = interaction.options.getString('ticker', true);
         const stock = await MarketService.getStockByTicker(this.db, guildId, ticker);
@@ -1401,7 +1505,7 @@ export class EconomyPlugin implements IPlugin {
     }
 
     private async handleStocksPortfolio(interaction: ChatInputCommandInteraction) {
-        await interaction.deferReply();
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         const guildId = interaction.guildId!;
         const [p, settings] = await Promise.all([
             MarketService.getPortfolio(this.db, guildId, interaction.user.id),
