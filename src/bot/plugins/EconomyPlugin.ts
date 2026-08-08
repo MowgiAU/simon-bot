@@ -1174,7 +1174,7 @@ export class EconomyPlugin implements IPlugin {
 
     private async handleBankBalance(interaction: ChatInputCommandInteraction) {
         try {
-            await interaction.deferReply();
+            await interaction.deferReply({ flags: MessageFlags.Ephemeral });
             const summary = await BankService.getSummary(this.db, interaction.guildId!, interaction.user.id);
             const { settings } = summary;
 
@@ -1215,7 +1215,7 @@ export class EconomyPlugin implements IPlugin {
     private async handleBankDepositWithdraw(interaction: ChatInputCommandInteraction, kind: 'deposit' | 'withdraw') {
         const amount = interaction.options.getInteger('amount', true);
         try {
-            await interaction.deferReply();
+            await interaction.deferReply({ flags: MessageFlags.Ephemeral });
             const settings = await this.getSettings(interaction.guildId!);
             const account = kind === 'deposit'
                 ? await BankService.deposit(this.db, interaction.guildId!, interaction.user.id, amount)
@@ -1233,7 +1233,7 @@ export class EconomyPlugin implements IPlugin {
     private async handleBankLoan(interaction: ChatInputCommandInteraction) {
         const amount = interaction.options.getInteger('amount', true);
         try {
-            await interaction.deferReply();
+            await interaction.deferReply({ flags: MessageFlags.Ephemeral });
             const settings = await this.getSettings(interaction.guildId!);
             const loan = await BankService.requestLoan(this.db, interaction.guildId!, interaction.user.id, amount);
 
@@ -1259,7 +1259,7 @@ export class EconomyPlugin implements IPlugin {
     private async handleBankRepay(interaction: ChatInputCommandInteraction) {
         const amount = interaction.options.getInteger('amount') ?? undefined;
         try {
-            await interaction.deferReply();
+            await interaction.deferReply({ flags: MessageFlags.Ephemeral });
             const settings = await this.getSettings(interaction.guildId!);
             const loan = await BankService.repayLoan(this.db, interaction.guildId!, interaction.user.id, amount ?? undefined);
 
@@ -1282,7 +1282,7 @@ export class EconomyPlugin implements IPlugin {
     }
 
     private async handleBankHistory(interaction: ChatInputCommandInteraction) {
-        await interaction.deferReply();
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         await this.sendBankHistoryPage(interaction, interaction.user.id, 0);
     }
 
