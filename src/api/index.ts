@@ -4198,15 +4198,8 @@ app.get('/api/guilds/:guildId/channels', async (req, res) => {
     try {
         if (!req.session || !req.session.user) return res.status(401).json({ error: 'Unauthorized' });
         const { guildId } = req.params;
-        
-        // Defensive check: handle null/undefined/non-array session data
-        const mutualGuilds = req.session.mutualAdminGuilds || [];
-        const isMutual = Array.isArray(mutualGuilds) && mutualGuilds.some((g: any) => {
-            if (!g) return false;
-            return (typeof g === 'string' && g === guildId) || (g.id === guildId);
-        });
 
-        if (!isMutual) {
+        if (!hasDashboardAccess(guildId, req)) {
             logger.warn(`User ${req.session.user.id} denied access to channels for ${guildId}`);
             return res.status(403).json({ error: 'Forbidden' });
         }
@@ -4244,13 +4237,7 @@ app.get('/api/guilds/:guildId/roles', async (req, res) => {
         if (!req.session || !req.session.user) return res.status(401).json({ error: 'Unauthorized' });
         const { guildId } = req.params;
 
-        const mutualGuilds = req.session.mutualAdminGuilds || [];
-        const isMutual = Array.isArray(mutualGuilds) && mutualGuilds.some((g: any) => {
-            if (!g) return false;
-            return (typeof g === 'string' && g === guildId) || (g.id === guildId);
-        });
-
-        if (!isMutual) {
+        if (!hasDashboardAccess(guildId, req)) {
             logger.warn(`User ${req.session.user.id} denied role access for ${guildId}`);
             return res.status(403).json({ error: 'Forbidden' });
         }
