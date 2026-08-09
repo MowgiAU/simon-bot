@@ -154,7 +154,11 @@ export const TrackSlide: React.FC<Props> = ({
             <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', background: 'linear-gradient(to bottom, rgba(6,8,14,0.72) 0%, rgba(6,8,14,0.12) 26%, rgba(6,8,14,0.10) 46%, rgba(6,8,14,0.80) 82%, rgba(6,8,14,0.96) 100%)' }} />
 
             {/* ── Tap surface ── */}
-            <div onClick={handleTap} style={{ position: 'absolute', inset: 0, cursor: 'pointer' }} />
+            {/* touchAction: 'manipulation' disables the browser's default ~300ms
+                tap delay (held to disambiguate from double-tap-to-zoom) so a single
+                tap registers immediately instead of sometimes being swallowed right
+                after a scroll/swipe gesture. */}
+            <div onClick={handleTap} style={{ position: 'absolute', inset: 0, cursor: 'pointer', touchAction: 'manipulation' }} />
 
             {/* Paused affordance */}
             {!playing && active && !flash && (
@@ -187,7 +191,7 @@ export const TrackSlide: React.FC<Props> = ({
                             : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, fontWeight: 800, color: TEXT }}>{track.profile?.username?.[0]?.toUpperCase()}</div>}
                     </Link>
                     <button onClick={onFollow} aria-label={track.following ? 'Following' : 'Follow'}
-                        style={{ position: 'absolute', left: '50%', bottom: -9, transform: 'translateX(-50%)', width: 20, height: 20, borderRadius: '50%', border: 'none', cursor: 'pointer', background: track.following ? '#22C55E' : PRIMARY, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
+                        style={{ position: 'absolute', left: '50%', bottom: -9, transform: 'translateX(-50%)', width: 20, height: 20, borderRadius: '50%', border: 'none', cursor: 'pointer', background: track.following ? '#22C55E' : PRIMARY, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, touchAction: 'manipulation' }}>
                         {track.following ? <Check size={12} color="#fff" /> : <Plus size={13} color="#fff" />}
                     </button>
                 </div>
@@ -304,7 +308,7 @@ const Chip: React.FC<{ children: React.ReactNode }> = ({ children }) => (
 
 const RailButton: React.FC<{ onClick: () => void; icon: React.ReactNode; label: string }> = ({ onClick, icon, label }) => (
     <button onClick={onClick}
-        style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: FONT, filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.65))' }}>
+        style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: FONT, filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.65))', touchAction: 'manipulation' }}>
         {icon}
         <span style={{ fontSize: 11, fontWeight: 700, color: '#fff' }}>{label}</span>
     </button>

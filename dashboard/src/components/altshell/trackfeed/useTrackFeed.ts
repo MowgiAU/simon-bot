@@ -10,7 +10,7 @@ import axios from 'axios';
 import { FeedParams, FeedTrack } from './types';
 import { getSeenIds } from './seen';
 
-export function useTrackFeed(params: FeedParams) {
+export function useTrackFeed(params: FeedParams, onError?: (message: string) => void) {
     const [tracks, setTracks] = useState<FeedTrack[]>([]);
     const [loading, setLoading] = useState(true);
     const [hasMore, setHasMore] = useState(false);
@@ -79,6 +79,16 @@ export function useTrackFeed(params: FeedParams) {
         setTracks(prev => prev.map(t => (t.id === id ? { ...t, ...changes } : t)));
     }, []);
 
+    // A silent revert is indistinguishable from the button being broken — which is
+    // exactly how a signed-out tap used to behave (optimistic fill, 401, quiet
+    // undo). Always say why it didn't stick.
+    const reportFailure = useCallback((e: any, action: string) => {
+        const status = e?.response?.status;
+        onError?.(status === 401 || status === 403
+            ? `Log in to ${action} tracks`
+            : `Couldn't ${action} this track — try again`);
+    }, [onError]);
+
     const toggleLike = useCallback(async (t: FeedTrack) => {
         const next = !t.liked;
         patch(t.id, { liked: next, likeCount: Math.max(0, t.likeCount + (next ? 1 : -1)) });
@@ -87,20 +97,22 @@ export function useTrackFeed(params: FeedParams) {
             if (typeof r.data?.favourited === 'boolean' && r.data.favourited !== next) {
                 patch(t.id, { liked: r.data.favourited, likeCount: t.likeCount });
             }
-        } catch {
+        } catch (e) {
             patch(t.id, { liked: t.liked, likeCount: t.likeCount }); // revert
+            reportFailure(e, 'like');
         }
-    }, [patch]);
+    }, [patch, reportFailure]);
 
     const toggleRepost = useCallback(async (t: FeedTrack) => {
         const next = !t.reposted;
         patch(t.id, { reposted: next, repostCount: Math.max(0, t.repostCount + (next ? 1 : -1)) });
         try {
             await axios.post(`/api/tracks/${t.id}/repost`, {}, { withCredentials: true });
-        } catch {
+        } catch (e) {
             patch(t.id, { reposted: t.reposted, repostCount: t.repostCount });
+            reportFailure(e, 'repost');
         }
-    }, [patch]);
+    }, [patch, reportFailure]);
 
     // Follow state lives on the artist, so every track by them updates together.
     const toggleFollow = useCallback(async (t: FeedTrack) => {
@@ -110,10 +122,11 @@ export function useTrackFeed(params: FeedParams) {
         setTracks(prev => prev.map(x => (x.profile?.id === profileId ? { ...x, following: next } : x)));
         try {
             await axios.post(`/api/artists/${profileId}/follow`, {}, { withCredentials: true });
-        } catch {
+        } catch (e) {
             setTracks(prev => prev.map(x => (x.profile?.id === profileId ? { ...x, following: !next } : x)));
+            reportFailure(e, 'follow');
         }
-    }, []);
+    }, [reportFailure]);
 
     const bumpCommentCount = useCallback((id: string, by = 1) => {
         setTracks(prev => prev.map(t => (t.id === id ? { ...t, commentCount: Math.max(0, t.commentCount + by) } : t)));

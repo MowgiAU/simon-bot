@@ -58,7 +58,16 @@ interface Props {
 export const TrackFeed: React.FC<Props> = ({ params, title, backTo, browseTo, createLink, headerExtra, emptyMessage, variant = 'mobile' }) => {
     const desktop = variant === 'desktop';
     const { player, setTrack, togglePlay, seek } = usePlayer();
-    const { tracks, loading, hasMore, loadMore, toggleLike, toggleRepost, toggleFollow, bumpCommentCount } = useTrackFeed(params);
+
+    // Declared before useTrackFeed so the hook can surface failed likes/reposts
+    // through the same toast the rest of the feed uses.
+    const [toast, setToast] = useState<string | null>(null);
+    const flash = useCallback((msg: string) => {
+        setToast(msg);
+        setTimeout(() => setToast(prev => (prev === msg ? null : prev)), 2200);
+    }, []);
+
+    const { tracks, loading, hasMore, loadMore, toggleLike, toggleRepost, toggleFollow, bumpCommentCount } = useTrackFeed(params, flash);
 
     const scrollerRef = useRef<HTMLDivElement>(null);
     const [active, setActive] = useState(0);
@@ -67,7 +76,6 @@ export const TrackFeed: React.FC<Props> = ({ params, title, backTo, browseTo, cr
     // starts once the user has pressed play here at least once.
     const [unlocked, setUnlocked] = useState(false);
     const [sheet, setSheet] = useState<null | 'comments' | 'details'>(null);
-    const [toast, setToast] = useState<string | null>(null);
     // Timed comments per track, fetched once for whatever is on screen.
     const [timed, setTimed] = useState<Record<string, TimedComment[]>>({});
     // Tracks a request is already open for — state lands too late to dedupe on.
@@ -195,11 +203,6 @@ export const TrackFeed: React.FC<Props> = ({ params, title, backTo, browseTo, cr
             if (current) { setUnlocked(true); if (player.currentTrack?.id === current.id) togglePlay(); else play(current); }
         }
     }, [step, current, player.currentTrack?.id, togglePlay, play]);
-
-    const flash = useCallback((msg: string) => {
-        setToast(msg);
-        setTimeout(() => setToast(prev => (prev === msg ? null : prev)), 2200);
-    }, []);
 
     const share = useCallback(async (t: FeedTrack) => {
         const url = t.profile?.username && t.slug
