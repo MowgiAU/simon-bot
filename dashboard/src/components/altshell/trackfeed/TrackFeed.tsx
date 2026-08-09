@@ -296,6 +296,8 @@ export const TrackFeed: React.FC<Props> = ({ params, title, backTo, browseTo, cr
         currentTime: i === active ? currentTime : 0,
         duration: i === active ? duration : (t.duration || 0),
         framed: desktop,
+        // Artwork runs full-bleed under the bottom nav; only the controls lift above it.
+        bottomInset: desktop ? 0 : MOBILE_NAV_HEIGHT,
         timedComments: i === active ? timed[t.id] : undefined,
         onPlayPause: () => handlePlayPause(t),
         onSeek: (s: number) => { if (i === active) seek(s); },
@@ -326,10 +328,12 @@ export const TrackFeed: React.FC<Props> = ({ params, title, backTo, browseTo, cr
                     background: 'transparent', fontFamily: FONT, outline: 'none',
                 } : {
                     position: 'fixed', top: 0, left: 0, right: 0,
-                    // Grows into the strip the bottom nav vacates when it auto-hides
-                    // on scroll, so artwork fills it instead of leaving a dead gap.
-                    bottom: navHidden ? 0 : `calc(${MOBILE_NAV_HEIGHT}px + env(safe-area-inset-bottom))`,
-                    transition: 'bottom 0.25s ease',
+                    // Full-bleed to the true bottom edge, with the nav floating over
+                    // it (Reels/TikTok grammar). Artwork therefore already fills the
+                    // strip the nav occupies, so when it auto-hides on scroll there
+                    // is nothing to resize and no dead gap — only the slide's own
+                    // controls are inset above it, via bottomInset below.
+                    bottom: 0,
                     overflowY: 'auto', overflowX: 'hidden',
                     scrollSnapType: 'y mandatory', overscrollBehaviorY: 'contain',
                     WebkitOverflowScrolling: 'touch', background: '#06080e', fontFamily: FONT,

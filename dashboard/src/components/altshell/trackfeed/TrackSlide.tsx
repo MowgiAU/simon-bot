@@ -33,6 +33,12 @@ interface Props {
     onShare: () => void;
     /** Rendered inside a phone-shaped frame (desktop) — the wrapper owns snapping. */
     framed?: boolean;
+    /**
+     * Pixels to lift the bottom-anchored controls by, clearing the mobile nav.
+     * The artwork itself deliberately runs full-bleed underneath it, so when the
+     * nav auto-hides on scroll there's artwork behind it rather than a dead gap.
+     */
+    bottomInset?: number;
     /** Comments pinned to a moment in this track, floated in as the playhead reaches them. */
     timedComments?: TimedComment[];
 }
@@ -49,9 +55,11 @@ export interface TimedComment {
 const TIMED_COMMENT_LIFETIME = 5;
 
 export const TrackSlide: React.FC<Props> = ({
-    track, active, near, playing, currentTime, duration, framed, timedComments,
+    track, active, near, playing, currentTime, duration, framed, timedComments, bottomInset = 0,
     onPlayPause, onSeek, onLike, onRepost, onFollow, onComments, onDetails, onShare,
 }) => {
+    // env() keeps clear of the home indicator on gesture-nav phones.
+    const liftFrom = (px: number) => `calc(${px + bottomInset}px + env(safe-area-inset-bottom))`;
     const lastTap = useRef(0);
     const tapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const [burst, setBurst] = useState(false);
@@ -182,7 +190,7 @@ export const TrackSlide: React.FC<Props> = ({
             )}
 
             {/* ── Action rail ── */}
-            <div style={{ position: 'absolute', right: 8, bottom: 116, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18, zIndex: 3 }}>
+            <div style={{ position: 'absolute', right: 8, bottom: liftFrom(116), display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18, zIndex: 3 }}>
                 <div style={{ position: 'relative', marginBottom: 6 }}>
                     <Link to={`/profile/${track.profile?.username}`} aria-label={track.profile?.username}
                         style={{ display: 'block', width: 46, height: 46, borderRadius: '50%', overflow: 'hidden', background: S_HIGH, border: '2px solid #fff' }}>
@@ -216,7 +224,7 @@ export const TrackSlide: React.FC<Props> = ({
 
             {/* ── Timed comments floating past ── */}
             {liveComments.length > 0 && (
-                <div style={{ position: 'absolute', left: 14, right: 78, bottom: 172, display: 'flex', flexDirection: 'column', gap: 6, zIndex: 3, pointerEvents: 'none' }}>
+                <div style={{ position: 'absolute', left: 14, right: 78, bottom: liftFrom(172), display: 'flex', flexDirection: 'column', gap: 6, zIndex: 3, pointerEvents: 'none' }}>
                     {liveComments.map(c => (
                         <div key={c.id} style={{
                             display: 'flex', alignItems: 'center', gap: 7, alignSelf: 'flex-start',
@@ -237,7 +245,7 @@ export const TrackSlide: React.FC<Props> = ({
             )}
 
             {/* ── Caption ── */}
-            <div style={{ position: 'absolute', left: 14, right: 74, bottom: 54, zIndex: 3, fontFamily: FONT }}>
+            <div style={{ position: 'absolute', left: 14, right: 74, bottom: liftFrom(54), zIndex: 3, fontFamily: FONT }}>
                 <Link to={`/profile/${track.profile?.username}`}
                     style={{ display: 'inline-block', fontSize: 14.5, fontWeight: 800, color: '#fff', textDecoration: 'none', textShadow: '0 2px 10px rgba(0,0,0,0.6)' }}>
                     @{track.profile?.username}
@@ -272,7 +280,7 @@ export const TrackSlide: React.FC<Props> = ({
                 onPointerMove={onPointerMove}
                 onPointerUp={endDrag}
                 onPointerCancel={endDrag}
-                style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 46, padding: '0 14px', display: 'flex', flexDirection: 'column', justifyContent: 'center', zIndex: 4, touchAction: 'none', cursor: active ? 'pointer' : 'default' }}>
+                style={{ position: 'absolute', left: 0, right: 0, bottom: liftFrom(0), height: 46, padding: '0 14px', display: 'flex', flexDirection: 'column', justifyContent: 'center', zIndex: 4, touchAction: 'none', cursor: active ? 'pointer' : 'default' }}>
                 <div style={{ position: 'relative', height: dragging ? 26 : 18, transition: 'height 0.15s' }}>
                     {peaks.length > 0 ? (
                         <svg width="100%" height="100%" preserveAspectRatio="none" viewBox={`0 0 ${peaks.length} 24`} style={{ display: 'block' }}>
