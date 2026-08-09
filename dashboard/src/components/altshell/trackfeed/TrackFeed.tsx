@@ -58,7 +58,7 @@ interface Props {
 
 export const TrackFeed: React.FC<Props> = ({ params, title, backTo, browseTo, createLink, headerExtra, emptyMessage, variant = 'mobile' }) => {
     const desktop = variant === 'desktop';
-    const { player, setTrack, togglePlay, seek, mobileNavHidden } = usePlayer();
+    const { player, setTrack, togglePlay, seek } = usePlayer();
     const { user, loading: authLoading } = useAuth();
 
     // Declared before useTrackFeed so the hook can surface failed likes/reposts
@@ -78,6 +78,7 @@ export const TrackFeed: React.FC<Props> = ({ params, title, backTo, browseTo, cr
     // starts once the user has pressed play here at least once.
     const [unlocked, setUnlocked] = useState(false);
     const [sheet, setSheet] = useState<null | 'comments' | 'details'>(null);
+    const [navHidden, setNavHidden] = useState(false);
     // Timed comments per track, fetched once for whatever is on screen.
     const [timed, setTimed] = useState<Record<string, TimedComment[]>>({});
     // Tracks a request is already open for — state lands too late to dedupe on.
@@ -100,6 +101,11 @@ export const TrackFeed: React.FC<Props> = ({ params, title, backTo, browseTo, cr
     }, [setTrack]);
 
     // ── Which slide is centred ────────────────────────────────────────────────
+    // Also derives whether the bottom nav has auto-hidden. Deliberately computed
+    // from this scroller rather than read off the shared flag AltMobileNav sets:
+    // this component owns the element being scrolled, so it can't lag or miss an
+    // update, and the artwork must fill that strip the instant the nav leaves.
+    const lastScrollY = useRef(0);
     const onScroll = useCallback(() => {
         const el = scrollerRef.current;
         if (!el) return;
@@ -110,6 +116,13 @@ export const TrackFeed: React.FC<Props> = ({ params, title, backTo, browseTo, cr
             return i;
         });
         if (el.scrollTop > 8) setShowHint(false);
+
+        const y = el.scrollTop;
+        const delta = y - lastScrollY.current;
+        lastScrollY.current = y;
+        // Mirrors AltMobileNav's thresholds so the two stay in step.
+        if (delta > 4 && y > 24) setNavHidden(true);
+        else if (delta < -4 || y <= 24) setNavHidden(false);
     }, []);
 
     // ── Don't reopen on the same tracks next time ─────────────────────────────
@@ -315,7 +328,7 @@ export const TrackFeed: React.FC<Props> = ({ params, title, backTo, browseTo, cr
                     position: 'fixed', top: 0, left: 0, right: 0,
                     // Grows into the strip the bottom nav vacates when it auto-hides
                     // on scroll, so artwork fills it instead of leaving a dead gap.
-                    bottom: mobileNavHidden ? 0 : `calc(${MOBILE_NAV_HEIGHT}px + env(safe-area-inset-bottom))`,
+                    bottom: navHidden ? 0 : `calc(${MOBILE_NAV_HEIGHT}px + env(safe-area-inset-bottom))`,
                     transition: 'bottom 0.25s ease',
                     overflowY: 'auto', overflowX: 'hidden',
                     scrollSnapType: 'y mandatory', overscrollBehaviorY: 'contain',
