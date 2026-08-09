@@ -64,8 +64,11 @@ export class HeadToHeadAnnouncerPlugin implements IPlugin {
             });
             if (!settings?.enabled) return;
 
-            // The recurring reminder has its own channel, so it must not be gated
-            // behind announcementChannelId being set.
+            // Both of these DM/post to their own destinations, so neither may be
+            // gated behind announcementChannelId being set.
+            await this.notifyMatched().catch((err: any) =>
+                this.logger.warn(`[H2HAnnouncer] Matched DM sweep failed: ${err.message}`)
+            );
             await this.postVoteReminder(settings).catch((err: any) =>
                 this.logger.warn(`[H2HAnnouncer] Vote reminder failed: ${err.message}`)
             );
@@ -272,6 +275,82 @@ export class HeadToHeadAnnouncerPlugin implements IPlugin {
             allowedMentions: { users: tagIds },
         });
         this.logger.info(`[H2HAnnouncer] Posted winner announcement for match ${match.id}`);
+    }
+
+    // ─── "You've been matched" DMs ─────────────────────────────────────────────
+
+    /**
+     * DMs both players the moment a queued match gets paired.
+     *
+     * Matching happens in the API process, which has no Discord client, so this
+     * follows the same pattern as the other announcements: the API flips the row
+     * and the bot picks it up on the next poll, guarded by matchNotifiedAt so a
+     * pair is only ever DM'd once.
+     */
+    private async notifyMatched(): Promise<void> {
+        const matches = await (this.db as any).h2HMatch.findMany({
+            // Any status past pairing — not just ready_check — so a match that
+            // moves on between polls still gets its DM.
+            where: {
+                opponentId: { not: null },
+                matchNotifiedAt: null,
+                status: { notIn: ['queued', 'cancelled'] },
+            },
+            orderBy: { createdAt: 'asc' },
+            take: 10,
+        });
+
+        for (const match of matches) {
+            // Claim it first: a DM that fails must not leave the row unmarked and
+            // re-DM the same pair every 30 seconds.
+            await (this.db as any).h2HMatch.update({
+                where: { id: match.id },
+                data: { matchNotifiedAt: new Date() },
+            });
+            await this.dmMatchedPlayers(match).catch((err: any) =>
+                this.logger.warn(`[H2HAnnouncer] Failed to DM matched players for ${match.id}: ${err.message}`)
+            );
+        }
+    }
+
+    private async dmMatchedPlayers(match: any): Promise<void> {
+        const genre = match.genreId ? await this.getGenreName(match.genreId) : null;
+        const arenaUrl = `${this.siteBase}/arena`;
+        const readyBy = match.readyDeadline
+            ? `<t:${Math.floor(new Date(match.readyDeadline).getTime() / 1000)}:R>`
+            : null;
+
+        const embed = new EmbedBuilder()
+            .setColor(EMBED_COLOR_QUEUE)
+            .setAuthor({ name: '⚔️ You have an opponent!' })
+            .setTitle('Your 1v1 match is ready')
+            .setURL(arenaUrl)
+            .setDescription([
+                `You've been matched for a Head-to-Head battle.`,
+                genre ? `🎧 Genre: **${genre}**` : null,
+                `⏱️ Production time: **${match.productionMinutes} min**`,
+                readyBy ? `\n⚠️ **Ready up ${readyBy}** or the match is forfeited.` : '\n⚠️ Head to the Arena and ready up before the timer runs out.',
+                '',
+                `**[🏟️ Open the Arena](${arenaUrl})**`,
+            ].filter(Boolean).join('\n'))
+            // Deliberately says nothing about who the opponent is: identities stay
+            // hidden until the match completes, same as everywhere else.
+            .setFooter({ text: 'Your opponent stays anonymous until the battle ends' })
+            .setTimestamp();
+
+        for (const userId of [match.challengerId, match.opponentId]) {
+            if (!userId) continue;
+            const discordId = await this.resolveDiscordId(userId);
+            if (!discordId) continue; // no linked Discord — nothing to DM
+            try {
+                const user = await this.client.users.fetch(discordId);
+                await user.send({ embeds: [embed] });
+                this.logger.info(`[H2HAnnouncer] DM'd ${discordId} about match ${match.id}`);
+            } catch (err: any) {
+                // Closed DMs / left the server / blocked the bot are all normal.
+                this.logger.info(`[H2HAnnouncer] Could not DM ${discordId} for match ${match.id}: ${err.message}`);
+            }
+        }
     }
 
     // ─── Recurring "please vote" reminder ──────────────────────────────────────
