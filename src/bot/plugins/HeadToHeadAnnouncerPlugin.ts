@@ -62,8 +62,15 @@ export class HeadToHeadAnnouncerPlugin implements IPlugin {
             const settings = await (this.db as any).headToHeadSettings.findUnique({
                 where: { guildId: H2H_GUILD_ID },
             });
-            if (!settings?.enabled || !settings?.announcementChannelId) return;
+            if (!settings?.enabled) return;
 
+            // The recurring reminder has its own channel, so it must not be gated
+            // behind announcementChannelId being set.
+            await this.postVoteReminder(settings).catch((err: any) =>
+                this.logger.warn(`[H2HAnnouncer] Vote reminder failed: ${err.message}`)
+            );
+
+            if (!settings.announcementChannelId) return;
             const channel = this.client.channels.cache.get(settings.announcementChannelId) as TextChannel | undefined;
             if (!channel?.isTextBased()) return;
 
@@ -216,9 +223,27 @@ export class HeadToHeadAnnouncerPlugin implements IPlugin {
         const genre = match.genreId ? await this.getGenreName(match.genreId) : null;
         const arenaUrl = `${this.siteBase}/arena`;
 
+        // Identities are public once a match completes (it's a reveal status), so
+        // naming and tagging both players here doesn't leak anything the site
+        // wouldn't already show.
+        const winnerId: string | null = match.winnerId ?? null;
+        const loserId: string | null = winnerId
+            ? (winnerId === match.challengerId ? match.opponentId : match.challengerId)
+            : null;
+
+        const [winner, loser] = await Promise.all([this.nameAndTag(winnerId), this.nameAndTag(loserId)]);
+
+        const winnerIsChallenger = winnerId === match.challengerId;
+        const eloBefore = winnerIsChallenger ? match.challengerEloBefore : match.opponentEloBefore;
+        const eloAfter = winnerIsChallenger ? match.challengerEloAfter : match.opponentEloAfter;
+        const eloLine = (typeof eloBefore === 'number' && typeof eloAfter === 'number')
+            ? `📈 Elo: **${eloBefore} → ${eloAfter}** (${eloAfter - eloBefore >= 0 ? '+' : ''}${eloAfter - eloBefore})`
+            : null;
+
         const descParts = [
-            `🏆 The votes are in — a winner has been decided!`,
+            `🏆 ${winner} takes the win over ${loser}!`,
             genre ? `🎧 Genre: **${genre}**` : null,
+            eloLine,
             '',
             `**[🏟️ See the Results on Fuji Studio](${arenaUrl})**`,
         ].filter(Boolean).join('\n');
@@ -232,11 +257,122 @@ export class HeadToHeadAnnouncerPlugin implements IPlugin {
             .setFooter({ text: 'Fuji Studio Arena' })
             .setTimestamp();
 
-        await channel.send({ embeds: [embed] });
+        const winnerProfile = winnerId ? await this.getProfile(winnerId) : null;
+        if (winnerProfile?.avatar) embed.setThumbnail(winnerProfile.avatar);
+
+        // Mentions render inside an embed but never notify, so the tags are repeated
+        // in the message content — that's what actually pings the two competitors.
+        const tagIds = (await Promise.all([winnerId, loserId].map(id => id ? this.resolveDiscordId(id) : null)))
+            .filter(Boolean) as string[];
+        const content = tagIds.length ? tagIds.map(id => `<@${id}>`).join(' ') : undefined;
+
+        await channel.send({
+            content,
+            embeds: [embed],
+            allowedMentions: { users: tagIds },
+        });
         this.logger.info(`[H2HAnnouncer] Posted winner announcement for match ${match.id}`);
     }
 
+    // ─── Recurring "please vote" reminder ──────────────────────────────────────
+
+    /**
+     * Nudges the server while matches are sitting unjudged. Unlike the one-off
+     * "voting is open" post this repeats on a configurable interval and stops on
+     * its own the moment nothing is awaiting votes.
+     */
+    private async postVoteReminder(settings: any): Promise<void> {
+        if (!settings.voteReminderEnabled || !settings.voteReminderChannelId) return;
+
+        const intervalMs = Math.max(1, settings.voteReminderIntervalMinutes ?? 180) * 60_000;
+        const last = settings.lastVoteReminderAt ? new Date(settings.lastVoteReminderAt).getTime() : 0;
+        if (Date.now() - last < intervalMs) return;
+
+        const pending = await (this.db as any).h2HMatch.findMany({
+            where: { status: 'voting' },
+            orderBy: { votingEnd: 'asc' },
+            take: 10,
+        });
+        // Nothing to judge: stay quiet rather than posting an empty nag, and don't
+        // touch the timestamp so the next real reminder isn't delayed by this pass.
+        if (!pending.length) return;
+
+        const channel = this.client.channels.cache.get(settings.voteReminderChannelId) as TextChannel | undefined;
+        if (!channel?.isTextBased()) {
+            this.logger.warn(`[H2HAnnouncer] Vote reminder channel ${settings.voteReminderChannelId} not found`);
+            return;
+        }
+
+        await (this.db as any).headToHeadSettings.update({
+            where: { guildId: H2H_GUILD_ID },
+            data: { lastVoteReminderAt: new Date() },
+        });
+
+        const arenaUrl = `${this.siteBase}/arena#vote`;
+        const lines: string[] = [];
+        for (const m of pending) {
+            const genre = m.genreId ? await this.getGenreName(m.genreId) : null;
+            const closes = m.votingEnd ? `closes <t:${Math.floor(new Date(m.votingEnd).getTime() / 1000)}:R>` : 'closing soon';
+            lines.push(`• ${genre ? `**${genre}** battle` : 'Battle'} — ${closes}`);
+        }
+
+        const plural = pending.length === 1 ? 'battle needs' : 'battles need';
+        const embed = new EmbedBuilder()
+            .setColor(EMBED_COLOR_VOTE)
+            .setAuthor({ name: '🗳️ Your vote is needed' })
+            .setTitle(`${pending.length} ${plural} judging`)
+            .setURL(arenaUrl)
+            .setDescription([
+                `Producers are waiting on the community to pick a winner. It takes a minute: listen to both tracks and vote.`,
+                '',
+                lines.join('\n'),
+                '',
+                `**[🗳️ Listen & Vote](${arenaUrl})**`,
+            ].join('\n'))
+            .setFooter({ text: 'Fuji Studio Arena' })
+            .setTimestamp();
+
+        const roleId: string | null = settings.voteReminderRoleId || null;
+        await channel.send({
+            content: roleId ? `<@&${roleId}>` : undefined,
+            embeds: [embed],
+            // Only ever ping the one configured role; never @everyone, and never a
+            // user mention that happened to appear in the copy.
+            allowedMentions: roleId ? { roles: [roleId] } : { parse: [] },
+        });
+        this.logger.info(`[H2HAnnouncer] Posted vote reminder for ${pending.length} match(es)`);
+    }
+
     // ─── Helpers ───────────────────────────────────────────────────────────────
+
+    /**
+     * Resolves a match participant to a Discord snowflake so they can be tagged.
+     *
+     * Match IDs come from MusicianProfile.userId, which is a Discord ID only for
+     * members who arrived via Discord — native site accounts store a cuid there
+     * instead. So try the User table both ways first, and only fall back to using
+     * the raw value when it actually looks like a snowflake. Returns null rather
+     * than guessing, so a wrong id can never become a stray ping at someone.
+     */
+    private async resolveDiscordId(userId: string): Promise<string | null> {
+        try {
+            const user = await (this.db as any).user.findFirst({
+                where: { OR: [{ discordId: userId }, { id: userId }] },
+                select: { discordId: true },
+            });
+            if (user?.discordId) return user.discordId;
+        } catch { /* fall through to the shape check */ }
+        return /^\d{17,20}$/.test(userId) ? userId : null;
+    }
+
+    /** "**Name**", or "**Name** (<@123>)" when we can safely tag them. */
+    private async nameAndTag(userId: string | null | undefined): Promise<string> {
+        if (!userId) return '_unknown_';
+        const profile = await this.getProfile(userId);
+        const name = profile?.displayName || profile?.username || 'Unknown Producer';
+        const discordId = await this.resolveDiscordId(userId);
+        return discordId ? `**${name}** (<@${discordId}>)` : `**${name}**`;
+    }
 
     private async getProfile(userId: string): Promise<{ userId: string; username: string; displayName: string | null; avatar: string | null } | null> {
         try {

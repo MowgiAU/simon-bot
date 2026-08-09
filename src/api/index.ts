@@ -18102,10 +18102,18 @@ app.get('/api/head-to-head/admin/settings', requireAdmin, async (_req, res) => {
 
 app.post('/api/head-to-head/admin/settings', requireAdmin, async (req, res) => {
     try {
-        const allowed = ['enabled', 'announcementChannelId', 'defaultProductionMinutes', 'defaultVotingMinutes',
-            'readyUpMinutes', 'startingElo', 'kFactor', 'minVotesToFinalize', 'maxQueueWaitMinutes', 'samplesPerMatch'];
+        const allowed = ['enabled', 'announceQueueEnabled', 'announcementChannelId', 'defaultProductionMinutes', 'defaultVotingMinutes',
+            'readyUpMinutes', 'startingElo', 'kFactor', 'minVotesToFinalize', 'maxQueueWaitMinutes', 'samplesPerMatch',
+            'voteReminderEnabled', 'voteReminderChannelId', 'voteReminderIntervalMinutes', 'voteReminderRoleId'];
         const data: any = {};
         for (const k of allowed) if (req.body[k] !== undefined) data[k] = req.body[k];
+        // Blank selects arrive as '' — store null so the announcer's presence checks work.
+        for (const k of ['announcementChannelId', 'voteReminderChannelId', 'voteReminderRoleId']) {
+            if (data[k] === '') data[k] = null;
+        }
+        if (data.voteReminderIntervalMinutes !== undefined) {
+            data.voteReminderIntervalMinutes = Math.max(1, Number(data.voteReminderIntervalMinutes) || 180);
+        }
         await getH2HSettings();
         const s = await db.headToHeadSettings.update({ where: { guildId: PUBLIC_GUILD_ID_H2H }, data });
         res.json(s);

@@ -20,6 +20,7 @@ const glass: React.CSSProperties = {
     border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 12px 40px rgba(0,0,0,0.5)',
 };
 const DIVIDER = 'rgba(87,66,54,0.25)';
+const GREENISH = '#57F287'; // "already voted" confirmation
 
 const TIERS = [
     { name: 'Unranked', min: 0,    color: '#7A8190' },
@@ -57,6 +58,7 @@ interface VotingMatch {
     challengerSubmissionUrl: string | null; opponentSubmissionUrl: string | null;
     votingEnd: string | null;
     myVote: string | null;
+    genre?: { id: string; name: string } | null;
 }
 interface HistoryMatch {
     id: string; status: string; genreId: string | null; genreName: string | null; productionMinutes: number;
@@ -482,20 +484,69 @@ export const FrontpageAltFArena: React.FC = () => {
                                     </div>
                                 ) : (
                                     <div style={{ padding: '14px 20px 18px' }}>
-                                        <div style={{ fontSize: 12, color: SUB, marginBottom: 12 }}>
-                                            Vote for the better track. Votes are anonymous, and you can't vote on your own match.
-                                        </div>
-                                        {voteQueue.map(m => {
+                                        {(() => {
+                                            // With several battles queued, an undifferentiated list of
+                                            // identical "Mystery Producer A vs B" cards is impossible to
+                                            // track. Split by whether you've already voted, so what's left
+                                            // to do is obvious, and number/label each battle distinctly.
+                                            const todo = voteQueue.filter(m => !m.myVote);
+                                            const done = voteQueue.filter(m => !!m.myVote);
+                                            return (
+                                                <div style={{ fontSize: 12, color: SUB, marginBottom: 12 }}>
+                                                    {todo.length === 0
+                                                        ? <>You've judged every open battle. Thanks — results land once enough votes are in.</>
+                                                        : <>
+                                                            <strong style={{ color: TEXT }}>{todo.length}</strong> {todo.length === 1 ? 'battle needs' : 'battles need'} your vote
+                                                            {done.length > 0 && <> · {done.length} already judged</>}
+                                                            . Votes are anonymous, and you can't vote on your own match.
+                                                        </>}
+                                                </div>
+                                            );
+                                        })()}
+                                        {[...voteQueue]
+                                            // Unjudged first, then soonest to close — the ones that
+                                            // actually need action stay at the top.
+                                            .sort((a, b) => {
+                                                if (!!a.myVote !== !!b.myVote) return a.myVote ? 1 : -1;
+                                                return new Date(a.votingEnd || 0).getTime() - new Date(b.votingEnd || 0).getTime();
+                                            })
+                                            .map((m, idx) => {
                                             const ends = m.votingEnd ? new Date(m.votingEnd).getTime() - Date.now() : 0;
                                             const mins = Math.max(0, Math.floor(ends / 60000));
+                                            const hrs = Math.floor(mins / 60);
+                                            const closing = mins <= 0 ? 'Closing soon' : hrs > 0 ? `${hrs}h ${mins % 60}m left` : `${mins}m left`;
+                                            const judged = !!m.myVote;
+                                            // Letters are scoped per battle so "A" in one card is never
+                                            // confused with "A" in another.
+                                            const tag = String.fromCharCode(65 + (idx % 26));
                                             const sides = [
-                                                { id: m.challengerId, label: 'Mystery Producer A', url: m.challengerSubmissionUrl, side: 'challenger' as const, color: SECONDARY },
-                                                { id: m.opponentId || '', label: 'Mystery Producer B', url: m.opponentSubmissionUrl, side: 'opponent' as const, color: TERTIARY },
+                                                { id: m.challengerId, label: `Producer ${tag}1`, url: m.challengerSubmissionUrl, side: 'challenger' as const, color: SECONDARY },
+                                                { id: m.opponentId || '', label: `Producer ${tag}2`, url: m.opponentSubmissionUrl, side: 'opponent' as const, color: TERTIARY },
                                             ];
                                             return (
-                                                <div key={m.id} style={{ border: `1px solid ${BORDER}`, borderRadius: 14, padding: 14, marginBottom: 12, background: 'rgba(255,255,255,0.02)' }}>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10, fontSize: 11, color: SUB }}>
-                                                        <Clock size={11} /> {mins > 0 ? `${mins}m left to vote` : 'Closing soon'}
+                                                <div key={m.id} style={{
+                                                    border: judged ? `1px solid ${BORDER}` : `1px solid ${SECONDARY}44`,
+                                                    borderRadius: 14, padding: 14, marginBottom: 12,
+                                                    background: judged ? 'rgba(255,255,255,0.015)' : 'rgba(76,215,246,0.04)',
+                                                    opacity: judged ? 0.75 : 1,
+                                                }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
+                                                        <span style={{ fontSize: 12, fontWeight: 800, color: TEXT }}>
+                                                            Battle {idx + 1} of {voteQueue.length}
+                                                        </span>
+                                                        {m.genre?.name && (
+                                                            <span style={{ fontSize: 10.5, fontWeight: 700, color: SECONDARY, background: `${SECONDARY}1e`, border: `1px solid ${SECONDARY}44`, borderRadius: 9999, padding: '2px 8px' }}>
+                                                                {m.genre.name}
+                                                            </span>
+                                                        )}
+                                                        {judged && (
+                                                            <span style={{ fontSize: 10.5, fontWeight: 700, color: '#0a0d18', background: GREENISH, borderRadius: 9999, padding: '2px 8px' }}>
+                                                                Voted
+                                                            </span>
+                                                        )}
+                                                        <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: mins > 0 && mins < 15 ? TERTIARY : SUB }}>
+                                                            <Clock size={11} /> {closing}
+                                                        </span>
                                                     </div>
                                                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 12 }}>
                                                         {sides.map(s => {

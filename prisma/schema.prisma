@@ -3510,6 +3510,15 @@ model HeadToHeadSettings {
   minVotesToFinalize       Int      @default(3)
   maxQueueWaitMinutes      Int      @default(30)
   samplesPerMatch          Int      @default(3)
+
+  // Recurring "go vote" nudge. Distinct from announcementChannelId: the one-off
+  // "voting is open" post fires once per match, this repeats on an interval for as
+  // long as anything is still awaiting votes, and can live in a different channel.
+  voteReminderEnabled         Boolean   @default(false)
+  voteReminderChannelId       String?
+  voteReminderIntervalMinutes Int       @default(180)
+  voteReminderRoleId          String? // optional role to ping with each reminder
+  lastVoteReminderAt          DateTime?
   createdAt                DateTime @default(now())
   updatedAt                DateTime @updatedAt
 

@@ -1,6 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { Swords, Settings as SettingsIcon, Upload, Trash2, Plus, Trophy, Users, Loader, X } from 'lucide-react';
 import { colors, spacing, borderRadius } from '../theme/theme';
+import { useAuth } from '../components/AuthProvider';
+import { ChannelSelect } from '../components/ChannelSelect';
+import { RoleSelect } from '../components/RoleSelect';
 
 const API = '';
 
@@ -42,6 +45,10 @@ interface Settings {
     minVotesToFinalize: number;
     maxQueueWaitMinutes: number;
     samplesPerMatch: number;
+    voteReminderEnabled: boolean;
+    voteReminderChannelId: string | null;
+    voteReminderIntervalMinutes: number;
+    voteReminderRoleId: string | null;
 }
 interface Match {
     id: string;
@@ -334,6 +341,8 @@ const PoolCard: React.FC<{
 // ─── Settings tab ──────────────────────────────────────────────────────────
 
 const SettingsTab: React.FC = () => {
+    const { selectedGuild } = useAuth();
+    const guildId = selectedGuild?.id || '';
     const [s, setS] = useState<Settings | null>(null);
     const [saving, setSaving] = useState(false);
 
@@ -406,6 +415,44 @@ const SettingsTab: React.FC = () => {
             <Field label="Minimum votes to finalize" hint="A match won't conclude until this many peer votes are cast (window auto-extends if not met).">
                 <input type="number" value={s.minVotesToFinalize} min={1} max={50}
                     onChange={e => setS({ ...s, minVotesToFinalize: Number(e.target.value) })} style={numStyle} />
+            </Field>
+
+            <div style={{ borderTop: `1px solid ${colors.border}`, margin: '24px 0 18px', paddingTop: 18 }}>
+                <h3 style={{ margin: '0 0 4px', color: colors.textPrimary, fontSize: 16 }}>Voting Reminders</h3>
+                <p style={{ margin: '0 0 16px', color: colors.textSecondary, fontSize: 12 }}>
+                    A recurring nudge posted while battles are still waiting to be judged. Separate from the one-off
+                    "voting is open" announcement: this repeats on the interval below and stops on its own once
+                    nothing is awaiting votes.
+                </p>
+            </div>
+
+            <Field label="Enable voting reminders">
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, color: colors.textPrimary }}>
+                    <input type="checkbox" checked={s.voteReminderEnabled ?? false}
+                        onChange={e => setS({ ...s, voteReminderEnabled: e.target.checked })} />
+                    {(s.voteReminderEnabled ?? false) ? 'Reminders are on' : 'Reminders are off'}
+                </label>
+            </Field>
+            <Field label="Reminder channel" hint="Where the reminders are posted. Can be a different channel from the main announcements.">
+                <ChannelSelect
+                    guildId={guildId}
+                    value={s.voteReminderChannelId || ''}
+                    onChange={v => setS({ ...s, voteReminderChannelId: (Array.isArray(v) ? v[0] : v) || null })}
+                    channelTypes={[0]}
+                    placeholder="Select a channel…"
+                />
+            </Field>
+            <Field label="Reminder interval (minutes)" hint="How often to repeat while battles are unjudged. 60 = hourly, 180 = every 3 hours, 1440 = daily.">
+                <input type="number" value={s.voteReminderIntervalMinutes ?? 180} min={1} max={10080}
+                    onChange={e => setS({ ...s, voteReminderIntervalMinutes: Number(e.target.value) })} style={numStyle} />
+            </Field>
+            <Field label="Role to ping (optional)" hint="Pinged with each reminder. Leave empty to post without pinging anyone.">
+                <RoleSelect
+                    guildId={guildId}
+                    value={s.voteReminderRoleId || ''}
+                    onChange={v => setS({ ...s, voteReminderRoleId: (Array.isArray(v) ? v[0] : v) || null })}
+                    placeholder="No role ping"
+                />
             </Field>
 
             <button onClick={save} disabled={saving} style={{
