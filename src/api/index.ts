@@ -34,6 +34,7 @@ import { runBackup, pgDump } from '../services/DatabaseBackup.js';
 import { softDeleteMiddleware } from '../services/softDelete.js';
 import * as BankService from '../services/BankService.js';
 import * as MarketService from '../services/MarketService.js';
+import { DEFAULT_TRACK_COVER_URL, coverOrDefault } from '../services/defaultArtwork.js';
 import { retryMiddleware } from '../services/prismaRetry.js';
 import { WaveformExtractor } from '../services/WaveformExtractor.js';
 import { StemProcessor } from '../services/StemProcessor.js';
@@ -15663,6 +15664,7 @@ app.post('/api/beat-battle/admin/backfill', requireAdmin, async (req: any, res) 
                         profileId: profile.id,
                         title: e.trackTitle,
                         url: e.audioUrl || '',
+                        coverUrl: DEFAULT_TRACK_COVER_URL,
                         isPublic: true,
                     },
                 });
@@ -24968,7 +24970,7 @@ app.patch('/api/collab/projects/:id/approve', requireAuth, async (req: any, res)
                     profileId: project.initiatorProfileId,
                     title,
                     description: trackDescription?.trim() || null,
-                    coverUrl: coverUrl || null,
+                    coverUrl: coverOrDefault(coverUrl),
                     url: '', // placeholder — poster uploads the actual audio file separately via the existing track edit flow
                     isPublic: false, // stays draft until audio is uploaded
                     trackType: 'original',

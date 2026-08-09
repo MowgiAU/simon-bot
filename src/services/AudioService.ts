@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { coverOrDefault } from './defaultArtwork.js';
 
 /**
  * Audio Service
@@ -147,7 +148,7 @@ export class AudioService {
                 title: data.title,
                 slug: data.slug,
                 url: data.url,
-                coverUrl: data.coverUrl,
+                coverUrl: coverOrDefault(data.coverUrl),
                 description: data.description,
                 lyrics: data.lyrics,
                 duration: data.duration ?? 0,
