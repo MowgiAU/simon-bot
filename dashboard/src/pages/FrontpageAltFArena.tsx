@@ -6,14 +6,14 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import axios from 'axios';
 import {
-    Swords, Trophy, Crown, Medal, Users, Zap, Target, TrendingUp, Clock, Loader2, Flame, History as HistoryIcon, ChevronDown, Filter,
+    Swords, Trophy, Crown, Medal, Users, Zap, Target, TrendingUp, Clock, Loader2, Flame, History as HistoryIcon, ChevronDown, Filter, Gavel, Award, Headphones,
 } from 'lucide-react';
 import {
     AltSidebar, BG, S_CONT, S_HIGH, PRIMARY, SECONDARY, TERTIARY, TEXT, SUB, BORDER, FONT,
 } from '../components/altshell/AltSidebar';
 import { AltHeader } from '../components/altshell/AltHeader';
 import { usePlayer } from '../components/PlayerProvider';
-import { ActiveMatchPanel, ARENA_CSS, MeData } from './HeadToHeadArena';
+import { ActiveMatchPanel, ARENA_CSS, MeData, SubmissionPlayer } from './HeadToHeadArena';
 
 const glass: React.CSSProperties = {
     background: 'rgba(15,19,29,0.7)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
@@ -50,6 +50,14 @@ interface LobbySummary { waiting: number; inMatch: number; voting: number; }
 interface ActivityEvent { type: 'result' | 'join'; at: string; winner?: string; loser?: string; eloDelta?: number | null; genreName?: string | null; tier?: { name: string; color: string }; productionMinutes?: number; }
 interface LeaderRow { rank: number; userId: string; elo: number; wins: number; losses: number; matchesPlayed: number; winStreak: number; bestWinStreak: number; profile: any; }
 interface GenreOption { id: string; name: string; sampleCount: number; }
+interface VotingMatch {
+    id: string;
+    challengerId: string; opponentId: string | null;
+    challengerProfile: any; opponentProfile: any;
+    challengerSubmissionUrl: string | null; opponentSubmissionUrl: string | null;
+    votingEnd: string | null;
+    myVote: string | null;
+}
 interface HistoryMatch {
     id: string; status: string; genreId: string | null; genreName: string | null; productionMinutes: number;
     outcome: 'win' | 'loss' | 'cancelled'; forfeitReason: string | null;
@@ -81,6 +89,13 @@ export const FrontpageAltFArena: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [, forceTick] = useState(0);
 
+    // Judging queue. The bot links members straight here via /arena#vote, so this
+    // has to exist on this page — the rebuild dropped the old page's JUDGE tab and
+    // left that link pointing at nothing.
+    const [voteQueue, setVoteQueue] = useState<VotingMatch[]>([]);
+    const [voteBusy, setVoteBusy] = useState<string | null>(null);
+    const voteRef = useRef<HTMLDivElement>(null);
+
     const [history, setHistory] = useState<HistoryMatch[]>([]);
     const [historyTotal, setHistoryTotal] = useState(0);
     const [historyFilter, setHistoryFilter] = useState('all');
@@ -104,9 +119,33 @@ export const FrontpageAltFArena: React.FC = () => {
     const reloadActivity = useCallback(async () => {
         try { const r = await axios.get('/api/head-to-head/activity'); setActivity(r.data.events || []); } catch {}
     }, []);
+    const reloadVoteQueue = useCallback(async () => {
+        try {
+            const r = await axios.get('/api/head-to-head/voting/queue', { withCredentials: true });
+            setVoteQueue(r.data?.matches || []);
+        } catch { setVoteQueue([]); } // 401 when signed out — the panel prompts to sign in
+    }, []);
+
+    const castVote = async (matchId: string, voteFor: string) => {
+        setVoteBusy(matchId);
+        try {
+            await axios.post(`/api/head-to-head/match/${matchId}/vote`, { voteFor }, { withCredentials: true });
+            await reloadVoteQueue();
+        } catch (e: any) {
+            setError(e.response?.data?.error || 'Could not record that vote.');
+        } finally { setVoteBusy(null); }
+    };
+
+    // /arena#vote comes straight from the Discord announcement — jump to the
+    // judging panel once it's on screen rather than dumping people at the top.
+    useEffect(() => {
+        if (window.location.hash !== '#vote') return;
+        const t = setTimeout(() => voteRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 350);
+        return () => clearTimeout(t);
+    }, [voteQueue.length, loggedIn]);
 
     useEffect(() => {
-        reloadMe(); reloadLobby(); reloadActivity();
+        reloadMe(); reloadLobby(); reloadActivity(); reloadVoteQueue();
         axios.get('/api/head-to-head/settings').then(r => { setEnabled(r.data?.enabled ?? null); if (r.data?.defaultProductionMinutes) setProdMin(r.data.defaultProductionMinutes); }).catch(() => {});
         axios.get('/api/head-to-head/genres').then(r => setGenres(r.data?.genres || [])).catch(() => {});
     }, [reloadMe, reloadLobby, reloadActivity]);
@@ -138,8 +177,9 @@ export const FrontpageAltFArena: React.FC = () => {
         const fast = !!me?.activeMatch && ['queued', 'ready_check', 'melodics_vote'].includes(me.activeMatch.status);
         const t = setInterval(() => { reloadMe(); reloadLobby(); }, fast ? 3000 : 8000);
         const a = setInterval(reloadActivity, 12000);
-        return () => { clearInterval(t); clearInterval(a); };
-    }, [reloadMe, reloadLobby, reloadActivity, me?.activeMatch?.status]);
+        const v = setInterval(reloadVoteQueue, 20000);
+        return () => { clearInterval(t); clearInterval(a); clearInterval(v); };
+    }, [reloadMe, reloadLobby, reloadActivity, reloadVoteQueue, me?.activeMatch?.status]);
 
     const quickMatch = async () => {
         setBusy(true); setError(null);
@@ -409,6 +449,90 @@ export const FrontpageAltFArena: React.FC = () => {
                                     )}
                                 </div>
                             )}
+
+                            {/* ── Judge: vote on finished matches ──
+                                Target of /arena#vote, linked from the Discord announcement. */}
+                            <div ref={voteRef} id="vote" style={{ ...glass, borderRadius: 18, overflow: 'hidden', scrollMarginTop: 20 }}>
+                                <div style={{ padding: '14px 20px', borderBottom: `1px solid ${DIVIDER}`, display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <Gavel size={15} color={SECONDARY} />
+                                    <span style={{ fontSize: 14, fontWeight: 700, color: TEXT }}>Judge</span>
+                                    {voteQueue.length > 0 && (
+                                        <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 800, color: '#0a0d18', background: SECONDARY, borderRadius: 9999, padding: '2px 8px' }}>
+                                            {voteQueue.length} waiting
+                                        </span>
+                                    )}
+                                </div>
+
+                                {!loggedIn ? (
+                                    <div style={{ padding: '28px 20px', textAlign: 'center' }}>
+                                        <Gavel size={30} color={SECONDARY} style={{ opacity: 0.8, marginBottom: 10 }} />
+                                        <div style={{ fontSize: 16, fontWeight: 900, color: '#fff', marginBottom: 6 }}>Sign in to judge</div>
+                                        <p style={{ margin: '0 auto 16px', color: SUB, fontSize: 13, maxWidth: 320, lineHeight: 1.6 }}>
+                                            Any signed-in member can hear both tracks and vote. Submissions stay anonymous, so it's the music that wins.
+                                        </p>
+                                        <a href="/login" style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '10px 22px', borderRadius: 10, background: `linear-gradient(135deg, ${SECONDARY}, ${PRIMARY})`, color: '#0a0d18', fontWeight: 800, fontSize: 13, textDecoration: 'none' }}>
+                                            <Gavel size={15} /> Sign in to vote
+                                        </a>
+                                    </div>
+                                ) : voteQueue.length === 0 ? (
+                                    <div style={{ padding: '28px 20px', textAlign: 'center' }}>
+                                        <Headphones size={28} color={SUB} style={{ opacity: 0.7, marginBottom: 8 }} />
+                                        <p style={{ margin: 0, color: TEXT, fontSize: 13, fontWeight: 600 }}>No matches need judging right now.</p>
+                                        <p style={{ margin: '6px 0 0', color: SUB, fontSize: 12 }}>Check back once the current battles finish producing.</p>
+                                    </div>
+                                ) : (
+                                    <div style={{ padding: '14px 20px 18px' }}>
+                                        <div style={{ fontSize: 12, color: SUB, marginBottom: 12 }}>
+                                            Vote for the better track. Votes are anonymous, and you can't vote on your own match.
+                                        </div>
+                                        {voteQueue.map(m => {
+                                            const ends = m.votingEnd ? new Date(m.votingEnd).getTime() - Date.now() : 0;
+                                            const mins = Math.max(0, Math.floor(ends / 60000));
+                                            const sides = [
+                                                { id: m.challengerId, label: 'Mystery Producer A', url: m.challengerSubmissionUrl, side: 'challenger' as const, color: SECONDARY },
+                                                { id: m.opponentId || '', label: 'Mystery Producer B', url: m.opponentSubmissionUrl, side: 'opponent' as const, color: TERTIARY },
+                                            ];
+                                            return (
+                                                <div key={m.id} style={{ border: `1px solid ${BORDER}`, borderRadius: 14, padding: 14, marginBottom: 12, background: 'rgba(255,255,255,0.02)' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10, fontSize: 11, color: SUB }}>
+                                                        <Clock size={11} /> {mins > 0 ? `${mins}m left to vote` : 'Closing soon'}
+                                                    </div>
+                                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 12 }}>
+                                                        {sides.map(s => {
+                                                            const mine = m.myVote === s.id;
+                                                            return (
+                                                                <div key={s.side} style={{
+                                                                    padding: 12, borderRadius: 12,
+                                                                    border: mine ? `2px solid ${s.color}` : `1px solid ${BORDER}`,
+                                                                    background: mine ? `${s.color}18` : 'rgba(255,255,255,0.03)',
+                                                                }}>
+                                                                    <div style={{ fontSize: 13, fontWeight: 800, color: TEXT, marginBottom: 8 }}>{s.label}</div>
+                                                                    {s.url
+                                                                        ? <SubmissionPlayer matchId={m.id} side={s.side} color={s.color} />
+                                                                        : <p style={{ color: SUB, fontSize: 12, margin: '0 0 10px' }}>No submission</p>}
+                                                                    <button
+                                                                        onClick={() => castVote(m.id, s.id)}
+                                                                        disabled={mine || !!voteBusy || !s.id}
+                                                                        style={{
+                                                                            width: '100%', marginTop: 10, padding: '9px 14px', borderRadius: 10, border: 'none',
+                                                                            background: mine ? s.color : 'rgba(255,255,255,0.08)',
+                                                                            color: mine ? '#0a0d18' : TEXT,
+                                                                            fontWeight: 800, fontSize: 12.5,
+                                                                            cursor: mine || voteBusy ? 'default' : 'pointer',
+                                                                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                                                                        }}>
+                                                                        <Award size={13} /> {mine ? 'Your vote' : 'Vote'}
+                                                                    </button>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </div>
                         </div>
 
                         {/* ── RIGHT: leaderboard ── */}

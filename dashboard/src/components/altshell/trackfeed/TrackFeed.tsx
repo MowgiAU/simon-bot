@@ -10,6 +10,7 @@ import { Link } from 'react-router-dom';
 import axios from 'axios';
 import { ChevronLeft, LayoutGrid, Plus, Music, ChevronsUp, Check } from 'lucide-react';
 import { usePlayer } from '../../PlayerProvider';
+import { useAuth } from '../../AuthProvider';
 import { PRIMARY, SUB, TEXT, BORDER, FONT } from '../AltSidebar';
 import { AltSpinner } from '../AltSpinner';
 import { MOBILE_NAV_HEIGHT } from '../AltMobileNav';
@@ -57,7 +58,8 @@ interface Props {
 
 export const TrackFeed: React.FC<Props> = ({ params, title, backTo, browseTo, createLink, headerExtra, emptyMessage, variant = 'mobile' }) => {
     const desktop = variant === 'desktop';
-    const { player, setTrack, togglePlay, seek } = usePlayer();
+    const { player, setTrack, togglePlay, seek, mobileNavHidden } = usePlayer();
+    const { user, loading: authLoading } = useAuth();
 
     // Declared before useTrackFeed so the hook can surface failed likes/reposts
     // through the same toast the rest of the feed uses.
@@ -262,11 +264,16 @@ export const TrackFeed: React.FC<Props> = ({ params, title, backTo, browseTo, cr
                     )}
                 </div>
                 {browseTo && <Link to={browseTo} aria-label="Browse" style={iconBtn}><LayoutGrid size={17} /></Link>}
-                {createLink && <Link to={createLink} aria-label="Upload" style={{ ...iconBtn, background: PRIMARY }}><Plus size={18} /></Link>}
+                {/* Signed out is otherwise invisible here until an action quietly
+                    fails, which is exactly how people ended up thinking like and
+                    repost were broken. Say it up front instead. */}
+                {!authLoading && !user
+                    ? <Link to="/login" style={{ ...iconBtn, width: 'auto', padding: '0 14px', background: PRIMARY, fontSize: 12.5, fontWeight: 800, letterSpacing: '0.01em' }}>Log in</Link>
+                    : createLink && <Link to={createLink} aria-label="Upload" style={{ ...iconBtn, background: PRIMARY }}><Plus size={18} /></Link>}
             </div>
             {headerExtra && <div style={{ marginTop: 10, pointerEvents: 'auto' }}>{headerExtra}</div>}
         </div>
-    ), [backTo, browseTo, createLink, title, tracks.length, active, hasMore, headerExtra]);
+    ), [backTo, browseTo, createLink, title, tracks.length, active, hasMore, headerExtra, user, authLoading]);
 
     const slideProps = (t: FeedTrack, i: number) => ({
         track: t,
@@ -306,7 +313,10 @@ export const TrackFeed: React.FC<Props> = ({ params, title, backTo, browseTo, cr
                     background: 'transparent', fontFamily: FONT, outline: 'none',
                 } : {
                     position: 'fixed', top: 0, left: 0, right: 0,
-                    bottom: `calc(${MOBILE_NAV_HEIGHT}px + env(safe-area-inset-bottom))`,
+                    // Grows into the strip the bottom nav vacates when it auto-hides
+                    // on scroll, so artwork fills it instead of leaving a dead gap.
+                    bottom: mobileNavHidden ? 0 : `calc(${MOBILE_NAV_HEIGHT}px + env(safe-area-inset-bottom))`,
+                    transition: 'bottom 0.25s ease',
                     overflowY: 'auto', overflowX: 'hidden',
                     scrollSnapType: 'y mandatory', overscrollBehaviorY: 'contain',
                     WebkitOverflowScrolling: 'touch', background: '#06080e', fontFamily: FONT,

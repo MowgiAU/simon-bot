@@ -1438,7 +1438,7 @@ Use these in your DAW. Build something fierce.`);
 // Submission player with full waveform (used on the voting page)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const SubmissionPlayer: React.FC<{ matchId: string; side: 'challenger' | 'opponent'; color: string }> = ({ matchId, side, color }) => {
+export const SubmissionPlayer: React.FC<{ matchId: string; side: 'challenger' | 'opponent'; color: string }> = ({ matchId, side, color }) => {
     const audioRef = useRef<HTMLAudioElement | null>(null);
     const [playing, setPlaying] = useState(false);
     const [cur, setCur] = useState(0);
