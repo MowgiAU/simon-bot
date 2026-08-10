@@ -17450,6 +17450,10 @@ app.get('/api/head-to-head/archive', async (req: any, res) => {
         const where: any = {
             status: { in: ['completed', 'forfeited'] },
             opponentId: { not: null },
+            // Forfeits (and some edge-case completions) can be missing one or both
+            // tracks — those aren't real listenable battles, so keep them out of the archive.
+            challengerSubmissionUrl: { not: null },
+            opponentSubmissionUrl: { not: null },
         };
         if (genreId) where.genreId = genreId;
 
