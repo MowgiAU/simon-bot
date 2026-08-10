@@ -25,14 +25,15 @@ export interface RailSection { key: string; label: string; icon: React.ReactNode
 
 // Live "someone's waiting to battle" teaser — surfaces the arena lobby on every Alt F page.
 const ArenaTeaser: React.FC = () => {
-    const [summary, setSummary] = useState<{ waiting: number; inMatch: number; voting: number } | null>(null);
+    const [summary, setSummary] = useState<{ waiting: number; readying: number; producing: number; voting: number } | null>(null);
     useEffect(() => {
         const load = () => axios.get('/api/head-to-head/lobby').then(r => setSummary(r.data.summary)).catch(() => {});
         load();
         const t = setInterval(load, 12000);
         return () => clearInterval(t);
     }, []);
-    if (!summary || (summary.waiting === 0 && summary.inMatch === 0)) return null;
+    const inMatch = summary ? summary.readying + summary.producing : 0;
+    if (!summary || (summary.waiting === 0 && inMatch === 0)) return null;
     const hot = summary.waiting > 0;
     return (
         <Link to="/arena" style={{ display: 'block', textDecoration: 'none', marginBottom: 18 }}>
@@ -42,7 +43,7 @@ const ArenaTeaser: React.FC = () => {
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 12, fontWeight: 800, color: TEXT }}>
-                        {hot ? `${summary.waiting} waiting to battle` : `${summary.inMatch} battle${summary.inMatch > 1 ? 's' : ''} live`}
+                        {hot ? `${summary.waiting} waiting to battle` : `${inMatch} battle${inMatch > 1 ? 's' : ''} live`}
                     </div>
                     <div style={{ fontSize: 11, color: SUB, display: 'flex', alignItems: 'center', gap: 4 }}>
                         {hot && <span style={{ width: 6, height: 6, borderRadius: '50%', background: TERTIARY, display: 'inline-block' }} />}

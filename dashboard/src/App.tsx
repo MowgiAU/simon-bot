@@ -106,6 +106,7 @@ const FrontpageAltFMyTracks    = lazy(() => import("./pages/FrontpageAltFMyTrack
 const FrontpageAltFFavourites  = lazy(() => import("./pages/FrontpageAltFFavourites").then(m => ({ default: m.FrontpageAltFFavourites })));
 const FrontpageAltFGenres      = lazy(() => import("./pages/FrontpageAltFGenres").then(m => ({ default: m.FrontpageAltFGenres })));
 const FrontpageAltFArena       = lazy(() => import("./pages/FrontpageAltFArena").then(m => ({ default: m.FrontpageAltFArena })));
+const HeadToHeadArchive        = lazy(() => import("./pages/HeadToHeadArchive").then(m => ({ default: m.HeadToHeadArchive })));
 const BankPage                 = lazy(() => import("./pages/BankPage").then(m => ({ default: m.BankPage })));
 const MarketPage               = lazy(() => import("./pages/MarketPage").then(m => ({ default: m.MarketPage })));
 const FrontpageAltFContact     = lazy(() => import("./pages/FrontpageAltFContact"));
@@ -1177,6 +1178,10 @@ const AppInternal: React.FC = () => {
     return <Suspense fallback={<PageSpinner />}><FrontpageAltFBattles /></Suspense>;
   }
 
+  // /arena/history → public battle archive (must be checked before the /arena/* catch-all below)
+  if (currentPath === '/arena/history') {
+    return <Suspense fallback={<PageSpinner />}><HeadToHeadArchive /></Suspense>;
+  }
   // /arena → Public Head-to-Head arena (formerly /h2h)
   if (currentPath === '/arena' || currentPath.startsWith('/arena/')) {
     return <Suspense fallback={<PageSpinner />}><FrontpageAltFArena /></Suspense>;

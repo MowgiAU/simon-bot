@@ -17439,6 +17439,75 @@ app.get('/api/head-to-head/history', requireAuth, async (req: any, res) => {
     }
 });
 
+// Public archive of every completed/forfeited battle — both producers always revealed
+// (H2H_REVEAL_STATUSES already covers both statuses), no auth required.
+app.get('/api/head-to-head/archive', async (req: any, res) => {
+    try {
+        const page = Math.max(1, Number(req.query.page) || 1);
+        const pageSize = Math.min(50, Math.max(1, Number(req.query.pageSize) || 20));
+        const genreId = (req.query.genreId as string | undefined) || undefined;
+
+        const where: any = {
+            status: { in: ['completed', 'forfeited'] },
+            opponentId: { not: null },
+        };
+        if (genreId) where.genreId = genreId;
+
+        const [total, matches] = await Promise.all([
+            db.h2HMatch.count({ where }),
+            db.h2HMatch.findMany({
+                where,
+                orderBy: { updatedAt: 'desc' },
+                skip: (page - 1) * pageSize,
+                take: pageSize,
+                include: { genre: true },
+            }),
+        ]);
+
+        const profileIds = new Set<string>();
+        for (const m of matches) {
+            profileIds.add(m.challengerId);
+            if (m.opponentId) profileIds.add(m.opponentId);
+        }
+        const profiles = profileIds.size
+            ? await db.musicianProfile.findMany({
+                where: { userId: { in: Array.from(profileIds) } },
+                select: { userId: true, username: true, displayName: true, avatar: true },
+            })
+            : [];
+        const pmap = new Map(profiles.map(p => [p.userId, p]));
+        const fallbackProfile = (userId: string) => pmap.get(userId) || { userId, username: null, displayName: null, avatar: null };
+
+        res.json({
+            total,
+            page,
+            pageSize,
+            matches: matches.map(m => ({
+                id: m.id,
+                genreId: m.genreId,
+                genreName: m.genre?.name || null,
+                productionMinutes: m.productionMinutes,
+                status: m.status,
+                winnerId: m.winnerId,
+                loserId: m.loserId,
+                forfeitReason: m.forfeitReason,
+                challengerProfile: fallbackProfile(m.challengerId),
+                opponentProfile: fallbackProfile(m.opponentId as string),
+                challengerEloBefore: m.challengerEloBefore,
+                challengerEloAfter: m.challengerEloAfter,
+                opponentEloBefore: m.opponentEloBefore,
+                opponentEloAfter: m.opponentEloAfter,
+                hasChallengerSubmission: !!m.challengerSubmissionUrl,
+                hasOpponentSubmission: !!m.opponentSubmissionUrl,
+                completedAt: m.updatedAt,
+            })),
+        });
+    } catch (e: any) {
+        logger.error('H2H archive failed', e);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 // Join queue
 app.post('/api/head-to-head/queue', requireAuth, async (req: any, res) => {
     try {
@@ -17513,9 +17582,12 @@ app.get('/api/head-to-head/lobby', async (req: any, res) => {
     try {
         const meId = req.session?.user?.id || null;
         const now = Date.now();
-        const [queued, inMatch, voting] = await Promise.all([
+        const [queued, readying, producing, voting] = await Promise.all([
             db.h2HMatch.findMany({ where: { status: 'queued', opponentId: null }, orderBy: { createdAt: 'asc' } }),
-            db.h2HMatch.count({ where: { status: { in: ['ready_check', 'melodics_vote', 'producing'] } } }),
+            db.h2HMatch.count({ where: { status: { in: ['ready_check', 'melodics_vote'] } } }),
+            // Actually being produced right now — distinct from ready-check/melodics-vote,
+            // which the old combined "inMatch" bucket lumped in together.
+            db.h2HMatch.count({ where: { status: 'producing' } }),
             db.h2HMatch.count({ where: { status: 'voting' } }),
         ]);
         const ratings = queued.length
@@ -17534,7 +17606,7 @@ app.get('/api/head-to-head/lobby', async (req: any, res) => {
                 isMine: meId ? q.challengerId === meId : false,
             };
         });
-        res.json({ entries, summary: { waiting: queued.length, inMatch, voting } });
+        res.json({ entries, summary: { waiting: queued.length, readying, producing, voting } });
     } catch (e: any) {
         logger.error('H2H lobby failed', e);
         res.status(500).json({ error: 'Internal server error' });

@@ -47,7 +47,7 @@ function pName(p: any, uid: string) {
 }
 
 interface LobbyEntry { id: string; tier: { name: string; color: string }; productionMinutes: number; genreId: string | null; waitedSeconds: number; isMine: boolean; }
-interface LobbySummary { waiting: number; inMatch: number; voting: number; }
+interface LobbySummary { waiting: number; readying: number; producing: number; voting: number; }
 interface ActivityEvent { type: 'result' | 'join'; at: string; winner?: string; loser?: string; eloDelta?: number | null; genreName?: string | null; tier?: { name: string; color: string }; productionMinutes?: number; }
 interface LeaderRow { rank: number; userId: string; elo: number; wins: number; losses: number; matchesPlayed: number; winStreak: number; bestWinStreak: number; profile: any; }
 interface GenreOption { id: string; name: string; sampleCount: number; }
@@ -80,7 +80,7 @@ export const FrontpageAltFArena: React.FC = () => {
     const [loggedIn, setLoggedIn] = useState(true);
     const [meLoaded, setMeLoaded] = useState(false);
     const [lobby, setLobby] = useState<LobbyEntry[]>([]);
-    const [summary, setSummary] = useState<LobbySummary>({ waiting: 0, inMatch: 0, voting: 0 });
+    const [summary, setSummary] = useState<LobbySummary>({ waiting: 0, readying: 0, producing: 0, voting: 0 });
     const [activity, setActivity] = useState<ActivityEvent[]>([]);
     const [leaderboard, setLeaderboard] = useState<LeaderRow[]>([]);
     const [genres, setGenres] = useState<GenreOption[]>([]);
@@ -116,7 +116,7 @@ export const FrontpageAltFArena: React.FC = () => {
         } finally { setMeLoaded(true); }
     }, []);
     const reloadLobby = useCallback(async () => {
-        try { const r = await axios.get('/api/head-to-head/lobby'); setLobby(r.data.entries || []); setSummary(r.data.summary || { waiting: 0, inMatch: 0, voting: 0 }); } catch {}
+        try { const r = await axios.get('/api/head-to-head/lobby'); setLobby(r.data.entries || []); setSummary(r.data.summary || { waiting: 0, readying: 0, producing: 0, voting: 0 }); } catch {}
     }, []);
     const reloadActivity = useCallback(async () => {
         try { const r = await axios.get('/api/head-to-head/activity'); setActivity(r.data.events || []); } catch {}
@@ -232,7 +232,8 @@ export const FrontpageAltFArena: React.FC = () => {
                             <div style={{ display: 'flex', gap: 12, marginTop: 20, flexWrap: 'wrap' }}>
                                 {[
                                     { label: 'In the lobby', value: summary.waiting, color: SECONDARY, icon: Users },
-                                    { label: 'Battling now', value: summary.inMatch, color: PRIMARY, icon: Swords },
+                                    { label: 'Readying up', value: summary.readying, color: TERTIARY, icon: Clock },
+                                    { label: 'In progress', value: summary.producing, color: PRIMARY, icon: Swords },
                                     { label: 'Being judged', value: summary.voting, color: TERTIARY, icon: Trophy },
                                 ].map(s => {
                                     const Icon = s.icon;
@@ -451,6 +452,10 @@ export const FrontpageAltFArena: React.FC = () => {
                                     )}
                                 </div>
                             )}
+
+                            <a href="/arena/history" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '10px 20px', color: SECONDARY, fontSize: 12.5, fontWeight: 700, textDecoration: 'none' }}>
+                                See All Battles <HistoryIcon size={13} />
+                            </a>
 
                             {/* ── Judge: vote on finished matches ──
                                 Target of /arena#vote, linked from the Discord announcement. */}
