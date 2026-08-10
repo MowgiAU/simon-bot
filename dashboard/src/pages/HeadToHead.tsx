@@ -25,14 +25,17 @@ interface Sample {
     fileUrl: string;
     fileType: string;
     fileSize: number;
+    pluginName: string | null;
     createdAt: string;
 }
 
-const SAMPLE_CATEGORIES = ['kick', 'snare', 'hat', 'percussion', 'fx', 'bass', 'melody', 'chords', 'other'] as const;
+const SAMPLE_CATEGORIES = ['kick', 'snare', 'hat', 'percussion', 'fx', 'bass', 'melody', 'chords', 'midi', 'preset', 'other'] as const;
 const CATEGORY_COLOR: Record<string, string> = {
     kick: '#FF3D7F', snare: '#FFD700', hat: '#00E5FF', percussion: '#F5A04A',
-    fx: '#A855F7', bass: '#5DD4FF', melody: '#FF8A4C', chords: '#E879F9', other: '#7A8190',
+    fx: '#A855F7', bass: '#5DD4FF', melody: '#FF8A4C', chords: '#E879F9',
+    midi: '#4ADE80', preset: '#38BDF8', other: '#7A8190',
 };
+const NON_AUDIO_CATEGORIES = new Set(['midi', 'preset']);
 interface Settings {
     enabled: boolean;
     announceQueueEnabled: boolean;
@@ -173,10 +176,11 @@ const PoolsTab: React.FC = () => {
         await load();
     };
 
-    const uploadSamples = async (poolId: string, files: FileList, category: string) => {
+    const uploadSamples = async (poolId: string, files: FileList, category: string, pluginName?: string) => {
         const fd = new FormData();
         Array.from(files).forEach(f => fd.append('samples', f));
         fd.append('category', category);
+        if (category === 'preset' && pluginName) fd.append('pluginName', pluginName);
         await fetch(`${API}/api/head-to-head/admin/pools/${poolId}/samples`, {
             method: 'POST', credentials: 'include', body: fd,
         });
@@ -188,6 +192,15 @@ const PoolsTab: React.FC = () => {
             method: 'PATCH', credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ category }),
+        });
+        await load();
+    };
+
+    const updateSamplePluginName = async (id: string, pluginName: string) => {
+        await fetch(`${API}/api/head-to-head/admin/samples/${id}`, {
+            method: 'PATCH', credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ pluginName }),
         });
         await load();
     };
@@ -240,8 +253,9 @@ const PoolsTab: React.FC = () => {
                 <PoolCard key={p.id} pool={p}
                     onToggle={() => togglePool(p)}
                     onDelete={() => deletePool(p)}
-                    onUpload={(files, cat) => uploadSamples(p.id, files, cat)}
+                    onUpload={(files, cat, pluginName) => uploadSamples(p.id, files, cat, pluginName)}
                     onChangeCategory={(id, cat) => updateSampleCategory(id, cat)}
+                    onUpdatePluginName={updateSamplePluginName}
                     onDeleteSample={deleteSample} />
             ))}
         </div>
@@ -254,11 +268,13 @@ const PoolCard: React.FC<{
     pool: Pool;
     onToggle: () => void;
     onDelete: () => void;
-    onUpload: (files: FileList, category: string) => void;
+    onUpload: (files: FileList, category: string, pluginName?: string) => void;
     onChangeCategory: (id: string, category: string) => void;
+    onUpdatePluginName: (id: string, pluginName: string) => void;
     onDeleteSample: (id: string) => void;
-}> = ({ pool: p, onToggle, onDelete, onUpload, onChangeCategory, onDeleteSample }) => {
+}> = ({ pool: p, onToggle, onDelete, onUpload, onChangeCategory, onUpdatePluginName, onDeleteSample }) => {
     const [uploadCategory, setUploadCategory] = useState<string>('kick');
+    const [uploadPluginName, setUploadPluginName] = useState('');
 
     // Group samples by category for a cleaner overview
     const grouped: Record<string, Sample[]> = {};
@@ -283,10 +299,14 @@ const PoolCard: React.FC<{
                         style={{ background: colors.background, color: colors.textPrimary, border: `1px solid ${colors.border}`, borderRadius: 6, padding: '6px 8px', fontSize: 13, cursor: 'pointer' }}>
                         {SAMPLE_CATEGORIES.map(c => <option key={c} value={c}>{c.toUpperCase()}</option>)}
                     </select>
+                    {uploadCategory === 'preset' && (
+                        <input placeholder="Plugin (e.g. Serum)" value={uploadPluginName} onChange={e => setUploadPluginName(e.target.value)}
+                            style={{ background: colors.background, color: colors.textPrimary, border: `1px solid ${colors.border}`, borderRadius: 6, padding: '6px 8px', fontSize: 13, width: 140 }} />
+                    )}
                     <label style={{ background: colors.background, color: colors.textPrimary, padding: '6px 10px', borderRadius: 6, cursor: 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', gap: 4, border: `1px solid ${colors.border}` }}>
                         <Upload size={14} /> Upload
-                        <input type="file" multiple accept="audio/*" style={{ display: 'none' }}
-                            onChange={e => e.target.files && onUpload(e.target.files, uploadCategory)} />
+                        <input type="file" multiple accept={NON_AUDIO_CATEGORIES.has(uploadCategory) ? undefined : 'audio/*'} style={{ display: 'none' }}
+                            onChange={e => e.target.files && onUpload(e.target.files, uploadCategory, uploadPluginName)} />
                     </label>
                     <button onClick={onToggle} style={{ background: 'transparent', border: `1px solid ${colors.border}`, color: colors.textSecondary, padding: '6px 10px', borderRadius: 6, cursor: 'pointer', fontSize: 13 }}>
                         {p.isActive ? 'Disable' : 'Enable'}
@@ -318,6 +338,12 @@ const PoolCard: React.FC<{
                                             border: `1px solid ${color}33`,
                                         }}>
                                             <span title={s.name} style={{ maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.name}</span>
+                                            {cat === 'preset' && (
+                                                <input defaultValue={s.pluginName || ''} placeholder="plugin"
+                                                    title="Which plugin this preset is for"
+                                                    onBlur={e => { if (e.target.value !== (s.pluginName || '')) onUpdatePluginName(s.id, e.target.value); }}
+                                                    style={{ width: 70, background: 'transparent', color: colors.textSecondary, border: `1px solid ${colors.border}`, borderRadius: 3, padding: '0 4px', fontSize: 10 }} />
+                                            )}
                                             <select value={cat} onChange={e => onChangeCategory(s.id, e.target.value)}
                                                 title="Change category"
                                                 style={{ background: 'transparent', color: colors.textSecondary, border: `1px solid ${colors.border}`, borderRadius: 3, padding: '0 4px', fontSize: 10, cursor: 'pointer' }}>

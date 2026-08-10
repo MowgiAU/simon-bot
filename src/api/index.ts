@@ -17154,11 +17154,14 @@ async function pickRandomSamples(_genreId: string | null, _count: number): Promi
 }
 void pickRandomSamples;
 
-// Mandatory categories every match always gets one of (if available).
+// Mandatory categories every match always gets (if available).
 const H2H_MANDATORY_CATEGORIES = ['kick', 'snare', 'hat', 'percussion', 'fx'] as const;
-// Optional categories � included only when the match's include* flag is true.
+// Optional categories, included only when the match's include* flag is true.
 const H2H_OPTIONAL_CATEGORIES = ['bass', 'melody', 'chords'] as const;
-const H2H_ALL_CATEGORIES = [...H2H_MANDATORY_CATEGORIES, ...H2H_OPTIONAL_CATEGORIES] as const;
+// Bonus content, not audio samples, always included alongside the mandatory
+// categories when available, never vote-gated.
+const H2H_BONUS_CATEGORIES = ['midi', 'preset'] as const;
+const H2H_ALL_CATEGORIES = [...H2H_MANDATORY_CATEGORIES, ...H2H_OPTIONAL_CATEGORIES, ...H2H_BONUS_CATEGORIES] as const;
 
 async function pickCategorizedSamples(
     genreId: string | null,
@@ -17166,6 +17169,7 @@ async function pickCategorizedSamples(
 ): Promise<string[]> {
     const categories = [
         ...H2H_MANDATORY_CATEGORIES,
+        ...H2H_BONUS_CATEGORIES,
         ...(opts.includeBass ? ['bass'] : []),
         ...(opts.includeMelody ? ['melody'] : []),
         ...(opts.includeChords ? ['chords'] : []),
@@ -17187,9 +17191,9 @@ async function pickCategorizedSamples(
                 select: { id: true },
             });
         }
-        if (!candidates.length) continue; // category has no samples anywhere � skip silently
-        const chosen = candidates[Math.floor(Math.random() * candidates.length)];
-        picked.push(chosen.id);
+        if (!candidates.length) continue; // category has no samples anywhere, skip silently
+        // Every matching sample in the category goes to the player, not just one random pick.
+        picked.push(...candidates.map(c => c.id));
     }
     return picked;
 }
@@ -18270,6 +18274,8 @@ app.post('/api/head-to-head/admin/pools/:id/samples', requireAdmin, h2hUpload.ar
             // Single value form encoding edge case
             perFile = [normalizeCat(req.body.categories)];
         }
+        // Only relevant for the preset category, applied to every file in this batch.
+        const pluginName = req.body?.pluginName ? String(req.body.pluginName).slice(0, 100) : null;
 
         const created: any[] = [];
         for (let i = 0; i < files.length; i++) {
@@ -18296,6 +18302,7 @@ app.post('/api/head-to-head/admin/pools/:id/samples', requireAdmin, h2hUpload.ar
                     fileType: (f.mimetype || 'audio/wav').split('/')[1] || 'wav',
                     fileSize: f.size || f.buffer.length,
                     uploadedBy: req.session?.user?.id || null,
+                    pluginName: category === 'preset' ? pluginName : null,
                 },
             });
             created.push(sample);
@@ -18318,6 +18325,7 @@ app.patch('/api/head-to-head/admin/samples/:id', requireAdmin, async (req, res) 
             data.category = c;
         }
         if (req.body?.name !== undefined) data.name = String(req.body.name).slice(0, 255);
+        if (req.body?.pluginName !== undefined) data.pluginName = req.body.pluginName ? String(req.body.pluginName).slice(0, 100) : null;
         const sample = await db.h2HSample.update({ where: { id: req.params.id }, data });
         res.json(sample);
     } catch (e: any) {

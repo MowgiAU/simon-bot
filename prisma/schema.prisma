@@ -3547,11 +3547,13 @@ model H2HSample {
   poolId     String
   pool       H2HSamplePool @relation(fields: [poolId], references: [id], onDelete: Cascade)
   name       String
-  category   String        @default("other") // kick | snare | hat | percussion | fx | bass | melody | chords | other
+  category   String        @default("other") // kick | snare | hat | percussion | fx | bass | melody | chords | midi | preset | other
   fileUrl    String        @db.Text
   fileType   String
   fileSize   Int           @default(0)
   uploadedBy String?
+  // Only meaningful when category === "preset" — which plugin the preset loads into (e.g. "Serum", "Vital").
+  pluginName String?
   createdAt  DateTime      @default(now())
 
   @@index([poolId])

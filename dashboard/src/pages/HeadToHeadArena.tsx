@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import JSZip from 'jszip';
-import { Swords, Trophy, Clock, CheckCircle, Upload, Loader, Award, Vote, Zap, Flame, Crown, Medal, Target, TrendingUp, Skull, Headphones, Radio, Play, Pause, Download, Package, BookOpen, Users, Sparkles } from 'lucide-react';
+import { Swords, Trophy, Clock, CheckCircle, Upload, Loader, Award, Vote, Zap, Flame, Crown, Medal, Target, TrendingUp, Skull, Headphones, Radio, Play, Pause, Download, Package, BookOpen, Users, Sparkles, FileMusic, Sliders } from 'lucide-react';
 import { colors } from '../theme/theme';
 import { DiscoveryLayout } from '../layouts/DiscoveryLayout';
 
@@ -16,7 +16,7 @@ interface Settings {
     minVotesToFinalize: number;
 }
 interface Profile { userId: string; username: string | null; displayName: string | null; avatar: string | null; anonymous?: boolean }
-interface Sample { id: string; name: string; fileUrl: string; fileType: string; category?: string }
+interface Sample { id: string; name: string; fileUrl: string; fileType: string; category?: string; pluginName?: string | null }
 export interface MatchInfo {
     id: string;
     status: string;
@@ -118,8 +118,12 @@ const CATEGORY_COLORS: Record<string, string> = {
     bass:       '#5DD4FF', // diamond blue - low end
     melody:     '#FF8A4C', // orange - lead
     chords:     '#E879F9', // magenta - harmony
+    midi:       '#4ADE80', // green - MIDI data
+    preset:     '#38BDF8', // sky blue - plugin preset
     other:      '#7A8190',
 };
+// Non-audio content, downloaded rather than played back.
+const H2H_NON_AUDIO_CATEGORIES = new Set(['midi', 'preset']);
 
 function timeLeft(iso: string | null): { txt: string; urgent: boolean; expired: boolean } {
     if (!iso) return { txt: '-', urgent: false, expired: false };
@@ -538,7 +542,7 @@ const ArenaTab: React.FC<{ settings: Settings | null }> = ({ settings }) => {
                             <Zap size={14} color={NEON.cyan} /> SAMPLE PACK
                         </div>
                         <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', marginBottom: 10 }}>
-                            You'll always get one <b style={{ color: '#fff' }}>kick</b>, <b style={{ color: '#fff' }}>snare</b>, <b style={{ color: '#fff' }}>hat</b>, <b style={{ color: '#fff' }}>percussion</b> &amp; <b style={{ color: '#fff' }}>fx</b> sample. Once the match starts, you and your opponent will <b style={{ color: '#fff' }}>both vote</b> on which melodics (bass / melody / chords) to include - you only get the ones you both agree on.
+                            You'll always get every <b style={{ color: '#fff' }}>kick</b>, <b style={{ color: '#fff' }}>snare</b>, <b style={{ color: '#fff' }}>hat</b>, <b style={{ color: '#fff' }}>percussion</b> &amp; <b style={{ color: '#fff' }}>fx</b> sample in the pool, plus any <b style={{ color: '#fff' }}>MIDI</b> and <b style={{ color: '#fff' }}>presets</b>. Once the match starts, you and your opponent will <b style={{ color: '#fff' }}>both vote</b> on which melodics (bass / melody / chords) to include - you only get the ones you both agree on.
                         </div>
                     </div>
 
@@ -1204,6 +1208,7 @@ const SamplePack: React.FC<{ samples: Sample[]; matchId: string }> = ({ samples,
             }
         };
         for (const s of samples) {
+            if (H2H_NON_AUDIO_CATEGORIES.has((s.category || '').toLowerCase())) continue;
             if (peaksMap[s.id] === undefined) decode(s);
         }
         return () => { cancelled = true; };
@@ -1303,6 +1308,7 @@ Use these in your DAW. Build something fierce.`);
                 {samples.map(s => {
                     const cat = (s.category || 'other').toLowerCase();
                     const catColor = CATEGORY_COLORS[cat] || NEON.purple;
+                    const isNonAudio = H2H_NON_AUDIO_CATEGORIES.has(cat);
                     const isPlaying = playingId === s.id;
                     const cur = isPlaying && progress?.id === s.id ? progress.cur : 0;
                     const dur = isPlaying && progress?.id === s.id ? progress.dur : 0;
@@ -1317,28 +1323,41 @@ Use these in your DAW. Build something fierce.`);
                             transition: 'all 0.2s',
                             boxShadow: isPlaying ? `0 0 14px ${catColor}55` : 'none',
                         }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                                <button onClick={() => play(s)}
-                                    style={{
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: isNonAudio ? 0 : 8 }}>
+                                {isNonAudio ? (
+                                    <div style={{
                                         width: 36, height: 36, borderRadius: '50%',
-                                        background: isPlaying
-                                            ? `linear-gradient(135deg, ${catColor}, ${catColor}cc)`
-                                            : 'rgba(255,255,255,0.06)',
-                                        border: `1px solid ${isPlaying ? catColor : 'rgba(255,255,255,0.15)'}`,
-                                        color: '#fff', cursor: 'pointer',
+                                        background: `${catColor}18`,
+                                        border: `1px solid ${catColor}55`,
+                                        color: catColor,
                                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                        boxShadow: isPlaying ? `0 0 10px ${catColor}` : 'none',
                                         flexShrink: 0,
-                                    }}
-                                    title={isPlaying ? 'Pause' : 'Play'}>
-                                    {isPlaying ? <Pause size={14} /> : <Play size={14} style={{ marginLeft: 2 }} />}
-                                </button>
+                                    }}>
+                                        {cat === 'midi' ? <FileMusic size={15} /> : <Sliders size={15} />}
+                                    </div>
+                                ) : (
+                                    <button onClick={() => play(s)}
+                                        style={{
+                                            width: 36, height: 36, borderRadius: '50%',
+                                            background: isPlaying
+                                                ? `linear-gradient(135deg, ${catColor}, ${catColor}cc)`
+                                                : 'rgba(255,255,255,0.06)',
+                                            border: `1px solid ${isPlaying ? catColor : 'rgba(255,255,255,0.15)'}`,
+                                            color: '#fff', cursor: 'pointer',
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            boxShadow: isPlaying ? `0 0 10px ${catColor}` : 'none',
+                                            flexShrink: 0,
+                                        }}
+                                        title={isPlaying ? 'Pause' : 'Play'}>
+                                        {isPlaying ? <Pause size={14} /> : <Play size={14} style={{ marginLeft: 2 }} />}
+                                    </button>
+                                )}
                                 <div style={{ flex: 1, minWidth: 0 }}>
                                     <div style={{
                                         fontSize: 9, fontWeight: 800, letterSpacing: '0.12em',
                                         color: catColor, marginBottom: 2,
                                     }}>
-                                        {cat.toUpperCase()}
+                                        {cat.toUpperCase()}{cat === 'preset' && s.pluginName ? ` · ${s.pluginName}` : ''}
                                     </div>
                                     <div style={{
                                         fontSize: 12, fontWeight: 600, color: '#fff',
@@ -1358,6 +1377,8 @@ Use these in your DAW. Build something fierce.`);
                                     <Download size={13} />
                                 </button>
                             </div>
+                            {isNonAudio ? null : (
+                            <>
                             <div
                                 onClick={(e) => {
                                     const rect = e.currentTarget.getBoundingClientRect();
@@ -1425,6 +1446,8 @@ Use these in your DAW. Build something fierce.`);
                                 <span>{fmt(cur)}</span>
                                 <span>{fmt(dur)}</span>
                             </div>
+                            </>
+                            )}
                         </div>
                     );
                 })}
