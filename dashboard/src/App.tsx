@@ -43,7 +43,6 @@ const DatabaseManagementPage = lazy(() => import("./pages/DatabaseManagementPage
 const StagingTest            = lazy(() => import("./pages/StagingTest").then(m => ({ default: m.StagingTest })));
 const PluginManagementPage   = lazy(() => import("./pages/PluginManagement").then(m => ({ default: m.PluginManagementPage })));
 const PluginRegistryPage     = lazy(() => import("./pages/PluginRegistry").then(m => ({ default: m.PluginRegistry })));
-const ArtistDiscoveryPage    = lazy(() => import("./pages/ArtistDiscovery").then(m => ({ default: m.ArtistDiscoveryPage })));
 const GenresPage             = lazy(() => import("./pages/GenresPage").then(m => ({ default: m.GenresPage })));
 const AntiPiracySettingsPage = lazy(() => import("./pages/AntiPiracySettings").then(m => ({ default: m.AntiPiracySettings })));
 const LevelingSettingsPage   = lazy(() => import("./pages/LevelingSettings").then(m => ({ default: m.LevelingSettings })));
@@ -110,6 +109,7 @@ const HeadToHeadArchive        = lazy(() => import("./pages/HeadToHeadArchive").
 const BankPage                 = lazy(() => import("./pages/BankPage").then(m => ({ default: m.BankPage })));
 const MarketPage               = lazy(() => import("./pages/MarketPage").then(m => ({ default: m.MarketPage })));
 const FrontpageAltFContact     = lazy(() => import("./pages/FrontpageAltFContact"));
+const NotFoundPage             = lazy(() => import("./pages/NotFoundPage").then(m => ({ default: m.NotFoundPage })));
 const FrontpageAltFUpload       = lazy(() => import("./pages/FrontpageAltFUpload"));
 const FrontpageAltFLearn       = lazy(() => import("./pages/FrontpageAltFLearn").then(m => ({ default: m.FrontpageAltFLearn })));
 const FrontpageAltFCollabs     = lazy(() => import("./pages/FrontpageAltFCollabs"));
@@ -1212,7 +1212,14 @@ const AppInternal: React.FC = () => {
     return <Suspense fallback={<PageSpinner />}><SupportPage /></Suspense>;
   }
 
-  return <Suspense fallback={<PageSpinner />}><ArtistDiscoveryPage /></Suspense>;
+  // /contact → Public contact form
+  if (currentPath === '/contact') {
+    return <Suspense fallback={<PageSpinner />}><FrontpageAltFContact /></Suspense>;
+  }
+
+  // Any unmatched path lands on a proper 404 instead of silently falling back
+  // to the old ArtistDiscovery design.
+  return <Suspense fallback={<PageSpinner />}><NotFoundPage /></Suspense>;
 };
 
 /**
