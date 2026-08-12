@@ -10570,11 +10570,50 @@ app.get('/api/musician/profile/:userId', async (req, res) => {
         // Single query via ProfileService (handles both userId and case-insensitive username)
         const profile = await profileService.getProfile(userId);
 
-        if (!profile) return res.status(404).json({ error: 'Profile not found' });
+        if (!profile) {
+            // Not found by the normal lookup could mean the profile is soft-deleted. If that
+            // happened because the owner was banned, say so plainly rather than pretending the
+            // artist never existed — people follow links to banned accounts and deserve an
+            // explanation. A member who deleted their OWN account still gets a plain 404: that
+            // is their business, not a public notice.
+            const hidden = await db.musicianProfile.findFirst({
+                where: {
+                    OR: [
+                        { userId: { equals: userId, mode: 'insensitive' } },
+                        { username: { equals: userId, mode: 'insensitive' } },
+                    ],
+                    deletedAt: { not: null },
+                },
+                select: { username: true, displayName: true, userId: true },
+            });
+            if (hidden) {
+                const owner = await db.user.findFirst({
+                    where: {
+                        OR: [{ id: hidden.userId }, { discordId: hidden.userId }],
+                        AND: [{ OR: [{ deletedAt: null }, { deletedAt: { not: null } }] }],
+                    },
+                    select: { banned: true },
+                });
+                if (owner?.banned) {
+                    return res.status(403).json({
+                        error: 'This account has been suspended',
+                        code: 'PROFILE_SUSPENDED',
+                        username: hidden.username,
+                        displayName: hidden.displayName,
+                    });
+                }
+            }
+            return res.status(404).json({ error: 'Profile not found' });
+        }
 
         const profileData = profile as any;
         if (profileData.status && profileData.status !== 'active') {
-            return res.status(404).json({ error: 'Profile not found' });
+            return res.status(403).json({
+                error: 'This account has been suspended',
+                code: 'PROFILE_SUSPENDED',
+                username: profileData.username,
+                displayName: profileData.displayName,
+            });
         }
 
         // Determine true owner after profile fetch — handles username-based lookups where

@@ -20,7 +20,7 @@ import { AltSpinner } from '../components/altshell/AltSpinner';
 import {
     Swords, MapPin, Mail,
     UserPlus, UserCheck, MessageCircle, Play, MoreVertical, Globe, Music, Youtube, Instagram, Headphones, Repeat2, Trophy, Edit3,
-    Info, Users, Wrench,
+    Info, Users, Wrench, ShieldOff, UserX,
 } from 'lucide-react';
 
 // Resolve the target artist from the URL. Live route is /profile/:username; the
@@ -49,6 +49,9 @@ export const FrontpageAltFArtist: React.FC = () => {
     const isMobile = bp === 'xs';
 
     const [p, setP] = useState<any>(null);
+    // null = still loading, 'suspended' = moderated, 'missing' = no such artist. Without this
+    // a failed lookup left the page spinning forever on an empty shell.
+    const [loadError, setLoadError] = useState<'suspended' | 'missing' | null>(null);
     const [friends, setFriends] = useState<any[]>([]);
     const [featuredFriendIds, setFeaturedFriendIds] = useState<string[]>([]);
     const [battles, setBattles] = useState<any[]>([]);
@@ -70,7 +73,10 @@ export const FrontpageAltFArtist: React.FC = () => {
             axios.get(`/api/artists/${id}/follower-count`).then(res => { if (on) setFollowerCount(res.data?.count ?? 0); }).catch(() => {});
             axios.get(`/api/artists/${id}/follow`, { withCredentials: true }).then(res => { if (on) setIsFollowing(res.data?.following ?? false); }).catch(() => {});
             axios.get(`/api/artists/${id}/following-count`).then(res => { if (on) setFollowingCount(res.data?.count ?? 0); }).catch(() => {});
-        }).catch(() => {});
+        }).catch(err => {
+            if (!on) return;
+            setLoadError(err?.response?.data?.code === 'PROFILE_SUSPENDED' ? 'suspended' : 'missing');
+        });
         return () => { on = false; };
     }, []);
 
@@ -200,6 +206,45 @@ export const FrontpageAltFArtist: React.FC = () => {
         ...(friendsCard ? [{ key: 'friends', label: 'Top Friends', icon: <Users size={20} />, content: friendsCard }] : []),
         ...(gearCard ? [{ key: 'gear', label: 'Studio Gear', icon: <Wrench size={20} />, content: gearCard }] : []),
     ];
+
+    if (loadError) {
+        const suspended = loadError === 'suspended';
+        return (
+            <div style={{ height: '100vh', display: 'flex', overflow: 'hidden', background: BG, color: TEXT, fontFamily: FONT }}>
+                <AltSidebar active="Artists" />
+                <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', height: '100%' }}>
+                    <AltHeader breadcrumb={[{ label: 'Artists', to: '/artists' }, { label: suspended ? 'Suspended' : 'Not found' }]} />
+                    <div style={{ flex: 1, overflowY: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+                        <div style={{ ...glass, borderRadius: 18, padding: '36px 32px', maxWidth: 440, textAlign: 'center' }}>
+                            <div style={{
+                                width: 60, height: 60, borderRadius: '50%', margin: '0 auto 18px',
+                                background: suspended ? 'rgba(248,113,113,0.12)' : 'rgba(255,255,255,0.05)',
+                                border: `1px solid ${suspended ? 'rgba(248,113,113,0.35)' : BORDER}`,
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            }}>
+                                {suspended ? <ShieldOff size={26} color="#F87171" /> : <UserX size={26} color={SUB} />}
+                            </div>
+                            <h1 style={{ margin: '0 0 10px', fontSize: 22, fontWeight: 800, color: '#fff' }}>
+                                {suspended ? 'Account suspended' : 'Artist not found'}
+                            </h1>
+                            <p style={{ margin: '0 0 22px', fontSize: 14, color: SUB, lineHeight: 1.6 }}>
+                                {suspended
+                                    ? <>This account has been suspended indefinitely for breaking the Fuji Studio community guidelines. Its profile and uploads are no longer available.</>
+                                    : <>We couldn't find an artist at this address. The link may be outdated, or the account may no longer exist.</>}
+                            </p>
+                            <button onClick={() => navigate('/artists')} style={{
+                                display: 'inline-flex', alignItems: 'center', gap: 8, background: PRIMARY, color: '#0a0d18',
+                                border: 'none', padding: '10px 20px', borderRadius: 10, fontWeight: 800, fontSize: 13,
+                                cursor: 'pointer', fontFamily: FONT,
+                            }}>
+                                Browse artists
+                            </button>
+                        </div>
+                    </div>
+                </main>
+            </div>
+        );
+    }
 
     return (
         <div style={{ height: '100vh', display: 'flex', overflow: 'hidden', background: pageBg, color: TEXT, fontFamily: FONT }}>
