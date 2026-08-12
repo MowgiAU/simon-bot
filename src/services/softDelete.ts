@@ -32,7 +32,12 @@ import type { Prisma } from '@prisma/client';
 const hardDeleteCtx = new AsyncLocalStorage<boolean>();
 
 export function withHardDelete<T>(fn: () => Promise<T>): Promise<T> {
-    return hardDeleteCtx.run(true, fn);
+    // The `async` wrapper matters. Prisma operations are lazy — `db.x.delete()` builds a
+    // promise that only runs the middleware once it is awaited. Passing `fn` straight to
+    // `run()` returns that promise unawaited, so it executes after the context has exited,
+    // `getStore()` is undefined, and the "hard" delete quietly becomes a soft delete again.
+    // Awaiting inside the callback keeps execution within the context for both call styles.
+    return hardDeleteCtx.run(true, async () => await fn());
 }
 
 /** Models that have a `deletedAt` column. Must match schema additions. */
