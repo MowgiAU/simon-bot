@@ -15726,8 +15726,11 @@ app.post('/api/admin/users/ban', requireAdmin, async (req: any, res) => {
             return res.status(400).json({ error: 'userIds array required' });
         }
 
+        // Match regardless of soft-delete state. The middleware otherwise injects
+        // `deletedAt: null` into updateMany, so banning someone who had already deleted their
+        // own account would silently update zero rows and report success.
         await (db as any).user.updateMany({
-            where: { id: { in: userIds } },
+            where: { id: { in: userIds }, OR: [{ deletedAt: null }, { deletedAt: { not: null } }] },
             data: { banned: true, bannedAt: new Date(), bannedFor: reason || 'vote_fraud' },
         });
 
@@ -15766,8 +15769,11 @@ app.post('/api/admin/users/unban', requireAdmin, async (req: any, res) => {
             return res.status(400).json({ error: 'userIds array required' });
         }
 
+        // Same soft-delete caveat as the ban route, and it bites harder here: at this point the
+        // account IS soft-deleted (the ban put it there), so without the explicit filter this
+        // update matches nothing and the member stays banned while their content comes back.
         await (db as any).user.updateMany({
-            where: { id: { in: userIds } },
+            where: { id: { in: userIds }, OR: [{ deletedAt: null }, { deletedAt: { not: null } }] },
             data: { banned: false, bannedAt: null, bannedFor: null },
         });
 
