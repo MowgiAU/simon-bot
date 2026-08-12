@@ -4069,3 +4069,30 @@ model ContactMessage {
   @@index([createdAt(sort: Desc)])
   @@map("contact_messages")
 }
+
+// ──────────────────────────────────────────────
+// Account deletion (self-service soft delete + admin purge review)
+// ──────────────────────────────────────────────
+
+model AccountDeletionRequest {
+  id           String    @id @default(cuid())
+  userId       String // User.id
+  // Every identity this member's content is filed under (User.id + discordId), captured at
+  // request time. MusicianProfile.userId holds EITHER, so both are needed to find content.
+  identityIds  String[]  @default([])
+  requestedAt  DateTime  @default(now())
+  requestedBy  String // "self" or the admin's user id
+  reason       String?   @db.Text
+  purgeAfter   DateTime // requestedAt + grace period
+  status       String    @default("pending") // pending | restored | purged
+  purgedGroups String[]  @default([]) // groups already permanently destroyed
+  snapshot     Json? // component counts captured at request time
+  reviewedAt   DateTime?
+  reviewedBy   String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([status])
+  @@index([userId])
+  @@map("account_deletion_requests")
+}

@@ -103,6 +103,14 @@ export const AccountSettingsPage: React.FC = () => {
         return () => { clearTimeout(_rt); window.removeEventListener('resize', handleResize); };
     }, []);
 
+    // Account deletion state
+    const [deleteOpen, setDeleteOpen] = useState(false);
+    const [deletePassword, setDeletePassword] = useState('');
+    const [deleteConfirmName, setDeleteConfirmName] = useState('');
+    const [deleteReason, setDeleteReason] = useState('');
+    const [deleteLoading, setDeleteLoading] = useState(false);
+    const [deleteError, setDeleteError] = useState('');
+
     // Password state
     const [currentPassword, setCurrentPassword] = useState('');
     const [newPassword, setNewPassword] = useState('');
@@ -277,6 +285,24 @@ export const AccountSettingsPage: React.FC = () => {
             refreshAccountStatus();
         } catch { setUsernameError('Request failed'); }
         finally { setUsernameLoading(false); }
+    };
+
+    const handleDeleteAccount = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setDeleteError('');
+        setDeleteLoading(true);
+        try {
+            const res = await fetch('/api/account/delete', {
+                method: 'POST', credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ password: deletePassword, reason: deleteReason }),
+            });
+            const data = await res.json();
+            if (!res.ok) { setDeleteError(data.error || 'Failed to delete account'); return; }
+            // The session is already dead server-side; bounce to the homepage signed out.
+            window.location.href = '/';
+        } catch { setDeleteError('Request failed'); }
+        finally { setDeleteLoading(false); }
     };
 
     const handleChangeEmail = async (e: React.FormEvent) => {
@@ -728,6 +754,67 @@ export const AccountSettingsPage: React.FC = () => {
                                     No email on file. If you signed in via Discord, make sure your Discord account has a verified email and{' '}
                                     <strong style={{ color: colors.textPrimary }}>log out and back in</strong> to pull it through.
                                 </div>
+                            )}
+                        </div>
+
+                        {/* ── Danger Zone: delete account ── */}
+                        <div style={{ ...card, border: `1px solid ${colors.error}44` }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
+                                <div style={{ width: '36px', height: '36px', borderRadius: borderRadius.md, background: `${colors.error}1e`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <AlertTriangle size={17} color={colors.error} />
+                                </div>
+                                <div>
+                                    <h2 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: colors.textPrimary }}>Delete Account</h2>
+                                    <p style={{ margin: 0, fontSize: '12px', color: colors.textTertiary }}>Remove your profile, tracks and account</p>
+                                </div>
+                            </div>
+
+                            <div style={{ padding: '14px 16px', background: `${colors.error}0e`, border: `1px solid ${colors.error}33`, borderRadius: borderRadius.md, marginBottom: '20px', fontSize: '13px', color: colors.textSecondary, lineHeight: 1.65 }}>
+                                Deleting your account immediately hides your <strong style={{ color: colors.textPrimary }}>profile, tracks, playlists, comments and battle entries</strong> from Fuji Studio, and signs you out everywhere.
+                                <br /><br />
+                                <strong style={{ color: colors.textPrimary }}>You cannot undo this yourself.</strong> Your data is held for 30 days so staff can recover it if you ask, then it is permanently deleted along with your uploaded files. After that it cannot be recovered by anyone.
+                            </div>
+
+                            {!deleteOpen ? (
+                                <button onClick={() => setDeleteOpen(true)}
+                                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', width: '100%', padding: '12px 18px', borderRadius: borderRadius.md, border: `1px solid ${colors.error}`, background: 'transparent', color: colors.error, fontSize: '14px', fontWeight: 700, cursor: 'pointer' }}>
+                                    <AlertTriangle size={15} /> Delete my account
+                                </button>
+                            ) : (
+                                <form onSubmit={handleDeleteAccount} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                                    <div>
+                                        <FieldLabel>Confirm with password</FieldLabel>
+                                        <input type="password" value={deletePassword} onChange={e => setDeletePassword(e.target.value)} required placeholder="Your current password" style={inp} />
+                                    </div>
+                                    <div>
+                                        <FieldLabel>Type your username to confirm</FieldLabel>
+                                        <input type="text" value={deleteConfirmName} onChange={e => setDeleteConfirmName(e.target.value)} required
+                                            placeholder={accountUsername || 'your username'} style={inp} autoComplete="off" />
+                                    </div>
+                                    <div>
+                                        <FieldLabel>Reason (optional)</FieldLabel>
+                                        <textarea value={deleteReason} onChange={e => setDeleteReason(e.target.value)} rows={3}
+                                            placeholder="Anything you'd like us to know before you go"
+                                            style={{ ...inp, resize: 'vertical', fontFamily: 'inherit' }} />
+                                    </div>
+                                    {deleteError && <StatusMsg type="error" text={deleteError} />}
+                                    <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                                        <button type="submit"
+                                            disabled={deleteLoading || !deletePassword || deleteConfirmName !== (accountUsername || '')}
+                                            style={{
+                                                flex: 1, minWidth: 180, padding: '12px 18px', borderRadius: borderRadius.md, border: 'none',
+                                                background: colors.error, color: '#fff', fontSize: '14px', fontWeight: 700,
+                                                opacity: (deleteLoading || !deletePassword || deleteConfirmName !== (accountUsername || '')) ? 0.5 : 1,
+                                                cursor: (deleteLoading || !deletePassword || deleteConfirmName !== (accountUsername || '')) ? 'not-allowed' : 'pointer',
+                                            }}>
+                                            {deleteLoading ? 'Deleting…' : 'Permanently delete my account'}
+                                        </button>
+                                        <button type="button" onClick={() => { setDeleteOpen(false); setDeletePassword(''); setDeleteConfirmName(''); setDeleteReason(''); setDeleteError(''); }}
+                                            style={{ padding: '12px 18px', borderRadius: borderRadius.md, border: `1px solid ${colors.border}`, background: 'transparent', color: colors.textSecondary, fontSize: '14px', fontWeight: 600, cursor: 'pointer' }}>
+                                            Cancel
+                                        </button>
+                                    </div>
+                                </form>
                             )}
                         </div>
                     </div>

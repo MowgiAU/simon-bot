@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
-import { Wrench, HardDrive, GitMerge, Settings, Database, FileText, CheckCircle, Loader2, UserPlus, ShieldOff, Search, UserX, UserCheck } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Wrench, HardDrive, GitMerge, Settings, Database, FileText, CheckCircle, Loader2, UserPlus, ShieldOff, Search, UserX, UserCheck, Trash2, AlertTriangle, RotateCcw } from 'lucide-react';
 import { colors, spacing, borderRadius } from '../theme/theme';
 import axios from 'axios';
 import { OrphanedUploads } from './OrphanedUploads';
 import { DuplicateProfilesPage } from './DuplicateProfiles';
 
-type AdminTab = 'orphaned' | 'duplicates' | 'maintenance' | 'backfill' | 'sync-authors' | 'appeal-block';
+type AdminTab = 'orphaned' | 'duplicates' | 'maintenance' | 'backfill' | 'sync-authors' | 'appeal-block' | 'deletions';
 
 const TABS: { key: AdminTab; label: string; icon: React.ReactNode }[] = [
     { key: 'orphaned',     label: 'Orphaned Uploads',   icon: <HardDrive size={15} /> },
@@ -14,6 +14,7 @@ const TABS: { key: AdminTab; label: string; icon: React.ReactNode }[] = [
     { key: 'backfill',     label: 'Backfill Follows',   icon: <Database size={15} /> },
     { key: 'sync-authors', label: 'Sync Article Authors', icon: <FileText size={15} /> },
     { key: 'appeal-block', label: 'Ban Appeals',        icon: <ShieldOff size={15} /> },
+    { key: 'deletions',    label: 'Account Deletions',  icon: <Trash2 size={15} /> },
 ];
 
 interface UserLookupResult {
@@ -298,6 +299,206 @@ const SyncAuthorsTab: React.FC = () => {
     );
 };
 
+// ─── Account deletions review ──────────────────────────────────────────────
+
+interface DeletionRequest {
+    id: string;
+    userId: string;
+    identityIds: string[];
+    requestedAt: string;
+    requestedBy: string;
+    reason: string | null;
+    purgeAfter: string;
+    status: 'pending' | 'restored' | 'purged';
+    purgedGroups: string[];
+    snapshot: Record<string, number> | null;
+    reviewedAt: string | null;
+    reviewedBy: string | null;
+    user: { id: string; username: string; email: string | null; discordId: string | null } | null;
+    overdue: boolean;
+}
+
+const STATUS_COLOR: Record<string, string> = {
+    pending: colors.warning,
+    restored: colors.success,
+    purged: colors.error,
+};
+
+const DeletionsTab: React.FC = () => {
+    const [requests, setRequests] = useState<DeletionRequest[]>([]);
+    const [groups, setGroups] = useState<string[]>([]);
+    const [labels, setLabels] = useState<Record<string, string>>({});
+    const [graceDays, setGraceDays] = useState(30);
+    const [selectedId, setSelectedId] = useState<string | null>(null);
+    const [detail, setDetail] = useState<any>(null);
+    const [loading, setLoading] = useState(true);
+    const [busy, setBusy] = useState('');
+    const [error, setError] = useState('');
+
+    const load = useCallback(async () => {
+        setLoading(true);
+        try {
+            const r = await axios.get('/api/admin/deletions', { withCredentials: true });
+            setRequests(r.data.requests || []);
+            setGroups(r.data.groups || []);
+            setLabels(r.data.labels || {});
+            setGraceDays(r.data.graceDays ?? 30);
+        } catch { setError('Failed to load deletion requests'); }
+        finally { setLoading(false); }
+    }, []);
+
+    const loadDetail = useCallback(async (id: string) => {
+        try {
+            const r = await axios.get(`/api/admin/deletions/${id}`, { withCredentials: true });
+            setDetail(r.data);
+        } catch { setDetail(null); }
+    }, []);
+
+    useEffect(() => { load(); }, [load]);
+    useEffect(() => { if (selectedId) loadDetail(selectedId); else setDetail(null); }, [selectedId, loadDetail]);
+
+    const act = async (action: 'restore' | 'purge', group?: string) => {
+        if (!selectedId || !detail) return;
+        const name = detail.user?.username || 'this account';
+        if (action === 'purge') {
+            const what = group === 'all' ? 'EVERYTHING for' : `"${labels[group!] || group}" from`;
+            const typed = window.prompt(`Permanently delete ${what} ${name}. This cannot be undone.\n\nType the username to confirm:`);
+            if (typed !== detail.user?.username) { if (typed !== null) setError('Username did not match — nothing was deleted.'); return; }
+        } else if (!window.confirm(`Restore ${name} and everything not already purged?`)) return;
+
+        setBusy(group || action); setError('');
+        try {
+            await axios.post(`/api/admin/deletions/${selectedId}/${action}`,
+                action === 'purge' ? { group } : {}, { withCredentials: true });
+            await Promise.all([load(), loadDetail(selectedId)]);
+        } catch (e: any) {
+            setError(e?.response?.data?.error || `Failed to ${action}`);
+        } finally { setBusy(''); }
+    };
+
+    if (loading) return <div style={{ padding: 40, textAlign: 'center', color: colors.textSecondary }}><Loader2 size={20} style={{ animation: 'spin 1s linear infinite' }} /></div>;
+
+    const purged: string[] = detail?.request?.purgedGroups || [];
+    const counts: Record<string, number> = detail?.counts || {};
+    const isPurged = detail?.request?.status === 'purged';
+    const isRestored = detail?.request?.status === 'restored';
+
+    return (
+        <div>
+            <div style={{ backgroundColor: colors.surface, padding: spacing.md, borderRadius: borderRadius.md, marginBottom: spacing.lg, borderLeft: `4px solid ${colors.primary}` }}>
+                <p style={{ margin: 0, color: colors.textPrimary, fontSize: 13, lineHeight: 1.6 }}>
+                    Members who delete their account have everything soft-deleted and hidden from the site immediately, but nothing is destroyed until you act here.
+                    Each component group is purged independently, in order, because tracks and battle entries cascade from the profile — purging out of order would
+                    destroy them without cleaning up their audio files. Anything still pending after <strong>{graceDays} days</strong> is purged automatically.
+                </p>
+            </div>
+
+            {error && (
+                <div style={{ padding: '10px 14px', borderRadius: borderRadius.md, background: `${colors.error}18`, border: `1px solid ${colors.error}55`, color: colors.error, fontSize: 13, marginBottom: spacing.md }}>{error}</div>
+            )}
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(240px, 320px) 1fr', gap: spacing.md, alignItems: 'start' }}>
+                {/* Queue */}
+                <div style={{ background: colors.surface, borderRadius: borderRadius.md, overflow: 'hidden' }}>
+                    <div style={{ padding: '10px 14px', borderBottom: '1px solid rgba(255,255,255,0.06)', fontSize: 12, fontWeight: 700, color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                        Requests ({requests.length})
+                    </div>
+                    {requests.length === 0 ? (
+                        <p style={{ padding: '24px 14px', margin: 0, color: colors.textSecondary, fontSize: 13, textAlign: 'center' }}>No deletion requests.</p>
+                    ) : requests.map(r => (
+                        <button key={r.id} onClick={() => setSelectedId(r.id)}
+                            style={{
+                                display: 'block', width: '100%', textAlign: 'left', padding: '10px 14px', cursor: 'pointer',
+                                background: selectedId === r.id ? `${colors.primary}1e` : 'transparent',
+                                border: 'none', borderBottom: '1px solid rgba(255,255,255,0.04)',
+                                borderLeft: `3px solid ${selectedId === r.id ? colors.primary : 'transparent'}`,
+                            }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <span style={{ fontSize: 13, fontWeight: 700, color: colors.textPrimary }}>{r.user?.username || r.userId.slice(0, 10)}</span>
+                                <span style={{ marginLeft: 'auto', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', color: STATUS_COLOR[r.status] || colors.textSecondary }}>{r.status}</span>
+                            </div>
+                            <div style={{ fontSize: 11, color: colors.textTertiary, marginTop: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
+                                {r.overdue && <AlertTriangle size={11} color={colors.error} />}
+                                {new Date(r.requestedAt).toLocaleDateString()} · by {r.requestedBy === 'self' ? 'member' : 'admin'}
+                            </div>
+                        </button>
+                    ))}
+                </div>
+
+                {/* Detail */}
+                <div style={{ background: colors.surface, borderRadius: borderRadius.md, padding: spacing.md, minHeight: 200 }}>
+                    {!detail ? (
+                        <p style={{ margin: 0, color: colors.textSecondary, fontSize: 13, textAlign: 'center', padding: '40px 0' }}>Select a request to review it.</p>
+                    ) : (
+                        <>
+                            <div style={{ marginBottom: spacing.md }}>
+                                <h3 style={{ margin: '0 0 4px', fontSize: 16, color: colors.textPrimary }}>{detail.user?.username || detail.request.userId}</h3>
+                                <p style={{ margin: 0, fontSize: 12, color: colors.textSecondary }}>
+                                    {detail.user?.email || 'no email'} · requested {new Date(detail.request.requestedAt).toLocaleString()}
+                                    {' · '}<span style={{ color: detail.overdue ? colors.error : colors.textSecondary, fontWeight: detail.overdue ? 700 : 400 }}>
+                                        auto-purge {new Date(detail.request.purgeAfter).toLocaleDateString()}{detail.overdue ? ' (OVERDUE)' : ''}
+                                    </span>
+                                </p>
+                                {detail.request.reason && (
+                                    <p style={{ margin: '8px 0 0', fontSize: 12, color: colors.textSecondary, fontStyle: 'italic', padding: '8px 10px', background: 'rgba(255,255,255,0.03)', borderRadius: borderRadius.sm }}>
+                                        “{detail.request.reason}”
+                                    </p>
+                                )}
+                            </div>
+
+                            {/* Component groups */}
+                            <div style={{ border: '1px solid rgba(255,255,255,0.06)', borderRadius: borderRadius.md, overflow: 'hidden', marginBottom: spacing.md }}>
+                                {groups.map((g, i) => {
+                                    const done = purged.includes(g);
+                                    const blockedBy = groups.slice(0, i).filter(p => !purged.includes(p));
+                                    const blocked = blockedBy.length > 0;
+                                    return (
+                                        <div key={g} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderBottom: i < groups.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none', opacity: done ? 0.55 : 1 }}>
+                                            <span style={{ fontSize: 13, color: colors.textPrimary, flex: 1 }}>{labels[g] || g}</span>
+                                            <span style={{ fontSize: 12, fontWeight: 700, color: colors.textSecondary, minWidth: 34, textAlign: 'right' }}>{counts[g] ?? 0}</span>
+                                            {done ? (
+                                                <span style={{ fontSize: 11, fontWeight: 700, color: colors.error, minWidth: 96, textAlign: 'right' }}>PURGED</span>
+                                            ) : (
+                                                <button onClick={() => act('purge', g)}
+                                                    disabled={!!busy || blocked || isRestored}
+                                                    title={blocked ? `Purge ${blockedBy.map(b => labels[b] || b).join(', ')} first` : isRestored ? 'Account was restored' : `Permanently delete ${labels[g] || g}`}
+                                                    style={{
+                                                        minWidth: 96, padding: '5px 10px', borderRadius: borderRadius.sm, fontSize: 11, fontWeight: 700,
+                                                        border: `1px solid ${blocked || isRestored ? colors.border : colors.error}`,
+                                                        background: 'transparent', color: blocked || isRestored ? colors.textTertiary : colors.error,
+                                                        cursor: busy || blocked || isRestored ? 'not-allowed' : 'pointer',
+                                                    }}>
+                                                    {busy === g ? '…' : blocked ? 'Blocked' : 'Purge'}
+                                                </button>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+
+                            <p style={{ margin: `0 0 ${spacing.md}`, fontSize: 11.5, color: colors.textTertiary, lineHeight: 1.6 }}>
+                                Left intact on purpose: battle and arena vote tallies, match results and Elo, and market ledger rows.
+                                Deleting those would corrupt other members' history — they show as an anonymous placeholder once the profile is gone.
+                            </p>
+
+                            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                                <button onClick={() => act('restore')} disabled={!!busy || isPurged || isRestored}
+                                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 16px', borderRadius: borderRadius.md, fontSize: 13, fontWeight: 700, border: `1px solid ${colors.success}`, background: 'transparent', color: colors.success, cursor: busy || isPurged || isRestored ? 'not-allowed' : 'pointer', opacity: isPurged || isRestored ? 0.45 : 1 }}>
+                                    <RotateCcw size={14} /> Restore everything
+                                </button>
+                                <button onClick={() => act('purge', 'all')} disabled={!!busy || isPurged || isRestored}
+                                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 16px', borderRadius: borderRadius.md, fontSize: 13, fontWeight: 700, border: 'none', background: colors.error, color: '#fff', cursor: busy || isPurged || isRestored ? 'not-allowed' : 'pointer', opacity: isPurged || isRestored ? 0.45 : 1 }}>
+                                    <Trash2 size={14} /> {busy === 'all' ? 'Purging…' : 'Permanently delete everything'}
+                                </button>
+                            </div>
+                        </>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+};
+
 export const AdminToolsPage: React.FC = () => {
     const [tab, setTab] = useState<AdminTab>('orphaned');
 
@@ -329,6 +530,7 @@ export const AdminToolsPage: React.FC = () => {
             {tab === 'backfill'     && <BackfillTab />}
             {tab === 'sync-authors' && <SyncAuthorsTab />}
             {tab === 'appeal-block' && <AppealBlockTab />}
+            {tab === 'deletions'    && <DeletionsTab />}
         </div>
     );
 };

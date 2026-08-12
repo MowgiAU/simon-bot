@@ -13,7 +13,27 @@
  *   prisma.$use(softDeleteMiddleware);
  */
 
+import { AsyncLocalStorage } from 'node:async_hooks';
 import type { Prisma } from '@prisma/client';
+
+/**
+ * Scoped escape hatch for permanent deletion.
+ *
+ * Everything this middleware touches is soft-deleted by default, which leaves no way to
+ * actually destroy a row. Work inside `withHardDelete()` bypasses the middleware entirely:
+ * `delete` really deletes, and reads see soft-deleted rows (which is what a purge needs,
+ * since it operates on rows that were already soft-deleted).
+ *
+ * AsyncLocalStorage rather than a module-level flag on purpose — a plain boolean would leak
+ * across concurrent requests and silently hard-delete someone else's data mid-purge.
+ *
+ * Only AccountDeletionService should call this.
+ */
+const hardDeleteCtx = new AsyncLocalStorage<boolean>();
+
+export function withHardDelete<T>(fn: () => Promise<T>): Promise<T> {
+    return hardDeleteCtx.run(true, fn);
+}
 
 /** Models that have a `deletedAt` column. Must match schema additions. */
 const SOFT_DELETE_MODELS = new Set([
@@ -48,6 +68,12 @@ function hasDeletedAtFilter(where: any): boolean {
 
 export const softDeleteMiddleware: Prisma.Middleware = async (params, next) => {
     if (!params.model || !SOFT_DELETE_MODELS.has(params.model)) {
+        return next(params);
+    }
+
+    // Inside withHardDelete(): let the query through untouched so purges can destroy rows
+    // and read the soft-deleted ones they need to clean up after.
+    if (hardDeleteCtx.getStore()) {
         return next(params);
     }
 

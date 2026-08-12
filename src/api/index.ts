@@ -32,6 +32,8 @@ import { ProjectZipProcessor } from '../services/ProjectZipProcessor.js';
 import { R2Storage } from '../services/R2Storage.js';
 import { runBackup, pgDump } from '../services/DatabaseBackup.js';
 import { softDeleteMiddleware } from '../services/softDelete.js';
+import { deleteStoredFile } from '../services/storageCleanup.js';
+import * as AccountDeletionService from '../services/AccountDeletionService.js';
 import * as BankService from '../services/BankService.js';
 import * as MarketService from '../services/MarketService.js';
 import { DEFAULT_TRACK_COVER_URL, coverOrDefault } from '../services/defaultArtwork.js';
@@ -377,18 +379,7 @@ async function uploadToR2OrLocal(
  * Deletes a file from R2 (when URL is a CDN URL) or from local disk (when URL is a /uploads/ path).
  * Safe to call with null/undefined or Discord/external URLs \u2014 no-ops in those cases.
  */
-async function deleteFromStorage(url: string | null | undefined): Promise<void> {
-    if (!url) return;
-    if (url.startsWith(CDN_BASE + '/')) {
-        const key = url.slice(CDN_BASE.length + 1);
-        await R2Storage.deleteObject(key);
-    } else if (url.startsWith('/uploads/')) {
-        const filePath = path.resolve(PROJECT_ROOT, 'public', url.slice(1));
-        const publicDir = path.resolve(PROJECT_ROOT, 'public');
-        if (!filePath.startsWith(publicDir + path.sep)) return; // Block path traversal
-        try { if (fs.existsSync(filePath)) fs.unlinkSync(filePath); } catch {}
-    }
-}
+const deleteFromStorage = deleteStoredFile;
 
 // --- Discord API Helper with Cache and Rate Limit Handling ---
 
@@ -1724,6 +1715,15 @@ app.post('/api/auth/register', registerLimiter, async (req, res) => {
             return res.status(409).json({ error: 'An account with this email or username already exists' });
         }
 
+        // An account taken down through the deletion flow must not be resurrectable by simply
+        // re-registering — restoring it is an admin decision, not a self-service one.
+        const pendingDeletion = softDeleted
+            ? await db.accountDeletionRequest.findFirst({ where: { userId: softDeleted.id, status: 'pending' } })
+            : null;
+        if (pendingDeletion) {
+            return res.status(409).json({ error: 'An account with this email or username already exists' });
+        }
+
         const passwordHash = await hashPassword(password);
         let dbUser;
 
@@ -1821,6 +1821,25 @@ app.post('/api/auth/login', loginLimiter, async (req, res) => {
         const emailNorm = String(email).toLowerCase().trim();
         const dbUser = await db.user.findUnique({ where: { email: emailNorm } });
         if (!dbUser || !dbUser.passwordHash) {
+            // The middleware hides soft-deleted users from that lookup, so a member who deleted
+            // their account would otherwise just be told their password was wrong. Tell them what
+            // actually happened — but only after they prove the password, so this can't be used
+            // to probe which emails have accounts.
+            const deleted = await db.user.findFirst({
+                where: { email: emailNorm, deletedAt: { not: null } },
+            });
+            if (deleted?.passwordHash && await verifyPassword(password, deleted.passwordHash)) {
+                const pending = await db.accountDeletionRequest.findFirst({
+                    where: { userId: deleted.id, status: 'pending' },
+                });
+                if (pending) {
+                    return res.status(403).json({
+                        code: 'ACCOUNT_PENDING_DELETION',
+                        error: `This account is scheduled for deletion on ${new Date(pending.purgeAfter).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}. `
+                            + 'Contact support before then if you want it recovered.',
+                    });
+                }
+            }
             return res.status(401).json({ error: 'Invalid email or password' });
         }
 
@@ -2309,6 +2328,141 @@ app.post('/api/auth/change-password', requireAuth, async (req: any, res) => {
     } catch (e) {
         logger.error('[Auth] change-password error', e);
         res.status(500).json({ error: 'Failed to change password' });
+    }
+});
+
+// =============================================
+// ACCOUNT DELETION (self-service soft delete + admin purge review)
+// =============================================
+
+/** Resolves the logged-in session to its User row, whichever way they signed up. */
+async function resolveSessionUser(req: any) {
+    return db.user.findFirst({
+        where: { OR: [{ discordId: req.session.user.id }, { id: req.session.user._localId }] },
+    });
+}
+
+app.post('/api/account/delete', requireAuth, async (req: any, res) => {
+    try {
+        const { password, reason } = req.body || {};
+        const dbUser = await resolveSessionUser(req);
+        if (!dbUser) return res.status(404).json({ error: 'No account found' });
+
+        // Password is the only thing standing between a hijacked session and permanent removal.
+        if (!dbUser.passwordHash) {
+            return res.status(400).json({ error: 'Set a password on your account before deleting it.' });
+        }
+        if (!password) return res.status(400).json({ error: 'Your password is required to delete your account' });
+        if (!await verifyPassword(password, dbUser.passwordHash)) {
+            return res.status(401).json({ error: 'Password is incorrect' });
+        }
+
+        const request = await AccountDeletionService.requestDeletion(
+            db, dbUser.id, 'self', typeof reason === 'string' ? reason.slice(0, 2000) : null,
+        );
+        logger.info(`[AccountDeletion] ${dbUser.id} requested self-deletion (request ${request.id})`);
+
+        // requestDeletion already cleared this member's stored sessions; drop the live one too.
+        req.session.destroy(() => {});
+        res.json({ success: true, purgeAfter: request.purgeAfter });
+    } catch (e: any) {
+        logger.error('[AccountDeletion] self-delete failed', e);
+        res.status(500).json({ error: 'Failed to delete account' });
+    }
+});
+
+app.get('/api/admin/deletions', requireAdmin, async (_req, res) => {
+    try {
+        const requests = await db.accountDeletionRequest.findMany({ orderBy: { requestedAt: 'desc' }, take: 200 });
+        const userIds = requests.map((r: any) => r.userId);
+        const users = await db.user.findMany({
+            where: { id: { in: userIds }, OR: [{ deletedAt: null }, { deletedAt: { not: null } }] },
+            select: { id: true, username: true, email: true, discordId: true },
+        });
+        const umap = new Map(users.map((u: any) => [u.id, u]));
+        res.json({
+            graceDays: AccountDeletionService.DELETION_GRACE_DAYS,
+            groups: AccountDeletionService.PURGE_ORDER,
+            labels: AccountDeletionService.GROUP_LABELS,
+            requests: requests.map((r: any) => ({
+                ...r,
+                user: umap.get(r.userId) || null,
+                overdue: r.status === 'pending' && new Date(r.purgeAfter).getTime() <= Date.now(),
+            })),
+        });
+    } catch (e: any) {
+        logger.error('[AccountDeletion] admin list failed', e);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+app.get('/api/admin/deletions/:id', requireAdmin, async (req, res) => {
+    try {
+        const request = await db.accountDeletionRequest.findUnique({ where: { id: req.params.id } });
+        if (!request) return res.status(404).json({ error: 'Not found' });
+        const user = await db.user.findFirst({
+            where: { id: request.userId, OR: [{ deletedAt: null }, { deletedAt: { not: null } }] },
+            select: { id: true, username: true, email: true, discordId: true, createdAt: true },
+        });
+        const counts = await AccountDeletionService.getComponentCounts(db, request.identityIds || []);
+        res.json({
+            request,
+            user,
+            counts,
+            groups: AccountDeletionService.PURGE_ORDER,
+            labels: AccountDeletionService.GROUP_LABELS,
+            overdue: request.status === 'pending' && new Date(request.purgeAfter).getTime() <= Date.now(),
+        });
+    } catch (e: any) {
+        logger.error('[AccountDeletion] admin detail failed', e);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+app.post('/api/admin/deletions/:id/restore', requireAdmin, async (req: any, res) => {
+    try {
+        const by = req.session?.user?.id || 'admin';
+        const request = await AccountDeletionService.restoreAccount(db, req.params.id, by);
+        logger.info(`[AccountDeletion] ${by} restored account ${request.userId} (request ${request.id})`);
+        res.json({ success: true, request });
+    } catch (e: any) {
+        logger.error('[AccountDeletion] restore failed', e);
+        res.status(400).json({ error: e?.message || 'Failed to restore account' });
+    }
+});
+
+app.post('/api/admin/deletions/:id/purge', requireAdmin, async (req: any, res) => {
+    try {
+        const by = req.session?.user?.id || 'admin';
+        const group = String(req.body?.group || '');
+        if (group === 'all') {
+            const request = await AccountDeletionService.purgeAll(db, req.params.id, by);
+            logger.warn(`[AccountDeletion] ${by} PURGED ALL for request ${req.params.id}`);
+            return res.json({ success: true, request });
+        }
+        if (!AccountDeletionService.PURGE_ORDER.includes(group as any)) {
+            return res.status(400).json({ error: 'Unknown component group' });
+        }
+        const request = await AccountDeletionService.purgeGroup(db, req.params.id, group as any, by);
+        logger.warn(`[AccountDeletion] ${by} PURGED "${group}" for request ${req.params.id}`);
+        res.json({ success: true, request });
+    } catch (e: any) {
+        logger.error('[AccountDeletion] purge failed', e);
+        res.status(400).json({ error: e?.message || 'Failed to purge' });
+    }
+});
+
+app.post('/api/admin/deletions/user/:userId', requireAdmin, async (req: any, res) => {
+    try {
+        const by = req.session?.user?.id || 'admin';
+        const request = await AccountDeletionService.requestDeletion(
+            db, req.params.userId, by, typeof req.body?.reason === 'string' ? req.body.reason.slice(0, 2000) : null,
+        );
+        logger.info(`[AccountDeletion] ${by} soft-deleted account ${req.params.userId} (request ${request.id})`);
+        res.json({ success: true, request });
+    } catch (e: any) {
+        logger.error('[AccountDeletion] admin-initiated delete failed', e);
+        res.status(400).json({ error: e?.message || 'Failed to delete account' });
     }
 });
 
@@ -18565,6 +18719,10 @@ async function runHeadToHeadLifecycle(): Promise<void> {
 // Run lifecycle immediately on start, then every 5 seconds (matchmaking + ready/vote/production timers).
 runHeadToHeadLifecycle();
 setInterval(runHeadToHeadLifecycle, 5_000);
+
+// Permanently purge deletion requests whose grace period lapsed without an admin decision.
+// Hourly is plenty for a 30-day window.
+setInterval(() => { AccountDeletionService.runDeletionAutoPurge(db, logger); }, 60 * 60 * 1000);
 
 // --- Anti-External Forward --------------------------------------------------
 
