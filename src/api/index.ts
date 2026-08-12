@@ -2342,6 +2342,28 @@ async function resolveSessionUser(req: any) {
     });
 }
 
+/**
+ * Drops the cached profile/discovery responses for an account.
+ *
+ * Soft-deleting the rows is not enough on its own: `apiResponseCache` would keep serving the
+ * deleted profile to the public until its TTL lapsed. Cached under both the user id and the
+ * username, so both keys have to go.
+ */
+async function bustAccountCaches(identityIds: string[]): Promise<void> {
+    try {
+        const profiles = await db.musicianProfile.findMany({
+            where: { userId: { in: identityIds }, OR: [{ deletedAt: null }, { deletedAt: { not: null } }] },
+            select: { userId: true, username: true },
+        });
+        for (const id of identityIds) invalidateProfileCache(id);
+        for (const p of profiles) {
+            invalidateProfileCache(p.userId);
+            if (p.username) invalidateProfileCache(p.username);
+        }
+        invalidateDiscoveryCache();
+    } catch { /* cache busting must never block a deletion */ }
+}
+
 app.post('/api/account/delete', requireAuth, async (req: any, res) => {
     try {
         const { password, reason } = req.body || {};
@@ -2361,6 +2383,7 @@ app.post('/api/account/delete', requireAuth, async (req: any, res) => {
             db, dbUser.id, 'self', typeof reason === 'string' ? reason.slice(0, 2000) : null,
         );
         logger.info(`[AccountDeletion] ${dbUser.id} requested self-deletion (request ${request.id})`);
+        await bustAccountCaches(request.identityIds || []);
 
         // requestDeletion already cleared this member's stored sessions; drop the live one too.
         req.session.destroy(() => {});
@@ -2424,6 +2447,7 @@ app.post('/api/admin/deletions/:id/restore', requireAdmin, async (req: any, res)
         const by = req.session?.user?.id || 'admin';
         const request = await AccountDeletionService.restoreAccount(db, req.params.id, by);
         logger.info(`[AccountDeletion] ${by} restored account ${request.userId} (request ${request.id})`);
+        await bustAccountCaches(request.identityIds || []);
         res.json({ success: true, request });
     } catch (e: any) {
         logger.error('[AccountDeletion] restore failed', e);
@@ -2438,6 +2462,7 @@ app.post('/api/admin/deletions/:id/purge', requireAdmin, async (req: any, res) =
         if (group === 'all') {
             const request = await AccountDeletionService.purgeAll(db, req.params.id, by);
             logger.warn(`[AccountDeletion] ${by} PURGED ALL for request ${req.params.id}`);
+            await bustAccountCaches(request.identityIds || []);
             return res.json({ success: true, request });
         }
         if (!AccountDeletionService.PURGE_ORDER.includes(group as any)) {
@@ -2445,6 +2470,7 @@ app.post('/api/admin/deletions/:id/purge', requireAdmin, async (req: any, res) =
         }
         const request = await AccountDeletionService.purgeGroup(db, req.params.id, group as any, by);
         logger.warn(`[AccountDeletion] ${by} PURGED "${group}" for request ${req.params.id}`);
+        await bustAccountCaches(request.identityIds || []);
         res.json({ success: true, request });
     } catch (e: any) {
         logger.error('[AccountDeletion] purge failed', e);
@@ -2459,6 +2485,7 @@ app.post('/api/admin/deletions/user/:userId', requireAdmin, async (req: any, res
             db, req.params.userId, by, typeof req.body?.reason === 'string' ? req.body.reason.slice(0, 2000) : null,
         );
         logger.info(`[AccountDeletion] ${by} soft-deleted account ${req.params.userId} (request ${request.id})`);
+        await bustAccountCaches(request.identityIds || []);
         res.json({ success: true, request });
     } catch (e: any) {
         logger.error('[AccountDeletion] admin-initiated delete failed', e);
@@ -18722,7 +18749,14 @@ setInterval(runHeadToHeadLifecycle, 5_000);
 
 // Permanently purge deletion requests whose grace period lapsed without an admin decision.
 // Hourly is plenty for a 30-day window.
-setInterval(() => { AccountDeletionService.runDeletionAutoPurge(db, logger); }, 60 * 60 * 1000);
+setInterval(async () => {
+    const due = await db.accountDeletionRequest.findMany({
+        where: { status: 'pending', purgeAfter: { lte: new Date() } },
+        select: { identityIds: true },
+    }).catch(() => [] as any[]);
+    const purged = await AccountDeletionService.runDeletionAutoPurge(db, logger);
+    if (purged) for (const r of due) await bustAccountCaches(r.identityIds || []);
+}, 60 * 60 * 1000);
 
 // --- Anti-External Forward --------------------------------------------------
 

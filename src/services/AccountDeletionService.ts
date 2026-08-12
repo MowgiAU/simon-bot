@@ -117,7 +117,9 @@ export async function getComponentCounts(db: any, identityIds: string[]): Promis
     const [battle_entries, tracks, playlists, comments, profile, account] = await Promise.all([
         db.battleEntry.count({ where: { userId: { in: identityIds }, ...gone } }),
         db.track.count({ where: { profileId: { in: profileIds }, ...gone } }),
-        db.playlist.count({ where: { profileId: { in: profileIds }, ...gone } }),
+        // Playlists key off userId, not profileId — profileId is optional (SetNull) and can be
+        // null, which would leave those playlists behind if we filtered on it.
+        db.playlist.count({ where: { userId: { in: identityIds }, ...gone } }),
         db.comment.count({ where: { userId: { in: identityIds }, ...gone } }),
         db.musicianProfile.count({ where: { id: { in: profileIds }, ...gone } }),
         db.user.count({ where: { id: { in: identityIds }, ...gone } }),
@@ -174,7 +176,7 @@ export async function requestDeletion(
     await db.$transaction([
         db.battleEntry.updateMany({ where: { userId: { in: identityIds }, deletedAt: null }, data: { deletedAt: marker } }),
         db.track.updateMany({ where: { profileId: { in: profileIds }, deletedAt: null }, data: { deletedAt: marker } }),
-        db.playlist.updateMany({ where: { profileId: { in: profileIds }, deletedAt: null }, data: { deletedAt: marker } }),
+        db.playlist.updateMany({ where: { userId: { in: identityIds }, deletedAt: null }, data: { deletedAt: marker } }),
         db.comment.updateMany({ where: { userId: { in: identityIds }, deletedAt: null }, data: { deletedAt: marker } }),
         db.musicianProfile.updateMany({ where: { id: { in: profileIds }, deletedAt: null }, data: { deletedAt: marker } }),
         db.user.updateMany({ where: { id: userId, deletedAt: null }, data: { deletedAt: marker } }),
@@ -219,7 +221,7 @@ export async function restoreAccount(db: any, requestId: string, reviewedBy: str
     const ops: any[] = [];
     if (canRestore('battle_entries')) ops.push(db.battleEntry.updateMany({ where: { userId: { in: identityIds }, deletedAt: marker }, data: { deletedAt: null } }));
     if (canRestore('tracks')) ops.push(db.track.updateMany({ where: { profileId: { in: profileIds }, deletedAt: marker }, data: { deletedAt: null } }));
-    if (canRestore('playlists')) ops.push(db.playlist.updateMany({ where: { profileId: { in: profileIds }, deletedAt: marker }, data: { deletedAt: null } }));
+    if (canRestore('playlists')) ops.push(db.playlist.updateMany({ where: { userId: { in: identityIds }, deletedAt: marker }, data: { deletedAt: null } }));
     if (canRestore('comments')) ops.push(db.comment.updateMany({ where: { userId: { in: identityIds }, deletedAt: marker }, data: { deletedAt: null } }));
     if (canRestore('profile')) ops.push(db.musicianProfile.updateMany({ where: { id: { in: profileIds }, deletedAt: marker }, data: { deletedAt: null } }));
     if (canRestore('account')) ops.push(db.user.updateMany({ where: { id: request.userId, deletedAt: marker }, data: { deletedAt: null } }));
@@ -291,7 +293,7 @@ export async function purgeGroup(
             }
             case 'playlists': {
                 // PlaylistTrack cascades.
-                await db.playlist.deleteMany({ where: { profileId: { in: profileIds }, ...gone } });
+                await db.playlist.deleteMany({ where: { userId: { in: identityIds }, ...gone } });
                 break;
             }
             case 'comments': {
