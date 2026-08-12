@@ -12681,7 +12681,9 @@ app.post('/api/admin/musician/profile/:userId/banner', requireAdmin, upload.sing
 app.post('/api/admin/musician/profile/:id/wipe', requireAdmin, async (req: any, res) => {
     try {
         const { id } = req.params;
-        const executorId = req.session.user.id;
+        // requireAdmin also accepts an ADMIN_API_KEY bearer token, which has no session —
+        // reading req.session.user.id unguarded made this route 500 on that path.
+        const executorId = req.session?.user?.id || 'admin';
         const { reason, sendEmail: shouldEmail } = req.body || {};
 
         // Include soft-deleted profiles: an account that already went through the deletion
