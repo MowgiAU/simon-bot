@@ -259,6 +259,10 @@ export class WordFilterPlugin implements IPlugin {
     const body = this.stripMentions(message, content).trim();
     if (!body) return;
 
+    // Carry the reply across, so a censored reply still hangs off the message it answered
+    // instead of landing as a loose comment with no context.
+    const repliedToId = message.reference?.messageId;
+
     await textChannel.send({
       embeds: [{
         author: { name: nickname, icon_url: avatar },
@@ -266,9 +270,14 @@ export class WordFilterPlugin implements IPlugin {
         color: 0x9AA3B2,
         footer: { text: 'Censored to meet our community rules' },
       }],
+      // failIfNotExists keeps a deleted parent from throwing and losing the repost entirely.
+      ...(repliedToId ? { reply: { messageReference: repliedToId, failIfNotExists: false } } : {}),
       // The description is already de-fanged by stripMentions; suppressing notifications
       // outright is the belt-and-braces half in case something slips through.
-      allowedMentions: { parse: [] },
+      // repliedUser:false for the same reason the mass-mention case skips reposting — the
+      // original reply already pinged them the instant it was sent, and deleting it doesn't
+      // undo that, so pinging again would just notify them twice for one message.
+      allowedMentions: { parse: [], repliedUser: false },
     });
   }
 
