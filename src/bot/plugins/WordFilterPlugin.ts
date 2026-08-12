@@ -1,4 +1,4 @@
-import { Message, TextChannel, Webhook, PermissionResolvable, GuildMember } from 'discord.js';
+import { Message, TextChannel, PermissionResolvable, GuildMember } from 'discord.js';
 import { z } from 'zod';
 import { IPlugin, IPluginContext } from '../types/plugin';
 import { Logger } from '../utils/logger';
@@ -24,7 +24,9 @@ export class WordFilterPlugin implements IPlugin {
   version = '1.0.0';
   author = 'Fuji Studio Team';
   
-  requiredPermissions: PermissionResolvable[] = ['ManageMessages', 'SendMessages', 'ManageNicknames'];
+  // EmbedLinks is required for the censored repost to render; without it the embed is
+  // silently dropped and the message just vanishes.
+  requiredPermissions: PermissionResolvable[] = ['ManageMessages', 'SendMessages', 'EmbedLinks', 'ManageNicknames'];
   commands = ['filter'];
   events = ['messageCreate', 'messageUpdate', 'guildMemberAdd', 'guildMemberUpdate'];
   dashboardSections = ['word-filter-settings', 'word-filter-groups'];
@@ -234,34 +236,38 @@ export class WordFilterPlugin implements IPlugin {
   }
 
   /**
-   * Repost message with filtered word replaced
+   * Repost the message with the filtered word replaced.
+   *
+   * This used to go out through a webhook wearing the member's nickname and avatar, so the
+   * censored text was indistinguishable from something they actually typed — the bot was
+   * effectively putting words in their mouth with no visible indication it had been altered.
+   * It now posts as the bot, and carries the member's name and avatar in the embed author line
+   * instead: still obvious who said it, but plainly the bot relaying rather than the member
+   * speaking. Deliberately minimal — no title, no timestamp, just the text and a short note.
    */
   private async repostMessage(message: Message, content: string): Promise<void> {
     if (!this.context || !message.guild) return;
-
-    const nickname = message.member?.nickname || message.author.username;
-    const avatar = message.author.avatarURL();
-
-    // Only use webhook if channel is a TextChannel
     if (message.channel.type !== 0) return;
 
+    const nickname = message.member?.nickname || message.author.username;
+    const avatar = message.author.displayAvatarURL();
     const textChannel = message.channel as TextChannel;
-    const webhooks = await textChannel.fetchWebhooks();
-    let webhook = webhooks.find((w: Webhook) => w.owner?.id === message.client.user?.id);
 
-    if (!webhook) {
-      webhook = await textChannel.createWebhook({
-        name: 'Fuji Studio Filter',
-        avatar: message.client.user?.avatarURL(),
-      });
-    }
+    // Discord rejects an embed with no description, and the throw would leave the original
+    // deleted with nothing posted in its place. Replacements always render something today,
+    // so this only guards against a future config that could produce an empty result.
+    const body = this.stripMentions(message, content).trim();
+    if (!body) return;
 
-    await webhook.send({
-      content: this.stripMentions(message, content),
-      username: nickname,
-      avatarURL: avatar || undefined,
-      // Belt-and-suspenders: content is already de-fanged above, but suppress any
-      // notification outright too in case something slips through.
+    await textChannel.send({
+      embeds: [{
+        author: { name: nickname, icon_url: avatar },
+        description: body,
+        color: 0x9AA3B2,
+        footer: { text: 'Censored to meet our community rules' },
+      }],
+      // The description is already de-fanged by stripMentions; suppressing notifications
+      // outright is the belt-and-braces half in case something slips through.
       allowedMentions: { parse: [] },
     });
   }
