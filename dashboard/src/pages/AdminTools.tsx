@@ -307,7 +307,7 @@ interface DeletionRequest {
     identityIds: string[];
     requestedAt: string;
     requestedBy: string;
-    source: 'self' | 'admin' | 'ban';
+    source: 'self' | 'admin' | 'ban' | 'moderation';
     reason: string | null;
     purgeAfter: string;
     status: 'pending' | 'restored' | 'purged';
@@ -329,6 +329,7 @@ const SOURCE_LABEL: Record<string, string> = {
     self: 'member',
     admin: 'admin',
     ban: 'ban',
+    moderation: 'suspension',
 };
 
 const DeletionsTab: React.FC = () => {
@@ -449,6 +450,11 @@ const DeletionsTab: React.FC = () => {
                                 {detail.request.reason && (
                                     <p style={{ margin: '8px 0 0', fontSize: 12, color: colors.textSecondary, fontStyle: 'italic', padding: '8px 10px', background: 'rgba(255,255,255,0.03)', borderRadius: borderRadius.sm }}>
                                         “{detail.request.reason}”
+                                    </p>
+                                )}
+                                {detail.request.source === 'moderation' && detail.request.status === 'pending' && (
+                                    <p style={{ margin: '8px 0 0', fontSize: 12, color: colors.textSecondary, padding: '8px 10px', background: 'rgba(255,255,255,0.03)', border: `1px solid ${colors.border}`, borderRadius: borderRadius.sm }}>
+                                        Held by a profile suspension. Setting the profile back to active restores it. Exempt from the 30-day auto-purge — it stays hidden until you decide.
                                     </p>
                                 )}
                                 {detail.request.source === 'ban' && detail.request.status === 'pending' && (

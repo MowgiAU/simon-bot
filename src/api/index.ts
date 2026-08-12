@@ -12811,12 +12811,36 @@ app.patch('/api/admin/musician/profiles/:id/status', requireAdmin, async (req: a
         if (!['active', 'suspended', 'banned'].includes(status)) {
             return res.status(400).json({ error: 'Invalid status. Must be: active, suspended, or banned' });
         }
-        const profile = await db.musicianProfile.update({
-            where: { id },
+        // Include already-hidden profiles so a banned one can be reinstated: the middleware
+        // filters soft-deleted rows out of update() too, and hiding now soft-deletes.
+        const target = await db.musicianProfile.findFirst({
+            where: { id, OR: [{ deletedAt: null }, { deletedAt: { not: null } }] },
+            select: { id: true, userId: true, username: true },
+        });
+        if (!target) return res.status(404).json({ error: 'Profile not found' });
+
+        await db.musicianProfile.updateMany({
+            where: { id, OR: [{ deletedAt: null }, { deletedAt: { not: null } }] },
             data: { status, statusReason: reason || null }
         });
-        await logAction('GLOBAL', 'profile_status_changed', req.session.user.id, profile.userId, {
-            status, reason, username: profile.username
+
+        // Status alone only hid the profile page — the profile kept appearing in top friends,
+        // the artists directory and follower lists, and its tracks kept playing in the feed,
+        // because `status` is not something the soft-delete middleware filters on. Hiding the
+        // rows properly is what actually takes the account off the site.
+        const by = req.session?.user?.id || 'admin';
+        if (status === 'active') {
+            await AccountDeletionService.unhideProfileForModeration(db, target.userId, by);
+        } else {
+            await AccountDeletionService.hideProfileForModeration(db, target.userId, by, reason);
+        }
+        await bustAccountCaches([target.userId, target.username].filter(Boolean) as string[]);
+
+        const profile = await db.musicianProfile.findFirst({
+            where: { id, OR: [{ deletedAt: null }, { deletedAt: { not: null } }] },
+        });
+        await logAction('GLOBAL', 'profile_status_changed', by, target.userId, {
+            status, reason, username: target.username
         });
         res.json({ success: true, profile });
     } catch (e: any) {

@@ -155,7 +155,7 @@ export async function requestDeletion(
     userId: string,
     requestedBy: string,
     reason?: string | null,
-    source: 'self' | 'admin' | 'ban' = 'self',
+    source: 'self' | 'admin' | 'ban' | 'moderation' = 'self',
 ): Promise<any> {
     const user = await db.user.findUnique({ where: { id: userId } });
     if (!user) throw new Error('User not found');
@@ -249,6 +249,82 @@ export async function restoreBanDeletion(db: any, userId: string, reviewedBy: st
     });
     if (!request) return null;
     return restoreAccount(db, request.id, reviewedBy);
+}
+
+/**
+ * Hides a profile and its content because staff set its status to banned/suspended.
+ *
+ * Setting the status alone only ever hid the profile *page*: `status` is not something the
+ * soft-delete middleware knows about, so the profile kept surfacing in every listing that
+ * doesn't filter it by hand (top friends, the artists directory, followers) and its tracks
+ * kept playing in the feed. Marking the rows deleted instead means the middleware hides them
+ * everywhere at once, including read paths added later.
+ *
+ * Differs from a real account deletion in two deliberate ways: the User row is left alone, so
+ * this never turns into a login-blocking "scheduled for deletion" message, and the request is
+ * exempt from auto-purge — a suspension is reversible until staff decide otherwise.
+ */
+export async function hideProfileForModeration(
+    db: any,
+    profileUserId: string,
+    hiddenBy: string,
+    reason?: string | null,
+): Promise<any> {
+    // AND-composed, not spread: ANY_DELETE_STATE is itself an `OR`, so spreading it alongside
+    // the identity `OR` silently replaces it and matches an arbitrary user.
+    const owner = await db.user.findFirst({
+        where: { AND: [{ OR: [{ id: profileUserId }, { discordId: profileUserId }] }, ANY_DELETE_STATE] },
+        select: { id: true, discordId: true },
+    });
+    // Profiles created through Discord may have no User row at all — fall back to the raw id.
+    const identityIds = owner
+        ? [...new Set([owner.id, owner.discordId, profileUserId].filter(Boolean) as string[])]
+        : [profileUserId];
+
+    const existing = await db.accountDeletionRequest.findFirst({
+        where: { userId: owner?.id || profileUserId, status: 'pending', source: 'moderation' },
+    });
+    if (existing) return existing;
+
+    const profileIds = await findProfileIds(db, identityIds);
+    const marker = new Date();
+
+    await db.$transaction([
+        db.track.updateMany({ where: { profileId: { in: profileIds }, deletedAt: null }, data: { deletedAt: marker } }),
+        db.playlist.updateMany({ where: { profileId: { in: profileIds }, deletedAt: null }, data: { deletedAt: marker } }),
+        db.comment.updateMany({ where: { userId: { in: identityIds }, deletedAt: null }, data: { deletedAt: marker } }),
+        db.musicianProfile.updateMany({ where: { id: { in: profileIds }, deletedAt: null }, data: { deletedAt: marker } }),
+    ]);
+
+    return db.accountDeletionRequest.create({
+        data: {
+            userId: owner?.id || profileUserId,
+            identityIds,
+            requestedAt: marker,
+            requestedBy: hiddenBy,
+            source: 'moderation',
+            reason: reason || 'Profile status set to banned/suspended',
+            // Never reached, since auto-purge skips this source. Set far out so a stray query
+            // ordering by it cannot make a suspension look overdue.
+            purgeAfter: new Date(marker.getTime() + 365 * 24 * 60 * 60 * 1000),
+            status: 'pending',
+            snapshot: await getComponentCounts(db, identityIds),
+        },
+    });
+}
+
+/** Reverses hideProfileForModeration when a profile is set back to active. */
+export async function unhideProfileForModeration(db: any, profileUserId: string, by: string): Promise<any | null> {
+    const owner = await db.user.findFirst({
+        where: { AND: [{ OR: [{ id: profileUserId }, { discordId: profileUserId }] }, ANY_DELETE_STATE] },
+        select: { id: true },
+    });
+    const request = await db.accountDeletionRequest.findFirst({
+        where: { userId: owner?.id || profileUserId, status: 'pending', source: 'moderation' },
+        orderBy: { requestedAt: 'desc' },
+    });
+    if (!request) return null;
+    return restoreAccount(db, request.id, by);
 }
 
 /** Permanently destroys one component group. Irreversible. */
@@ -373,7 +449,9 @@ export async function runDeletionAutoPurge(db: any, logger?: any): Promise<numbe
     let purged = 0;
     try {
         const due = await db.accountDeletionRequest.findMany({
-            where: { status: 'pending', purgeAfter: { lte: new Date() } },
+            // Moderation holds are excluded: a suspension stays reversible until staff decide,
+            // and must never quietly become a permanent deletion on a timer.
+            where: { status: 'pending', purgeAfter: { lte: new Date() }, source: { not: 'moderation' } },
             select: { id: true, userId: true },
         });
         for (const req of due) {
