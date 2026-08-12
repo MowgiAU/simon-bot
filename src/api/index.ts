@@ -10584,7 +10584,7 @@ app.get('/api/musician/profile/:userId', async (req, res) => {
                     ],
                     deletedAt: { not: null },
                 },
-                select: { username: true, displayName: true, userId: true },
+                select: { username: true, displayName: true, userId: true, status: true },
             });
             if (hidden) {
                 const owner = await db.user.findFirst({
@@ -10594,7 +10594,10 @@ app.get('/api/musician/profile/:userId', async (req, res) => {
                     },
                     select: { banned: true },
                 });
-                if (owner?.banned) {
+                // Either route into a ban qualifies: the account was banned outright, or staff
+                // set this profile's status to banned/suspended (which now hides the row, so it
+                // arrives here rather than through the status check further down).
+                if (owner?.banned || (hidden.status && hidden.status !== 'active')) {
                     return res.status(403).json({
                         error: 'This account has been suspended',
                         code: 'PROFILE_SUSPENDED',
