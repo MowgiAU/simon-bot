@@ -9023,9 +9023,14 @@ app.get('/api/tracks/:id/lyrics', async (req, res) => {
     try {
         const track = await db.track.findUnique({
             where: { id: req.params.id },
-            select: { lyrics: true, lyricsSync: true },
+            select: { lyrics: true, lyricsSync: true, isPublic: true, status: true },
         });
         if (!track) return res.status(404).json({ error: 'Not found' });
+        // This route is public and unauthenticated, so a private or moderated track's lyrics
+        // were readable by anyone holding the track id.
+        if (!track.isPublic || (track.status && track.status !== 'active')) {
+            return res.status(404).json({ error: 'Not found' });
+        }
         res.json({ lyrics: track.lyrics ?? null, lyricsSync: track.lyricsSync ?? null });
     } catch { res.status(500).json({ error: 'Failed' }); }
 });
@@ -10852,8 +10857,12 @@ app.get('/api/musician/tracks/:username/:trackSlug', async (req, res) => {
             return res.status(404).json({ error: artistExists ? 'Track not found' : 'Artist not found' });
         }
 
-        // Private tracks are only visible to the owner and admins — return 404 to everyone else
-        if (!track.isPublic) {
+        // Private tracks are only visible to the owner and admins — return 404 to everyone else.
+        // Suspended/deleted tracks get the same treatment: their page used to load in full for
+        // anyone with the link, which is how a moderated track stayed publicly readable even
+        // though its audio would not stream.
+        const isHiddenByStatus = !!track.status && track.status !== 'active';
+        if (!track.isPublic || isHiddenByStatus) {
             const requestingUserId = (req as any).session?.user?.id;
             const requestingLocalId = (req as any).session?.user?._localId;
             const isAdmin = !!((req as any).session?.mutualAdminGuilds as any)?.length;
@@ -11548,6 +11557,9 @@ app.get('/api/discovery/tracks/search', publicCache(60), async (req, res) => {
         const tracks = await db.track.findMany({
             where: {
                 isPublic: true,
+                // Suspended/deleted tracks were still searchable: unlike the discovery grid and
+                // the feed, this query never filtered on status.
+                status: 'active',
                 ...(search ? {
                     OR: [
                         { title: { contains: search, mode: 'insensitive' as const } },
