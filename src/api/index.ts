@@ -10549,6 +10549,13 @@ app.get('/api/musician/profile/:userId', async (req, res) => {
     try {
         const { userId } = req.params;
 
+        // Keep profile JSON off the CDN edge. Two reasons: a deleted member's profile kept
+        // being served from Cloudflare (cf-cache-status: HIT) long after the origin correctly
+        // started 404ing it, and this response varies by viewer — owners get their private and
+        // non-public tracks — which is not safe to hold in a shared cache. The in-process
+        // apiResponseCache below still absorbs the load.
+        res.set('Cache-Control', 'private, no-store');
+
         // When the requesting user is the profile owner, skip the server cache entirely
         // so their own track list is always fresh after an upload/edit/delete.
         const requestingUserId = (req as any).session?.user?.id;
