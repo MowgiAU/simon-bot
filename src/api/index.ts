@@ -10884,6 +10884,11 @@ app.get('/api/musician/tracks/:username/:trackSlug', async (req, res) => {
                 }
             }
             if (!isOwner && !isAdmin) {
+                // Moderated tracks say so; private ones stay indistinguishable from missing,
+                // so this can't be used to probe whether a private track exists.
+                if (isHiddenByStatus) {
+                    return res.status(404).json({ error: 'Track unavailable', code: 'TRACK_UNAVAILABLE' });
+                }
                 return res.status(404).json({ error: 'Track not found' });
             }
         }

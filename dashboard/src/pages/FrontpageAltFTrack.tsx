@@ -107,6 +107,8 @@ export const FrontpageAltFTrack: React.FC = () => {
 
     const [track, setTrackData] = useState<any>(null);
     const [loading, setLoading] = useState(true);
+    // 'unavailable' = removed by moderation, 'missing' = no such track / private / bad link.
+    const [loadError, setLoadError] = useState<'unavailable' | 'missing' | null>(null);
     const [liked, setLiked] = useState(false);
     const [likeCount, setLikeCount] = useState(0);
     const [reposted, setReposted] = useState(false);
@@ -131,19 +133,22 @@ export const FrontpageAltFTrack: React.FC = () => {
     useEffect(() => {
         let on = true;
         // Resolve the target track from the URL. Live route is /profile/:username/:slug
-        // (or /track/:username/:slug); the preview URL falls back to ?u=&slug=, then the demo.
-        const resolveTarget = (): { username: string; slug: string } => {
+        // (or /track/:username/:slug); the preview URL also accepts ?u=&slug=.
+        // Returns null rather than a hardcoded demo track — that leftover default meant a URL
+        // the page could not parse silently rendered somebody else's track instead.
+        const resolveTarget = (): { username: string; slug: string } | null => {
             const m = window.location.pathname.match(/^\/(?:profile|track)\/([^/]+)\/([^/]+)\/?$/);
             if (m) return { username: decodeURIComponent(m[1]), slug: decodeURIComponent(m[2]) };
             const sp = new URLSearchParams(window.location.search);
             const u = sp.get('u') || sp.get('username');
             const s = sp.get('slug') || sp.get('track');
             if (u && s) return { username: u, slug: s };
-            return { username: 'thomas', slug: 'testing-new-stems-feature' };
+            return null;
         };
         const load = async () => {
+            const target = resolveTarget();
+            if (!target) { if (on) { setLoadError('missing'); setLoading(false); } return; }
             try {
-                const target = resolveTarget();
                 const r = await axios.get(`/api/musician/tracks/${encodeURIComponent(target.username)}/${encodeURIComponent(target.slug)}`, { withCredentials: true });
                 if (!on) return;
                 const t = r.data;
@@ -153,18 +158,14 @@ export const FrontpageAltFTrack: React.FC = () => {
                 try { const tc = await axios.get(`/api/tracks/${t.id}/comments?timed=true`); if (on) setTimedComments((tc.data || []).filter((c: any) => c.trackTimestamp != null)); } catch {}
                 try { const [lk, rp] = await Promise.all([axios.get(`/api/tracks/${t.id}/favourite`, { withCredentials: true }), axios.get(`/api/tracks/${t.id}/repost`, { withCredentials: true })]); if (on) { setLiked(lk.data.favourited); setReposted(rp.data.reposted); } } catch {}
                 setLoading(false);
-            } catch {
-                try {
-                    const r2 = await axios.get('/api/charts/weekly');
-                    const entries = Array.isArray(r2.data) ? r2.data[0]?.entries : r2.data?.entries;
-                    const slug = entries?.[0]?.track?.slug || entries?.[0]?.track?.id;
-                    const uname = entries?.[0]?.track?.profile?.username;
-                    if (slug && uname) {
-                        const r3 = await axios.get(`/api/musician/tracks/${uname}/${slug}`, { withCredentials: true });
-                        if (on) { setTrackData(r3.data); setLikeCount(r3.data.likeCount || 0); setRepostCount(r3.data.repostCount || 0); }
-                    }
-                } catch {}
-                if (on) setLoading(false);
+            } catch (err: any) {
+                // This used to fall back to the #1 weekly charting track, so a dead, private or
+                // moderated URL rendered a completely different artist's song under the
+                // original address — the page even reported it as that track.
+                if (on) {
+                    setLoadError(err?.response?.data?.code === 'TRACK_UNAVAILABLE' ? 'unavailable' : 'missing');
+                    setLoading(false);
+                }
             }
         };
         load();
@@ -297,7 +298,27 @@ export const FrontpageAltFTrack: React.FC = () => {
     );
 
     if (loading) return shell(<div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: SUB }}><AltSpinner /></div>);
-    if (!track) return shell(<div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: SUB }}>Track not found.</div>);
+    if (!track) return shell(
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+            <div style={{ maxWidth: 420, textAlign: 'center' }}>
+                <h1 style={{ margin: '0 0 10px', fontSize: 22, fontWeight: 800, color: '#fff' }}>
+                    {loadError === 'unavailable' ? 'Track unavailable' : 'Track not found'}
+                </h1>
+                <p style={{ margin: '0 0 22px', fontSize: 14, color: SUB, lineHeight: 1.6 }}>
+                    {loadError === 'unavailable'
+                        ? 'This track has been removed for breaking the Fuji Studio community guidelines.'
+                        : "We couldn't find this track. The link may be outdated, or the track may be private or no longer available."}
+                </p>
+                <Link to="/" style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 8, background: PRIMARY, color: '#0a0d18',
+                    padding: '10px 20px', borderRadius: 10, fontWeight: 800, fontSize: 13,
+                    textDecoration: 'none', fontFamily: FONT,
+                }}>
+                    Discover music
+                </Link>
+            </div>
+        </div>
+    );
 
     // Artist card
     const artistSection = (
