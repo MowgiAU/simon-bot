@@ -307,6 +307,7 @@ interface DeletionRequest {
     identityIds: string[];
     requestedAt: string;
     requestedBy: string;
+    source: 'self' | 'admin' | 'ban';
     reason: string | null;
     purgeAfter: string;
     status: 'pending' | 'restored' | 'purged';
@@ -322,6 +323,12 @@ const STATUS_COLOR: Record<string, string> = {
     pending: colors.warning,
     restored: colors.success,
     purged: colors.error,
+};
+
+const SOURCE_LABEL: Record<string, string> = {
+    self: 'member',
+    admin: 'admin',
+    ban: 'ban',
 };
 
 const DeletionsTab: React.FC = () => {
@@ -419,7 +426,7 @@ const DeletionsTab: React.FC = () => {
                             </div>
                             <div style={{ fontSize: 11, color: colors.textTertiary, marginTop: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
                                 {r.overdue && <AlertTriangle size={11} color={colors.error} />}
-                                {new Date(r.requestedAt).toLocaleDateString()} · by {r.requestedBy === 'self' ? 'member' : 'admin'}
+                                {new Date(r.requestedAt).toLocaleDateString()} · by {SOURCE_LABEL[r.source] || 'admin'}
                             </div>
                         </button>
                     ))}
@@ -442,6 +449,11 @@ const DeletionsTab: React.FC = () => {
                                 {detail.request.reason && (
                                     <p style={{ margin: '8px 0 0', fontSize: 12, color: colors.textSecondary, fontStyle: 'italic', padding: '8px 10px', background: 'rgba(255,255,255,0.03)', borderRadius: borderRadius.sm }}>
                                         “{detail.request.reason}”
+                                    </p>
+                                )}
+                                {detail.request.source === 'ban' && detail.request.status === 'pending' && (
+                                    <p style={{ margin: '8px 0 0', fontSize: 12, color: colors.warning, padding: '8px 10px', background: `${colors.warning}14`, border: `1px solid ${colors.warning}33`, borderRadius: borderRadius.sm }}>
+                                        Raised by a ban. Lifting the ban restores this content automatically — restoring here brings the content back but leaves the account banned.
                                     </p>
                                 )}
                             </div>

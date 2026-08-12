@@ -155,6 +155,7 @@ export async function requestDeletion(
     userId: string,
     requestedBy: string,
     reason?: string | null,
+    source: 'self' | 'admin' | 'ban' = 'self',
 ): Promise<any> {
     const user = await db.user.findUnique({ where: { id: userId } });
     if (!user) throw new Error('User not found');
@@ -190,6 +191,7 @@ export async function requestDeletion(
             identityIds,
             requestedAt: marker,
             requestedBy,
+            source,
             reason: reason || null,
             purgeAfter,
             status: 'pending',
@@ -231,6 +233,22 @@ export async function restoreAccount(db: any, requestId: string, reviewedBy: str
         where: { id: requestId },
         data: { status: 'restored', reviewedAt: new Date(), reviewedBy },
     });
+}
+
+/**
+ * Reverses the deletion a ban raised, for use when that ban is lifted.
+ *
+ * Scoped to `source: 'ban'` on purpose: unbanning must never resurrect an account the member
+ * deleted themselves, or one staff deleted deliberately from the review tab. Returns null when
+ * there is nothing of that kind to restore.
+ */
+export async function restoreBanDeletion(db: any, userId: string, reviewedBy: string): Promise<any | null> {
+    const request = await db.accountDeletionRequest.findFirst({
+        where: { userId, status: 'pending', source: 'ban' },
+        orderBy: { requestedAt: 'desc' },
+    });
+    if (!request) return null;
+    return restoreAccount(db, request.id, reviewedBy);
 }
 
 /** Permanently destroys one component group. Irreversible. */

@@ -4082,6 +4082,10 @@ model AccountDeletionRequest {
   identityIds  String[]  @default([])
   requestedAt  DateTime  @default(now())
   requestedBy  String // "self" or the admin's user id
+  // What raised this: "self" (member deleted their own account), "admin" (staff deleted it
+  // from the review tab) or "ban" (raised automatically by a ban). Unban only ever reverses
+  // a "ban" request, so it can never resurrect an account the member deleted themselves.
+  source       String    @default("self")
   reason       String?   @db.Text
   purgeAfter   DateTime // requestedAt + grace period
   status       String    @default("pending") // pending | restored | purged

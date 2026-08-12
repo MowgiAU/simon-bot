@@ -153,7 +153,12 @@ export function VoteFraudPage() {
                 userIds,
                 reason: 'vote_fraud',
             });
-            setSuccess(`Banned ${res.data.banned} account${res.data.banned !== 1 ? 's' : ''}.`);
+            const n = res.data.banned;
+            setSuccess(
+                `Banned ${n} account${n !== 1 ? 's' : ''}. Their profiles, tracks, playlists and comments are now hidden `
+                + `and queued in Admin Tools → Account Deletions, where they are permanently purged after 30 days. `
+                + `Unbanning restores everything.`,
+            );
             await load();
         } catch (e: any) {
             setError(e?.response?.data?.error || 'Failed to ban users');
@@ -167,7 +172,7 @@ export function VoteFraudPage() {
         setError(null);
         try {
             await axios.post(`${API}/api/admin/users/unban`, { userIds: [userId] });
-            setSuccess('Account unbanned.');
+            setSuccess('Account unbanned. Their profile, tracks and comments have been restored.');
             await load();
         } catch (e: any) {
             setError(e?.response?.data?.error || 'Failed to unban user');

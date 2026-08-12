@@ -31,7 +31,7 @@ import { MediaConverter } from '../services/MediaConverter.js';
 import { ProjectZipProcessor } from '../services/ProjectZipProcessor.js';
 import { R2Storage } from '../services/R2Storage.js';
 import { runBackup, pgDump } from '../services/DatabaseBackup.js';
-import { softDeleteMiddleware } from '../services/softDelete.js';
+import { softDeleteMiddleware, withHardDelete } from '../services/softDelete.js';
 import { deleteStoredFile } from '../services/storageCleanup.js';
 import * as AccountDeletionService from '../services/AccountDeletionService.js';
 import * as BankService from '../services/BankService.js';
@@ -2380,7 +2380,7 @@ app.post('/api/account/delete', requireAuth, async (req: any, res) => {
         }
 
         const request = await AccountDeletionService.requestDeletion(
-            db, dbUser.id, 'self', typeof reason === 'string' ? reason.slice(0, 2000) : null,
+            db, dbUser.id, 'self', typeof reason === 'string' ? reason.slice(0, 2000) : null, 'self',
         );
         logger.info(`[AccountDeletion] ${dbUser.id} requested self-deletion (request ${request.id})`);
         await bustAccountCaches(request.identityIds || []);
@@ -2482,7 +2482,7 @@ app.post('/api/admin/deletions/user/:userId', requireAdmin, async (req: any, res
     try {
         const by = req.session?.user?.id || 'admin';
         const request = await AccountDeletionService.requestDeletion(
-            db, req.params.userId, by, typeof req.body?.reason === 'string' ? req.body.reason.slice(0, 2000) : null,
+            db, req.params.userId, by, typeof req.body?.reason === 'string' ? req.body.reason.slice(0, 2000) : null, 'admin',
         );
         logger.info(`[AccountDeletion] ${by} soft-deleted account ${req.params.userId} (request ${request.id})`);
         await bustAccountCaches(request.identityIds || []);
@@ -12684,9 +12684,13 @@ app.post('/api/admin/musician/profile/:id/wipe', requireAdmin, async (req: any, 
         const executorId = req.session.user.id;
         const { reason, sendEmail: shouldEmail } = req.body || {};
 
-        const profile = await db.musicianProfile.findUnique({
-            where: { id },
-            include: { tracks: true }
+        // Include soft-deleted profiles: an account that already went through the deletion
+        // flow is exactly the kind staff would reach for this on, and the middleware would
+        // otherwise hide it. Nested tracks/stems are unfiltered too, so files still get cleaned
+        // up for tracks the member had already deleted themselves.
+        const profile = await db.musicianProfile.findFirst({
+            where: { id, OR: [{ deletedAt: null }, { deletedAt: { not: null } }] },
+            include: { tracks: { include: { stems: true } } }
         });
 
         if (!profile) return res.status(404).json({ error: 'Profile not found' });
@@ -12705,6 +12709,14 @@ app.post('/api/admin/musician/profile/:id/wipe', requireAdmin, async (req: any, 
                 logger.error(`Failed to delete track project during profile wipe`, err));
             if ((track as any).projectZipUrl) await deleteFromStorage((track as any).projectZipUrl).catch((err: any) =>
                 logger.error(`Failed to delete track ZIP during profile wipe`, err));
+            if ((track as any).mp3Url) await deleteFromStorage((track as any).mp3Url).catch((err: any) =>
+                logger.error(`Failed to delete track mp3 during profile wipe`, err));
+            for (const stem of ((track as any).stems || [])) {
+                await deleteFromStorage(stem.url).catch((err: any) =>
+                    logger.error(`Failed to delete stem during profile wipe`, err));
+                if (stem.mp3Url) await deleteFromStorage(stem.mp3Url).catch((err: any) =>
+                    logger.error(`Failed to delete stem mp3 during profile wipe`, err));
+            }
         }
 
         // 2. Send notification email before deleting (while we still have the user's info)
@@ -12728,8 +12740,13 @@ app.post('/api/admin/musician/profile/:id/wipe', requireAdmin, async (req: any, 
             }
         }
 
-        // 3. Delete from DB (Tracks cascade delete, but we need to stay safe)
-        await db.musicianProfile.delete({ where: { id } });
+        // 3. Delete from DB. withHardDelete is essential: MusicianProfile is a soft-delete
+        // model, so a plain delete() is rewritten by the middleware into "set deletedAt" —
+        // the row would survive, the cascade to Track would never fire, and those tracks
+        // would be left pointing at the R2 objects step 1 just destroyed, while the member
+        // was emailed to say everything had been permanently removed.
+        await withHardDelete(() => db.musicianProfile.delete({ where: { id } }));
+        await bustAccountCaches([profile.userId]);
 
         // 4. Log the wipe
         await logAction('GLOBAL', 'profile_wiped', executorId, profile.userId, {
@@ -15714,9 +15731,27 @@ app.post('/api/admin/users/ban', requireAdmin, async (req: any, res) => {
             data: { banned: true, bannedAt: new Date(), bannedFor: reason || 'vote_fraud' },
         });
 
+        // A ban used to lock the account out of logging in and nothing else — the member's
+        // profile, tracks, playlists and comments stayed fully public. Route it through the
+        // deletion pipeline so their content actually comes down, lands in the purge review
+        // queue, and is reversible by unbanning.
+        let contentRemoved = 0;
+        for (const userId of userIds) {
+            try {
+                const request = await AccountDeletionService.requestDeletion(
+                    db, userId, req.session?.user?.id || 'admin', `Banned: ${reason || 'vote_fraud'}`, 'ban',
+                );
+                await bustAccountCaches(request.identityIds || []);
+                contentRemoved++;
+            } catch (e: any) {
+                // One unknown id must not abort the rest of a bulk ban.
+                logger.error(`[Admin] Ban raised for ${userId} but content removal failed`, e);
+            }
+        }
+
         logActivity(req, 'admin.users_banned', undefined, 'user', { userIds, reason, count: userIds.length });
-        logger.info(`[Admin] Banned ${userIds.length} users for ${reason || 'vote_fraud'}: ${userIds.join(', ')}`);
-        res.json({ banned: userIds.length });
+        logger.info(`[Admin] Banned ${userIds.length} users for ${reason || 'vote_fraud'} (content removed for ${contentRemoved}): ${userIds.join(', ')}`);
+        res.json({ banned: userIds.length, contentRemoved });
     } catch (e: any) {
         logger.error('Admin: user ban failed', e);
         res.status(500).json({ error: 'Internal server error' });
@@ -15736,8 +15771,24 @@ app.post('/api/admin/users/unban', requireAdmin, async (req: any, res) => {
             data: { banned: false, bannedAt: null, bannedFor: null },
         });
 
+        // Put back whatever the ban took down. Scoped to ban-raised requests, so lifting a ban
+        // can never resurrect an account the member deleted themselves.
+        let contentRestored = 0;
+        for (const userId of userIds) {
+            try {
+                const request = await AccountDeletionService.restoreBanDeletion(db, userId, req.session?.user?.id || 'admin');
+                if (request) {
+                    await bustAccountCaches(request.identityIds || []);
+                    contentRestored++;
+                }
+            } catch (e: any) {
+                logger.error(`[Admin] Unbanned ${userId} but content restore failed`, e);
+            }
+        }
+
         logActivity(req, 'admin.users_unbanned', undefined, 'user', { userIds, count: userIds.length });
-        res.json({ unbanned: userIds.length });
+        logger.info(`[Admin] Unbanned ${userIds.length} users (content restored for ${contentRestored})`);
+        res.json({ unbanned: userIds.length, contentRestored });
     } catch (e: any) {
         logger.error('Admin: user unban failed', e);
         res.status(500).json({ error: 'Internal server error' });
