@@ -33,6 +33,7 @@ import { R2Storage } from '../services/R2Storage.js';
 import { runBackup, pgDump } from '../services/DatabaseBackup.js';
 import { softDeleteMiddleware, withHardDelete } from '../services/softDelete.js';
 import { deleteStoredFile } from '../services/storageCleanup.js';
+import { safeTrackSlug, uniqueTrackSlug as uniqueTrackSlugFor } from '../services/trackSlug.js';
 import * as AccountDeletionService from '../services/AccountDeletionService.js';
 import * as BankService from '../services/BankService.js';
 import * as MarketService from '../services/MarketService.js';
@@ -259,15 +260,9 @@ const logger = new Logger('API');
 
 const CDN_BASE = (process.env.CDN_URL || 'https://cdn.fujistud.io').replace(/\/$/, '');
 
-/**
- * Generate a URL-safe slug from a track title.
- * Falls back to a short timestamp-based ID when the title is entirely
- * non-ASCII (e.g. CJK, symbol-only) so slugs are never empty strings.
- */
-function safeTrackSlug(title: string): string {
-    const base = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-    return base || `track-${Date.now()}`;
-}
+/** Per-profile unique slug, bound to this module's Prisma client. */
+const uniqueTrackSlug = (profileId: string, title: string, excludeTrackId?: string) =>
+    uniqueTrackSlugFor(db, profileId, title, excludeTrackId);
 
 // ── Virus scanning (ClamAV via clamdscan daemon) ─────────────────────────────
 let _clamScanner: any = null;
@@ -8741,14 +8736,11 @@ app.post('/api/musician/tracks', uploadLimiter, requireDesktopAuth, upload.field
         const audioUrl = `/uploads/tracks/${path.basename(audioFile.path)}`;
         const coverUrl = artworkFile ? `/uploads/artwork/${path.basename(artworkFile.path)}` : req.body.coverUrl;
 
-        // Create slug from title � fall back to cuid when Unicode title produces empty string
-        const slug = safeTrackSlug(metadata.title);
-
-        // 3. Save to database
+        // 3. Save to database. addTrack derives the slug itself — it resolves the profile,
+        // and the slug has to be unique within that profile.
         const _isPublic = req.body.isPublic === 'false' || req.body.isPublic === false ? false : true;
         const track = await audioService.addTrack(userId, {
             title: metadata.title,
-            slug,
             url: audioUrl,
             coverUrl,
             description: req.body.description,
@@ -9156,9 +9148,15 @@ app.patch('/api/musician/tracks/:trackId', async (req: any, res) => {
                 if (!/^[a-z0-9][a-z0-9-]{1,78}[a-z0-9]$|^[a-z0-9]{1,3}$/.test(raw)) {
                     return res.status(400).json({ error: 'Slug must be 3–80 characters, lowercase letters, numbers, and hyphens only.' });
                 }
-                // Uniqueness check within this profile (exclude current track)
-                const conflict = await db.track.findFirst({ where: { slug: raw, profileId: track.profileId, id: { not: trackId } } });
-                if (conflict) return res.status(409).json({ error: 'That URL is already used by another track on your profile.' });
+                // Uniqueness check within this profile (exclude current track).
+                // Skipped when the slug is unchanged: the edit form resubmits the current slug
+                // with every save, so a member who already had two tracks sharing a slug was
+                // conflicting with their own other track and could not save ANY edit to either
+                // one — not the title, not the description, nothing.
+                if (raw !== track.slug) {
+                    const conflict = await db.track.findFirst({ where: { slug: raw, profileId: track.profileId, id: { not: trackId } } });
+                    if (conflict) return res.status(409).json({ error: 'That URL is already used by another track on your profile.' });
+                }
                 resolvedSlug = raw;
             }
         }
@@ -9166,7 +9164,7 @@ app.patch('/api/musician/tracks/:trackId', async (req: any, res) => {
         const updated = await db.track.update({
             where: { id: trackId },
             data: {
-                ...(title !== undefined && { title: sanitizeDisplayName(title), slug: safeTrackSlug(title) }),
+                ...(title !== undefined && { title: sanitizeDisplayName(title), slug: await uniqueTrackSlug(track.profileId, title, trackId) }),
                 ...(resolvedSlug !== undefined && { slug: resolvedSlug }),
                 ...(description !== undefined && { description }),
                 ...(isPublic !== undefined && { isPublic: isPublic === 'true' || isPublic === true }),
@@ -9327,7 +9325,7 @@ app.put('/api/musician/tracks/:trackId', generalUploadLimiter, upload.fields([
         if (title !== undefined) {
             const cleanTitle = sanitizeDisplayName(title);
             updateData.title = cleanTitle;
-            updateData.slug = safeTrackSlug(cleanTitle);
+            updateData.slug = await uniqueTrackSlug(track.profileId, cleanTitle, trackId);
         }
         if (description !== undefined) updateData.description = description || null;
         if (artist !== undefined) updateData.artist = sanitizeDisplayName(artist) || null;
@@ -9551,7 +9549,7 @@ app.put('/api/admin/tracks/:trackId', requireAdmin, upload.fields([
         if (title !== undefined) {
             const cleanTitle = sanitizeDisplayName(title);
             updateData.title = cleanTitle;
-            updateData.slug = safeTrackSlug(cleanTitle);
+            updateData.slug = await uniqueTrackSlug(track.profileId, cleanTitle, trackId);
         }
         if (description !== undefined) updateData.description = description || null;
         if (artist !== undefined) updateData.artist = sanitizeDisplayName(artist) || null;
@@ -10923,12 +10921,25 @@ app.get('/api/musician/tracks/:username/:trackSlug', async (req, res) => {
 });
 
 // -- Social link domain validation ---------------------------------------------
+// Subdomains are matched loosely ((sub.)*) so m.youtube.com, music.youtube.com and
+// on.soundcloud.com are accepted rather than rejected as "invalid".
 const SOCIAL_DOMAIN_RULES: Record<string, { pattern: RegExp; label: string }> = {
-    spotify:    { pattern: /^https?:\/\/(open\.)?spotify\.com\//i,    label: 'Spotify (open.spotify.com)' },
-    soundcloud: { pattern: /^https?:\/\/(www\.)?soundcloud\.com\//i,  label: 'SoundCloud (soundcloud.com)' },
-    youtube:    { pattern: /^https?:\/\/(www\.)?(youtube\.com|youtu\.be)\//i, label: 'YouTube (youtube.com or youtu.be)' },
-    instagram:  { pattern: /^https?:\/\/(www\.)?instagram\.com\//i,   label: 'Instagram (instagram.com)' },
+    spotify:    { pattern: /^https?:\/\/([a-z0-9-]+\.)*spotify\.(com|link)\//i,    label: 'Spotify (open.spotify.com)' },
+    soundcloud: { pattern: /^https?:\/\/([a-z0-9-]+\.)*soundcloud\.com\//i,  label: 'SoundCloud (soundcloud.com)' },
+    youtube:    { pattern: /^https?:\/\/([a-z0-9-]+\.)*(youtube\.com|youtu\.be)\//i, label: 'YouTube (youtube.com or youtu.be)' },
+    instagram:  { pattern: /^https?:\/\/([a-z0-9-]+\.)*instagram\.com\//i,   label: 'Instagram (instagram.com)' },
 };
+
+/**
+ * People paste "soundcloud.com/name" far more often than they type the scheme. Without this
+ * the pattern below rejected it and the whole profile save failed with a 400, so one informally
+ * typed social link blocked every other edit on the page.
+ */
+function normalizeSocialUrl(raw: string): string {
+    const trimmed = raw.trim();
+    if (!trimmed) return trimmed;
+    return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+}
 
 function validateSocialUrls(data: any): string | null {
     const fields: Record<string, string> = {
@@ -10940,8 +10951,12 @@ function validateSocialUrls(data: any): string | null {
     for (const [field, platform] of Object.entries(fields)) {
         const url: string | undefined = data[field];
         if (!url || url.trim() === '') continue;
+        // Written back to `data` so the stored link keeps its scheme — otherwise it renders
+        // as a relative link and sends people to fujistud.io/soundcloud.com/name.
+        const normalized = normalizeSocialUrl(url);
+        data[field] = normalized;
         const rule = SOCIAL_DOMAIN_RULES[platform];
-        if (!rule.pattern.test(url.trim())) {
+        if (!rule.pattern.test(normalized)) {
             return `Invalid URL for ${platform}. Must be a valid ${rule.label} link.`;
         }
     }

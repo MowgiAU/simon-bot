@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import { coverOrDefault } from './defaultArtwork.js';
+import { uniqueTrackSlug } from './trackSlug.js';
 
 /**
  * Audio Service
@@ -118,7 +119,7 @@ export class AudioService {
      */
     async addTrack(userId: string, data: {
         title: string, url: string, coverUrl?: string, description?: string, lyrics?: string, duration?: number,
-        artist?: string, album?: string, year?: number, bpm?: number, key?: string, slug?: string,
+        artist?: string, album?: string, year?: number, bpm?: number, key?: string,
         arrangement?: object, projectFileUrl?: string, projectZipUrl?: string,
         allowAudioDownload?: boolean, allowProjectDownload?: boolean, allowStemsDownload?: boolean,
         waveformPeaks?: number[], projectFileSizeBytes?: number, audioFileSizeBytes?: number, isPublic?: boolean,
@@ -142,11 +143,17 @@ export class AudioService {
         }
         if (!profile) throw new Error('Profile not found');
 
+        // Resolved here rather than in the route because this is the first point the profile
+        // is known, and the slug only has to be unique within it. Uploading two tracks with
+        // the same title previously gave both the same slug, so /profile/:user/:slug served
+        // whichever came back first and the two songs appeared to swap at random.
+        const slug = await uniqueTrackSlug(this.prisma, profile.id, data.title);
+
         return await this.prisma.track.create({
             data: {
                 profileId: profile.id,
                 title: data.title,
-                slug: data.slug,
+                slug,
                 url: data.url,
                 coverUrl: coverOrDefault(data.coverUrl),
                 description: data.description,
