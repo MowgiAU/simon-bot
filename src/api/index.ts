@@ -7652,7 +7652,11 @@ app.put('/api/auto-responder/:guildId/:ruleId', async (req: any, res) => {
         const { name, trigger, triggerType, response, enabled, allowedChannels, ignoredChannels, cooldownSeconds, cooldownReactionEmoji, embedJson, mentionUser, reactionEmoji, categoryId } = req.body;
 
         // Validate trigger type
-        const validTypes = ['regex', 'exact', 'startsWith', 'contains', 'wholeWord'];
+        // Must stay in sync with the plugin's switch and the dashboard's TRIGGER_TYPES.
+        // An unknown value silently falls back instead of erroring, which is how a new
+        // audioAttachment rule quietly saved itself as a regex with an empty pattern —
+        // and an empty pattern matches every message.
+        const validTypes = ['regex', 'exact', 'startsWith', 'contains', 'wholeWord', 'audioAttachment'];
         const type = validTypes.includes(triggerType) ? triggerType : existing.triggerType;
 
         // Validate regex if regex type (strip unsupported inline flags like (?i) � JS applies 'i' flag natively)

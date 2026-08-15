@@ -246,6 +246,9 @@ export class AutoResponderPlugin implements IPlugin {
                         break;
                     }
                     case 'regex': {
+                        // An empty pattern compiles fine and matches EVERY message, so a rule
+                        // left blank silently spams the whole server. Never intentional.
+                        if (!rule.trigger?.trim()) continue;
                         // Strip inline flags (e.g. (?i)) — JS regex flags are applied separately
                         const pattern = rule.trigger.replace(/^\(\?[imsxUu-]+\)/g, '');
                         match = msg.content.match(new RegExp(pattern, 'i'));
