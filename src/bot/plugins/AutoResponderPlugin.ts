@@ -99,6 +99,22 @@ export class AutoResponderPlugin implements IPlugin {
         if (this.cleanupInterval) clearInterval(this.cleanupInterval);
     }
 
+    /**
+     * True when the message carries at least one audio file.
+     *
+     * Discord's contentType is the reliable signal but it comes back null often enough
+     * (older clients, some upload paths) that a filename-extension fallback is needed —
+     * otherwise a plain .wav drop would silently fail to trigger. Extensions cover the
+     * formats producers actually post; .flp and other project files are deliberately not
+     * audio and are left out.
+     */
+    private hasAudioAttachment(msg: Message): boolean {
+        const AUDIO_EXT = /\.(mp3|wav|flac|ogg|oga|opus|m4a|aac|aiff?|wma|alac)$/i;
+        return msg.attachments.some(a =>
+            (a.contentType || '').toLowerCase().startsWith('audio/') || AUDIO_EXT.test(a.name || ''),
+        );
+    }
+
     // Called by the plugin manager dispatcher (bot/index.ts → p.onMessage)
     async onMessage(msg: Message): Promise<void> {
         // Periodic cleanup of stale cooldown entries (every 5 minutes)
@@ -116,7 +132,12 @@ export class AutoResponderPlugin implements IPlugin {
         }
 
         // Ignore bots and DMs
-        if (msg.author.bot || !msg.guild || !msg.content) return;
+        // Attachment-only posts (an audio file with no caption) have empty content, so the
+        // old `!msg.content` bail dropped them before any rule could see them. They're allowed
+        // through now; the matcher below still requires content for every text trigger type,
+        // so no existing rule changes behaviour.
+        if (msg.author.bot || !msg.guild) return;
+        if (!msg.content && msg.attachments.size === 0) return;
         if (!this.context) return;
 
         const { db } = this.context;
@@ -199,10 +220,31 @@ export class AutoResponderPlugin implements IPlugin {
                 } catch { /* ignore parse errors */ }
             }
 
-            // Pattern matching (must happen before cooldown check)
+            // Pattern matching (must happen before cooldown check).
+            // Every trigger type except audioAttachment reads msg.content, and an
+            // attachment-only post has none — skipping them here keeps a permissive existing
+            // rule (say a `.*` regex) from suddenly firing on file uploads.
+            if (!msg.content && rule.triggerType !== 'audioAttachment') continue;
             let match: RegExpMatchArray | null = null;
             try {
                 switch (rule.triggerType) {
+                    case 'audioAttachment': {
+                        if (!this.hasAudioAttachment(msg)) break;
+                        // `trigger` is an optional comma-separated extension whitelist
+                        // ("wav, flac") for rules that should only fire on certain formats.
+                        // Left blank, any audio file matches.
+                        const wanted = (rule.trigger || '').split(',').map((t: string) =>
+                            t.trim().toLowerCase().replace(/^\./, '')).filter(Boolean);
+                        if (wanted.length) {
+                            const ok = msg.attachments.some(a => {
+                                const ext = (a.name || '').split('.').pop()?.toLowerCase() || '';
+                                return wanted.includes(ext);
+                            });
+                            if (!ok) break;
+                        }
+                        match = [msg.content || ''];
+                        break;
+                    }
                     case 'regex': {
                         // Strip inline flags (e.g. (?i)) — JS regex flags are applied separately
                         const pattern = rule.trigger.replace(/^\(\?[imsxUu-]+\)/g, '');

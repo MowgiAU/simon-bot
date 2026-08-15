@@ -36,7 +36,7 @@ interface AutoResponderRule {
     guildId: string;
     name: string;
     trigger: string;
-    triggerType: 'regex' | 'exact' | 'startsWith' | 'contains' | 'wholeWord';
+    triggerType: 'regex' | 'exact' | 'startsWith' | 'contains' | 'wholeWord' | 'audioAttachment';
     response: string;
     embedJson: string | null;
     reactionEmoji: string | null;
@@ -189,6 +189,7 @@ const TRIGGER_TYPES: { value: string; label: string; desc: string }[] = [
     { value: 'startsWith', label: 'Starts With', desc: 'Message begins with this text' },
     { value: 'contains', label: 'Contains', desc: 'Message includes this text anywhere — separate multiple words with commas (e.g. bean, beans)' },
     { value: 'wholeWord', label: 'Whole Word', desc: 'Word must appear as a standalone word (not inside another word) — separate multiple words with commas' },
+    { value: 'audioAttachment', label: 'Audio File Posted', desc: 'Fires when a message contains an audio file. Leave the box below blank to match any audio, or list extensions to narrow it (e.g. wav, flac)' },
 ];
 
 const RESPONSE_TABS = [
@@ -909,9 +910,13 @@ const RuleCard: React.FC<RuleCardProps> = ({ rule, guildId, categories, onUpdate
                             </p>
                         </div>
                         <div>
-                            <span style={labelStyle}>Trigger {draft.triggerType === 'regex' ? 'Pattern' : 'Text'}</span>
+                            <span style={labelStyle}>
+                                {draft.triggerType === 'audioAttachment'
+                                    ? 'Limit to Extensions (optional)'
+                                    : `Trigger ${draft.triggerType === 'regex' ? 'Pattern' : 'Text'}`}
+                            </span>
                             <input value={draft.trigger} onChange={e => update({ trigger: e.target.value })}
-                                placeholder={draft.triggerType === 'regex' ? '^!hello\\b(.*)' : draft.triggerType === 'contains' ? 'bean, beans, legume' : 'Type trigger text...'}
+                                placeholder={draft.triggerType === 'regex' ? '^!hello\\b(.*)' : draft.triggerType === 'contains' ? 'bean, beans, legume' : draft.triggerType === 'audioAttachment' ? 'Any audio — or: wav, flac' : 'Type trigger text...'}
                                 maxLength={500}
                                 style={{ ...inputBase, fontFamily: draft.triggerType === 'regex' ? 'monospace' : 'inherit', borderColor: regexError ? '#ef4444' : colors.glassBorder }} />
                             {regexError && <p style={{ margin: '4px 0 0', fontSize: '10px', color: '#ef4444' }}>{regexError}</p>}

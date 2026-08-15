@@ -2994,7 +2994,7 @@ model AutoResponderRule {
   guildId               String
   name                  String    @default("New Rule")
   trigger               String // regex pattern or exact-match string
-  triggerType           String    @default("regex") // 'regex' | 'exact' | 'startsWith' | 'contains' | 'wholeWord'
+  triggerType           String    @default("regex") // 'regex' | 'exact' | 'startsWith' | 'contains' | 'wholeWord' | 'audioAttachment'
   response              String    @db.Text // response text (supports placeholders)
   embedJson             String?   @db.Text // JSON-serialized embed (optional)
   reactionEmoji         String? // emoji to react with (unicode or custom <:name:id>)
