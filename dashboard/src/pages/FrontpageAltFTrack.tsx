@@ -257,6 +257,32 @@ export const FrontpageAltFTrack: React.FC = () => {
     };
     const refreshTimedComments = async () => { if (!track?.id) return; try { const r = await axios.get(`/api/tracks/${track.id}/comments?timed=true`); setTimedComments((r.data || []).filter((c: any) => c.trackTimestamp != null)); } catch {} };
 
+    /**
+     * Saves the audio file.
+     *
+     * Fetched as a blob rather than relying on <a download>, because the files are served from
+     * the CDN — a cross-origin download attribute is ignored and the browser just navigates to
+     * the file instead of saving it. Falls back to opening the URL if the fetch is blocked.
+     */
+    const downloadAudio = async () => {
+        if (!track) return;
+        const src = track.url || track.mp3Url;
+        if (!src) return;
+        const ext = (src.split('?')[0].split('.').pop() || 'ogg').toLowerCase();
+        const name = `${(track.title || 'track').replace(/[^a-zA-Z0-9._-]/g, '_')}.${ext}`;
+        try {
+            const r = await fetch(src, { credentials: 'include' });
+            if (!r.ok) throw new Error('fetch failed');
+            const url = URL.createObjectURL(await r.blob());
+            const a = document.createElement('a');
+            a.href = url; a.download = name;
+            document.body.appendChild(a); a.click(); document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        } catch {
+            window.open(src, '_blank', 'noopener');
+        }
+    };
+
     const handleWaveformClick = (e: React.MouseEvent<HTMLDivElement>) => {
         const rect = e.currentTarget.getBoundingClientRect();
         const pct = (e.clientX - rect.left) / rect.width;
@@ -371,6 +397,13 @@ export const FrontpageAltFTrack: React.FC = () => {
                                     if (!user) { showToast('Log in to add tracks to a playlist', 'info'); return; }
                                     setPlaylistModalOpen(true);
                                 } },
+                                // Only when the artist allows it. The API already blanks the real
+                                // file URL and swaps in the stream proxy when they don't, so this
+                                // check and the data agree.
+                                ...(track.allowAudioDownload !== false && (track.url || track.mp3Url) ? [{
+                                    icon: <Download size={14} color={SUB} />, label: 'Download', active: false, activeColor: '#fff',
+                                    onClick: () => downloadAudio(),
+                                }] : []),
                             ].map((btn, i) => (
                                 <button key={i} onClick={btn.onClick} style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', padding: '6px 10px', borderRadius: 8, cursor: 'pointer', fontSize: 11, fontWeight: 700, color: btn.active ? btn.activeColor : SUB, transition: 'all 0.15s' }}>
                                     {btn.icon} {btn.label}
