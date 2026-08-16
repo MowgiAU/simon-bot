@@ -23652,6 +23652,234 @@ app.post('/api/admin/articles/upload-preset', requireAdmin, upload.single('artic
     }
 });
 
+// ── Article polls ─────────────────────────────────────────────────────────────
+
+interface PollOption { id: string; label: string }
+
+// Prisma types Json columns as JsonValue, which doesn't narrow to our shapes — these keep the
+// casts in one place and tolerate a malformed/legacy value instead of throwing mid-request.
+const pollOptionsOf = (p: any): PollOption[] => (Array.isArray(p?.options) ? p.options : []) as PollOption[];
+const voteOptionIdsOf = (v: any): string[] => (Array.isArray(v?.optionIds) ? v.optionIds : []) as string[];
+
+/**
+ * Closed either because staff closed it by hand, or because its scheduled time has passed.
+ * Single source of truth — the public route, the vote route and the admin list all read this,
+ * so they can never disagree about whether results should be visible.
+ */
+function isPollClosed(poll: { closedAt: Date | null; closesAt: Date | null }): boolean {
+    if (poll.closedAt) return true;
+    return !!poll.closesAt && poll.closesAt.getTime() <= Date.now();
+}
+
+/** Normalises editor input into stable {id,label} options. Existing ids are preserved. */
+function normalisePollOptions(raw: any): PollOption[] {
+    if (!Array.isArray(raw)) return [];
+    return raw
+        .map((o: any, i: number) => ({
+            id: String(o?.id || `opt${i}-${Math.random().toString(36).slice(2, 8)}`).slice(0, 40),
+            label: String(o?.label ?? '').trim().slice(0, 200),
+        }))
+        .filter(o => o.label)
+        .slice(0, 10);
+}
+
+/** Author of the parent article, or staff. */
+async function canManagePoll(req: any, articleId: string): Promise<boolean> {
+    const article = await db.article.findUnique({ where: { id: articleId }, select: { authorUserId: true } });
+    if (!article) return false;
+    if (article.authorUserId === req.session?.user?.id) return true;
+    const access = await resolveArticleAccess(req);
+    return !!access.isStaff;
+}
+
+// Create a poll on an article (author or staff)
+app.post('/api/articles/:articleId/polls', requireAuth, async (req: any, res) => {
+    try {
+        const { articleId } = req.params;
+        if (!(await canManagePoll(req, articleId))) return res.status(403).json({ error: 'Forbidden' });
+
+        const question = String(req.body?.question || '').trim().slice(0, 300);
+        const options = normalisePollOptions(req.body?.options);
+        if (!question) return res.status(400).json({ error: 'Question is required' });
+        if (options.length < 2) return res.status(400).json({ error: 'At least two options are required' });
+
+        const closesAt = req.body?.closesAt ? new Date(req.body.closesAt) : null;
+        if (closesAt && isNaN(closesAt.getTime())) return res.status(400).json({ error: 'Invalid closing date' });
+
+        const poll = await db.articlePoll.create({
+            data: {
+                articleId,
+                question,
+                options: options as any,
+                multiSelect: !!req.body?.multiSelect,
+                closesAt,
+                createdBy: req.session.user.id,
+            },
+        });
+        res.json(poll);
+    } catch (e: any) {
+        logger.error('POST /api/articles/:articleId/polls error', e);
+        res.status(500).json({ error: 'Failed to create poll' });
+    }
+});
+
+// Update or close a poll (author or staff)
+app.patch('/api/article-polls/:id', requireAuth, async (req: any, res) => {
+    try {
+        const poll = await db.articlePoll.findUnique({ where: { id: req.params.id } });
+        if (!poll) return res.status(404).json({ error: 'Poll not found' });
+        if (!(await canManagePoll(req, poll.articleId))) return res.status(403).json({ error: 'Forbidden' });
+
+        const data: any = {};
+        if (req.body?.close === true) data.closedAt = new Date();
+        if (req.body?.reopen === true) { data.closedAt = null; }
+        if (req.body?.question !== undefined) data.question = String(req.body.question).trim().slice(0, 300);
+        if (req.body?.multiSelect !== undefined) data.multiSelect = !!req.body.multiSelect;
+        if (req.body?.closesAt !== undefined) {
+            const d = req.body.closesAt ? new Date(req.body.closesAt) : null;
+            if (d && isNaN(d.getTime())) return res.status(400).json({ error: 'Invalid closing date' });
+            data.closesAt = d;
+        }
+        if (req.body?.options !== undefined) {
+            const options = normalisePollOptions(req.body.options);
+            if (options.length < 2) return res.status(400).json({ error: 'At least two options are required' });
+            data.options = options as any;
+            // Drop references to options that no longer exist, so tallies can't count votes
+            // for a choice readers can no longer see.
+            const validIds = new Set(options.map(o => o.id));
+            const votes = await db.articlePollVote.findMany({ where: { pollId: poll.id } });
+            for (const v of votes) {
+                const kept = voteOptionIdsOf(v).filter(id => validIds.has(id));
+                if (kept.length !== voteOptionIdsOf(v).length) {
+                    if (kept.length) await db.articlePollVote.update({ where: { id: v.id }, data: { optionIds: kept as any } });
+                    else await db.articlePollVote.delete({ where: { id: v.id } });
+                }
+            }
+        }
+
+        const updated = await db.articlePoll.update({ where: { id: poll.id }, data });
+        res.json(updated);
+    } catch (e: any) {
+        logger.error('PATCH /api/article-polls/:id error', e);
+        res.status(500).json({ error: 'Failed to update poll' });
+    }
+});
+
+app.delete('/api/article-polls/:id', requireAuth, async (req: any, res) => {
+    try {
+        const poll = await db.articlePoll.findUnique({ where: { id: req.params.id } });
+        if (!poll) return res.status(404).json({ error: 'Poll not found' });
+        if (!(await canManagePoll(req, poll.articleId))) return res.status(403).json({ error: 'Forbidden' });
+        await db.articlePoll.delete({ where: { id: poll.id } }); // votes cascade
+        res.json({ ok: true });
+    } catch (e: any) {
+        res.status(500).json({ error: 'Failed to delete poll' });
+    }
+});
+
+// Public read. Per-option tallies are withheld until the poll closes — deliberately enforced
+// here rather than in the UI, so the counts can't be read out of the network tab early.
+app.get('/api/article-polls/:id', async (req: any, res) => {
+    try {
+        const poll = await db.articlePoll.findUnique({ where: { id: req.params.id } });
+        if (!poll) return res.status(404).json({ error: 'Poll not found' });
+
+        const closed = isPollClosed(poll);
+        const votes = await db.articlePollVote.findMany({ where: { pollId: poll.id } });
+        const userId = req.session?.user?.id;
+        const mine = userId ? votes.find(v => v.userId === userId) : null;
+
+        const payload: any = {
+            id: poll.id,
+            question: poll.question,
+            options: pollOptionsOf(poll),
+            multiSelect: poll.multiSelect,
+            closesAt: poll.closesAt,
+            isClosed: closed,
+            totalVoters: votes.length,
+            myOptionIds: mine ? voteOptionIdsOf(mine) : null,
+        };
+
+        if (closed) {
+            const counts: Record<string, number> = {};
+            for (const o of pollOptionsOf(poll)) counts[o.id] = 0;
+            for (const v of votes) {
+                for (const id of voteOptionIdsOf(v)) {
+                    if (counts[id] !== undefined) counts[id]++;
+                }
+            }
+            payload.counts = counts;
+        }
+        res.json(payload);
+    } catch (e: any) {
+        res.status(500).json({ error: 'Failed to load poll' });
+    }
+});
+
+// Cast or change a vote
+app.post('/api/article-polls/:id/vote', requireAuth, async (req: any, res) => {
+    try {
+        const poll = await db.articlePoll.findUnique({ where: { id: req.params.id } });
+        if (!poll) return res.status(404).json({ error: 'Poll not found' });
+        if (isPollClosed(poll)) return res.status(403).json({ error: 'This poll has closed' });
+
+        const valid = new Set((pollOptionsOf(poll)).map(o => o.id));
+        const submitted: string[] = (Array.isArray(req.body?.optionIds) ? req.body.optionIds : []).map((x: any) => String(x));
+        const optionIds = [...new Set(submitted)].filter(id => valid.has(id));
+        if (!optionIds.length) return res.status(400).json({ error: 'Select an option' });
+        if (!poll.multiSelect && optionIds.length > 1) {
+            return res.status(400).json({ error: 'This poll allows only one choice' });
+        }
+
+        const userId = req.session.user.id;
+        // Upsert on [pollId, userId] — the unique constraint is what prevents a second vote,
+        // and makes changing a vote an update rather than a duplicate row.
+        await db.articlePollVote.upsert({
+            where: { pollId_userId: { pollId: poll.id, userId } },
+            create: { pollId: poll.id, userId, optionIds: optionIds as any },
+            update: { optionIds: optionIds as any },
+        });
+        const totalVoters = await db.articlePollVote.count({ where: { pollId: poll.id } });
+        res.json({ ok: true, myOptionIds: optionIds, totalVoters });
+    } catch (e: any) {
+        logger.error('POST /api/article-polls/:id/vote error', e);
+        res.status(500).json({ error: 'Failed to record vote' });
+    }
+});
+
+// Admin: every poll with tallies
+app.get('/api/admin/article-polls', requireAdmin, async (_req: any, res) => {
+    try {
+        const polls = await db.articlePoll.findMany({
+            orderBy: { createdAt: 'desc' },
+            include: { article: { select: { id: true, title: true, slug: true } }, votes: true },
+        });
+        res.json(polls.map(p => {
+            const counts: Record<string, number> = {};
+            for (const o of pollOptionsOf(p)) counts[o.id] = 0;
+            for (const v of p.votes) {
+                for (const id of voteOptionIdsOf(v)) if (counts[id] !== undefined) counts[id]++;
+            }
+            return {
+                id: p.id,
+                question: p.question,
+                options: p.options,
+                multiSelect: p.multiSelect,
+                closesAt: p.closesAt,
+                closedAt: p.closedAt,
+                isClosed: isPollClosed(p),
+                createdAt: p.createdAt,
+                article: p.article,
+                totalVoters: p.votes.length,
+                counts,
+            };
+        }));
+    } catch (e: any) {
+        logger.error('GET /api/admin/article-polls error', e);
+        res.status(500).json({ error: 'Failed to load polls' });
+    }
+});
+
 // -- Public: Get featured article for front page -------------------------------
 app.get('/api/articles/featured/current', async (req: any, res) => {
     try {

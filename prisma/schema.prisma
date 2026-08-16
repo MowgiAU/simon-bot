@@ -3170,6 +3170,7 @@ model Article {
   guild     Guild             @relation(fields: [guildId], references: [id], onDelete: Cascade)
   comments  Comment[]
   revisions ArticleRevision[]
+  polls     ArticlePoll[]
 
   @@index([status, publishedAt])
   @@index([authorUserId])
@@ -4099,4 +4100,47 @@ model AccountDeletionRequest {
   @@index([status])
   @@index([userId])
   @@map("account_deletion_requests")
+}
+
+// ──────────────────────────────────────────────
+// Article polls (embedded via data-embed-type="poll")
+// ──────────────────────────────────────────────
+
+model ArticlePoll {
+  id          String    @id @default(cuid())
+  articleId   String
+  article     Article   @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  question    String
+  // [{ id, label }] — option ids stay stable across edits so existing votes keep pointing
+  // at the right choice when an author fixes a typo in a label.
+  options     Json      @default("[]")
+  multiSelect Boolean   @default(false)
+  closesAt    DateTime? // scheduled close
+  closedAt    DateTime? // manual close by author/admin
+  createdBy   String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  votes ArticlePollVote[]
+
+  @@index([articleId])
+  @@map("article_polls")
+}
+
+model ArticlePollVote {
+  id     String @id @default(cuid())
+  pollId String
+  poll   ArticlePoll @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  userId String
+  // string[] of option ids. One row per voter rather than one per selected option, so
+  // changing a vote is a plain update and the unique constraint below does the work of
+  // preventing double voting.
+  optionIds Json @default("[]")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([pollId, userId])
+  @@index([pollId])
+  @@map("article_poll_votes")
 }
