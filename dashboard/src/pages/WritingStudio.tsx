@@ -261,7 +261,7 @@ const StudioEditor: React.FC<{ articleId: string | 'new' }> = ({ articleId }) =>
                         <input value={title} onChange={e => setTitle(e.target.value)} disabled={!editable} placeholder="Article title"
                             style={{ width: '100%', padding: '8px 0', background: 'transparent', border: 'none', borderBottom: `1px solid ${colors.border}`, color: colors.textPrimary, fontSize: 30, fontWeight: 800, outline: 'none', marginBottom: 16, boxSizing: 'border-box' }} />
                         <div style={{ pointerEvents: editable ? 'auto' : 'none', opacity: editable ? 1 : 0.7 }}>
-                            <ArticleEditorRich value={content} onChange={setContent} onImageUpload={uploadImage} onFileUpload={uploadFile}
+                            <ArticleEditorRich value={content} onChange={setContent} onImageUpload={uploadImage} onFileUpload={uploadFile} articleId={id}
                                 placeholder="Start writing… use the toolbar for headings, media, and embeds." />
                         </div>
                     </div>

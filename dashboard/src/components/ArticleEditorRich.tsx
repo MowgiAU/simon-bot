@@ -11,7 +11,8 @@
  * markup the legacy editor produced — so existing published articles round-trip
  * and the public ArticleEmbeds hydrator needs no changes.
  */
-import React, { useCallback, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import axios from 'axios';
 import { useEditor, EditorContent, ReactNodeViewRenderer, NodeViewWrapper } from '@tiptap/react';
 import { Node } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
@@ -25,7 +26,7 @@ import {
     Bold, Italic, Underline as UnderlineIcon, Strikethrough, List, ListOrdered,
     Heading2, Heading3, Quote, Code, Link as LinkIcon, Image as ImageIcon,
     Youtube, Music, User, AlignLeft, AlignCenter, AlignRight,
-    Undo2, Redo2, Minus, Twitter, FileAudio, FolderDown, Sliders, ListMusic, Trash2,
+    Undo2, Redo2, Minus, Twitter, FileAudio, FolderDown, Sliders, ListMusic, Trash2, BarChart3,
 } from 'lucide-react';
 
 interface ArticleEditorRichProps {
@@ -34,6 +35,9 @@ interface ArticleEditorRichProps {
     onImageUpload?: (file: File) => Promise<string>;
     onFileUpload?: (file: File, type: 'audio' | 'project' | 'preset') => Promise<{ url: string; filename: string; size: number }>;
     placeholder?: string;
+    /** Needed to create polls — a poll is a DB record hung off the article, so the article
+     *  must be saved first. Absent (unsaved draft) the Poll button explains that. */
+    articleId?: string | null;
 }
 
 // ── Embed HTML builders (byte-compatible with the legacy editor) ────────────────
@@ -54,6 +58,14 @@ function buildEmbedHtml(type: string, url: string, displayText?: string): { html
             ? `<div class="article-embed article-video" style="position:relative;padding-bottom:56.25%;height:0;margin:16px 0;border-radius:12px;overflow:hidden;"><iframe src="https://www.youtube.com/embed/${ytMatch[1]}" style="position:absolute;top:0;left:0;width:100%;height:100%;border:none;" allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"></iframe></div>`
             : `<div class="article-embed article-video" style="margin:16px 0;"><a href="${url}" target="_blank" rel="noopener noreferrer" style="color:${colors.primary};">${esc(url)}</a></div>`;
         return { html, embedType: 'video' };
+    }
+    if (type === 'poll') {
+        // The id lives in data-poll-id (not data-embed-url) because it references an internal
+        // record rather than a link; ArticleEmbeds reads it back the same way on render.
+        return {
+            html: `<div class="article-embed article-poll" data-embed-type="poll" data-poll-id="${esc(url)}" contenteditable="false" style="background:${colors.surface};border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:16px;margin:16px 0;display:flex;align-items:center;gap:14px;"><div style="width:48px;height:48px;border-radius:10px;background:linear-gradient(135deg,rgba(242,120,10,0.3),rgba(242,120,10,0.1));display:flex;align-items:center;justify-content:center;flex-shrink:0;"><span style="font-size:20px;">&#128202;</span></div><div style="flex:1;min-width:0;"><div style="color:${colors.textPrimary};font-weight:700;font-size:14px;">Poll</div><div style="color:${colors.textSecondary};font-size:12px;">Interactive poll on publish &middot; results shown when it closes</div></div><div style="padding:6px 12px;border-radius:8px;background:${colors.primary};color:white;font-size:11px;font-weight:700;white-space:nowrap;">POLL</div></div>`,
+            embedType: 'poll',
+        };
     }
     if (type === 'playlist') {
         let playlistId = url.trim();
@@ -200,7 +212,19 @@ const Btn: React.FC<{ onClick: () => void; active?: boolean; title: string; chil
 );
 const Sep = () => <div style={{ width: 1, height: 20, background: colors.border, margin: '0 4px' }} />;
 
-export const ArticleEditorRich: React.FC<ArticleEditorRichProps> = ({ value, onChange, onImageUpload, onFileUpload, placeholder }) => {
+export const ArticleEditorRich: React.FC<ArticleEditorRichProps> = ({ value, onChange, onImageUpload, onFileUpload, placeholder, articleId }) => {
+    const [pollOpen, setPollOpen] = useState(false);
+    const [pollQuestion, setPollQuestion] = useState('');
+    const [pollOptions, setPollOptions] = useState<string[]>(['', '']);
+    const [pollMulti, setPollMulti] = useState(false);
+    // Defaulted rather than left blank: results only appear once a poll closes, so a poll
+    // with no closing date would never reveal anything.
+    const [pollCloses, setPollCloses] = useState(() => {
+        const d = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+        return d.toISOString().slice(0, 10);
+    });
+    const [pollBusy, setPollBusy] = useState(false);
+    const [pollError, setPollError] = useState<string | null>(null);
     const imageInputRef = useRef<HTMLInputElement>(null);
     const audioInputRef = useRef<HTMLInputElement>(null);
     const projectInputRef = useRef<HTMLInputElement>(null);
@@ -272,6 +296,26 @@ export const ArticleEditorRich: React.FC<ArticleEditorRichProps> = ({ value, onC
         if (url && url.trim()) editor?.chain().focus().extendMarkRange('link').setLink({ href: url.trim() }).run();
     };
 
+    const createPoll = async () => {
+        const opts = pollOptions.map(o => o.trim()).filter(Boolean);
+        if (!pollQuestion.trim()) { setPollError('Add a question'); return; }
+        if (opts.length < 2) { setPollError('Add at least two options'); return; }
+        setPollBusy(true); setPollError(null);
+        try {
+            const r = await axios.post(`/api/articles/${articleId}/polls`, {
+                question: pollQuestion.trim(),
+                options: opts.map((label, i) => ({ id: `o${i}-${Math.random().toString(36).slice(2, 7)}`, label })),
+                multiSelect: pollMulti,
+                closesAt: pollCloses ? new Date(`${pollCloses}T23:59:59`).toISOString() : null,
+            }, { withCredentials: true });
+            insertEmbed('poll', r.data.id);
+            setPollOpen(false);
+            setPollQuestion(''); setPollOptions(['', '']); setPollMulti(false);
+        } catch (e: any) {
+            setPollError(e?.response?.data?.error || 'Could not create the poll');
+        } finally { setPollBusy(false); }
+    };
+
     if (!editor) return null;
 
     return (
@@ -302,6 +346,12 @@ export const ArticleEditorRich: React.FC<ArticleEditorRichProps> = ({ value, onC
                 <Btn title="Playlist embed" onClick={() => promptInsert('playlist', 'Playlist URL or ID')}><ListMusic size={16} /></Btn>
                 <Btn title="Profile embed" onClick={() => promptInsert('profile', 'Profile URL (e.g. /profile/username)')}><User size={16} /></Btn>
                 <Btn title="Social post" onClick={() => promptInsert('social', 'Twitter/X or Instagram URL')}><Twitter size={16} /></Btn>
+                <Btn title={articleId ? 'Poll' : 'Save the article first to add a poll'}
+                    onClick={() => articleId
+                        ? setPollOpen(true)
+                        : window.alert('Save this article first — a poll is stored against it, so it needs somewhere to live.')}>
+                    <BarChart3 size={16} />
+                </Btn>
                 <Btn title="Upload audio" onClick={() => audioInputRef.current?.click()}><FileAudio size={16} /></Btn>
                 <Btn title="Upload project file" onClick={() => projectInputRef.current?.click()}><FolderDown size={16} /></Btn>
                 <Btn title="Upload preset" onClick={() => presetInputRef.current?.click()}><Sliders size={16} /></Btn>
@@ -311,6 +361,65 @@ export const ArticleEditorRich: React.FC<ArticleEditorRichProps> = ({ value, onC
             </div>
 
             <EditorContent editor={editor} className="article-rich-editor" />
+
+            {/* Poll composer */}
+            {pollOpen && (
+                <div onClick={() => !pollBusy && setPollOpen(false)}
+                    style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }}>
+                    <div onClick={e => e.stopPropagation()}
+                        style={{ background: colors.surface, border: `1px solid ${colors.border}`, borderRadius: 14, padding: 20, width: '100%', maxWidth: 460, maxHeight: '85vh', overflowY: 'auto' }}>
+                        <h3 style={{ margin: '0 0 14px', color: colors.textPrimary, fontSize: 16, fontWeight: 700 }}>Add a poll</h3>
+
+                        <label style={{ display: 'block', fontSize: 12, color: colors.textSecondary, marginBottom: 4 }}>Question</label>
+                        <input value={pollQuestion} onChange={e => setPollQuestion(e.target.value)} maxLength={300}
+                            placeholder="Which synth do you reach for first?"
+                            style={{ width: '100%', padding: '8px 10px', marginBottom: 12, background: colors.background, color: colors.textPrimary, border: `1px solid ${colors.border}`, borderRadius: 8, boxSizing: 'border-box' }} />
+
+                        <label style={{ display: 'block', fontSize: 12, color: colors.textSecondary, marginBottom: 4 }}>Options</label>
+                        {pollOptions.map((o, i) => (
+                            <div key={i} style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
+                                <input value={o} maxLength={200}
+                                    onChange={e => setPollOptions(prev => prev.map((p, j) => j === i ? e.target.value : p))}
+                                    placeholder={`Option ${i + 1}`}
+                                    style={{ flex: 1, padding: '8px 10px', background: colors.background, color: colors.textPrimary, border: `1px solid ${colors.border}`, borderRadius: 8, boxSizing: 'border-box' }} />
+                                {pollOptions.length > 2 && (
+                                    <button type="button" onClick={() => setPollOptions(prev => prev.filter((_, j) => j !== i))}
+                                        style={{ background: 'transparent', border: `1px solid ${colors.border}`, color: colors.textSecondary, borderRadius: 8, cursor: 'pointer', padding: '0 10px' }}>×</button>
+                                )}
+                            </div>
+                        ))}
+                        {pollOptions.length < 10 && (
+                            <button type="button" onClick={() => setPollOptions(prev => [...prev, ''])}
+                                style={{ background: 'transparent', border: 'none', color: colors.primary, cursor: 'pointer', fontSize: 12, fontWeight: 700, padding: '4px 0', marginBottom: 10 }}>
+                                + Add option
+                            </button>
+                        )}
+
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: colors.textPrimary, margin: '6px 0 12px', cursor: 'pointer' }}>
+                            <input type="checkbox" checked={pollMulti} onChange={e => setPollMulti(e.target.checked)} />
+                            Let readers pick more than one
+                        </label>
+
+                        <label style={{ display: 'block', fontSize: 12, color: colors.textSecondary, marginBottom: 4 }}>Closes on</label>
+                        <input type="date" value={pollCloses} onChange={e => setPollCloses(e.target.value)}
+                            style={{ width: '100%', padding: '8px 10px', background: colors.background, color: colors.textPrimary, border: `1px solid ${colors.border}`, borderRadius: 8, boxSizing: 'border-box' }} />
+                        <p style={{ margin: '6px 0 0', fontSize: 11, color: colors.textSecondary }}>
+                            Results stay hidden until the poll closes. Clear this and it only opens when you close it by hand.
+                        </p>
+
+                        {pollError && <p style={{ margin: '10px 0 0', fontSize: 12, color: colors.error }}>{pollError}</p>}
+
+                        <div style={{ display: 'flex', gap: 8, marginTop: 16, justifyContent: 'flex-end' }}>
+                            <button type="button" onClick={() => setPollOpen(false)} disabled={pollBusy}
+                                style={{ background: 'transparent', border: `1px solid ${colors.border}`, color: colors.textSecondary, padding: '8px 14px', borderRadius: 8, cursor: 'pointer' }}>Cancel</button>
+                            <button type="button" onClick={createPoll} disabled={pollBusy}
+                                style={{ background: colors.primary, border: 'none', color: '#fff', padding: '8px 16px', borderRadius: 8, cursor: 'pointer', fontWeight: 700 }}>
+                                {pollBusy ? 'Adding…' : 'Insert poll'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Hidden file inputs */}
             <input ref={imageInputRef} type="file" accept="image/*" style={{ display: 'none' }}

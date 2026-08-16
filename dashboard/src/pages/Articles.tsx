@@ -295,6 +295,7 @@ export const ArticleEditor: React.FC<{
                     onChange={setContent}
                     onImageUpload={handleImageUpload}
                     onFileUpload={handleFileUpload}
+                    articleId={article?.id || null}
                     placeholder="Write your article here... Use the toolbar to add formatting, images, videos, track embeds, and more."
                 />
             </div>
@@ -361,6 +362,96 @@ export const ArticleEditor: React.FC<{
 };
 
 // ── MAIN PAGE (Writer View — My Articles) ─────────────────────────────────────
+// ── Admin: poll results ───────────────────────────────────────────────────────
+interface AdminPoll {
+    id: string; question: string; options: { id: string; label: string }[];
+    multiSelect: boolean; closesAt: string | null; closedAt: string | null; isClosed: boolean;
+    article: { id: string; title: string; slug: string } | null;
+    totalVoters: number; counts: Record<string, number>;
+}
+
+const PollsAdmin: React.FC<{ onBack: () => void }> = ({ onBack }) => {
+    const [polls, setPolls] = useState<AdminPoll[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [busy, setBusy] = useState<string | null>(null);
+
+    const load = () => axios.get('/api/admin/article-polls', { withCredentials: true })
+        .then(r => setPolls(r.data || [])).catch(() => setPolls([])).finally(() => setLoading(false));
+    useEffect(() => { load(); }, []);
+
+    const closeNow = async (id: string) => {
+        if (!window.confirm('Close this poll now? Results become public and voting stops.')) return;
+        setBusy(id);
+        try { await axios.patch(`/api/article-polls/${id}`, { close: true }, { withCredentials: true }); await load(); }
+        finally { setBusy(null); }
+    };
+
+    if (loading) return <div style={{ padding: 40, textAlign: 'center', color: colors.textSecondary }}>Loading polls…</div>;
+
+    return (
+        <div style={{ padding: '24px', maxWidth: 900 }}>
+            <button onClick={onBack} style={{ background: 'none', border: 'none', color: colors.primary, cursor: 'pointer', marginBottom: 16, fontSize: 13 }}>← Back to articles</button>
+            <h1 style={{ margin: '0 0 6px', color: colors.textPrimary }}>Poll Results</h1>
+            <p style={{ margin: '0 0 20px', color: colors.textSecondary, fontSize: 13 }}>
+                Readers only see results once a poll closes.
+            </p>
+
+            {polls.length === 0 && <p style={{ color: colors.textSecondary }}>No polls yet.</p>}
+
+            {polls.map(p => {
+                const total = Object.values(p.counts).reduce((a, b) => a + b, 0) || 1;
+                // Without a closing date nothing ever reveals the result, so surface those.
+                const stranded = !p.isClosed && !p.closesAt;
+                return (
+                    <div key={p.id} style={{ background: colors.surface, border: `1px solid ${stranded ? colors.warning + '55' : 'rgba(255,255,255,0.06)'}`, borderRadius: borderRadius.md, padding: 16, marginBottom: 12 }}>
+                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, flexWrap: 'wrap' }}>
+                            <div style={{ flex: 1, minWidth: 220 }}>
+                                <h3 style={{ margin: '0 0 4px', fontSize: 15, color: colors.textPrimary }}>{p.question}</h3>
+                                <p style={{ margin: 0, fontSize: 12, color: colors.textSecondary }}>
+                                    {p.article?.title || 'Unknown article'} · {p.totalVoters} {p.totalVoters === 1 ? 'vote' : 'votes'}
+                                    {p.multiSelect ? ' · multi-select' : ''}
+                                </p>
+                            </div>
+                            <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 999, background: p.isClosed ? 'rgba(255,255,255,0.08)' : `${colors.success}22`, color: p.isClosed ? colors.textSecondary : colors.success }}>
+                                {p.isClosed ? 'CLOSED' : 'OPEN'}
+                            </span>
+                            {!p.isClosed && (
+                                <button onClick={() => closeNow(p.id)} disabled={busy === p.id}
+                                    style={{ padding: '5px 12px', borderRadius: 8, border: `1px solid ${colors.border}`, background: 'transparent', color: colors.textPrimary, cursor: 'pointer', fontSize: 12 }}>
+                                    {busy === p.id ? '…' : 'Close now'}
+                                </button>
+                            )}
+                        </div>
+
+                        {stranded && (
+                            <p style={{ margin: '8px 0 0', fontSize: 12, color: colors.warning }}>
+                                No closing date set — results stay hidden until you close it by hand.
+                            </p>
+                        )}
+
+                        <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                            {p.options.map(o => {
+                                const n = p.counts[o.id] || 0;
+                                const pct = Math.round((n / total) * 100);
+                                return (
+                                    <div key={o.id}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 3, color: colors.textPrimary }}>
+                                            <span>{o.label}</span><span style={{ color: colors.textSecondary }}>{pct}% · {n}</span>
+                                        </div>
+                                        <div style={{ height: 6, borderRadius: 999, background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+                                            <div style={{ width: `${pct}%`, height: '100%', background: colors.primary }} />
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                );
+            })}
+        </div>
+    );
+};
+
 export const ArticlesPage: React.FC = () => {
     const { user } = useAuth();
     const [articles, setArticles] = useState<Article[]>([]);
@@ -370,7 +461,7 @@ export const ArticlesPage: React.FC = () => {
     const [filterStatus, setFilterStatus] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
 
-    const [editMode, setEditMode] = useState<'list' | 'create' | 'edit'>('list');
+    const [editMode, setEditMode] = useState<'list' | 'create' | 'edit' | 'polls'>('list');
     const [editingArticle, setEditingArticle] = useState<Article | null>(null);
     const [saving, setSaving] = useState(false);
     const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
@@ -415,6 +506,10 @@ export const ArticlesPage: React.FC = () => {
         } catch (e: any) { alert(e.response?.data?.error || 'Failed to delete article'); }
     };
 
+    if (editMode === 'polls') {
+        return <PollsAdmin onBack={() => setEditMode('list')} />;
+    }
+
     if (editMode !== 'list') {
         return (
             <div style={{ padding: isMobile ? '16px' : '24px', maxWidth: '960px' }}>
@@ -443,6 +538,13 @@ export const ArticlesPage: React.FC = () => {
                         Write articles, guides, and announcements. Submit them for admin review to get published.
                     </p>
                 </div>
+                <button onClick={() => setEditMode('polls')} style={{
+                    display: 'flex', alignItems: 'center', gap: '6px', marginRight: 8,
+                    padding: '10px 16px', background: 'transparent', border: `1px solid ${colors.border}`,
+                    borderRadius: borderRadius.sm, color: colors.textSecondary, cursor: 'pointer', fontWeight: 600, fontSize: '13px',
+                }}>
+                    Polls
+                </button>
                 <button onClick={() => { setEditMode('create'); setEditingArticle(null); }} style={{
                     display: 'flex', alignItems: 'center', gap: '6px',
                     padding: '10px 20px', background: colors.primary, border: 'none',

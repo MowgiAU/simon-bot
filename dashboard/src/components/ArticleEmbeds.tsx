@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { colors, borderRadius } from '../theme/theme';
 import { usePlayer } from './PlayerProvider';
-import { Play, Pause, Music, User as UserIcon, MapPin, ExternalLink, TrendingUp, ListMusic } from 'lucide-react';
+import { Play, Pause, Music, User as UserIcon, MapPin, ExternalLink, TrendingUp, ListMusic, BarChart3 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 // ── Track Embed ───────────────────────────────────────────────────────────────
@@ -498,6 +498,165 @@ export const PlaylistEmbed: React.FC<{ playlistId: string }> = ({ playlistId }) 
 // ── Hydrator: replaces static embed divs with interactive React components ───
 import { createPortal } from 'react-dom';
 
+// ── Poll Embed ────────────────────────────────────────────────────────────────
+interface PollData {
+    id: string;
+    question: string;
+    options: { id: string; label: string }[];
+    multiSelect: boolean;
+    closesAt: string | null;
+    isClosed: boolean;
+    totalVoters: number;
+    myOptionIds: string[] | null;
+    counts?: Record<string, number>; // only present once closed — server withholds it before
+}
+
+const closesInText = (iso: string | null): string | null => {
+    if (!iso) return null;
+    const ms = new Date(iso).getTime() - Date.now();
+    if (ms <= 0) return null;
+    const mins = Math.floor(ms / 60000);
+    if (mins < 60) return `closes in ${mins}m`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `closes in ${hrs}h`;
+    return `closes in ${Math.floor(hrs / 24)}d`;
+};
+
+const PollEmbed: React.FC<{ pollId: string }> = ({ pollId }) => {
+    const [poll, setPoll] = useState<PollData | null>(null);
+    const [selected, setSelected] = useState<string[]>([]);
+    const [busy, setBusy] = useState(false);
+    const [editing, setEditing] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [signedIn, setSignedIn] = useState<boolean | null>(null);
+
+    const load = () => axios.get(`/api/article-polls/${pollId}`, { withCredentials: true })
+        .then(r => { setPoll(r.data); setSelected(r.data.myOptionIds || []); })
+        .catch(() => setPoll(null));
+
+    useEffect(() => {
+        load();
+        axios.get('/api/auth/me', { withCredentials: true })
+            .then(r => setSignedIn(!!r.data?.user || !!r.data?.id))
+            .catch(() => setSignedIn(false));
+    }, [pollId]);
+
+    if (!poll) return null;
+
+    const hasVoted = !!poll.myOptionIds?.length;
+    const showResults = poll.isClosed && poll.counts;
+    const canVote = signedIn && !poll.isClosed;
+    const showPicker = canVote && (!hasVoted || editing);
+
+    const toggle = (id: string) => {
+        setSelected(prev => poll.multiSelect
+            ? (prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
+            : [id]);
+    };
+
+    const submit = async () => {
+        if (!selected.length) return;
+        setBusy(true); setError(null);
+        try {
+            await axios.post(`/api/article-polls/${pollId}/vote`, { optionIds: selected }, { withCredentials: true });
+            setEditing(false);
+            await load();
+        } catch (e: any) {
+            setError(e?.response?.data?.error || 'Could not record your vote');
+        } finally { setBusy(false); }
+    };
+
+    const totalForBars = Object.values(poll.counts || {}).reduce((a, b) => a + b, 0) || 1;
+
+    return (
+        <div style={{ background: colors.surface, border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: 18, margin: '18px 0' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                <BarChart3 size={15} color={colors.primary} />
+                <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.12em', color: colors.primary }}>
+                    POLL{poll.multiSelect ? ' · PICK SEVERAL' : ''}
+                </span>
+            </div>
+            <h4 style={{ margin: '0 0 14px', fontSize: 16, fontWeight: 700, color: colors.textPrimary }}>{poll.question}</h4>
+
+            {showResults ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {poll.options.map(o => {
+                        const n = poll.counts![o.id] || 0;
+                        const pct = Math.round((n / totalForBars) * 100);
+                        const mine = poll.myOptionIds?.includes(o.id);
+                        return (
+                            <div key={o.id}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 4, color: mine ? colors.primary : colors.textPrimary, fontWeight: mine ? 700 : 500 }}>
+                                    <span>{o.label}{mine ? ' ✓' : ''}</span>
+                                    <span style={{ color: colors.textSecondary }}>{pct}% · {n}</span>
+                                </div>
+                                <div style={{ height: 8, borderRadius: 999, background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+                                    <div style={{ width: `${pct}%`, height: '100%', background: mine ? colors.primary : 'rgba(255,255,255,0.25)' }} />
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            ) : showPicker ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {poll.options.map(o => {
+                        const on = selected.includes(o.id);
+                        return (
+                            <button key={o.id} onClick={() => toggle(o.id)} disabled={busy}
+                                style={{ textAlign: 'left', padding: '10px 14px', borderRadius: 10, cursor: 'pointer', fontSize: 14,
+                                    border: `1px solid ${on ? colors.primary : 'rgba(255,255,255,0.12)'}`,
+                                    background: on ? `${colors.primary}1e` : 'transparent',
+                                    color: on ? colors.primary : colors.textPrimary, fontWeight: on ? 700 : 500 }}>
+                                {poll.multiSelect ? (on ? '☑ ' : '☐ ') : (on ? '● ' : '○ ')}{o.label}
+                            </button>
+                        );
+                    })}
+                    <button onClick={submit} disabled={busy || !selected.length}
+                        style={{ marginTop: 4, padding: '10px 16px', borderRadius: 10, border: 'none', cursor: selected.length ? 'pointer' : 'default',
+                            background: selected.length ? colors.primary : 'rgba(255,255,255,0.08)',
+                            color: selected.length ? '#fff' : colors.textSecondary, fontWeight: 700, fontSize: 13 }}>
+                        {busy ? 'Saving…' : hasVoted ? 'Update vote' : 'Vote'}
+                    </button>
+                </div>
+            ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {poll.options.map(o => {
+                        const mine = poll.myOptionIds?.includes(o.id);
+                        return (
+                            <div key={o.id} style={{ padding: '10px 14px', borderRadius: 10, fontSize: 14,
+                                border: `1px solid ${mine ? colors.primary : 'rgba(255,255,255,0.08)'}`,
+                                background: mine ? `${colors.primary}14` : 'transparent',
+                                color: mine ? colors.primary : colors.textSecondary, fontWeight: mine ? 700 : 500 }}>
+                                {mine ? '● ' : '○ '}{o.label}
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
+
+            {error && <p style={{ margin: '8px 0 0', fontSize: 12, color: '#ef4444' }}>{error}</p>}
+
+            <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', fontSize: 12, color: colors.textSecondary }}>
+                <span>{poll.totalVoters} {poll.totalVoters === 1 ? 'vote' : 'votes'}</span>
+                {poll.isClosed
+                    ? <span>· Poll closed</span>
+                    : <span>· Results revealed when the poll closes{closesInText(poll.closesAt) ? ` · ${closesInText(poll.closesAt)}` : ''}</span>}
+                {hasVoted && canVote && !editing && (
+                    <button onClick={() => setEditing(true)}
+                        style={{ marginLeft: 'auto', background: 'none', border: 'none', color: colors.primary, cursor: 'pointer', fontSize: 12, fontWeight: 700, padding: 0 }}>
+                        Change vote
+                    </button>
+                )}
+                {signedIn === false && !poll.isClosed && (
+                    <Link to="/login" style={{ marginLeft: 'auto', color: colors.primary, fontWeight: 700, textDecoration: 'none' }}>
+                        Sign in to vote
+                    </Link>
+                )}
+            </div>
+        </div>
+    );
+};
+
 export const ArticleEmbedHydrator: React.FC<{ contentRef: React.RefObject<HTMLDivElement | null>; articleContent: string }> = ({ contentRef, articleContent }) => {
     const [embeds, setEmbeds] = useState<{ type: string; url: string; el: HTMLElement }[]>([]);
 
@@ -505,12 +664,16 @@ export const ArticleEmbedHydrator: React.FC<{ contentRef: React.RefObject<HTMLDi
         // Small delay to ensure the DOM has been painted with the new content
         const timer = setTimeout(() => {
             if (!contentRef.current) return;
-            const nodes = contentRef.current.querySelectorAll('[data-embed-type="track"], [data-embed-type="profile"], [data-embed-type="playlist"]');
+            const nodes = contentRef.current.querySelectorAll('[data-embed-type="track"], [data-embed-type="profile"], [data-embed-type="playlist"], [data-embed-type="poll"]');
             const found: { type: string; url: string; el: HTMLElement }[] = [];
             nodes.forEach(n => {
                 const el = n as HTMLElement;
                 let type = el.getAttribute('data-embed-type')!;
-                let url = el.getAttribute('data-embed-url')!;
+                // Polls carry their id in data-poll-id rather than data-embed-url, since it's an
+                // internal record rather than a link to something.
+                let url = type === 'poll'
+                    ? el.getAttribute('data-poll-id')!
+                    : el.getAttribute('data-embed-url')!;
                 if (!type || !url) return;
                 // Auto-upgrade: track embeds whose URL looks like a playlist ID/path
                 if (type === 'track' && /^(\/playlists?\/|[a-z0-9]{20,})/.test(url)) {
@@ -531,6 +694,13 @@ export const ArticleEmbedHydrator: React.FC<{ contentRef: React.RefObject<HTMLDi
                     return (
                         <EmbedPortal key={`playlist-${embed.url}-${i}`} container={embed.el}>
                             <PlaylistEmbed playlistId={embed.url} />
+                        </EmbedPortal>
+                    );
+                }
+                if (embed.type === 'poll') {
+                    return (
+                        <EmbedPortal key={`poll-${embed.url}-${i}`} container={embed.el}>
+                            <PollEmbed pollId={embed.url} />
                         </EmbedPortal>
                     );
                 }
