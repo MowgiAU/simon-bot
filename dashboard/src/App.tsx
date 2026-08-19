@@ -124,6 +124,7 @@ const PausePage              = lazy(() => import("./pages/Pause").then(m => ({ d
 const ServerBoostPage        = lazy(() => import("./pages/ServerBoost").then(m => ({ default: m.ServerBoostPage })));
 const VoiceStatsPage         = lazy(() => import("./pages/VoiceStats").then(m => ({ default: m.VoiceStatsPage })));
 const SpamGuardPage          = lazy(() => import("./pages/SpamGuard").then(m => ({ default: m.SpamGuardPage })));
+const ChannelScraperPage     = lazy(() => import("./pages/ChannelScraper").then(m => ({ default: m.ChannelScraperPage })));
 const MuzzlePage             = lazy(() => import("./pages/Muzzle").then(m => ({ default: m.MuzzlePage })));
 const AntiExternalForwardPage = lazy(() => import("./pages/AntiExternalForward").then(m => ({ default: m.AntiExternalForwardPage })));
 const TrackAnnouncerPage     = lazy(() => import("./pages/TrackAnnouncer"));
@@ -205,6 +206,7 @@ type Section =
   | "article-review"
   | "voice-stats"
   | "spam-guard"
+  | "channel-scraper"
   | "muzzle"
   | "track-announcer"
   | "academy"
@@ -548,6 +550,8 @@ const AdminDashboard: React.FC = () => {
           return <VoiceStatsPage />;
         case "spam-guard":
           return <SpamGuardPage />;
+        case "channel-scraper":
+          return <ChannelScraperPage />;
         case "muzzle":
           return <MuzzlePage guildId={selectedGuild.id} />;
         case "track-announcer":
@@ -713,6 +717,7 @@ const AdminDashboard: React.FC = () => {
                 "server-boost": "overview",
                 "voice-stats": "stats",
                 "spam-guard": "overview",
+                "channel-scraper": "overview",
                 "muzzle": "overview",
                 "track-announcer": "overview",
                 "anti-external-forward": "overview",

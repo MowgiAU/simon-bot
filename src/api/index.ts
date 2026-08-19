@@ -33,6 +33,7 @@ import { R2Storage } from '../services/R2Storage.js';
 import { runBackup, pgDump } from '../services/DatabaseBackup.js';
 import { softDeleteMiddleware, withHardDelete } from '../services/softDelete.js';
 import { deleteStoredFile } from '../services/storageCleanup.js';
+import { saveCapturedMessage, extractFromRestMessage } from '../services/ChannelScraperService.js';
 import { safeTrackSlug, uniqueTrackSlug as uniqueTrackSlugFor } from '../services/trackSlug.js';
 import * as AccountDeletionService from '../services/AccountDeletionService.js';
 import * as BankService from '../services/BankService.js';
@@ -4594,7 +4595,7 @@ app.get('/api/guilds/:guildId/my-permissions', async (req, res) => {
         if (isAdmin) {
             return res.json({ 
                 canManagePlugins: true, 
-                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content', 'account-management', 'anti-piracy', 'leveling', 'fuji-radio', 'studio-guide', 'bot-identity', 'bot-messenger', 'booster-color', 'private-messages', 'auto-messages', 'auto-responder', 'server-boost', 'reports', 'articles', 'article-review', 'pause', 'voice-stats', 'spam-guard', 'muzzle', 'track-announcer', 'profile-styles', 'academy', 'head-to-head', 'drum-kit', 'bug-reports', 'plugin-registry', 'activity-logs', 'duplicate-profiles', 'projects', 'vote-fraud', 'slots', 'platform-analytics', 'collabs', 'echo', 'command-guard']
+                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content', 'account-management', 'anti-piracy', 'leveling', 'fuji-radio', 'studio-guide', 'bot-identity', 'bot-messenger', 'booster-color', 'private-messages', 'auto-messages', 'auto-responder', 'server-boost', 'reports', 'articles', 'article-review', 'pause', 'voice-stats', 'spam-guard', 'muzzle', 'track-announcer', 'profile-styles', 'academy', 'head-to-head', 'drum-kit', 'bug-reports', 'plugin-registry', 'activity-logs', 'duplicate-profiles', 'projects', 'vote-fraud', 'slots', 'platform-analytics', 'collabs', 'echo', 'command-guard', 'channel-scraper']
             });
         }
 
@@ -24195,6 +24196,181 @@ app.delete('/api/spam-guard/phrases/:guildId/:phraseId', async (req, res) => {
     } catch (e) {
         logger.error('Failed to delete blocked phrase', e);
         res.status(500).json({ error: 'Failed to delete phrase' });
+    }
+});
+
+// -- CHANNEL SCRAPER ----------------------------------------------------------
+// Captures messages in one configured channel for later export. Real-time capture happens in
+// the bot process (ChannelScraperPlugin); backfill runs entirely here via raw Discord REST
+// calls (this API process has no live discord.js client — see the shared
+// src/services/ChannelScraperService.ts for why both paths write through the same save logic).
+
+const CHANNEL_SCRAPER_MAX_BACKFILL = 20000;
+const CHANNEL_SCRAPER_DEFAULT_BACKFILL = 5000;
+
+app.get('/api/channel-scraper/settings/:guildId', async (req, res) => {
+    try {
+        const { guildId } = req.params;
+        if (!await checkPluginAccess(guildId, req, 'channel-scraper')) return res.status(403).json({ error: 'Forbidden' });
+
+        let settings = await db.channelScraperSettings.findUnique({ where: { guildId } });
+        if (!settings) {
+            await db.guild.upsert({ where: { id: guildId }, update: {}, create: { id: guildId, name: 'Unknown' } });
+            settings = await db.channelScraperSettings.create({ data: { guildId } });
+        }
+        const capturedMessageCount = settings.channelId
+            ? await db.capturedMessage.count({ where: { channelId: settings.channelId } })
+            : 0;
+        res.json({ ...settings, capturedMessageCount });
+    } catch (e) {
+        logger.error('Failed to get channel-scraper settings', e);
+        res.status(500).json({ error: 'Failed to get settings' });
+    }
+});
+
+app.post('/api/channel-scraper/settings/:guildId', async (req, res) => {
+    try {
+        const { guildId } = req.params;
+        if (!await checkPluginAccess(guildId, req, 'channel-scraper')) return res.status(403).json({ error: 'Forbidden' });
+
+        const { channelId } = req.body ?? {};
+        if (channelId !== undefined && channelId !== null && typeof channelId !== 'string') {
+            return res.status(400).json({ error: 'channelId must be a string or null' });
+        }
+
+        await db.guild.upsert({ where: { id: guildId }, update: {}, create: { id: guildId, name: 'Unknown' } });
+        const settings = await db.channelScraperSettings.upsert({
+            where: { guildId },
+            update: { channelId: channelId || null },
+            create: { guildId, channelId: channelId || null },
+        });
+        res.json(settings);
+    } catch (e) {
+        logger.error('Failed to update channel-scraper settings', e);
+        res.status(500).json({ error: 'Failed to update settings' });
+    }
+});
+
+app.post('/api/channel-scraper/backfill/:guildId', async (req, res) => {
+    try {
+        const { guildId } = req.params;
+        if (!await checkPluginAccess(guildId, req, 'channel-scraper')) return res.status(403).json({ error: 'Forbidden' });
+
+        const settings = await db.channelScraperSettings.findUnique({ where: { guildId } });
+        if (!settings?.channelId) return res.status(400).json({ error: 'No channel configured for this guild' });
+        if (settings.backfillStatus === 'running') return res.status(409).json({ error: 'A backfill is already running' });
+
+        const requested = parseInt(req.body?.maxMessages, 10);
+        const maxMessages = Number.isFinite(requested) && requested > 0
+            ? Math.min(requested, CHANNEL_SCRAPER_MAX_BACKFILL)
+            : CHANNEL_SCRAPER_DEFAULT_BACKFILL;
+
+        await db.channelScraperSettings.update({
+            where: { guildId },
+            data: { backfillStatus: 'running', backfillCount: 0, backfillError: null },
+        });
+        res.json({ started: true, maxMessages });
+
+        // Runs after the response is sent — the dashboard polls GET settings for progress.
+        runChannelScraperBackfill(guildId, settings.channelId, maxMessages).catch(err => {
+            logger.error('[ChannelScraper] Backfill crashed', err);
+        });
+    } catch (e) {
+        logger.error('Failed to start channel-scraper backfill', e);
+        res.status(500).json({ error: 'Failed to start backfill' });
+    }
+});
+
+async function runChannelScraperBackfill(guildId: string, channelId: string, maxMessages: number): Promise<void> {
+    let before: string | undefined;
+    let saved = 0;
+    try {
+        while (saved < maxMessages) {
+            const limit = Math.min(100, maxMessages - saved);
+            const url = `https://discord.com/api/v10/channels/${channelId}/messages?limit=${limit}${before ? `&before=${before}` : ''}`;
+
+            let resp;
+            for (;;) {
+                try {
+                    resp = await axios.get(url, { headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` } });
+                    break;
+                } catch (err: any) {
+                    // Raw axios calls get none of discord.js's automatic rate-limit handling,
+                    // so a 429 here has to be backed off by hand or the whole backfill 429s out.
+                    if (err?.response?.status === 429) {
+                        const retryAfterSec = Number(err.response.data?.retry_after) || 1;
+                        await new Promise(r => setTimeout(r, retryAfterSec * 1000 + 200));
+                        continue;
+                    }
+                    throw err;
+                }
+            }
+
+            const page: any[] = resp.data;
+            if (!page.length) break;
+
+            for (const m of page) {
+                await saveCapturedMessage(db, extractFromRestMessage(guildId, channelId, m));
+            }
+            saved += page.length;
+            before = page[page.length - 1].id;
+
+            await db.channelScraperSettings.update({ where: { guildId }, data: { backfillCount: saved } });
+
+            if (page.length < limit) break; // reached the start of the channel
+        }
+        await db.channelScraperSettings.update({ where: { guildId }, data: { backfillStatus: 'done' } });
+    } catch (err: any) {
+        logger.error('[ChannelScraper] Backfill failed', err);
+        await db.channelScraperSettings.update({
+            where: { guildId },
+            data: { backfillStatus: 'error', backfillError: String(err?.message || err).slice(0, 500) },
+        }).catch(() => {});
+    }
+}
+
+app.get('/api/channel-scraper/export/:guildId', async (req, res) => {
+    try {
+        const { guildId } = req.params;
+        if (!await checkPluginAccess(guildId, req, 'channel-scraper')) return res.status(403).json({ error: 'Forbidden' });
+
+        const settings = await db.channelScraperSettings.findUnique({ where: { guildId } });
+        if (!settings?.channelId) return res.status(400).json({ error: 'No channel configured for this guild' });
+
+        const filename = `channel-${settings.channelId}-${new Date().toISOString().slice(0, 10)}.jsonl`;
+        res.setHeader('Content-Type', 'application/x-ndjson');
+        res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`);
+
+        // Streamed in pages rather than loaded into memory at once — a fully captured channel
+        // could be tens of thousands of rows.
+        const PAGE = 500;
+        let cursor: string | undefined;
+        for (;;) {
+            const rows: any[] = await db.capturedMessage.findMany({
+                where: { channelId: settings.channelId },
+                orderBy: { createdAt: 'asc' },
+                take: PAGE,
+                ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+            });
+            if (!rows.length) break;
+            for (const r of rows) {
+                res.write(JSON.stringify({
+                    authorId: r.authorId,
+                    authorUsername: r.authorUsername,
+                    content: r.content,
+                    replyToMessageId: r.replyToMessageId,
+                    attachments: r.attachments,
+                    embeds: r.embeds,
+                    createdAt: r.createdAt,
+                }) + '\n');
+            }
+            cursor = rows[rows.length - 1].id;
+            if (rows.length < PAGE) break;
+        }
+        res.end();
+    } catch (e) {
+        logger.error('Failed to export channel-scraper data', e);
+        if (!res.headersSent) res.status(500).json({ error: 'Failed to export' });
     }
 });
 

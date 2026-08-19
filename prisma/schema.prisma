@@ -231,6 +231,8 @@ model Guild {
   slotDailyTrackers     SlotDailyTracker[]
   slotReturns           SlotReturn[]
 
+  // Channel Scraper
+  channelScraperSettings ChannelScraperSettings?
 
   @@map("guilds")
 }
@@ -4143,4 +4145,42 @@ model ArticlePollVote {
   @@unique([pollId, userId])
   @@index([pollId])
   @@map("article_poll_votes")
+}
+
+// ──────────────────────────────────────────────
+// Channel Scraper — captures one channel's messages for later export/training
+// ──────────────────────────────────────────────
+
+model ChannelScraperSettings {
+  id             String   @id @default(cuid())
+  guildId        String   @unique
+  channelId      String?  // null = not configured / disabled
+  backfillStatus String   @default("idle") // idle | running | done | error
+  backfillCount  Int      @default(0)
+  backfillError  String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  @@map("channel_scraper_settings")
+}
+
+model CapturedMessage {
+  id               String   @id @default(cuid())
+  guildId          String
+  channelId        String
+  messageId        String // Discord snowflake
+  authorId         String
+  authorUsername   String
+  content          String   @db.Text
+  replyToMessageId String?
+  attachments      Json? // [{ url, filename, contentType }]
+  embeds           Json? // trimmed embed JSON
+  createdAt        DateTime // the Discord message's own timestamp, not when we captured it
+  capturedAt       DateTime @default(now())
+
+  @@unique([channelId, messageId]) // dedupe: backfill and real-time capture can overlap
+  @@index([guildId, createdAt])
+  @@map("captured_messages")
 }
