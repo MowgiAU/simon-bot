@@ -24355,6 +24355,9 @@ app.get('/api/channel-scraper/export/:guildId', async (req, res) => {
             if (!rows.length) break;
             for (const r of rows) {
                 res.write(JSON.stringify({
+                    // messageId is required for replyToMessageId to mean anything on read —
+                    // without it a reply can't be matched back to the message it replied to.
+                    messageId: r.messageId,
                     authorId: r.authorId,
                     authorUsername: r.authorUsername,
                     content: r.content,
