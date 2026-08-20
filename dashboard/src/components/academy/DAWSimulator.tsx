@@ -8,9 +8,10 @@ import { ChannelRack } from './ChannelRack';
 import { Mixer } from './Mixer';
 import { PianoRoll } from './PianoRoll';
 import { ParametricEQ } from './ParametricEQ';
+import { Playlist } from './Playlist';
 import { daw, dawFont } from './dawTheme';
 
-type Panel = 'rack' | 'mixer' | 'piano';
+type Panel = 'rack' | 'playlist' | 'mixer' | 'piano';
 
 interface Note {
     pitch: number;
@@ -25,14 +26,17 @@ interface DAWSimulatorProps {
     highlightBpm?: boolean;
     /** EQ band a lesson wants emphasised in the plugin window */
     highlightEQBand?: number | null;
+    /** Playlist bars / track a lesson wants emphasised */
+    highlightBars?: number[];
+    highlightTrack?: number | null;
     visiblePanels?: Panel[];
 }
 
 export const DAWSimulator: React.FC<DAWSimulatorProps> = ({
     highlightChannelId, highlightStepIndex, highlightInserts, highlightBpm,
-    highlightEQBand, visiblePanels,
+    highlightEQBand, highlightBars, highlightTrack, visiblePanels,
 }) => {
-    const defaultPanels: Panel[] = visiblePanels ?? ['rack', 'mixer', 'piano'];
+    const defaultPanels: Panel[] = visiblePanels ?? ['rack', 'playlist', 'mixer', 'piano'];
     const [activePanel, setActivePanel] = useState<Panel>(defaultPanels[0]);
     const [pianoNotes, setPianoNotes] = useState<Note[]>([]);
     /** Which insert's Parametric EQ is open, or null when no plugin window is showing */
@@ -42,6 +46,7 @@ export const DAWSimulator: React.FC<DAWSimulatorProps> = ({
     // while inferring the array, so the annotation has to land on the source array.
     const allTabs: { id: Panel; label: string }[] = [
         { id: 'rack', label: 'Channel rack' },
+        { id: 'playlist', label: 'Playlist' },
         { id: 'mixer', label: 'Mixer' },
         { id: 'piano', label: 'Piano roll' },
     ];
@@ -123,6 +128,9 @@ export const DAWSimulator: React.FC<DAWSimulatorProps> = ({
             <div>
                 {activePanel === 'rack' && (
                     <ChannelRack highlightChannelId={highlightChannelId} highlightStepIndex={highlightStepIndex} />
+                )}
+                {activePanel === 'playlist' && (
+                    <Playlist highlightBars={highlightBars} highlightTrack={highlightTrack ?? null} />
                 )}
                 {activePanel === 'mixer' && (
                     <Mixer highlightInserts={highlightInserts} onOpenEQ={setEqInsertId} />

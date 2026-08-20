@@ -47,6 +47,14 @@ interface DAWStore {
     setInsertReverb: (insertId: number, wet: number) => void;
     /** Patch one EQ band on an insert (freq / gain / q / type / enabled) */
     setEQBand: (insertId: number, bandIndex: number, patch: Partial<EQBand>) => void;
+
+    // --- Playlist ---
+    /** Place a clip on a track at a bar (no-op if one is already there) */
+    addPlaylistClip: (track: number, startBar: number, type?: 'pattern' | 'automation', label?: string) => void;
+    removePlaylistClip: (clipId: string) => void;
+    /** Click-to-toggle a bar cell, which is how the playlist grid is edited */
+    togglePlaylistClip: (track: number, startBar: number) => void;
+    togglePlaylistTrackMute: (trackId: number) => void;
     setMasterVolume: (volume: number) => void;
 
     // --- Bulk state (for lesson engine) ---
@@ -71,9 +79,12 @@ export const useDAWStore = create<DAWStore>((set, get) => {
             const { state } = get();
             engineInstance = new AudioEngine(state);
             await engineInstance.init();
-            engineInstance.onStep((step) => {
+            engineInstance.onStep((step, bar) => {
                 set(prev => ({
-                    state: { ...prev.state, transport: { ...prev.state.transport, currentStep: step } },
+                    state: {
+                        ...prev.state,
+                        transport: { ...prev.state.transport, currentStep: step, currentBar: bar },
+                    },
                 }));
             });
             set({ engine: engineInstance });
@@ -89,14 +100,14 @@ export const useDAWStore = create<DAWStore>((set, get) => {
         play: () => {
             const { state } = get();
             if (!engineInstance) return;
-            set({ state: { ...state, transport: { ...state.transport, playing: true, currentStep: 0 } } });
+            set({ state: { ...state, transport: { ...state.transport, playing: true, currentStep: 0, currentBar: 0 } } });
             sync();
             engineInstance.play();
         },
         stop: () => {
             const { state } = get();
             engineInstance?.stop();
-            set({ state: { ...state, transport: { ...state.transport, playing: false, currentStep: 0 } } });
+            set({ state: { ...state, transport: { ...state.transport, playing: false, currentStep: 0, currentBar: 0 } } });
         },
         setBpm: (bpm) => {
             set(prev => ({ state: { ...prev.state, transport: { ...prev.state.transport, bpm } } }));
@@ -204,6 +215,61 @@ export const useDAWStore = create<DAWStore>((set, get) => {
         },
         setMasterVolume: (volume) => {
             set(prev => ({ state: { ...prev.state, masterVolume: volume } }));
+            sync();
+        },
+
+        // Playlist
+        addPlaylistClip: (track, startBar, type = 'pattern', label) => {
+            set(prev => {
+                const pl = prev.state.playlist;
+                if (pl.clips.some(c => c.track === track && c.startBar === startBar)) return prev;
+                const clip = {
+                    id: `${type}-${track}-${startBar}-${Date.now()}`,
+                    track, startBar, lengthBars: 1, type,
+                    label: label ?? (type === 'pattern' ? 'Pattern 1' : 'Automation'),
+                };
+                return { state: { ...prev.state, playlist: { ...pl, clips: [...pl.clips, clip] } } };
+            });
+            sync();
+        },
+        removePlaylistClip: (clipId) => {
+            set(prev => ({
+                state: {
+                    ...prev.state,
+                    playlist: {
+                        ...prev.state.playlist,
+                        clips: prev.state.playlist.clips.filter(c => c.id !== clipId),
+                    },
+                },
+            }));
+            sync();
+        },
+        togglePlaylistClip: (track, startBar) => {
+            set(prev => {
+                const pl = prev.state.playlist;
+                const existing = pl.clips.find(c => c.track === track && c.startBar === startBar);
+                const clips = existing
+                    ? pl.clips.filter(c => c.id !== existing.id)
+                    : [...pl.clips, {
+                        id: `pattern-${track}-${startBar}-${Date.now()}`,
+                        track, startBar, lengthBars: 1,
+                        type: 'pattern' as const, label: 'Pattern 1',
+                    }];
+                return { state: { ...prev.state, playlist: { ...pl, clips } } };
+            });
+            sync();
+        },
+        togglePlaylistTrackMute: (trackId) => {
+            set(prev => ({
+                state: {
+                    ...prev.state,
+                    playlist: {
+                        ...prev.state.playlist,
+                        tracks: prev.state.playlist.tracks.map(t =>
+                            t.id === trackId ? { ...t, muted: !t.muted } : t),
+                    },
+                },
+            }));
             sync();
         },
 

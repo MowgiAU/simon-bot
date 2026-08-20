@@ -56,14 +56,41 @@ export interface MixerInsert {
 export interface TransportState {
     playing: boolean;
     bpm: number;
+    /** Step within the current bar, 0–15 — the Channel Rack's pattern position */
     currentStep: number;
+    /** Which bar of the playlist is playing, 0-based. The Channel Rack pattern is one
+     *  bar long and repeats; the playlist is what gives the song its length. */
+    currentBar: number;
     swing: number; // 0–1
+}
+
+export interface PlaylistTrack {
+    id: number;
+    name: string;
+    muted: boolean;
+}
+
+export interface PlaylistClip {
+    id: string;
+    track: number;      // index into playlist.tracks
+    startBar: number;   // 0-based
+    lengthBars: number;
+    /** 'pattern' plays the Channel Rack; 'automation' drives a parameter (stage 3) */
+    type: 'pattern' | 'automation';
+    label?: string;
+}
+
+export interface PlaylistState {
+    tracks: PlaylistTrack[];
+    clips: PlaylistClip[];
+    barCount: number;
 }
 
 export interface DAWState {
     transport: TransportState;
     channels: ChannelConfig[];
     mixerInserts: MixerInsert[];
+    playlist: PlaylistState;
     masterVolume: number;
 }
 
@@ -120,16 +147,43 @@ export function normalizeMixerInsert(insert: any, idx: number): MixerInsert {
     };
 }
 
+export const DEFAULT_BAR_COUNT = 8;
+
+export function createDefaultPlaylist(): PlaylistState {
+    return {
+        barCount: DEFAULT_BAR_COUNT,
+        tracks: Array.from({ length: 5 }, (_, i) => ({
+            id: i, name: `Track ${i + 1}`, muted: false,
+        })),
+        // Track 1 is filled with the pattern across every bar, so playback sounds
+        // exactly as it did before the playlist existed — removing a block is now a
+        // real edit that silences that bar, rather than the blocks being decorative.
+        clips: Array.from({ length: DEFAULT_BAR_COUNT }, (_, bar) => ({
+            id: `pat-${bar}`,
+            track: 0,
+            startBar: bar,
+            lengthBars: 1,
+            type: 'pattern' as const,
+            label: 'Pattern 1',
+        })),
+    };
+}
+
 export function normalizeDAWState(state: DAWState): DAWState {
     return {
         ...state,
+        // Spread first, then backfill: older saved transports have no currentBar, and
+        // defaulting before the spread would just be overwritten by the undefined.
+        transport: { ...state.transport, currentBar: state.transport?.currentBar ?? 0 },
         mixerInserts: (state.mixerInserts ?? []).map(normalizeMixerInsert),
+        // Lesson initState saved before the playlist existed has no playlist at all
+        playlist: state.playlist ?? createDefaultPlaylist(),
     };
 }
 
 export function createDefaultDAWState(): DAWState {
     return {
-        transport: { playing: false, bpm: 140, currentStep: 0, swing: 0 },
+        transport: { playing: false, bpm: 140, currentStep: 0, currentBar: 0, swing: 0 },
         channels: [
             createDefaultChannel('kick', 'Kick'),
             createDefaultChannel('clap', 'Clap'),
@@ -142,6 +196,7 @@ export function createDefaultDAWState(): DAWState {
             createDefaultMixerInsert(2, 'Insert 2'),
             createDefaultMixerInsert(3, 'Insert 3'),
         ],
+        playlist: createDefaultPlaylist(),
         masterVolume: 0.8,
     };
 }
@@ -169,7 +224,7 @@ export function applyBandToFilter(band: EQBand, filter: BiquadFilterNode): void 
     filter.gain.value = band.gain;
 }
 
-type StepCallback = (step: number) => void;
+type StepCallback = (step: number, bar: number) => void;
 
 export class AudioEngine {
     private ctx: AudioContext | null = null;
@@ -339,12 +394,34 @@ export class AudioEngine {
         }
 
         this.nextStepTime += secondsPer16th + swing;
-        this.state.transport.currentStep = (this.state.transport.currentStep + 1) % 16;
-        this._onStep?.(this.state.transport.currentStep);
+        const nextStep = (this.state.transport.currentStep + 1) % 16;
+        this.state.transport.currentStep = nextStep;
+        // A wrap back to step 0 means we've crossed into the next bar; the song loops
+        // at the end of the playlist.
+        if (nextStep === 0) {
+            const bars = this.state.playlist?.barCount ?? DEFAULT_BAR_COUNT;
+            this.state.transport.currentBar = (this.state.transport.currentBar + 1) % Math.max(1, bars);
+        }
+        this._onStep?.(this.state.transport.currentStep, this.state.transport.currentBar);
+    }
+
+    /** Is a pattern block placed over this bar on any unmuted track? */
+    private patternPlaysAt(bar: number): boolean {
+        const pl = this.state.playlist;
+        if (!pl) return true;   // no playlist (legacy state) — behave as before
+        return pl.clips.some(c =>
+            c.type === 'pattern'
+            && bar >= c.startBar
+            && bar < c.startBar + c.lengthBars
+            && !(pl.tracks.find(t => t.id === c.track)?.muted),
+        );
     }
 
     private scheduleStep(step: number, time: number): void {
         if (!this.ctx) return;
+        // The Channel Rack only sounds on bars the playlist actually has a pattern
+        // block over — that's what makes the blocks real rather than decorative.
+        if (!this.patternPlaysAt(this.state.transport.currentBar)) return;
         for (const channel of this.state.channels) {
             if (channel.muted || !channel.steps[step]) continue;
             const insertId = channel.mixerInsert;
