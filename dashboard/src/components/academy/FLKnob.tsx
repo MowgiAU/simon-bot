@@ -3,6 +3,7 @@
  * Slate dark knob body, colored arc track, muted indicator.
  */
 import React, { useCallback, useRef } from 'react';
+import { daw, dawFx, dawFont } from './dawTheme';
 
 interface FLKnobProps {
     value: number;
@@ -73,7 +74,7 @@ export const FLKnob: React.FC<FLKnobProps> = ({
             >
                 <svg width={size} height={size} style={{ position: 'absolute', top: 0, left: 0 }}>
                     {/* Inactive track */}
-                    <circle cx={cx} cy={cy} r={r} fill="none" stroke="#2A3040" strokeWidth={2.5}
+                    <circle cx={cx} cy={cy} r={r} fill="none" stroke={daw.surfaceContainerLowest} strokeWidth={2.5}
                         strokeDasharray={`${(270/360) * 2 * Math.PI * r} ${(90/360) * 2 * Math.PI * r}`}
                         strokeDashoffset={-(90/360) * 2 * Math.PI * r - (45/360) * 2 * Math.PI * r}
                         strokeLinecap="round"
@@ -92,12 +93,10 @@ export const FLKnob: React.FC<FLKnobProps> = ({
                     top: 4, left: 4,
                     width: size - 8, height: size - 8,
                     borderRadius: '50%',
-                    background: 'linear-gradient(180deg, #565E72 0%, #3B4253 55%, #2E3440 100%)',
-                    boxShadow: highlight
-                        ? `0 0 8px ${color}60`
-                        : 'inset 0 1px 0 rgba(255,255,255,0.14), 0 1px 2px rgba(0,0,0,0.45)',
+                    background: dawFx.knobGradient,
+                    boxShadow: highlight ? `0 0 8px ${color}60` : dawFx.knobShadow,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    border: highlight ? `1px solid ${color}50` : '1px solid #262B36',
+                    border: highlight ? `1px solid ${color}50` : 'none',
                 }}>
                     <div style={{
                         width: '100%', height: '100%',
@@ -105,9 +104,9 @@ export const FLKnob: React.FC<FLKnobProps> = ({
                         display: 'flex', justifyContent: 'center',
                     }}>
                         <div style={{
-                            width: 1.5, height: (size - 8) * 0.30,
-                            background: '#B0B8C8',
-                            borderRadius: 1,
+                            width: 2, height: (size - 8) * 0.32,
+                            background: daw.onSurface,
+                            borderRadius: 2,
                             marginTop: 2,
                         }} />
                     </div>
@@ -115,9 +114,9 @@ export const FLKnob: React.FC<FLKnobProps> = ({
             </div>
             {label && showLabel && (
                 <span style={{
-                    fontSize: '8px', color: '#6A7080',
+                    fontSize: '8px', color: daw.onSurfaceVariant,
                     textAlign: 'center', lineHeight: 1,
-                    fontFamily: "'Segoe UI', Tahoma, sans-serif",
+                    fontFamily: dawFont.mono,
                     letterSpacing: '0.02em',
                 }}>
                     {label}

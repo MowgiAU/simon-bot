@@ -6,6 +6,7 @@ import React from 'react';
 import { FLKnob } from './FLKnob';
 import { useDAWStore } from './DAWStore';
 import { Play, Square } from 'lucide-react';
+import { daw, dawFont } from './dawTheme';
 
 interface TransportProps {
     highlightBpm?: boolean;
@@ -33,53 +34,57 @@ export const Transport: React.FC<TransportProps> = ({ highlightBpm }) => {
     return (
         <div style={{
             display: 'flex', alignItems: 'center', gap: '6px',
-            background: '#333A48',
-            borderBottom: '1px solid #2E3440',
+            background: daw.surfaceContainerHigh,
+            borderBottom: `1px solid ${daw.outlineVariant}`,
             padding: '5px 10px',
-            fontFamily: "'Segoe UI', Tahoma, sans-serif",
+            fontFamily: dawFont.sans,
         }}>
             {/* Transport buttons */}
             <div style={{
                 display: 'flex', gap: '1px',
-                background: '#2A3040',
+                background: daw.surfaceContainerLowest,
                 borderRadius: '3px',
                 padding: '2px',
             }}>
                 <button onClick={() => stop()} data-academy-id="transport-stop" style={{
                     width: 26, height: 22, border: 'none', borderRadius: '2px',
-                    background: !playing ? '#4A5268' : '#363C4A',
+                    background: !playing ? daw.surfaceVariant : daw.surfaceContainer,
                     cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}>
-                    <Square size={8} color={!playing ? '#C0C8D8' : '#6A7080'} fill={!playing ? '#C0C8D8' : '#6A7080'} />
+                    <Square size={8}
+                        color={!playing ? daw.onSurface : daw.onSurfaceVariant}
+                        fill={!playing ? daw.onSurface : daw.onSurfaceVariant} />
                 </button>
                 <button onClick={handlePlay} data-academy-id="transport-play" style={{
                     width: 26, height: 22, border: 'none', borderRadius: '2px',
-                    background: playing ? '#3A5040' : '#363C4A',
+                    background: playing ? daw.onPrimary : daw.surfaceContainer,
                     cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}>
-                    <Play size={10} color={playing ? '#8ABF60' : '#6A7080'} fill={playing ? '#8ABF60' : 'none'} />
+                    <Play size={10}
+                        color={playing ? daw.primaryContainer : daw.onSurfaceVariant}
+                        fill={playing ? daw.primaryContainer : 'none'} />
                 </button>
             </div>
 
             {/* Position display */}
             <div style={{
-                background: '#1E2430',
-                border: '1px solid #2A3040',
+                background: daw.surfaceContainerLowest,
+                border: `1px solid ${daw.outlineVariant}`,
                 borderRadius: '2px',
                 padding: '2px 8px',
                 display: 'flex', alignItems: 'baseline', gap: '2px',
-                fontFamily: 'monospace',
+                fontFamily: dawFont.mono,
                 minWidth: 50,
             }}>
-                <span style={{ fontSize: '13px', color: '#8ABF60', fontWeight: 700 }}>{pat}</span>
-                <span style={{ fontSize: '9px', color: '#5A7050' }}>:</span>
-                <span style={{ fontSize: '13px', color: '#8ABF60', fontWeight: 700 }}>{beat}</span>
+                <span style={{ fontSize: '13px', color: daw.primaryContainer, fontWeight: 700 }}>{pat}</span>
+                <span style={{ fontSize: '9px', color: daw.outline }}>:</span>
+                <span style={{ fontSize: '13px', color: daw.primaryContainer, fontWeight: 700 }}>{beat}</span>
             </div>
 
             {/* Step indicator dots */}
             <div style={{
                 display: 'flex', gap: '2px',
-                background: '#2A3040',
+                background: daw.surfaceContainerLowest,
                 borderRadius: '2px',
                 padding: '3px 5px',
             }}>
@@ -87,11 +92,11 @@ export const Transport: React.FC<TransportProps> = ({ highlightBpm }) => {
                     <div key={i} style={{
                         width: 4, height: 4, borderRadius: '50%',
                         background: i === currentStep && playing
-                            ? '#8ABF60'
+                            ? daw.primaryContainer
                             : i % 4 === 0
-                                ? '#5A6478'
-                                : '#3A4050',
-                        boxShadow: i === currentStep && playing ? '0 0 3px #8ABF60' : 'none',
+                                ? daw.outline
+                                : daw.surfaceVariant,
+                        boxShadow: i === currentStep && playing ? `0 0 3px ${daw.primaryContainer}` : 'none',
                         transition: 'background 0.05s',
                     }} />
                 ))}
@@ -100,29 +105,30 @@ export const Transport: React.FC<TransportProps> = ({ highlightBpm }) => {
             {/* BPM */}
             <div style={{
                 display: 'flex', alignItems: 'center', gap: '4px',
-                background: '#2A3040',
+                background: daw.surfaceContainerLowest,
                 borderRadius: '2px',
                 padding: '2px 5px',
-                border: highlightBpm ? '1px solid #60C0A0' : '1px solid transparent',
-                boxShadow: highlightBpm ? '0 0 4px rgba(96,192,160,0.3)' : 'none',
+                border: `1px solid ${highlightBpm ? daw.primaryContainer : 'transparent'}`,
+                boxShadow: highlightBpm ? `0 0 6px ${daw.primaryContainer}66` : 'none',
             }}>
-                <span style={{ fontSize: '9px', color: '#6A7080', fontWeight: 600 }}>BPM</span>
+                <span style={{ fontSize: '9px', color: daw.onSurfaceVariant, fontWeight: 600 }}>BPM</span>
                 <input
                     type="number"
                     value={bpm}
                     min={40} max={300}
                     onChange={e => setBpm(Number(e.target.value) || 120)}
                     style={{
-                        width: 40, background: '#1E2430', border: '1px solid #2A3040',
-                        borderRadius: '2px', padding: '1px 3px', color: '#8ABF60',
-                        fontSize: '12px', fontFamily: 'monospace', textAlign: 'center',
+                        width: 40, background: daw.surfaceContainerLowest,
+                        border: `1px solid ${daw.outlineVariant}`,
+                        borderRadius: '2px', padding: '1px 3px', color: daw.primaryContainer,
+                        fontSize: '12px', fontFamily: dawFont.mono, textAlign: 'center',
                         outline: 'none',
                     }}
                 />
             </div>
 
             {/* Swing knob */}
-            <FLKnob value={swing} onChange={setSwing} size={22} label="Swing" color="#8A9AB0" />
+            <FLKnob value={swing} onChange={setSwing} size={22} label="Swing" color={daw.primaryContainer} />
         </div>
     );
 };

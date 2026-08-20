@@ -7,6 +7,7 @@ import { Transport } from './Transport';
 import { ChannelRack } from './ChannelRack';
 import { Mixer } from './Mixer';
 import { PianoRoll } from './PianoRoll';
+import { daw, dawFont } from './dawTheme';
 
 type Panel = 'rack' | 'mixer' | 'piano';
 
@@ -31,26 +32,29 @@ export const DAWSimulator: React.FC<DAWSimulatorProps> = ({
     const [activePanel, setActivePanel] = useState<Panel>(defaultPanels[0]);
     const [pianoNotes, setPianoNotes] = useState<Note[]>([]);
 
-    const tabs: { id: Panel; label: string }[] = [
+    // Annotated before .filter(), not after: TS widens the literal's `id` to string
+    // while inferring the array, so the annotation has to land on the source array.
+    const allTabs: { id: Panel; label: string }[] = [
         { id: 'rack', label: 'Channel rack' },
         { id: 'mixer', label: 'Mixer' },
         { id: 'piano', label: 'Piano roll' },
-    ].filter(t => defaultPanels.includes(t.id));
+    ];
+    const tabs = allTabs.filter(t => defaultPanels.includes(t.id));
 
     return (
         <div style={{
-            background: '#2E3440',
-            border: '1px solid #4A5268',
-            borderRadius: '3px',
+            background: daw.surface,
+            border: `1px solid ${daw.outlineVariant}`,
+            borderRadius: '4px',
             overflow: 'hidden',
             boxShadow: '0 2px 16px rgba(0,0,0,0.5)',
-            fontFamily: "'Segoe UI', Tahoma, sans-serif",
+            fontFamily: dawFont.sans,
         }}>
             {/* Title bar */}
             <div data-academy-id="daw-titlebar" style={{
                 height: 26,
-                background: '#333A48',
-                borderBottom: '1px solid #4A5060',
+                background: daw.surfaceContainerHigh,
+                borderBottom: `1px solid ${daw.outlineVariant}`,
                 display: 'flex', alignItems: 'center',
                 padding: '0 10px',
                 gap: '8px',
@@ -61,12 +65,12 @@ export const DAWSimulator: React.FC<DAWSimulatorProps> = ({
                     background: 'radial-gradient(circle at 40% 35%, #F09030, #D05020)',
                     boxShadow: '0 0 4px rgba(240,144,48,0.25)',
                 }} />
-                <span style={{ fontSize: '11px', color: '#8090A0', fontWeight: 400, letterSpacing: '0.02em' }}>
+                <span style={{ fontSize: '11px', color: daw.onSurfaceVariant, fontWeight: 400, letterSpacing: '0.02em' }}>
                     Fuji Studio
                 </span>
                 <div style={{ marginLeft: 'auto', display: 'flex', gap: '6px' }}>
                     {[0,1,2].map(i => (
-                        <div key={i} style={{ width: 8, height: 8, borderRadius: '50%', background: '#4A5268', opacity: 0.5 }} />
+                        <div key={i} style={{ width: 8, height: 8, borderRadius: '50%', background: daw.surfaceVariant, opacity: 0.7 }} />
                     ))}
                 </div>
             </div>
@@ -78,8 +82,8 @@ export const DAWSimulator: React.FC<DAWSimulatorProps> = ({
             {tabs.length > 1 && (
                 <div style={{
                     display: 'flex',
-                    background: '#2A3040',
-                    borderBottom: '1px solid #2E3440',
+                    background: daw.surfaceContainer,
+                    borderBottom: `1px solid ${daw.outlineVariant}`,
                     height: 26,
                 }}>
                     {tabs.map(tab => {
@@ -91,14 +95,15 @@ export const DAWSimulator: React.FC<DAWSimulatorProps> = ({
                                 style={{
                                     padding: '0 16px',
                                     height: '100%',
-                                    background: isActive ? '#333A48' : 'transparent',
+                                    background: isActive ? daw.surfaceContainerHigh : 'transparent',
                                     border: 'none',
-                                    borderBottom: isActive ? '2px solid #F09030' : '2px solid transparent',
-                                    color: isActive ? '#B0B8C8' : '#5A6478',
+                                    borderBottom: `2px solid ${isActive ? daw.primaryContainer : 'transparent'}`,
+                                    color: isActive ? daw.onSurface : daw.onSurfaceVariant,
                                     fontSize: '11px', fontWeight: isActive ? 500 : 400,
                                     cursor: 'pointer',
                                     transition: 'color 0.1s',
                                     letterSpacing: '0.01em',
+                                    opacity: isActive ? 1 : 0.65,
                                 }}
                             >
                                 {tab.label}
