@@ -132,9 +132,11 @@ const PickerRow: React.FC<{ icon?: React.ReactNode; label: string }> = ({ icon, 
 
 interface MixerProps {
     highlightInserts?: number[];
+    /** Open the Parametric EQ for an insert — wired to slot 1, as in FL */
+    onOpenEQ?: (insertId: number) => void;
 }
 
-export const Mixer: React.FC<MixerProps> = ({ highlightInserts }) => {
+export const Mixer: React.FC<MixerProps> = ({ highlightInserts, onOpenEQ }) => {
     const inserts = useDAWStore(s => s.state.mixerInserts);
     const masterVolume = useDAWStore(s => s.state.masterVolume);
     const setInsertVolume = useDAWStore(s => s.setInsertVolume);
@@ -192,28 +194,42 @@ export const Mixer: React.FC<MixerProps> = ({ highlightInserts }) => {
                 }}>
                     <PickerRow label="(none)" />
 
-                    {/* Effect slots — decorative; there's no plugin host to open */}
+                    {/* Effect slots. Slot 1 hosts the real Parametric EQ 2; the rest are
+                        decorative, since there's no general plugin host behind them. */}
                     <div style={{
                         border: `1px solid ${daw.border}`, background: daw.bg,
                         borderRadius: 3, padding: 4,
                         display: 'flex', flexDirection: 'column', gap: 2,
                     }}>
-                        {Array.from({ length: 8 }, (_, i) => (
-                            <div key={i} style={{
-                                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                                padding: '1px 6px', borderRadius: 2, fontSize: 11,
-                                color: daw.textDim,
-                            }}>
-                                <span>▾ Slot {i + 1}</span>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                                    <div style={{
-                                        width: 12, height: 12, borderRadius: '50%',
-                                        border: `1px solid ${daw.textDim}`,
-                                    }} />
-                                    <Led on />
+                        {Array.from({ length: 8 }, (_, i) => {
+                            const isEQ = i === 0;
+                            return (
+                                <div key={i}
+                                    onClick={isEQ && selected ? () => onOpenEQ?.(selected.id) : undefined}
+                                    data-academy-id={isEQ && selected ? `mixer-slot-eq-${selected.id}` : undefined}
+                                    title={isEQ ? 'Open Fruity Parametric EQ 2' : undefined}
+                                    style={{
+                                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                        padding: '1px 6px', borderRadius: 2, fontSize: 11,
+                                        color: isEQ ? daw.textBright : daw.textDim,
+                                        cursor: isEQ ? 'pointer' : 'default',
+                                        background: isEQ ? daw.dark : 'transparent',
+                                    }}>
+                                    <span style={{
+                                        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                                    }}>
+                                        ▾ {isEQ ? 'Fruity Parametric EQ 2' : `Slot ${i + 1}`}
+                                    </span>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
+                                        <div style={{
+                                            width: 12, height: 12, borderRadius: '50%',
+                                            border: `1px solid ${daw.textDim}`,
+                                        }} />
+                                        <Led on />
+                                    </div>
                                 </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
 
                     {/* EQ visualiser — decorative */}

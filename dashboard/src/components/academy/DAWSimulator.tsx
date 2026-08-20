@@ -7,6 +7,7 @@ import { Transport } from './Transport';
 import { ChannelRack } from './ChannelRack';
 import { Mixer } from './Mixer';
 import { PianoRoll } from './PianoRoll';
+import { ParametricEQ } from './ParametricEQ';
 import { daw, dawFont } from './dawTheme';
 
 type Panel = 'rack' | 'mixer' | 'piano';
@@ -22,15 +23,20 @@ interface DAWSimulatorProps {
     highlightStepIndex?: number | null;
     highlightInserts?: number[];
     highlightBpm?: boolean;
+    /** EQ band a lesson wants emphasised in the plugin window */
+    highlightEQBand?: number | null;
     visiblePanels?: Panel[];
 }
 
 export const DAWSimulator: React.FC<DAWSimulatorProps> = ({
-    highlightChannelId, highlightStepIndex, highlightInserts, highlightBpm, visiblePanels,
+    highlightChannelId, highlightStepIndex, highlightInserts, highlightBpm,
+    highlightEQBand, visiblePanels,
 }) => {
     const defaultPanels: Panel[] = visiblePanels ?? ['rack', 'mixer', 'piano'];
     const [activePanel, setActivePanel] = useState<Panel>(defaultPanels[0]);
     const [pianoNotes, setPianoNotes] = useState<Note[]>([]);
+    /** Which insert's Parametric EQ is open, or null when no plugin window is showing */
+    const [eqInsertId, setEqInsertId] = useState<number | null>(null);
 
     // Annotated before .filter(), not after: TS widens the literal's `id` to string
     // while inferring the array, so the annotation has to land on the source array.
@@ -118,9 +124,24 @@ export const DAWSimulator: React.FC<DAWSimulatorProps> = ({
                 {activePanel === 'rack' && (
                     <ChannelRack highlightChannelId={highlightChannelId} highlightStepIndex={highlightStepIndex} />
                 )}
-                {activePanel === 'mixer' && <Mixer highlightInserts={highlightInserts} />}
+                {activePanel === 'mixer' && (
+                    <Mixer highlightInserts={highlightInserts} onOpenEQ={setEqInsertId} />
+                )}
                 {activePanel === 'piano' && <PianoRoll notes={pianoNotes} onChange={setPianoNotes} />}
             </div>
+
+            {/* Plugin window. Rendered inline beneath the panel rather than as a floating
+                overlay: the lesson bubble anchors to elements inside it, and a floating
+                window would need its own containing-block handling to stay pointable. */}
+            {eqInsertId !== null && (
+                <div style={{ borderTop: `1px solid ${daw.border}` }}>
+                    <ParametricEQ
+                        insertId={eqInsertId}
+                        highlightBand={highlightEQBand ?? null}
+                        onClose={() => setEqInsertId(null)}
+                    />
+                </div>
+            )}
         </div>
     );
 };

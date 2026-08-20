@@ -9,7 +9,9 @@ import {
     createDefaultDAWState,
     ChannelConfig,
     MixerInsert,
+    EQBand,
     createDefaultChannel,
+    normalizeDAWState,
 } from './AudioEngine';
 
 interface DAWStore {
@@ -43,6 +45,8 @@ interface DAWStore {
     setInsertPan: (insertId: number, pan: number) => void;
     toggleInsertMute: (insertId: number) => void;
     setInsertReverb: (insertId: number, wet: number) => void;
+    /** Patch one EQ band on an insert (freq / gain / q / type / enabled) */
+    setEQBand: (insertId: number, bandIndex: number, patch: Partial<EQBand>) => void;
     setMasterVolume: (volume: number) => void;
 
     // --- Bulk state (for lesson engine) ---
@@ -187,6 +191,17 @@ export const useDAWStore = create<DAWStore>((set, get) => {
             }));
             sync();
         },
+        setEQBand: (insertId, bandIndex, patch) => {
+            set(prev => ({
+                state: {
+                    ...prev.state,
+                    mixerInserts: prev.state.mixerInserts.map(i => i.id === insertId
+                        ? { ...i, eqBands: i.eqBands.map((b, bi) => bi === bandIndex ? { ...b, ...patch } : b) }
+                        : i),
+                },
+            }));
+            sync();
+        },
         setMasterVolume: (volume) => {
             set(prev => ({ state: { ...prev.state, masterVolume: volume } }));
             sync();
@@ -194,7 +209,9 @@ export const useDAWStore = create<DAWStore>((set, get) => {
 
         // Bulk
         loadState: (newState) => {
-            set({ state: newState });
+            // Normalized on the way in: lesson initState saved before the EQ existed has
+            // inserts with no eqBands, which would otherwise break the filter chain.
+            set({ state: normalizeDAWState(newState) });
             sync();
         },
         getSnapshot: () => get().state,

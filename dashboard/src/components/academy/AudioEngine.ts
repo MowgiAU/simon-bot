@@ -28,6 +28,20 @@ export interface ChannelConfig {
     muted: boolean;
 }
 
+/** Filter shapes offered by Fruity Parametric EQ 2, mapped 1:1 onto Web Audio's
+ *  BiquadFilterNode types so a band can drive a real filter node directly. */
+export type EQBandType =
+    | 'lowshelf' | 'peaking' | 'highshelf'
+    | 'lowpass' | 'highpass' | 'bandpass' | 'notch';
+
+export interface EQBand {
+    freq: number;      // Hz, 20–20000
+    gain: number;      // dB, -18..+18 (ignored by lowpass/highpass/bandpass/notch)
+    q: number;         // 0.1–18 — FL calls this "width"
+    type: EQBandType;
+    enabled: boolean;
+}
+
 export interface MixerInsert {
     id: number;
     label: string;
@@ -35,9 +49,8 @@ export interface MixerInsert {
     pan: number;      // -1 to 1
     muted: boolean;
     reverbWet: number; // 0–1
-    eqLow: number;    // dB gain
-    eqMid: number;
-    eqHigh: number;
+    /** 7 bands, matching Fruity Parametric EQ 2 */
+    eqBands: EQBand[];
 }
 
 export interface TransportState {
@@ -69,8 +82,49 @@ export function createDefaultChannel(id: string, name: string): ChannelConfig {
     };
 }
 
+/** Frequencies for the 7 default bands — a log spread across the audible range,
+ *  the way Parametric EQ 2 lays its bands out on first open. */
+const EQ_DEFAULT_FREQS = [60, 150, 400, 1000, 2500, 6000, 12000];
+
+export function createDefaultEQBands(): EQBand[] {
+    return EQ_DEFAULT_FREQS.map((freq, i) => ({
+        freq,
+        gain: 0,
+        q: 1,
+        // Outer bands are shelves and the middle five are bells, as in FL.
+        type: i === 0 ? 'lowshelf' : i === 6 ? 'highshelf' : 'peaking',
+        enabled: true,
+    }));
+}
+
 export function createDefaultMixerInsert(id: number, label: string): MixerInsert {
-    return { id, label, volume: 0.8, pan: 0, muted: false, reverbWet: 0, eqLow: 0, eqMid: 0, eqHigh: 0 };
+    return {
+        id, label, volume: 0.8, pan: 0, muted: false, reverbWet: 0,
+        eqBands: createDefaultEQBands(),
+    };
+}
+
+/**
+ * Lesson `initState` rows saved before the EQ existed carry inserts with no
+ * `eqBands` (and the old, never-wired eqLow/eqMid/eqHigh fields). Backfill
+ * defaults on load so an older lesson doesn't crash the filter chain.
+ */
+export function normalizeMixerInsert(insert: any, idx: number): MixerInsert {
+    return {
+        ...insert,
+        id: insert?.id ?? idx,
+        label: insert?.label ?? `Insert ${idx}`,
+        eqBands: Array.isArray(insert?.eqBands) && insert.eqBands.length
+            ? insert.eqBands
+            : createDefaultEQBands(),
+    };
+}
+
+export function normalizeDAWState(state: DAWState): DAWState {
+    return {
+        ...state,
+        mixerInserts: (state.mixerInserts ?? []).map(normalizeMixerInsert),
+    };
 }
 
 export function createDefaultDAWState(): DAWState {
@@ -94,12 +148,40 @@ export function createDefaultDAWState(): DAWState {
 
 // ---------- Audio Engine ----------
 
+/**
+ * Push a band's settings onto a real BiquadFilterNode.
+ *
+ * A disabled band stays in the chain rather than being disconnected — rebuilding
+ * the graph on every toggle would click. It's made transparent instead by running
+ * as a 0 dB peaking filter, which passes signal through unchanged.
+ */
+export function applyBandToFilter(band: EQBand, filter: BiquadFilterNode): void {
+    if (!band.enabled) {
+        filter.type = 'peaking';
+        filter.frequency.value = 1000;
+        filter.Q.value = 1;
+        filter.gain.value = 0;
+        return;
+    }
+    filter.type = band.type;
+    filter.frequency.value = Math.max(20, Math.min(20000, band.freq));
+    filter.Q.value = Math.max(0.0001, band.q);
+    filter.gain.value = band.gain;
+}
+
 type StepCallback = (step: number) => void;
 
 export class AudioEngine {
     private ctx: AudioContext | null = null;
     private masterGain: GainNode | null = null;
-    private insertNodes: Map<number, { gain: GainNode; pan: StereoPannerNode; reverb: ConvolverNode; reverbGain: GainNode; dryGain: GainNode }> = new Map();
+    private insertNodes: Map<number, {
+        gain: GainNode; pan: StereoPannerNode;
+        reverb: ConvolverNode; reverbGain: GainNode; dryGain: GainNode;
+        /** One BiquadFilterNode per EQ band, chained in series */
+        eq: BiquadFilterNode[];
+        /** Tapped post-EQ so the plugin's spectrum shows the EQ's effect */
+        analyser: AnalyserNode;
+    }> = new Map();
     private timerId: number | null = null;
     private nextStepTime = 0;
     private scheduleAheadTime = 0.1; // seconds
@@ -151,16 +233,39 @@ export class AudioEngine {
             const dryGain = this.ctx.createGain();
             dryGain.gain.value = 1 - insert.reverbWet;
 
-            // Signal chain: source -> gain -> pan -> dry/wet split -> master
+            // One filter per EQ band, chained in series
+            const bands = insert.eqBands ?? createDefaultEQBands();
+            const eq = bands.map(band => {
+                const f = this.ctx!.createBiquadFilter();
+                applyBandToFilter(band, f);
+                return f;
+            });
+
+            const analyser = this.ctx.createAnalyser();
+            analyser.fftSize = 2048;
+            analyser.smoothingTimeConstant = 0.8;
+
+            // Signal chain: source -> gain -> [EQ bands] -> pan -> dry/wet split -> master
+            // The analyser hangs off the end of the EQ chain as a passive tap (it has
+            // no output connected, so it observes without altering the signal).
+            let tail: AudioNode = gain;
+            for (const f of eq) { tail.connect(f); tail = f; }
+            tail.connect(analyser);
+            tail.connect(pan);
+
             pan.connect(dryGain);
             pan.connect(reverb);
             reverb.connect(reverbGain);
             dryGain.connect(this.masterGain);
             reverbGain.connect(this.masterGain);
-            gain.connect(pan);
 
-            this.insertNodes.set(insert.id, { gain, pan, reverb, reverbGain, dryGain });
+            this.insertNodes.set(insert.id, { gain, pan, reverb, reverbGain, dryGain, eq, analyser });
         }
+    }
+
+    /** The post-EQ analyser for an insert, for the plugin's spectrum display. */
+    getAnalyser(insertId: number): AnalyserNode | null {
+        return this.insertNodes.get(insertId)?.analyser ?? null;
     }
 
     /** Load a sample from URL into a named buffer */
@@ -191,6 +296,11 @@ export class AudioEngine {
                 nodes.pan.pan.value = insert.pan;
                 nodes.reverbGain.gain.value = insert.reverbWet;
                 nodes.dryGain.gain.value = 1 - insert.reverbWet;
+                // Live EQ updates — dragging a band point retunes the running filters
+                const bands = insert.eqBands ?? [];
+                for (let i = 0; i < nodes.eq.length; i++) {
+                    if (bands[i]) applyBandToFilter(bands[i], nodes.eq[i]);
+                }
             }
         }
     }
