@@ -168,9 +168,11 @@ export const ChannelRack: React.FC<ChannelRackProps> = ({ highlightChannelId, hi
                     </div>
 
                     {channels.map(ch => (
-                        <div key={ch.id} style={{
-                            display: 'flex', alignItems: 'center', gap: 12, height: S.rowH,
-                        }}>
+                        <div key={ch.id}
+                            onContextMenu={e => openMenu(e, ch.id, ch.name)}
+                            style={{
+                                display: 'flex', alignItems: 'center', gap: 12, height: S.rowH,
+                            }}>
                             {/* Mute LED */}
                             <div
                                 onClick={() => toggleChannelMute(ch.id)}
