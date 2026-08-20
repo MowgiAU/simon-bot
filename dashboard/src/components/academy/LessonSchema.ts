@@ -30,6 +30,14 @@ export interface LessonStepTarget {
     channelId?: string;
     /** Field on the resolved channel to check (defaults to "steps") */
     channelField?: string;
+    /**
+     * Keep the lesson bubble pointing at the channel name for the whole step, instead of
+     * advancing to whichever individual step still doesn't match. Use this when the
+     * instruction teaches a whole-row action (e.g. right-click → Fill) rather than
+     * click-by-click placement — pointing at individual steps would suggest the wrong
+     * technique.
+     */
+    pointAtChannelOnly?: boolean;
     /** Expected value — step is complete when actual matches this */
     expectedValue: any;
     /** Comparison mode */

@@ -431,6 +431,10 @@ interface EditStep {
     type: EditStepType;
     channelId: string;
     pattern: boolean[];
+    /** Keep the lesson bubble on the channel name instead of advancing step-by-step —
+     *  for instructions that teach a whole-row action like right-click → Fill, where
+     *  pointing at individual steps would suggest the wrong technique. */
+    pointAtChannelOnly: boolean;
     requireTransport: 'play' | 'stop';
     advanced: boolean;
     rawTarget: string;
@@ -460,6 +464,7 @@ function fromLessonStep(step: any): EditStep {
         channelId: step.target?.channelId || '',
         pattern: Array.isArray(step.target?.expectedValue) && step.target.expectedValue.length === 16
             ? step.target.expectedValue : Array(16).fill(false),
+        pointAtChannelOnly: !!step.target?.pointAtChannelOnly,
         requireTransport: step.requireTransport === 'stop' ? 'stop' : 'play',
         advanced: !hasSimpleTarget,
         rawTarget: hasSimpleTarget ? '' : JSON.stringify(
@@ -489,6 +494,7 @@ function toLessonStep(s: EditStep, idx: number): LessonStep {
             channelField: 'steps',
             expectedValue: s.pattern,
             compare: 'eq',
+            ...(s.pointAtChannelOnly && { pointAtChannelOnly: true }),
         };
     } else if (s.type === 'transport') {
         base.requireTransport = s.requireTransport;
@@ -579,6 +585,7 @@ const LessonEditorView: React.FC<{
         setSteps(prev => [...prev, {
             key: newStepKey(), instruction: '', hint: '', type: 'instruction',
             channelId: channels[0]?.id || '', pattern: Array(16).fill(false),
+            pointAtChannelOnly: false,
             requireTransport: 'play', advanced: false, rawTarget: '',
         }]);
     };
@@ -783,6 +790,19 @@ const LessonEditorView: React.FC<{
                                                         <option value="">Choose channel…</option>
                                                         {channels.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                                                     </select>
+                                                )}
+                                                {!s.advanced && s.type === 'pattern' && (
+                                                    <label
+                                                        title="Keeps the lesson bubble on the channel name instead of advancing step-by-step. Use this when the instruction teaches a whole-row action (e.g. right-click a channel and choose Fill) instead of clicking individual steps."
+                                                        style={{
+                                                            display: 'flex', alignItems: 'center', gap: '6px',
+                                                            fontSize: '12px', color: colors.textSecondary, cursor: 'pointer',
+                                                            whiteSpace: 'nowrap',
+                                                        }}>
+                                                        <input type="checkbox" checked={s.pointAtChannelOnly}
+                                                            onChange={e => updateStep(idx, { pointAtChannelOnly: e.target.checked })} />
+                                                        Point at channel name only
+                                                    </label>
                                                 )}
                                                 {!s.advanced && s.type === 'transport' && (
                                                     <select value={s.requireTransport} onChange={e => updateStep(idx, { requireTransport: e.target.value as 'play' | 'stop' })}

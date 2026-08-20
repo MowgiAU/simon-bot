@@ -139,6 +139,7 @@ export function useLessonEngine(lesson: LessonSchema | null): [LessonEngineState
     const highlightTarget = useMemo((): { channelId: string; stepIndex: number | null } | null => {
         const target = step?.target;
         if (!target?.channelId) return null;
+        if (target.pointAtChannelOnly) return { channelId: target.channelId, stepIndex: null };
         const channel = dawState.channels.find(c => c.id === target.channelId);
         const actual = channel ? (channel as any)[target.channelField ?? 'steps'] : undefined;
         if (Array.isArray(actual) && Array.isArray(target.expectedValue)) {
