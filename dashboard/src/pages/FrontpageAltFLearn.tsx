@@ -120,12 +120,17 @@ const AltLessonPlayer: React.FC<{ lesson: LessonSchema; onExit: () => void }> = 
                 <div style={{ height: '100%', width: `${pct}%`, background: `linear-gradient(90deg, ${ACCENT}, #4A8A30)`, borderRadius: 2, transition: 'width 0.4s ease' }} />
             </div>
 
-            {/* DAW Simulator — instructions are a bubble pointing at whatever's relevant below */}
-            <div ref={dawContainerRef} style={{ ...glass, borderRadius: 14, overflow: 'hidden', position: 'relative' }}>
-                <DAWSimulator
-                    highlightChannelId={highlightChannelId}
-                    highlightStepIndex={highlightStepIndex}
-                />
+            {/* DAW Simulator — instructions are a bubble pointing at whatever's relevant below.
+                The bubble lives in this OUTER, non-clipping wrapper (not the glass panel itself,
+                which needs overflow:hidden for its rounded corners) so it isn't cut off when it
+                needs to render above something near the very top of the simulator. */}
+            <div ref={dawContainerRef} style={{ position: 'relative', marginTop: 36 }}>
+                <div style={{ ...glass, borderRadius: 14, overflow: 'hidden' }}>
+                    <DAWSimulator
+                        highlightChannelId={highlightChannelId}
+                        highlightStepIndex={highlightStepIndex}
+                    />
+                </div>
                 <LessonBubble
                     containerRef={dawContainerRef}
                     targetId={pointerId}
