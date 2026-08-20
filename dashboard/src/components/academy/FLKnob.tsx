@@ -11,6 +11,10 @@ interface FLKnobProps {
     step?: number;
     size?: number;
     label?: string;
+    /** Render `label` as visible text under the knob. Off in the Channel Rack, where
+     *  FL shows bare knobs and the row is only 34px tall — the label still names the
+     *  control in the hover tooltip either way. */
+    showLabel?: boolean;
     color?: string;
     onChange: (value: number) => void;
     highlight?: boolean;
@@ -20,7 +24,7 @@ const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v
 
 export const FLKnob: React.FC<FLKnobProps> = ({
     value, min = 0, max = 1, step = 0.01,
-    size = 36, label, color = '#8ABF60',
+    size = 36, label, showLabel = true, color = '#8ABF60',
     onChange, highlight = false,
 }) => {
     const startY = useRef(0);
@@ -65,7 +69,7 @@ export const FLKnob: React.FC<FLKnobProps> = ({
                 onPointerDown={onPointerDown}
                 onPointerMove={onPointerMove}
                 style={{ width: size, height: size, position: 'relative', touchAction: 'none' }}
-                title={`${label ?? ''}: ${value.toFixed(2)}`}
+                title={label ? `${label}: ${value.toFixed(2)}` : value.toFixed(2)}
             >
                 <svg width={size} height={size} style={{ position: 'absolute', top: 0, left: 0 }}>
                     {/* Inactive track */}
@@ -88,12 +92,12 @@ export const FLKnob: React.FC<FLKnobProps> = ({
                     top: 4, left: 4,
                     width: size - 8, height: size - 8,
                     borderRadius: '50%',
-                    background: 'linear-gradient(145deg, #4A5268 0%, #363C4A 50%, #2E3440 100%)',
+                    background: 'linear-gradient(180deg, #565E72 0%, #3B4253 55%, #2E3440 100%)',
                     boxShadow: highlight
                         ? `0 0 8px ${color}60`
-                        : '0 1px 3px rgba(0,0,0,0.4)',
+                        : 'inset 0 1px 0 rgba(255,255,255,0.14), 0 1px 2px rgba(0,0,0,0.45)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    border: highlight ? `1px solid ${color}50` : '1px solid #4A5268',
+                    border: highlight ? `1px solid ${color}50` : '1px solid #262B36',
                 }}>
                     <div style={{
                         width: '100%', height: '100%',
@@ -109,7 +113,7 @@ export const FLKnob: React.FC<FLKnobProps> = ({
                     </div>
                 </div>
             </div>
-            {label && (
+            {label && showLabel && (
                 <span style={{
                     fontSize: '8px', color: '#6A7080',
                     textAlign: 'center', lineHeight: 1,

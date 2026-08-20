@@ -1,35 +1,112 @@
 /**
- * ChannelRack — FL Studio 21 authentic step sequencer.
- * Slate blue-gray palette, subtle monochrome steps, button-style channel names.
+ * ChannelRack — FL Studio 21 step sequencer, styled to match the real thing.
+ *
+ * Palette and geometry are sampled from an actual FL Studio Channel Rack: a
+ * mid slate-blue window, glossy raised step buttons (light top edge, darker
+ * bottom), brick-red lit steps, an amber playhead, and the per-channel
+ * LED / vol / pan / plugin-button cluster on the left.
  */
 import React from 'react';
 import { FLKnob } from './FLKnob';
 import { useDAWStore } from './DAWStore';
 
-// FL21 palette — matched against a real FL Studio Channel Rack screenshot: lighter
-// slate-blue panel/steps (not near-black), brick-red lit steps, amber playhead.
-const BG          = '#4D5567';   // panel background
-const ROW_EVEN    = '#4D5567';
-const ROW_ODD     = '#48505F';
-const BORDER      = '#333A48';
-const TITLE_BG    = '#3A4050';
-const TITLE_BORDER= '#4A5060';
-const STEP_OFF    = '#6B7590';   // unlit step — light slate button, not a dark recess
-const STEP_OFF_BORDER = '#828CA6';
-const STEP_ON     = '#8B3F42';   // lit step — brick red
-const STEP_ON_BORDER = '#A8585C';
-const PLAYHEAD    = '#D6A94A';   // current-step amber highlight
-const NAME_BTN    = '#6B7590';   // channel name button bg
-const LED_ON      = '#7FBF5F';   // green LED
-const LED_OFF     = '#3F4657';
+// ── Window chrome ──
+const PANEL      = '#4A5265';
+const ROW_EVEN   = '#4A5265';
+const ROW_ODD    = '#464E60';
+const ROW_LINE   = '#3E4555';
+const TITLE_BG   = '#3F4757';
+const TITLE_LINE = '#333A48';
+const INSET_BG   = '#3A4150';   // recessed wells (plugin button, separator)
+const INSET_LINE = '#2E3440';
 
-const STEP_W = 24;
-const STEP_H = 22;
+// ── Step buttons (glossy, top-lit) ──
+const STEP_TOP  = '#818BA4';
+const STEP_MID  = '#6E7891';
+const STEP_BOT  = '#636C85';
+const STEP_LINE = '#39404F';
+const ON_TOP    = '#A64F53';
+const ON_MID    = '#8C4044';
+const ON_BOT    = '#7B373A';
+const ON_LINE   = '#4E2527';
+const PLAYHEAD  = '#D9AC4C';
+
+// ── Channel name button ──
+const NAME_TOP  = '#7A8399';
+const NAME_BOT  = '#69728A';
+const TEXT      = '#D4DAE6';
+const TEXT_DIM  = '#8C94A8';
+const LED_ON    = '#6FBF3F';
+const LED_OFF   = '#39404F';
+const ACCENT    = '#6FBF3F';
+
+// ── Geometry ──
+const STEP_W = 23;
+const STEP_H = 21;
 const STEP_GAP = 2;
-const GROUP_GAP = 5;   // gap between groups of 4
-const NAME_WIDTH = 110;
+const GROUP_GAP = 7;      // wider gap between groups of 4
+const NAME_WIDTH = 108;
+const LED_KNOBS_WIDTH = 88;
+const NUM_WIDTH = 18;
+const SEP_WIDTH = 14;
+const ROW_H = 34;
 
-const LED_KNOBS_WIDTH = 80;
+const stepGradient = (on: boolean) => on
+    ? `linear-gradient(180deg, ${ON_TOP} 0%, ${ON_MID} 48%, ${ON_BOT} 100%)`
+    : `linear-gradient(180deg, ${STEP_TOP} 0%, ${STEP_MID} 48%, ${STEP_BOT} 100%)`;
+
+// ── Small decorative title-bar glyphs (no icon dep; FL's own bar is dense) ──
+
+const Caret: React.FC<{ color?: string }> = ({ color = '#AAB2C4' }) => (
+    <svg width="8" height="5" viewBox="0 0 8 5" style={{ flexShrink: 0 }}>
+        <polygon points="0,0 8,0 4,5" fill={color} />
+    </svg>
+);
+
+/** FL's speaker-with-play glyph that sits beside the "Channel rack" label. */
+const SpeakerPlay: React.FC = () => (
+    <svg width="15" height="12" viewBox="0 0 15 12" style={{ flexShrink: 0 }}>
+        <rect x="0.5" y="0.5" width="10" height="11" rx="2" fill="none" stroke={ACCENT} strokeWidth="1.1" />
+        <polygon points="3.6,3.2 3.6,8.8 8,6" fill={ACCENT} />
+        <path d="M12 3.4 Q14 6 12 8.6" stroke={ACCENT} strokeWidth="1.1" fill="none" strokeLinecap="round" />
+    </svg>
+);
+
+const GripDots: React.FC = () => (
+    <svg width="3" height="12" viewBox="0 0 3 12" style={{ flexShrink: 0 }}>
+        {[1.5, 4.5, 7.5, 10.5].map(cy => <circle key={cy} cx="1.5" cy={cy} r="0.9" fill="#6E7791" />)}
+    </svg>
+);
+
+const UndoArrow: React.FC = () => (
+    <svg width="13" height="12" viewBox="0 0 13 12" style={{ flexShrink: 0 }}>
+        <path d="M3.5 4.5 H8 a3 3 0 0 1 0 6 H5" stroke="#AAB2C4" strokeWidth="1.3" fill="none" strokeLinecap="round" />
+        <polygon points="4.6,1.6 4.6,7.4 1.2,4.5" fill="#AAB2C4" />
+    </svg>
+);
+
+const BarsIcon: React.FC = () => (
+    <svg width="13" height="12" viewBox="0 0 13 12" style={{ flexShrink: 0 }}>
+        <rect x="0.5" y="6" width="2.6" height="6" fill="#E06A5A" />
+        <rect x="4" y="2.5" width="2.6" height="9.5" fill="#E0B24A" />
+        <rect x="7.5" y="4.5" width="2.6" height="7.5" fill="#6FBF3F" />
+        <rect x="11" y="7.5" width="1.6" height="4.5" fill="#5A9FD6" />
+    </svg>
+);
+
+const SwatchIcon: React.FC = () => (
+    <svg width="14" height="12" viewBox="0 0 14 12" style={{ flexShrink: 0 }}>
+        <rect x="0.5" y="1" width="3.6" height="10" fill="#E0B24A" />
+        <rect x="5.2" y="1" width="3.6" height="10" fill="#6FBF3F" />
+        <rect x="9.9" y="1" width="3.6" height="10" fill="#5A9FD6" />
+    </svg>
+);
+
+const CloseIcon: React.FC = () => (
+    <svg width="11" height="11" viewBox="0 0 11 11" style={{ flexShrink: 0 }}>
+        <path d="M1 1 L10 10 M10 1 L1 10" stroke="#B6BCCA" strokeWidth="1.4" strokeLinecap="round" />
+    </svg>
+);
 
 interface ChannelRackProps {
     /** Channel the lesson engine wants emphasized (whole row), or null for none */
@@ -53,41 +130,67 @@ export const ChannelRack: React.FC<ChannelRackProps> = ({ highlightChannelId, hi
 
     return (
         <div style={{
-            background: BG,
+            background: PANEL,
             fontFamily: "'Segoe UI', Tahoma, sans-serif",
             overflow: 'hidden',
         }}>
-            {/* Title bar */}
+            {/* ── Title bar ── */}
             <div style={{
-                height: 26,
+                height: 30,
                 background: TITLE_BG,
-                borderBottom: `1px solid ${TITLE_BORDER}`,
+                borderBottom: `1px solid ${TITLE_LINE}`,
                 display: 'flex', alignItems: 'center',
-                padding: '0 10px',
-                gap: '8px',
+                padding: '0 9px', gap: '8px',
             }}>
-                {/* FL Studio's speaker+play glyph, not a control — matches the real Channel
-                    Rack title bar rather than functioning as another play/stop button
-                    (Transport's Play/Stop buttons above already own that). */}
-                <svg width="15" height="12" viewBox="0 0 15 12" style={{ flexShrink: 0 }}>
-                    <rect x="0.5" y="1" width="8" height="10" rx="1.5" fill="none" stroke="#8ABF60" strokeWidth="1" />
-                    <polygon points="3,3.3 3,8.7 7,6" fill="#8ABF60" />
-                    <path d="M9.8 3 Q12.5 6 9.8 9" stroke="#8ABF60" strokeWidth="1" fill="none" strokeLinecap="round" />
-                </svg>
-                <span style={{ fontSize: '11px', color: '#B0B8C8', fontWeight: 500 }}>
-                    Channel rack
-                </span>
+                <Caret />
+                {/* FL's orange plugin-menu bauble */}
+                <div style={{
+                    width: 13, height: 13, borderRadius: '50%', flexShrink: 0,
+                    background: 'radial-gradient(circle at 35% 30%, #F2A93B, #BE5A16)',
+                    boxShadow: 'inset 0 -1px 2px rgba(0,0,0,0.35)',
+                }} />
+                {/* "All" channel-filter dropdown */}
+                <div style={{
+                    display: 'flex', alignItems: 'center', gap: 6,
+                    minWidth: 92, height: 18, padding: '0 6px',
+                    background: INSET_BG, border: `1px solid ${INSET_LINE}`,
+                    borderRadius: 2, flexShrink: 0,
+                }}>
+                    <span style={{ fontSize: 11, color: TEXT, flex: 1 }}>All</span>
+                    <Caret color="#8C94A8" />
+                </div>
+                <GripDots />
+                <SpeakerPlay />
+                <span style={{ fontSize: 12, color: TEXT, fontWeight: 500 }}>Channel rack</span>
+
+                {/* Right-hand control cluster */}
+                <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 9 }}>
+                    <div style={{
+                        width: 15, height: 15, borderRadius: '50%', flexShrink: 0,
+                        background: 'linear-gradient(180deg, #5A6379 0%, #39404F 100%)',
+                        border: `1px solid ${INSET_LINE}`,
+                    }} />
+                    <div style={{
+                        minWidth: 30, height: 17, borderRadius: 2, flexShrink: 0,
+                        background: INSET_BG, border: `1px solid ${INSET_LINE}`,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                        <span style={{ fontSize: 10, color: TEXT_DIM, letterSpacing: 1 }}>···</span>
+                    </div>
+                    <UndoArrow />
+                    <BarsIcon />
+                    <SwatchIcon />
+                    <CloseIcon />
+                </div>
             </div>
 
             <div style={{ overflowX: 'auto' }}>
-                {/* Step number ruler — aligned to the same columns as the step grid below */}
-                <div style={{
-                    display: 'flex', alignItems: 'center', height: 18,
-                    borderBottom: `1px solid ${BORDER}`, background: TITLE_BG,
-                }}>
+                {/* ── Step-number ruler (spacers mirror the row layout below) ── */}
+                <div style={{ display: 'flex', alignItems: 'center', height: 15 }}>
                     <div style={{ width: LED_KNOBS_WIDTH, flexShrink: 0 }} />
-                    <div style={{ width: 20, flexShrink: 0 }} />
+                    <div style={{ width: NUM_WIDTH, flexShrink: 0 }} />
                     <div style={{ width: NAME_WIDTH, flexShrink: 0 }} />
+                    <div style={{ width: SEP_WIDTH, flexShrink: 0 }} />
                     <div style={{ display: 'flex', padding: '0 6px', alignItems: 'center' }}>
                         {Array.from({ length: 16 }, (_, i) => {
                             const afterGroup = i > 0 && i % 4 === 0;
@@ -96,9 +199,9 @@ export const ChannelRack: React.FC<ChannelRackProps> = ({ highlightChannelId, hi
                                 <div key={i} style={{
                                     width: STEP_W, textAlign: 'center',
                                     marginLeft: afterGroup ? GROUP_GAP : (i > 0 ? STEP_GAP : 0),
-                                    fontSize: '9px', fontFamily: 'monospace',
-                                    fontWeight: isBeatStart ? 700 : 500,
-                                    color: isBeatStart ? '#8ABF60' : '#5A6478',
+                                    fontSize: 9, fontFamily: 'monospace',
+                                    fontWeight: isBeatStart ? 700 : 400,
+                                    color: isBeatStart ? '#C2C9D6' : '#6E7791',
                                 }}>
                                     {i + 1}
                                 </div>
@@ -107,58 +210,54 @@ export const ChannelRack: React.FC<ChannelRackProps> = ({ highlightChannelId, hi
                     </div>
                 </div>
 
-                {/* Channel rows */}
+                {/* ── Channel rows ── */}
                 {channels.map((ch, chIdx) => (
                     <div key={ch.id} style={{
                         display: 'flex', alignItems: 'center',
-                        height: 34,
-                        borderBottom: `1px solid ${BORDER}`,
+                        height: ROW_H,
+                        borderBottom: `1px solid ${ROW_LINE}`,
                         background: chIdx % 2 === 0 ? ROW_EVEN : ROW_ODD,
                     }}>
-                        {/* LED + knobs */}
+                        {/* LED + knobs + plugin button */}
                         <div style={{
                             display: 'flex', alignItems: 'center',
-                            width: LED_KNOBS_WIDTH, padding: '0 4px', gap: '3px',
+                            width: LED_KNOBS_WIDTH, padding: '0 5px', gap: 4,
                             flexShrink: 0,
                         }}>
-                            {/* Green LED mute indicator */}
                             <div
                                 onClick={() => toggleChannelMute(ch.id)}
                                 style={{
-                                    width: 7, height: 7, borderRadius: '50%',
+                                    width: 8, height: 8, borderRadius: '50%',
                                     background: ch.muted ? LED_OFF : LED_ON,
-                                    boxShadow: ch.muted ? 'none' : `0 0 3px ${LED_ON}80`,
+                                    boxShadow: ch.muted
+                                        ? `inset 0 0 2px rgba(0,0,0,0.6)`
+                                        : `0 0 4px ${LED_ON}AA`,
                                     cursor: 'pointer', flexShrink: 0,
                                 }}
                                 title={ch.muted ? 'Unmute' : 'Mute'}
                             />
-                            {/* Vol knob */}
                             <FLKnob value={ch.volume} onChange={v => setChannelVolume(ch.id, v)}
-                                size={18} color="#8ABF60" />
-                            {/* Pan knob */}
+                                size={19} color={ACCENT} label="Volume" showLabel={false} />
                             <FLKnob value={ch.pan} min={-1} max={1} onChange={v => setChannelPan(ch.id, v)}
-                                size={18} color="#8ABF60" />
-                            {/* Decorative — matches the instrument-picker button real FL shows here;
-                                there's no plugin browser to open in the simulator. */}
+                                size={19} color={ACCENT} label="Pan" showLabel={false} />
+                            {/* Decorative — FL puts the instrument/plugin picker here; the
+                                simulator has no plugin browser to open. */}
                             <div style={{
-                                width: 20, height: 16, borderRadius: '2px',
-                                background: '#3F4657', border: '1px solid #2E3440',
+                                width: 26, height: 17, borderRadius: 2, flexShrink: 0,
+                                background: INSET_BG, border: `1px solid ${INSET_LINE}`,
                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                cursor: 'default', flexShrink: 0,
+                                cursor: 'default',
                             }}>
-                                <span style={{ fontSize: '9px', color: '#8890A4', letterSpacing: '1px' }}>···</span>
+                                <span style={{ fontSize: 9, color: TEXT_DIM, letterSpacing: 0.5 }}>----</span>
                             </div>
                         </div>
 
                         {/* Channel number */}
                         <div style={{
-                            width: 20, flexShrink: 0,
+                            width: NUM_WIDTH, flexShrink: 0,
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
                         }}>
-                            <span style={{
-                                fontSize: '10px', color: '#6A7080',
-                                fontWeight: 600, fontFamily: 'monospace',
-                            }}>
+                            <span style={{ fontSize: 10, color: TEXT_DIM, fontWeight: 600 }}>
                                 {chIdx + 1}
                             </span>
                         </div>
@@ -167,31 +266,46 @@ export const ChannelRack: React.FC<ChannelRackProps> = ({ highlightChannelId, hi
                         <div style={{
                             width: NAME_WIDTH, flexShrink: 0,
                             display: 'flex', alignItems: 'center',
-                            padding: '0 2px',
                         }}>
                             <div
                                 data-academy-id={`channel-${ch.id}`}
                                 style={{
-                                    width: '100%',
-                                    padding: '3px 8px',
-                                    background: NAME_BTN,
-                                    borderRadius: '2px',
-                                    border: isChannelHighlighted(ch.id) ? '1px solid #60C0A0' : '1px solid #5A6478',
-                                    boxShadow: isChannelHighlighted(ch.id) ? '0 0 6px rgba(96,192,160,0.5)' : 'none',
+                                    width: '100%', height: 22,
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    background: `linear-gradient(180deg, ${NAME_TOP} 0%, ${NAME_BOT} 100%)`,
+                                    borderRadius: 3,
+                                    border: isChannelHighlighted(ch.id)
+                                        ? '1px solid #60C0A0'
+                                        : '1px solid #8A93A9',
+                                    boxShadow: isChannelHighlighted(ch.id)
+                                        ? '0 0 7px rgba(96,192,160,0.65)'
+                                        : 'inset 0 1px 0 rgba(255,255,255,0.22)',
                                 }}>
                                 <span style={{
-                                    fontSize: '11px',
-                                    color: ch.muted ? '#6A7080' : '#C0C8D8',
+                                    fontSize: 11.5,
+                                    color: ch.muted ? '#98A0B2' : '#EDF0F6',
                                     fontWeight: 500,
                                     whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                                    display: 'block',
+                                    padding: '0 6px',
                                 }}>
                                     {ch.name}
                                 </span>
                             </div>
                         </div>
 
-                        {/* Step grid — groups of 4 with extra gap */}
+                        {/* Vertical separator bar between the name column and the grid */}
+                        <div style={{
+                            width: SEP_WIDTH, flexShrink: 0,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        }}>
+                            <div style={{
+                                width: 5, height: 21, borderRadius: 1,
+                                background: 'linear-gradient(180deg, #5E6779 0%, #454C5C 100%)',
+                                border: `1px solid ${INSET_LINE}`,
+                            }} />
+                        </div>
+
+                        {/* Step grid — groups of 4 with a wider gap between groups */}
                         <div style={{ display: 'flex', padding: '0 6px', alignItems: 'center' }}>
                             {ch.steps.map((on, i) => {
                                 const isActive = playing && currentStep === i;
@@ -205,22 +319,20 @@ export const ChannelRack: React.FC<ChannelRackProps> = ({ highlightChannelId, hi
                                         style={{
                                             width: STEP_W, height: STEP_H,
                                             marginLeft: afterGroup ? GROUP_GAP : (i > 0 ? STEP_GAP : 0),
-                                            borderRadius: '2px',
+                                            borderRadius: 3,
                                             border: hl
                                                 ? '2px solid #60C0A0'
-                                                : `1px solid ${on ? STEP_ON_BORDER : STEP_OFF_BORDER}`,
+                                                : `1px solid ${on ? ON_LINE : STEP_LINE}`,
                                             background: isActive
-                                                ? PLAYHEAD
-                                                : on ? STEP_ON : STEP_OFF,
-                                            opacity: ch.muted ? 0.4 : 1,
+                                                ? `linear-gradient(180deg, #E8C069 0%, ${PLAYHEAD} 50%, #BE9236 100%)`
+                                                : stepGradient(on),
+                                            opacity: ch.muted ? 0.45 : 1,
                                             cursor: 'pointer',
                                             padding: 0,
                                             transition: 'background 0.04s',
                                             boxShadow: hl
-                                                ? '0 0 6px rgba(96,192,160,0.5)'
-                                                : on
-                                                    ? 'inset 0 1px 0 rgba(255,255,255,0.15)'
-                                                    : 'inset 0 1px 0 rgba(255,255,255,0.12), inset 0 -1px 2px rgba(0,0,0,0.2)',
+                                                ? '0 0 7px rgba(96,192,160,0.65)'
+                                                : 'inset 0 1px 0 rgba(255,255,255,0.28), 0 1px 1px rgba(0,0,0,0.25)',
                                         }}
                                     />
                                 );
@@ -229,14 +341,23 @@ export const ChannelRack: React.FC<ChannelRackProps> = ({ highlightChannelId, hi
                     </div>
                 ))}
 
-                {/* Bottom add channel button area */}
+                {/* ── Bottom: add-channel affordance + FL's horizontal scroll rail ── */}
                 <div style={{
-                    height: 28,
+                    height: 24,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    borderTop: `1px solid ${BORDER}`,
                     background: ROW_ODD,
                 }}>
-                    <span style={{ fontSize: '14px', color: '#6A7080', cursor: 'default' }}>+</span>
+                    <span style={{ fontSize: 15, color: TEXT_DIM, cursor: 'default', lineHeight: 1 }}>+</span>
+                </div>
+                <div style={{
+                    height: 13, background: TITLE_BG, borderTop: `1px solid ${TITLE_LINE}`,
+                    display: 'flex', alignItems: 'center', padding: '0 8px', gap: 6,
+                }}>
+                    <Caret color="#6E7791" />
+                    <div style={{ flex: 1, height: 5, background: INSET_BG, borderRadius: 3 }}>
+                        <div style={{ width: '38%', height: '100%', background: NAME_BOT, borderRadius: 3 }} />
+                    </div>
+                    <Caret color="#6E7791" />
                 </div>
             </div>
         </div>
