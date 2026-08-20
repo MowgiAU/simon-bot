@@ -79,6 +79,15 @@ export const AcademyPage: React.FC = () => {
     const [soundsSaving, setSoundsSaving] = useState(false);
     const [h2hSamples, setH2hSamples] = useState<H2HSampleOption[]>([]);
 
+    // Action errors (create/publish/delete/save) need to be visible — a silently swallowed
+    // 403 here is exactly what made the broken admin check on the backend look like "the
+    // publish button doesn't do anything" instead of an obvious permissions error.
+    const [actionError, setActionError] = useState<string | null>(null);
+    const showError = (e: any, fallback: string) => {
+        setActionError(e?.response?.data?.error || fallback);
+        setTimeout(() => setActionError(null), 6000);
+    };
+
     const guildId = selectedGuild?.id;
 
     useEffect(() => {
@@ -135,7 +144,7 @@ export const AcademyPage: React.FC = () => {
                 assets: soundsAssets,
             }, { withCredentials: true });
             setSoundsLesson(null);
-        } catch (e) { /* keep the modal open so they can retry */ }
+        } catch (e) { showError(e, 'Failed to save sounds'); }
         finally { setSoundsSaving(false); }
     };
 
@@ -151,7 +160,7 @@ export const AcademyPage: React.FC = () => {
             setLessons(prev => [...prev, { ...res.data, completionCount: 0 }]);
             setShowCreate(false);
             setFormTitle(''); setFormSlug(''); setFormDesc('');
-        } catch (e) { /* show error */ }
+        } catch (e) { showError(e, 'Failed to create lesson'); }
         finally { setSaving(false); }
     };
 
@@ -163,7 +172,7 @@ export const AcademyPage: React.FC = () => {
             setLessons(prev => prev.map(l =>
                 l.id === lesson.id ? { ...l, published: !l.published } : l
             ));
-        } catch (e) { /* ignore */ }
+        } catch (e) { showError(e, 'Failed to update publish status'); }
     };
 
     const deleteLesson = async (lesson: LessonSummary) => {
@@ -171,7 +180,7 @@ export const AcademyPage: React.FC = () => {
         try {
             await axios.delete(`${API}/api/academy/admin/lessons/${lesson.id}`, { withCredentials: true });
             setLessons(prev => prev.filter(l => l.id !== lesson.id));
-        } catch (e) { /* ignore */ }
+        } catch (e) { showError(e, 'Failed to delete lesson'); }
     };
 
     const updateSettings = async (patch: Partial<AcademySettings>) => {
@@ -194,6 +203,16 @@ export const AcademyPage: React.FC = () => {
                     </p>
                 </div>
             </div>
+
+            {actionError && (
+                <div style={{
+                    backgroundColor: `${colors.error}18`, border: `1px solid ${colors.error}44`,
+                    padding: spacing.md, borderRadius: borderRadius.md, marginBottom: spacing.md,
+                    color: colors.error, fontSize: '13px',
+                }}>
+                    {actionError}
+                </div>
+            )}
 
             {/* Explanation block */}
             <div style={{

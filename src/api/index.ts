@@ -24559,9 +24559,17 @@ app.get('/api/academy/lessons/:slugOrId', async (req: any, res) => {
         });
         if (!lesson) return res.status(404).json({ error: 'Lesson not found' });
         if (!lesson.published) {
-            // Only admins can see unpublished lessons
-            const user = req.session?.user;
-            if (!user || user.role !== 'admin') return res.status(404).json({ error: 'Lesson not found' });
+            // Only admins can see unpublished lessons. Bug fix: this used to check
+            // `user.role`, but the session stores the native site role as `_role` — `role`
+            // is always undefined, so this always evaluated to "not admin" for every user,
+            // including real admins. Also broadened to match requireAdmin's definition of
+            // admin (super-admin OR guild admin/staff), not just the native `_role` field,
+            // so a Discord-guild admin previewing a draft isn't blocked either.
+            const isAdmin = isSuperAdmin(req)
+                || !!(req.session?.mutualAdminGuilds as any)?.length
+                || !!(req.session?.mutualStaffGuilds as any)?.length
+                || req.session?.user?._role === 'admin';
+            if (!isAdmin) return res.status(404).json({ error: 'Lesson not found' });
         }
         res.json(lesson);
     } catch (e) {
@@ -24571,10 +24579,12 @@ app.get('/api/academy/lessons/:slugOrId', async (req: any, res) => {
 });
 
 // --- Admin: CRUD Lessons ---
-app.post('/api/academy/admin/lessons', async (req: any, res) => {
+// requireAdmin, not the old inline `user.role !== 'admin'` check — that field is always
+// undefined (the session stores it as `_role`), which made every route below silently
+// reject every request, including from real admins. See the GET-by-slug route above for
+// the same bug and a fuller explanation.
+app.post('/api/academy/admin/lessons', requireAdmin, async (req: any, res) => {
     try {
-        const user = req.session?.user;
-        if (!user || user.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
         const { title, slug, description, category, difficulty, order, duration, steps, assets, published, imageUrl } = req.body;
         if (!title || !slug) return res.status(400).json({ error: 'Title and slug are required' });
         const lesson = await db.academyLesson.create({
@@ -24592,10 +24602,8 @@ app.post('/api/academy/admin/lessons', async (req: any, res) => {
     }
 });
 
-app.patch('/api/academy/admin/lessons/:id', async (req: any, res) => {
+app.patch('/api/academy/admin/lessons/:id', requireAdmin, async (req: any, res) => {
     try {
-        const user = req.session?.user;
-        if (!user || user.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
         const { id } = req.params;
         const { title, slug, description, category, difficulty, order, duration, steps, assets, published, imageUrl } = req.body;
         const lesson = await db.academyLesson.update({
@@ -24621,10 +24629,8 @@ app.patch('/api/academy/admin/lessons/:id', async (req: any, res) => {
     }
 });
 
-app.delete('/api/academy/admin/lessons/:id', async (req: any, res) => {
+app.delete('/api/academy/admin/lessons/:id', requireAdmin, async (req: any, res) => {
     try {
-        const user = req.session?.user;
-        if (!user || user.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
         const { id } = req.params;
         await db.academyLesson.update({ where: { id }, data: { deletedAt: new Date() } });
         res.json({ ok: true });
