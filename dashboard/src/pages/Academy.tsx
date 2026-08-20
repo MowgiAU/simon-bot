@@ -666,11 +666,9 @@ const LessonEditorView: React.FC<{
                             {channels.map((ch, idx) => {
                                 const current = assets.find(a => a.name === ch.id);
                                 return (
-                                    <div key={ch.id} draggable
-                                        onDragStart={() => setChDragIdx(idx)}
+                                    <div key={ch.id}
                                         onDragOver={e => { e.preventDefault(); setChDragOverIdx(idx); }}
                                         onDrop={() => onChDrop(idx)}
-                                        onDragEnd={() => { setChDragIdx(null); setChDragOverIdx(null); }}
                                         style={{
                                             display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 10px',
                                             borderRadius: borderRadius.sm,
@@ -678,12 +676,17 @@ const LessonEditorView: React.FC<{
                                             border: `1px solid ${chDragOverIdx === idx ? `${colors.primary}44` : colors.border}`,
                                             opacity: chDragIdx === idx ? 0.5 : 1,
                                         }}>
-                                        <span style={{ cursor: 'grab', display: 'flex', flexShrink: 0 }}><GripVertical size={14} color={colors.textTertiary} /></span>
-                                        {/* draggable=false: the row above is draggable for reordering, which otherwise
-                                            hijacks mouse clicks inside this input and breaks click-to-position-cursor,
-                                            leaving only keyboard navigation working */}
+                                        {/* draggable lives on the handle only, not the row — a draggable ANCESTOR
+                                            hijacks mouse clicks inside nested text fields (click-to-position-cursor
+                                            stops working, only arrow keys do), even with draggable={false} on the
+                                            field itself. Dragging by the handle sidesteps that entirely. */}
+                                        <span draggable
+                                            onDragStart={() => setChDragIdx(idx)}
+                                            onDragEnd={() => { setChDragIdx(null); setChDragOverIdx(null); }}
+                                            style={{ cursor: 'grab', display: 'flex', flexShrink: 0 }}>
+                                            <GripVertical size={14} color={colors.textTertiary} />
+                                        </span>
                                         <input value={ch.name} onChange={e => renameChannel(ch.id, e.target.value)}
-                                            draggable={false}
                                             style={{ ...inputStyle, width: '160px', flexShrink: 0 }} />
                                         <select
                                             value={current?.url || ''}
@@ -731,11 +734,9 @@ const LessonEditorView: React.FC<{
                         </p>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '12px' }}>
                             {steps.map((s, idx) => (
-                                <div key={s.key} draggable
-                                    onDragStart={() => setStDragIdx(idx)}
+                                <div key={s.key}
                                     onDragOver={e => { e.preventDefault(); setStDragOverIdx(idx); }}
                                     onDrop={() => onStDrop(idx)}
-                                    onDragEnd={() => { setStDragIdx(null); setStDragOverIdx(null); }}
                                     style={{
                                         padding: '12px', borderRadius: borderRadius.sm,
                                         backgroundColor: stDragOverIdx === idx ? `${colors.primary}10` : 'rgba(255,255,255,0.02)',
@@ -743,20 +744,23 @@ const LessonEditorView: React.FC<{
                                         opacity: stDragIdx === idx ? 0.5 : 1,
                                     }}>
                                     <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
-                                        <span style={{ cursor: 'grab', display: 'flex', paddingTop: '8px', flexShrink: 0 }}>
+                                        {/* draggable lives on the handle only, not the row — a draggable ANCESTOR
+                                            hijacks mouse clicks inside nested text fields (click-to-position-cursor
+                                            stops working, only arrow keys do). Dragging by the handle sidesteps
+                                            that entirely instead of relying on draggable={false} on the fields,
+                                            which some browsers don't honor for text inputs under a draggable parent. */}
+                                        <span draggable
+                                            onDragStart={() => setStDragIdx(idx)}
+                                            onDragEnd={() => { setStDragIdx(null); setStDragOverIdx(null); }}
+                                            style={{ cursor: 'grab', display: 'flex', paddingTop: '8px', flexShrink: 0 }}>
                                             <GripVertical size={14} color={colors.textTertiary} />
                                         </span>
                                         <span style={{ fontSize: '10px', fontWeight: 700, color: colors.textTertiary, minWidth: '16px', textAlign: 'right', paddingTop: '9px', flexShrink: 0 }}>{idx + 1}</span>
                                         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                            {/* draggable=false on the text fields below: the row is draggable for
-                                                reordering, which otherwise hijacks mouse clicks inside them and breaks
-                                                click-to-position-cursor, leaving only keyboard navigation working */}
                                             <textarea value={s.instruction} onChange={e => updateStep(idx, { instruction: e.target.value })}
-                                                draggable={false}
                                                 placeholder="Instruction text shown to the student" rows={2}
                                                 style={{ ...inputStyle, resize: 'vertical' }} />
                                             <input value={s.hint} onChange={e => updateStep(idx, { hint: e.target.value })}
-                                                draggable={false}
                                                 placeholder="Optional hint (shown after 8s)" style={inputStyle} />
 
                                             <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -810,7 +814,6 @@ const LessonEditorView: React.FC<{
                                                         <AlertTriangle size={12} /> Raw step JSON (target / demo / autoAdvanceMs) — merged onto the step as-is.
                                                     </div>
                                                     <textarea value={s.rawTarget} onChange={e => updateStep(idx, { rawTarget: e.target.value })}
-                                                        draggable={false}
                                                         rows={6} style={{ ...inputStyle, resize: 'vertical', fontFamily: 'monospace', fontSize: '12px' }} />
                                                 </div>
                                             )}
