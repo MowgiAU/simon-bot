@@ -1,9 +1,10 @@
 /**
  * DAWWorkspace — the full FL Studio shell.
  *
- * Replaces the old tabbed simulator: a menu bar, transport toolbar and hint panel
- * across the top, the browser down the left, and the Channel Rack / Playlist /
- * Mixer / Piano Roll as free-moving windows on the canvas, as in FL.
+ * Chrome follows FL's actual layout rather than a generic toolbar: menus and the
+ * transport share one top row, the hint panel sits on the left of a second row
+ * beside the master controls and window toggles, the browser has its own nav and
+ * category strips, and a status bar closes the frame.
  *
  * The canvas is the anchor for the lesson coachmark bubble, so it must stay
  * un-scrolled and position:relative — windows move within it, and the bubble
@@ -12,7 +13,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     Play, Square, Circle, ChevronDown, Folder, Star, Cloud, Globe,
-    FileMusic, Package, Mic, Music,
+    FileMusic, Package, Mic, Music, Minus, Plus, X,
+    Grid3x3, ListMusic, SlidersVertical, Piano, PanelLeft,
+    Files, Volume2, RefreshCw, ArrowUp, ShoppingCart,
 } from 'lucide-react';
 import { useDAWStore } from './DAWStore';
 import { ChannelRack } from './ChannelRack';
@@ -21,7 +24,7 @@ import { Mixer } from './Mixer';
 import { PianoRoll } from './PianoRoll';
 import { ParametricEQ } from './ParametricEQ';
 import { DAWWindow, WindowRect } from './DAWWindow';
-import { daw, dawFont, flPlaylist as fl } from './dawTheme';
+import { daw, dawFx, dawFont, flPlaylist as fl } from './dawTheme';
 
 type WinId = 'rack' | 'playlist' | 'mixer' | 'piano' | 'eq';
 
@@ -30,6 +33,25 @@ interface WinDef { id: WinId; title: string; rect: WindowRect; open: boolean; z:
 interface Note { pitch: number; start: number; length: number; }
 
 const MENUS = ['FILE', 'EDIT', 'ADD', 'PATTERNS', 'VIEW', 'OPTIONS', 'TOOLS', 'HELP'];
+
+/** FL's toolbar window toggles, in FL's own order */
+const TOGGLES: { id: string; icon: React.ElementType; label: string }[] = [
+    { id: 'playlist', icon: ListMusic, label: 'Playlist' },
+    { id: 'rack', icon: Grid3x3, label: 'Channel rack' },
+    { id: 'piano', icon: Piano, label: 'Piano roll' },
+    { id: 'mixer', icon: SlidersVertical, label: 'Mixer' },
+    { id: 'browser', icon: PanelLeft, label: 'Browser' },
+];
+
+/** Category strip above the browser tree */
+const BROWSER_TABS: { icon: React.ElementType; label: string }[] = [
+    { icon: Package, label: 'Plugin database' },
+    { icon: Files, label: 'Project files' },
+    { icon: Volume2, label: 'Audio' },
+    { icon: Globe, label: 'Online content' },
+    { icon: Cloud, label: 'FL Cloud' },
+    { icon: Star, label: 'Favourites' },
+];
 
 /** FL's browser tree. Decorative — the simulator has no file system behind it. */
 const BROWSER_ITEMS: { label: string; icon: React.ElementType }[] = [
@@ -91,6 +113,7 @@ export const DAWWorkspace: React.FC<DAWWorkspaceProps> = ({
     const [pianoNotes, setPianoNotes] = useState<Note[]>([]);
     const [eqInsertId, setEqInsertId] = useState<number>(1);
     const [zTop, setZTop] = useState(10);
+    const [browserOpen, setBrowserOpen] = useState(true);
 
     const [wins, setWins] = useState<WinDef[]>(() => {
         const only = visibleWindows && visibleWindows.length ? new Set<WinId>(visibleWindows) : null;
@@ -208,196 +231,297 @@ export const DAWWorkspace: React.FC<DAWWorkspaceProps> = ({
                 display: 'flex', flexDirection: 'column',
                 height: '100%', minHeight: 0,
                 background: daw.bg, fontFamily: dawFont.sans, color: fl.text,
-                border: `1px solid ${daw.border}`, borderRadius: 4, overflow: 'hidden',
+                border: '1px solid #000', borderRadius: 3, overflow: 'hidden',
             }}>
 
-            {/* ── Menu bar ── */}
-            <div style={{
-                display: 'flex', alignItems: 'center', gap: 2, height: 22,
-                background: fl.windowBar, borderBottom: `1px solid ${daw.border}`,
-                padding: '0 6px', position: 'relative', flexShrink: 0,
-            }}>
-                {MENUS.map(m => (
-                    <div key={m} style={{ position: 'relative' }}>
-                        <button
-                            onClick={() => setOpenMenu(openMenu === m ? null : m)}
-                            title={m === 'VIEW' ? 'Show or hide windows' : `${m} menu`}
-                            style={{
-                                background: openMenu === m ? daw.highlight : 'transparent',
-                                border: 'none', cursor: 'pointer',
-                                color: fl.text, fontSize: 10, fontWeight: 600,
-                                letterSpacing: '0.04em', padding: '3px 7px', borderRadius: 2,
-                            }}>
-                            {m}
-                        </button>
-                        {openMenu === m && (
-                            <div
-                                onMouseLeave={() => setOpenMenu(null)}
+            {/* ── Top row: menus + transport + window controls, as one strip in FL ── */}
+            <div
+                // Narration steps with no named control anchor their bubble here.
+                data-academy-id="daw-titlebar"
+                style={{
+                    display: 'flex', alignItems: 'center', gap: 9, height: 38, flexShrink: 0,
+                    background: fl.windowBar, borderBottom: '1px solid #000', padding: '0 6px',
+                    position: 'relative', zIndex: 40,
+                }}>
+                {/* Menus */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    {MENUS.map(m => (
+                        <div key={m} style={{ position: 'relative' }}>
+                            <button
+                                onClick={() => setOpenMenu(openMenu === m ? null : m)}
+                                title={m === 'VIEW' ? 'Show or hide windows' : `${m} menu`}
                                 style={{
+                                    background: openMenu === m ? daw.highlight : 'transparent',
+                                    border: 'none', cursor: 'pointer', color: fl.text,
+                                    fontSize: 10.5, fontWeight: 500, letterSpacing: '0.02em',
+                                    padding: '3px 6px', borderRadius: 2,
+                                }}>
+                                {m}
+                            </button>
+                            {openMenu === m && (
+                                <div onMouseLeave={() => setOpenMenu(null)} style={{
                                     position: 'absolute', top: '100%', left: 0, zIndex: 500,
-                                    minWidth: 168, background: daw.panel,
+                                    minWidth: 170, background: daw.panel,
                                     border: `1px solid ${daw.border}`, borderRadius: 3,
                                     boxShadow: '0 8px 22px rgba(0,0,0,0.6)', padding: 3,
                                 }}>
-                                {m === 'VIEW' ? wins.filter(w =>
-                                    !visibleWindows?.length || visibleWindows.includes(w.id)
-                                ).map(w => (
-                                    <div key={w.id}
-                                        onClick={() => { toggleWin(w.id); setOpenMenu(null); }}
-                                        data-academy-id={`daw-view-${w.id}`}
-                                        style={{
-                                            display: 'flex', alignItems: 'center', gap: 7,
-                                            padding: '5px 8px', fontSize: 11, cursor: 'pointer',
-                                            borderRadius: 2, color: fl.text,
-                                        }}>
-                                        <span style={{
-                                            width: 11, textAlign: 'center', color: daw.green, fontWeight: 700,
-                                        }}>{w.open ? '✓' : ''}</span>
-                                        {w.title}
-                                    </div>
-                                )) : (
-                                    <div style={{ padding: '6px 9px', fontSize: 11, color: fl.textDim, fontStyle: 'italic' }}>
-                                        Not simulated
-                                    </div>
-                                )}
-                            </div>
-                        )}
-                    </div>
-                ))}
-            </div>
+                                    {m === 'VIEW' ? wins.filter(w =>
+                                        !visibleWindows?.length || visibleWindows.includes(w.id)
+                                    ).map(w => (
+                                        <div key={w.id}
+                                            onClick={() => { toggleWin(w.id); setOpenMenu(null); }}
+                                            data-academy-id={`daw-view-${w.id}`}
+                                            style={{
+                                                display: 'flex', alignItems: 'center', gap: 7,
+                                                padding: '5px 8px', fontSize: 11, cursor: 'pointer',
+                                                borderRadius: 2, color: fl.text,
+                                            }}>
+                                            <span style={{ width: 11, textAlign: 'center', color: daw.green, fontWeight: 700 }}>
+                                                {w.open ? '✓' : ''}
+                                            </span>
+                                            {w.title}
+                                        </div>
+                                    )) : (
+                                        <div style={{ padding: '6px 9px', fontSize: 11, color: fl.textDim, fontStyle: 'italic' }}>
+                                            Not simulated
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    ))}
+                </div>
 
-            {/* ── Transport toolbar ── */}
-            <div
-                // The lesson bubble anchors narration steps here when a step names no
-                // specific control. Without it those steps have nothing to point at and
-                // the instruction never appears at all.
-                data-academy-id="daw-titlebar"
-                style={{
-                    display: 'flex', alignItems: 'center', gap: 10, height: 40,
-                    background: fl.toolbar, borderBottom: `1px solid ${daw.border}`,
-                    padding: '0 8px', flexShrink: 0,
-                }}>
                 {/* PAT / SONG */}
                 <button
                     onClick={() => setMode(transport.mode === 'pat' ? 'song' : 'pat')}
                     data-academy-id="transport-mode"
                     title={transport.mode === 'pat'
-                        ? 'PAT — looping the Channel Rack pattern. Click for SONG.'
-                        : 'SONG — playing the playlist arrangement. Click for PAT.'}
+                        ? 'Pattern mode — looping the Channel Rack bar. Click for Song mode.'
+                        : 'Song mode — playing the playlist arrangement. Click for Pattern mode.'}
                     style={{
-                        width: 40, height: 26, borderRadius: 3, cursor: 'pointer',
-                        background: '#e07a2a', border: '1px solid #a8551a',
-                        color: '#1a1008', fontSize: 9, fontWeight: 800, lineHeight: 1.1,
+                        width: 34, height: 26, borderRadius: 2, cursor: 'pointer', flexShrink: 0,
+                        background: '#d9741f', border: '1px solid #94500f', padding: 0,
                         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                        lineHeight: 1, fontWeight: 800,
                     }}>
-                    <span style={{ opacity: transport.mode === 'pat' ? 1 : 0.45 }}>PAT</span>
-                    <span style={{ opacity: transport.mode === 'song' ? 1 : 0.45 }}>SONG</span>
+                    <span style={{ fontSize: 8.5, color: transport.mode === 'pat' ? '#fff' : '#8a4d13' }}>PAT</span>
+                    <span style={{ fontSize: 7, color: transport.mode === 'song' ? '#fff' : '#8a4d13' }}>SONG</span>
                 </button>
 
-                <div style={{ display: 'flex', gap: 3 }}>
-                    <button onClick={handlePlay} data-academy-id="transport-play" title="Play / pause"
-                        style={transportBtn(transport.playing)}>
-                        <Play size={12} color={transport.playing ? daw.green : fl.text}
-                            fill={transport.playing ? daw.green : 'none'} />
+                {/* Transport */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <button onClick={handlePlay} data-academy-id="transport-play" title="Play / pause" style={flBtn()}>
+                        <Play size={13} color={transport.playing ? '#7fd04a' : '#95a1ab'}
+                            fill={transport.playing ? '#7fd04a' : '#95a1ab'} />
                     </button>
-                    <button onClick={() => stop()} data-academy-id="transport-stop" title="Stop"
-                        style={transportBtn(!transport.playing)}>
-                        <Square size={9} color={fl.text} fill={fl.text} />
+                    <button onClick={() => stop()} data-academy-id="transport-stop" title="Stop" style={flBtn()}>
+                        <Square size={10} color="#95a1ab" fill="#95a1ab" />
                     </button>
-                    <button data-academy-id="transport-record" title="Record (not simulated)"
-                        style={transportBtn(false)}>
-                        <Circle size={10} color="#c0504a" fill="#c0504a" />
+                    <button data-academy-id="transport-record" title="Record (not simulated)" style={flBtn()}>
+                        <Circle size={12} color="#c8483c" fill="#c8483c" />
                     </button>
                 </div>
 
-                {/* BPM */}
-                <div title="Tempo in beats per minute" style={lcd()}>
-                    <input
-                        type="number" value={transport.bpm} min={40} max={300}
+                {/* Tempo */}
+                <div title="Tempo in beats per minute" style={lcd(86)}>
+                    <input type="number" value={transport.bpm} min={40} max={300}
                         onChange={e => setBpm(Number(e.target.value) || 140)}
                         data-daw-bpm=""
                         style={{
-                            width: 58, background: 'transparent', border: 'none', outline: 'none',
-                            color: highlightBpm ? daw.green : '#e0a040',
-                            fontSize: 16, fontFamily: dawFont.mono, fontWeight: 700, textAlign: 'center',
+                            width: 50, background: 'transparent', border: 'none', outline: 'none',
+                            color: highlightBpm ? daw.green : '#e0a63c',
+                            fontSize: 17, fontFamily: dawFont.mono, fontWeight: 700, textAlign: 'right',
                             appearance: 'textfield', MozAppearance: 'textfield',
-                        }}
-                    />
+                        }} />
+                    <span style={{ fontSize: 11, color: '#a67a2c', fontFamily: dawFont.mono }}>.000</span>
                 </div>
 
-                {/* Position */}
-                <div title="Song position — bar : step" style={lcd()}>
+                {/* Song position */}
+                <div title="Song position" style={{ ...lcd(98), position: 'relative' }}>
                     <span style={{
-                        fontSize: 16, fontFamily: dawFont.mono, fontWeight: 700, color: daw.green,
-                        letterSpacing: '0.04em',
+                        fontSize: 17, fontFamily: dawFont.mono, fontWeight: 700,
+                        color: '#d7dee5', letterSpacing: '0.02em',
                     }}>
-                        {String(transport.currentBar + 1).padStart(2, '0')}
-                        <span style={{ color: fl.textDim }}>:</span>
-                        {String(transport.currentStep + 1).padStart(2, '0')}
+                        {transport.currentBar}:
+                        {String(Math.floor(transport.currentStep / 4)).padStart(2, '0')}:
+                        {String((transport.currentStep % 4) * 25).padStart(2, '0')}
                     </span>
+                    <span style={{
+                        position: 'absolute', top: 1, right: 4,
+                        fontSize: 6.5, color: '#6f7c86', fontFamily: dawFont.mono, letterSpacing: '0.06em',
+                    }}>M:S:CS</span>
                 </div>
+
+                <ChevronDown size={12} color={fl.textDim} />
 
                 {/* Pattern selector */}
-                <div title="Selected pattern" style={{
-                    display: 'flex', alignItems: 'center', gap: 6, height: 24, padding: '0 8px',
-                    background: daw.well, border: `1px solid ${daw.border}`, borderRadius: 3,
-                }}>
-                    <span style={{ fontSize: 11, color: '#fff' }}>Pattern 1</span>
-                    <ChevronDown size={11} color={fl.textDim} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                    <div title="Selected pattern" style={{
+                        display: 'flex', alignItems: 'center', gap: 8, height: 24, padding: '0 8px',
+                        background: '#212a30', border: `1px solid ${daw.border}`, borderRadius: 2, minWidth: 96,
+                    }}>
+                        <span style={{ fontSize: 11.5, color: '#dfe6ec', flex: 1 }}>Pattern 1</span>
+                        <ChevronDown size={11} color={fl.textDim} />
+                    </div>
+                    <button title="Add pattern (not simulated — the Academy has one pattern)" style={flBtn(20)}>
+                        <Plus size={12} color={fl.textDim} />
+                    </button>
+                </div>
+
+                {/* Window controls */}
+                <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 9, color: fl.textDim }}>
+                    <Minus size={12} /><Square size={9} /><X size={12} />
                 </div>
             </div>
 
-            {/* ── Hint panel ── */}
+            {/* ── Second row: hint panel, master controls, window toggles ── */}
             <div style={{
-                height: 20, flexShrink: 0, display: 'flex', alignItems: 'center',
-                background: daw.well, borderBottom: `1px solid ${daw.border}`, padding: '0 10px',
+                display: 'flex', alignItems: 'center', gap: 10, height: 40, flexShrink: 0,
+                background: fl.toolbar, borderBottom: '1px solid #000', padding: '0 8px',
             }}>
-                <span style={{ fontSize: 9, color: fl.textDim, letterSpacing: '0.08em', marginRight: 8 }}>HINT</span>
-                <span style={{
-                    fontSize: 11, color: hint ? daw.green : fl.textDim,
-                    whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                {/* Hint panel — FL describes the hovered control here */}
+                <div style={{
+                    width: 264, height: 30, flexShrink: 0, display: 'flex', alignItems: 'center',
+                    background: '#161b1f', border: `1px solid ${daw.border}`, borderRadius: 2,
+                    boxShadow: dawFx.innerShadowWell, padding: '0 7px', gap: 7,
                 }}>
-                    {hint || '—'}
-                </span>
+                    <div style={{ flex: 1, minWidth: 0, lineHeight: 1.15 }}>
+                        <div style={{ fontSize: 8.5, color: '#5d6a74', fontFamily: dawFont.mono }}>[AGF4333]</div>
+                        <div style={{
+                            fontSize: 11, color: hint ? '#cfd7de' : '#6f7c86',
+                            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                        }}>
+                            {hint || 'Hint panel'}
+                        </div>
+                    </div>
+                    <SlidersVertical size={13} color="#5d6a74" style={{ flexShrink: 0 }} />
+                </div>
+
+                {/* Master pitch + volume */}
+                <div title="Master pitch (not simulated)" style={{
+                    width: 15, height: 15, borderRadius: '50%', flexShrink: 0,
+                    background: dawFx.knob, boxShadow: dawFx.knobShadow, border: `1px solid ${daw.well}`,
+                }} />
+                <div title="Master volume (not simulated)" style={{
+                    width: 148, height: 5, flexShrink: 0, borderRadius: 3,
+                    background: daw.well, boxShadow: dawFx.innerShadowWell, position: 'relative',
+                }}>
+                    <div style={{
+                        position: 'absolute', left: '72%', top: -5, width: 8, height: 15, borderRadius: 2,
+                        background: dawFx.faderHandle, border: '1px solid #555',
+                    }} />
+                </div>
+
+                {/* Window toggles */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                    {TOGGLES.map(t => {
+                        const Icon = t.icon;
+                        const isBrowser = t.id === 'browser';
+                        const on = isBrowser ? browserOpen : !!wins.find(w => w.id === t.id)?.open;
+                        // A lesson that limits its windows shouldn't offer toggles for the rest
+                        const allowed = isBrowser
+                            || !visibleWindows?.length
+                            || visibleWindows.includes(t.id as WinId);
+                        if (!allowed) return null;
+                        return (
+                            <button key={t.id}
+                                onClick={() => isBrowser ? setBrowserOpen(v => !v) : toggleWin(t.id as WinId)}
+                                data-academy-id={`daw-toggle-${t.id}`}
+                                title={t.label}
+                                style={{
+                                    width: 27, height: 26, borderRadius: 2, cursor: 'pointer', padding: 0,
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    background: on ? '#3d4a53' : '#232b31',
+                                    border: `1px solid ${on ? '#55656f' : daw.border}`,
+                                }}>
+                                <Icon size={13} color={on ? daw.green : '#8b969f'} />
+                            </button>
+                        );
+                    })}
+                </div>
+
+                {/* Plugin picker + store */}
+                <div title="Plugin picker (not simulated)" style={{
+                    display: 'flex', alignItems: 'center', gap: 8, height: 24, padding: '0 8px',
+                    background: '#212a30', border: `1px solid ${daw.border}`, borderRadius: 2, minWidth: 92,
+                }}>
+                    <span style={{ fontSize: 11, color: '#8b969f', flex: 1 }}>(none)</span>
+                    <ChevronDown size={11} color={fl.textDim} />
+                </div>
+                <button title="Plugin store (not simulated)" style={flBtn(26)}>
+                    <ShoppingCart size={13} color="#d9741f" />
+                </button>
             </div>
 
             {/* ── Body: browser + canvas ── */}
             <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
-                <div style={{
-                    width: 158, flexShrink: 0, background: fl.browserBg,
-                    borderRight: `1px solid ${daw.border}`, display: 'flex', flexDirection: 'column',
-                }}>
+                {browserOpen && (
                     <div style={{
-                        height: 22, display: 'flex', alignItems: 'center', padding: '0 8px',
-                        background: fl.rulerBg, borderBottom: `1px solid ${daw.border}`,
+                        width: 186, flexShrink: 0, background: fl.browserBg,
+                        borderRight: '1px solid #000', display: 'flex', flexDirection: 'column',
                     }}>
-                        <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', color: fl.textDim }}>
-                            BROWSER
-                        </span>
-                    </div>
-                    <div style={{ flex: 1, overflowY: 'auto', padding: '3px 0' }}>
-                        {BROWSER_ITEMS.map(item => {
-                            const Icon = item.icon;
-                            return (
-                                <div key={item.label}
-                                    title={`${item.label} — the browser is illustrative; the Academy has no file system`}
-                                    style={{
-                                        display: 'flex', alignItems: 'center', gap: 7,
-                                        padding: '3px 9px', fontSize: 11, color: fl.text, cursor: 'default',
-                                        whiteSpace: 'nowrap',
+                        {/* Nav strip */}
+                        <div style={{
+                            height: 20, display: 'flex', alignItems: 'center', gap: 6, padding: '0 7px',
+                            background: fl.rulerBg, borderBottom: `1px solid ${daw.border}`, flexShrink: 0,
+                        }}>
+                            <ChevronDown size={10} color={fl.textDim} />
+                            <ArrowUp size={10} color={fl.textDim} />
+                            <RefreshCw size={9} color={fl.textDim} />
+                            <span style={{ fontSize: 10.5, color: fl.text }}>Browser</span>
+                        </div>
+                        {/* Category strip */}
+                        <div style={{
+                            height: 26, display: 'flex', alignItems: 'center', gap: 5, padding: '0 7px',
+                            borderBottom: `1px solid ${daw.border}`, flexShrink: 0,
+                        }}>
+                            {BROWSER_TABS.map((t, i) => {
+                                const Icon = t.icon;
+                                return (
+                                    <span key={t.label} title={t.label} style={{
+                                        display: 'flex', padding: 2, borderRadius: 2,
+                                        background: i === 0 ? '#d9741f' : 'transparent',
                                     }}>
-                                    <Icon size={11} color={daw.green} style={{ flexShrink: 0, opacity: 0.85 }} />
-                                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.label}</span>
-                                </div>
-                            );
-                        })}
+                                        <Icon size={12} color={i === 0 ? '#1a1008' : '#8b969f'} />
+                                    </span>
+                                );
+                            })}
+                        </div>
+                        {/* Tree */}
+                        <div style={{ flex: 1, overflowY: 'auto', padding: '3px 0' }}>
+                            {BROWSER_ITEMS.map(item => {
+                                const Icon = item.icon;
+                                return (
+                                    <div key={item.label}
+                                        title={`${item.label} — the browser is illustrative; the Academy has no file system`}
+                                        style={{
+                                            display: 'flex', alignItems: 'center', gap: 7,
+                                            padding: '3px 9px', fontSize: 11, color: fl.text, cursor: 'default',
+                                            whiteSpace: 'nowrap',
+                                        }}>
+                                        <Icon size={11} color={daw.green} style={{ flexShrink: 0, opacity: 0.85 }} />
+                                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.label}</span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                        {/* Tag strip */}
+                        <div style={{
+                            height: 20, flexShrink: 0, display: 'flex', alignItems: 'center',
+                            justifyContent: 'space-between', padding: '0 7px',
+                            background: fl.rulerBg, borderTop: `1px solid ${daw.border}`,
+                        }}>
+                            <span style={{ fontSize: 9, letterSpacing: '0.06em', color: fl.textDim }}>TAGS</span>
+                            <Star size={10} color={fl.textDim} />
+                        </div>
                     </div>
-                </div>
+                )}
 
                 {/* Canvas — windows live here; also the coachmark bubble's anchor */}
                 <div ref={canvasRef} style={{
                     flex: 1, minWidth: 0, position: 'relative', overflow: 'hidden',
-                    background: `${daw.bg}`,
+                    background: daw.bg,
                     backgroundImage: `radial-gradient(${daw.border} 1px, transparent 1px)`,
                     backgroundSize: '22px 22px',
                 }}>
@@ -414,19 +538,31 @@ export const DAWWorkspace: React.FC<DAWWorkspaceProps> = ({
                             onClose={() => patch('eq', { open: false })} />)}
                 </div>
             </div>
+
+            {/* ── Status bar ── */}
+            <div style={{
+                height: 22, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: fl.windowBar, borderTop: '1px solid #000',
+            }}>
+                <span style={{ fontSize: 10, color: '#5d6a74', letterSpacing: '0.02em' }}>
+                    Fuji Studio Academy — Producer Edition (simulated)
+                </span>
+            </div>
         </div>
     );
 };
 
-const transportBtn = (active: boolean): React.CSSProperties => ({
-    width: 28, height: 26, borderRadius: 3, cursor: 'pointer',
-    background: active ? daw.highlight : daw.panel,
-    border: `1px solid ${daw.border}`,
+/** FL's small raised toolbar button */
+const flBtn = (w = 26): React.CSSProperties => ({
+    width: w, height: 26, borderRadius: 2, cursor: 'pointer', padding: 0,
+    background: '#2a333a', border: `1px solid ${daw.border}`,
     display: 'flex', alignItems: 'center', justifyContent: 'center',
-    padding: 0,
 });
 
-const lcd = (): React.CSSProperties => ({
-    display: 'flex', alignItems: 'center', height: 26, padding: '0 6px',
-    background: daw.well, border: `1px solid ${daw.border}`, borderRadius: 3,
+/** Recessed LCD readout (tempo, song position) */
+const lcd = (w: number): React.CSSProperties => ({
+    display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 1,
+    width: w, height: 28, padding: '0 7px',
+    background: '#12171b', border: `1px solid ${daw.border}`, borderRadius: 2,
+    boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.6)',
 });
