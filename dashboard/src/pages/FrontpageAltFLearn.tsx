@@ -174,7 +174,21 @@ export const FrontpageAltFLearn: React.FC = () => {
     }, []);
 
     const startLesson = useCallback(() => {
+        // The lesson's step/target content stays a client-side constant (it's tightly coupled
+        // to the DAWSimulator's component ids), but its `assets` — which real samples to load
+        // for the Kick/Clap/Hi-Hat/Snare channels — are admin-editable in the dashboard
+        // (Academy → Edit Sounds), stored on an AcademyLesson row with a matching slug. Fetch
+        // and merge them in; if that row doesn't exist yet (or the request fails), the lesson
+        // still runs fine on its default synthesized sounds.
         setActiveLesson(FIRST_BEAT_LESSON);
+        axios.get(`/api/academy/lessons/${FIRST_BEAT_LESSON.slug}`)
+            .then(r => {
+                const dbAssets = r.data?.assets;
+                if (Array.isArray(dbAssets) && dbAssets.length) {
+                    setActiveLesson({ ...FIRST_BEAT_LESSON, assets: dbAssets });
+                }
+            })
+            .catch(() => { /* no DB row yet, or not published — keep the default sound */ });
     }, []);
 
     const exitLesson = useCallback(() => {

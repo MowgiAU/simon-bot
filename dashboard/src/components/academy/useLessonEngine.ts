@@ -103,6 +103,22 @@ export function useLessonEngine(lesson: LessonSchema | null): [LessonEngineState
         }
     }, [lesson?.id]);
 
+    // Load any real samples the lesson specifies (e.g. picked from the H2H sample pools in
+    // the admin UI) into the audio engine, keyed by channel id. AudioEngine.scheduleStep
+    // already prefers a loaded sample buffer over synthesizing one, and falls back to the
+    // default oscillator sound for any channel with no matching asset — so this is purely
+    // additive and never required for a lesson to work.
+    const engine = useDAWStore(s => s.engine);
+    useEffect(() => {
+        if (!engine || !lesson?.assets?.length) return;
+        for (const asset of lesson.assets) {
+            if (asset.type !== 'sample' || !asset.url) continue;
+            engine.loadSample(asset.name, asset.url).catch(() => {
+                // A dead/unreachable URL just means that channel keeps its synth fallback.
+            });
+        }
+    }, [engine, lesson?.id]);
+
     const highlightIds = useMemo(() => {
         if (!step?.target) return [];
         return [step.target.componentId];

@@ -8,8 +8,9 @@ import { useAuth } from '../components/AuthProvider';
 import axios from 'axios';
 import {
     GraduationCap, BookOpen, Plus, CheckCircle2, Edit3, Trash2,
-    Eye, EyeOff, ChevronRight, ArrowRight, ExternalLink, Users,
+    Eye, EyeOff, ChevronRight, ArrowRight, ExternalLink, Users, Music, X,
 } from 'lucide-react';
+import type { LessonAsset } from '../components/academy/LessonSchema';
 
 const API = (window as any).__ENV__?.VITE_API_URL || import.meta.env.VITE_API_URL || '';
 
@@ -36,6 +37,25 @@ interface AcademySettings {
 const CATEGORIES = ['basics', 'mixing', 'synthesis', 'arrangement', 'mastering'];
 const DIFFICULTIES = ['beginner', 'intermediate', 'advanced'];
 
+// Fixed slots because they're the channel ids the DAW simulator's default lesson state
+// (createDefaultDAWState) always creates — an asset's `name` has to match a channel id for
+// the audio engine to actually pick it up. Not derived from a lesson's own content since the
+// step editor doesn't exist yet; every lesson today uses this same starting channel set.
+const SOUND_SLOTS: { id: string; label: string }[] = [
+    { id: 'kick',  label: 'Kick' },
+    { id: 'clap',  label: 'Clap' },
+    { id: 'hihat', label: 'Hi-Hat' },
+    { id: 'snare', label: 'Snare' },
+];
+
+interface H2HSampleOption {
+    id: string;
+    name: string;
+    category: string;
+    fileUrl: string;
+    poolName: string;
+}
+
 export const AcademyPage: React.FC = () => {
     const { selectedGuild } = useAuth();
     const [lessons, setLessons] = useState<LessonSummary[]>([]);
@@ -52,6 +72,13 @@ export const AcademyPage: React.FC = () => {
     const [formDuration, setFormDuration] = useState(5);
     const [saving, setSaving] = useState(false);
 
+    // ─── "Edit Sounds" modal: assign H2H samples to a lesson's fixed channel slots ───
+    const [soundsLesson, setSoundsLesson] = useState<LessonSummary | null>(null);
+    const [soundsAssets, setSoundsAssets] = useState<LessonAsset[]>([]);
+    const [soundsLoading, setSoundsLoading] = useState(false);
+    const [soundsSaving, setSoundsSaving] = useState(false);
+    const [h2hSamples, setH2hSamples] = useState<H2HSampleOption[]>([]);
+
     const guildId = selectedGuild?.id;
 
     useEffect(() => {
@@ -67,7 +94,50 @@ export const AcademyPage: React.FC = () => {
             } catch (e) { /* ignore */ }
             finally { setLoading(false); }
         })();
+        // H2H sample pools aren't guild-scoped in the UI sense that matters here — just the
+        // library to pick lesson sounds from — so this loads once alongside everything else.
+        axios.get(`${API}/api/head-to-head/admin/pools`, { withCredentials: true })
+            .then(r => {
+                const flat: H2HSampleOption[] = (r.data || []).flatMap((pool: any) =>
+                    (pool.samples || []).map((s: any) => ({
+                        id: s.id, name: s.name, category: s.category, fileUrl: s.fileUrl, poolName: pool.name,
+                    })));
+                setH2hSamples(flat);
+            })
+            .catch(() => { /* picker just shows empty if this fails — not fatal to the page */ });
     }, [guildId]);
+
+    const openSoundsEditor = async (lesson: LessonSummary) => {
+        setSoundsLesson(lesson);
+        setSoundsLoading(true);
+        try {
+            const res = await axios.get(`${API}/api/academy/lessons/${lesson.id}`, { withCredentials: true });
+            setSoundsAssets(Array.isArray(res.data?.assets) ? res.data.assets : []);
+        } catch (e) {
+            setSoundsAssets([]);
+        } finally {
+            setSoundsLoading(false);
+        }
+    };
+
+    const setSlotSample = (slotId: string, sample: H2HSampleOption | null) => {
+        setSoundsAssets(prev => {
+            const rest = prev.filter(a => a.name !== slotId);
+            return sample ? [...rest, { name: slotId, url: sample.fileUrl, type: 'sample' as const }] : rest;
+        });
+    };
+
+    const saveSounds = async () => {
+        if (!soundsLesson) return;
+        setSoundsSaving(true);
+        try {
+            await axios.patch(`${API}/api/academy/admin/lessons/${soundsLesson.id}`, {
+                assets: soundsAssets,
+            }, { withCredentials: true });
+            setSoundsLesson(null);
+        } catch (e) { /* keep the modal open so they can retry */ }
+        finally { setSoundsSaving(false); }
+    };
 
     const handleCreate = async () => {
         if (!formTitle.trim() || !formSlug.trim()) return;
@@ -316,6 +386,10 @@ export const AcademyPage: React.FC = () => {
                                     </td>
                                     <td style={{ padding: '10px 12px' }}>
                                         <div style={{ display: 'flex', gap: '6px' }}>
+                                            <button onClick={() => openSoundsEditor(lesson)} title="Edit Sounds"
+                                                style={actionBtnStyle}>
+                                                <Music size={14} />
+                                            </button>
                                             <button onClick={() => togglePublish(lesson)} title={lesson.published ? 'Unpublish' : 'Publish'}
                                                 style={actionBtnStyle}>
                                                 {lesson.published ? <EyeOff size={14} /> : <Eye size={14} />}
@@ -332,6 +406,83 @@ export const AcademyPage: React.FC = () => {
                     </table>
                 )}
             </div>
+
+            {/* Edit Sounds modal */}
+            {soundsLesson && (
+                <div onClick={() => !soundsSaving && setSoundsLesson(null)} style={{
+                    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: spacing.md,
+                }}>
+                    <div onClick={e => e.stopPropagation()} style={{
+                        background: colors.surface, border: `1px solid ${colors.border}`,
+                        borderRadius: borderRadius.md, padding: spacing.lg, width: '100%', maxWidth: 520,
+                        maxHeight: '85vh', overflowY: 'auto',
+                    }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                            <h3 style={{ margin: 0, color: colors.textPrimary, fontSize: '16px' }}>Edit Sounds</h3>
+                            <button onClick={() => setSoundsLesson(null)} style={{ background: 'none', border: 'none', color: colors.textSecondary, cursor: 'pointer', padding: 4 }}>
+                                <X size={16} />
+                            </button>
+                        </div>
+                        <p style={{ margin: '0 0 16px', color: colors.textSecondary, fontSize: '12px' }}>
+                            {soundsLesson.title} — pick which H2H sample pool file plays for each channel.
+                            Leave a slot on "Default sound" to keep the simulator's built-in synth tone.
+                        </p>
+
+                        {soundsLoading ? (
+                            <p style={{ color: colors.textSecondary, fontSize: '13px' }}>Loading…</p>
+                        ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                                {SOUND_SLOTS.map(slot => {
+                                    const current = soundsAssets.find(a => a.name === slot.id);
+                                    const currentSample = current ? h2hSamples.find(s => s.fileUrl === current.url) : null;
+                                    return (
+                                        <div key={slot.id}>
+                                            <label style={labelStyle}>{slot.label}</label>
+                                            <select
+                                                value={current?.url || ''}
+                                                onChange={e => {
+                                                    const sample = h2hSamples.find(s => s.fileUrl === e.target.value) || null;
+                                                    setSlotSample(slot.id, sample);
+                                                }}
+                                                style={inputStyle}>
+                                                <option value="">Default sound (synth)</option>
+                                                {h2hSamples.map(s => (
+                                                    <option key={s.id} value={s.fileUrl}>
+                                                        [{s.category}] {s.name} — {s.poolName}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                            {current && (
+                                                <audio controls src={current.url} style={{ width: '100%', height: 32, marginTop: '6px' }}>
+                                                    {currentSample?.name}
+                                                </audio>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '18px' }}>
+                            <button onClick={() => setSoundsLesson(null)} disabled={soundsSaving} style={{
+                                padding: '8px 14px', borderRadius: borderRadius.sm,
+                                background: 'transparent', border: `1px solid ${colors.border}`,
+                                color: colors.textSecondary, fontSize: '13px', cursor: 'pointer',
+                            }}>Cancel</button>
+                            <button onClick={saveSounds} disabled={soundsSaving || soundsLoading} style={{
+                                padding: '8px 14px', borderRadius: borderRadius.sm,
+                                background: `linear-gradient(135deg, ${colors.primary}, ${colors.primaryDark})`,
+                                border: 'none', color: '#fff', fontSize: '13px',
+                                cursor: 'pointer', fontWeight: 600,
+                                opacity: soundsSaving || soundsLoading ? 0.5 : 1,
+                            }}>
+                                {soundsSaving ? 'Saving…' : 'Save'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
