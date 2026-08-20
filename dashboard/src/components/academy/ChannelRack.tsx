@@ -6,29 +6,30 @@ import React from 'react';
 import { FLKnob } from './FLKnob';
 import { useDAWStore } from './DAWStore';
 
-// FL21 palette
-const BG          = '#3A4050';   // panel background
-const ROW_EVEN    = '#3A4050';
-const ROW_ODD     = '#363C48';
-const BORDER      = '#2E3440';
-const TITLE_BG    = '#333A48';
+// FL21 palette — matched against a real FL Studio Channel Rack screenshot: lighter
+// slate-blue panel/steps (not near-black), brick-red lit steps, amber playhead.
+const BG          = '#4D5567';   // panel background
+const ROW_EVEN    = '#4D5567';
+const ROW_ODD     = '#48505F';
+const BORDER      = '#333A48';
+const TITLE_BG    = '#3A4050';
 const TITLE_BORDER= '#4A5060';
-const STEP_OFF    = '#2E3440';   // dark recessed step
-const STEP_ON     = '#6A7A8A';   // lit step — neutral gray-blue
-const STEP_ON_ALT = '#8A7A6A';   // slightly warm alternative (snare)
-const PLAYHEAD    = '#A0B0C0';   // current step highlight
-const NAME_BTN    = '#4A5060';   // channel name button bg
-const LED_ON      = '#8ABF60';   // green LED
-const LED_OFF     = '#3A4050';
+const STEP_OFF    = '#6B7590';   // unlit step — light slate button, not a dark recess
+const STEP_OFF_BORDER = '#828CA6';
+const STEP_ON     = '#8B3F42';   // lit step — brick red
+const STEP_ON_BORDER = '#A8585C';
+const PLAYHEAD    = '#D6A94A';   // current-step amber highlight
+const NAME_BTN    = '#6B7590';   // channel name button bg
+const LED_ON      = '#7FBF5F';   // green LED
+const LED_OFF     = '#3F4657';
 
 const STEP_W = 24;
 const STEP_H = 22;
 const STEP_GAP = 2;
 const GROUP_GAP = 5;   // gap between groups of 4
 const NAME_WIDTH = 110;
-const KNOB_AREA  = 52;
 
-const LED_KNOBS_WIDTH = 61;
+const LED_KNOBS_WIDTH = 80;
 
 interface ChannelRackProps {
     /** Channel the lesson engine wants emphasized (whole row), or null for none */
@@ -65,9 +66,13 @@ export const ChannelRack: React.FC<ChannelRackProps> = ({ highlightChannelId, hi
                 padding: '0 10px',
                 gap: '8px',
             }}>
-                {/* Diamond / play icon */}
-                <svg width="10" height="10" viewBox="0 0 10 10" style={{ flexShrink: 0 }}>
-                    <polygon points="2,0 10,5 2,10" fill="#8ABF60" />
+                {/* FL Studio's speaker+play glyph, not a control — matches the real Channel
+                    Rack title bar rather than functioning as another play/stop button
+                    (Transport's Play/Stop buttons above already own that). */}
+                <svg width="15" height="12" viewBox="0 0 15 12" style={{ flexShrink: 0 }}>
+                    <rect x="0.5" y="1" width="8" height="10" rx="1.5" fill="none" stroke="#8ABF60" strokeWidth="1" />
+                    <polygon points="3,3.3 3,8.7 7,6" fill="#8ABF60" />
+                    <path d="M9.8 3 Q12.5 6 9.8 9" stroke="#8ABF60" strokeWidth="1" fill="none" strokeLinecap="round" />
                 </svg>
                 <span style={{ fontSize: '11px', color: '#B0B8C8', fontWeight: 500 }}>
                     Channel rack
@@ -133,6 +138,16 @@ export const ChannelRack: React.FC<ChannelRackProps> = ({ highlightChannelId, hi
                             {/* Pan knob */}
                             <FLKnob value={ch.pan} min={-1} max={1} onChange={v => setChannelPan(ch.id, v)}
                                 size={18} color="#8ABF60" />
+                            {/* Decorative — matches the instrument-picker button real FL shows here;
+                                there's no plugin browser to open in the simulator. */}
+                            <div style={{
+                                width: 20, height: 16, borderRadius: '2px',
+                                background: '#3F4657', border: '1px solid #2E3440',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                cursor: 'default', flexShrink: 0,
+                            }}>
+                                <span style={{ fontSize: '9px', color: '#8890A4', letterSpacing: '1px' }}>···</span>
+                            </div>
                         </div>
 
                         {/* Channel number */}
@@ -193,9 +208,9 @@ export const ChannelRack: React.FC<ChannelRackProps> = ({ highlightChannelId, hi
                                             borderRadius: '2px',
                                             border: hl
                                                 ? '2px solid #60C0A0'
-                                                : `1px solid ${on ? '#5A6478' : '#353D4A'}`,
+                                                : `1px solid ${on ? STEP_ON_BORDER : STEP_OFF_BORDER}`,
                                             background: isActive
-                                                ? (on ? PLAYHEAD : '#4A5568')
+                                                ? PLAYHEAD
                                                 : on ? STEP_ON : STEP_OFF,
                                             opacity: ch.muted ? 0.4 : 1,
                                             cursor: 'pointer',
@@ -204,8 +219,8 @@ export const ChannelRack: React.FC<ChannelRackProps> = ({ highlightChannelId, hi
                                             boxShadow: hl
                                                 ? '0 0 6px rgba(96,192,160,0.5)'
                                                 : on
-                                                    ? 'inset 0 1px 0 rgba(255,255,255,0.08)'
-                                                    : 'inset 0 1px 2px rgba(0,0,0,0.3)',
+                                                    ? 'inset 0 1px 0 rgba(255,255,255,0.15)'
+                                                    : 'inset 0 1px 0 rgba(255,255,255,0.12), inset 0 -1px 2px rgba(0,0,0,0.2)',
                                         }}
                                     />
                                 );

@@ -35,6 +35,7 @@ export const FLKnob: React.FC<FLKnobProps> = ({
 
     const onPointerMove = useCallback((e: React.PointerEvent) => {
         if (!e.buttons) return;
+        e.preventDefault();
         const delta = (startY.current - e.clientY) / 150;
         const range = max - min;
         let newVal = startVal.current + delta * range;
@@ -63,7 +64,7 @@ export const FLKnob: React.FC<FLKnobProps> = ({
             <div
                 onPointerDown={onPointerDown}
                 onPointerMove={onPointerMove}
-                style={{ width: size, height: size, position: 'relative' }}
+                style={{ width: size, height: size, position: 'relative', touchAction: 'none' }}
                 title={`${label ?? ''}: ${value.toFixed(2)}`}
             >
                 <svg width={size} height={size} style={{ position: 'absolute', top: 0, left: 0 }}>
