@@ -78,6 +78,8 @@ export interface PlaylistClip {
     /** 'pattern' plays the Channel Rack; 'automation' drives a parameter (stage 3) */
     type: 'pattern' | 'automation';
     label?: string;
+    /** Muted clips stay on the grid but don't sound — FL's mute tool */
+    muted?: boolean;
 }
 
 export interface PlaylistState {
@@ -411,6 +413,7 @@ export class AudioEngine {
         if (!pl) return true;   // no playlist (legacy state) — behave as before
         return pl.clips.some(c =>
             c.type === 'pattern'
+            && !c.muted
             && bar >= c.startBar
             && bar < c.startBar + c.lengthBars
             && !(pl.tracks.find(t => t.id === c.track)?.muted),

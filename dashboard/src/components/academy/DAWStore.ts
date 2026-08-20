@@ -55,6 +55,8 @@ interface DAWStore {
     /** Click-to-toggle a bar cell, which is how the playlist grid is edited */
     togglePlaylistClip: (track: number, startBar: number) => void;
     togglePlaylistTrackMute: (trackId: number) => void;
+    /** Mute a single clip in place (FL's mute tool) without removing it */
+    togglePlaylistClipMute: (clipId: string) => void;
     setMasterVolume: (volume: number) => void;
 
     // --- Bulk state (for lesson engine) ---
@@ -257,6 +259,19 @@ export const useDAWStore = create<DAWStore>((set, get) => {
                     }];
                 return { state: { ...prev.state, playlist: { ...pl, clips } } };
             });
+            sync();
+        },
+        togglePlaylistClipMute: (clipId) => {
+            set(prev => ({
+                state: {
+                    ...prev.state,
+                    playlist: {
+                        ...prev.state.playlist,
+                        clips: prev.state.playlist.clips.map(c =>
+                            c.id === clipId ? { ...c, muted: !c.muted } : c),
+                    },
+                },
+            }));
             sync();
         },
         togglePlaylistTrackMute: (trackId) => {

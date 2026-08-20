@@ -75,6 +75,39 @@ export const dawFx = {
     windowShadow:    '0 10px 30px rgba(0,0,0,0.5)',
 } as const;
 
+/**
+ * Playlist chrome, from the Stitch playlist mockup + the real FL screenshot.
+ * Deeper and cooler than the mixer greys because that's what FL's arrangement
+ * view actually looks like.
+ */
+export const flPlaylist = {
+    windowBar:   '#101417',
+    header:      '#171c1f',
+    toolbar:     '#2c3338',
+    browserBg:   '#1e2429',
+    trackBg:     '#333b41',
+    trackBgSel:  '#2d353a',
+    trackEdge:   '#404a52',
+    gridBg:      '#273138',
+    gridLine:    '#1b2328',   // per beat
+    gridLineBar: '#11171a',   // per bar, heavier
+    rulerBg:     '#21292e',
+    rulerTick:   '#3a444a',
+    patternRed:  '#902c2c',
+    patternRedEdge: '#a83636',
+    automation:  '#2c6e8a',
+    playhead:    '#dc2626',
+    led:         '#a6e22e',
+    text:        '#bdc9d2',
+    textDim:     '#87929a',
+    outline:     '#3c484f',
+} as const;
+
+/** Per-band colours for the EQ, from the Parametric EQ mockup */
+export const eqBandColors = [
+    '#a78bfa', '#f472b6', '#fb923c', '#facc15', '#4ade80', '#2dd4bf', '#60a5fa',
+] as const;
+
 /** The Stitch designs call for Segoe UI; keep a mono stack for numeric and caps
  *  labels. Neither needs a network request. */
 export const dawFont = {
