@@ -61,6 +61,8 @@ const BROWSER_ITEMS: { label: string; icon: React.ElementType }[] = [
 ];
 
 interface DAWWorkspaceProps {
+    /** Windows this lesson uses. Empty/omitted shows the full studio. */
+    visibleWindows?: WinId[];
     highlightChannelId?: string | null;
     highlightStepIndex?: number | null;
     highlightInserts?: number[];
@@ -71,6 +73,7 @@ interface DAWWorkspaceProps {
 }
 
 export const DAWWorkspace: React.FC<DAWWorkspaceProps> = ({
+    visibleWindows,
     highlightChannelId, highlightStepIndex, highlightInserts, highlightBpm,
     highlightEQBand, highlightBars, highlightTrack,
 }) => {
@@ -89,13 +92,19 @@ export const DAWWorkspace: React.FC<DAWWorkspaceProps> = ({
     const [eqInsertId, setEqInsertId] = useState<number>(1);
     const [zTop, setZTop] = useState(10);
 
-    const [wins, setWins] = useState<WinDef[]>([
-        { id: 'rack', title: 'Channel rack', rect: { x: 12, y: 10, w: 620, h: 250 }, open: true, z: 3 },
-        { id: 'playlist', title: 'Playlist', rect: { x: 12, y: 274, w: 760, h: 330 }, open: true, z: 2 },
-        { id: 'mixer', title: 'Mixer', rect: { x: 648, y: 10, w: 560, h: 250 }, open: true, z: 1 },
-        { id: 'piano', title: 'Piano roll', rect: { x: 300, y: 120, w: 620, h: 320 }, open: false, z: 4 },
-        { id: 'eq', title: 'Parametric EQ 2', rect: { x: 200, y: 60, w: 640, h: 330 }, open: false, z: 5 },
-    ]);
+    const [wins, setWins] = useState<WinDef[]>(() => {
+        const only = visibleWindows && visibleWindows.length ? new Set<WinId>(visibleWindows) : null;
+        const open = (id: WinId, fallback: boolean) => only ? only.has(id) : fallback;
+        return [
+            // Widths come from each panel's real content width (the Channel Rack's two
+            // modules add up to ~700px), so a window never opens already clipped.
+            { id: 'rack', title: 'Channel rack', rect: { x: 14, y: 12, w: 716, h: 300 }, open: open('rack', true), z: 3 },
+            { id: 'playlist', title: 'Playlist', rect: { x: 14, y: 328, w: 880, h: 340 }, open: open('playlist', true), z: 2 },
+            { id: 'mixer', title: 'Mixer', rect: { x: 746, y: 12, w: 600, h: 430 }, open: open('mixer', true), z: 1 },
+            { id: 'piano', title: 'Piano roll', rect: { x: 260, y: 120, w: 640, h: 340 }, open: open('piano', false), z: 4 },
+            { id: 'eq', title: 'Parametric EQ 2', rect: { x: 180, y: 70, w: 700, h: 380 }, open: open('eq', false), z: 5 },
+        ];
+    });
 
     // Track the canvas size so windows can be clamped inside it
     useEffect(() => {
@@ -107,6 +116,33 @@ export const DAWWorkspace: React.FC<DAWWorkspaceProps> = ({
         ro.observe(el);
         return () => ro.disconnect();
     }, []);
+
+    // Fit windows to the canvas once it's measured. Without this a window whose
+    // natural size is bigger than the available area opens partly off-screen —
+    // and on a lesson that shows a single window, centre it rather than leaving
+    // it tucked in the corner with dead space beside it.
+    const fitted = useRef(false);
+    useEffect(() => {
+        if (fitted.current || bounds.w < 50) return;
+        fitted.current = true;
+        setWins(ws => {
+            const openCount = ws.filter(w => w.open).length;
+            return ws.map(w => {
+                const width = Math.min(w.rect.w, bounds.w - 24);
+                const height = Math.min(w.rect.h, bounds.h - 24);
+                const solo = openCount === 1 && w.open;
+                return {
+                    ...w,
+                    rect: {
+                        w: width,
+                        h: height,
+                        x: solo ? Math.max(12, (bounds.w - width) / 2) : Math.min(w.rect.x, Math.max(12, bounds.w - width - 12)),
+                        y: solo ? Math.max(12, Math.min(w.rect.y, (bounds.h - height) / 2)) : Math.min(w.rect.y, Math.max(12, bounds.h - height - 12)),
+                    },
+                };
+            });
+        });
+    }, [bounds]);
 
     const patch = useCallback((id: WinId, next: Partial<WinDef>) => {
         setWins(ws => ws.map(w => w.id === id ? { ...w, ...next } : w));
@@ -203,7 +239,9 @@ export const DAWWorkspace: React.FC<DAWWorkspaceProps> = ({
                                     border: `1px solid ${daw.border}`, borderRadius: 3,
                                     boxShadow: '0 8px 22px rgba(0,0,0,0.6)', padding: 3,
                                 }}>
-                                {m === 'VIEW' ? wins.map(w => (
+                                {m === 'VIEW' ? wins.filter(w =>
+                                    !visibleWindows?.length || visibleWindows.includes(w.id)
+                                ).map(w => (
                                     <div key={w.id}
                                         onClick={() => { toggleWin(w.id); setOpenMenu(null); }}
                                         data-academy-id={`daw-view-${w.id}`}
@@ -229,11 +267,16 @@ export const DAWWorkspace: React.FC<DAWWorkspaceProps> = ({
             </div>
 
             {/* ── Transport toolbar ── */}
-            <div style={{
-                display: 'flex', alignItems: 'center', gap: 10, height: 40,
-                background: fl.toolbar, borderBottom: `1px solid ${daw.border}`,
-                padding: '0 8px', flexShrink: 0,
-            }}>
+            <div
+                // The lesson bubble anchors narration steps here when a step names no
+                // specific control. Without it those steps have nothing to point at and
+                // the instruction never appears at all.
+                data-academy-id="daw-titlebar"
+                style={{
+                    display: 'flex', alignItems: 'center', gap: 10, height: 40,
+                    background: fl.toolbar, borderBottom: `1px solid ${daw.border}`,
+                    padding: '0 8px', flexShrink: 0,
+                }}>
                 {/* PAT / SONG */}
                 <button
                     onClick={() => setMode(transport.mode === 'pat' ? 'song' : 'pat')}

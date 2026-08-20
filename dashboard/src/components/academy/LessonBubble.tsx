@@ -27,6 +27,8 @@ interface BubblePos {
     /** Bubble BODY center — may be clamped away from the target to stay on-screen */
     left: number;
     top: number;
+    /** Target element wasn't found — show the text centred, with no pointer */
+    orphan?: boolean;
     /** Pointer triangle's offset from the bubble's own center, so it still aims at the
      *  true target even when `left` above had to be clamped */
     pointerOffset: number;
@@ -45,9 +47,15 @@ export const LessonBubble: React.FC<LessonBubbleProps> = ({ container, targetId,
         if (!container || !targetId) { setPos(null); return; }
 
         const update = () => {
-            const el = container.querySelector(`[data-academy-id="${targetId}"]`) as HTMLElement | null;
-            if (!el) { setPos(null); return; }
             const cRect = container.getBoundingClientRect();
+            const el = container.querySelector(`[data-academy-id="${targetId}"]`) as HTMLElement | null;
+            if (!el) {
+                // Never silently swallow the instruction: if the step names a control
+                // that isn't on screen (wrong id, or its window is closed), still show
+                // the text — just centred, with no arrow, since there's nothing to aim at.
+                setPos({ left: cRect.width / 2, top: 8, pointerOffset: 0, below: true, orphan: true });
+                return;
+            }
             const eRect = el.getBoundingClientRect();
             const top = eRect.top - cRect.top;
             const rawLeft = eRect.left - cRect.left + eRect.width / 2;
@@ -88,7 +96,7 @@ export const LessonBubble: React.FC<LessonBubbleProps> = ({ container, targetId,
             maxWidth: HALF_WIDTH * 2,
             transition: 'left 0.25s ease, top 0.25s ease',
         }}>
-            {pos.below && <Pointer up offset={pos.pointerOffset} />}
+            {pos.below && !pos.orphan && <Pointer up offset={pos.pointerOffset} />}
             <div style={{
                 background: 'rgba(15,19,29,0.96)',
                 border: '1px solid rgba(111,191,64,0.4)',
@@ -106,7 +114,7 @@ export const LessonBubble: React.FC<LessonBubbleProps> = ({ container, targetId,
                     </div>
                 )}
             </div>
-            {!pos.below && <Pointer offset={pos.pointerOffset} />}
+            {!pos.below && !pos.orphan && <Pointer offset={pos.pointerOffset} />}
         </div>
     );
 };

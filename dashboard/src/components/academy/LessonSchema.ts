@@ -73,7 +73,23 @@ export interface LessonSchema {
     steps: LessonStep[];
     /** Assets to preload */
     assets: LessonAsset[];
+    /**
+     * Which DAW windows this lesson opens with. Omitted or empty means all of them —
+     * "Your First Beat" only needs the Channel Rack, and showing the whole studio
+     * just buries the thing the student is meant to look at.
+     */
+    windows?: DAWWindowId[];
 }
+
+export type DAWWindowId = 'rack' | 'playlist' | 'mixer' | 'piano' | 'eq';
+
+export const DAW_WINDOW_OPTIONS: { id: DAWWindowId; label: string }[] = [
+    { id: 'rack', label: 'Channel rack' },
+    { id: 'playlist', label: 'Playlist' },
+    { id: 'mixer', label: 'Mixer' },
+    { id: 'piano', label: 'Piano roll' },
+    { id: 'eq', label: 'Parametric EQ 2' },
+];
 
 // ─── Helper: resolve a dot-path on the DAW state ───
 
@@ -130,6 +146,7 @@ export const FIRST_BEAT_LESSON: LessonSchema = {
     difficulty: 'beginner',
     initState: createDefaultDAWState(),
     assets: [],
+    windows: ['rack'],
     steps: [
         {
             id: 0,

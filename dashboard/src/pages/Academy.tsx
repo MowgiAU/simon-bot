@@ -11,7 +11,8 @@ import {
     Eye, EyeOff, ExternalLink, Users,
     GripVertical, ChevronLeft, AlertTriangle,
 } from 'lucide-react';
-import type { LessonAsset, LessonStep } from '../components/academy/LessonSchema';
+import type { LessonAsset, LessonStep, DAWWindowId } from '../components/academy/LessonSchema';
+import { DAW_WINDOW_OPTIONS } from '../components/academy/LessonSchema';
 import { createDefaultChannel, createDefaultDAWState } from '../components/academy/AudioEngine';
 
 const API = (window as any).__ENV__?.VITE_API_URL || import.meta.env.VITE_API_URL || '';
@@ -512,6 +513,7 @@ const LessonEditorView: React.FC<{
     const [error, setError] = useState<string | null>(null);
 
     const [channels, setChannels] = useState<EditChannel[]>([]);
+    const [windows, setWindows] = useState<DAWWindowId[]>([]);
     const [assets, setAssets] = useState<LessonAsset[]>([]);
     const [steps, setSteps] = useState<EditStep[]>([]);
     const [newChannelName, setNewChannelName] = useState('');
@@ -531,11 +533,13 @@ const LessonEditorView: React.FC<{
                     ? dbChannels.map((c: any) => ({ id: c.id, name: c.name }))
                     : createDefaultDAWState().channels.map(c => ({ id: c.id, name: c.name })));
                 setAssets(Array.isArray(res.data?.assets) ? res.data.assets : []);
+                setWindows(Array.isArray(res.data?.windows) ? res.data.windows : []);
                 const dbSteps = Array.isArray(res.data?.steps) ? res.data.steps : [];
                 setSteps(dbSteps.map(fromLessonStep));
             } catch {
                 setChannels(createDefaultDAWState().channels.map(c => ({ id: c.id, name: c.name })));
                 setAssets([]);
+                setWindows([]);
                 setSteps([]);
             } finally {
                 setLoading(false);
@@ -613,7 +617,7 @@ const LessonEditorView: React.FC<{
             const initState = { ...createDefaultDAWState(), channels: channels.map(c => createDefaultChannel(c.id, c.name)) };
             const lessonSteps = steps.map(toLessonStep);
             await axios.patch(`${API}/api/academy/admin/lessons/${lesson.id}`, {
-                steps: lessonSteps, initState, assets,
+                steps: lessonSteps, initState, assets, windows,
             }, { withCredentials: true });
             onClose();
         } catch (e: any) {
@@ -662,6 +666,35 @@ const LessonEditorView: React.FC<{
                 <p style={{ color: colors.textSecondary, fontSize: '13px' }}>Loading…</p>
             ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.lg }}>
+                    {/* ─── Windows ─── */}
+                    <div style={{ background: colors.surface, border: `1px solid ${colors.border}`, borderRadius: borderRadius.md, padding: spacing.md }}>
+                        <h3 style={{ margin: '0 0 4px', color: colors.textPrimary, fontSize: '14px' }}>Windows</h3>
+                        <p style={{ margin: '0 0 12px', color: colors.textSecondary, fontSize: '12px' }}>
+                            Which DAW windows this lesson opens with. Select none to show the whole studio —
+                            for a focused lesson, pick only what the student needs so the rest doesn't bury it.
+                        </p>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '14px' }}>
+                            {DAW_WINDOW_OPTIONS.map(opt => (
+                                <label key={opt.id} style={{
+                                    display: 'flex', alignItems: 'center', gap: '6px',
+                                    fontSize: '13px', color: colors.textPrimary, cursor: 'pointer',
+                                }}>
+                                    <input type="checkbox"
+                                        checked={windows.includes(opt.id)}
+                                        onChange={e => setWindows(prev => e.target.checked
+                                            ? [...prev, opt.id]
+                                            : prev.filter(w => w !== opt.id))} />
+                                    {opt.label}
+                                </label>
+                            ))}
+                        </div>
+                        {windows.length === 0 && (
+                            <p style={{ margin: '10px 0 0', color: colors.textTertiary, fontSize: '12px' }}>
+                                Nothing selected — this lesson will open every window.
+                            </p>
+                        )}
+                    </div>
+
                     {/* ─── Channels ─── */}
                     <div style={{ background: colors.surface, border: `1px solid ${colors.border}`, borderRadius: borderRadius.md, padding: spacing.md }}>
                         <h3 style={{ margin: '0 0 4px', color: colors.textPrimary, fontSize: '14px' }}>Channels</h3>

@@ -141,6 +141,7 @@ const AltLessonPlayer: React.FC<{ lesson: LessonSchema; onExit: () => void }> = 
                 needs to render above something near the very top of the simulator. */}
             <div ref={setDawContainer} style={{ position: 'relative', flex: 1, minHeight: 0 }}>
                 <DAWWorkspace
+                    visibleWindows={lesson.windows}
                     highlightChannelId={taskDone ? null : highlightChannelId}
                     highlightStepIndex={taskDone ? null : highlightStepIndex}
                 />

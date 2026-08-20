@@ -3465,6 +3465,9 @@ model AcademyLesson {
   // Starting DAW state (channels/transport/mixer) — null means use the built-in default
   initState Json?
 
+  // Which DAW windows this lesson opens with — null/empty means all of them
+  windows Json?
+
   // Assets needed for this lesson (sample URLs, presets, etc.)
   assets Json @default("[]")
 
