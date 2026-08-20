@@ -29,6 +29,8 @@ interface DAWStore {
 
     // --- Channels ---
     toggleStep: (channelId: string, stepIndex: number) => void;
+    /** Replace a channel's whole step pattern at once (right-click fill, clear) */
+    setChannelSteps: (channelId: string, steps: boolean[]) => void;
     setChannelVolume: (channelId: string, volume: number) => void;
     setChannelPan: (channelId: string, pan: number) => void;
     toggleChannelMute: (channelId: string) => void;
@@ -112,6 +114,15 @@ export const useDAWStore = create<DAWStore>((set, get) => {
                 );
                 return { state: { ...prev.state, channels } };
             });
+            sync();
+        },
+        setChannelSteps: (channelId, steps) => {
+            set(prev => ({
+                state: {
+                    ...prev.state,
+                    channels: prev.state.channels.map(ch => ch.id === channelId ? { ...ch, steps } : ch),
+                },
+            }));
             sync();
         },
         setChannelVolume: (channelId, volume) => {

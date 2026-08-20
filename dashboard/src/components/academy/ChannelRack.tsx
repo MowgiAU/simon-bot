@@ -10,7 +10,7 @@
  * Both modules open with a HEADER_H strip so their rows stay aligned across
  * the gap — see dawTheme.dawSize.
  */
-import React from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
     ChevronDown, ChevronLeft, ChevronRight, Settings, Volume2,
     Undo2, BarChart3, Columns3, X, Plus,
@@ -39,11 +39,28 @@ const iconBtn: React.CSSProperties = {
     display: 'flex', alignItems: 'center', justifyContent: 'center',
 };
 
+/** Right-click fill options, mirroring FL Studio's channel context menu.
+ *  `every: n` lights every nth step from step 1; 0 is used for "clear". */
+const FILL_OPTIONS: { label: string; every: number }[] = [
+    { label: 'Fill each 2 steps', every: 2 },
+    { label: 'Fill each 3 steps', every: 3 },
+    { label: 'Fill each 4 steps', every: 4 },
+    { label: 'Fill each 6 steps', every: 6 },
+    { label: 'Fill each 8 steps', every: 8 },
+    { label: 'Fill all', every: 1 },
+];
+
+const MENU_W = 176;
+const MENU_H = 210;
+
+interface MenuState { x: number; y: number; channelId: string; channelName: string; }
+
 export const ChannelRack: React.FC<ChannelRackProps> = ({ highlightChannelId, highlightStepIndex }) => {
     const channels = useDAWStore(s => s.state.channels);
     const currentStep = useDAWStore(s => s.state.transport.currentStep);
     const playing = useDAWStore(s => s.state.transport.playing);
     const toggleStep = useDAWStore(s => s.toggleStep);
+    const setChannelSteps = useDAWStore(s => s.setChannelSteps);
     const setChannelVolume = useDAWStore(s => s.setChannelVolume);
     const setChannelPan = useDAWStore(s => s.setChannelPan);
     const toggleChannelMute = useDAWStore(s => s.toggleChannelMute);
@@ -51,6 +68,46 @@ export const ChannelRack: React.FC<ChannelRackProps> = ({ highlightChannelId, hi
     const isChannelHighlighted = (chId: string) => !!highlightChannelId && highlightChannelId === chId;
     const isStepHighlighted = (chId: string, idx: number) =>
         isChannelHighlighted(chId) && highlightStepIndex === idx;
+
+    // ── Right-click fill menu ──
+    const [menu, setMenu] = useState<MenuState | null>(null);
+
+    const openMenu = (e: React.MouseEvent, chId: string, chName: string) => {
+        e.preventDefault();   // suppress the browser's own context menu
+        // Fixed positioning against the viewport, so the menu escapes the rack's
+        // overflow:hidden / horizontal scroll containers instead of being clipped.
+        setMenu({
+            x: Math.min(e.clientX, window.innerWidth - MENU_W - 8),
+            y: Math.min(e.clientY, window.innerHeight - MENU_H - 8),
+            channelId: chId,
+            channelName: chName,
+        });
+    };
+
+    const applyFill = useCallback((chId: string, every: number) => {
+        const ch = channels.find(c => c.id === chId);
+        if (ch) {
+            setChannelSteps(chId, ch.steps.map((_, i) => every > 0 && i % every === 0));
+        }
+        setMenu(null);
+    }, [channels, setChannelSteps]);
+
+    // Dismiss on outside click, Escape, or anything that would move the anchor
+    useEffect(() => {
+        if (!menu) return;
+        const close = () => setMenu(null);
+        const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close(); };
+        window.addEventListener('pointerdown', close);
+        window.addEventListener('keydown', onKey);
+        window.addEventListener('resize', close);
+        window.addEventListener('scroll', close, true);
+        return () => {
+            window.removeEventListener('pointerdown', close);
+            window.removeEventListener('keydown', onKey);
+            window.removeEventListener('resize', close);
+            window.removeEventListener('scroll', close, true);
+        };
+    }, [menu]);
 
     return (
         <div style={{
@@ -148,6 +205,8 @@ export const ChannelRack: React.FC<ChannelRackProps> = ({ highlightChannelId, hi
                             {/* Channel name */}
                             <div
                                 data-academy-id={`channel-${ch.id}`}
+                                onContextMenu={e => openMenu(e, ch.id, ch.name)}
+                                title={`${ch.name} — right-click to fill`}
                                 style={{
                                     width: S.nameW, height: S.rowH, flexShrink: 0,
                                     display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -197,9 +256,11 @@ export const ChannelRack: React.FC<ChannelRackProps> = ({ highlightChannelId, hi
                     </div>
 
                     {channels.map(ch => (
-                        <div key={ch.id} style={{
-                            display: 'flex', gap: S.padGap, height: S.rowH, alignItems: 'center',
-                        }}>
+                        <div key={ch.id}
+                            onContextMenu={e => openMenu(e, ch.id, ch.name)}
+                            style={{
+                                display: 'flex', gap: S.padGap, height: S.rowH, alignItems: 'center',
+                            }}>
                             {ch.steps.map((on, i) => {
                                 const isPlayhead = playing && currentStep === i;
                                 const hl = isStepHighlighted(ch.id, i);
@@ -278,6 +339,61 @@ export const ChannelRack: React.FC<ChannelRackProps> = ({ highlightChannelId, hi
                     <ChevronRight size={14} color={daw.text} />
                 </div>
             </div>
+
+            {/* ── Right-click fill menu ── */}
+            {menu && (
+                <div
+                    // Stop the window-level dismiss handler from firing before the
+                    // item's onClick gets a chance to run.
+                    onPointerDown={e => e.stopPropagation()}
+                    onContextMenu={e => e.preventDefault()}
+                    style={{
+                        position: 'fixed', left: menu.x, top: menu.y, zIndex: 200,
+                        width: MENU_W,
+                        background: daw.panel,
+                        border: `1px solid ${daw.border}`,
+                        borderRadius: 3,
+                        boxShadow: dawFx.windowShadow,
+                        padding: 3,
+                        fontFamily: dawFont.sans,
+                    }}>
+                    <div style={{
+                        ...capsLabel, color: daw.textDim,
+                        padding: '4px 8px 5px',
+                        borderBottom: `1px solid ${daw.border}`,
+                        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                    }}>
+                        {menu.channelName.toUpperCase()}
+                    </div>
+
+                    {FILL_OPTIONS.map(opt => (
+                        <MenuItem key={opt.every}
+                            label={opt.label}
+                            onClick={() => applyFill(menu.channelId, opt.every)} />
+                    ))}
+
+                    <div style={{ borderTop: `1px solid ${daw.border}`, margin: '3px 0' }} />
+                    <MenuItem label="Clear" onClick={() => applyFill(menu.channelId, 0)} />
+                </div>
+            )}
+        </div>
+    );
+};
+
+const MenuItem: React.FC<{ label: string; onClick: () => void }> = ({ label, onClick }) => {
+    const [hover, setHover] = useState(false);
+    return (
+        <div
+            onClick={onClick}
+            onMouseEnter={() => setHover(true)}
+            onMouseLeave={() => setHover(false)}
+            style={{
+                padding: '5px 8px', borderRadius: 2, cursor: 'pointer',
+                fontSize: 12,
+                color: hover ? daw.white : daw.textBright,
+                background: hover ? daw.highlight : 'transparent',
+            }}>
+            {label}
         </div>
     );
 };
