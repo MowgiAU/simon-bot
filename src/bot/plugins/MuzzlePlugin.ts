@@ -137,6 +137,30 @@ export class MuzzlePlugin implements IPlugin {
             } catch (err: any) {
                 this.logger.warn(`Failed to remove muzzle role after timeout ended for ${newMember.user.tag}: ${err.message}`);
             }
+            return;
+        }
+
+        // Role removed on its own while the timeout is still active — the two branches
+        // above only react to the TIMEOUT changing, so this case fell through entirely
+        // before: removing just the role looked like "unmuzzled" (no visible marker) while
+        // the timeout kept silently enforcing the mute underneath. Only correct this for a
+        // muzzle we're actively tracking, so this never interferes with an unrelated manual
+        // timeout that intentionally doesn't carry the role.
+        if (isTimedOut && this.activeMuzzles.has(key)) {
+            const hadRole = oldMember?.roles.cache.has(roleId) ?? true;
+            const hasRole = newMember.roles.cache.has(roleId);
+            if (hadRole && !hasRole) {
+                const activeHandle = this.activeMuzzles.get(key);
+                if (activeHandle) { clearTimeout(activeHandle); this.activeMuzzles.delete(key); }
+                const existing = this.timeoutRoleTimers.get(key);
+                if (existing) { clearTimeout(existing); this.timeoutRoleTimers.delete(key); }
+                try {
+                    await newMember.timeout(null, 'Muzzle role removed — clearing timeout to match');
+                    this.logger.info(`Muzzle role removed for ${newMember.user.tag}; cleared the still-active timeout to match`);
+                } catch (err: any) {
+                    this.logger.warn(`Failed to clear timeout after muzzle role removal for ${newMember.user.tag}: ${err.message}`);
+                }
+            }
         }
     }
 

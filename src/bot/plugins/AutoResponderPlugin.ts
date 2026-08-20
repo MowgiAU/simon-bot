@@ -115,8 +115,10 @@ export class AutoResponderPlugin implements IPlugin {
         );
     }
 
-    // Called by the plugin manager dispatcher (bot/index.ts → p.onMessage)
-    async onMessage(msg: Message): Promise<void> {
+    // Called by the plugin manager dispatcher (bot/index.ts → p.onMessage).
+    // isEdit is true when this came from messageUpdate (a genuine content edit — the
+    // dispatcher already filters out Discord's non-edit update events via editedTimestamp).
+    async onMessage(msg: Message, isEdit: boolean = false): Promise<void> {
         // Periodic cleanup of stale cooldown entries (every 5 minutes)
         if (!this.cleanupInterval) {
             this.cleanupInterval = setInterval(() => {
@@ -229,6 +231,10 @@ export class AutoResponderPlugin implements IPlugin {
             try {
                 switch (rule.triggerType) {
                     case 'audioAttachment': {
+                        // Attachments are fixed when a message is posted — editing text can
+                        // never add or remove one, so re-matching on an edit is never useful
+                        // and would only reopen the door to the repeat-firing bug above.
+                        if (isEdit) continue;
                         if (!this.hasAudioAttachment(msg)) break;
                         // `trigger` is an optional comma-separated extension whitelist
                         // ("wav, flac") for rules that should only fire on certain formats.

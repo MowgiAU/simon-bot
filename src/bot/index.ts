@@ -531,8 +531,15 @@ export class SimonBot {
     this.client.on('messageUpdate', async (oldMessage, newMessage) => {
       if (newMessage.author?.bot) return;
       if (!newMessage.guildId) return;
-      // Skip if content didn't change (e.g. embed unfurl)
-      if (oldMessage.content === newMessage.content) return;
+      // Discord sends MESSAGE_UPDATE for plenty of reasons that aren't the author editing
+      // their text — link/embed unfurl, and (notably) the CDN finishing attachment/waveform
+      // processing right after a file upload. editedTimestamp is only ever set by a genuine
+      // content edit, unlike comparing .content: oldMessage often arrives as a partial stub
+      // with content === undefined, so `oldMessage.content === newMessage.content` was always
+      // false for those non-edit updates and let every one of them through as if it were a
+      // brand-new message — repeatedly re-triggering rules (e.g. an audio-attachment auto
+      // -responder with no cooldown) against a post that was never actually edited.
+      if (!newMessage.editedTimestamp) return;
 
       // Fetch full message if partial
       const message = newMessage.partial ? await newMessage.fetch().catch(() => null) : newMessage;
@@ -547,9 +554,9 @@ export class SimonBot {
         const p = plugin as any;
         try {
           if (typeof p.onMessageCreate === 'function') {
-            await p.onMessageCreate(message);
+            await p.onMessageCreate(message, true);
           } else if (typeof p.onMessage === 'function') {
-            await p.onMessage(message);
+            await p.onMessage(message, true);
           }
         } catch (error) {
           this.logger.error(`Error in plugin ${plugin.id} messageUpdate handler`, error);
