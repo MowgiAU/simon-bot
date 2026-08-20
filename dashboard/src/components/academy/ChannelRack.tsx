@@ -84,6 +84,17 @@ export const ChannelRack: React.FC<ChannelRackProps> = ({ highlightChannelId, hi
         });
     };
 
+    // `contextmenu` alone should be enough, but it's had reports of not firing
+    // reliably in Firefox for some users on this page (couldn't reproduce locally
+    // to confirm the exact cause). `mousedown` with the right button is about as
+    // universally supported as pointer input gets, so it's wired as a second,
+    // independent way to open the same menu rather than replacing the first —
+    // whichever fires first wins, and a redundant second call is a harmless no-op
+    // (same values, same result).
+    const openMenuOnRightMouseDown = (e: React.MouseEvent, chId: string, chName: string) => {
+        if (e.button === 2) openMenu(e, chId, chName);
+    };
+
     const applyFill = useCallback((chId: string, every: number) => {
         const ch = channels.find(c => c.id === chId);
         if (ch) {
@@ -170,6 +181,7 @@ export const ChannelRack: React.FC<ChannelRackProps> = ({ highlightChannelId, hi
                     {channels.map(ch => (
                         <div key={ch.id}
                             onContextMenu={e => openMenu(e, ch.id, ch.name)}
+                            onMouseDown={e => openMenuOnRightMouseDown(e, ch.id, ch.name)}
                             style={{
                                 display: 'flex', alignItems: 'center', gap: 12, height: S.rowH,
                             }}>
@@ -208,6 +220,7 @@ export const ChannelRack: React.FC<ChannelRackProps> = ({ highlightChannelId, hi
                             <div
                                 data-academy-id={`channel-${ch.id}`}
                                 onContextMenu={e => openMenu(e, ch.id, ch.name)}
+                                onMouseDown={e => openMenuOnRightMouseDown(e, ch.id, ch.name)}
                                 title={`${ch.name} — right-click to fill`}
                                 style={{
                                     width: S.nameW, height: S.rowH, flexShrink: 0,
@@ -260,6 +273,7 @@ export const ChannelRack: React.FC<ChannelRackProps> = ({ highlightChannelId, hi
                     {channels.map(ch => (
                         <div key={ch.id}
                             onContextMenu={e => openMenu(e, ch.id, ch.name)}
+                            onMouseDown={e => openMenuOnRightMouseDown(e, ch.id, ch.name)}
                             style={{
                                 display: 'flex', gap: S.padGap, height: S.rowH, alignItems: 'center',
                             }}>
