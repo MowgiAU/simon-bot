@@ -7,10 +7,12 @@ import { colors, spacing, borderRadius } from '../theme/theme';
 import { useAuth } from '../components/AuthProvider';
 import axios from 'axios';
 import {
-    GraduationCap, BookOpen, Plus, CheckCircle2, Edit3, Trash2,
-    Eye, EyeOff, ChevronRight, ArrowRight, ExternalLink, Users, Music, X,
+    GraduationCap, BookOpen, Plus, Edit3, Trash2,
+    Eye, EyeOff, ExternalLink, Users,
+    GripVertical, ChevronLeft, AlertTriangle,
 } from 'lucide-react';
-import type { LessonAsset } from '../components/academy/LessonSchema';
+import type { LessonAsset, LessonStep } from '../components/academy/LessonSchema';
+import { createDefaultChannel, createDefaultDAWState } from '../components/academy/AudioEngine';
 
 const API = (window as any).__ENV__?.VITE_API_URL || import.meta.env.VITE_API_URL || '';
 
@@ -37,17 +39,6 @@ interface AcademySettings {
 const CATEGORIES = ['basics', 'mixing', 'synthesis', 'arrangement', 'mastering'];
 const DIFFICULTIES = ['beginner', 'intermediate', 'advanced'];
 
-// Fixed slots because they're the channel ids the DAW simulator's default lesson state
-// (createDefaultDAWState) always creates — an asset's `name` has to match a channel id for
-// the audio engine to actually pick it up. Not derived from a lesson's own content since the
-// step editor doesn't exist yet; every lesson today uses this same starting channel set.
-const SOUND_SLOTS: { id: string; label: string }[] = [
-    { id: 'kick',  label: 'Kick' },
-    { id: 'clap',  label: 'Clap' },
-    { id: 'hihat', label: 'Hi-Hat' },
-    { id: 'snare', label: 'Snare' },
-];
-
 interface H2HSampleOption {
     id: string;
     name: string;
@@ -72,11 +63,8 @@ export const AcademyPage: React.FC = () => {
     const [formDuration, setFormDuration] = useState(5);
     const [saving, setSaving] = useState(false);
 
-    // ─── "Edit Sounds" modal: assign H2H samples to a lesson's fixed channel slots ───
-    const [soundsLesson, setSoundsLesson] = useState<LessonSummary | null>(null);
-    const [soundsAssets, setSoundsAssets] = useState<LessonAsset[]>([]);
-    const [soundsLoading, setSoundsLoading] = useState(false);
-    const [soundsSaving, setSoundsSaving] = useState(false);
+    // ─── Full lesson editor: channels (reorder/add/remove/sample) + steps ───
+    const [editingLesson, setEditingLesson] = useState<LessonSummary | null>(null);
     const [h2hSamples, setH2hSamples] = useState<H2HSampleOption[]>([]);
 
     // Action errors (create/publish/delete/save) need to be visible — a silently swallowed
@@ -115,38 +103,6 @@ export const AcademyPage: React.FC = () => {
             })
             .catch(() => { /* picker just shows empty if this fails — not fatal to the page */ });
     }, [guildId]);
-
-    const openSoundsEditor = async (lesson: LessonSummary) => {
-        setSoundsLesson(lesson);
-        setSoundsLoading(true);
-        try {
-            const res = await axios.get(`${API}/api/academy/lessons/${lesson.id}`, { withCredentials: true });
-            setSoundsAssets(Array.isArray(res.data?.assets) ? res.data.assets : []);
-        } catch (e) {
-            setSoundsAssets([]);
-        } finally {
-            setSoundsLoading(false);
-        }
-    };
-
-    const setSlotSample = (slotId: string, sample: H2HSampleOption | null) => {
-        setSoundsAssets(prev => {
-            const rest = prev.filter(a => a.name !== slotId);
-            return sample ? [...rest, { name: slotId, url: sample.fileUrl, type: 'sample' as const }] : rest;
-        });
-    };
-
-    const saveSounds = async () => {
-        if (!soundsLesson) return;
-        setSoundsSaving(true);
-        try {
-            await axios.patch(`${API}/api/academy/admin/lessons/${soundsLesson.id}`, {
-                assets: soundsAssets,
-            }, { withCredentials: true });
-            setSoundsLesson(null);
-        } catch (e) { showError(e, 'Failed to save sounds'); }
-        finally { setSoundsSaving(false); }
-    };
 
     const handleCreate = async () => {
         if (!formTitle.trim() || !formSlug.trim()) return;
@@ -190,6 +146,16 @@ export const AcademyPage: React.FC = () => {
             setSettings(res.data);
         } catch (e) { /* ignore */ }
     };
+
+    if (editingLesson) {
+        return (
+            <LessonEditorView
+                lesson={editingLesson}
+                h2hSamples={h2hSamples}
+                onClose={() => setEditingLesson(null)}
+            />
+        );
+    }
 
     return (
         <div>
@@ -405,9 +371,9 @@ export const AcademyPage: React.FC = () => {
                                     </td>
                                     <td style={{ padding: '10px 12px' }}>
                                         <div style={{ display: 'flex', gap: '6px' }}>
-                                            <button onClick={() => openSoundsEditor(lesson)} title="Edit Sounds"
+                                            <button onClick={() => setEditingLesson(lesson)} title="Edit Lesson"
                                                 style={actionBtnStyle}>
-                                                <Music size={14} />
+                                                <Edit3 size={14} />
                                             </button>
                                             <button onClick={() => togglePublish(lesson)} title={lesson.published ? 'Unpublish' : 'Publish'}
                                                 style={actionBtnStyle}>
@@ -425,83 +391,6 @@ export const AcademyPage: React.FC = () => {
                     </table>
                 )}
             </div>
-
-            {/* Edit Sounds modal */}
-            {soundsLesson && (
-                <div onClick={() => !soundsSaving && setSoundsLesson(null)} style={{
-                    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: spacing.md,
-                }}>
-                    <div onClick={e => e.stopPropagation()} style={{
-                        background: colors.surface, border: `1px solid ${colors.border}`,
-                        borderRadius: borderRadius.md, padding: spacing.lg, width: '100%', maxWidth: 520,
-                        maxHeight: '85vh', overflowY: 'auto',
-                    }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
-                            <h3 style={{ margin: 0, color: colors.textPrimary, fontSize: '16px' }}>Edit Sounds</h3>
-                            <button onClick={() => setSoundsLesson(null)} style={{ background: 'none', border: 'none', color: colors.textSecondary, cursor: 'pointer', padding: 4 }}>
-                                <X size={16} />
-                            </button>
-                        </div>
-                        <p style={{ margin: '0 0 16px', color: colors.textSecondary, fontSize: '12px' }}>
-                            {soundsLesson.title} — pick which H2H sample pool file plays for each channel.
-                            Leave a slot on "Default sound" to keep the simulator's built-in synth tone.
-                        </p>
-
-                        {soundsLoading ? (
-                            <p style={{ color: colors.textSecondary, fontSize: '13px' }}>Loading…</p>
-                        ) : (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                                {SOUND_SLOTS.map(slot => {
-                                    const current = soundsAssets.find(a => a.name === slot.id);
-                                    const currentSample = current ? h2hSamples.find(s => s.fileUrl === current.url) : null;
-                                    return (
-                                        <div key={slot.id}>
-                                            <label style={labelStyle}>{slot.label}</label>
-                                            <select
-                                                value={current?.url || ''}
-                                                onChange={e => {
-                                                    const sample = h2hSamples.find(s => s.fileUrl === e.target.value) || null;
-                                                    setSlotSample(slot.id, sample);
-                                                }}
-                                                style={inputStyle}>
-                                                <option value="">Default sound (synth)</option>
-                                                {h2hSamples.map(s => (
-                                                    <option key={s.id} value={s.fileUrl}>
-                                                        [{s.category}] {s.name} — {s.poolName}
-                                                    </option>
-                                                ))}
-                                            </select>
-                                            {current && (
-                                                <audio controls src={current.url} style={{ width: '100%', height: 32, marginTop: '6px' }}>
-                                                    {currentSample?.name}
-                                                </audio>
-                                            )}
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        )}
-
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '18px' }}>
-                            <button onClick={() => setSoundsLesson(null)} disabled={soundsSaving} style={{
-                                padding: '8px 14px', borderRadius: borderRadius.sm,
-                                background: 'transparent', border: `1px solid ${colors.border}`,
-                                color: colors.textSecondary, fontSize: '13px', cursor: 'pointer',
-                            }}>Cancel</button>
-                            <button onClick={saveSounds} disabled={soundsSaving || soundsLoading} style={{
-                                padding: '8px 14px', borderRadius: borderRadius.sm,
-                                background: `linear-gradient(135deg, ${colors.primary}, ${colors.primaryDark})`,
-                                border: 'none', color: '#fff', fontSize: '13px',
-                                cursor: 'pointer', fontWeight: 600,
-                                opacity: soundsSaving || soundsLoading ? 0.5 : 1,
-                            }}>
-                                {soundsSaving ? 'Saving…' : 'Save'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 };
@@ -522,4 +411,420 @@ const actionBtnStyle: React.CSSProperties = {
     background: 'transparent', border: `1px solid ${colors.border}`,
     borderRadius: '4px', padding: '4px 6px', cursor: 'pointer',
     color: colors.textSecondary, display: 'flex', alignItems: 'center',
+};
+
+// ─── Full lesson editor: channels + steps, kept in sync ───
+//
+// Channels are referenced by a stable id (see LessonStepTarget.channelId in LessonSchema.ts) —
+// reordering or removing a channel here never desyncs a step's target from the sound it
+// actually checks, since the check resolves the channel by id at runtime rather than trusting
+// a saved position.
+
+interface EditChannel { id: string; name: string; }
+
+type EditStepType = 'instruction' | 'pattern' | 'transport';
+
+interface EditStep {
+    key: string;
+    instruction: string;
+    hint: string;
+    type: EditStepType;
+    channelId: string;
+    pattern: boolean[];
+    requireTransport: 'play' | 'stop';
+    advanced: boolean;
+    rawTarget: string;
+}
+
+let editStepKeySeq = 0;
+const newStepKey = () => `s${Date.now()}_${editStepKeySeq++}`;
+
+function genChannelId(name: string, existing: EditChannel[]): string {
+    const base = name.toLowerCase().replace(/[^a-z0-9]/g, '') || 'channel';
+    let id = base, n = 1;
+    while (existing.some(c => c.id === id)) { id = `${base}${++n}`; }
+    return id;
+}
+
+function fromLessonStep(step: any): EditStep {
+    // A target with a channelId maps cleanly onto the friendly pattern editor. Anything else
+    // (legacy positional statePath, demo animations, range/gte/lte compares) falls back to the
+    // raw-JSON "Advanced" escape hatch rather than trying to model every shape in the UI.
+    const hasSimpleTarget = !step.target || !!step.target.channelId;
+    const type: EditStepType = step.target?.channelId ? 'pattern' : step.requireTransport ? 'transport' : 'instruction';
+    return {
+        key: newStepKey(),
+        instruction: step.instruction || '',
+        hint: step.hint || '',
+        type,
+        channelId: step.target?.channelId || '',
+        pattern: Array.isArray(step.target?.expectedValue) && step.target.expectedValue.length === 16
+            ? step.target.expectedValue : Array(16).fill(false),
+        requireTransport: step.requireTransport === 'stop' ? 'stop' : 'play',
+        advanced: !hasSimpleTarget,
+        rawTarget: hasSimpleTarget ? '' : JSON.stringify(
+            { target: step.target, demo: step.demo, autoAdvanceMs: step.autoAdvanceMs }, null, 2,
+        ),
+    };
+}
+
+function toLessonStep(s: EditStep, idx: number): LessonStep {
+    const base: any = { id: idx, instruction: s.instruction };
+    if (s.hint.trim()) base.hint = s.hint;
+
+    if (s.advanced) {
+        try {
+            Object.assign(base, JSON.parse(s.rawTarget || '{}'));
+            return base;
+        } catch {
+            // Fall through and save as a plain instruction step rather than losing the save
+            // over a JSON typo — the admin can reopen "Advanced" and fix it.
+        }
+    }
+    if (s.type === 'pattern' && s.channelId) {
+        base.target = {
+            componentId: `step-${s.channelId}-0`,
+            statePath: `channels.0.steps`,
+            channelId: s.channelId,
+            channelField: 'steps',
+            expectedValue: s.pattern,
+            compare: 'eq',
+        };
+    } else if (s.type === 'transport') {
+        base.requireTransport = s.requireTransport;
+    }
+    return base;
+}
+
+const LessonEditorView: React.FC<{
+    lesson: LessonSummary;
+    h2hSamples: H2HSampleOption[];
+    onClose: () => void;
+}> = ({ lesson, h2hSamples, onClose }) => {
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    const [channels, setChannels] = useState<EditChannel[]>([]);
+    const [assets, setAssets] = useState<LessonAsset[]>([]);
+    const [steps, setSteps] = useState<EditStep[]>([]);
+    const [newChannelName, setNewChannelName] = useState('');
+
+    const [chDragIdx, setChDragIdx] = useState<number | null>(null);
+    const [chDragOverIdx, setChDragOverIdx] = useState<number | null>(null);
+    const [stDragIdx, setStDragIdx] = useState<number | null>(null);
+    const [stDragOverIdx, setStDragOverIdx] = useState<number | null>(null);
+
+    useEffect(() => {
+        (async () => {
+            setLoading(true);
+            try {
+                const res = await axios.get(`${API}/api/academy/lessons/${lesson.id}`, { withCredentials: true });
+                const dbChannels = res.data?.initState?.channels;
+                setChannels(Array.isArray(dbChannels) && dbChannels.length
+                    ? dbChannels.map((c: any) => ({ id: c.id, name: c.name }))
+                    : createDefaultDAWState().channels.map(c => ({ id: c.id, name: c.name })));
+                setAssets(Array.isArray(res.data?.assets) ? res.data.assets : []);
+                const dbSteps = Array.isArray(res.data?.steps) ? res.data.steps : [];
+                setSteps(dbSteps.map(fromLessonStep));
+            } catch {
+                setChannels(createDefaultDAWState().channels.map(c => ({ id: c.id, name: c.name })));
+                setAssets([]);
+                setSteps([]);
+            } finally {
+                setLoading(false);
+            }
+        })();
+    }, [lesson.id]);
+
+    const setChannelSample = (channelId: string, sample: H2HSampleOption | null) => {
+        setAssets(prev => {
+            const rest = prev.filter(a => a.name !== channelId);
+            return sample ? [...rest, { name: channelId, url: sample.fileUrl, type: 'sample' as const }] : rest;
+        });
+    };
+
+    const addChannel = () => {
+        const name = newChannelName.trim();
+        if (!name) return;
+        const id = genChannelId(name, channels);
+        setChannels(prev => [...prev, { id, name }]);
+        setNewChannelName('');
+    };
+
+    const removeChannel = (id: string) => {
+        const affected = steps.filter(s => s.type === 'pattern' && s.channelId === id);
+        if (affected.length && !window.confirm(
+            `${affected.length} step${affected.length === 1 ? '' : 's'} target this channel and will become instruction-only. Continue?`,
+        )) return;
+        setChannels(prev => prev.filter(c => c.id !== id));
+        setAssets(prev => prev.filter(a => a.name !== id));
+        setSteps(prev => prev.map(s => (s.type === 'pattern' && s.channelId === id) ? { ...s, type: 'instruction', channelId: '' } : s));
+    };
+
+    const renameChannel = (id: string, name: string) => {
+        setChannels(prev => prev.map(c => c.id === id ? { ...c, name } : c));
+    };
+
+    const onChDrop = (i: number) => {
+        if (chDragIdx === null || chDragIdx === i) { setChDragIdx(null); setChDragOverIdx(null); return; }
+        const next = [...channels];
+        const [moved] = next.splice(chDragIdx, 1);
+        next.splice(i, 0, moved);
+        setChannels(next);
+        setChDragIdx(null); setChDragOverIdx(null);
+    };
+
+    const addStep = () => {
+        setSteps(prev => [...prev, {
+            key: newStepKey(), instruction: '', hint: '', type: 'instruction',
+            channelId: channels[0]?.id || '', pattern: Array(16).fill(false),
+            requireTransport: 'play', advanced: false, rawTarget: '',
+        }]);
+    };
+
+    const removeStep = (idx: number) => setSteps(prev => prev.filter((_, i) => i !== idx));
+    const updateStep = (idx: number, patch: Partial<EditStep>) =>
+        setSteps(prev => prev.map((s, i) => i === idx ? { ...s, ...patch } : s));
+    const togglePatternCell = (idx: number, cell: number) =>
+        setSteps(prev => prev.map((s, i) => i === idx
+            ? { ...s, pattern: s.pattern.map((v, ci) => ci === cell ? !v : v) } : s));
+
+    const onStDrop = (i: number) => {
+        if (stDragIdx === null || stDragIdx === i) { setStDragIdx(null); setStDragOverIdx(null); return; }
+        const next = [...steps];
+        const [moved] = next.splice(stDragIdx, 1);
+        next.splice(i, 0, moved);
+        setSteps(next);
+        setStDragIdx(null); setStDragOverIdx(null);
+    };
+
+    const save = async () => {
+        setSaving(true);
+        setError(null);
+        try {
+            const initState = { ...createDefaultDAWState(), channels: channels.map(c => createDefaultChannel(c.id, c.name)) };
+            const lessonSteps = steps.map(toLessonStep);
+            await axios.patch(`${API}/api/academy/admin/lessons/${lesson.id}`, {
+                steps: lessonSteps, initState, assets,
+            }, { withCredentials: true });
+            onClose();
+        } catch (e: any) {
+            setError(e?.response?.data?.error || 'Failed to save lesson');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    return (
+        <div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.lg }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <button onClick={onClose} style={{ ...actionBtnStyle, padding: '6px 10px' }}>
+                        <ChevronLeft size={16} />
+                    </button>
+                    <div>
+                        <h1 style={{ margin: 0, color: colors.textPrimary, fontSize: '18px' }}>{lesson.title}</h1>
+                        <p style={{ margin: '2px 0 0', color: colors.textSecondary, fontSize: '12px' }}>Channels and steps for /{lesson.slug}</p>
+                    </div>
+                </div>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                    <button onClick={onClose} disabled={saving} style={{
+                        padding: '8px 16px', borderRadius: borderRadius.sm,
+                        background: 'transparent', border: `1px solid ${colors.border}`,
+                        color: colors.textSecondary, fontSize: '13px', cursor: 'pointer',
+                    }}>Cancel</button>
+                    <button onClick={save} disabled={saving || loading} style={{
+                        padding: '8px 16px', borderRadius: borderRadius.sm,
+                        background: `linear-gradient(135deg, ${colors.primary}, ${colors.primaryDark})`,
+                        border: 'none', color: '#fff', fontSize: '13px', fontWeight: 600,
+                        cursor: 'pointer', opacity: saving || loading ? 0.5 : 1,
+                    }}>{saving ? 'Saving…' : 'Save Lesson'}</button>
+                </div>
+            </div>
+
+            {error && (
+                <div style={{
+                    backgroundColor: `${colors.error}18`, border: `1px solid ${colors.error}44`,
+                    padding: spacing.md, borderRadius: borderRadius.md, marginBottom: spacing.md,
+                    color: colors.error, fontSize: '13px',
+                }}>{error}</div>
+            )}
+
+            {loading ? (
+                <p style={{ color: colors.textSecondary, fontSize: '13px' }}>Loading…</p>
+            ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.lg }}>
+                    {/* ─── Channels ─── */}
+                    <div style={{ background: colors.surface, border: `1px solid ${colors.border}`, borderRadius: borderRadius.md, padding: spacing.md }}>
+                        <h3 style={{ margin: '0 0 4px', color: colors.textPrimary, fontSize: '14px' }}>Channels</h3>
+                        <p style={{ margin: '0 0 14px', color: colors.textSecondary, fontSize: '12px' }}>
+                            Drag to reorder. Removing a channel turns any step targeting it into an instruction-only step
+                            rather than leaving a broken check.
+                        </p>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '12px' }}>
+                            {channels.map((ch, idx) => {
+                                const current = assets.find(a => a.name === ch.id);
+                                return (
+                                    <div key={ch.id} draggable
+                                        onDragStart={() => setChDragIdx(idx)}
+                                        onDragOver={e => { e.preventDefault(); setChDragOverIdx(idx); }}
+                                        onDrop={() => onChDrop(idx)}
+                                        onDragEnd={() => { setChDragIdx(null); setChDragOverIdx(null); }}
+                                        style={{
+                                            display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 10px',
+                                            borderRadius: borderRadius.sm,
+                                            backgroundColor: chDragOverIdx === idx ? `${colors.primary}10` : 'rgba(255,255,255,0.02)',
+                                            border: `1px solid ${chDragOverIdx === idx ? `${colors.primary}44` : colors.border}`,
+                                            opacity: chDragIdx === idx ? 0.5 : 1,
+                                        }}>
+                                        <span style={{ cursor: 'grab', display: 'flex', flexShrink: 0 }}><GripVertical size={14} color={colors.textTertiary} /></span>
+                                        <input value={ch.name} onChange={e => renameChannel(ch.id, e.target.value)}
+                                            style={{ ...inputStyle, width: '160px', flexShrink: 0 }} />
+                                        <select
+                                            value={current?.url || ''}
+                                            onChange={e => setChannelSample(ch.id, h2hSamples.find(s => s.fileUrl === e.target.value) || null)}
+                                            style={{ ...inputStyle, flex: 1 }}>
+                                            <option value="">Default sound (synth)</option>
+                                            {h2hSamples.map(s => (
+                                                <option key={s.id} value={s.fileUrl}>[{s.category}] {s.name} — {s.poolName}</option>
+                                            ))}
+                                        </select>
+                                        {current && (
+                                            <audio controls src={current.url} style={{ height: 30, width: 160, flexShrink: 0 }} />
+                                        )}
+                                        <button onClick={() => removeChannel(ch.id)} style={{ ...actionBtnStyle, color: '#E8503A', flexShrink: 0 }}>
+                                            <Trash2 size={13} />
+                                        </button>
+                                    </div>
+                                );
+                            })}
+                            {channels.length === 0 && (
+                                <div style={{ textAlign: 'center', padding: '18px', color: colors.textTertiary, fontSize: '12px', border: `1px dashed ${colors.border}`, borderRadius: borderRadius.md }}>
+                                    No channels yet.
+                                </div>
+                            )}
+                        </div>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                            <input value={newChannelName} onChange={e => setNewChannelName(e.target.value)}
+                                onKeyDown={e => { if (e.key === 'Enter') addChannel(); }}
+                                placeholder="New channel name, e.g. Percussion" style={{ ...inputStyle, flex: 1 }} />
+                            <button onClick={addChannel} disabled={!newChannelName.trim()} style={{
+                                display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px',
+                                borderRadius: borderRadius.sm, background: 'transparent', border: `1px solid ${colors.border}`,
+                                color: colors.textPrimary, fontSize: '13px', cursor: 'pointer',
+                                opacity: !newChannelName.trim() ? 0.5 : 1,
+                            }}><Plus size={14} /> Add Channel</button>
+                        </div>
+                    </div>
+
+                    {/* ─── Steps ─── */}
+                    <div style={{ background: colors.surface, border: `1px solid ${colors.border}`, borderRadius: borderRadius.md, padding: spacing.md }}>
+                        <h3 style={{ margin: '0 0 4px', color: colors.textPrimary, fontSize: '14px' }}>Steps</h3>
+                        <p style={{ margin: '0 0 14px', color: colors.textSecondary, fontSize: '12px' }}>
+                            Drag to reorder. Each step is either plain instruction text, a pattern the student must set on a
+                            channel, or a "press Play/Stop" checkpoint.
+                        </p>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '12px' }}>
+                            {steps.map((s, idx) => (
+                                <div key={s.key} draggable
+                                    onDragStart={() => setStDragIdx(idx)}
+                                    onDragOver={e => { e.preventDefault(); setStDragOverIdx(idx); }}
+                                    onDrop={() => onStDrop(idx)}
+                                    onDragEnd={() => { setStDragIdx(null); setStDragOverIdx(null); }}
+                                    style={{
+                                        padding: '12px', borderRadius: borderRadius.sm,
+                                        backgroundColor: stDragOverIdx === idx ? `${colors.primary}10` : 'rgba(255,255,255,0.02)',
+                                        border: `1px solid ${stDragOverIdx === idx ? `${colors.primary}44` : colors.border}`,
+                                        opacity: stDragIdx === idx ? 0.5 : 1,
+                                    }}>
+                                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                                        <span style={{ cursor: 'grab', display: 'flex', paddingTop: '8px', flexShrink: 0 }}>
+                                            <GripVertical size={14} color={colors.textTertiary} />
+                                        </span>
+                                        <span style={{ fontSize: '10px', fontWeight: 700, color: colors.textTertiary, minWidth: '16px', textAlign: 'right', paddingTop: '9px', flexShrink: 0 }}>{idx + 1}</span>
+                                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                            <textarea value={s.instruction} onChange={e => updateStep(idx, { instruction: e.target.value })}
+                                                placeholder="Instruction text shown to the student" rows={2}
+                                                style={{ ...inputStyle, resize: 'vertical' }} />
+                                            <input value={s.hint} onChange={e => updateStep(idx, { hint: e.target.value })}
+                                                placeholder="Optional hint (shown after 8s)" style={inputStyle} />
+
+                                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                                                <select value={s.advanced ? 'advanced' : s.type}
+                                                    onChange={e => {
+                                                        const v = e.target.value;
+                                                        if (v === 'advanced') updateStep(idx, { advanced: true, rawTarget: s.rawTarget || '{\n  "target": {}\n}' });
+                                                        else updateStep(idx, { advanced: false, type: v as EditStepType });
+                                                    }}
+                                                    style={{ ...inputStyle, width: '180px' }}>
+                                                    <option value="instruction">Instruction only</option>
+                                                    <option value="pattern">Set a pattern</option>
+                                                    <option value="transport">Require Play or Stop</option>
+                                                    <option value="advanced">Advanced (raw JSON)</option>
+                                                </select>
+
+                                                {!s.advanced && s.type === 'pattern' && (
+                                                    <select value={s.channelId} onChange={e => updateStep(idx, { channelId: e.target.value })}
+                                                        style={{ ...inputStyle, width: '160px' }}>
+                                                        <option value="">Choose channel…</option>
+                                                        {channels.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                                    </select>
+                                                )}
+                                                {!s.advanced && s.type === 'transport' && (
+                                                    <select value={s.requireTransport} onChange={e => updateStep(idx, { requireTransport: e.target.value as 'play' | 'stop' })}
+                                                        style={{ ...inputStyle, width: '120px' }}>
+                                                        <option value="play">Play</option>
+                                                        <option value="stop">Stop</option>
+                                                    </select>
+                                                )}
+                                            </div>
+
+                                            {!s.advanced && s.type === 'pattern' && s.channelId && (
+                                                <div style={{ display: 'flex', gap: '3px' }}>
+                                                    {s.pattern.map((v, ci) => (
+                                                        <button key={ci} onClick={() => togglePatternCell(idx, ci)}
+                                                            title={`Step ${ci + 1}`}
+                                                            style={{
+                                                                width: 20, height: 20, borderRadius: '3px', cursor: 'pointer',
+                                                                border: `1px solid ${v ? colors.primary : colors.border}`,
+                                                                background: v ? colors.primary : 'transparent',
+                                                                padding: 0,
+                                                            }} />
+                                                    ))}
+                                                </div>
+                                            )}
+
+                                            {s.advanced && (
+                                                <div>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px', color: '#E88C3A', fontSize: '11px' }}>
+                                                        <AlertTriangle size={12} /> Raw step JSON (target / demo / autoAdvanceMs) — merged onto the step as-is.
+                                                    </div>
+                                                    <textarea value={s.rawTarget} onChange={e => updateStep(idx, { rawTarget: e.target.value })}
+                                                        rows={6} style={{ ...inputStyle, resize: 'vertical', fontFamily: 'monospace', fontSize: '12px' }} />
+                                                </div>
+                                            )}
+                                        </div>
+                                        <button onClick={() => removeStep(idx)} style={{ ...actionBtnStyle, color: '#E8503A', flexShrink: 0 }}>
+                                            <Trash2 size={13} />
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                            {steps.length === 0 && (
+                                <div style={{ textAlign: 'center', padding: '18px', color: colors.textTertiary, fontSize: '12px', border: `1px dashed ${colors.border}`, borderRadius: borderRadius.md }}>
+                                    No steps yet.
+                                </div>
+                            )}
+                        </div>
+                        <button onClick={addStep} style={{
+                            display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px',
+                            borderRadius: borderRadius.sm, background: 'transparent', border: `1px solid ${colors.border}`,
+                            color: colors.textPrimary, fontSize: '13px', cursor: 'pointer',
+                        }}><Plus size={14} /> Add Step</button>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
 };

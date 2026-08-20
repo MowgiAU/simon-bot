@@ -14,6 +14,7 @@ import { usePlayer } from '../components/PlayerProvider';
 import { DAWSimulator } from '../components/academy/DAWSimulator';
 import { useLessonEngine } from '../components/academy/useLessonEngine';
 import { LessonSchema, FIRST_BEAT_LESSON } from '../components/academy/LessonSchema';
+import { createDefaultDAWState } from '../components/academy/AudioEngine';
 
 const glass: React.CSSProperties = {
     background: 'rgba(15,19,29,0.7)',
@@ -129,8 +130,13 @@ const AltLessonPlayer: React.FC<{ lesson: LessonSchema; onExit: () => void }> = 
             <div style={{ ...glass, borderRadius: 14, overflow: 'hidden' }}>
                 <DAWSimulator
                     highlightSteps={highlightIds.map(id => {
-                        const parts = id.split('-');
-                        return { channelId: parts[1] ?? '', stepIndex: Number(parts[2]) || 0 };
+                        // Ids are "step-<channelId>-<stepIndex>". channelId can itself contain
+                        // hyphens (e.g. an admin-named "hi-hat" channel), so the step index is
+                        // always the LAST segment and the channelId is everything between
+                        // "step-" and that — never a fixed positional split.
+                        const segments = id.split('-').slice(1);
+                        const stepIndex = Number(segments.pop()) || 0;
+                        return { channelId: segments.join('-'), stepIndex };
                     })}
                 />
             </div>
@@ -174,21 +180,22 @@ export const FrontpageAltFLearn: React.FC = () => {
     }, []);
 
     const startLesson = useCallback(() => {
-        // The lesson's step/target content stays a client-side constant (it's tightly coupled
-        // to the DAWSimulator's component ids), but its `assets` — which real samples to load
-        // for the Kick/Clap/Hi-Hat/Snare channels — are admin-editable in the dashboard
-        // (Academy → Edit Sounds), stored on an AcademyLesson row with a matching slug. Fetch
-        // and merge them in; if that row doesn't exist yet (or the request fails), the lesson
-        // still runs fine on its default synthesized sounds.
+        // The lesson is admin-editable in the dashboard (Academy → Edit Lesson) — channels,
+        // steps, and sample assets are all stored on an AcademyLesson row with a matching
+        // slug. Fetch the full row and use it verbatim; fall back to the hardcoded
+        // FIRST_BEAT_LESSON constant only if the row doesn't exist yet or the request fails,
+        // so the lesson always plays even before that row has ever been seeded.
         setActiveLesson(FIRST_BEAT_LESSON);
         axios.get(`/api/academy/lessons/${FIRST_BEAT_LESSON.slug}`)
             .then(r => {
-                const dbAssets = r.data?.assets;
-                if (Array.isArray(dbAssets) && dbAssets.length) {
-                    setActiveLesson({ ...FIRST_BEAT_LESSON, assets: dbAssets });
-                }
+                const db = r.data;
+                if (!db) return;
+                const steps = Array.isArray(db.steps) && db.steps.length ? db.steps : FIRST_BEAT_LESSON.steps;
+                const assets = Array.isArray(db.assets) ? db.assets : FIRST_BEAT_LESSON.assets;
+                const initState = db.initState || createDefaultDAWState();
+                setActiveLesson({ ...FIRST_BEAT_LESSON, steps, assets, initState });
             })
-            .catch(() => { /* no DB row yet, or not published — keep the default sound */ });
+            .catch(() => { /* no DB row yet, or not published — keep the default lesson */ });
     }, []);
 
     const exitLesson = useCallback(() => {

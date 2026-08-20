@@ -3462,6 +3462,9 @@ model AcademyLesson {
   // JSON lesson schema — steps, init_state, audio targets
   steps Json @default("[]")
 
+  // Starting DAW state (channels/transport/mixer) — null means use the built-in default
+  initState Json?
+
   // Assets needed for this lesson (sample URLs, presets, etc.)
   assets Json @default("[]")
 

@@ -24585,12 +24585,12 @@ app.get('/api/academy/lessons/:slugOrId', async (req: any, res) => {
 // the same bug and a fuller explanation.
 app.post('/api/academy/admin/lessons', requireAdmin, async (req: any, res) => {
     try {
-        const { title, slug, description, category, difficulty, order, duration, steps, assets, published, imageUrl } = req.body;
+        const { title, slug, description, category, difficulty, order, duration, steps, initState, assets, published, imageUrl } = req.body;
         if (!title || !slug) return res.status(400).json({ error: 'Title and slug are required' });
         const lesson = await db.academyLesson.create({
             data: {
                 title, slug, description, category, difficulty,
-                order: order ?? 0, duration, steps: steps ?? [], assets: assets ?? [],
+                order: order ?? 0, duration, steps: steps ?? [], initState: initState ?? undefined, assets: assets ?? [],
                 published: published ?? false, imageUrl,
             },
         });
@@ -24605,7 +24605,7 @@ app.post('/api/academy/admin/lessons', requireAdmin, async (req: any, res) => {
 app.patch('/api/academy/admin/lessons/:id', requireAdmin, async (req: any, res) => {
     try {
         const { id } = req.params;
-        const { title, slug, description, category, difficulty, order, duration, steps, assets, published, imageUrl } = req.body;
+        const { title, slug, description, category, difficulty, order, duration, steps, initState, assets, published, imageUrl } = req.body;
         const lesson = await db.academyLesson.update({
             where: { id },
             data: {
@@ -24617,6 +24617,7 @@ app.patch('/api/academy/admin/lessons/:id', requireAdmin, async (req: any, res) 
                 ...(order !== undefined && { order }),
                 ...(duration !== undefined && { duration }),
                 ...(steps !== undefined && { steps }),
+                ...(initState !== undefined && { initState }),
                 ...(assets !== undefined && { assets }),
                 ...(published !== undefined && { published }),
                 ...(imageUrl !== undefined && { imageUrl }),

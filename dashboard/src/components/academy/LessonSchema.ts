@@ -15,8 +15,21 @@ export interface LessonAsset {
 export interface LessonStepTarget {
     /** Which component to highlight — matches data-academy-id attributes */
     componentId: string;
-    /** What state property to check (dot path, e.g. "channels.0.steps.0") */
+    /**
+     * What state property to check (dot path, e.g. "channels.0.steps.0").
+     * Used as-is for non-channel targets. For channel targets, prefer `channelId` below —
+     * it survives channel reordering/removal, whereas a positional index here does not.
+     */
     statePath: string;
+    /**
+     * Stable channel id this target checks (e.g. "kick"), resolved to the channel's *current*
+     * index at check time. Takes precedence over `statePath` when both are set — this is what
+     * lets an admin freely reorder or remove channels without desyncing every step after the
+     * edited one.
+     */
+    channelId?: string;
+    /** Field on the resolved channel to check (defaults to "steps") */
+    channelField?: string;
     /** Expected value — step is complete when actual matches this */
     expectedValue: any;
     /** Comparison mode */
@@ -69,7 +82,15 @@ export function getByPath(obj: any, path: string): any {
 
 /** Check if DAW state satisfies a step target */
 export function checkTarget(state: DAWState, target: LessonStepTarget): boolean {
-    const actual = getByPath(state, target.statePath);
+    let actual: any;
+    if (target.channelId) {
+        // Resolve the channel by stable id, not by a pre-baked positional index — this is
+        // what makes reordering/removing channels safe (see LessonStepTarget.channelId).
+        const channel = state.channels.find(ch => ch.id === target.channelId);
+        actual = channel ? getByPath(channel, target.channelField ?? 'steps') : undefined;
+    } else {
+        actual = getByPath(state, target.statePath);
+    }
     if (actual === undefined) return false;
 
     switch (target.compare ?? 'eq') {
@@ -114,6 +135,7 @@ export const FIRST_BEAT_LESSON: LessonSchema = {
             target: {
                 componentId: 'step-kick-0',
                 statePath: 'channels.0.steps',
+                channelId: 'kick',
                 expectedValue: [true, false, false, false, true, false, false, false, true, false, false, false, true, false, false, false],
                 compare: 'eq',
             },
@@ -124,6 +146,7 @@ export const FIRST_BEAT_LESSON: LessonSchema = {
             target: {
                 componentId: 'step-clap-4',
                 statePath: 'channels.1.steps',
+                channelId: 'clap',
                 expectedValue: [false, false, false, false, true, false, false, false, false, false, false, false, true, false, false, false],
                 compare: 'eq',
             },
@@ -134,6 +157,7 @@ export const FIRST_BEAT_LESSON: LessonSchema = {
             target: {
                 componentId: 'step-hihat-0',
                 statePath: 'channels.2.steps',
+                channelId: 'hihat',
                 expectedValue: [true, false, true, false, true, false, true, false, true, false, true, false, true, false, true, false],
                 compare: 'eq',
             },
