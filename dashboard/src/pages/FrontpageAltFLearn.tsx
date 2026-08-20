@@ -110,6 +110,13 @@ const AltLessonPlayer: React.FC<{ lesson: LessonSchema; onExit: () => void }> = 
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {/* Gentle pulse drawing the eye to whichever button is the actionable "move on" CTA */}
+            <style>{`
+                @keyframes fujiCtaPulse {
+                    0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(111,191,64,0.55); }
+                    50% { transform: scale(1.045); box-shadow: 0 0 0 10px rgba(111,191,64,0); }
+                }
+            `}</style>
             {/* Top bar */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <button onClick={onExit} style={{ display: 'flex', alignItems: 'center', gap: 6, background: S_HIGH, border: `1px solid rgba(255,255,255,0.1)`, color: SUB, padding: '7px 14px', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontFamily: FONT }}>
@@ -158,12 +165,12 @@ const AltLessonPlayer: React.FC<{ lesson: LessonSchema; onExit: () => void }> = 
 
                 {lessonComplete ? (
                     <button onClick={onExit}
-                        style={{ display: 'flex', alignItems: 'center', gap: 8, background: `linear-gradient(135deg, ${ACCENT}, #4A8A30)`, border: 'none', color: '#fff', padding: '10px 28px', borderRadius: 10, fontWeight: 800, fontSize: 14, cursor: 'pointer', fontFamily: FONT }}>
+                        style={{ display: 'flex', alignItems: 'center', gap: 8, background: `linear-gradient(135deg, ${ACCENT}, #4A8A30)`, border: 'none', color: '#fff', padding: '10px 28px', borderRadius: 10, fontWeight: 800, fontSize: 14, cursor: 'pointer', fontFamily: FONT, animation: 'fujiCtaPulse 1.6s ease-in-out infinite' }}>
                         <Trophy size={16} /> Complete Lesson
                     </button>
                 ) : (
                     <button onClick={actions.nextStep} disabled={!stepComplete && !!step?.target}
-                        style={{ display: 'flex', alignItems: 'center', gap: 6, background: stepComplete || !step?.target ? ACCENT : S_HIGH, border: 'none', color: stepComplete || !step?.target ? '#000' : SUB, padding: '8px 22px', borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: stepComplete || !step?.target ? 'pointer' : 'default', fontFamily: FONT, opacity: !stepComplete && !!step?.target ? 0.5 : 1 }}>
+                        style={{ display: 'flex', alignItems: 'center', gap: 6, background: stepComplete || !step?.target ? ACCENT : S_HIGH, border: 'none', color: stepComplete || !step?.target ? '#000' : SUB, padding: '8px 22px', borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: stepComplete || !step?.target ? 'pointer' : 'default', fontFamily: FONT, opacity: !stepComplete && !!step?.target ? 0.5 : 1, animation: (stepComplete || !step?.target) ? 'fujiCtaPulse 1.6s ease-in-out infinite' : 'none' }}>
                         Next <ChevronRight size={14} />
                     </button>
                 )}

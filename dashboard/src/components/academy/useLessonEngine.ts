@@ -107,6 +107,15 @@ export function useLessonEngine(lesson: LessonSchema | null): [LessonEngineState
         }
     }, [lesson?.id]);
 
+    // Stop playback whenever the lesson player leaves the screen — backing out, completing the
+    // lesson (which also unmounts the player), or navigating away entirely. The DAWStore's
+    // engine is a module-level singleton that outlives this component, so without this its
+    // scheduler keeps running in the background and audio never actually stops.
+    const stop = useDAWStore(s => s.stop);
+    useEffect(() => {
+        return () => { stop(); };
+    }, [stop]);
+
     // Load any real samples the lesson specifies (e.g. picked from the H2H sample pools in
     // the admin UI) into the audio engine, keyed by channel id. AudioEngine.scheduleStep
     // already prefers a loaded sample buffer over synthesizing one, and falls back to the

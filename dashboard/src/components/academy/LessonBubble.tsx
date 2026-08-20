@@ -112,14 +112,26 @@ export const LessonBubble: React.FC<LessonBubbleProps> = ({ container, targetId,
 };
 
 const Pointer: React.FC<{ up?: boolean; offset: number }> = ({ up, offset }) => (
-    <div style={{
-        position: 'absolute', left: `calc(50% + ${offset}px)`, transform: 'translateX(-50%)',
-        ...(up ? { top: -6 } : { bottom: -6 }),
-        width: 0, height: 0,
-        borderLeft: '7px solid transparent',
-        borderRight: '7px solid transparent',
-        ...(up
-            ? { borderBottom: '7px solid rgba(15,19,29,0.96)' }
-            : { borderTop: '7px solid rgba(15,19,29,0.96)' }),
-    }} />
+    <>
+        {/* Bounces the arrow toward whatever it's pointing at, so it reads as an active
+            "look here" cue rather than a static speech-bubble tail. */}
+        <style>{`
+            @keyframes fujiPointerBounce-${up ? 'up' : 'down'} {
+                0%, 100% { transform: translateX(-50%) translateY(0); }
+                50% { transform: translateX(-50%) translateY(${up ? -5 : 5}px); }
+            }
+        `}</style>
+        <div style={{
+            position: 'absolute', left: `calc(50% + ${offset}px)`,
+            ...(up ? { top: -8 } : { bottom: -8 }),
+            width: 0, height: 0,
+            borderLeft: '9px solid transparent',
+            borderRight: '9px solid transparent',
+            ...(up
+                ? { borderBottom: '10px solid #8AD65C' }
+                : { borderTop: '10px solid #8AD65C' }),
+            filter: 'drop-shadow(0 0 5px rgba(138,214,92,0.85))',
+            animation: `fujiPointerBounce-${up ? 'up' : 'down'} 0.85s ease-in-out infinite`,
+        }} />
+    </>
 );
