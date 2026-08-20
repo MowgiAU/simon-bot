@@ -11,6 +11,7 @@
  * the gap — see dawTheme.dawSize.
  */
 import React, { useCallback, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
     ChevronDown, ChevronLeft, ChevronRight, Settings, Volume2,
     Undo2, BarChart3, Columns3, X, Plus,
@@ -356,8 +357,17 @@ export const ChannelRack: React.FC<ChannelRackProps> = ({ highlightChannelId, hi
                 </div>
             </div>
 
-            {/* ── Right-click fill menu ── */}
-            {menu && (
+            {/* ── Right-click fill menu ──
+                Portaled straight to document.body rather than rendered in place. The
+                lesson player wraps this whole simulator in a `backdrop-filter: blur()`
+                glass panel, and per spec that makes the panel the containing block for
+                any `position: fixed` descendant instead of the viewport — Firefox
+                honours that (Chrome has historically been inconsistent about it), so a
+                fixed-position menu using raw viewport coordinates would land far outside
+                the panel and get clipped by its overflow:hidden, invisibly. A portal
+                sidesteps the whole question by placing the menu outside any ancestor
+                that could become its containing block. */}
+            {menu && createPortal(
                 <div
                     // Stop the window-level dismiss handler from firing before the
                     // item's onClick gets a chance to run.
@@ -390,7 +400,8 @@ export const ChannelRack: React.FC<ChannelRackProps> = ({ highlightChannelId, hi
 
                     <div style={{ borderTop: `1px solid ${daw.border}`, margin: '3px 0' }} />
                     <MenuItem label="Clear" onClick={() => applyFill(menu.channelId, 0)} />
-                </div>
+                </div>,
+                document.body,
             )}
         </div>
     );
