@@ -185,17 +185,21 @@ export const FrontpageAltFLearn: React.FC = () => {
         // slug. Fetch the full row and use it verbatim; fall back to the hardcoded
         // FIRST_BEAT_LESSON constant only if the row doesn't exist yet or the request fails,
         // so the lesson always plays even before that row has ever been seeded.
-        setActiveLesson(FIRST_BEAT_LESSON);
+        //
+        // Deliberately NOT setting the placeholder lesson before this resolves: useLessonEngine
+        // only re-initializes the DAW state when `lesson.id` changes, and FIRST_BEAT_LESSON's id
+        // never changes between an eager placeholder and the enriched result — so a later
+        // setActiveLesson with fresh initState would silently never take effect.
         axios.get(`/api/academy/lessons/${FIRST_BEAT_LESSON.slug}`)
             .then(r => {
                 const db = r.data;
-                if (!db) return;
+                if (!db) { setActiveLesson(FIRST_BEAT_LESSON); return; }
                 const steps = Array.isArray(db.steps) && db.steps.length ? db.steps : FIRST_BEAT_LESSON.steps;
                 const assets = Array.isArray(db.assets) ? db.assets : FIRST_BEAT_LESSON.assets;
                 const initState = db.initState || createDefaultDAWState();
                 setActiveLesson({ ...FIRST_BEAT_LESSON, steps, assets, initState });
             })
-            .catch(() => { /* no DB row yet, or not published — keep the default lesson */ });
+            .catch(() => setActiveLesson(FIRST_BEAT_LESSON));
     }, []);
 
     const exitLesson = useCallback(() => {
