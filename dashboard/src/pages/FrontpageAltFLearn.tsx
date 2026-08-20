@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import {
     GraduationCap, BookOpen, Play, ChevronLeft, ChevronRight,
@@ -176,6 +176,7 @@ const AltLessonPlayer: React.FC<{ lesson: LessonSchema; onExit: () => void }> = 
 
 export const FrontpageAltFLearn: React.FC = () => {
     const navigate  = useNavigate();
+    const location  = useLocation();
     const { player } = usePlayer();
 
     const [activeLesson, setActiveLesson] = useState<LessonSchema | null>(null);
@@ -187,32 +188,59 @@ export const FrontpageAltFLearn: React.FC = () => {
         axios.get('/api/academy/lessons').then(r => setApiLessons(r.data || [])).catch(() => {});
     }, []);
 
-    const startLesson = useCallback(() => {
+    // slug is whatever follows /learn/ — undefined on the plain /learn browser page.
+    const slugFromUrl = location.pathname.split('/').filter(Boolean)[1];
+
+    const startLesson = useCallback((slug: string, opts?: { skipNav?: boolean }) => {
         // The lesson is admin-editable in the dashboard (Academy → Edit Lesson) — channels,
         // steps, and sample assets are all stored on an AcademyLesson row with a matching
         // slug. Fetch the full row and use it verbatim; fall back to the hardcoded
-        // FIRST_BEAT_LESSON constant only if the row doesn't exist yet or the request fails,
-        // so the lesson always plays even before that row has ever been seeded.
+        // FIRST_BEAT_LESSON constant only if the requested slug IS first-beat and its row
+        // doesn't exist yet or the request fails, so that one lesson always plays even before
+        // its row has ever been seeded. Any other slug just fails quietly back to the list —
+        // there's no other built-in lesson to fall back to yet.
         //
-        // Deliberately NOT setting the placeholder lesson before this resolves: useLessonEngine
-        // only re-initializes the DAW state when `lesson.id` changes, and FIRST_BEAT_LESSON's id
-        // never changes between an eager placeholder and the enriched result — so a later
-        // setActiveLesson with fresh initState would silently never take effect.
-        axios.get(`/api/academy/lessons/${FIRST_BEAT_LESSON.slug}`)
+        // Deliberately NOT setting a placeholder lesson before this resolves: useLessonEngine
+        // only re-initializes the DAW state when `lesson.id` changes, and re-entering the same
+        // lesson would keep that id the same between an eager placeholder and the enriched
+        // result — so a later setActiveLesson with fresh initState could silently never apply.
+        if (!opts?.skipNav) navigate(`/learn/${slug}`);
+        axios.get(`/api/academy/lessons/${slug}`)
             .then(r => {
                 const db = r.data;
-                if (!db) { setActiveLesson(FIRST_BEAT_LESSON); return; }
-                const steps = Array.isArray(db.steps) && db.steps.length ? db.steps : FIRST_BEAT_LESSON.steps;
-                const assets = Array.isArray(db.assets) ? db.assets : FIRST_BEAT_LESSON.assets;
+                if (!db) throw new Error('not found');
+                const base = slug === FIRST_BEAT_LESSON.slug ? FIRST_BEAT_LESSON : db;
+                const steps = Array.isArray(db.steps) && db.steps.length ? db.steps : base.steps;
+                const assets = Array.isArray(db.assets) ? db.assets : (base.assets ?? []);
                 const initState = db.initState || createDefaultDAWState();
-                setActiveLesson({ ...FIRST_BEAT_LESSON, steps, assets, initState });
+                setActiveLesson({
+                    id: db.id, slug: db.slug, title: db.title, description: db.description ?? '',
+                    category: db.category, difficulty: db.difficulty,
+                    steps, assets, initState,
+                });
             })
-            .catch(() => setActiveLesson(FIRST_BEAT_LESSON));
-    }, []);
+            .catch(() => {
+                if (slug === FIRST_BEAT_LESSON.slug) setActiveLesson(FIRST_BEAT_LESSON);
+                else navigate('/learn', { replace: true });
+            });
+    }, [navigate]);
+
+    // Deep link / refresh: /learn/:slug should start that lesson directly instead of always
+    // landing on the list. Also covers the back button returning to a lesson URL.
+    useEffect(() => {
+        if (slugFromUrl && activeLesson?.slug !== slugFromUrl) {
+            startLesson(slugFromUrl, { skipNav: true });
+        } else if (!slugFromUrl && activeLesson) {
+            // Browser back button went from a lesson URL to the plain list URL.
+            setActiveLesson(null);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [slugFromUrl]);
 
     const exitLesson = useCallback(() => {
         setActiveLesson(null);
-    }, []);
+        navigate('/learn');
+    }, [navigate]);
 
     const totalAvailable = PATHS.reduce((s, p) => s + p.lessons.length, 0);
 
@@ -296,7 +324,7 @@ export const FrontpageAltFLearn: React.FC = () => {
                                             </p>
                                         </div>
                                         <button
-                                            onClick={startLesson}
+                                            onClick={() => startLesson(FIRST_BEAT_LESSON.slug)}
                                             style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '13px 28px', borderRadius: 12, background: ACCENT, border: 'none', color: '#000', fontSize: 15, fontWeight: 800, cursor: 'pointer', fontFamily: FONT, flexShrink: 0 }}>
                                             <Play size={17} /> Start Lesson
                                         </button>
@@ -343,7 +371,7 @@ export const FrontpageAltFLearn: React.FC = () => {
                                                         const dc = DIFF_COLOR[lesson.difficulty] || SUB;
                                                         return (
                                                             <div key={li}
-                                                                onClick={lesson.builtin ? startLesson : undefined}
+                                                                onClick={lesson.builtin ? () => startLesson(FIRST_BEAT_LESSON.slug) : undefined}
                                                                 onMouseEnter={() => setHovLesson(lKey)}
                                                                 onMouseLeave={() => setHovLesson(null)}
                                                                 style={{
