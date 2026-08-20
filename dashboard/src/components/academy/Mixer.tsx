@@ -1,115 +1,134 @@
 /**
- * Mixer — FL Studio 21 mixer console.
- * Slate blue-gray palette, segmented meters, flat faders.
+ * Mixer — FL Studio mixer console, styled after the Stitch Mixer design.
+ *
+ * Layout: an inspector panel on the left (effect slots, EQ, sends, outputs for
+ * whichever insert is selected) and a horizontally-scrolling bank of channel
+ * strips on the right, master first.
+ *
+ * The design's decorative parts stay decorative (effect slots, EQ curve,
+ * output pickers — the simulator has no plugin host behind them), but every
+ * control that maps onto real DAWStore state is wired: fader → volume, knob →
+ * pan, LED → mute, and the inspector's send knob → reverb.
  */
-import React from 'react';
+import React, { useState } from 'react';
+import {
+    Menu, Minus, Square, X, ChevronDown, ChevronUp,
+    Circle, Triangle, Clock, ArrowDown,
+} from 'lucide-react';
 import { FLKnob } from './FLKnob';
 import { useDAWStore } from './DAWStore';
+import { daw, dawFx, dawFont } from './dawTheme';
 
-// FL21 palette
-const BG          = '#3A4050';
-const STRIP_BG    = '#333A48';
-const STRIP_MASTER= '#344038';
-const BORDER      = '#2E3440';
-const TITLE_BG    = '#333A48';
-const LCD_BG      = '#1E2430';
-const METER_BG    = '#1E2430';
-const FADER_TRACK = '#1E2430';
-const FADER_FILL  = '#4A6478';
-const FADER_FILL_M= '#4A7858';
-const FADER_THUMB = 'linear-gradient(180deg, #8090A0 0%, #606878 40%, #4A5268 100%)';
-const LED_ON      = '#8ABF60';
-const LED_MUTE    = '#BF5050';
-const TEXT_DIM    = '#6A7080';
-const TEXT_LIGHT  = '#B0B8C8';
+const STRIP_W = 52;
+const MASTER_W = 64;
+const FADER_H = 120;
+const MAX_GAIN = 1.25;   // matches the previous mixer's range, so audio behaviour is unchanged
 
-/** Vertical fader */
+const vertText: React.CSSProperties = {
+    writingMode: 'vertical-rl',
+    transform: 'rotate(180deg)',
+    letterSpacing: '0.12em',
+};
+
+/** Vertical fader. Drag anywhere on the track; the handle follows the pointer. */
 const Fader: React.FC<{
-    value: number; onChange: (v: number) => void;
-    height?: number; highlight?: boolean; isMaster?: boolean;
-}> = ({ value, onChange, height = 100, highlight, isMaster }) => {
+    value: number;
+    onChange: (v: number) => void;
+    height: number;
+    trackW: number;
+    handleW: number;
+    handleH: number;
+    active?: boolean;
+    highlight?: boolean;
+    /** data-academy-id so lessons can point the coachmark bubble at a specific fader */
+    academyId?: string;
+}> = ({ value, onChange, height, trackW, handleW, handleH, active, highlight, academyId }) => {
     const trackRef = React.useRef<HTMLDivElement>(null);
 
-    const handlePointer = (e: React.PointerEvent) => {
-        if (!trackRef.current || !e.buttons) return;
-        const rect = trackRef.current.getBoundingClientRect();
-        const y = 1 - (e.clientY - rect.top) / rect.height;
-        onChange(Math.max(0, Math.min(1.25, y)));
+    const apply = (clientY: number) => {
+        const el = trackRef.current;
+        if (!el) return;
+        const r = el.getBoundingClientRect();
+        const pct = 1 - (clientY - r.top) / r.height;
+        onChange(Math.max(0, Math.min(MAX_GAIN, pct * MAX_GAIN)));
     };
 
-    const fillPct = Math.min(value / 1.25, 1) * 100;
+    const pct = Math.min(value / MAX_GAIN, 1) * 100;
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            <div
-                ref={trackRef}
-                onPointerDown={e => { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); handlePointer(e); }}
-                onPointerMove={handlePointer}
-                style={{
-                    width: 8, height, cursor: 'pointer',
-                    background: FADER_TRACK,
-                    borderRadius: 2, position: 'relative',
-                    border: highlight ? '1px solid #60C0A0' : `1px solid ${BORDER}`,
-                    boxShadow: highlight ? '0 0 4px rgba(96,192,160,0.3)' : 'none',
-                }}
-            >
-                {/* Groove marks */}
-                {[0.25, 0.5, 0.75, 1.0].map(mark => (
-                    <div key={mark} style={{
-                        position: 'absolute', left: -2, right: -2,
-                        bottom: `${(mark / 1.25) * 100}%`,
-                        height: 1, background: '#4A5268',
+        <div
+            ref={trackRef}
+            data-academy-id={academyId}
+            onPointerDown={e => {
+                (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+                apply(e.clientY);
+            }}
+            onPointerMove={e => { if (e.buttons) { e.preventDefault(); apply(e.clientY); } }}
+            style={{
+                position: 'relative', height, width: handleW,
+                display: 'flex', justifyContent: 'center',
+                cursor: 'pointer',
+                // Without this the browser's own pan gesture can swallow the drag
+                touchAction: 'none',
+            }}
+        >
+            {/* Track */}
+            <div style={{
+                width: trackW, height: '100%',
+                background: daw.well, borderRadius: 2,
+                boxShadow: highlight
+                    ? `${dawFx.faderTrackShadow}, 0 0 0 1px ${daw.green}`
+                    : dawFx.faderTrackShadow,
+                position: 'relative', overflow: 'hidden',
+            }}>
+                {active && (
+                    <div style={{
+                        position: 'absolute', bottom: 0, left: 0, right: 0,
+                        height: `${pct}%`, background: daw.green, opacity: 0.5,
                     }} />
-                ))}
-                {/* Fill */}
-                <div style={{
-                    position: 'absolute', bottom: 0, left: 1, right: 1,
-                    height: `${fillPct}%`,
-                    background: isMaster ? FADER_FILL_M : FADER_FILL,
-                    borderRadius: '0 0 1px 1px',
-                    transition: 'height 0.04s',
-                }} />
-                {/* Thumb */}
-                <div style={{
-                    position: 'absolute', left: '50%', bottom: `${fillPct}%`,
-                    transform: 'translate(-50%, 50%)',
-                    width: 16, height: 10, borderRadius: 2,
-                    background: FADER_THUMB,
-                    border: `1px solid #8090A0`,
-                    boxShadow: '0 1px 3px rgba(0,0,0,0.4)',
-                }} />
+                )}
             </div>
+            {/* Handle */}
+            <div style={{
+                position: 'absolute', left: '50%', bottom: `${pct}%`,
+                transform: 'translate(-50%, 50%)',
+                width: handleW, height: handleH, borderRadius: 2,
+                background: active ? dawFx.faderHandleActive : dawFx.faderHandle,
+                border: `1px solid ${active ? daw.greenEdge : '#555'}`,
+                boxShadow: dawFx.faderHandleShadow,
+                pointerEvents: 'none',
+            }} />
         </div>
     );
 };
 
-/** Segmented peak meter */
-const PeakMeter: React.FC<{ value: number }> = ({ value }) => {
-    const segments = 16;
-    const litCount = Math.round(Math.min(value, 1) * segments);
-    return (
-        <div style={{
-            display: 'flex', flexDirection: 'column-reverse', gap: '1px',
-            width: 4, height: 100,
-        }}>
-            {Array.from({ length: segments }, (_, i) => {
-                const lit = i < litCount;
-                const isRed = i >= 14;
-                const isYellow = i >= 11 && i < 14;
-                return (
-                    <div key={i} style={{
-                        flex: 1,
-                        borderRadius: 0.5,
-                        background: lit
-                            ? isRed ? '#C05050' : isYellow ? '#B0A050' : '#5A9A50'
-                            : '#2A3040',
-                        transition: 'background 0.05s',
-                    }} />
-                );
-            })}
+const Led: React.FC<{ on: boolean; onClick?: () => void; title?: string }> = ({ on, onClick, title }) => (
+    <div
+        onClick={onClick}
+        title={title}
+        style={{
+            width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
+            background: on ? daw.green : daw.well,
+            boxShadow: on ? dawFx.ledOn : dawFx.ledOff,
+            cursor: onClick ? 'pointer' : 'default',
+        }}
+    />
+);
+
+/** Inspector row / output picker — decorative, matching the design's dropdowns */
+const PickerRow: React.FC<{ icon?: React.ReactNode; label: string }> = ({ icon, label }) => (
+    <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        background: daw.dark, border: `1px solid ${daw.border}`, borderRadius: 3,
+        padding: '3px 8px', fontSize: 11,
+    }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+            {icon}
+            <span style={{ color: daw.white }}>{label}</span>
         </div>
-    );
-};
+        <ChevronDown size={12} color={daw.text} />
+    </div>
+);
 
 interface MixerProps {
     highlightInserts?: number[];
@@ -124,98 +143,247 @@ export const Mixer: React.FC<MixerProps> = ({ highlightInserts }) => {
     const setInsertReverb = useDAWStore(s => s.setInsertReverb);
     const setMasterVolume = useDAWStore(s => s.setMasterVolume);
 
+    // Which strip the inspector is describing. Insert 1 if present, else master.
+    const [selectedId, setSelectedId] = useState<number>(() => inserts[1]?.id ?? inserts[0]?.id ?? 0);
+    const selected = inserts.find(i => i.id === selectedId) ?? inserts[0];
+
     return (
         <div style={{
-            background: BG,
-            fontFamily: "'Segoe UI', Tahoma, sans-serif",
+            background: daw.bg,
+            fontFamily: dawFont.sans,
+            color: daw.text,
+            display: 'flex', flexDirection: 'column',
             overflow: 'hidden',
         }}>
-            {/* Title bar */}
-            <div style={{
-                height: 26,
-                background: TITLE_BG,
-                borderBottom: `1px solid #4A5060`,
-                display: 'flex', alignItems: 'center',
-                padding: '0 10px',
-            }}>
-                <span style={{ fontSize: '11px', color: TEXT_LIGHT, fontWeight: 500 }}>Mixer</span>
-            </div>
+            {/* Channel-strip scrollbar — pseudo-elements can't be set inline */}
+            <style>{`
+                .fuji-mixer-scroll::-webkit-scrollbar { height: 8px; }
+                .fuji-mixer-scroll::-webkit-scrollbar-track { background: ${daw.dark}; }
+                .fuji-mixer-scroll::-webkit-scrollbar-thumb {
+                    background: ${daw.highlight}; border-radius: 4px;
+                }
+            `}</style>
 
-            <div style={{
-                display: 'flex', gap: '1px',
-                overflowX: 'auto', padding: '4px',
-                background: '#2E3440',
+            {/* ── Title bar ── */}
+            <header style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                background: daw.dark, borderBottom: `1px solid ${daw.border}`,
+                padding: '4px 12px', fontSize: 11, userSelect: 'none',
             }}>
-                {inserts.map((ins, idx) => {
-                    const isMaster = idx === 0;
-                    const hl = highlightInserts?.includes(ins.id) ?? false;
-                    const vol = isMaster ? masterVolume : ins.volume;
-                    const dbVal = vol === 0 ? '-∞' : `${(20 * Math.log10(vol)).toFixed(1)}`;
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: daw.textBright }}>
+                    <Menu size={12} />
+                    <span style={{ fontWeight: 600 }}>Mixer — {selected?.label ?? 'Master'}</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 16, color: daw.text }}>
+                    <span style={{ fontSize: 10 }}>Wide</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <Minus size={12} /><Square size={10} /><X size={12} />
+                    </div>
+                </div>
+            </header>
 
-                    return (
-                        <div key={ins.id} data-academy-id={`mixer-insert-${ins.id}`} style={{
-                            width: 52,
-                            padding: '6px 3px',
-                            background: isMaster ? STRIP_MASTER : STRIP_BG,
-                            borderRadius: '2px',
-                            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px',
-                            border: hl ? '1px solid #60C0A0' : `1px solid ${BORDER}`,
-                            boxShadow: hl ? '0 0 6px rgba(96,192,160,0.3)' : 'none',
-                        }}>
-                            {/* Insert label */}
-                            <span style={{
-                                fontSize: '8px', fontWeight: 600,
-                                color: isMaster ? LED_ON : TEXT_DIM,
-                                letterSpacing: '0.03em',
-                                whiteSpace: 'nowrap',
+            {/* ── Main ── */}
+            <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+                {/* Inspector */}
+                <aside style={{
+                    width: 220, flexShrink: 0,
+                    background: daw.panel, borderRight: `1px solid ${daw.border}`,
+                    display: 'flex', flexDirection: 'column', gap: 8, padding: 8,
+                }}>
+                    <PickerRow label="(none)" />
+
+                    {/* Effect slots — decorative; there's no plugin host to open */}
+                    <div style={{
+                        border: `1px solid ${daw.border}`, background: daw.bg,
+                        borderRadius: 3, padding: 4,
+                        display: 'flex', flexDirection: 'column', gap: 2,
+                    }}>
+                        {Array.from({ length: 8 }, (_, i) => (
+                            <div key={i} style={{
+                                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                padding: '1px 6px', borderRadius: 2, fontSize: 11,
+                                color: daw.textDim,
                             }}>
-                                {ins.label}
-                            </span>
-
-                            {/* Pan */}
-                            <FLKnob value={ins.pan} min={-1} max={1} onChange={v => setInsertPan(ins.id, v)}
-                                size={16} color="#8A9AB0" />
-
-                            {/* Fader + peak meter */}
-                            <div style={{ display: 'flex', gap: '2px', alignItems: 'flex-end' }}>
-                                <PeakMeter value={vol} />
-                                <Fader
-                                    value={vol}
-                                    onChange={v => isMaster ? setMasterVolume(v) : setInsertVolume(ins.id, v)}
-                                    height={90}
-                                    highlight={hl}
-                                    isMaster={isMaster}
-                                />
+                                <span>▾ Slot {i + 1}</span>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                                    <div style={{
+                                        width: 12, height: 12, borderRadius: '50%',
+                                        border: `1px solid ${daw.textDim}`,
+                                    }} />
+                                    <Led on />
+                                </div>
                             </div>
+                        ))}
+                    </div>
 
-                            {/* dB readout */}
-                            <span style={{
-                                fontSize: '8px', color: TEXT_DIM, fontFamily: 'monospace',
-                                background: LCD_BG, padding: '1px 3px', borderRadius: 1,
-                            }}>
-                                {dbVal}
-                            </span>
+                    {/* EQ visualiser — decorative */}
+                    <div style={{
+                        height: 96, position: 'relative', borderRadius: 3,
+                        background: daw.dark, border: `1px solid ${daw.border}`, padding: 8,
+                    }}>
+                        <div style={{
+                            position: 'absolute', inset: 8, borderRadius: 3,
+                            border: `1px dashed ${daw.textDim}`, opacity: 0.3,
+                        }} />
+                        <div style={{
+                            position: 'absolute', left: 8, right: 8, top: '50%',
+                            height: 2, background: daw.textDim, transform: 'translateY(-50%)',
+                        }} />
+                        <span style={{
+                            position: 'absolute', bottom: 4, left: 8,
+                            fontSize: 10, color: daw.textDim,
+                        }}>Equalizer</span>
+                    </div>
 
-                            {/* Mute LED */}
-                            <div
-                                onClick={() => toggleInsertMute(ins.id)}
-                                style={{
-                                    width: 6, height: 6, borderRadius: '50%',
-                                    background: ins.muted ? LED_MUTE : LED_ON,
-                                    boxShadow: `0 0 3px ${ins.muted ? LED_MUTE : LED_ON}50`,
-                                    cursor: 'pointer',
-                                }}
-                                title={ins.muted ? 'Unmute' : 'Mute'}
+                    {/* Send — the one inspector control that's wired to real state */}
+                    {selected && (
+                        <div style={{
+                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                            background: daw.dark, border: `1px solid ${daw.border}`,
+                            borderRadius: 3, padding: '4px 8px',
+                        }}>
+                            <span style={{ fontSize: 11 }}>Reverb send</span>
+                            <FLKnob
+                                value={selected.reverbWet}
+                                onChange={v => setInsertReverb(selected.id, v)}
+                                size={22} color={daw.green} label="Reverb send" showLabel={false}
                             />
-
-                            {/* Reverb knob (non-master) */}
-                            {!isMaster && (
-                                <FLKnob value={ins.reverbWet} onChange={v => setInsertReverb(ins.id, v)}
-                                    size={16} label="Rev" color="#6A8AAA" />
-                            )}
                         </div>
-                    );
-                })}
+                    )}
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        <PickerRow icon={<Circle size={11} color={daw.text} fill={daw.text} />} label="(none)" />
+                        <PickerRow icon={<Triangle size={11} color={daw.text} fill={daw.text} />} label="(none)" />
+                    </div>
+                </aside>
+
+                {/* Channel strips */}
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: daw.bg, overflow: 'hidden' }}>
+                    <div className="fuji-mixer-scroll" style={{
+                        flex: 1, display: 'flex', gap: 4, padding: 8, overflowX: 'auto',
+                    }}>
+                        {inserts.map((ins, idx) => {
+                            const isMaster = idx === 0;
+                            const isSelected = ins.id === selectedId;
+                            const hl = highlightInserts?.includes(ins.id) ?? false;
+                            const vol = isMaster ? masterVolume : ins.volume;
+                            const width = isMaster ? MASTER_W : STRIP_W;
+
+                            return (
+                                <React.Fragment key={ins.id}>
+                                    <div
+                                        onClick={() => setSelectedId(ins.id)}
+                                        data-academy-id={`mixer-insert-${ins.id}`}
+                                        style={{
+                                            width, flexShrink: 0,
+                                            display: 'flex', flexDirection: 'column', alignItems: 'center',
+                                            padding: '8px 0', borderRadius: 3, cursor: 'pointer',
+                                            background: isSelected ? daw.highlight : daw.panel,
+                                            border: `1px solid ${hl ? daw.green : daw.border}`,
+                                            boxShadow: hl ? `0 0 8px ${daw.green}88` : 'none',
+                                        }}>
+                                        {/* Number / M badge */}
+                                        <div style={{
+                                            fontSize: 10, marginBottom: 4,
+                                            color: isSelected ? daw.white : daw.text,
+                                            fontWeight: isSelected ? 700 : 400,
+                                            border: isSelected ? `1px solid ${daw.green}` : '1px solid transparent',
+                                            borderRadius: 2, padding: '0 4px',
+                                            ...(isMaster ? {
+                                                width: '100%', textAlign: 'center' as const,
+                                                borderBottom: `1px solid ${daw.textDim}`,
+                                                paddingBottom: 4, borderRadius: 0,
+                                            } : {}),
+                                        }}>
+                                            {isMaster ? 'M' : idx}
+                                        </div>
+
+                                        {/* Vertical label */}
+                                        <div style={{
+                                            ...vertText,
+                                            height: 84, margin: '10px 0', fontSize: 11,
+                                            color: isSelected ? daw.white : daw.textBright,
+                                            whiteSpace: 'nowrap', overflow: 'hidden',
+                                        }}>
+                                            {ins.label}
+                                        </div>
+
+                                        <Led
+                                            on={!ins.muted}
+                                            onClick={() => toggleInsertMute(ins.id)}
+                                            title={ins.muted ? 'Unmute' : 'Mute'}
+                                        />
+
+                                        {/* Pan */}
+                                        <div style={{ margin: '8px 0' }}>
+                                            <FLKnob
+                                                value={ins.pan} min={-1} max={1}
+                                                onChange={v => setInsertPan(ins.id, v)}
+                                                size={isMaster ? 32 : 28}
+                                                color={daw.green}
+                                                label="Pan" showLabel={false}
+                                            />
+                                        </div>
+
+                                        {!isMaster && (
+                                            <div style={{
+                                                display: 'flex', alignItems: 'center', gap: 6,
+                                                color: daw.textDim, fontSize: 9, marginBottom: 6,
+                                            }}>
+                                                <ChevronDown size={9} />
+                                                <div style={{ width: 6, height: 6, borderRadius: '50%', background: daw.textDim }} />
+                                                <ChevronUp size={9} />
+                                            </div>
+                                        )}
+
+                                        {/* Fader */}
+                                        <Fader
+                                            value={vol}
+                                            onChange={v => isMaster ? setMasterVolume(v) : setInsertVolume(ins.id, v)}
+                                            academyId={`mixer-fader-${ins.id}`}
+                                            height={FADER_H}
+                                            trackW={isMaster ? 8 : 6}
+                                            handleW={isMaster ? 24 : 20}
+                                            handleH={isMaster ? 16 : 12}
+                                            active={isSelected && !ins.muted}
+                                            highlight={hl}
+                                        />
+
+                                        {/* Bottom cluster */}
+                                        <div style={{
+                                            marginTop: 10, display: 'flex', flexDirection: 'column',
+                                            alignItems: 'center', gap: 8, color: daw.textDim,
+                                        }}>
+                                            {isMaster
+                                                ? <div style={{ width: 14, height: 14, borderRadius: '50%', border: `1px solid ${daw.textDim}` }} />
+                                                : <Clock size={12} />}
+                                            <div style={{ width: 6, height: 6, borderRadius: '50%', background: daw.textDim }} />
+                                            {isSelected
+                                                ? <ArrowDown size={15} color={daw.green} />
+                                                : <ChevronUp size={12} />}
+                                        </div>
+                                    </div>
+
+                                    {/* Divider after master, as in the design */}
+                                    {isMaster && (
+                                        <div style={{ width: 4, flexShrink: 0, background: daw.dark, margin: '0 4px' }} />
+                                    )}
+                                </React.Fragment>
+                            );
+                        })}
+                    </div>
+
+                    {/* Bottom rail */}
+                    <div style={{
+                        height: 16, background: daw.dark, borderTop: `1px solid ${daw.border}`,
+                        display: 'flex', alignItems: 'center', padding: '0 8px',
+                    }}>
+                        <div style={{
+                            height: 4, width: '25%', margin: '0 auto',
+                            background: daw.textDim, borderRadius: 9999,
+                        }} />
+                    </div>
+                </div>
             </div>
         </div>
     );

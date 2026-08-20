@@ -1,67 +1,89 @@
 /**
  * dawTheme — shared skin tokens for the Academy DAW simulator.
  *
- * Ported from the Stitch Channel Rack design (Material-style dark surfaces,
- * lime primary, peach active pads, cyan playhead). Lives here rather than in
- * `theme/theme.ts` on purpose: this is a *simulated FL Studio window*, not
- * site chrome, so it deliberately doesn't inherit the Fuji Studio palette.
- * Every simulator component (ChannelRack, Transport, DAWSimulator, FLKnob)
- * reads from this one file so the window stays visually coherent.
+ * Palette ported from the Stitch Mixer design, which tracks real FL Studio far
+ * more closely than the earlier Material-style dark scheme: slate-green greys,
+ * near-black recesses, a single green accent for LEDs and active controls.
+ *
+ * Lives here rather than in `theme/theme.ts` on purpose: this is a *simulated
+ * FL Studio window*, not site chrome, so it deliberately doesn't inherit the
+ * Fuji Studio palette. Every simulator component (ChannelRack, Mixer,
+ * Transport, DAWSimulator, FLKnob) reads from this one file so the window
+ * can't drift apart piece by piece.
  */
 
 export const daw = {
-    // Surfaces, lightest-recessed → most-raised
-    surfaceContainerLowest: '#0c0e10',
-    surface:                '#121416',
-    surfaceContainerLow:    '#1a1c1e',
-    surfaceContainer:       '#1e2022',
-    surfaceContainerHigh:   '#282a2c',
-    surfaceVariant:         '#333537',
-    surfaceBright:          '#37393b',
+    // ── Window chrome ──
+    bg:        '#333b3f',  // window body / channel area
+    panel:     '#414a51',  // raised surfaces: strips, inspector, instrument rows
+    dark:      '#2a3135',  // title bars, footers, recessed grid area
+    border:    '#22282b',
+    well:      '#1a1f22',  // deepest recess: fader tracks, unlit LEDs, wells
+    highlight: '#525a61',  // hover, scrollbar thumb, raised edge
 
-    // Lines & text
-    outlineVariant:  '#444933',
-    outline:         '#8e9379',
-    onSurface:       '#e2e2e5',
-    onSurfaceVariant:'#c4c9ac',
+    // ── Accent ──
+    green:       '#80c040',
+    greenBright: '#a0e050',
+    greenDark:   '#70b030',
+    greenEdge:   '#407010',
 
-    // Accents
-    primaryContainer:  '#c3f400',  // lime — LEDs, beat markers, lesson highlight
-    onPrimary:         '#283500',
-    ledRim:            '#161e00',
-    secondary:         '#ffb59e',  // peach — lit step
-    stepOnBorder:      '#852400',
-    stepAltBorder:     '#3a0b00',
-    tertiaryContainer: '#7df4ff',  // cyan — transport playhead
-    onTertiaryContainer:'#006f77',
+    // ── Text ──
+    text:       '#98a0a5',
+    textBright: '#d0d5d8',
+    textDim:    '#6b7378',
+    white:      '#ffffff',
+
+    /**
+     * Channel-rack step colours. Deliberately red rather than the scheme's
+     * green: in real FL these sit alongside exactly this slate chrome, and
+     * green is already spoken for by LEDs and active faders — a green "on"
+     * step would collide with both.
+     */
+    stepOnEdge: '#5a2a22',
+    stepAltEdge:'#2b3136',
+    /** Playhead: bright neutral so it reads over lit (red) and unlit (slate) alike */
+    playhead:   '#d0d5d8',
 } as const;
 
 export const dawFx = {
+    // Knobs — radial highlight from upper-left, like the design's .knob
+    knob:       'radial-gradient(circle at 30% 30%, #5a6368, #2a3135)',
+    knobShadow: '0 2px 4px rgba(0,0,0,0.3), inset 0 1px 1px rgba(255,255,255,0.1)',
+
+    // Faders
+    faderTrackShadow:  'inset 0 2px 5px rgba(0,0,0,0.5)',
+    faderHandle:       'linear-gradient(to bottom, #d0d5d8, #a0a5a8)',
+    faderHandleActive: 'linear-gradient(to bottom, #a0e050, #70b030)',
+    faderHandleShadow: '0 2px 4px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.8)',
+
+    // LEDs
+    ledOff: 'inset 0 1px 2px rgba(0,0,0,0.5)',
+    ledOn:  '0 0 5px #80c040, inset 0 1px 1px rgba(255,255,255,0.5)',
+
+    // Channel-rack step pads. Beat groups 2 & 4 take `padAlt` so the 4/4 grid
+    // reads through shading instead of extra gutters.
+    padOff:    'linear-gradient(to bottom, #525a61 0%, #414a51 100%)',
+    padAlt:    'linear-gradient(to bottom, #454d54 0%, #363d43 100%)',
+    padOn:     'linear-gradient(to bottom, #a0524a 0%, #8a423a 55%, #78382f 100%)',
+    padShadow: 'inset 0 1px 0 rgba(255,255,255,0.12), 0 1px 2px rgba(0,0,0,0.4)',
+
+    // Raised buttons (channel names, plugin slots)
+    btnSurface: 'linear-gradient(to bottom, #525a61 0%, #414a51 100%)',
+    btnShadow:  'inset 0 1px 0 rgba(255,255,255,0.12), 0 1px 2px rgba(0,0,0,0.4)',
+
     innerShadowWell: 'inset 0 2px 4px rgba(0,0,0,0.5)',
-
-    knobGradient: 'linear-gradient(135deg, #37393b 0%, #1e2022 100%)',
-    knobShadow:   '0 1px 2px rgba(0,0,0,0.8), inset 0 1px 1px rgba(255,255,255,0.1)',
-
-    /** Steps in beat groups 1 & 3 — neutral */
-    padInactive: 'linear-gradient(to bottom, #333537 0%, #1e2022 100%)',
-    /** Steps in beat groups 2 & 4 — warm tint, so the 4/4 grid reads without extra gaps */
-    padAlt:      'linear-gradient(to bottom, #4a3b38 0%, #2a201e 100%)',
-    padShadow:   'inset 0 1px 0 rgba(255,255,255,0.05), 0 1px 2px rgba(0,0,0,0.8)',
-
-    btnSurface: 'linear-gradient(to bottom, #37393b 0%, #282a2c 100%)',
-    btnShadow:  'inset 0 1px 0 rgba(255,255,255,0.1), 0 1px 2px rgba(0,0,0,0.6)',
+    windowShadow:    '0 10px 30px rgba(0,0,0,0.5)',
 } as const;
 
-/** The design calls for JetBrains Mono / Hanken Grotesk; neither is loaded by the
- *  app, so keep the typographic *roles* (mono for numeric + caps labels) using
- *  stacks that need no network request. */
+/** The Stitch designs call for Segoe UI; keep a mono stack for numeric and caps
+ *  labels. Neither needs a network request. */
 export const dawFont = {
-    sans: "'Segoe UI', Tahoma, sans-serif",
+    sans: "'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
     mono: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
 } as const;
 
-/** Shared geometry so the instruments module and the sequencer module stay
- *  row-aligned — both start with a HEADER_H strip, then ROW_H rows at ROW_GAP. */
+/** Channel-rack geometry. The instruments and sequencer modules both open with
+ *  a HEADER_H strip so their rows stay aligned across the gap. */
 export const dawSize = {
     padW: 16,
     padH: 24,

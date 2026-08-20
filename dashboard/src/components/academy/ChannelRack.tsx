@@ -1,10 +1,14 @@
 /**
- * ChannelRack — step sequencer, styled after the Stitch Channel Rack design.
+ * ChannelRack — step sequencer.
  *
- * Layout is two side-by-side modules (instruments | sequencer) rather than one
- * continuous row, with the 4/4 grid conveyed by alternating warm/neutral pad
- * groups instead of extra gutters. Both modules open with a HEADER_H strip so
- * their rows stay aligned across the gap — see dawTheme.dawSize.
+ * Layout comes from the Stitch Channel Rack design: two side-by-side modules
+ * (instruments | sequencer), with the 4/4 grid conveyed by alternating
+ * warm/neutral pad groups rather than extra gutters. Colours come from the
+ * Stitch Mixer design (see dawTheme), which tracks real FL Studio much more
+ * closely than the original mockup's Material palette.
+ *
+ * Both modules open with a HEADER_H strip so their rows stay aligned across
+ * the gap — see dawTheme.dawSize.
  */
 import React from 'react';
 import {
@@ -50,7 +54,7 @@ export const ChannelRack: React.FC<ChannelRackProps> = ({ highlightChannelId, hi
 
     return (
         <div style={{
-            background: daw.surfaceContainer,
+            background: daw.bg,
             fontFamily: dawFont.sans,
             display: 'flex', flexDirection: 'column',
             overflow: 'hidden',
@@ -59,32 +63,32 @@ export const ChannelRack: React.FC<ChannelRackProps> = ({ highlightChannelId, hi
             <div style={{
                 display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                 height: S.barH, padding: `0 ${S.modulePad}px`,
-                background: daw.surfaceContainerHigh,
-                borderBottom: `1px solid ${daw.outlineVariant}`,
+                background: daw.dark,
+                borderBottom: `1px solid ${daw.border}`,
             }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                    <ChevronDown size={16} color={daw.onSurfaceVariant} />
-                    <Settings size={16} color={daw.onSurfaceVariant} />
+                    <ChevronDown size={16} color={daw.text} />
+                    <Settings size={16} color={daw.text} />
                     {/* Channel filter — decorative; the simulator always shows every channel */}
                     <div style={{
                         display: 'flex', alignItems: 'center', gap: 8, height: 24, padding: '0 8px',
-                        background: daw.surfaceContainerLowest,
-                        border: `1px solid ${daw.outlineVariant}`, borderRadius: 2,
+                        background: daw.well,
+                        border: `1px solid ${daw.border}`, borderRadius: 3,
                     }}>
-                        <span style={{ ...capsLabel, color: daw.onSurface }}>All</span>
-                        <ChevronDown size={14} color={daw.onSurfaceVariant} />
+                        <span style={{ ...capsLabel, color: daw.white }}>All</span>
+                        <ChevronDown size={14} color={daw.text} />
                     </div>
-                    <div style={{ height: 16, borderRight: `1px solid ${daw.outlineVariant}` }} />
+                    <div style={{ height: 16, borderRight: `1px solid ${daw.border}` }} />
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <Volume2 size={18} color={daw.onSurface} />
-                        <span style={{ fontSize: 16, fontWeight: 700, color: daw.onSurface }}>Channel rack</span>
+                        <Volume2 size={18} color={daw.textBright} />
+                        <span style={{ fontSize: 13, fontWeight: 600, color: daw.textBright }}>Channel rack</span>
                     </div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <Undo2 size={18} color={daw.onSurfaceVariant} />
-                    <BarChart3 size={18} color={daw.onSurfaceVariant} />
-                    <Columns3 size={18} color={daw.onSurfaceVariant} />
-                    <X size={18} color={daw.onSurfaceVariant} />
+                    <Undo2 size={16} color={daw.text} />
+                    <BarChart3 size={16} color={daw.text} />
+                    <Columns3 size={16} color={daw.text} />
+                    <X size={16} color={daw.text} />
                 </div>
             </div>
 
@@ -92,19 +96,18 @@ export const ChannelRack: React.FC<ChannelRackProps> = ({ highlightChannelId, hi
             <div style={{
                 display: 'flex', flexDirection: 'row', gap: S.moduleGap,
                 padding: S.modulePad,
-                background: daw.surface,
-                boxShadow: dawFx.innerShadowWell,
+                background: daw.bg,
                 flex: 1, overflowX: 'auto',
             }}>
                 {/* Instruments */}
                 <div style={{
                     display: 'flex', flexDirection: 'column', gap: S.rowGap,
                     padding: S.modulePad, flexShrink: 0,
-                    background: daw.surfaceContainer,
-                    border: `1px solid ${daw.outlineVariant}`, borderRadius: 4,
+                    background: daw.panel,
+                    border: `1px solid ${daw.border}`, borderRadius: 3,
                 }}>
                     <div style={{ height: S.headerH, display: 'flex', alignItems: 'center' }}>
-                        <span style={{ ...capsLabel, color: daw.onSurfaceVariant, opacity: 0.7 }}>CHANNEL</span>
+                        <span style={{ ...capsLabel, color: daw.textDim }}>CHANNEL</span>
                     </div>
 
                     {channels.map(ch => (
@@ -118,31 +121,28 @@ export const ChannelRack: React.FC<ChannelRackProps> = ({ highlightChannelId, hi
                                 style={{
                                     width: S.led, height: S.led, borderRadius: '50%', flexShrink: 0,
                                     cursor: 'pointer',
-                                    border: `1px solid ${daw.ledRim}`,
-                                    background: ch.muted ? daw.surfaceContainerLowest : daw.primaryContainer,
-                                    boxShadow: ch.muted
-                                        ? dawFx.innerShadowWell
-                                        : `0 0 6px ${daw.primaryContainer}, inset 0 1px 2px rgba(255,255,255,0.8)`,
+                                    background: ch.muted ? daw.well : daw.green,
+                                    boxShadow: ch.muted ? dawFx.ledOff : dawFx.ledOn,
                                 }}
                             />
 
                             {/* Volume / pan */}
                             <div style={{ display: 'flex', gap: 4 }}>
                                 <FLKnob value={ch.volume} onChange={v => setChannelVolume(ch.id, v)}
-                                    size={S.knob} color={daw.primaryContainer} label="Volume" showLabel={false} />
+                                    size={S.knob} color={daw.green} label="Volume" showLabel={false} />
                                 <FLKnob value={ch.pan} min={-1} max={1} onChange={v => setChannelPan(ch.id, v)}
-                                    size={S.knob} color={daw.primaryContainer} label="Pan" showLabel={false} />
+                                    size={S.knob} color={daw.green} label="Pan" showLabel={false} />
                             </div>
 
                             {/* Decorative — FL's plugin picker; the simulator has no plugin browser */}
                             <div style={{
                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                                 width: S.pluginW, height: S.rowH, flexShrink: 0,
-                                background: daw.surfaceContainerLow,
-                                border: `1px solid ${daw.outlineVariant}`, borderRadius: 2,
+                                background: daw.well,
+                                border: `1px solid ${daw.border}`, borderRadius: 3,
                                 boxShadow: dawFx.innerShadowWell,
                             }}>
-                                <span style={{ fontSize: 10, color: daw.onSurfaceVariant }}>---</span>
+                                <span style={{ fontSize: 10, color: daw.textDim }}>---</span>
                             </div>
 
                             {/* Channel name */}
@@ -152,16 +152,16 @@ export const ChannelRack: React.FC<ChannelRackProps> = ({ highlightChannelId, hi
                                     width: S.nameW, height: S.rowH, flexShrink: 0,
                                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                                     background: dawFx.btnSurface,
-                                    borderRadius: 2,
-                                    border: `1px solid ${isChannelHighlighted(ch.id) ? daw.primaryContainer : daw.outlineVariant}`,
+                                    borderRadius: 3,
+                                    border: `1px solid ${isChannelHighlighted(ch.id) ? daw.green : daw.border}`,
                                     boxShadow: isChannelHighlighted(ch.id)
-                                        ? `${dawFx.btnShadow}, 0 0 10px ${daw.primaryContainer}88`
+                                        ? `${dawFx.btnShadow}, 0 0 10px ${daw.green}99`
                                         : dawFx.btnShadow,
                                 }}>
                                 <span style={{
-                                    fontFamily: dawFont.mono, fontSize: 12, fontWeight: 500,
-                                    color: ch.muted ? daw.onSurfaceVariant : daw.onSurface,
-                                    opacity: ch.muted ? 0.5 : 1,
+                                    fontSize: 12, fontWeight: 500,
+                                    color: ch.muted ? daw.text : daw.textBright,
+                                    opacity: ch.muted ? 0.6 : 1,
                                     whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                                     padding: '0 8px',
                                 }}>
@@ -176,8 +176,9 @@ export const ChannelRack: React.FC<ChannelRackProps> = ({ highlightChannelId, hi
                 <div style={{
                     display: 'flex', flexDirection: 'column', gap: S.rowGap,
                     padding: S.modulePad, flex: 1, minWidth: 'max-content',
-                    background: daw.surfaceContainerLow,
-                    border: `1px solid ${daw.outlineVariant}`, borderRadius: 4,
+                    background: daw.dark,
+                    border: `1px solid ${daw.border}`, borderRadius: 3,
+                    boxShadow: dawFx.innerShadowWell,
                 }}>
                     {/* Step-number ruler */}
                     <div style={{ display: 'flex', gap: S.padGap, height: S.headerH, alignItems: 'center' }}>
@@ -187,8 +188,7 @@ export const ChannelRack: React.FC<ChannelRackProps> = ({ highlightChannelId, hi
                                 <div key={i} style={{
                                     ...capsLabel,
                                     width: S.padW, textAlign: 'center',
-                                    color: isBeat ? daw.primaryContainer : daw.onSurfaceVariant,
-                                    opacity: isBeat ? 1 : 0.45,
+                                    color: isBeat ? daw.green : daw.textDim,
                                 }}>
                                     {i + 1}
                                 </div>
@@ -203,36 +203,33 @@ export const ChannelRack: React.FC<ChannelRackProps> = ({ highlightChannelId, hi
                             {ch.steps.map((on, i) => {
                                 const isPlayhead = playing && currentStep === i;
                                 const hl = isStepHighlighted(ch.id, i);
-                                // Beat groups 2 & 4 get the warm tint — this is what conveys the
-                                // 4/4 grid in this design, replacing the old wider group gutters.
+                                // Beat groups 2 & 4 take the darker shade — this is what conveys
+                                // the 4/4 grid in this design, replacing wider group gutters.
                                 const isAltGroup = Math.floor(i / 4) % 2 === 1;
 
                                 let background: string;
                                 let borderColor: string;
-                                let boxShadow: string;
+                                let boxShadow: string = dawFx.padShadow;
                                 if (on) {
-                                    background = daw.secondary;
-                                    borderColor = daw.stepOnBorder;
-                                    boxShadow = `0 0 8px ${daw.secondary}, inset 0 1px 2px rgba(255,255,255,0.5)`;
+                                    background = dawFx.padOn;
+                                    borderColor = daw.stepOnEdge;
                                 } else if (isAltGroup) {
                                     background = dawFx.padAlt;
-                                    borderColor = daw.stepAltBorder;
-                                    boxShadow = dawFx.padShadow;
+                                    borderColor = daw.stepAltEdge;
                                 } else {
-                                    background = dawFx.padInactive;
-                                    borderColor = daw.outlineVariant;
-                                    boxShadow = dawFx.padShadow;
+                                    background = dawFx.padOff;
+                                    borderColor = daw.border;
                                 }
                                 if (isPlayhead) {
-                                    background = daw.tertiaryContainer;
-                                    borderColor = daw.onTertiaryContainer;
-                                    boxShadow = `0 0 8px ${daw.tertiaryContainer}`;
+                                    background = daw.playhead;
+                                    borderColor = daw.white;
+                                    boxShadow = `0 0 8px ${daw.playhead}`;
                                 }
-                                // Ring via box-shadow, not a thicker border, so the lesson
-                                // highlight can't nudge the grid's layout as it moves.
+                                // Ring via box-shadow, not a thicker border, so the moving
+                                // lesson highlight can't nudge the grid's layout.
                                 if (hl) {
-                                    borderColor = daw.primaryContainer;
-                                    boxShadow = `0 0 0 2px ${daw.primaryContainer}, 0 0 12px ${daw.primaryContainer}AA`;
+                                    borderColor = daw.green;
+                                    boxShadow = `0 0 0 2px ${daw.green}, 0 0 12px ${daw.green}AA`;
                                 }
 
                                 return (
@@ -260,25 +257,25 @@ export const ChannelRack: React.FC<ChannelRackProps> = ({ highlightChannelId, hi
             <div style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 height: S.barH, padding: `0 ${S.modulePad}px`,
-                background: daw.surfaceContainerHigh,
-                borderTop: `1px solid ${daw.outlineVariant}`,
+                background: daw.dark,
+                borderTop: `1px solid ${daw.border}`,
             }}>
                 <button style={iconBtn} title="Add channel (available in the full app)">
-                    <Plus size={18} color={daw.onSurfaceVariant} />
+                    <Plus size={18} color={daw.text} />
                 </button>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4, flex: 1, padding: '0 32px' }}>
-                    <ChevronLeft size={14} color={daw.onSurfaceVariant} />
+                    <ChevronLeft size={14} color={daw.text} />
                     <div style={{
-                        flex: 1, height: 8, borderRadius: 12, position: 'relative',
-                        background: daw.surfaceContainerLowest,
+                        flex: 1, height: 8, borderRadius: 4, position: 'relative',
+                        background: daw.well,
                         boxShadow: dawFx.innerShadowWell,
                     }}>
                         <div style={{
                             position: 'absolute', left: 40, width: 64, height: '100%',
-                            background: daw.surfaceVariant, borderRadius: 12,
+                            background: daw.highlight, borderRadius: 4,
                         }} />
                     </div>
-                    <ChevronRight size={14} color={daw.onSurfaceVariant} />
+                    <ChevronRight size={14} color={daw.text} />
                 </div>
             </div>
         </div>

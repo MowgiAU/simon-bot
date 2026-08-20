@@ -43,8 +43,8 @@ export const DAWSimulator: React.FC<DAWSimulatorProps> = ({
 
     return (
         <div style={{
-            background: daw.surface,
-            border: `1px solid ${daw.outlineVariant}`,
+            background: daw.bg,
+            border: `1px solid ${daw.border}`,
             borderRadius: '4px',
             overflow: 'hidden',
             boxShadow: '0 2px 16px rgba(0,0,0,0.5)',
@@ -53,8 +53,8 @@ export const DAWSimulator: React.FC<DAWSimulatorProps> = ({
             {/* Title bar */}
             <div data-academy-id="daw-titlebar" style={{
                 height: 26,
-                background: daw.surfaceContainerHigh,
-                borderBottom: `1px solid ${daw.outlineVariant}`,
+                background: daw.dark,
+                borderBottom: `1px solid ${daw.border}`,
                 display: 'flex', alignItems: 'center',
                 padding: '0 10px',
                 gap: '8px',
@@ -65,12 +65,12 @@ export const DAWSimulator: React.FC<DAWSimulatorProps> = ({
                     background: 'radial-gradient(circle at 40% 35%, #F09030, #D05020)',
                     boxShadow: '0 0 4px rgba(240,144,48,0.25)',
                 }} />
-                <span style={{ fontSize: '11px', color: daw.onSurfaceVariant, fontWeight: 400, letterSpacing: '0.02em' }}>
+                <span style={{ fontSize: '11px', color: daw.text, fontWeight: 400, letterSpacing: '0.02em' }}>
                     Fuji Studio
                 </span>
                 <div style={{ marginLeft: 'auto', display: 'flex', gap: '6px' }}>
                     {[0,1,2].map(i => (
-                        <div key={i} style={{ width: 8, height: 8, borderRadius: '50%', background: daw.surfaceVariant, opacity: 0.7 }} />
+                        <div key={i} style={{ width: 8, height: 8, borderRadius: '50%', background: daw.highlight, opacity: 0.7 }} />
                     ))}
                 </div>
             </div>
@@ -82,8 +82,8 @@ export const DAWSimulator: React.FC<DAWSimulatorProps> = ({
             {tabs.length > 1 && (
                 <div style={{
                     display: 'flex',
-                    background: daw.surfaceContainer,
-                    borderBottom: `1px solid ${daw.outlineVariant}`,
+                    background: daw.panel,
+                    borderBottom: `1px solid ${daw.border}`,
                     height: 26,
                 }}>
                     {tabs.map(tab => {
@@ -95,10 +95,10 @@ export const DAWSimulator: React.FC<DAWSimulatorProps> = ({
                                 style={{
                                     padding: '0 16px',
                                     height: '100%',
-                                    background: isActive ? daw.surfaceContainerHigh : 'transparent',
+                                    background: isActive ? daw.dark : 'transparent',
                                     border: 'none',
-                                    borderBottom: `2px solid ${isActive ? daw.primaryContainer : 'transparent'}`,
-                                    color: isActive ? daw.onSurface : daw.onSurfaceVariant,
+                                    borderBottom: `2px solid ${isActive ? daw.green : 'transparent'}`,
+                                    color: isActive ? daw.textBright : daw.text,
                                     fontSize: '11px', fontWeight: isActive ? 500 : 400,
                                     cursor: 'pointer',
                                     transition: 'color 0.1s',
