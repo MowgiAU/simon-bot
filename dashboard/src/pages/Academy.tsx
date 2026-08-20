@@ -679,7 +679,11 @@ const LessonEditorView: React.FC<{
                                             opacity: chDragIdx === idx ? 0.5 : 1,
                                         }}>
                                         <span style={{ cursor: 'grab', display: 'flex', flexShrink: 0 }}><GripVertical size={14} color={colors.textTertiary} /></span>
+                                        {/* draggable=false: the row above is draggable for reordering, which otherwise
+                                            hijacks mouse clicks inside this input and breaks click-to-position-cursor,
+                                            leaving only keyboard navigation working */}
                                         <input value={ch.name} onChange={e => renameChannel(ch.id, e.target.value)}
+                                            draggable={false}
                                             style={{ ...inputStyle, width: '160px', flexShrink: 0 }} />
                                         <select
                                             value={current?.url || ''}
@@ -744,10 +748,15 @@ const LessonEditorView: React.FC<{
                                         </span>
                                         <span style={{ fontSize: '10px', fontWeight: 700, color: colors.textTertiary, minWidth: '16px', textAlign: 'right', paddingTop: '9px', flexShrink: 0 }}>{idx + 1}</span>
                                         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                            {/* draggable=false on the text fields below: the row is draggable for
+                                                reordering, which otherwise hijacks mouse clicks inside them and breaks
+                                                click-to-position-cursor, leaving only keyboard navigation working */}
                                             <textarea value={s.instruction} onChange={e => updateStep(idx, { instruction: e.target.value })}
+                                                draggable={false}
                                                 placeholder="Instruction text shown to the student" rows={2}
                                                 style={{ ...inputStyle, resize: 'vertical' }} />
                                             <input value={s.hint} onChange={e => updateStep(idx, { hint: e.target.value })}
+                                                draggable={false}
                                                 placeholder="Optional hint (shown after 8s)" style={inputStyle} />
 
                                             <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -801,6 +810,7 @@ const LessonEditorView: React.FC<{
                                                         <AlertTriangle size={12} /> Raw step JSON (target / demo / autoAdvanceMs) — merged onto the step as-is.
                                                     </div>
                                                     <textarea value={s.rawTarget} onChange={e => updateStep(idx, { rawTarget: e.target.value })}
+                                                        draggable={false}
                                                         rows={6} style={{ ...inputStyle, resize: 'vertical', fontFamily: 'monospace', fontSize: '12px' }} />
                                                 </div>
                                             )}
