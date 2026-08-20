@@ -45,14 +45,14 @@ export const Transport: React.FC<TransportProps> = ({ highlightBpm }) => {
                 borderRadius: '3px',
                 padding: '2px',
             }}>
-                <button onClick={() => stop()} style={{
+                <button onClick={() => stop()} data-academy-id="transport-stop" style={{
                     width: 26, height: 22, border: 'none', borderRadius: '2px',
                     background: !playing ? '#4A5268' : '#363C4A',
                     cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}>
                     <Square size={8} color={!playing ? '#C0C8D8' : '#6A7080'} fill={!playing ? '#C0C8D8' : '#6A7080'} />
                 </button>
-                <button onClick={handlePlay} style={{
+                <button onClick={handlePlay} data-academy-id="transport-play" style={{
                     width: 26, height: 22, border: 'none', borderRadius: '2px',
                     background: playing ? '#3A5040' : '#363C4A',
                     cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',

@@ -21,8 +21,12 @@ export interface LessonEngineState {
     completedSteps: number[];
     /** Is the entire lesson complete? */
     lessonComplete: boolean;
-    /** Component IDs to highlight */
-    highlightIds: string[];
+    /** Channel to emphasize (whole row), or null for none */
+    highlightChannelId: string | null;
+    /** Specific step within highlightChannelId still outstanding, or null to just emphasize the row */
+    highlightStepIndex: number | null;
+    /** data-academy-id of the element the instruction bubble should point at */
+    pointerId: string | null;
     /** Show hint? */
     showHint: boolean;
 }
@@ -119,10 +123,33 @@ export function useLessonEngine(lesson: LessonSchema | null): [LessonEngineState
         }
     }, [engine, lesson?.id]);
 
-    const highlightIds = useMemo(() => {
-        if (!step?.target) return [];
-        return [step.target.componentId];
-    }, [step]);
+    // Resolve which channel/step to point the instruction bubble at. For a pattern target
+    // (channelId + an array expectedValue, i.e. the common "place these steps" case) this finds
+    // the FIRST step that doesn't yet match — so the highlight advances one step at a time as
+    // the student places each one, rather than showing the whole finished pattern up front.
+    const highlightTarget = useMemo((): { channelId: string; stepIndex: number | null } | null => {
+        const target = step?.target;
+        if (!target?.channelId) return null;
+        const channel = dawState.channels.find(c => c.id === target.channelId);
+        const actual = channel ? (channel as any)[target.channelField ?? 'steps'] : undefined;
+        if (Array.isArray(actual) && Array.isArray(target.expectedValue)) {
+            const idx = target.expectedValue.findIndex((v: any, i: number) => v !== actual[i]);
+            return { channelId: target.channelId, stepIndex: idx === -1 ? null : idx };
+        }
+        return { channelId: target.channelId, stepIndex: null };
+    }, [step, dawState]);
+
+    const pointerId = useMemo(() => {
+        if (!step) return null;
+        if (highlightTarget) {
+            return highlightTarget.stepIndex != null
+                ? `step-${highlightTarget.channelId}-${highlightTarget.stepIndex}`
+                : `channel-${highlightTarget.channelId}`;
+        }
+        if (step.requireTransport) return step.requireTransport === 'play' ? 'transport-play' : 'transport-stop';
+        if (step.target?.componentId) return step.target.componentId; // legacy/advanced steps
+        return 'daw-titlebar';
+    }, [step, highlightTarget]);
 
     const lessonComplete = totalSteps > 0 && completedSteps.length >= totalSteps;
 
@@ -147,7 +174,12 @@ export function useLessonEngine(lesson: LessonSchema | null): [LessonEngineState
     }, [lesson, loadState]);
 
     return [
-        { currentStep, totalSteps, step, stepComplete, completedSteps, lessonComplete, highlightIds, showHint },
+        {
+            currentStep, totalSteps, step, stepComplete, completedSteps, lessonComplete,
+            highlightChannelId: highlightTarget?.channelId ?? null,
+            highlightStepIndex: highlightTarget?.stepIndex ?? null,
+            pointerId, showHint,
+        },
         { nextStep, prevStep, goToStep, reset },
     ];
 }

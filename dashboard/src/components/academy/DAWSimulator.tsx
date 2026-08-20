@@ -17,14 +17,15 @@ interface Note {
 }
 
 interface DAWSimulatorProps {
-    highlightSteps?: { channelId: string; stepIndex: number }[];
+    highlightChannelId?: string | null;
+    highlightStepIndex?: number | null;
     highlightInserts?: number[];
     highlightBpm?: boolean;
     visiblePanels?: Panel[];
 }
 
 export const DAWSimulator: React.FC<DAWSimulatorProps> = ({
-    highlightSteps, highlightInserts, highlightBpm, visiblePanels,
+    highlightChannelId, highlightStepIndex, highlightInserts, highlightBpm, visiblePanels,
 }) => {
     const defaultPanels: Panel[] = visiblePanels ?? ['rack', 'mixer', 'piano'];
     const [activePanel, setActivePanel] = useState<Panel>(defaultPanels[0]);
@@ -46,7 +47,7 @@ export const DAWSimulator: React.FC<DAWSimulatorProps> = ({
             fontFamily: "'Segoe UI', Tahoma, sans-serif",
         }}>
             {/* Title bar */}
-            <div style={{
+            <div data-academy-id="daw-titlebar" style={{
                 height: 26,
                 background: '#333A48',
                 borderBottom: '1px solid #4A5060',
@@ -109,7 +110,9 @@ export const DAWSimulator: React.FC<DAWSimulatorProps> = ({
 
             {/* Active panel */}
             <div>
-                {activePanel === 'rack' && <ChannelRack highlightSteps={highlightSteps} />}
+                {activePanel === 'rack' && (
+                    <ChannelRack highlightChannelId={highlightChannelId} highlightStepIndex={highlightStepIndex} />
+                )}
                 {activePanel === 'mixer' && <Mixer highlightInserts={highlightInserts} />}
                 {activePanel === 'piano' && <PianoRoll notes={pianoNotes} onChange={setPianoNotes} />}
             </div>

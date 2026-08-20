@@ -1,9 +1,9 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import {
     GraduationCap, BookOpen, Play, ChevronLeft, ChevronRight,
-    RotateCcw, Trophy, Lightbulb, Music, Zap, Star, Clock,
+    RotateCcw, Trophy, Music, Zap, Star, Clock,
     CheckCircle2, ArrowRight, Users,
 } from 'lucide-react';
 import {
@@ -12,6 +12,7 @@ import {
 import { AltHeader } from '../components/altshell/AltHeader';
 import { usePlayer } from '../components/PlayerProvider';
 import { DAWSimulator } from '../components/academy/DAWSimulator';
+import { LessonBubble } from '../components/academy/LessonBubble';
 import { useLessonEngine } from '../components/academy/useLessonEngine';
 import { LessonSchema, FIRST_BEAT_LESSON } from '../components/academy/LessonSchema';
 import { createDefaultDAWState } from '../components/academy/AudioEngine';
@@ -92,8 +93,12 @@ const PATHS = [
 
 const AltLessonPlayer: React.FC<{ lesson: LessonSchema; onExit: () => void }> = ({ lesson, onExit }) => {
     const [engine, actions] = useLessonEngine(lesson);
-    const { currentStep, totalSteps, step, stepComplete, lessonComplete, highlightIds, showHint } = engine;
+    const {
+        currentStep, totalSteps, step, stepComplete, lessonComplete,
+        highlightChannelId, highlightStepIndex, pointerId, showHint,
+    } = engine;
     const pct = totalSteps > 0 ? ((currentStep + (stepComplete ? 1 : 0)) / totalSteps) * 100 : 0;
+    const dawContainerRef = useRef<HTMLDivElement>(null);
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -115,29 +120,18 @@ const AltLessonPlayer: React.FC<{ lesson: LessonSchema; onExit: () => void }> = 
                 <div style={{ height: '100%', width: `${pct}%`, background: `linear-gradient(90deg, ${ACCENT}, #4A8A30)`, borderRadius: 2, transition: 'width 0.4s ease' }} />
             </div>
 
-            {/* Instruction card */}
-            <div style={{ ...glass, borderRadius: 14, padding: '18px 22px', borderLeft: `3px solid ${ACCENT}` }}>
-                <p style={{ margin: 0, color: TEXT, fontSize: 15, lineHeight: 1.65 }}>{step?.instruction}</p>
-                {showHint && step?.hint && (
-                    <div style={{ marginTop: 12, padding: '10px 14px', background: 'rgba(232,140,58,0.08)', borderRadius: 8, display: 'flex', alignItems: 'flex-start', gap: 8, border: '1px solid rgba(232,140,58,0.2)' }}>
-                        <Lightbulb size={16} color="#E88C3A" style={{ flexShrink: 0, marginTop: 2 }} />
-                        <span style={{ color: '#E88C3A', fontSize: 13 }}>{step.hint}</span>
-                    </div>
-                )}
-            </div>
-
-            {/* DAW Simulator */}
-            <div style={{ ...glass, borderRadius: 14, overflow: 'hidden' }}>
+            {/* DAW Simulator — instructions are a bubble pointing at whatever's relevant below */}
+            <div ref={dawContainerRef} style={{ ...glass, borderRadius: 14, overflow: 'hidden', position: 'relative' }}>
                 <DAWSimulator
-                    highlightSteps={highlightIds.map(id => {
-                        // Ids are "step-<channelId>-<stepIndex>". channelId can itself contain
-                        // hyphens (e.g. an admin-named "hi-hat" channel), so the step index is
-                        // always the LAST segment and the channelId is everything between
-                        // "step-" and that — never a fixed positional split.
-                        const segments = id.split('-').slice(1);
-                        const stepIndex = Number(segments.pop()) || 0;
-                        return { channelId: segments.join('-'), stepIndex };
-                    })}
+                    highlightChannelId={highlightChannelId}
+                    highlightStepIndex={highlightStepIndex}
+                />
+                <LessonBubble
+                    containerRef={dawContainerRef}
+                    targetId={pointerId}
+                    text={step?.instruction ?? ''}
+                    hint={step?.hint}
+                    showHint={showHint}
                 />
             </div>
 

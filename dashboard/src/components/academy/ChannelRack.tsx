@@ -28,11 +28,16 @@ const GROUP_GAP = 5;   // gap between groups of 4
 const NAME_WIDTH = 110;
 const KNOB_AREA  = 52;
 
+const LED_KNOBS_WIDTH = 61;
+
 interface ChannelRackProps {
-    highlightSteps?: { channelId: string; stepIndex: number }[];
+    /** Channel the lesson engine wants emphasized (whole row), or null for none */
+    highlightChannelId?: string | null;
+    /** Specific step within highlightChannelId to emphasize, or null to just emphasize the row */
+    highlightStepIndex?: number | null;
 }
 
-export const ChannelRack: React.FC<ChannelRackProps> = ({ highlightSteps }) => {
+export const ChannelRack: React.FC<ChannelRackProps> = ({ highlightChannelId, highlightStepIndex }) => {
     const channels = useDAWStore(s => s.state.channels);
     const currentStep = useDAWStore(s => s.state.transport.currentStep);
     const playing = useDAWStore(s => s.state.transport.playing);
@@ -41,8 +46,9 @@ export const ChannelRack: React.FC<ChannelRackProps> = ({ highlightSteps }) => {
     const setChannelPan = useDAWStore(s => s.setChannelPan);
     const toggleChannelMute = useDAWStore(s => s.toggleChannelMute);
 
+    const isChannelHighlighted = (chId: string) => !!highlightChannelId && highlightChannelId === chId;
     const isHighlighted = (chId: string, idx: number) =>
-        highlightSteps?.some(h => h.channelId === chId && h.stepIndex === idx) ?? false;
+        isChannelHighlighted(chId) && highlightStepIndex === idx;
 
     return (
         <div style={{
@@ -69,6 +75,33 @@ export const ChannelRack: React.FC<ChannelRackProps> = ({ highlightSteps }) => {
             </div>
 
             <div style={{ overflowX: 'auto' }}>
+                {/* Step number ruler — aligned to the same columns as the step grid below */}
+                <div style={{
+                    display: 'flex', alignItems: 'center', height: 18,
+                    borderBottom: `1px solid ${BORDER}`, background: TITLE_BG,
+                }}>
+                    <div style={{ width: LED_KNOBS_WIDTH, flexShrink: 0 }} />
+                    <div style={{ width: 20, flexShrink: 0 }} />
+                    <div style={{ width: NAME_WIDTH, flexShrink: 0 }} />
+                    <div style={{ display: 'flex', padding: '0 6px', alignItems: 'center' }}>
+                        {Array.from({ length: 16 }, (_, i) => {
+                            const afterGroup = i > 0 && i % 4 === 0;
+                            const isBeatStart = i % 4 === 0;
+                            return (
+                                <div key={i} style={{
+                                    width: STEP_W, textAlign: 'center',
+                                    marginLeft: afterGroup ? GROUP_GAP : (i > 0 ? STEP_GAP : 0),
+                                    fontSize: '9px', fontFamily: 'monospace',
+                                    fontWeight: isBeatStart ? 700 : 500,
+                                    color: isBeatStart ? '#8ABF60' : '#5A6478',
+                                }}>
+                                    {i + 1}
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+
                 {/* Channel rows */}
                 {channels.map((ch, chIdx) => (
                     <div key={ch.id} style={{
@@ -80,7 +113,7 @@ export const ChannelRack: React.FC<ChannelRackProps> = ({ highlightSteps }) => {
                         {/* LED + knobs */}
                         <div style={{
                             display: 'flex', alignItems: 'center',
-                            padding: '0 4px', gap: '3px',
+                            width: LED_KNOBS_WIDTH, padding: '0 4px', gap: '3px',
                             flexShrink: 0,
                         }}>
                             {/* Green LED mute indicator */}
@@ -121,13 +154,16 @@ export const ChannelRack: React.FC<ChannelRackProps> = ({ highlightSteps }) => {
                             display: 'flex', alignItems: 'center',
                             padding: '0 2px',
                         }}>
-                            <div style={{
-                                width: '100%',
-                                padding: '3px 8px',
-                                background: NAME_BTN,
-                                borderRadius: '2px',
-                                border: `1px solid #5A6478`,
-                            }}>
+                            <div
+                                data-academy-id={`channel-${ch.id}`}
+                                style={{
+                                    width: '100%',
+                                    padding: '3px 8px',
+                                    background: NAME_BTN,
+                                    borderRadius: '2px',
+                                    border: isChannelHighlighted(ch.id) ? '1px solid #60C0A0' : '1px solid #5A6478',
+                                    boxShadow: isChannelHighlighted(ch.id) ? '0 0 6px rgba(96,192,160,0.5)' : 'none',
+                                }}>
                                 <span style={{
                                     fontSize: '11px',
                                     color: ch.muted ? '#6A7080' : '#C0C8D8',
