@@ -112,8 +112,19 @@ export const Transport: React.FC<TransportProps> = ({ highlightBpm }) => {
                 boxShadow: highlightBpm ? `0 0 6px ${daw.primaryContainer}66` : 'none',
             }}>
                 <span style={{ fontSize: '9px', color: daw.onSurfaceVariant, fontWeight: 600 }}>BPM</span>
+                {/* Blink/WebKit render number inputs with a spinner stepper that ate most of
+                    the 40px field and clipped the value. Those are pseudo-elements, so they
+                    can't be switched off from the inline style object. */}
+                <style>{`
+                    input[data-daw-bpm]::-webkit-outer-spin-button,
+                    input[data-daw-bpm]::-webkit-inner-spin-button {
+                        -webkit-appearance: none;
+                        margin: 0;
+                    }
+                `}</style>
                 <input
                     type="number"
+                    data-daw-bpm=""
                     value={bpm}
                     min={40} max={300}
                     onChange={e => setBpm(Number(e.target.value) || 120)}
@@ -123,6 +134,9 @@ export const Transport: React.FC<TransportProps> = ({ highlightBpm }) => {
                         borderRadius: '2px', padding: '1px 3px', color: daw.primaryContainer,
                         fontSize: '12px', fontFamily: dawFont.mono, textAlign: 'center',
                         outline: 'none',
+                        // Firefox equivalent of the WebKit rule above
+                        MozAppearance: 'textfield',
+                        appearance: 'textfield',
                     }}
                 />
             </div>
