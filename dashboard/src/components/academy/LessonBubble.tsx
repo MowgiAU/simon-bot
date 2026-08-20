@@ -4,18 +4,23 @@
  * whole channel row, the play/stop button, or the simulator frame itself as
  * a fallback for plain instruction steps).
  *
- * Position is measured at runtime against `containerRef` (which must be
- * `position: relative`) rather than computed from layout constants, so it
- * keeps working if the DAW's own styling changes.
+ * Position is measured at runtime against `container` rather than computed
+ * from layout constants, so it keeps working if the DAW's own styling
+ * changes. `container` is plain state (set via a callback ref in the
+ * parent), not a ref object — a plain ref's `.current` mutating does NOT
+ * re-trigger effects, so if the container weren't ready on the very first
+ * effect run, the bubble would never get another chance to measure it.
  */
 import React, { useLayoutEffect, useState } from 'react';
 
 interface LessonBubbleProps {
-    containerRef: React.RefObject<HTMLElement>;
+    container: HTMLElement | null;
     targetId: string | null;
     text: string;
     hint?: string;
     showHint?: boolean;
+    /** Hide the bubble even if targetId resolves — used once a step's task is done */
+    hidden?: boolean;
 }
 
 interface BubblePos {
@@ -25,11 +30,13 @@ interface BubblePos {
     below: boolean;
 }
 
-export const LessonBubble: React.FC<LessonBubbleProps> = ({ containerRef, targetId, text, hint, showHint }) => {
+const HALF_WIDTH = 140; // half of maxWidth below, used to keep the bubble on-screen
+const GAP = 20; // clearance between the bubble and the element it points at
+
+export const LessonBubble: React.FC<LessonBubbleProps> = ({ container, targetId, text, hint, showHint, hidden }) => {
     const [pos, setPos] = useState<BubblePos | null>(null);
 
     useLayoutEffect(() => {
-        const container = containerRef.current;
         if (!container || !targetId) { setPos(null); return; }
 
         const update = () => {
@@ -38,8 +45,12 @@ export const LessonBubble: React.FC<LessonBubbleProps> = ({ containerRef, target
             const cRect = container.getBoundingClientRect();
             const eRect = el.getBoundingClientRect();
             const top = eRect.top - cRect.top;
+            const rawLeft = eRect.left - cRect.left + eRect.width / 2;
+            // Clamp horizontally so the bubble body never spills past the container edges
+            // (and so it can't drift over controls in an unrelated column).
+            const left = Math.min(Math.max(rawLeft, HALF_WIDTH + 8), cRect.width - HALF_WIDTH - 8);
             setPos({
-                left: eRect.left - cRect.left + eRect.width / 2,
+                left,
                 top,
                 below: top < 70, // not enough room above — flip the bubble under the target
             });
@@ -50,19 +61,21 @@ export const LessonBubble: React.FC<LessonBubbleProps> = ({ containerRef, target
         ro.observe(container);
         window.addEventListener('resize', update);
         return () => { ro.disconnect(); window.removeEventListener('resize', update); };
-    }, [containerRef, targetId]);
+    }, [container, targetId]);
 
-    if (!pos) return null;
+    if (!pos || hidden) return null;
 
     return (
         <div style={{
             position: 'absolute',
             left: pos.left,
             top: pos.top,
-            transform: pos.below ? 'translate(-50%, 14px)' : 'translate(-50%, calc(-100% - 14px))',
+            // GAP clears the whole target row so the bubble never visually sits on top of it —
+            // and pointerEvents:none means it can never intercept a click either way.
+            transform: pos.below ? `translate(-50%, ${GAP}px)` : `translate(-50%, calc(-100% - ${GAP}px))`,
             zIndex: 50,
             pointerEvents: 'none',
-            maxWidth: 280,
+            maxWidth: HALF_WIDTH * 2,
             transition: 'left 0.25s ease, top 0.25s ease',
         }}>
             {pos.below && <Pointer up />}

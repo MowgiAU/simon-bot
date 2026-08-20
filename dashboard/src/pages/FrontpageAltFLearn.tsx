@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import {
@@ -98,7 +98,15 @@ const AltLessonPlayer: React.FC<{ lesson: LessonSchema; onExit: () => void }> = 
         highlightChannelId, highlightStepIndex, pointerId, showHint,
     } = engine;
     const pct = totalSteps > 0 ? ((currentStep + (stepComplete ? 1 : 0)) / totalSteps) * 100 : 0;
-    const dawContainerRef = useRef<HTMLDivElement>(null);
+    // Plain state (set via a callback ref below) rather than a ref object — a ref's `.current`
+    // mutating doesn't re-trigger effects, so LessonBubble would only ever get one chance to
+    // measure the container and might miss the window where it first becomes available.
+    const [dawContainer, setDawContainer] = useState<HTMLDivElement | null>(null);
+    // Once a step's actual task (a target or a play/stop requirement) is satisfied, drop the
+    // bubble so it stops covering the board right before the student needs to click Next —
+    // pure narration steps have no task, so their bubble is the only place to read them and
+    // stays up throughout.
+    const taskDone = !!(step?.target || step?.requireTransport) && stepComplete;
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -124,19 +132,20 @@ const AltLessonPlayer: React.FC<{ lesson: LessonSchema; onExit: () => void }> = 
                 The bubble lives in this OUTER, non-clipping wrapper (not the glass panel itself,
                 which needs overflow:hidden for its rounded corners) so it isn't cut off when it
                 needs to render above something near the very top of the simulator. */}
-            <div ref={dawContainerRef} style={{ position: 'relative', marginTop: 36 }}>
+            <div ref={setDawContainer} style={{ position: 'relative', marginTop: 36 }}>
                 <div style={{ ...glass, borderRadius: 14, overflow: 'hidden' }}>
                     <DAWSimulator
-                        highlightChannelId={highlightChannelId}
-                        highlightStepIndex={highlightStepIndex}
+                        highlightChannelId={taskDone ? null : highlightChannelId}
+                        highlightStepIndex={taskDone ? null : highlightStepIndex}
                     />
                 </div>
                 <LessonBubble
-                    containerRef={dawContainerRef}
+                    container={dawContainer}
                     targetId={pointerId}
                     text={step?.instruction ?? ''}
                     hint={step?.hint}
                     showHint={showHint}
+                    hidden={taskDone}
                 />
             </div>
 
