@@ -167,10 +167,10 @@ export const Mixer: React.FC<MixerProps> = ({ highlightInserts, onOpenEQ }) => {
             `}</style>
 
             {/* ── Title bar ── */}
-            <header style={{
+            <header data-daw-drag style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 background: daw.dark, borderBottom: `1px solid ${daw.border}`,
-                padding: '4px 12px', fontSize: 11, userSelect: 'none',
+                padding: '4px 12px', fontSize: 11, userSelect: 'none', cursor: 'grab',
             }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: daw.textBright }}>
                     <Menu size={12} />

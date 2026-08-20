@@ -28,6 +28,8 @@ interface DAWStore {
     setBpm: (bpm: number) => void;
     setSwing: (swing: number) => void;
     setCurrentStep: (step: number) => void;
+    /** FL's PAT/SONG switch */
+    setTransportMode: (mode: 'pat' | 'song') => void;
 
     // --- Channels ---
     toggleStep: (channelId: string, stepIndex: number) => void;
@@ -117,6 +119,10 @@ export const useDAWStore = create<DAWStore>((set, get) => {
         },
         setSwing: (swing) => {
             set(prev => ({ state: { ...prev.state, transport: { ...prev.state.transport, swing } } }));
+            sync();
+        },
+        setTransportMode: (mode) => {
+            set(prev => ({ state: { ...prev.state, transport: { ...prev.state.transport, mode } } }));
             sync();
         },
         setCurrentStep: (step) => {

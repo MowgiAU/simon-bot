@@ -120,10 +120,10 @@ export const Playlist: React.FC<PlaylistProps> = ({ highlightBars, highlightTrac
             display: 'flex', flexDirection: 'column', overflow: 'hidden',
         }}>
             {/* ── Window bar ── */}
-            <div style={{
+            <div data-daw-drag style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 height: 24, padding: '0 8px', background: fl.windowBar,
-                borderBottom: `1px solid #000`,
+                borderBottom: `1px solid #000`, cursor: 'grab',
             }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <svg width="13" height="13" viewBox="0 0 24 24" fill={daw.green}>

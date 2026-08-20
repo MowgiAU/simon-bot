@@ -11,7 +11,7 @@ import {
 } from '../components/altshell/AltSidebar';
 import { AltHeader } from '../components/altshell/AltHeader';
 import { usePlayer } from '../components/PlayerProvider';
-import { DAWSimulator } from '../components/academy/DAWSimulator';
+import { DAWWorkspace } from '../components/academy/DAWWorkspace';
 import { LessonBubble } from '../components/academy/LessonBubble';
 import { useLessonEngine } from '../components/academy/useLessonEngine';
 import { LessonSchema, FIRST_BEAT_LESSON } from '../components/academy/LessonSchema';
@@ -109,7 +109,7 @@ const AltLessonPlayer: React.FC<{ lesson: LessonSchema; onExit: () => void }> = 
     const taskDone = !!(step?.target || step?.requireTransport) && stepComplete;
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, height: '100%', minHeight: 0 }}>
             {/* Gentle pulse drawing the eye to whichever button is the actionable "move on" CTA */}
             <style>{`
                 @keyframes fujiCtaPulse {
@@ -139,13 +139,11 @@ const AltLessonPlayer: React.FC<{ lesson: LessonSchema; onExit: () => void }> = 
                 The bubble lives in this OUTER, non-clipping wrapper (not the glass panel itself,
                 which needs overflow:hidden for its rounded corners) so it isn't cut off when it
                 needs to render above something near the very top of the simulator. */}
-            <div ref={setDawContainer} style={{ position: 'relative', marginTop: 36 }}>
-                <div style={{ ...glass, borderRadius: 14, overflow: 'hidden' }}>
-                    <DAWSimulator
-                        highlightChannelId={taskDone ? null : highlightChannelId}
-                        highlightStepIndex={taskDone ? null : highlightStepIndex}
-                    />
-                </div>
+            <div ref={setDawContainer} style={{ position: 'relative', flex: 1, minHeight: 0 }}>
+                <DAWWorkspace
+                    highlightChannelId={taskDone ? null : highlightChannelId}
+                    highlightStepIndex={taskDone ? null : highlightStepIndex}
+                />
                 <LessonBubble
                     container={dawContainer}
                     targetId={pointerId}
@@ -257,11 +255,18 @@ export const FrontpageAltFLearn: React.FC = () => {
             <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', height: '100%' }}>
                 <AltHeader breadcrumb={[{ label: 'Learn' }]} />
 
-                <div style={{ flex: 1, overflowY: 'auto', paddingBottom: player.currentTrack ? 90 : 0 }}>
+                <div style={{
+                    flex: 1, minHeight: 0,
+                    overflowY: activeLesson ? 'hidden' : 'auto',
+                    paddingBottom: player.currentTrack ? 90 : 0,
+                }}>
 
                     {activeLesson ? (
                         /* ── LESSON VIEW ── */
-                        <div style={{ maxWidth: 1100, margin: '32px auto', padding: '0 32px 60px', boxSizing: 'border-box' }}>
+                        <div style={{
+                            height: '100%', minHeight: 0, padding: '12px 16px 14px',
+                            boxSizing: 'border-box', display: 'flex', flexDirection: 'column',
+                        }}>
                             <AltLessonPlayer lesson={activeLesson} onExit={exitLesson} />
                         </div>
                     ) : (

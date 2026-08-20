@@ -61,6 +61,9 @@ export interface TransportState {
     /** Which bar of the playlist is playing, 0-based. The Channel Rack pattern is one
      *  bar long and repeats; the playlist is what gives the song its length. */
     currentBar: number;
+    /** FL's PAT/SONG switch. 'pat' loops the single Channel Rack bar; 'song' plays
+     *  through the playlist's arrangement. */
+    mode: 'pat' | 'song';
     swing: number; // 0–1
 }
 
@@ -176,7 +179,11 @@ export function normalizeDAWState(state: DAWState): DAWState {
         ...state,
         // Spread first, then backfill: older saved transports have no currentBar, and
         // defaulting before the spread would just be overwritten by the undefined.
-        transport: { ...state.transport, currentBar: state.transport?.currentBar ?? 0 },
+        transport: {
+            ...state.transport,
+            currentBar: state.transport?.currentBar ?? 0,
+            mode: state.transport?.mode ?? 'song',
+        },
         mixerInserts: (state.mixerInserts ?? []).map(normalizeMixerInsert),
         // Lesson initState saved before the playlist existed has no playlist at all
         playlist: state.playlist ?? createDefaultPlaylist(),
@@ -185,7 +192,7 @@ export function normalizeDAWState(state: DAWState): DAWState {
 
 export function createDefaultDAWState(): DAWState {
     return {
-        transport: { playing: false, bpm: 140, currentStep: 0, currentBar: 0, swing: 0 },
+        transport: { playing: false, bpm: 140, currentStep: 0, currentBar: 0, mode: 'song', swing: 0 },
         channels: [
             createDefaultChannel('kick', 'Kick'),
             createDefaultChannel('clap', 'Clap'),
@@ -400,7 +407,9 @@ export class AudioEngine {
         this.state.transport.currentStep = nextStep;
         // A wrap back to step 0 means we've crossed into the next bar; the song loops
         // at the end of the playlist.
-        if (nextStep === 0) {
+        // In PAT mode the single Channel Rack bar just loops, so the bar counter
+        // stays put; SONG mode walks the playlist arrangement.
+        if (nextStep === 0 && this.state.transport.mode !== 'pat') {
             const bars = this.state.playlist?.barCount ?? DEFAULT_BAR_COUNT;
             this.state.transport.currentBar = (this.state.transport.currentBar + 1) % Math.max(1, bars);
         }
@@ -409,6 +418,8 @@ export class AudioEngine {
 
     /** Is a pattern block placed over this bar on any unmuted track? */
     private patternPlaysAt(bar: number): boolean {
+        // PAT mode auditions the pattern on its own, independent of the arrangement
+        if (this.state.transport.mode === 'pat') return true;
         const pl = this.state.playlist;
         if (!pl) return true;   // no playlist (legacy state) — behave as before
         return pl.clips.some(c =>

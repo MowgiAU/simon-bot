@@ -129,11 +129,12 @@ export const ChannelRack: React.FC<ChannelRackProps> = ({ highlightChannelId, hi
             overflow: 'hidden',
         }}>
             {/* ── Top app bar ── */}
-            <div style={{
+            <div data-daw-drag style={{
                 display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                 height: S.barH, padding: `0 ${S.modulePad}px`,
                 background: daw.dark,
                 borderBottom: `1px solid ${daw.border}`,
+                cursor: 'grab',
             }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
                     <ChevronDown size={16} color={daw.text} />

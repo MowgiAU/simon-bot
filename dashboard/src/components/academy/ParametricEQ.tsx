@@ -154,10 +154,11 @@ export const ParametricEQ: React.FC<ParametricEQProps> = ({ insertId, onClose, h
             boxShadow: dawFx.windowShadow,
         }}>
             {/* Title bar */}
-            <div style={{
+            <div data-daw-drag style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 height: 28, padding: '0 10px',
                 background: daw.dark, borderBottom: `1px solid ${daw.border}`,
+                cursor: 'grab',
             }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <div style={{
