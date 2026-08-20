@@ -15,6 +15,7 @@ import { DAWWorkspace } from '../components/academy/DAWWorkspace';
 import { LessonBubble } from '../components/academy/LessonBubble';
 import { useLessonEngine } from '../components/academy/useLessonEngine';
 import { LessonSchema, FIRST_BEAT_LESSON } from '../components/academy/LessonSchema';
+import type { DAWWindowId } from '../components/academy/LessonSchema';
 import { createDefaultDAWState } from '../components/academy/AudioEngine';
 
 const glass: React.CSSProperties = {
@@ -219,10 +220,15 @@ export const FrontpageAltFLearn: React.FC = () => {
                 const steps = Array.isArray(db.steps) && db.steps.length ? db.steps : base.steps;
                 const assets = Array.isArray(db.assets) ? db.assets : (base.assets ?? []);
                 const initState = db.initState || createDefaultDAWState();
+                // Which DAW windows the lesson opens with. Empty/absent means "all of
+                // them", which is what DAWWorkspace treats an empty list as.
+                const windows = Array.isArray(db.windows) && db.windows.length
+                    ? db.windows as DAWWindowId[]
+                    : base.windows;
                 setActiveLesson({
                     id: db.id, slug: db.slug, title: db.title, description: db.description ?? '',
                     category: db.category, difficulty: db.difficulty,
-                    steps, assets, initState,
+                    steps, assets, initState, windows,
                 });
             })
             .catch(() => {
