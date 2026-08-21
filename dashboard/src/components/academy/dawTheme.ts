@@ -181,10 +181,31 @@ export const flChrome = {
     snapText: '#6bb5dc',
     cartFace: 'linear-gradient(to bottom, #546a68, #425553)',
 
+    // ── Browser ──
+    browserBg:     '#1e2428',
+    browserHeader: '#333a40',
+    browserIcon:   '#828a92',
+    browserEdge:   '#13181a',
+    browserLight:  '#2b3338',
+
     // ── Shared depth ──
     innerPanel: 'inset 0 2px 4px rgba(0,0,0,0.4)',
     btnUp:      '0 2px 3px rgba(0,0,0,0.3)',
     btnDownFx:  'inset 0 2px 4px rgba(0,0,0,0.5)',
+} as const;
+
+/**
+ * FL colour-codes its browser tree by folder kind, which is most of what makes the
+ * panel readable at a glance. From the browser mockup.
+ */
+export const flBrowserInk = {
+    orange: '#d17c5b',
+    green:  '#8bb06f',
+    blue:   '#5b8fc6',
+    purple: '#a06e90',
+    pink:   '#b46d7e',
+    red:    '#c06c6c',
+    cyan:   '#66a2a0',
 } as const;
 
 /** Per-band colours for the EQ, from the Parametric EQ mockup */
