@@ -550,6 +550,17 @@ export const DAWWorkspace: React.FC<DAWWorkspaceProps> = ({
                     backgroundImage: `radial-gradient(${daw.border} 1px, transparent 1px)`,
                     backgroundSize: '22px 22px',
                 }}>
+                    {/* Fuji watermark. Its own element rather than a second background layer on
+                        the canvas, so its opacity is independent of the dot grid. Sits below
+                        every window (they start at z:1) and ignores the pointer, so it can
+                        never intercept a drag. */}
+                    <img src="/daw-watermark.png" alt="" aria-hidden="true" draggable={false}
+                        style={{
+                            position: 'absolute', left: '50%', top: '50%',
+                            transform: 'translate(-50%, -50%)',
+                            width: 'min(34%, 300px)', height: 'auto',
+                            opacity: 0.16, zIndex: 0, pointerEvents: 'none', userSelect: 'none',
+                        }} />
                     {renderWindow('rack', false,
                         <ChannelRack highlightChannelId={highlightChannelId} highlightStepIndex={highlightStepIndex} />)}
                     {renderWindow('playlist', false,
