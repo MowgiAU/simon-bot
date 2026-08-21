@@ -12,7 +12,7 @@
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-    Play, Square, Circle, ChevronDown, Folder, Star, Cloud, Globe,
+    Play, Square, ChevronDown, Folder, Star, Cloud, Globe,
     FileMusic, Package, Mic, Music, Minus, Plus, X,
     Grid3x3, ListMusic, SlidersVertical, Piano, PanelLeft,
     Files, Volume2, RefreshCw, ArrowUp, ShoppingCart, Trash2,
@@ -322,7 +322,7 @@ export const DAWWorkspace: React.FC<DAWWorkspaceProps> = ({
                     ))}
                 </div>
 
-                {/* PAT / SONG */}
+                {/* PAT / SONG — a dark well, with the orange pill marking only the active mode */}
                 <button
                     onClick={() => setMode(transport.mode === 'pat' ? 'song' : 'pat')}
                     data-academy-id="transport-mode"
@@ -330,41 +330,79 @@ export const DAWWorkspace: React.FC<DAWWorkspaceProps> = ({
                         ? 'Pattern mode — looping the Channel Rack bar. Click for Song mode.'
                         : 'Song mode — playing the playlist arrangement. Click for Pattern mode.'}
                     style={{
-                        width: 34, height: 26, borderRadius: 2, cursor: 'pointer', flexShrink: 0,
-                        background: '#d9741f', border: '1px solid #94500f', padding: 0,
-                        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                        lineHeight: 1, fontWeight: 800,
+                        width: 42, height: 30, borderRadius: 3, cursor: 'pointer', flexShrink: 0,
+                        background: flChrome.patBg, border: `1px solid ${daw.border}`,
+                        padding: 2, display: 'flex', flexDirection: 'column', gap: 1,
                     }}>
-                    <span style={{ fontSize: 8.5, color: transport.mode === 'pat' ? '#fff' : '#8a4d13' }}>PAT</span>
-                    <span style={{ fontSize: 7, color: transport.mode === 'song' ? '#fff' : '#8a4d13' }}>SONG</span>
+                    {(['pat', 'song'] as const).map(m => (
+                        <span key={m} style={{
+                            flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            borderRadius: 2, lineHeight: 1,
+                            fontFamily: dawFont.condensed, fontWeight: 700,
+                            fontSize: m === 'pat' ? 10 : 9,
+                            background: transport.mode === m ? flChrome.patOn : 'transparent',
+                            color: transport.mode === m ? flChrome.patOnText : flChrome.patOff,
+                        }}>
+                            {m.toUpperCase()}
+                        </span>
+                    ))}
                 </button>
 
                 {/* Transport */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    <button onClick={handlePlay} data-academy-id="transport-play" title="Play / pause" style={flBtn()}>
-                        <Play size={13} color={transport.playing ? '#7fd04a' : '#95a1ab'}
-                            fill={transport.playing ? '#7fd04a' : '#95a1ab'} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <button onClick={handlePlay} data-academy-id="transport-play" title="Play / pause"
+                        style={transportBtn()}>
+                        <Play size={15}
+                            color={transport.playing ? daw.green : flChrome.playIcon}
+                            fill={transport.playing ? daw.green : flChrome.playIcon} />
                     </button>
-                    <button onClick={() => stop()} data-academy-id="transport-stop" title="Stop" style={flBtn()}>
-                        <Square size={10} color="#95a1ab" fill="#95a1ab" />
+                    <button onClick={() => stop()} data-academy-id="transport-stop" title="Stop"
+                        style={transportBtn()}>
+                        <Square size={12} color={flChrome.playIcon} fill={flChrome.playIcon} />
                     </button>
-                    <button data-academy-id="transport-record" title="Record (not simulated)" style={flBtn()}>
-                        <Circle size={12} color="#c8483c" fill="#c8483c" />
-                    </button>
+                    <button data-academy-id="transport-record" title="Record (not simulated)"
+                        style={{
+                            width: 26, height: 26, borderRadius: '50%', cursor: 'pointer', padding: 0,
+                            flexShrink: 0, marginLeft: 4,
+                            background: flChrome.recFace, border: `1px solid ${flChrome.recEdge}`,
+                            boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.25), 0 1px 3px rgba(0,0,0,0.45)',
+                        }} />
                 </div>
 
-                {/* Tempo */}
-                <div title="Tempo in beats per minute" style={lcd(86)}>
+                {/* Tempo — the one pale panel in the window, as in FL */}
+                <div title="Tempo in beats per minute" style={{
+                    display: 'flex', alignItems: 'center', gap: 1,
+                    height: 30, padding: '0 4px 0 8px', flexShrink: 0,
+                    background: flChrome.lcdFace, borderRadius: 3,
+                    border: `1px solid ${highlightBpm ? daw.green : flChrome.lcdEdge}`,
+                    boxShadow: highlightBpm ? `0 0 0 2px ${daw.green}55` : 'inset 0 1px 0 rgba(255,255,255,0.6)',
+                }}>
                     <input type="number" value={transport.bpm} min={40} max={300}
-                        onChange={e => setBpm(Number(e.target.value) || 140)}
+                        onChange={e => setBpm(clampBpm(Number(e.target.value) || 140))}
                         data-daw-bpm=""
                         style={{
-                            width: 50, background: 'transparent', border: 'none', outline: 'none',
-                            color: highlightBpm ? daw.green : '#e0a63c',
-                            fontSize: 17, fontFamily: dawFont.mono, fontWeight: 700, textAlign: 'right',
-                            appearance: 'textfield', MozAppearance: 'textfield',
+                            width: 42, background: 'transparent', border: 'none', outline: 'none',
+                            color: flChrome.lcdText,
+                            fontSize: 18, fontFamily: dawFont.condensed, fontWeight: 700,
+                            textAlign: 'right', appearance: 'textfield', MozAppearance: 'textfield',
                         }} />
-                    <span style={{ fontSize: 11, color: '#a67a2c', fontFamily: dawFont.mono }}>.000</span>
+                    <span style={{
+                        fontSize: 12, color: flChrome.lcdDim,
+                        fontFamily: dawFont.condensed, fontWeight: 700, marginRight: 3,
+                    }}>
+                        .000
+                    </span>
+                    {/* Spinner — real, not decoration */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                        <button title="Increase tempo" onClick={() => setBpm(clampBpm(transport.bpm + 1))}
+                            style={spinBtn}>
+                            <Triangle up />
+                        </button>
+                        <button title="Decrease tempo" onClick={() => setBpm(clampBpm(transport.bpm - 1))}
+                            style={spinBtn}>
+                            <Triangle />
+                        </button>
+                    </div>
                 </div>
 
                 {/* Song position */}
@@ -611,6 +649,35 @@ export const DAWWorkspace: React.FC<DAWWorkspaceProps> = ({
         </div>
     );
 };
+
+const clampBpm = (n: number) => Math.max(40, Math.min(300, Math.round(n)));
+
+/** Play / stop — larger and more raised than the generic toolbar button */
+const transportBtn = (): React.CSSProperties => ({
+    width: 32, height: 30, borderRadius: 3, cursor: 'pointer', padding: 0, flexShrink: 0,
+    background: flChrome.playBtn,
+    border: `1px solid ${daw.border}`, borderTopColor: flChrome.playBtnEdge,
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+});
+
+const spinBtn: React.CSSProperties = {
+    width: 13, height: 11, padding: 0, cursor: 'pointer',
+    background: 'transparent', border: 'none',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+};
+
+/** The tempo spinner's arrows. CSS triangles rather than icons — at 5px an icon
+ *  glyph turns to mush, while a border triangle stays crisp. */
+const Triangle: React.FC<{ up?: boolean }> = ({ up }) => (
+    <span style={{
+        width: 0, height: 0,
+        borderLeft: '4px solid transparent',
+        borderRight: '4px solid transparent',
+        ...(up
+            ? { borderBottom: `5px solid ${flChrome.lcdDim}` }
+            : { borderTop: `5px solid ${flChrome.lcdDim}` }),
+    }} />
+);
 
 /** FL's small raised toolbar button */
 const flBtn = (w = 26): React.CSSProperties => ({

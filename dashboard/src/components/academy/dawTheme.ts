@@ -121,6 +121,28 @@ export const flChrome = {
     hintEdge:  '#5f747a',
     hintLabel: '#8ca0a2',  // the [code] and FREE lines
     hintText:  '#eef5f2',
+
+    // ── Transport ──
+    // PAT/SONG is a dark well with an orange pill marking only the active mode,
+    // not a solid orange button.
+    patBg:      '#242d33',
+    patOn:      '#f0a132',
+    patOnText:  '#3d2708',
+    patOff:     '#7d8a92',
+
+    playBtn:     'linear-gradient(to bottom, #4e5c66, #3a464f)',
+    playBtnEdge: '#617079',
+    playIcon:    '#c7d0d8',
+
+    // Record is a round button in FL, not a square one with a dot on it
+    recFace: 'radial-gradient(circle at 35% 30%, #e8635a, #b3362c)',
+    recEdge: '#7e241c',
+
+    // The tempo readout is a *light* LCD — the one pale panel in the whole window
+    lcdFace: 'linear-gradient(to bottom, #e9eef2, #d2dae1)',
+    lcdEdge: '#8b98a2',
+    lcdText: '#1f2d38',
+    lcdDim:  '#5c6c78',
 } as const;
 
 /** Per-band colours for the EQ, from the Parametric EQ mockup */
