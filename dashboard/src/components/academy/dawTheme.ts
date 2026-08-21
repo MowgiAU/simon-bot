@@ -195,6 +195,46 @@ export const flChrome = {
 } as const;
 
 /**
+ * Channel Rack, from the "channel rack 2" mockup. That design puts every control for
+ * a channel on ONE row — LED, knobs, plugin slot, name, meter, then the 16 steps —
+ * rather than splitting instruments and sequencer into two side-by-side modules.
+ */
+export const flRack = {
+    bg:          '#404851',
+    border:      '#23282d',
+    header:      'linear-gradient(to bottom, #444c56, #3b424b)',
+    headerEdge:  '#282d33',
+    content:     '#525b65',
+    contentEdge: '#3c434b',
+    text:        '#a0aab5',
+
+    led:     'radial-gradient(circle at 30% 30%, #84cc16, #4d7c0f)',
+    ledEdge: '#1a1e23',
+    ledGlow: '0 0 5px rgba(132, 204, 22, 0.5)',
+
+    slotFace: 'linear-gradient(to bottom, #505963, #434a53)',
+    nameFace: 'linear-gradient(to bottom, #5b6571, #47505a)',
+    nameText: '#e5e7eb',
+
+    meterBg:   '#2b3036',
+    meterEdge: '#1f2328',
+    meterFill: '#84cc16',
+
+    stepOff:  'linear-gradient(to bottom, #58626e, #47505a)',
+    stepAlt:  'linear-gradient(to bottom, #4c5560, #3d454e)',
+    stepOn:   'linear-gradient(to bottom, #7a5c5c, #5e4646)',
+    stepEdge: '#282d33',
+} as const;
+
+/** Channel Rack row geometry, shared by the step ruler so its numbers line up. */
+export const flRackSize = {
+    led: 12, knob: 24, slot: 50, name: 140, meter: 8,
+    step: 22, stepH: 32, stepGap: 2, gap: 8,
+    /** Everything left of the step grid, so the ruler can offset by exactly that much */
+    leftW: 12 + 8 + (24 + 4 + 24) + 8 + 50 + 8 + 140 + 8 + 8,
+} as const;
+
+/**
  * FL colour-codes its browser tree by folder kind, which is most of what makes the
  * panel readable at a glance. From the browser mockup.
  */

@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { FLKnob } from './FLKnob';
 import { useDAWStore } from './DAWStore';
-import { daw, dawFx, dawFont, dawSize as S } from './dawTheme';
+import { daw, dawFx, dawFont, dawSize as S, flRack, flRackSize as RS } from './dawTheme';
 
 interface ChannelRackProps {
     /** Channel the lesson engine wants emphasized (whole row), or null for none */
@@ -131,9 +131,9 @@ export const ChannelRack: React.FC<ChannelRackProps> = ({ highlightChannelId, hi
             {/* ── Top app bar ── */}
             <div data-daw-drag style={{
                 display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                height: S.barH, padding: `0 ${S.modulePad}px`,
-                background: daw.dark,
-                borderBottom: `1px solid ${daw.border}`,
+                height: 32, padding: `0 ${S.modulePad}px`,
+                background: flRack.header,
+                borderBottom: `1px solid ${flRack.headerEdge}`,
                 cursor: 'grab',
             }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
@@ -162,60 +162,73 @@ export const ChannelRack: React.FC<ChannelRackProps> = ({ highlightChannelId, hi
                 </div>
             </div>
 
-            {/* ── Modules ── */}
+            {/* ── Channels ──
+                One row per channel, as in the mockup: LED, volume/pan, plugin slot,
+                name, meter, then the 16 steps. The earlier design split these across
+                two side-by-side modules, which meant a row's controls and its steps
+                could drift out of alignment when either module scrolled. */}
             <div style={{
-                display: 'flex', flexDirection: 'row', gap: S.moduleGap,
-                padding: S.modulePad,
-                background: daw.bg,
-                flex: 1, overflowX: 'auto',
+                flex: 1, minHeight: 0, overflow: 'auto', padding: 10, background: flRack.bg,
             }}>
-                {/* Instruments */}
                 <div style={{
-                    display: 'flex', flexDirection: 'column', gap: S.rowGap,
-                    padding: S.modulePad, flexShrink: 0,
-                    background: daw.panel,
-                    border: `1px solid ${daw.border}`, borderRadius: 3,
+                    minWidth: 'max-content', display: 'flex', flexDirection: 'column', gap: 10,
+                    background: flRack.content, border: `1px solid ${flRack.contentEdge}`,
+                    padding: '12px 10px',
                 }}>
-                    <div style={{ height: S.headerH, display: 'flex', alignItems: 'center' }}>
-                        <span style={{ ...capsLabel, color: daw.textDim }}>CHANNEL</span>
+                    {/* Step-number ruler */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: RS.gap }}>
+                        <div style={{ width: RS.leftW, flexShrink: 0 }} />
+                        <div style={{ display: 'flex', gap: RS.stepGap }}>
+                            {Array.from({ length: 16 }, (_, i) => (
+                                <div key={i} style={{
+                                    ...capsLabel, width: RS.step, textAlign: 'center',
+                                    color: i % 4 === 0 ? daw.green : flRack.text,
+                                }}>
+                                    {i + 1}
+                                </div>
+                            ))}
+                        </div>
                     </div>
 
                     {channels.map(ch => (
                         <div key={ch.id}
                             onContextMenu={e => openMenu(e, ch.id, ch.name)}
                             onMouseDown={e => openMenuOnRightMouseDown(e, ch.id, ch.name)}
-                            style={{
-                                display: 'flex', alignItems: 'center', gap: 12, height: S.rowH,
-                            }}>
+                            style={{ display: 'flex', alignItems: 'center', gap: RS.gap }}>
+
                             {/* Mute LED */}
                             <div
                                 onClick={() => toggleChannelMute(ch.id)}
                                 title={ch.muted ? 'Unmute' : 'Mute'}
                                 style={{
-                                    width: S.led, height: S.led, borderRadius: '50%', flexShrink: 0,
-                                    cursor: 'pointer',
-                                    background: ch.muted ? daw.well : daw.green,
-                                    boxShadow: ch.muted ? dawFx.ledOff : dawFx.ledOn,
+                                    width: RS.led, height: RS.led, borderRadius: '50%', flexShrink: 0,
+                                    cursor: 'pointer', border: `1px solid ${flRack.ledEdge}`,
+                                    background: ch.muted ? daw.well : flRack.led,
+                                    boxShadow: ch.muted
+                                        ? 'inset 0 -1px 2px rgba(0,0,0,0.5)'
+                                        : `inset 0 -1px 2px rgba(0,0,0,0.5), ${flRack.ledGlow}`,
                                 }}
                             />
 
                             {/* Volume / pan */}
-                            <div style={{ display: 'flex', gap: 4 }}>
+                            <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
                                 <FLKnob value={ch.volume} onChange={v => setChannelVolume(ch.id, v)}
-                                    size={S.knob} color={daw.green} label="Volume" showLabel={false} />
+                                    size={RS.knob} color={daw.green} label="Volume" showLabel={false} />
                                 <FLKnob value={ch.pan} min={-1} max={1} onChange={v => setChannelPan(ch.id, v)}
-                                    size={S.knob} color={daw.green} label="Pan" showLabel={false} />
+                                    size={RS.knob} color={daw.green} label="Pan" showLabel={false} />
                             </div>
 
-                            {/* Decorative — FL's plugin picker; the simulator has no plugin browser */}
+                            {/* Decorative — FL's plugin slot; the simulator has no plugin browser */}
                             <div style={{
+                                width: RS.slot, height: 24, flexShrink: 0,
                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                width: S.pluginW, height: S.rowH, flexShrink: 0,
-                                background: daw.well,
-                                border: `1px solid ${daw.border}`, borderRadius: 3,
-                                boxShadow: dawFx.innerShadowWell,
+                                background: flRack.slotFace, border: `1px solid ${flRack.headerEdge}`,
+                                borderRadius: 3,
+                                boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.1), 0 1px 2px rgba(0,0,0,0.3)',
                             }}>
-                                <span style={{ fontSize: 10, color: daw.textDim }}>---</span>
+                                <span style={{ fontSize: 11, color: flRack.text, letterSpacing: '-0.5px' }}>
+                                    -----
+                                </span>
                             </div>
 
                             {/* Channel name */}
@@ -225,18 +238,17 @@ export const ChannelRack: React.FC<ChannelRackProps> = ({ highlightChannelId, hi
                                 onMouseDown={e => openMenuOnRightMouseDown(e, ch.id, ch.name)}
                                 title={`${ch.name} — right-click to fill`}
                                 style={{
-                                    width: S.nameW, height: S.rowH, flexShrink: 0,
+                                    width: RS.name, height: 26, flexShrink: 0,
                                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    background: dawFx.btnSurface,
-                                    borderRadius: 3,
-                                    border: `1px solid ${isChannelHighlighted(ch.id) ? daw.green : daw.border}`,
+                                    background: flRack.nameFace, borderRadius: 3,
+                                    border: `1px solid ${isChannelHighlighted(ch.id) ? daw.green : flRack.headerEdge}`,
                                     boxShadow: isChannelHighlighted(ch.id)
-                                        ? `${dawFx.btnShadow}, 0 0 10px ${daw.green}99`
-                                        : dawFx.btnShadow,
+                                        ? `inset 0 1px 0 rgba(255,255,255,0.1), 0 0 10px ${daw.green}99`
+                                        : 'inset 0 1px 0 rgba(255,255,255,0.1), 0 1px 2px rgba(0,0,0,0.3)',
                                 }}>
                                 <span style={{
-                                    fontSize: 12, fontWeight: 500,
-                                    color: ch.muted ? daw.text : daw.textBright,
+                                    fontSize: 13, fontWeight: 500,
+                                    color: ch.muted ? flRack.text : flRack.nameText,
                                     opacity: ch.muted ? 0.6 : 1,
                                     whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                                     padding: '0 8px',
@@ -244,89 +256,72 @@ export const ChannelRack: React.FC<ChannelRackProps> = ({ highlightChannelId, hi
                                     {ch.name}
                                 </span>
                             </div>
-                        </div>
-                    ))}
-                </div>
 
-                {/* Sequencer */}
-                <div style={{
-                    display: 'flex', flexDirection: 'column', gap: S.rowGap,
-                    padding: S.modulePad, flex: 1, minWidth: 'max-content',
-                    background: daw.dark,
-                    border: `1px solid ${daw.border}`, borderRadius: 3,
-                    boxShadow: dawFx.innerShadowWell,
-                }}>
-                    {/* Step-number ruler */}
-                    <div style={{ display: 'flex', gap: S.padGap, height: S.headerH, alignItems: 'center' }}>
-                        {Array.from({ length: 16 }, (_, i) => {
-                            const isBeat = i % 4 === 0;
-                            return (
-                                <div key={i} style={{
-                                    ...capsLabel,
-                                    width: S.padW, textAlign: 'center',
-                                    color: isBeat ? daw.green : daw.textDim,
-                                }}>
-                                    {i + 1}
-                                </div>
-                            );
-                        })}
-                    </div>
-
-                    {channels.map(ch => (
-                        <div key={ch.id}
-                            onContextMenu={e => openMenu(e, ch.id, ch.name)}
-                            onMouseDown={e => openMenuOnRightMouseDown(e, ch.id, ch.name)}
-                            style={{
-                                display: 'flex', gap: S.padGap, height: S.rowH, alignItems: 'center',
+                            {/* Level meter — reads the channel's own volume rather than being
+                                painted at a fixed height, so it actually means something */}
+                            <div title={`${ch.name} level`} style={{
+                                width: RS.meter, height: 30, flexShrink: 0, position: 'relative',
+                                background: flRack.meterBg, border: `1px solid ${flRack.meterEdge}`,
+                                borderRadius: 2, overflow: 'hidden',
                             }}>
-                            {ch.steps.map((on, i) => {
-                                const isPlayhead = playing && currentStep === i;
-                                const hl = isStepHighlighted(ch.id, i);
-                                // Beat groups 2 & 4 take the darker shade — this is what conveys
-                                // the 4/4 grid in this design, replacing wider group gutters.
-                                const isAltGroup = Math.floor(i / 4) % 2 === 1;
+                                <div style={{
+                                    position: 'absolute', left: 0, right: 0, bottom: 0,
+                                    height: `${Math.round((ch.muted ? 0 : ch.volume) * 100)}%`,
+                                    background: flRack.meterFill,
+                                }} />
+                            </div>
 
-                                let background: string;
-                                let borderColor: string;
-                                let boxShadow: string = dawFx.padShadow;
-                                if (on) {
-                                    background = dawFx.padOn;
-                                    borderColor = daw.stepOnEdge;
-                                } else if (isAltGroup) {
-                                    background = dawFx.padAlt;
-                                    borderColor = daw.stepAltEdge;
-                                } else {
-                                    background = dawFx.padOff;
-                                    borderColor = daw.border;
-                                }
-                                if (isPlayhead) {
-                                    background = daw.playhead;
-                                    borderColor = daw.white;
-                                    boxShadow = `0 0 8px ${daw.playhead}`;
-                                }
-                                // Ring via box-shadow, not a thicker border, so the moving
-                                // lesson highlight can't nudge the grid's layout.
-                                if (hl) {
-                                    borderColor = daw.green;
-                                    boxShadow = `0 0 0 2px ${daw.green}, 0 0 12px ${daw.green}AA`;
-                                }
+                            {/* Steps */}
+                            <div style={{ display: 'flex', gap: RS.stepGap }}>
+                                {ch.steps.map((on, i) => {
+                                    const isPlayhead = playing && currentStep === i;
+                                    const hl = isStepHighlighted(ch.id, i);
+                                    // Beat groups 2 & 4 take the darker shade — this is what
+                                    // conveys the 4/4 grid, replacing wider group gutters.
+                                    const isAltGroup = Math.floor(i / 4) % 2 === 1;
 
-                                return (
-                                    <button
-                                        key={i}
-                                        onClick={() => toggleStep(ch.id, i)}
-                                        data-academy-id={`step-${ch.id}-${i}`}
-                                        style={{
-                                            width: S.padW, height: S.padH,
-                                            borderRadius: 2, padding: 0, cursor: 'pointer',
-                                            border: `1px solid ${borderColor}`,
-                                            background, boxShadow,
-                                            opacity: ch.muted ? 0.45 : 1,
-                                            transition: 'background 0.05s, box-shadow 0.12s',
-                                        }}
-                                    />
-                                );
-                            })}
+                                    let background: string;
+                                    // Annotated: flRack is `as const`, so these would otherwise
+                                    // narrow to their initial literal and reject the reassignments.
+                                    let borderColor: string = flRack.stepEdge;
+                                    let boxShadow: string = 'inset 0 1px 2px rgba(0,0,0,0.3), inset 0 -1px 0 rgba(255,255,255,0.1)';
+                                    if (on) background = flRack.stepOn;
+                                    else background = isAltGroup ? flRack.stepAlt : flRack.stepOff;
+
+                                    if (isPlayhead) {
+                                        background = daw.playhead;
+                                        borderColor = daw.white;
+                                        boxShadow = `0 0 8px ${daw.playhead}`;
+                                    }
+                                    // Ring via box-shadow, not a thicker border, so the moving
+                                    // lesson highlight can't nudge the grid's layout.
+                                    if (hl) {
+                                        borderColor = daw.green;
+                                        boxShadow = `0 0 0 2px ${daw.green}, 0 0 12px ${daw.green}AA`;
+                                    }
+
+                                    return (
+                                        <button
+                                            key={i}
+                                            onClick={() => toggleStep(ch.id, i)}
+                                            data-academy-id={`step-${ch.id}-${i}`}
+                                            style={{
+                                                width: RS.step, height: RS.stepH, position: 'relative',
+                                                borderRadius: 3, padding: 0, cursor: 'pointer',
+                                                border: `1px solid ${borderColor}`,
+                                                background, boxShadow,
+                                                opacity: ch.muted ? 0.45 : 1,
+                                                transition: 'background 0.05s, box-shadow 0.12s',
+                                            }}>
+                                            {/* The mockup's recessed cap across the top of each pad */}
+                                            <span style={{
+                                                position: 'absolute', top: 3, left: 3, right: 3, height: 4,
+                                                borderRadius: 1, background: 'rgba(0,0,0,0.2)',
+                                            }} />
+                                        </button>
+                                    );
+                                })}
+                            </div>
                         </div>
                     ))}
                 </div>
@@ -335,9 +330,9 @@ export const ChannelRack: React.FC<ChannelRackProps> = ({ highlightChannelId, hi
             {/* ── Footer ── */}
             <div style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                height: S.barH, padding: `0 ${S.modulePad}px`,
-                background: daw.dark,
-                borderTop: `1px solid ${daw.border}`,
+                height: 30, padding: `0 ${S.modulePad}px`,
+                background: flRack.bg,
+                borderTop: `1px solid ${flRack.headerEdge}`,
             }}>
                 <button style={iconBtn} title="Add channel (available in the full app)">
                     <Plus size={18} color={daw.text} />
