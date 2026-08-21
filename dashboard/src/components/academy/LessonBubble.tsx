@@ -77,8 +77,15 @@ export const LessonBubble: React.FC<LessonBubbleProps> = ({ container, targetId,
         update();
         const ro = new ResizeObserver(update);
         ro.observe(container);
+        // DAWWindow drags/resizes by writing inline left/top/width/height styles, which
+        // doesn't change the container's own size — so ResizeObserver alone never notices
+        // a target window being moved. Watching style attributes anywhere in the subtree
+        // catches that (and any other) inline-style-driven layout change, so the bubble
+        // tracks its target instead of freezing at the position it had when the step began.
+        const mo = new MutationObserver(update);
+        mo.observe(container, { attributes: true, attributeFilter: ['style'], subtree: true });
         window.addEventListener('resize', update);
-        return () => { ro.disconnect(); window.removeEventListener('resize', update); };
+        return () => { ro.disconnect(); mo.disconnect(); window.removeEventListener('resize', update); };
     }, [container, targetId]);
 
     if (!pos || hidden) return null;

@@ -192,7 +192,12 @@ export const DAWWorkspace: React.FC<DAWWorkspaceProps> = ({
 
     const handlePlay = async () => {
         await initEngine();
-        if (transport.playing) stop(); else play();
+        if (transport.playing) { stop(); return; }
+        // useDAWStore.getState() rather than the hook-selected `engine`: initEngine's `set()`
+        // above lands before this line runs, but a hook-bound value from this render can
+        // still be the pre-init null — getState() always reads the live value.
+        await useDAWStore.getState().engine?.waitForPendingSamples();
+        play();
     };
 
     /** FL's hint panel: mirrors the title of whatever's under the pointer. */

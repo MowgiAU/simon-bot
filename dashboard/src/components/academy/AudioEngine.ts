@@ -332,13 +332,35 @@ export class AudioEngine {
         return this.insertNodes.get(insertId)?.analyser ?? null;
     }
 
+    /** Fetches/decodes still in flight, so playback can wait for them — see waitForPendingSamples */
+    private pendingLoads: Set<Promise<void>> = new Set();
+
     /** Load a sample from URL into a named buffer */
     async loadSample(name: string, url: string): Promise<void> {
         if (!this.ctx) await this.init();
-        const resp = await fetch(url);
-        const arrayBuf = await resp.arrayBuffer();
-        const decoded = await this.ctx!.decodeAudioData(arrayBuf);
-        this.sampleBuffers.set(name, decoded);
+        const promise = (async () => {
+            const resp = await fetch(url);
+            const arrayBuf = await resp.arrayBuffer();
+            const decoded = await this.ctx!.decodeAudioData(arrayBuf);
+            this.sampleBuffers.set(name, decoded);
+        })();
+        this.pendingLoads.add(promise);
+        try {
+            await promise;
+        } finally {
+            this.pendingLoads.delete(promise);
+        }
+    }
+
+    /**
+     * Resolves once every in-flight loadSample call has settled (successfully or not).
+     * A lesson kicks off loadSample as soon as the engine exists, but Play can be pressed
+     * before that fetch+decode finishes — without this, the first hit schedules against
+     * an empty sampleBuffers map and falls back to the synth voice, then silently switches
+     * to the real sample from the next loop onward.
+     */
+    async waitForPendingSamples(): Promise<void> {
+        await Promise.allSettled([...this.pendingLoads]);
     }
 
     /** Register a callback fired on each step advance */
