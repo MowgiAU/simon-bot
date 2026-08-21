@@ -321,11 +321,17 @@ export const DAWWorkspace: React.FC<DAWWorkspaceProps> = ({
                 display: 'flex', flexDirection: 'column', gap: 2, flexShrink: 0,
                 height: 80, padding: 2, background: flChrome.shell,
                 borderBottom: '1px solid #000', position: 'relative', zIndex: 40,
-                overflowX: 'auto', overflowY: 'hidden', boxSizing: 'border-box',
+                overflow: 'hidden', boxSizing: 'border-box',
             }}>
 
+                {/* Row 1's horizontal scrollbar (if content ever needs one) lives inside
+                    row 1's own fixed-height box, so it can never eat into row 2's height --
+                    the two rows no longer share one scroll container. */}
                 {/* ══ Row 1: menus, transport, time, pattern ══ */}
-                <div style={{ display: 'flex', alignItems: 'stretch', gap: 5, height: 37, flexShrink: 0 }}>
+                <div style={{
+                    display: 'flex', alignItems: 'stretch', gap: 5, height: 37, flexShrink: 0,
+                    overflowX: 'auto', overflowY: 'hidden',
+                }}>
                     <div
                         // Narration steps with no named control anchor their bubble here.
                         data-academy-id="daw-titlebar"
@@ -587,7 +593,10 @@ export const DAWWorkspace: React.FC<DAWWorkspaceProps> = ({
                 </div>
 
                 {/* ══ Row 2: hint, master fader, window toggles, snap, store ══ */}
-                <div style={{ display: 'flex', alignItems: 'stretch', gap: 5, height: 37, flexShrink: 0 }}>
+                <div style={{
+                    display: 'flex', alignItems: 'stretch', gap: 5, height: 37, flexShrink: 0,
+                    overflowX: 'auto', overflowY: 'hidden',
+                }}>
                     {/* Hint panel — FL describes the hovered control here */}
                     <div style={{
                         width: leftW, flexShrink: 0, boxSizing: 'border-box',
