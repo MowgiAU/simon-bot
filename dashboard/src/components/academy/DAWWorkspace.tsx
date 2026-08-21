@@ -15,7 +15,7 @@ import {
     Play, Square, ChevronDown, Folder, Star, Cloud, Globe,
     FileMusic, Package, Mic, Music, Minus, Plus, X,
     Grid3x3, ListMusic, SlidersVertical, Piano, PanelLeft,
-    Files, Volume2, RefreshCw, ArrowUp, ShoppingCart, Trash2,
+    Files, Volume2, RefreshCw, ArrowUp, ShoppingCart, Trash2, Magnet,
 } from 'lucide-react';
 import { useDAWStore } from './DAWStore';
 import { ChannelRack } from './ChannelRack';
@@ -135,6 +135,21 @@ export const DAWWorkspace: React.FC<DAWWorkspaceProps> = ({
             { id: 'eq', title: 'Parametric EQ 2', rect: { x: 180, y: 70, w: 700, h: 380 }, open: open('eq', false), z: 5 },
         ];
     });
+
+    // The chrome's three typefaces. Injected here rather than from index.html so only
+    // Academy visitors pay for them — every other page in the app would otherwise fetch
+    // three families it never renders. Left in place on unmount: the stylesheet is cheap
+    // to keep, and removing it would re-fetch (and briefly re-flow) on the way back in.
+    useEffect(() => {
+        const ID = 'fuji-daw-fonts';
+        if (document.getElementById(ID)) return;
+        const link = document.createElement('link');
+        link.id = ID;
+        link.rel = 'stylesheet';
+        link.href = 'https://fonts.googleapis.com/css2?family=Oswald:wght@400;500'
+            + '&family=Roboto+Condensed:wght@400;700&family=Share+Tech+Mono&display=swap';
+        document.head.appendChild(link);
+    }, []);
 
     // Track the canvas size so windows can be clamped inside it
     useEffect(() => {
@@ -268,40 +283,39 @@ export const DAWWorkspace: React.FC<DAWWorkspaceProps> = ({
                 border: '1px solid #000', borderRadius: 3, overflow: 'hidden',
             }}>
 
-            {/* ── Top row: menus + transport + window controls, as one strip in FL ── */}
+            {/* ── Menu bar ── */}
             <div
                 // Narration steps with no named control anchor their bubble here.
                 data-academy-id="daw-titlebar"
                 style={{
-                    display: 'flex', alignItems: 'center', gap: 9, height: 38, flexShrink: 0,
-                    background: flChrome.bar, borderBottom: '1px solid #000', padding: '0 6px',
-                    position: 'relative', zIndex: 40,
+                    display: 'flex', alignItems: 'center', height: 30, flexShrink: 0,
+                    background: flChrome.menuBg,
+                    borderTop: `1px solid ${flChrome.menuEdge}`,
+                    borderBottom: `2px solid ${flChrome.menuUnder}`,
+                    boxShadow: 'inset 0 -1px 0 rgba(0,0,0,0.2)',
+                    padding: '0 8px', position: 'relative', zIndex: 40,
                 }}>
-                {/* Menus — one raised slate panel holding the whole set, as in FL */}
-                <div style={{
-                    display: 'flex', alignItems: 'center', gap: 0, height: 26, padding: '0 3px',
-                    background: flChrome.menuBg, borderRadius: 2,
-                    border: `1px solid ${daw.border}`, borderTopColor: flChrome.menuEdge,
-                }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
                     {MENUS.map(m => (
                         <div key={m} style={{ position: 'relative' }}>
                             <button
                                 onClick={() => setOpenMenu(openMenu === m ? null : m)}
                                 title={m === 'VIEW' ? 'Show or hide windows' : `${m} menu`}
                                 style={{
-                                    background: openMenu === m ? flChrome.menuHover : 'transparent',
-                                    border: 'none', cursor: 'pointer', color: flChrome.menuText,
-                                    fontFamily: dawFont.condensed,
-                                    fontSize: 15, fontWeight: 400, letterSpacing: '0.01em',
-                                    lineHeight: 1, padding: '4px 6px', borderRadius: 2,
+                                    background: 'transparent', border: 'none', cursor: 'pointer',
+                                    padding: 0, lineHeight: 1,
+                                    fontFamily: dawFont.menu, fontSize: 18, fontWeight: 400,
+                                    letterSpacing: '0.5px',
+                                    color: openMenu === m ? flChrome.menuHover : flChrome.menuText,
+                                    textShadow: '1px 1px 0px rgba(0,0,0,0.5)',
                                 }}>
                                 {m}
                             </button>
                             {openMenu === m && (
                                 <div onMouseLeave={() => setOpenMenu(null)} style={{
                                     position: 'absolute', top: '100%', left: 0, zIndex: 500,
-                                    minWidth: 170, background: daw.panel,
-                                    border: `1px solid ${daw.border}`, borderRadius: 3,
+                                    minWidth: 170, background: flChrome.panel,
+                                    border: `1px solid ${flChrome.border}`, borderRadius: 3,
                                     boxShadow: '0 8px 22px rgba(0,0,0,0.6)', padding: 3,
                                 }}>
                                     {m === 'VIEW' ? wins.filter(w =>
@@ -312,8 +326,9 @@ export const DAWWorkspace: React.FC<DAWWorkspaceProps> = ({
                                             data-academy-id={`daw-view-${w.id}`}
                                             style={{
                                                 display: 'flex', alignItems: 'center', gap: 7,
-                                                padding: '5px 8px', fontSize: 11, cursor: 'pointer',
-                                                borderRadius: 2, color: fl.text,
+                                                padding: '5px 8px', fontSize: 12, cursor: 'pointer',
+                                                borderRadius: 2, color: flChrome.text,
+                                                fontFamily: dawFont.condensed,
                                             }}>
                                             <span style={{ width: 11, textAlign: 'center', color: daw.green, fontWeight: 700 }}>
                                                 {w.open ? '✓' : ''}
@@ -321,7 +336,10 @@ export const DAWWorkspace: React.FC<DAWWorkspaceProps> = ({
                                             {w.title}
                                         </div>
                                     )) : (
-                                        <div style={{ padding: '6px 9px', fontSize: 11, color: fl.textDim, fontStyle: 'italic' }}>
+                                        <div style={{
+                                            padding: '6px 9px', fontSize: 12, color: flChrome.hintMuted,
+                                            fontStyle: 'italic', fontFamily: dawFont.condensed,
+                                        }}>
                                             Not simulated
                                         </div>
                                     )}
@@ -330,185 +348,230 @@ export const DAWWorkspace: React.FC<DAWWorkspaceProps> = ({
                         </div>
                     ))}
                 </div>
-
-                {/* PAT / SONG — a dark well, with the orange pill marking only the active mode */}
-                <button
-                    onClick={() => setMode(transport.mode === 'pat' ? 'song' : 'pat')}
-                    data-academy-id="transport-mode"
-                    title={transport.mode === 'pat'
-                        ? 'Pattern mode — looping the Channel Rack bar. Click for Song mode.'
-                        : 'Song mode — playing the playlist arrangement. Click for Pattern mode.'}
-                    style={{
-                        width: 42, height: 30, borderRadius: 3, cursor: 'pointer', flexShrink: 0,
-                        background: flChrome.patBg, border: `1px solid ${daw.border}`,
-                        padding: 2, display: 'flex', flexDirection: 'column', gap: 1,
-                    }}>
-                    {(['pat', 'song'] as const).map(m => (
-                        <span key={m} style={{
-                            flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            borderRadius: 2, lineHeight: 1,
-                            fontFamily: dawFont.condensed, fontWeight: 700,
-                            fontSize: m === 'pat' ? 10 : 9,
-                            background: transport.mode === m ? flChrome.patOn : 'transparent',
-                            color: transport.mode === m ? flChrome.patOnText : flChrome.patOff,
-                        }}>
-                            {m.toUpperCase()}
-                        </span>
-                    ))}
-                </button>
-
-                {/* Transport */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <button onClick={handlePlay} data-academy-id="transport-play" title="Play / pause"
-                        style={transportBtn()}>
-                        <Play size={15}
-                            color={transport.playing ? daw.green : flChrome.playIcon}
-                            fill={transport.playing ? daw.green : flChrome.playIcon} />
-                    </button>
-                    <button onClick={() => stop()} data-academy-id="transport-stop" title="Stop"
-                        style={transportBtn()}>
-                        <Square size={12} color={flChrome.playIcon} fill={flChrome.playIcon} />
-                    </button>
-                    <button data-academy-id="transport-record" title="Record (not simulated)"
-                        style={{
-                            width: 26, height: 26, borderRadius: '50%', cursor: 'pointer', padding: 0,
-                            flexShrink: 0, marginLeft: 4,
-                            background: flChrome.recFace, border: `1px solid ${flChrome.recEdge}`,
-                            boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.25), 0 1px 3px rgba(0,0,0,0.45)',
-                        }} />
-                </div>
-
-                {/* Tempo — the one pale panel in the window, as in FL */}
-                <div title="Tempo in beats per minute" style={{
-                    display: 'flex', alignItems: 'center', gap: 1,
-                    height: 30, padding: '0 4px 0 8px', flexShrink: 0,
-                    background: flChrome.lcdFace, borderRadius: 3,
-                    border: `1px solid ${highlightBpm ? daw.green : flChrome.lcdEdge}`,
-                    boxShadow: highlightBpm ? `0 0 0 2px ${daw.green}55` : 'inset 0 1px 0 rgba(255,255,255,0.6)',
-                }}>
-                    <input type="number" value={transport.bpm} min={40} max={300}
-                        onChange={e => setBpm(clampBpm(Number(e.target.value) || 140))}
-                        data-daw-bpm=""
-                        style={{
-                            width: 42, background: 'transparent', border: 'none', outline: 'none',
-                            color: flChrome.lcdText,
-                            fontSize: 18, fontFamily: dawFont.condensed, fontWeight: 700,
-                            textAlign: 'right', appearance: 'textfield', MozAppearance: 'textfield',
-                        }} />
-                    <span style={{
-                        fontSize: 12, color: flChrome.lcdDim,
-                        fontFamily: dawFont.condensed, fontWeight: 700, marginRight: 3,
-                    }}>
-                        .000
-                    </span>
-                    {/* Spinner — real, not decoration */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                        <button title="Increase tempo" onClick={() => nudgeBpm(1)} style={spinBtn}>
-                            <Triangle up />
-                        </button>
-                        <button title="Decrease tempo" onClick={() => nudgeBpm(-1)} style={spinBtn}>
-                            <Triangle />
-                        </button>
-                    </div>
-                </div>
-
-                {/* Song position */}
-                <div title="Song position" style={{ ...lcd(98), position: 'relative' }}>
-                    <span style={{
-                        fontSize: 17, fontFamily: dawFont.mono, fontWeight: 700,
-                        color: '#d7dee5', letterSpacing: '0.02em',
-                    }}>
-                        {transport.currentBar}:
-                        {String(Math.floor(transport.currentStep / 4)).padStart(2, '0')}:
-                        {String((transport.currentStep % 4) * 25).padStart(2, '0')}
-                    </span>
-                    <span style={{
-                        position: 'absolute', top: 1, right: 4,
-                        fontSize: 6.5, color: '#6f7c86', fontFamily: dawFont.mono, letterSpacing: '0.06em',
-                    }}>M:S:CS</span>
-                </div>
-
-                <ChevronDown size={12} color={fl.textDim} />
-
-                {/* Pattern selector */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                    <div title="Selected pattern" style={{
-                        display: 'flex', alignItems: 'center', gap: 8, height: 24, padding: '0 8px',
-                        background: '#212a30', border: `1px solid ${daw.border}`, borderRadius: 2, minWidth: 96,
-                    }}>
-                        <span style={{ fontSize: 11.5, color: '#dfe6ec', flex: 1 }}>Pattern 1</span>
-                        <ChevronDown size={11} color={fl.textDim} />
-                    </div>
-                    <button title="Add pattern (not simulated — the Academy has one pattern)" style={flBtn(20)}>
-                        <Plus size={12} color={fl.textDim} />
-                    </button>
-                </div>
-
-                {/* Window controls */}
-                <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 9, color: fl.textDim }}>
-                    <Minus size={12} /><Square size={9} /><X size={12} />
+                <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10, color: flChrome.hintMuted }}>
+                    <Minus size={13} /><Square size={10} /><X size={13} />
                 </div>
             </div>
 
-            {/* ── Second row: hint panel, master controls, window toggles ── */}
+            {/* ── Toolbars ── */}
             <div style={{
-                display: 'flex', alignItems: 'center', gap: 10, height: 40, flexShrink: 0,
-                background: flChrome.bar, borderBottom: '1px solid #000', padding: '0 8px',
+                background: flChrome.shell, padding: 2, flexShrink: 0,
+                display: 'flex', flexDirection: 'column', gap: 2,
             }}>
-                {/* Hint panel — FL describes the hovered control here. Two lines: the project
-                    code above, the hovered control's description below. */}
+                {/* Main toolbar: hint, transport, tempo, time, pattern */}
                 <div style={{
-                    width: 268, height: 34, flexShrink: 0, display: 'flex', alignItems: 'center',
-                    background: flChrome.hintBg, borderRadius: 2,
-                    border: `1px solid ${daw.border}`, borderTopColor: flChrome.hintEdge,
-                    boxShadow: dawFx.innerShadowWell, padding: '0 7px', gap: 7,
+                    display: 'flex', alignItems: 'center', gap: 6, height: 50, padding: '0 4px',
+                    background: flChrome.panel, border: `1px solid ${flChrome.border}`,
+                    boxShadow: flChrome.innerPanel,
                 }}>
-                    <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                            <Cloud size={11} color={flChrome.hintLabel} fill={flChrome.hintLabel} />
-                            <span style={{
-                                fontSize: 10, color: flChrome.hintLabel,
-                                fontFamily: dawFont.condensed, letterSpacing: '0.02em',
-                            }}>
-                                [FUJI STUDIO]
-                            </span>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, minWidth: 0 }}>
-                            <span style={{
-                                fontSize: 8, color: flChrome.hintLabel, flexShrink: 0,
-                                fontFamily: dawFont.condensed, letterSpacing: '0.06em',
-                            }}>
-                                FREE
-                            </span>
-                            <span style={{
-                                fontSize: 12, fontWeight: 700,
-                                color: hint ? flChrome.hintText : flChrome.hintLabel,
+                    {/* Hint panel — FL describes the hovered control here */}
+                    <div style={{
+                        width: 236, flexShrink: 0, display: 'flex', alignItems: 'center',
+                        justifyContent: 'space-between', gap: 8, padding: '4px 8px',
+                        background: flChrome.hintBg,
+                        border: `1px solid ${flChrome.hintBorder}`, borderTopColor: flChrome.hintEdge,
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.3)',
+                    }}>
+                        <div style={{ minWidth: 0 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                                <Cloud size={14} color={flChrome.hintIcon} fill={flChrome.hintIcon} />
+                                <span style={{ fontSize: 13, color: flChrome.hintMuted, lineHeight: 1 }}>
+                                    [FUJI STUDIO]
+                                </span>
+                            </div>
+                            <div style={{
+                                fontSize: 14, fontWeight: 500, color: flChrome.hintText, lineHeight: 1.1,
                                 whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                             }}>
                                 {hint || 'Hint panel'}
+                            </div>
+                        </div>
+                        <Trash2 size={19} color={flChrome.hintIcon} style={{ flexShrink: 0 }} />
+                    </div>
+
+                    {/* Transport pill: PAT/SONG + play + stop, all in one rounded body */}
+                    <div style={{
+                        display: 'flex', alignItems: 'stretch', height: 42, flexShrink: 0,
+                        background: flChrome.pillBg, borderRadius: 9999,
+                        border: `1px solid ${flChrome.pillBorder}`,
+                        boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.6), 0 1px 0 rgba(255,255,255,0.1)',
+                        overflow: 'hidden',
+                    }}>
+                        {/* Mode — two half-height buttons, so each mode is directly selectable */}
+                        <div style={{
+                            display: 'flex', flexDirection: 'column', width: 60,
+                            borderRight: `1px solid ${flChrome.pillDivide}`,
+                        }}>
+                            {(['pat', 'song'] as const).map(m => {
+                                const on = transport.mode === m;
+                                return (
+                                    <button key={m}
+                                        onClick={() => setMode(m)}
+                                        // Kept on the PAT half so lesson steps targeting
+                                        // transport-mode still resolve to a real element.
+                                        data-academy-id={m === 'pat' ? 'transport-mode' : undefined}
+                                        title={m === 'pat'
+                                            ? 'Pattern mode — loop the Channel Rack bar'
+                                            : 'Song mode — play the playlist arrangement'}
+                                        style={{
+                                            flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            border: 'none', padding: 0, cursor: 'pointer',
+                                            background: on ? flChrome.patOn : flChrome.songBg,
+                                            boxShadow: on
+                                                ? 'inset 0 1px 1px rgba(255,255,255,0.7), inset 0 2px 4px rgba(255,255,255,0.3)'
+                                                : 'inset 0 2px 3px rgba(0,0,0,0.4)',
+                                        }}>
+                                        <span style={{
+                                            fontFamily: dawFont.condensed, fontWeight: 700,
+                                            fontSize: m === 'pat' ? 11 : 10, letterSpacing: '0.03em',
+                                            color: on ? flChrome.patOnText : flChrome.songText,
+                                            textShadow: on ? '0 0 2px rgba(255,255,255,0.5)' : 'none',
+                                        }}>
+                                            {m.toUpperCase()}
+                                        </span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+
+                        <button onClick={handlePlay} data-academy-id="transport-play" title="Play / pause"
+                            style={{
+                                width: 46, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                background: flChrome.pillBg, cursor: 'pointer', padding: 0,
+                                border: 'none', borderRight: `1px solid ${flChrome.pillDivide}`,
+                            }}>
+                            <Play size={18} style={{ marginLeft: 4 }}
+                                color={transport.playing ? daw.green : flChrome.playIcon}
+                                fill={transport.playing ? daw.green : flChrome.playIcon} />
+                        </button>
+                        <button onClick={() => stop()} data-academy-id="transport-stop" title="Stop"
+                            style={{
+                                width: 46, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                background: flChrome.pillBg, cursor: 'pointer',
+                                border: 'none', padding: '0 4px 0 0',
+                            }}>
+                            <Square size={14} color={flChrome.playIcon} fill={flChrome.playIcon} />
+                        </button>
+                    </div>
+
+                    {/* Record — a bezel with a lit dot in it */}
+                    <button data-academy-id="transport-record" title="Record (not simulated)"
+                        style={{
+                            width: 38, height: 38, borderRadius: '50%', flexShrink: 0, padding: 0,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+                            background: flChrome.recBezel, border: `1px solid ${flChrome.recBezelEdge}`,
+                            boxShadow: 'inset 0 2px 5px rgba(0,0,0,0.6), 0 1px 0 rgba(255,255,255,0.08)',
+                        }}>
+                        <span style={{
+                            width: 14, height: 14, borderRadius: '50%', background: flChrome.recDot,
+                            boxShadow: 'inset 0 1px 2px rgba(255,255,255,0.5), inset 0 -1px 2px rgba(0,0,0,0.2), 0 0 3px rgba(250,92,92,0.6)',
+                        }} />
+                    </button>
+
+                    {/* Tempo */}
+                    <div title="Tempo in beats per minute" style={{
+                        display: 'flex', alignItems: 'center', height: 38, flexShrink: 0,
+                        padding: '0 4px 0 12px', borderRadius: 6, background: flChrome.tempoBg,
+                        border: `1px solid ${highlightBpm ? daw.green : flChrome.tempoEdge}`,
+                        boxShadow: highlightBpm
+                            ? `0 0 0 2px ${daw.green}55`
+                            : 'inset 0 2px 4px rgba(0,0,0,0.2), 0 1px 0 rgba(255,255,255,0.15)',
+                    }}>
+                        <div style={{
+                            display: 'flex', alignItems: 'baseline',
+                            fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em',
+                        }}>
+                            <input type="number" value={transport.bpm} min={40} max={300}
+                                onChange={e => setBpm(clampBpm(Number(e.target.value) || 140))}
+                                data-daw-bpm=""
+                                style={{
+                                    width: 48, background: 'transparent', border: 'none', outline: 'none',
+                                    color: flChrome.tempoText, fontSize: 24, fontWeight: 500,
+                                    lineHeight: 1, textAlign: 'right',
+                                    appearance: 'textfield', MozAppearance: 'textfield',
+                                }} />
+                            <span style={{
+                                fontSize: 15, fontWeight: 500, lineHeight: 1, color: flChrome.tempoDim,
+                            }}>
+                                .000
                             </span>
                         </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginLeft: 4 }}>
+                            <button title="Increase tempo" onClick={() => nudgeBpm(1)} style={spinBtn}>
+                                <Triangle up color={flChrome.tempoArrow} />
+                            </button>
+                            <button title="Decrease tempo" onClick={() => nudgeBpm(-1)} style={spinBtn}>
+                                <Triangle color={flChrome.tempoArrow} />
+                            </button>
+                        </div>
                     </div>
-                    <Trash2 size={14} color={flChrome.hintLabel} style={{ flexShrink: 0 }} />
+
+                    {/* Time LCD */}
+                    <div title="Song position" style={{
+                        position: 'relative', width: 148, height: 42, flexShrink: 0,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        background: flChrome.timerFace, border: `1px solid ${flChrome.timerEdge}`,
+                        borderRadius: 2, boxShadow: 'inset 0 2px 6px rgba(0,0,0,0.5)',
+                    }}>
+                        <span style={{
+                            position: 'absolute', top: 3, right: 6, fontSize: 8, fontWeight: 700,
+                            color: flChrome.timerCyan, opacity: 0.8, letterSpacing: '-0.02em',
+                        }}>
+                            M:S:CS
+                        </span>
+                        <span style={{
+                            fontFamily: dawFont.lcd, fontSize: 27, lineHeight: 1, marginTop: 5,
+                            color: flChrome.timerCyan, letterSpacing: '-2px',
+                            textShadow: '0 0 5px rgba(128,255,255,0.4)',
+                        }}>
+                            {transport.currentBar}:
+                            {String(Math.floor(transport.currentStep / 4)).padStart(2, '0')}:
+                            {String((transport.currentStep % 4) * 25).padStart(2, '0')}
+                        </span>
+                    </div>
+
+                    {/* Pattern selector */}
+                    <div style={{ flex: 1, minWidth: 130, display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <button title="Previous pattern (not simulated)" style={{ ...dawBtn(), width: 20, height: 32 }}>
+                            <Triangle color={flChrome.text} />
+                        </button>
+                        <div title="Selected pattern" style={{
+                            flex: 1, height: 32, position: 'relative',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            background: flChrome.inputFace,
+                            borderTop: `1px solid ${flChrome.inputEdge}`,
+                            borderLeft: `1px solid ${flChrome.inputEdge}`,
+                            borderRight: '1px solid #ffffff', borderBottom: '1px solid #ffffff',
+                        }}>
+                            <span style={{
+                                color: flChrome.inputText, fontSize: 17, fontFamily: dawFont.condensed,
+                            }}>
+                                Pattern 1
+                            </span>
+                            <div style={{
+                                position: 'absolute', right: 4, display: 'flex', flexDirection: 'column', gap: 2,
+                            }}>
+                                <Triangle up color={flChrome.inputArrow} />
+                                <Triangle color={flChrome.inputArrow} />
+                            </div>
+                        </div>
+                        <button title="Add pattern (not simulated — the Academy has one pattern)"
+                            style={{
+                                ...dawBtn(), width: 24, height: 32,
+                                color: flChrome.text, fontSize: 17, fontWeight: 700,
+                                fontFamily: dawFont.condensed, paddingBottom: 3,
+                            }}>
+                            +
+                        </button>
+                    </div>
                 </div>
 
-                {/* Master pitch + volume */}
-                <div title="Master pitch (not simulated)" style={{
-                    width: 15, height: 15, borderRadius: '50%', flexShrink: 0,
-                    background: dawFx.knob, boxShadow: dawFx.knobShadow, border: `1px solid ${daw.well}`,
-                }} />
-                <div title="Master volume (not simulated)" style={{
-                    width: 148, height: 5, flexShrink: 0, borderRadius: 3,
-                    background: daw.well, boxShadow: dawFx.innerShadowWell, position: 'relative',
+                {/* Secondary toolbar: window toggles, snap, store */}
+                <div style={{
+                    display: 'flex', alignItems: 'center', gap: 2, height: 36, padding: 2,
+                    background: flChrome.panel, border: `1px solid ${flChrome.border}`,
+                    boxShadow: flChrome.innerPanel,
                 }}>
-                    <div style={{
-                        position: 'absolute', left: '72%', top: -5, width: 8, height: 15, borderRadius: 2,
-                        background: dawFx.faderHandle, border: '1px solid #555',
-                    }} />
-                </div>
-
-                {/* Window toggles */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
                     {TOGGLES.map(t => {
                         const Icon = t.icon;
                         const isBrowser = t.id === 'browser';
@@ -523,29 +586,34 @@ export const DAWWorkspace: React.FC<DAWWorkspaceProps> = ({
                                 onClick={() => isBrowser ? setBrowserOpen(v => !v) : toggleWin(t.id as WinId)}
                                 data-academy-id={`daw-toggle-${t.id}`}
                                 title={t.label}
-                                style={{
-                                    width: 27, height: 26, borderRadius: 2, cursor: 'pointer', padding: 0,
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    background: on ? '#3d4a53' : '#232b31',
-                                    border: `1px solid ${on ? '#55656f' : daw.border}`,
-                                }}>
-                                <Icon size={13} color={on ? daw.green : '#8b969f'} />
+                                style={{ ...dawBtn(on), width: 40, height: '100%' }}>
+                                <Icon size={15} color={flChrome.btnIcon}
+                                    style={{ filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.8))' }} />
                             </button>
                         );
                     })}
-                </div>
 
-                {/* Plugin picker + store */}
-                <div title="Plugin picker (not simulated)" style={{
-                    display: 'flex', alignItems: 'center', gap: 8, height: 24, padding: '0 8px',
-                    background: '#212a30', border: `1px solid ${daw.border}`, borderRadius: 2, minWidth: 92,
-                }}>
-                    <span style={{ fontSize: 11, color: '#8b969f', flex: 1 }}>(none)</span>
-                    <ChevronDown size={11} color={fl.textDim} />
+                    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, paddingRight: 4 }}>
+                        <Magnet size={13} color="#ffffff" style={{ opacity: 0.4 }} />
+                        <div title="Snap (not simulated)" style={{
+                            width: 84, height: 24, padding: '0 8px',
+                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                            background: flChrome.dark, border: `1px solid ${flChrome.border}`,
+                            borderRadius: 2, boxShadow: flChrome.innerPanel,
+                        }}>
+                            <span style={{ color: flChrome.snapText, fontSize: 13, fontFamily: dawFont.condensed }}>
+                                (none)
+                            </span>
+                            <Triangle color={flChrome.snapText} />
+                        </div>
+                    </div>
+
+                    <button title="Plugin store (not simulated)"
+                        style={{ ...dawBtn(), width: 36, height: '100%', marginLeft: 4, background: flChrome.cartFace }}>
+                        <ShoppingCart size={16} color={flChrome.btnIcon}
+                            style={{ filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.8))' }} />
+                    </button>
                 </div>
-                <button title="Plugin store (not simulated)" style={flBtn(26)}>
-                    <ShoppingCart size={13} color="#d9741f" />
-                </button>
             </div>
 
             {/* ── Body: browser + canvas ── */}
@@ -659,12 +727,20 @@ export const DAWWorkspace: React.FC<DAWWorkspaceProps> = ({
 
 const clampBpm = (n: number) => Math.max(40, Math.min(300, Math.round(n)));
 
-/** Play / stop — larger and more raised than the generic toolbar button */
-const transportBtn = (): React.CSSProperties => ({
-    width: 32, height: 30, borderRadius: 3, cursor: 'pointer', padding: 0, flexShrink: 0,
-    background: flChrome.playBtn,
-    border: `1px solid ${daw.border}`, borderTopColor: flChrome.playBtnEdge,
+/**
+ * The mockups' raised button. Rendered with four separate border colours rather
+ * than one, which is what gives the bevel its direction -- lit on the top/left,
+ * shadowed on the bottom/right, and inverted when the button reads as pressed.
+ */
+const dawBtn = (down = false): React.CSSProperties => ({
     display: 'flex', alignItems: 'center', justifyContent: 'center',
+    borderRadius: 2, cursor: 'pointer', padding: 0, flexShrink: 0,
+    background: down ? flChrome.btnDown : flChrome.btnFace,
+    borderTop: `1px solid ${down ? flChrome.btnEdgeBot : flChrome.btnEdgeTop}`,
+    borderLeft: `1px solid ${down ? flChrome.btnEdgeBot : flChrome.btnEdgeLt}`,
+    borderRight: `1px solid ${down ? flChrome.btnDownEdge : flChrome.btnEdgeRt}`,
+    borderBottom: `1px solid ${down ? flChrome.btnDownEdge : flChrome.btnEdgeBot}`,
+    boxShadow: down ? flChrome.btnDownFx : flChrome.btnUp,
 });
 
 const spinBtn: React.CSSProperties = {
@@ -673,30 +749,13 @@ const spinBtn: React.CSSProperties = {
     display: 'flex', alignItems: 'center', justifyContent: 'center',
 };
 
-/** The tempo spinner's arrows. CSS triangles rather than icons — at 5px an icon
- *  glyph turns to mush, while a border triangle stays crisp. */
-const Triangle: React.FC<{ up?: boolean }> = ({ up }) => (
+/** Small solid triangles. CSS borders rather than icons -- at 5px an icon glyph
+ *  turns to mush, while a border triangle stays crisp. */
+const Triangle: React.FC<{ up?: boolean; color: string }> = ({ up, color }) => (
     <span style={{
         width: 0, height: 0,
         borderLeft: '4px solid transparent',
         borderRight: '4px solid transparent',
-        ...(up
-            ? { borderBottom: `5px solid ${flChrome.lcdDim}` }
-            : { borderTop: `5px solid ${flChrome.lcdDim}` }),
+        ...(up ? { borderBottom: `5px solid ${color}` } : { borderTop: `5px solid ${color}` }),
     }} />
 );
-
-/** FL's small raised toolbar button */
-const flBtn = (w = 26): React.CSSProperties => ({
-    width: w, height: 26, borderRadius: 2, cursor: 'pointer', padding: 0,
-    background: '#2a333a', border: `1px solid ${daw.border}`,
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-});
-
-/** Recessed LCD readout (tempo, song position) */
-const lcd = (w: number): React.CSSProperties => ({
-    display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 1,
-    width: w, height: 28, padding: '0 7px',
-    background: '#12171b', border: `1px solid ${daw.border}`, borderRadius: 2,
-    boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.6)',
-});

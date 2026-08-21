@@ -112,37 +112,79 @@ export const flPlaylist = {
  * mixer are built from.
  */
 export const flChrome = {
-    bar:       '#55686d',  // the strip both panels sit on
-    menuBg:    '#647b80',  // raised menu panel
-    menuEdge:  '#8399a0',  // its lit top edge
-    menuText:  '#d9e6e2',
-    menuHover: '#7c9298',
-    hintBg:    '#3d5055',  // recessed hint well
-    hintEdge:  '#5f747a',
-    hintLabel: '#8ca0a2',  // the [code] and FREE lines
-    hintText:  '#eef5f2',
+    // ── Shell ──
+    shell:  '#3b4347',   // toolbar container
+    panel:  '#454c50',   // the recessed toolbar rows
+    dark:   '#2a3135',
+    border: '#22282b',
+    text:   '#a8b0b5',
+
+    // ── Menu bar ──
+    menuBg:    '#4c5b59',
+    menuEdge:  '#5a6b69',  // top highlight
+    menuUnder: '#3a4544',  // 2px bottom rule
+    menuText:  '#e0e0e0',
+    menuHover: '#ffffff',
+
+    // ── Hint panel ──
+    hintBg:     '#383f43',
+    hintBorder: '#2c3235',
+    hintEdge:   '#485258',
+    hintMuted:  '#8b979e',
+    hintText:   '#f0f0f0',
+    hintIcon:   '#727a7f',
 
     // ── Transport ──
-    // PAT/SONG is a dark well with an orange pill marking only the active mode,
-    // not a solid orange button.
-    patBg:      '#242d33',
-    patOn:      '#f0a132',
-    patOnText:  '#3d2708',
-    patOff:     '#7d8a92',
+    // One rounded pill holds PAT/SONG, play and stop; record is a separate bezel
+    // with a small lit dot in it, not a solid red disc.
+    pillBg:       '#333A3F',
+    pillBorder:   '#1C2124',
+    pillDivide:   '#1D2226',
+    patOn:        'linear-gradient(to bottom, #FFC766, #EE8A18)',
+    patOnText:    '#111111',
+    songBg:       '#363E44',
+    songText:     '#5B6A75',
+    playIcon:     '#A2B1BC',
+    recBezel:     '#394248',
+    recBezelEdge: '#2A3135',
+    recDot:       '#FA5C5C',
 
-    playBtn:     'linear-gradient(to bottom, #4e5c66, #3a464f)',
-    playBtnEdge: '#617079',
-    playIcon:    '#c7d0d8',
+    // ── Tempo: the one pale panel in the window ──
+    tempoBg:    '#CEDEE5',
+    tempoEdge:  '#91A2AD',
+    tempoText:  '#194C72',
+    tempoDim:   '#467396',
+    tempoArrow: '#849AA8',
 
-    // Record is a round button in FL, not a square one with a dot on it
-    recFace: 'radial-gradient(circle at 35% 30%, #e8635a, #b3362c)',
-    recEdge: '#7e241c',
+    // ── Time LCD ──
+    timerFace: 'linear-gradient(to bottom, #4a5d5f, #3a494a)',
+    timerEdge: '#252b2e',
+    timerCyan: '#80FFFF',
 
-    // The tempo readout is a *light* LCD — the one pale panel in the whole window
-    lcdFace: 'linear-gradient(to bottom, #e9eef2, #d2dae1)',
-    lcdEdge: '#8b98a2',
-    lcdText: '#1f2d38',
-    lcdDim:  '#5c6c78',
+    // ── Raised buttons ──
+    btnFace:    'linear-gradient(to bottom, #42494e, #31373a)',
+    btnEdgeTop: '#545b60',
+    btnEdgeLt:  '#4a5155',
+    btnEdgeRt:  '#23282b',
+    btnEdgeBot: '#1a1e21',
+    btnDown:    '#2a3033',
+    btnDownEdge:'#3a4145',
+    btnIcon:    '#d0d6d9',
+
+    // ── Pattern selector: a light Win95-style input ──
+    inputFace:  'linear-gradient(to bottom, #d6d9da, #eaeced)',
+    inputEdge:  '#a3a6a8',
+    inputText:  '#2a3c46',
+    inputArrow: '#7a8c96',
+
+    // ── Misc ──
+    snapText: '#6bb5dc',
+    cartFace: 'linear-gradient(to bottom, #546a68, #425553)',
+
+    // ── Shared depth ──
+    innerPanel: 'inset 0 2px 4px rgba(0,0,0,0.4)',
+    btnUp:      '0 2px 3px rgba(0,0,0,0.3)',
+    btnDownFx:  'inset 0 2px 4px rgba(0,0,0,0.5)',
 } as const;
 
 /** Per-band colours for the EQ, from the Parametric EQ mockup */
@@ -155,9 +197,15 @@ export const eqBandColors = [
 export const dawFont = {
     sans: "'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
     mono: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
-    /** FL sets its menu bar in a narrow face; these all ship with the OS, so still no
-     *  network request. Falls back to `sans` rather than a wide default if none match. */
-    condensed: "'Arial Narrow', 'Helvetica Neue Condensed', 'Liberation Sans Narrow', 'Segoe UI', sans-serif",
+    /**
+     * The mockups' three faces. DAWWorkspace injects the Google Fonts link on mount
+     * rather than index.html doing it — every other page in the app would otherwise
+     * pay for three families it never renders. Each falls back to a narrow OS face,
+     * so the chrome still reads correctly if the request is blocked or slow.
+     */
+    menu:      "Oswald, 'Arial Narrow', 'Segoe UI', sans-serif",
+    condensed: "'Roboto Condensed', 'Arial Narrow', 'Segoe UI', sans-serif",
+    lcd:       "'Share Tech Mono', ui-monospace, Consolas, monospace",
 } as const;
 
 /** Channel-rack geometry. The instruments and sequencer modules both open with
