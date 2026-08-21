@@ -38,8 +38,8 @@ interface Note { pitch: number; start: number; length: number; }
 
 const MENUS = ['FILE', 'EDIT', 'ADD', 'PATTERNS', 'VIEW', 'OPTIONS', 'TOOLS', 'HELP'];
 
-/** Width of the menu/hint column. Both rows share it so the two line up. */
-const LEFT_COL = 246;
+/** Floor for the menu/hint column; the real width is measured from the menus. */
+const LEFT_COL_MIN = 246;
 
 /** FL's toolbar window toggles, in FL's own order */
 const TOGGLES: { id: string; icon: React.ElementType; label: string }[] = [
@@ -133,6 +133,23 @@ export const DAWWorkspace: React.FC<DAWWorkspaceProps> = ({
     const [eqInsertId, setEqInsertId] = useState<number>(1);
     const [zTop, setZTop] = useState(10);
     const [browserOpen, setBrowserOpen] = useState(true);
+
+    // Width of the menu/hint column, measured rather than fixed. Oswald loads lazily
+    // and is wider than the Arial Narrow fallback the menus render in until it lands,
+    // so any hardcoded width fits one of those two and lets the other spill its text
+    // across the transport controls. Grow-only, so it converges instead of oscillating.
+    const menuRef = useRef<HTMLDivElement>(null);
+    const [leftW, setLeftW] = useState(LEFT_COL_MIN);
+    useEffect(() => {
+        const el = menuRef.current;
+        if (!el) return;
+        const measure = () => setLeftW(w => Math.max(w, el.scrollWidth + 2));
+        measure();
+        document.fonts.ready.then(measure).catch(() => { /* fallback metrics stand */ });
+        const ro = new ResizeObserver(measure);
+        ro.observe(el);
+        return () => ro.disconnect();
+    }, []);
 
     const [wins, setWins] = useState<WinDef[]>(() => {
         const only = visibleWindows && visibleWindows.length ? new Set<WinId>(visibleWindows) : null;
@@ -309,11 +326,15 @@ export const DAWWorkspace: React.FC<DAWWorkspaceProps> = ({
                 {/* ══ Row 1: menus, transport, time, pattern ══ */}
                 <div style={{ display: 'flex', alignItems: 'stretch', gap: 4, height: 25, flexShrink: 0 }}>
                     <div
+                        ref={menuRef}
                         // Narration steps with no named control anchor their bubble here.
                         data-academy-id="daw-titlebar"
                         style={{
-                            width: LEFT_COL, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 7,
-                            background: flChrome.menuBg, padding: '0 7px',
+                            width: leftW, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8,
+                            // Backstop: if the measure is ever wrong, menu text is clipped
+                            // rather than drawn on top of the transport.
+                            overflow: 'hidden', whiteSpace: 'nowrap',
+                            background: flChrome.menuBg, padding: '0 8px',
                             borderTop: `1px solid ${flChrome.menuEdge}`,
                             borderBottom: `1px solid ${flChrome.menuUnder}`,
                             boxShadow: 'inset 0 -1px 0 rgba(0,0,0,0.2)',
@@ -326,7 +347,7 @@ export const DAWWorkspace: React.FC<DAWWorkspaceProps> = ({
                                     style={{
                                         background: 'transparent', border: 'none', cursor: 'pointer',
                                         padding: 0, lineHeight: 1,
-                                        fontFamily: dawFont.menu, fontSize: 11.5, fontWeight: 400,
+                                        fontFamily: dawFont.menu, fontSize: 13, fontWeight: 400,
                                         letterSpacing: '0.3px',
                                         color: openMenu === m ? flChrome.menuHover : flChrome.menuText,
                                         textShadow: '1px 1px 0px rgba(0,0,0,0.5)',
@@ -564,8 +585,8 @@ export const DAWWorkspace: React.FC<DAWWorkspaceProps> = ({
                 <div style={{ display: 'flex', alignItems: 'stretch', gap: 4, height: 25, flexShrink: 0 }}>
                     {/* Hint panel — FL describes the hovered control here */}
                     <div style={{
-                        width: LEFT_COL, flexShrink: 0, display: 'flex', alignItems: 'center',
-                        justifyContent: 'space-between', gap: 6, padding: '0 7px',
+                        width: leftW, flexShrink: 0, display: 'flex', alignItems: 'center',
+                        justifyContent: 'space-between', gap: 6, padding: '0 8px',
                         background: flChrome.hintBg,
                         border: `1px solid ${flChrome.hintBorder}`, borderTopColor: flChrome.hintEdge,
                         boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
