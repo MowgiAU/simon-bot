@@ -197,6 +197,15 @@ export const DAWWorkspace: React.FC<DAWWorkspaceProps> = ({
         focus('eq');
     }, [focus]);
 
+    /**
+     * Step the tempo. Reads the live store value rather than this render's `transport.bpm`:
+     * clicking a spinner twice in quick succession fires both handlers against the same
+     * render closure, so a closure-captured value would make the second click a no-op and
+     * silently drop the increment.
+     */
+    const nudgeBpm = (delta: number) =>
+        setBpm(clampBpm(useDAWStore.getState().state.transport.bpm + delta));
+
     const handlePlay = async () => {
         await initEngine();
         if (transport.playing) { stop(); return; }
@@ -394,12 +403,10 @@ export const DAWWorkspace: React.FC<DAWWorkspaceProps> = ({
                     </span>
                     {/* Spinner — real, not decoration */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                        <button title="Increase tempo" onClick={() => setBpm(clampBpm(transport.bpm + 1))}
-                            style={spinBtn}>
+                        <button title="Increase tempo" onClick={() => nudgeBpm(1)} style={spinBtn}>
                             <Triangle up />
                         </button>
-                        <button title="Decrease tempo" onClick={() => setBpm(clampBpm(transport.bpm - 1))}
-                            style={spinBtn}>
+                        <button title="Decrease tempo" onClick={() => nudgeBpm(-1)} style={spinBtn}>
                             <Triangle />
                         </button>
                     </div>
