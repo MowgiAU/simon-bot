@@ -39,9 +39,9 @@ interface Note { pitch: number; start: number; length: number; }
 const MENUS = ['FILE', 'EDIT', 'ADD', 'PATTERNS', 'VIEW', 'OPTIONS', 'TOOLS', 'HELP'];
 
 /** Floor for the menu/hint column; the real width is measured from the menus. */
-const LEFT_COL_MIN = 336;
+const LEFT_COL_MIN = 292;
 /** Horizontal padding on the menu/hint cells, added back onto the measured width. */
-const MENU_PAD = 24;
+const MENU_PAD = 22;
 
 /** FL's toolbar window toggles, in FL's own order */
 const TOGGLES: { id: string; icon: React.ElementType; label: string }[] = [
@@ -321,11 +321,11 @@ export const DAWWorkspace: React.FC<DAWWorkspaceProps> = ({
                 display: 'flex', flexDirection: 'column', gap: 2, flexShrink: 0,
                 height: 80, padding: 2, background: flChrome.shell,
                 borderBottom: '1px solid #000', position: 'relative', zIndex: 40,
-                overflowX: 'auto',
+                overflowX: 'auto', overflowY: 'hidden', boxSizing: 'border-box',
             }}>
 
                 {/* ══ Row 1: menus, transport, time, pattern ══ */}
-                <div style={{ display: 'flex', alignItems: 'stretch', gap: 6, height: 37, flexShrink: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'stretch', gap: 5, height: 37, flexShrink: 0 }}>
                     <div
                         // Narration steps with no named control anchor their bubble here.
                         data-academy-id="daw-titlebar"
@@ -335,13 +335,13 @@ export const DAWWorkspace: React.FC<DAWWorkspaceProps> = ({
                             // Backstop: if the measure is ever wrong, menu text is clipped
                             // rather than drawn on top of the transport.
                             overflow: 'hidden', whiteSpace: 'nowrap',
-                            background: flChrome.menuBg, padding: '0 12px',
+                            background: flChrome.menuBg, padding: '0 10px',
                             borderTop: `1px solid ${flChrome.menuEdge}`,
                             borderBottom: `1px solid ${flChrome.menuUnder}`,
                             boxShadow: 'inset 0 -1px 0 rgba(0,0,0,0.2)',
                         }}>
                       <div ref={menuRef} style={{
-                          display: 'flex', alignItems: 'center', gap: 12, width: 'max-content',
+                          display: 'flex', alignItems: 'center', gap: 10, width: 'max-content',
                       }}>
                         {MENUS.map(m => (
                             <div key={m} style={{ position: 'relative' }}>
@@ -351,7 +351,7 @@ export const DAWWorkspace: React.FC<DAWWorkspaceProps> = ({
                                     style={{
                                         background: 'transparent', border: 'none', cursor: 'pointer',
                                         padding: 0, lineHeight: 1,
-                                        fontFamily: dawFont.menu, fontSize: 18, fontWeight: 400,
+                                        fontFamily: dawFont.menu, fontSize: 16, fontWeight: 400,
                                         letterSpacing: '0.3px',
                                         color: openMenu === m ? flChrome.menuHover : flChrome.menuText,
                                         textShadow: '1px 1px 0px rgba(0,0,0,0.5)',
@@ -361,7 +361,7 @@ export const DAWWorkspace: React.FC<DAWWorkspaceProps> = ({
                                 {openMenu === m && (
                                     <div onMouseLeave={() => setOpenMenu(null)} style={{
                                         position: 'absolute', top: '100%', left: 0, zIndex: 500,
-                                        minWidth: 235, background: flChrome.panel,
+                                        minWidth: 204, background: flChrome.panel,
                                         border: `1px solid ${flChrome.border}`, borderRadius: 3,
                                         boxShadow: '0 8px 22px rgba(0,0,0,0.6)', padding: 3,
                                     }}>
@@ -372,19 +372,19 @@ export const DAWWorkspace: React.FC<DAWWorkspaceProps> = ({
                                                 onClick={() => { toggleWin(w.id); setOpenMenu(null); }}
                                                 data-academy-id={`daw-view-${w.id}`}
                                                 style={{
-                                                    display: 'flex', alignItems: 'center', gap: 9,
-                                                    padding: '6px 10px', fontSize: 16, cursor: 'pointer',
+                                                    display: 'flex', alignItems: 'center', gap: 8,
+                                                    padding: '6px 10px', fontSize: 14, cursor: 'pointer',
                                                     borderRadius: 2, color: flChrome.text,
                                                     fontFamily: dawFont.condensed,
                                                 }}>
-                                                <span style={{ width: 15, textAlign: 'center', color: daw.green, fontWeight: 700 }}>
+                                                <span style={{ width: 13, textAlign: 'center', color: daw.green, fontWeight: 700 }}>
                                                     {w.open ? '✓' : ''}
                                                 </span>
                                                 {w.title}
                                             </div>
                                         )) : (
                                             <div style={{
-                                                padding: '7px 11px', fontSize: 16, color: flChrome.hintMuted,
+                                                padding: '7px 11px', fontSize: 14, color: flChrome.hintMuted,
                                                 fontStyle: 'italic', fontFamily: dawFont.condensed,
                                             }}>
                                                 Not simulated
@@ -407,7 +407,7 @@ export const DAWWorkspace: React.FC<DAWWorkspaceProps> = ({
                     }}>
                         {/* Mode — two half-height buttons, so each is directly selectable */}
                         <div style={{
-                            display: 'flex', flexDirection: 'column', width: 44,
+                            display: 'flex', flexDirection: 'column', width: 38,
                             borderRight: `1px solid ${flChrome.pillDivide}`,
                         }}>
                             {(['pat', 'song'] as const).map(m => {
@@ -431,7 +431,7 @@ export const DAWWorkspace: React.FC<DAWWorkspaceProps> = ({
                                         }}>
                                         <span style={{
                                             fontFamily: dawFont.condensed, fontWeight: 700,
-                                            fontSize: 9, letterSpacing: '0.02em', lineHeight: 1,
+                                            fontSize: 8, letterSpacing: '0.02em', lineHeight: 1,
                                             color: on ? flChrome.patOnText : flChrome.songText,
                                         }}>
                                             {m.toUpperCase()}
@@ -443,42 +443,42 @@ export const DAWWorkspace: React.FC<DAWWorkspaceProps> = ({
 
                         <button onClick={handlePlay} data-academy-id="transport-play" title="Play / pause"
                             style={{
-                                width: 36, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                width: 31, display: 'flex', alignItems: 'center', justifyContent: 'center',
                                 background: flChrome.pillBg, cursor: 'pointer', padding: 0,
                                 border: 'none', borderRight: `1px solid ${flChrome.pillDivide}`,
                             }}>
-                            <Play size={15} style={{ marginLeft: 2 }}
+                            <Play size={13} style={{ marginLeft: 2 }}
                                 color={transport.playing ? daw.green : flChrome.playIcon}
                                 fill={transport.playing ? daw.green : flChrome.playIcon} />
                         </button>
                         <button onClick={() => stop()} data-academy-id="transport-stop" title="Stop"
                             style={{
-                                width: 36, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                width: 31, display: 'flex', alignItems: 'center', justifyContent: 'center',
                                 background: flChrome.pillBg, cursor: 'pointer',
                                 border: 'none', padding: '0 3px 0 0',
                             }}>
-                            <Square size={13} color={flChrome.playIcon} fill={flChrome.playIcon} />
+                            <Square size={11} color={flChrome.playIcon} fill={flChrome.playIcon} />
                         </button>
                     </div>
 
                     {/* Record — a bezel with a lit dot in it */}
                     <button data-academy-id="transport-record" title="Record (not simulated)"
                         style={{
-                            width: 29, height: 29, alignSelf: 'center', borderRadius: '50%',
+                            width: 25, height: 25, alignSelf: 'center', borderRadius: '50%',
                             flexShrink: 0, padding: 0,
                             display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
                             background: flChrome.recBezel, border: `1px solid ${flChrome.recBezelEdge}`,
                             boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.6), 0 1px 0 rgba(255,255,255,0.08)',
                         }}>
                         <span style={{
-                            width: 18, height: 18, borderRadius: '50%', background: flChrome.recDot,
+                            width: 16, height: 16, borderRadius: '50%', background: flChrome.recDot,
                             boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.5), 0 0 3px rgba(250,92,92,0.6)',
                         }} />
                     </button>
 
                     {/* Tempo */}
                     <div title="Tempo in beats per minute" style={{
-                        display: 'flex', alignItems: 'center', height: 29, alignSelf: 'center',
+                        display: 'flex', alignItems: 'center', height: 25, alignSelf: 'center',
                         flexShrink: 0, padding: '0 2px 0 6px', borderRadius: 3,
                         background: flChrome.tempoBg,
                         border: `1px solid ${highlightBpm ? daw.green : flChrome.tempoEdge}`,
@@ -494,42 +494,42 @@ export const DAWWorkspace: React.FC<DAWWorkspaceProps> = ({
                                 onChange={e => setBpm(clampBpm(Number(e.target.value) || 140))}
                                 data-daw-bpm=""
                                 style={{
-                                    width: 37, background: 'transparent', border: 'none', outline: 'none',
-                                    color: flChrome.tempoText, fontSize: 20, fontWeight: 500,
+                                    width: 32, background: 'transparent', border: 'none', outline: 'none',
+                                    color: flChrome.tempoText, fontSize: 17, fontWeight: 500,
                                     lineHeight: 1, textAlign: 'right', padding: 0,
                                     appearance: 'textfield', MozAppearance: 'textfield',
                                 }} />
                             <span style={{
-                                fontSize: 13, fontWeight: 500, lineHeight: 1, color: flChrome.tempoDim,
+                                fontSize: 11, fontWeight: 500, lineHeight: 1, color: flChrome.tempoDim,
                             }}>
                                 .000
                             </span>
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 1, marginLeft: 2 }}>
                             <button title="Increase tempo" onClick={() => nudgeBpm(1)} style={miniSpin}>
-                                <Triangle up size={5} color={flChrome.tempoArrow} />
+                                <Triangle up size={4} color={flChrome.tempoArrow} />
                             </button>
                             <button title="Decrease tempo" onClick={() => nudgeBpm(-1)} style={miniSpin}>
-                                <Triangle size={5} color={flChrome.tempoArrow} />
+                                <Triangle size={4} color={flChrome.tempoArrow} />
                             </button>
                         </div>
                     </div>
 
                     {/* Time LCD */}
                     <div title="Song position" style={{
-                        position: 'relative', width: 144, flexShrink: 0,
+                        position: 'relative', width: 125, flexShrink: 0,
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                         background: flChrome.timerFace, border: `1px solid ${flChrome.timerEdge}`,
                         borderRadius: 2, boxShadow: 'inset 0 1px 4px rgba(0,0,0,0.5)',
                     }}>
                         <span style={{
-                            position: 'absolute', top: 1, right: 5, fontSize: 8, fontWeight: 700,
+                            position: 'absolute', top: 1, right: 4, fontSize: 7, fontWeight: 700,
                             color: flChrome.timerCyan, opacity: 0.85, letterSpacing: '-0.02em',
                         }}>
                             M:S:CS
                         </span>
                         <span style={{
-                            fontFamily: dawFont.lcd, fontSize: 28, lineHeight: 1, marginTop: 2,
+                            fontFamily: dawFont.lcd, fontSize: 24, lineHeight: 1, marginTop: 2,
                             color: flChrome.timerCyan, letterSpacing: '-1px',
                             textShadow: '0 0 4px rgba(128,255,255,0.4)',
                         }}>
@@ -542,11 +542,11 @@ export const DAWWorkspace: React.FC<DAWWorkspaceProps> = ({
                     {/* Pattern selector */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0 }}>
                         <button title="Previous pattern (not simulated)"
-                            style={{ ...dawBtn(), width: 20, height: 29 }}>
-                            <Triangle size={5} color={flChrome.text} />
+                            style={{ ...dawBtn(), width: 17, height: 25 }}>
+                            <Triangle size={4} color={flChrome.text} />
                         </button>
                         <div title="Selected pattern" style={{
-                            width: 118, height: 29, position: 'relative',
+                            width: 103, height: 25, position: 'relative',
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
                             background: flChrome.inputFace,
                             borderTop: `1px solid ${flChrome.inputEdge}`,
@@ -554,21 +554,21 @@ export const DAWWorkspace: React.FC<DAWWorkspaceProps> = ({
                             borderRight: '1px solid #ffffff', borderBottom: '1px solid #ffffff',
                         }}>
                             <span style={{
-                                color: flChrome.inputText, fontSize: 15, fontFamily: dawFont.condensed,
+                                color: flChrome.inputText, fontSize: 13, fontFamily: dawFont.condensed,
                             }}>
                                 Pattern 1
                             </span>
                             <div style={{
                                 position: 'absolute', right: 2, display: 'flex', flexDirection: 'column', gap: 2,
                             }}>
-                                <Triangle up size={5} color={flChrome.inputArrow} />
-                                <Triangle size={5} color={flChrome.inputArrow} />
+                                <Triangle up size={4} color={flChrome.inputArrow} />
+                                <Triangle size={4} color={flChrome.inputArrow} />
                             </div>
                         </div>
                         <button title="Add pattern (not simulated — the Academy has one pattern)"
                             style={{
-                                ...dawBtn(), width: 23, height: 29,
-                                color: flChrome.text, fontSize: 18, fontWeight: 700,
+                                ...dawBtn(), width: 20, height: 25,
+                                color: flChrome.text, fontSize: 16, fontWeight: 700,
                                 fontFamily: dawFont.condensed, paddingBottom: 2,
                             }}>
                             +
@@ -576,50 +576,50 @@ export const DAWWorkspace: React.FC<DAWWorkspaceProps> = ({
                     </div>
 
                     {/* The empty space FL leaves on a wide window */}
-                    <div style={{ flex: 1, minWidth: 16 }} />
+                    <div style={{ flex: 1, minWidth: 14 }} />
 
                     <div style={{
-                        display: 'flex', alignItems: 'center', gap: 13, flexShrink: 0,
+                        display: 'flex', alignItems: 'center', gap: 11, flexShrink: 0,
                         paddingRight: 4, color: flChrome.hintMuted,
                     }}>
-                        <Minus size={15} /><Square size={12} /><X size={15} />
+                        <Minus size={13} /><Square size={10} /><X size={13} />
                     </div>
                 </div>
 
                 {/* ══ Row 2: hint, master fader, window toggles, snap, store ══ */}
-                <div style={{ display: 'flex', alignItems: 'stretch', gap: 6, height: 37, flexShrink: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'stretch', gap: 5, height: 37, flexShrink: 0 }}>
                     {/* Hint panel — FL describes the hovered control here */}
                     <div style={{
                         width: leftW, flexShrink: 0, boxSizing: 'border-box',
                         display: 'flex', alignItems: 'center',
-                        justifyContent: 'space-between', gap: 8, padding: '0 12px',
+                        justifyContent: 'space-between', gap: 7, padding: '0 10px',
                         background: flChrome.hintBg,
                         border: `1px solid ${flChrome.hintBorder}`, borderTopColor: flChrome.hintEdge,
                         boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
                     }}>
                         <div style={{ minWidth: 0 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                <Cloud size={13} color={flChrome.hintIcon} fill={flChrome.hintIcon} />
-                                <span style={{ fontSize: 13, color: flChrome.hintMuted, lineHeight: 1.1 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                                <Cloud size={11} color={flChrome.hintIcon} fill={flChrome.hintIcon} />
+                                <span style={{ fontSize: 11, color: flChrome.hintMuted, lineHeight: 1.1 }}>
                                     [FUJI STUDIO]
                                 </span>
                             </div>
                             <div style={{
-                                fontSize: 15, fontWeight: 700, color: flChrome.hintText, lineHeight: 1.1,
+                                fontSize: 13, fontWeight: 700, color: flChrome.hintText, lineHeight: 1.1,
                                 whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                             }}>
                                 {hint || 'Hint panel'}
                             </div>
                         </div>
-                        <Trash2 size={16} color={flChrome.hintIcon} style={{ flexShrink: 0 }} />
+                        <Trash2 size={14} color={flChrome.hintIcon} style={{ flexShrink: 0 }} />
                     </div>
 
                     {/* Master fader */}
                     <div title="Master volume (not simulated)" style={{
-                        width: 232, flexShrink: 0, display: 'flex', alignItems: 'center', padding: '0 5px',
+                        width: 202, flexShrink: 0, display: 'flex', alignItems: 'center', padding: '0 4px',
                     }}>
                         <div style={{
-                            position: 'relative', flex: 1, height: 8, borderRadius: 3,
+                            position: 'relative', flex: 1, height: 7, borderRadius: 3,
                             background: '#5b6268', border: '1px solid #3c444a',
                             boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.4), 0 1px 0 rgba(255,255,255,0.1)',
                         }}>
@@ -627,7 +627,7 @@ export const DAWWorkspace: React.FC<DAWWorkspaceProps> = ({
                             <div style={{
                                 position: 'absolute', left: 0, top: '50%',
                                 transform: 'translate(-50%, -50%)',
-                                width: 26, height: 26, borderRadius: '50%',
+                                width: 23, height: 23, borderRadius: '50%',
                                 background: 'linear-gradient(180deg, #535c65 0%, #32383e 100%)',
                                 border: '1px solid #4a5259',
                                 boxShadow: '0 2px 4px rgba(0,0,0,0.6), inset 0 1px 2px rgba(255,255,255,0.1), 0 0 0 1px #2a2f34',
@@ -635,7 +635,7 @@ export const DAWWorkspace: React.FC<DAWWorkspaceProps> = ({
                             }}>
                                 {/* The mockup's orange position tick */}
                                 <span style={{
-                                    width: 2, height: 13, borderRadius: 1,
+                                    width: 2, height: 11, borderRadius: 1,
                                     background: 'linear-gradient(180deg, #ffaa00 0%, #ff7700 100%)',
                                     boxShadow: '0 0 4px rgba(255,136,0,0.8)',
                                 }} />
@@ -658,36 +658,36 @@ export const DAWWorkspace: React.FC<DAWWorkspaceProps> = ({
                                     onClick={() => isBrowser ? setBrowserOpen(v => !v) : toggleWin(t.id as WinId)}
                                     data-academy-id={`daw-toggle-${t.id}`}
                                     title={t.label}
-                                    style={{ ...dawBtn(on), width: 37, height: 32 }}>
-                                    <Icon size={16} color={flChrome.btnIcon}
+                                    style={{ ...dawBtn(on), width: 32, height: 28 }}>
+                                    <Icon size={14} color={flChrome.btnIcon}
                                         style={{ filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.8))' }} />
                                 </button>
                             );
                         })}
                     </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexShrink: 0 }}>
-                        <Magnet size={15} color="#ffffff" style={{ opacity: 0.4 }} />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                        <Magnet size={13} color="#ffffff" style={{ opacity: 0.4 }} />
                         <div title="Snap (not simulated)" style={{
-                            width: 91, height: 26, padding: '0 7px',
+                            width: 79, height: 23, padding: '0 6px',
                             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                             background: flChrome.dark, border: `1px solid ${flChrome.border}`,
                             borderRadius: 2, boxShadow: flChrome.innerPanel,
                         }}>
-                            <span style={{ color: flChrome.snapText, fontSize: 14, fontFamily: dawFont.condensed }}>
+                            <span style={{ color: flChrome.snapText, fontSize: 12, fontFamily: dawFont.condensed }}>
                                 (none)
                             </span>
-                            <Triangle size={5} color={flChrome.snapText} />
+                            <Triangle size={4} color={flChrome.snapText} />
                         </div>
                     </div>
 
                     <button title="Plugin store (not simulated)"
-                        style={{ ...dawBtn(), width: 35, height: 32, alignSelf: 'center', background: flChrome.cartFace }}>
-                        <ShoppingCart size={16} color={flChrome.btnIcon}
+                        style={{ ...dawBtn(), width: 30, height: 28, alignSelf: 'center', background: flChrome.cartFace }}>
+                        <ShoppingCart size={14} color={flChrome.btnIcon}
                             style={{ filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.8))' }} />
                     </button>
 
-                    <div style={{ flex: 1, minWidth: 16 }} />
+                    <div style={{ flex: 1, minWidth: 14 }} />
                 </div>
             </div>
 
@@ -817,7 +817,7 @@ const dawBtn = (down = false): React.CSSProperties => ({
 });
 
 const miniSpin: React.CSSProperties = {
-    width: 13, height: 12, padding: 0, cursor: 'pointer',
+    width: 11, height: 10, padding: 0, cursor: 'pointer',
     background: 'transparent', border: 'none',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
 };
