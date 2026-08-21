@@ -158,6 +158,7 @@ export function useLessonEngine(lesson: LessonSchema | null): [LessonEngineState
         }
         if (step.requireTransport) return step.requireTransport === 'play' ? 'transport-play' : 'transport-stop';
         if (step.target?.componentId) return step.target.componentId; // legacy/advanced steps
+        if (step.anchorId) return step.anchorId; // admin-chosen window for a pure narration step
         return 'daw-titlebar';
     }, [step, highlightTarget]);
 

@@ -58,6 +58,12 @@ export interface LessonStep {
     requireTransport?: 'play' | 'stop';
     /** Delay before auto-advancing (ms) — only for non-interactive steps */
     autoAdvanceMs?: number;
+    /**
+     * data-academy-id of a window to point the bubble at when this step has no `target`
+     * (a pure narration step). Without this, narration steps fall back to the shared
+     * title bar — fine for "here's the transport", useless for "here's the Channel Rack".
+     */
+    anchorId?: string;
 }
 
 export interface LessonSchema {
@@ -89,6 +95,20 @@ export const DAW_WINDOW_OPTIONS: { id: DAWWindowId; label: string }[] = [
     { id: 'mixer', label: 'Mixer' },
     { id: 'piano', label: 'Piano roll' },
     { id: 'eq', label: 'Parametric EQ 2' },
+];
+
+/**
+ * data-academy-id values for each DAW window, for pointing a narration step's bubble at
+ * a window as a whole. Must match DAWWindow.tsx's own id derivation
+ * (`daw-window-${title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`) for each window title
+ * used in DAWWorkspace.tsx, or the bubble silently falls back to the title bar.
+ */
+export const WINDOW_ANCHOR_OPTIONS: { id: string; label: string }[] = [
+    { id: 'daw-window-channel-rack', label: 'Channel rack' },
+    { id: 'daw-window-playlist', label: 'Playlist' },
+    { id: 'daw-window-mixer', label: 'Mixer' },
+    { id: 'daw-window-piano-roll', label: 'Piano roll' },
+    { id: 'daw-window-parametric-eq-2', label: 'Parametric EQ 2' },
 ];
 
 // ─── Helper: resolve a dot-path on the DAW state ───

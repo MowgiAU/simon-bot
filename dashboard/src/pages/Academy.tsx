@@ -12,7 +12,7 @@ import {
     GripVertical, ChevronLeft, AlertTriangle,
 } from 'lucide-react';
 import type { LessonAsset, LessonStep, DAWWindowId } from '../components/academy/LessonSchema';
-import { DAW_WINDOW_OPTIONS } from '../components/academy/LessonSchema';
+import { DAW_WINDOW_OPTIONS, WINDOW_ANCHOR_OPTIONS } from '../components/academy/LessonSchema';
 import { createDefaultChannel, createDefaultDAWState } from '../components/academy/AudioEngine';
 
 const API = (window as any).__ENV__?.VITE_API_URL || import.meta.env.VITE_API_URL || '';
@@ -437,6 +437,8 @@ interface EditStep {
      *  pointing at individual steps would suggest the wrong technique. */
     pointAtChannelOnly: boolean;
     requireTransport: 'play' | 'stop';
+    /** Window to point the bubble at, for an instruction-only step. Empty = shared title bar. */
+    anchorId: string;
     advanced: boolean;
     rawTarget: string;
 }
@@ -467,6 +469,7 @@ function fromLessonStep(step: any): EditStep {
             ? step.target.expectedValue : Array(16).fill(false),
         pointAtChannelOnly: !!step.target?.pointAtChannelOnly,
         requireTransport: step.requireTransport === 'stop' ? 'stop' : 'play',
+        anchorId: step.anchorId || '',
         advanced: !hasSimpleTarget,
         rawTarget: hasSimpleTarget ? '' : JSON.stringify(
             { target: step.target, demo: step.demo, autoAdvanceMs: step.autoAdvanceMs }, null, 2,
@@ -499,6 +502,8 @@ function toLessonStep(s: EditStep, idx: number): LessonStep {
         };
     } else if (s.type === 'transport') {
         base.requireTransport = s.requireTransport;
+    } else if (s.type === 'instruction' && s.anchorId) {
+        base.anchorId = s.anchorId;
     }
     return base;
 }
@@ -590,7 +595,7 @@ const LessonEditorView: React.FC<{
             key: newStepKey(), instruction: '', hint: '', type: 'instruction',
             channelId: channels[0]?.id || '', pattern: Array(16).fill(false),
             pointAtChannelOnly: false,
-            requireTransport: 'play', advanced: false, rawTarget: '',
+            requireTransport: 'play', anchorId: '', advanced: false, rawTarget: '',
         }]);
     };
 
@@ -842,6 +847,16 @@ const LessonEditorView: React.FC<{
                                                         style={{ ...inputStyle, width: '120px' }}>
                                                         <option value="play">Play</option>
                                                         <option value="stop">Stop</option>
+                                                    </select>
+                                                )}
+                                                {!s.advanced && s.type === 'instruction' && (
+                                                    <select value={s.anchorId} onChange={e => updateStep(idx, { anchorId: e.target.value })}
+                                                        title="Which window the bubble points to. Default points at the shared title bar, which reads as the top of the page."
+                                                        style={{ ...inputStyle, width: '190px' }}>
+                                                        <option value="">Point at: top of window (default)</option>
+                                                        {WINDOW_ANCHOR_OPTIONS.map(w => (
+                                                            <option key={w.id} value={w.id}>Point at: {w.label}</option>
+                                                        ))}
                                                     </select>
                                                 )}
                                             </div>
