@@ -17,7 +17,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     Play, Square, ChevronDown, Folder, Star, Cloud, Globe,
-    FileMusic, Package, Mic, Music, Minus, Plus, X,
+    FileMusic, Package, Music, Minus, Plus, X,
     Grid3x3, ListMusic, SlidersVertical, Piano, PanelLeft,
     Files, Volume2, RefreshCw, ArrowUp, ShoppingCart, Trash2, Magnet,
 } from 'lucide-react';
@@ -85,15 +85,6 @@ const BROWSER_ITEMS: { label: string; icon: React.ElementType; color: string }[]
     { label: 'FL Cloud', icon: Cloud, color: ink.blue },
     { label: 'Impulses', icon: Folder, color: ink.cyan },
     { label: 'MIDI', icon: Folder, color: ink.cyan },
-    { label: 'My projects', icon: Star, color: ink.orange },
-    { label: 'Packs', icon: Package, color: ink.purple },
-    { label: 'Recorded', icon: Mic, color: ink.red },
-    { label: 'Rendered', icon: Folder, color: ink.cyan },
-    { label: 'Sample Library', icon: Globe, color: ink.green },
-    { label: 'Samples', icon: Folder, color: ink.cyan },
-    { label: 'Soundfonts', icon: Folder, color: ink.cyan },
-    { label: 'Speech', icon: Folder, color: ink.pink },
-    { label: 'Templates', icon: Folder, color: ink.cyan },
 ];
 
 interface DAWWorkspaceProps {
