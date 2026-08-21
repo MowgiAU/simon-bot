@@ -332,35 +332,34 @@ export class AudioEngine {
         return this.insertNodes.get(insertId)?.analyser ?? null;
     }
 
-    /** Fetches/decodes still in flight, so playback can wait for them — see waitForPendingSamples */
-    private pendingLoads: Set<Promise<void>> = new Set();
-
-    /** Load a sample from URL into a named buffer */
-    async loadSample(name: string, url: string): Promise<void> {
-        if (!this.ctx) await this.init();
-        const promise = (async () => {
-            const resp = await fetch(url);
-            const arrayBuf = await resp.arrayBuffer();
-            const decoded = await this.ctx!.decodeAudioData(arrayBuf);
-            this.sampleBuffers.set(name, decoded);
-        })();
-        this.pendingLoads.add(promise);
-        try {
-            await promise;
-        } finally {
-            this.pendingLoads.delete(promise);
-        }
-    }
+    /** Keyed by channel name, so a load already in flight is awaited rather than re-fetched */
+    private pendingLoads: Map<string, Promise<void>> = new Map();
 
     /**
-     * Resolves once every in-flight loadSample call has settled (successfully or not).
-     * A lesson kicks off loadSample as soon as the engine exists, but Play can be pressed
-     * before that fetch+decode finishes — without this, the first hit schedules against
-     * an empty sampleBuffers map and falls back to the synth voice, then silently switches
-     * to the real sample from the next loop onward.
+     * Load a sample from URL into a named buffer. Two callers can legitimately race for the
+     * same name — a lesson preloads reactively as soon as the engine exists, and Play also
+     * loads its lesson's assets directly so it can wait on them (see DAWWorkspace.handlePlay).
+     * Everything up to the `pendingLoads` registration below runs synchronously (no `await`
+     * yet), so whichever call comes second always sees the first one's promise instead of
+     * starting a duplicate fetch.
      */
-    async waitForPendingSamples(): Promise<void> {
-        await Promise.allSettled([...this.pendingLoads]);
+    async loadSample(name: string, url: string): Promise<void> {
+        if (this.sampleBuffers.has(name)) return;
+        let promise = this.pendingLoads.get(name);
+        if (!promise) {
+            promise = this.fetchAndDecodeSample(name, url);
+            this.pendingLoads.set(name, promise);
+            promise.finally(() => this.pendingLoads.delete(name));
+        }
+        return promise;
+    }
+
+    private async fetchAndDecodeSample(name: string, url: string): Promise<void> {
+        if (!this.ctx) await this.init();
+        const resp = await fetch(url);
+        const arrayBuf = await resp.arrayBuffer();
+        const decoded = await this.ctx!.decodeAudioData(arrayBuf);
+        this.sampleBuffers.set(name, decoded);
     }
 
     /** Register a callback fired on each step advance */

@@ -85,6 +85,13 @@ const BROWSER_ITEMS: { label: string; icon: React.ElementType }[] = [
 interface DAWWorkspaceProps {
     /** Windows this lesson uses. Empty/omitted shows the full studio. */
     visibleWindows?: WinId[];
+    /**
+     * Sample-backed channels this lesson wants loaded before the first Play. AudioEngine
+     * can't fetch/decode a sample until it exists, and it can't exist before a user gesture
+     * — so the earliest this can start is the first Play click, which is also the moment
+     * that needs to wait for it. See handlePlay.
+     */
+    sampleAssets?: { name: string; url: string; type: string }[];
     highlightChannelId?: string | null;
     highlightStepIndex?: number | null;
     highlightInserts?: number[];
@@ -95,7 +102,7 @@ interface DAWWorkspaceProps {
 }
 
 export const DAWWorkspace: React.FC<DAWWorkspaceProps> = ({
-    visibleWindows,
+    visibleWindows, sampleAssets,
     highlightChannelId, highlightStepIndex, highlightInserts, highlightBpm,
     highlightEQBand, highlightBars, highlightTrack,
 }) => {
@@ -196,7 +203,20 @@ export const DAWWorkspace: React.FC<DAWWorkspaceProps> = ({
         // useDAWStore.getState() rather than the hook-selected `engine`: initEngine's `set()`
         // above lands before this line runs, but a hook-bound value from this render can
         // still be the pre-init null — getState() always reads the live value.
-        await useDAWStore.getState().engine?.waitForPendingSamples();
+        const eng = useDAWStore.getState().engine;
+        // Loaded here, not just left to whatever reactive preload a lesson hook fires off
+        // elsewhere: that preload can only ever start once the engine exists (same gate as
+        // this line), so anything that only *waits* for pending loads risks checking before
+        // that other loader has even registered one. Calling loadSample directly ties this
+        // wait to loads it's certain were actually started -- AudioEngine.loadSample
+        // deduplicates by name, so if the other loader got there first this just awaits it.
+        if (eng && sampleAssets?.length) {
+            await Promise.allSettled(
+                sampleAssets
+                    .filter(a => a.type === 'sample' && a.url)
+                    .map(a => eng.loadSample(a.name, a.url)),
+            );
+        }
         play();
     };
 

@@ -143,6 +143,7 @@ const AltLessonPlayer: React.FC<{ lesson: LessonSchema; onExit: () => void }> = 
             <div ref={setDawContainer} style={{ position: 'relative', flex: 1, minHeight: 0 }}>
                 <DAWWorkspace
                     visibleWindows={lesson.windows}
+                    sampleAssets={lesson.assets}
                     highlightChannelId={taskDone ? null : highlightChannelId}
                     highlightStepIndex={taskDone ? null : highlightStepIndex}
                 />
