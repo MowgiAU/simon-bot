@@ -40,6 +40,8 @@ const MENUS = ['FILE', 'EDIT', 'ADD', 'PATTERNS', 'VIEW', 'OPTIONS', 'TOOLS', 'H
 
 /** Floor for the menu/hint column; the real width is measured from the menus. */
 const LEFT_COL_MIN = 246;
+/** Horizontal padding on the menu/hint cells, added back onto the measured width. */
+const MENU_PAD = 18;
 
 /** FL's toolbar window toggles, in FL's own order */
 const TOGGLES: { id: string; icon: React.ElementType; label: string }[] = [
@@ -137,13 +139,19 @@ export const DAWWorkspace: React.FC<DAWWorkspaceProps> = ({
     // Width of the menu/hint column, measured rather than fixed. Oswald loads lazily
     // and is wider than the Arial Narrow fallback the menus render in until it lands,
     // so any hardcoded width fits one of those two and lets the other spill its text
-    // across the transport controls. Grow-only, so it converges instead of oscillating.
+    // across the transport controls.
+    //
+    // `menuRef` is the INNER max-content row, never the outer cell this sets the width
+    // of. Measuring the outer cell fed its own padding back in on every pass -- width
+    // is content-box but scrollWidth counts padding -- so the ResizeObserver drove it
+    // wider and wider without bound. The inner row's width doesn't depend on the outer
+    // cell's, which is what makes observing it safe.
     const menuRef = useRef<HTMLDivElement>(null);
     const [leftW, setLeftW] = useState(LEFT_COL_MIN);
     useEffect(() => {
         const el = menuRef.current;
         if (!el) return;
-        const measure = () => setLeftW(w => Math.max(w, el.scrollWidth + 2));
+        const measure = () => setLeftW(Math.max(LEFT_COL_MIN, Math.ceil(el.offsetWidth) + MENU_PAD));
         measure();
         document.fonts.ready.then(measure).catch(() => { /* fallback metrics stand */ });
         const ro = new ResizeObserver(measure);
@@ -326,11 +334,11 @@ export const DAWWorkspace: React.FC<DAWWorkspaceProps> = ({
                 {/* ══ Row 1: menus, transport, time, pattern ══ */}
                 <div style={{ display: 'flex', alignItems: 'stretch', gap: 4, height: 25, flexShrink: 0 }}>
                     <div
-                        ref={menuRef}
                         // Narration steps with no named control anchor their bubble here.
                         data-academy-id="daw-titlebar"
                         style={{
-                            width: leftW, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8,
+                            width: leftW, flexShrink: 0, boxSizing: 'border-box',
+                            display: 'flex', alignItems: 'center',
                             // Backstop: if the measure is ever wrong, menu text is clipped
                             // rather than drawn on top of the transport.
                             overflow: 'hidden', whiteSpace: 'nowrap',
@@ -339,6 +347,9 @@ export const DAWWorkspace: React.FC<DAWWorkspaceProps> = ({
                             borderBottom: `1px solid ${flChrome.menuUnder}`,
                             boxShadow: 'inset 0 -1px 0 rgba(0,0,0,0.2)',
                         }}>
+                      <div ref={menuRef} style={{
+                          display: 'flex', alignItems: 'center', gap: 8, width: 'max-content',
+                      }}>
                         {MENUS.map(m => (
                             <div key={m} style={{ position: 'relative' }}>
                                 <button
@@ -390,6 +401,7 @@ export const DAWWorkspace: React.FC<DAWWorkspaceProps> = ({
                                 )}
                             </div>
                         ))}
+                      </div>
                     </div>
 
                     {/* Transport pill: PAT/SONG + play + stop share one rounded body */}
@@ -585,7 +597,8 @@ export const DAWWorkspace: React.FC<DAWWorkspaceProps> = ({
                 <div style={{ display: 'flex', alignItems: 'stretch', gap: 4, height: 25, flexShrink: 0 }}>
                     {/* Hint panel — FL describes the hovered control here */}
                     <div style={{
-                        width: leftW, flexShrink: 0, display: 'flex', alignItems: 'center',
+                        width: leftW, flexShrink: 0, boxSizing: 'border-box',
+                        display: 'flex', alignItems: 'center',
                         justifyContent: 'space-between', gap: 6, padding: '0 8px',
                         background: flChrome.hintBg,
                         border: `1px solid ${flChrome.hintBorder}`, borderTopColor: flChrome.hintEdge,
