@@ -387,7 +387,7 @@ export const DAWWorkspace: React.FC<DAWWorkspaceProps> = ({
                     boxShadow: dawFx.innerShadowWell, padding: '0 7px', gap: 7,
                 }}>
                     <div style={{ flex: 1, minWidth: 0, lineHeight: 1.15 }}>
-                        <div style={{ fontSize: 8.5, color: '#5d6a74', fontFamily: dawFont.mono }}>[AGF4333]</div>
+                        <div style={{ fontSize: 8.5, color: '#5d6a74', fontFamily: dawFont.mono }}>FUJI STUDIO</div>
                         <div style={{
                             fontSize: 11, color: hint ? '#cfd7de' : '#6f7c86',
                             whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
