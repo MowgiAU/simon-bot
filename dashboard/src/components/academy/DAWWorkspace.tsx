@@ -18,7 +18,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
     Play, Square, ChevronDown, Folder, Star, Cloud, Globe,
     FileMusic, Package, Music, Minus, Plus, X,
-    Grid3x3, ListMusic, SlidersVertical, Piano, PanelLeft,
     Files, Volume2, RefreshCw, ArrowUp, ShoppingCart, Trash2, Magnet,
 } from 'lucide-react';
 import { useDAWStore } from './DAWStore';
@@ -41,15 +40,77 @@ const MENUS = ['FILE', 'EDIT', 'ADD', 'PATTERNS', 'VIEW', 'OPTIONS', 'TOOLS', 'H
 /** Floor for the menu/hint column; the real width is measured from the menus. */
 const LEFT_COL_MIN = 292;
 /** Horizontal padding on the menu/hint cells, added back onto the measured width. */
-const MENU_PAD = 22;
+const MENU_PAD = 14;
 
 /** FL's toolbar window toggles, in FL's own order */
-const TOGGLES: { id: string; icon: React.ElementType; label: string }[] = [
-    { id: 'playlist', icon: ListMusic, label: 'Playlist' },
-    { id: 'rack', icon: Grid3x3, label: 'Channel rack' },
-    { id: 'piano', icon: Piano, label: 'Piano roll' },
-    { id: 'mixer', icon: SlidersVertical, label: 'Mixer' },
-    { id: 'browser', icon: PanelLeft, label: 'Browser' },
+/**
+ * Window-toggle icons, traced from the toolbar mockup's own inline SVGs rather than
+ * drawn from lucide-react — that mockup gives Playlist/Piano Roll/Channel Rack/Mixer/
+ * Browser bespoke pictograms (a mini timeline, piano-key blocks, rack rows, fader
+ * pairs, a tabbed folder) instead of generic icon-set glyphs, and matching them is
+ * the whole point of following it.
+ */
+const ToggleIcon: React.FC<{ id: string; color: string }> = ({ id, color }) => {
+    switch (id) {
+        case 'playlist':
+            return (
+                <svg width="20" height="14" viewBox="0 0 20 14" style={{ filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.8))' }}>
+                    <rect x="1" y="1" width="18" height="12" fill="none" stroke={color} strokeWidth="1.5" />
+                    <rect x="1" y="1" width="18" height="3" fill={color} />
+                    <rect x="3" y="6" width="4" height="2" fill={color} />
+                    <rect x="8" y="8" width="4" height="2" fill={color} />
+                    <rect x="13" y="10" width="4" height="2" fill={color} />
+                </svg>
+            );
+        case 'piano':
+            return (
+                <svg width="18" height="16" viewBox="0 0 18 16" style={{ filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.8))' }}>
+                    <path d="M2 1V15H7V1H2Z" fill={color} />
+                    <path d="M7 1V5H10V1H7Z" fill={color} />
+                    <path d="M7 6V10H12V6H7Z" fill={color} />
+                    <path d="M7 11V15H15V11H7Z" fill={color} />
+                </svg>
+            );
+        case 'rack':
+            return (
+                <svg width="18" height="16" viewBox="0 0 18 16" style={{ filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.8))' }}>
+                    <rect x="2" y="2" width="10" height="3" fill="none" stroke={color} strokeWidth="1.5" />
+                    <rect x="14" y="2" width="2" height="3" fill="none" stroke={color} strokeWidth="1.5" />
+                    <rect x="2" y="6.5" width="10" height="3" fill="none" stroke={color} strokeWidth="1.5" />
+                    <rect x="14" y="6.5" width="2" height="3" fill="none" stroke={color} strokeWidth="1.5" />
+                    <rect x="2" y="11" width="10" height="3" fill="none" stroke={color} strokeWidth="1.5" />
+                    <rect x="14" y="11" width="2" height="3" fill="none" stroke={color} strokeWidth="1.5" />
+                </svg>
+            );
+        case 'mixer':
+            return (
+                <svg width="18" height="16" viewBox="0 0 18 16" style={{ filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.8))' }}>
+                    <rect x="4" y="2" width="1" height="12" fill={color} />
+                    <rect x="12" y="2" width="1" height="12" fill={color} />
+                    <rect x="2" y="6" width="5" height="4" fill="none" stroke={color} strokeWidth="1.5" />
+                    <rect x="10" y="6" width="5" height="4" fill="none" stroke={color} strokeWidth="1.5" />
+                </svg>
+            );
+        case 'browser':
+            return (
+                <svg width="18" height="16" viewBox="0 0 18 16" style={{ filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.8))' }}>
+                    <path d="M2 2H6L7 4H14V14H2V2Z" fill="none" stroke={color} strokeWidth="1.5" />
+                    <path d="M7 8H10M7 12H10" stroke={color} strokeWidth="1.5" />
+                    <path d="M12 7L16 8L12 9V7ZM12 11L16 12L12 13V11Z" fill={color} />
+                    <path d="M7 4V14" stroke={color} strokeWidth="1.5" />
+                </svg>
+            );
+        default:
+            return null;
+    }
+};
+
+const TOGGLES: { id: string; label: string }[] = [
+    { id: 'playlist', label: 'Playlist' },
+    { id: 'rack', label: 'Channel rack' },
+    { id: 'piano', label: 'Piano roll' },
+    { id: 'mixer', label: 'Mixer' },
+    { id: 'browser', label: 'Browser' },
 ];
 
 /** Category strip above the browser tree */
@@ -329,7 +390,7 @@ export const DAWWorkspace: React.FC<DAWWorkspaceProps> = ({
                     the two rows no longer share one scroll container. */}
                 {/* ══ Row 1: menus, transport, time, pattern ══ */}
                 <div style={{
-                    display: 'flex', alignItems: 'stretch', gap: 5, height: 37, flexShrink: 0,
+                    display: 'flex', alignItems: 'stretch', gap: 4, height: 37, flexShrink: 0,
                     overflowX: 'auto', overflowY: 'hidden',
                 }}>
                     <div
@@ -523,21 +584,23 @@ export const DAWWorkspace: React.FC<DAWWorkspaceProps> = ({
 
                     {/* Time LCD */}
                     <div title="Song position" style={{
-                        position: 'relative', width: 125, flexShrink: 0,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        position: 'relative', width: 112, flexShrink: 0,
+                        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
                         background: flChrome.timerFace, border: `1px solid ${flChrome.timerEdge}`,
                         borderRadius: 2, boxShadow: 'inset 0 1px 4px rgba(0,0,0,0.5)',
                     }}>
+                        {/* Stacked above the digits rather than absolutely positioned over
+                            them, so it can never overlap regardless of digit width. */}
                         <span style={{
-                            position: 'absolute', top: 1, right: 4, fontSize: 7, fontWeight: 700,
-                            color: flChrome.timerCyan, opacity: 0.85, letterSpacing: '-0.02em',
+                            alignSelf: 'flex-end', marginRight: 5, fontSize: 7, fontWeight: 700,
+                            color: '#ffffff', opacity: 0.7, letterSpacing: '-0.02em', lineHeight: 1.4,
                         }}>
                             M:S:CS
                         </span>
                         <span style={{
-                            fontFamily: dawFont.lcd, fontSize: 24, lineHeight: 1, marginTop: 2,
-                            color: flChrome.timerCyan, letterSpacing: '-1px',
-                            textShadow: '0 0 4px rgba(128,255,255,0.4)',
+                            fontFamily: dawFont.lcd, fontSize: 22, lineHeight: 1,
+                            color: '#ffffff', letterSpacing: '-1px',
+                            textShadow: '0 0 4px rgba(255,255,255,0.4)',
                         }}>
                             {transport.currentBar}:
                             {String(Math.floor(transport.currentStep / 4)).padStart(2, '0')}:
@@ -552,7 +615,7 @@ export const DAWWorkspace: React.FC<DAWWorkspaceProps> = ({
                             <Triangle size={4} color={flChrome.text} />
                         </button>
                         <div title="Selected pattern" style={{
-                            width: 103, height: 25, position: 'relative',
+                            width: 92, height: 25, position: 'relative',
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
                             background: flChrome.inputFace,
                             borderTop: `1px solid ${flChrome.inputEdge}`,
@@ -585,8 +648,8 @@ export const DAWWorkspace: React.FC<DAWWorkspaceProps> = ({
                     <div style={{ flex: 1, minWidth: 14 }} />
 
                     <div style={{
-                        display: 'flex', alignItems: 'center', gap: 11, flexShrink: 0,
-                        paddingRight: 4, color: flChrome.hintMuted,
+                        display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0,
+                        paddingRight: 2, color: flChrome.hintMuted,
                     }}>
                         <Minus size={13} /><Square size={10} /><X size={13} />
                     </div>
@@ -654,7 +717,6 @@ export const DAWWorkspace: React.FC<DAWWorkspaceProps> = ({
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0 }}>
                         {TOGGLES.map(t => {
-                            const Icon = t.icon;
                             const isBrowser = t.id === 'browser';
                             const on = isBrowser ? browserOpen : !!wins.find(w => w.id === t.id)?.open;
                             // A lesson that limits its windows shouldn't offer toggles for the rest
@@ -668,8 +730,7 @@ export const DAWWorkspace: React.FC<DAWWorkspaceProps> = ({
                                     data-academy-id={`daw-toggle-${t.id}`}
                                     title={t.label}
                                     style={{ ...dawBtn(on), width: 32, height: 28 }}>
-                                    <Icon size={14} color={flChrome.btnIcon}
-                                        style={{ filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.8))' }} />
+                                    <ToggleIcon id={t.id} color={flChrome.btnIcon} />
                                 </button>
                             );
                         })}
