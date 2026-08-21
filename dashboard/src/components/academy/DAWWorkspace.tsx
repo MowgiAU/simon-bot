@@ -15,7 +15,7 @@ import {
     Play, Square, Circle, ChevronDown, Folder, Star, Cloud, Globe,
     FileMusic, Package, Mic, Music, Minus, Plus, X,
     Grid3x3, ListMusic, SlidersVertical, Piano, PanelLeft,
-    Files, Volume2, RefreshCw, ArrowUp, ShoppingCart,
+    Files, Volume2, RefreshCw, ArrowUp, ShoppingCart, Trash2,
 } from 'lucide-react';
 import { useDAWStore } from './DAWStore';
 import { ChannelRack } from './ChannelRack';
@@ -24,7 +24,7 @@ import { Mixer } from './Mixer';
 import { PianoRoll } from './PianoRoll';
 import { ParametricEQ } from './ParametricEQ';
 import { DAWWindow, WindowRect } from './DAWWindow';
-import { daw, dawFx, dawFont, flPlaylist as fl } from './dawTheme';
+import { daw, dawFx, dawFont, flPlaylist as fl, flChrome } from './dawTheme';
 
 type WinId = 'rack' | 'playlist' | 'mixer' | 'piano' | 'eq';
 
@@ -265,21 +265,26 @@ export const DAWWorkspace: React.FC<DAWWorkspaceProps> = ({
                 data-academy-id="daw-titlebar"
                 style={{
                     display: 'flex', alignItems: 'center', gap: 9, height: 38, flexShrink: 0,
-                    background: fl.windowBar, borderBottom: '1px solid #000', padding: '0 6px',
+                    background: flChrome.bar, borderBottom: '1px solid #000', padding: '0 6px',
                     position: 'relative', zIndex: 40,
                 }}>
-                {/* Menus */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                {/* Menus — one raised slate panel holding the whole set, as in FL */}
+                <div style={{
+                    display: 'flex', alignItems: 'center', gap: 0, height: 26, padding: '0 3px',
+                    background: flChrome.menuBg, borderRadius: 2,
+                    border: `1px solid ${daw.border}`, borderTopColor: flChrome.menuEdge,
+                }}>
                     {MENUS.map(m => (
                         <div key={m} style={{ position: 'relative' }}>
                             <button
                                 onClick={() => setOpenMenu(openMenu === m ? null : m)}
                                 title={m === 'VIEW' ? 'Show or hide windows' : `${m} menu`}
                                 style={{
-                                    background: openMenu === m ? daw.highlight : 'transparent',
-                                    border: 'none', cursor: 'pointer', color: fl.text,
-                                    fontSize: 10.5, fontWeight: 500, letterSpacing: '0.02em',
-                                    padding: '3px 6px', borderRadius: 2,
+                                    background: openMenu === m ? flChrome.menuHover : 'transparent',
+                                    border: 'none', cursor: 'pointer', color: flChrome.menuText,
+                                    fontFamily: dawFont.condensed,
+                                    fontSize: 15, fontWeight: 400, letterSpacing: '0.01em',
+                                    lineHeight: 1, padding: '4px 6px', borderRadius: 2,
                                 }}>
                                 {m}
                             </button>
@@ -403,24 +408,43 @@ export const DAWWorkspace: React.FC<DAWWorkspaceProps> = ({
             {/* ── Second row: hint panel, master controls, window toggles ── */}
             <div style={{
                 display: 'flex', alignItems: 'center', gap: 10, height: 40, flexShrink: 0,
-                background: fl.toolbar, borderBottom: '1px solid #000', padding: '0 8px',
+                background: flChrome.bar, borderBottom: '1px solid #000', padding: '0 8px',
             }}>
-                {/* Hint panel — FL describes the hovered control here */}
+                {/* Hint panel — FL describes the hovered control here. Two lines: the project
+                    code above, the hovered control's description below. */}
                 <div style={{
-                    width: 264, height: 30, flexShrink: 0, display: 'flex', alignItems: 'center',
-                    background: '#161b1f', border: `1px solid ${daw.border}`, borderRadius: 2,
+                    width: 268, height: 34, flexShrink: 0, display: 'flex', alignItems: 'center',
+                    background: flChrome.hintBg, borderRadius: 2,
+                    border: `1px solid ${daw.border}`, borderTopColor: flChrome.hintEdge,
                     boxShadow: dawFx.innerShadowWell, padding: '0 7px', gap: 7,
                 }}>
-                    <div style={{ flex: 1, minWidth: 0, lineHeight: 1.15 }}>
-                        <div style={{ fontSize: 8.5, color: '#5d6a74', fontFamily: dawFont.mono }}>FUJI STUDIO</div>
-                        <div style={{
-                            fontSize: 11, color: hint ? '#cfd7de' : '#6f7c86',
-                            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                        }}>
-                            {hint || 'Hint panel'}
+                    <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                            <Cloud size={11} color={flChrome.hintLabel} fill={flChrome.hintLabel} />
+                            <span style={{
+                                fontSize: 10, color: flChrome.hintLabel,
+                                fontFamily: dawFont.condensed, letterSpacing: '0.02em',
+                            }}>
+                                [FUJI STUDIO]
+                            </span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, minWidth: 0 }}>
+                            <span style={{
+                                fontSize: 8, color: flChrome.hintLabel, flexShrink: 0,
+                                fontFamily: dawFont.condensed, letterSpacing: '0.06em',
+                            }}>
+                                FREE
+                            </span>
+                            <span style={{
+                                fontSize: 12, fontWeight: 700,
+                                color: hint ? flChrome.hintText : flChrome.hintLabel,
+                                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                            }}>
+                                {hint || 'Hint panel'}
+                            </span>
                         </div>
                     </div>
-                    <SlidersVertical size={13} color="#5d6a74" style={{ flexShrink: 0 }} />
+                    <Trash2 size={14} color={flChrome.hintLabel} style={{ flexShrink: 0 }} />
                 </div>
 
                 {/* Master pitch + volume */}

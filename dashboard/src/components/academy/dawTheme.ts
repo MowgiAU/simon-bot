@@ -103,6 +103,26 @@ export const flPlaylist = {
     outline:     '#3c484f',
 } as const;
 
+/**
+ * FL's top chrome — the menu strip and the hint panel below it.
+ *
+ * Deliberately lighter than every other token group here: these two sit *above*
+ * the workspace rather than inside it, and in FL they read as raised slate
+ * panels catching the light, not as the near-black recesses the playlist and
+ * mixer are built from.
+ */
+export const flChrome = {
+    bar:       '#55686d',  // the strip both panels sit on
+    menuBg:    '#647b80',  // raised menu panel
+    menuEdge:  '#8399a0',  // its lit top edge
+    menuText:  '#d9e6e2',
+    menuHover: '#7c9298',
+    hintBg:    '#3d5055',  // recessed hint well
+    hintEdge:  '#5f747a',
+    hintLabel: '#8ca0a2',  // the [code] and FREE lines
+    hintText:  '#eef5f2',
+} as const;
+
 /** Per-band colours for the EQ, from the Parametric EQ mockup */
 export const eqBandColors = [
     '#a78bfa', '#f472b6', '#fb923c', '#facc15', '#4ade80', '#2dd4bf', '#60a5fa',
@@ -113,6 +133,9 @@ export const eqBandColors = [
 export const dawFont = {
     sans: "'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
     mono: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+    /** FL sets its menu bar in a narrow face; these all ship with the OS, so still no
+     *  network request. Falls back to `sans` rather than a wide default if none match. */
+    condensed: "'Arial Narrow', 'Helvetica Neue Condensed', 'Liberation Sans Narrow', 'Segoe UI', sans-serif",
 } as const;
 
 /** Channel-rack geometry. The instruments and sequencer modules both open with
