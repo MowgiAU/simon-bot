@@ -1,10 +1,13 @@
 /**
  * DAWWorkspace — the full FL Studio shell.
  *
- * Chrome follows FL's actual layout rather than a generic toolbar: menus and the
- * transport share one top row, the hint panel sits on the left of a second row
- * beside the master controls and window toggles, the browser has its own nav and
- * category strips, and a status bar closes the frame.
+ * Chrome follows FL's real toolbar: one band of three columns, each split into two
+ * rows — menus over the hint panel, transport over the master fader, and the time
+ * LCD plus pattern selector over the window toggles. Below that, the browser down
+ * the left and the free-moving windows on the canvas.
+ *
+ * Colours come from the three Stitch mockups via dawTheme's flChrome, which
+ * reconciles the slightly different palette each one shipped.
  *
  * The canvas is the anchor for the lesson coachmark bubble, so it must stay
  * un-scrolled and position:relative — windows move within it, and the bubble
@@ -32,7 +35,7 @@ interface WinDef { id: WinId; title: string; rect: WindowRect; open: boolean; z:
 
 interface Note { pitch: number; start: number; length: number; }
 
-const MENUS = ['FILE', 'EDIT', 'ADD', 'PATTERNS', 'VIEW', 'OPTIONS', 'TOOLS', 'HELP'];
+const MENUS = ['FILE', 'EDIT', 'ADD', 'PATTERNS', 'VIEW', 'OPTIONS', 'TOOLS'];
 
 /** FL's toolbar window toggles, in FL's own order */
 const TOGGLES: { id: string; icon: React.ElementType; label: string }[] = [
@@ -283,97 +286,90 @@ export const DAWWorkspace: React.FC<DAWWorkspaceProps> = ({
                 border: '1px solid #000', borderRadius: 3, overflow: 'hidden',
             }}>
 
-            {/* ── Menu bar ── */}
-            <div
-                // Narration steps with no named control anchor their bubble here.
-                data-academy-id="daw-titlebar"
-                style={{
-                    display: 'flex', alignItems: 'center', height: 30, flexShrink: 0,
-                    background: flChrome.menuBg,
-                    borderTop: `1px solid ${flChrome.menuEdge}`,
-                    borderBottom: `2px solid ${flChrome.menuUnder}`,
-                    boxShadow: 'inset 0 -1px 0 rgba(0,0,0,0.2)',
-                    padding: '0 8px', position: 'relative', zIndex: 40,
-                }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
-                    {MENUS.map(m => (
-                        <div key={m} style={{ position: 'relative' }}>
-                            <button
-                                onClick={() => setOpenMenu(openMenu === m ? null : m)}
-                                title={m === 'VIEW' ? 'Show or hide windows' : `${m} menu`}
-                                style={{
-                                    background: 'transparent', border: 'none', cursor: 'pointer',
-                                    padding: 0, lineHeight: 1,
-                                    fontFamily: dawFont.menu, fontSize: 18, fontWeight: 400,
-                                    letterSpacing: '0.5px',
-                                    color: openMenu === m ? flChrome.menuHover : flChrome.menuText,
-                                    textShadow: '1px 1px 0px rgba(0,0,0,0.5)',
-                                }}>
-                                {m}
-                            </button>
-                            {openMenu === m && (
-                                <div onMouseLeave={() => setOpenMenu(null)} style={{
-                                    position: 'absolute', top: '100%', left: 0, zIndex: 500,
-                                    minWidth: 170, background: flChrome.panel,
-                                    border: `1px solid ${flChrome.border}`, borderRadius: 3,
-                                    boxShadow: '0 8px 22px rgba(0,0,0,0.6)', padding: 3,
-                                }}>
-                                    {m === 'VIEW' ? wins.filter(w =>
-                                        !visibleWindows?.length || visibleWindows.includes(w.id)
-                                    ).map(w => (
-                                        <div key={w.id}
-                                            onClick={() => { toggleWin(w.id); setOpenMenu(null); }}
-                                            data-academy-id={`daw-view-${w.id}`}
-                                            style={{
-                                                display: 'flex', alignItems: 'center', gap: 7,
-                                                padding: '5px 8px', fontSize: 12, cursor: 'pointer',
-                                                borderRadius: 2, color: flChrome.text,
-                                                fontFamily: dawFont.condensed,
-                                            }}>
-                                            <span style={{ width: 11, textAlign: 'center', color: daw.green, fontWeight: 700 }}>
-                                                {w.open ? '✓' : ''}
-                                            </span>
-                                            {w.title}
-                                        </div>
-                                    )) : (
-                                        <div style={{
-                                            padding: '6px 9px', fontSize: 12, color: flChrome.hintMuted,
-                                            fontStyle: 'italic', fontFamily: dawFont.condensed,
-                                        }}>
-                                            Not simulated
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-                        </div>
-                    ))}
-                </div>
-                <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10, color: flChrome.hintMuted }}>
-                    <Minus size={13} /><Square size={10} /><X size={13} />
-                </div>
-            </div>
-
-            {/* ── Toolbars ── */}
+            {/* ── Toolbar band: three columns, each split into two rows ── */}
             <div style={{
-                background: flChrome.shell, padding: 2, flexShrink: 0,
-                display: 'flex', flexDirection: 'column', gap: 2,
+                display: 'flex', alignItems: 'stretch', gap: 2, flexShrink: 0,
+                height: 98, padding: 2, background: flChrome.shell,
+                borderBottom: '1px solid #000', overflowX: 'auto', position: 'relative', zIndex: 40,
             }}>
-                {/* Main toolbar: hint, transport, tempo, time, pattern */}
+
+                {/* ══ Column 1: menus over the hint panel ══ */}
                 <div style={{
-                    display: 'flex', alignItems: 'center', gap: 6, height: 50, padding: '0 4px',
-                    background: flChrome.panel, border: `1px solid ${flChrome.border}`,
-                    boxShadow: flChrome.innerPanel,
+                    width: 428, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 2,
                 }}>
+                    <div
+                        // Narration steps with no named control anchor their bubble here.
+                        data-academy-id="daw-titlebar"
+                        style={{
+                            display: 'flex', alignItems: 'center', gap: 11, height: 38, flexShrink: 0,
+                            background: flChrome.menuBg, padding: '0 10px',
+                            borderTop: `1px solid ${flChrome.menuEdge}`,
+                            borderBottom: `2px solid ${flChrome.menuUnder}`,
+                            boxShadow: 'inset 0 -1px 0 rgba(0,0,0,0.2)',
+                        }}>
+                        {MENUS.map(m => (
+                            <div key={m} style={{ position: 'relative' }}>
+                                <button
+                                    onClick={() => setOpenMenu(openMenu === m ? null : m)}
+                                    title={m === 'VIEW' ? 'Show or hide windows' : `${m} menu`}
+                                    style={{
+                                        background: 'transparent', border: 'none', cursor: 'pointer',
+                                        padding: 0, lineHeight: 1,
+                                        fontFamily: dawFont.menu, fontSize: 18, fontWeight: 400,
+                                        letterSpacing: '0.5px',
+                                        color: openMenu === m ? flChrome.menuHover : flChrome.menuText,
+                                        textShadow: '1px 1px 0px rgba(0,0,0,0.5)',
+                                    }}>
+                                    {m}
+                                </button>
+                                {openMenu === m && (
+                                    <div onMouseLeave={() => setOpenMenu(null)} style={{
+                                        position: 'absolute', top: '100%', left: 0, zIndex: 500,
+                                        minWidth: 170, background: flChrome.panel,
+                                        border: `1px solid ${flChrome.border}`, borderRadius: 3,
+                                        boxShadow: '0 8px 22px rgba(0,0,0,0.6)', padding: 3,
+                                    }}>
+                                        {m === 'VIEW' ? wins.filter(w =>
+                                            !visibleWindows?.length || visibleWindows.includes(w.id)
+                                        ).map(w => (
+                                            <div key={w.id}
+                                                onClick={() => { toggleWin(w.id); setOpenMenu(null); }}
+                                                data-academy-id={`daw-view-${w.id}`}
+                                                style={{
+                                                    display: 'flex', alignItems: 'center', gap: 7,
+                                                    padding: '5px 8px', fontSize: 12, cursor: 'pointer',
+                                                    borderRadius: 2, color: flChrome.text,
+                                                    fontFamily: dawFont.condensed,
+                                                }}>
+                                                <span style={{ width: 11, textAlign: 'center', color: daw.green, fontWeight: 700 }}>
+                                                    {w.open ? '✓' : ''}
+                                                </span>
+                                                {w.title}
+                                            </div>
+                                        )) : (
+                                            <div style={{
+                                                padding: '6px 9px', fontSize: 12, color: flChrome.hintMuted,
+                                                fontStyle: 'italic', fontFamily: dawFont.condensed,
+                                            }}>
+                                                Not simulated
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+
                     {/* Hint panel — FL describes the hovered control here */}
                     <div style={{
-                        width: 236, flexShrink: 0, display: 'flex', alignItems: 'center',
-                        justifyContent: 'space-between', gap: 8, padding: '4px 8px',
+                        flex: 1, minHeight: 0, display: 'flex', alignItems: 'center',
+                        justifyContent: 'space-between', gap: 8, padding: '0 10px',
                         background: flChrome.hintBg,
                         border: `1px solid ${flChrome.hintBorder}`, borderTopColor: flChrome.hintEdge,
                         boxShadow: '0 2px 4px rgba(0,0,0,0.3)',
                     }}>
                         <div style={{ minWidth: 0 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
                                 <Cloud size={14} color={flChrome.hintIcon} fill={flChrome.hintIcon} />
                                 <span style={{ fontSize: 13, color: flChrome.hintMuted, lineHeight: 1 }}>
                                     [FUJI STUDIO]
@@ -388,231 +384,271 @@ export const DAWWorkspace: React.FC<DAWWorkspaceProps> = ({
                         </div>
                         <Trash2 size={19} color={flChrome.hintIcon} style={{ flexShrink: 0 }} />
                     </div>
+                </div>
 
-                    {/* Transport pill: PAT/SONG + play + stop, all in one rounded body */}
-                    <div style={{
-                        display: 'flex', alignItems: 'stretch', height: 42, flexShrink: 0,
-                        background: flChrome.pillBg, borderRadius: 9999,
-                        border: `1px solid ${flChrome.pillBorder}`,
-                        boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.6), 0 1px 0 rgba(255,255,255,0.1)',
-                        overflow: 'hidden',
-                    }}>
-                        {/* Mode — two half-height buttons, so each mode is directly selectable */}
+                {/* ══ Column 2: transport over the master fader ══ */}
+                <div style={{
+                    width: 372, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 4,
+                    padding: '4px 8px', background: flChrome.panel,
+                    border: `1px solid ${flChrome.border}`, boxShadow: flChrome.innerPanel,
+                }}>
+                    <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 10 }}>
+                        {/* Transport pill: PAT/SONG + play + stop share one rounded body */}
                         <div style={{
-                            display: 'flex', flexDirection: 'column', width: 60,
-                            borderRight: `1px solid ${flChrome.pillDivide}`,
+                            display: 'flex', alignItems: 'stretch', height: 42, flexShrink: 0,
+                            background: flChrome.pillBg, borderRadius: 9999,
+                            border: `1px solid ${flChrome.pillBorder}`,
+                            boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.6), 0 1px 0 rgba(255,255,255,0.1)',
+                            overflow: 'hidden',
                         }}>
-                            {(['pat', 'song'] as const).map(m => {
-                                const on = transport.mode === m;
-                                return (
-                                    <button key={m}
-                                        onClick={() => setMode(m)}
-                                        // Kept on the PAT half so lesson steps targeting
-                                        // transport-mode still resolve to a real element.
-                                        data-academy-id={m === 'pat' ? 'transport-mode' : undefined}
-                                        title={m === 'pat'
-                                            ? 'Pattern mode — loop the Channel Rack bar'
-                                            : 'Song mode — play the playlist arrangement'}
-                                        style={{
-                                            flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                            border: 'none', padding: 0, cursor: 'pointer',
-                                            background: on ? flChrome.patOn : flChrome.songBg,
-                                            boxShadow: on
-                                                ? 'inset 0 1px 1px rgba(255,255,255,0.7), inset 0 2px 4px rgba(255,255,255,0.3)'
-                                                : 'inset 0 2px 3px rgba(0,0,0,0.4)',
-                                        }}>
-                                        <span style={{
-                                            fontFamily: dawFont.condensed, fontWeight: 700,
-                                            fontSize: m === 'pat' ? 11 : 10, letterSpacing: '0.03em',
-                                            color: on ? flChrome.patOnText : flChrome.songText,
-                                            textShadow: on ? '0 0 2px rgba(255,255,255,0.5)' : 'none',
-                                        }}>
-                                            {m.toUpperCase()}
-                                        </span>
-                                    </button>
-                                );
-                            })}
-                        </div>
-
-                        <button onClick={handlePlay} data-academy-id="transport-play" title="Play / pause"
-                            style={{
-                                width: 46, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                background: flChrome.pillBg, cursor: 'pointer', padding: 0,
-                                border: 'none', borderRight: `1px solid ${flChrome.pillDivide}`,
-                            }}>
-                            <Play size={18} style={{ marginLeft: 4 }}
-                                color={transport.playing ? daw.green : flChrome.playIcon}
-                                fill={transport.playing ? daw.green : flChrome.playIcon} />
-                        </button>
-                        <button onClick={() => stop()} data-academy-id="transport-stop" title="Stop"
-                            style={{
-                                width: 46, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                background: flChrome.pillBg, cursor: 'pointer',
-                                border: 'none', padding: '0 4px 0 0',
-                            }}>
-                            <Square size={14} color={flChrome.playIcon} fill={flChrome.playIcon} />
-                        </button>
-                    </div>
-
-                    {/* Record — a bezel with a lit dot in it */}
-                    <button data-academy-id="transport-record" title="Record (not simulated)"
-                        style={{
-                            width: 38, height: 38, borderRadius: '50%', flexShrink: 0, padding: 0,
-                            display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
-                            background: flChrome.recBezel, border: `1px solid ${flChrome.recBezelEdge}`,
-                            boxShadow: 'inset 0 2px 5px rgba(0,0,0,0.6), 0 1px 0 rgba(255,255,255,0.08)',
-                        }}>
-                        <span style={{
-                            width: 14, height: 14, borderRadius: '50%', background: flChrome.recDot,
-                            boxShadow: 'inset 0 1px 2px rgba(255,255,255,0.5), inset 0 -1px 2px rgba(0,0,0,0.2), 0 0 3px rgba(250,92,92,0.6)',
-                        }} />
-                    </button>
-
-                    {/* Tempo */}
-                    <div title="Tempo in beats per minute" style={{
-                        display: 'flex', alignItems: 'center', height: 38, flexShrink: 0,
-                        padding: '0 4px 0 12px', borderRadius: 6, background: flChrome.tempoBg,
-                        border: `1px solid ${highlightBpm ? daw.green : flChrome.tempoEdge}`,
-                        boxShadow: highlightBpm
-                            ? `0 0 0 2px ${daw.green}55`
-                            : 'inset 0 2px 4px rgba(0,0,0,0.2), 0 1px 0 rgba(255,255,255,0.15)',
-                    }}>
-                        <div style={{
-                            display: 'flex', alignItems: 'baseline',
-                            fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em',
-                        }}>
-                            <input type="number" value={transport.bpm} min={40} max={300}
-                                onChange={e => setBpm(clampBpm(Number(e.target.value) || 140))}
-                                data-daw-bpm=""
-                                style={{
-                                    width: 48, background: 'transparent', border: 'none', outline: 'none',
-                                    color: flChrome.tempoText, fontSize: 24, fontWeight: 500,
-                                    lineHeight: 1, textAlign: 'right',
-                                    appearance: 'textfield', MozAppearance: 'textfield',
-                                }} />
-                            <span style={{
-                                fontSize: 15, fontWeight: 500, lineHeight: 1, color: flChrome.tempoDim,
-                            }}>
-                                .000
-                            </span>
-                        </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginLeft: 4 }}>
-                            <button title="Increase tempo" onClick={() => nudgeBpm(1)} style={spinBtn}>
-                                <Triangle up color={flChrome.tempoArrow} />
-                            </button>
-                            <button title="Decrease tempo" onClick={() => nudgeBpm(-1)} style={spinBtn}>
-                                <Triangle color={flChrome.tempoArrow} />
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Time LCD */}
-                    <div title="Song position" style={{
-                        position: 'relative', width: 148, height: 42, flexShrink: 0,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        background: flChrome.timerFace, border: `1px solid ${flChrome.timerEdge}`,
-                        borderRadius: 2, boxShadow: 'inset 0 2px 6px rgba(0,0,0,0.5)',
-                    }}>
-                        <span style={{
-                            position: 'absolute', top: 3, right: 6, fontSize: 8, fontWeight: 700,
-                            color: flChrome.timerCyan, opacity: 0.8, letterSpacing: '-0.02em',
-                        }}>
-                            M:S:CS
-                        </span>
-                        <span style={{
-                            fontFamily: dawFont.lcd, fontSize: 27, lineHeight: 1, marginTop: 5,
-                            color: flChrome.timerCyan, letterSpacing: '-2px',
-                            textShadow: '0 0 5px rgba(128,255,255,0.4)',
-                        }}>
-                            {transport.currentBar}:
-                            {String(Math.floor(transport.currentStep / 4)).padStart(2, '0')}:
-                            {String((transport.currentStep % 4) * 25).padStart(2, '0')}
-                        </span>
-                    </div>
-
-                    {/* Pattern selector */}
-                    <div style={{ flex: 1, minWidth: 130, display: 'flex', alignItems: 'center', gap: 4 }}>
-                        <button title="Previous pattern (not simulated)" style={{ ...dawBtn(), width: 20, height: 32 }}>
-                            <Triangle color={flChrome.text} />
-                        </button>
-                        <div title="Selected pattern" style={{
-                            flex: 1, height: 32, position: 'relative',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            background: flChrome.inputFace,
-                            borderTop: `1px solid ${flChrome.inputEdge}`,
-                            borderLeft: `1px solid ${flChrome.inputEdge}`,
-                            borderRight: '1px solid #ffffff', borderBottom: '1px solid #ffffff',
-                        }}>
-                            <span style={{
-                                color: flChrome.inputText, fontSize: 17, fontFamily: dawFont.condensed,
-                            }}>
-                                Pattern 1
-                            </span>
+                            {/* Mode — two half-height buttons, so each is directly selectable */}
                             <div style={{
-                                position: 'absolute', right: 4, display: 'flex', flexDirection: 'column', gap: 2,
+                                display: 'flex', flexDirection: 'column', width: 58,
+                                borderRight: `1px solid ${flChrome.pillDivide}`,
                             }}>
-                                <Triangle up color={flChrome.inputArrow} />
-                                <Triangle color={flChrome.inputArrow} />
+                                {(['pat', 'song'] as const).map(m => {
+                                    const on = transport.mode === m;
+                                    return (
+                                        <button key={m}
+                                            onClick={() => setMode(m)}
+                                            // Kept on the PAT half so lesson steps targeting
+                                            // transport-mode still resolve to a real element.
+                                            data-academy-id={m === 'pat' ? 'transport-mode' : undefined}
+                                            title={m === 'pat'
+                                                ? 'Pattern mode — loop the Channel Rack bar'
+                                                : 'Song mode — play the playlist arrangement'}
+                                            style={{
+                                                flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                border: 'none', padding: 0, cursor: 'pointer',
+                                                background: on ? flChrome.patOn : flChrome.songBg,
+                                                boxShadow: on
+                                                    ? 'inset 0 1px 1px rgba(255,255,255,0.7), inset 0 2px 4px rgba(255,255,255,0.3)'
+                                                    : 'inset 0 2px 3px rgba(0,0,0,0.4)',
+                                            }}>
+                                            <span style={{
+                                                fontFamily: dawFont.condensed, fontWeight: 700,
+                                                fontSize: m === 'pat' ? 11 : 10, letterSpacing: '0.03em',
+                                                color: on ? flChrome.patOnText : flChrome.songText,
+                                                textShadow: on ? '0 0 2px rgba(255,255,255,0.5)' : 'none',
+                                            }}>
+                                                {m.toUpperCase()}
+                                            </span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+
+                            <button onClick={handlePlay} data-academy-id="transport-play" title="Play / pause"
+                                style={{
+                                    width: 44, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    background: flChrome.pillBg, cursor: 'pointer', padding: 0,
+                                    border: 'none', borderRight: `1px solid ${flChrome.pillDivide}`,
+                                }}>
+                                <Play size={18} style={{ marginLeft: 4 }}
+                                    color={transport.playing ? daw.green : flChrome.playIcon}
+                                    fill={transport.playing ? daw.green : flChrome.playIcon} />
+                            </button>
+                            <button onClick={() => stop()} data-academy-id="transport-stop" title="Stop"
+                                style={{
+                                    width: 44, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    background: flChrome.pillBg, cursor: 'pointer',
+                                    border: 'none', padding: '0 4px 0 0',
+                                }}>
+                                <Square size={14} color={flChrome.playIcon} fill={flChrome.playIcon} />
+                            </button>
+                        </div>
+
+                        {/* Record — a bezel with a lit dot in it */}
+                        <button data-academy-id="transport-record" title="Record (not simulated)"
+                            style={{
+                                width: 34, height: 34, borderRadius: '50%', flexShrink: 0, padding: 0,
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+                                background: flChrome.recBezel, border: `1px solid ${flChrome.recBezelEdge}`,
+                                boxShadow: 'inset 0 2px 5px rgba(0,0,0,0.6), 0 1px 0 rgba(255,255,255,0.08)',
+                            }}>
+                            <span style={{
+                                width: 20, height: 20, borderRadius: '50%', background: flChrome.recDot,
+                                boxShadow: 'inset 0 1px 2px rgba(255,255,255,0.5), inset 0 -1px 2px rgba(0,0,0,0.2), 0 0 3px rgba(250,92,92,0.6)',
+                            }} />
+                        </button>
+
+                        {/* Tempo */}
+                        <div title="Tempo in beats per minute" style={{
+                            display: 'flex', alignItems: 'center', height: 38, flexShrink: 0,
+                            padding: '0 4px 0 10px', borderRadius: 6, background: flChrome.tempoBg,
+                            border: `1px solid ${highlightBpm ? daw.green : flChrome.tempoEdge}`,
+                            boxShadow: highlightBpm
+                                ? `0 0 0 2px ${daw.green}55`
+                                : 'inset 0 2px 4px rgba(0,0,0,0.2), 0 1px 0 rgba(255,255,255,0.15)',
+                        }}>
+                            <div style={{
+                                display: 'flex', alignItems: 'baseline',
+                                fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em',
+                            }}>
+                                <input type="number" value={transport.bpm} min={40} max={300}
+                                    onChange={e => setBpm(clampBpm(Number(e.target.value) || 140))}
+                                    data-daw-bpm=""
+                                    style={{
+                                        width: 44, background: 'transparent', border: 'none', outline: 'none',
+                                        color: flChrome.tempoText, fontSize: 23, fontWeight: 500,
+                                        lineHeight: 1, textAlign: 'right',
+                                        appearance: 'textfield', MozAppearance: 'textfield',
+                                    }} />
+                                <span style={{
+                                    fontSize: 14, fontWeight: 500, lineHeight: 1, color: flChrome.tempoDim,
+                                }}>
+                                    .000
+                                </span>
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginLeft: 4 }}>
+                                <button title="Increase tempo" onClick={() => nudgeBpm(1)} style={spinBtn}>
+                                    <Triangle up color={flChrome.tempoArrow} />
+                                </button>
+                                <button title="Decrease tempo" onClick={() => nudgeBpm(-1)} style={spinBtn}>
+                                    <Triangle color={flChrome.tempoArrow} />
+                                </button>
                             </div>
                         </div>
-                        <button title="Add pattern (not simulated — the Academy has one pattern)"
-                            style={{
-                                ...dawBtn(), width: 24, height: 32,
-                                color: flChrome.text, fontSize: 17, fontWeight: 700,
-                                fontFamily: dawFont.condensed, paddingBottom: 3,
-                            }}>
-                            +
-                        </button>
+                    </div>
+
+                    {/* Master fader */}
+                    <div title="Master volume (not simulated)" style={{
+                        height: 18, display: 'flex', alignItems: 'center', flexShrink: 0,
+                    }}>
+                        <div style={{
+                            position: 'relative', flex: 1, height: 5, borderRadius: 3,
+                            background: flChrome.dark, boxShadow: flChrome.innerPanel,
+                        }}>
+                            <div style={{
+                                position: 'absolute', left: '2%', top: -6, width: 17, height: 17,
+                                borderRadius: '50%', background: 'linear-gradient(to bottom, #cdd3d7, #8e979c)',
+                                border: `1px solid ${flChrome.btnEdgeBot}`,
+                                boxShadow: '0 1px 3px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.6)',
+                            }} />
+                        </div>
                     </div>
                 </div>
 
-                {/* Secondary toolbar: window toggles, snap, store */}
+                {/* ══ Column 3: time + pattern over the window toggles ══ */}
                 <div style={{
-                    display: 'flex', alignItems: 'center', gap: 2, height: 36, padding: 2,
-                    background: flChrome.panel, border: `1px solid ${flChrome.border}`,
-                    boxShadow: flChrome.innerPanel,
+                    flex: 1, minWidth: 470, display: 'flex', flexDirection: 'column', gap: 2,
                 }}>
-                    {TOGGLES.map(t => {
-                        const Icon = t.icon;
-                        const isBrowser = t.id === 'browser';
-                        const on = isBrowser ? browserOpen : !!wins.find(w => w.id === t.id)?.open;
-                        // A lesson that limits its windows shouldn't offer toggles for the rest
-                        const allowed = isBrowser
-                            || !visibleWindows?.length
-                            || visibleWindows.includes(t.id as WinId);
-                        if (!allowed) return null;
-                        return (
-                            <button key={t.id}
-                                onClick={() => isBrowser ? setBrowserOpen(v => !v) : toggleWin(t.id as WinId)}
-                                data-academy-id={`daw-toggle-${t.id}`}
-                                title={t.label}
-                                style={{ ...dawBtn(on), width: 40, height: '100%' }}>
-                                <Icon size={15} color={flChrome.btnIcon}
-                                    style={{ filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.8))' }} />
-                            </button>
-                        );
-                    })}
-
-                    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, paddingRight: 4 }}>
-                        <Magnet size={13} color="#ffffff" style={{ opacity: 0.4 }} />
-                        <div title="Snap (not simulated)" style={{
-                            width: 84, height: 24, padding: '0 8px',
-                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                            background: flChrome.dark, border: `1px solid ${flChrome.border}`,
-                            borderRadius: 2, boxShadow: flChrome.innerPanel,
+                    {/* Time LCD + pattern selector */}
+                    <div style={{ flex: 1, display: 'flex', alignItems: 'stretch', gap: 4 }}>
+                        <div title="Song position" style={{
+                            position: 'relative', width: 226, flexShrink: 0,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            background: flChrome.timerFace, border: `1px solid ${flChrome.timerEdge}`,
+                            borderRadius: 2, boxShadow: 'inset 0 2px 6px rgba(0,0,0,0.5)',
                         }}>
-                            <span style={{ color: flChrome.snapText, fontSize: 13, fontFamily: dawFont.condensed }}>
-                                (none)
+                            <span style={{
+                                position: 'absolute', top: 3, right: 5, fontSize: 8, fontWeight: 700,
+                                color: flChrome.timerCyan, opacity: 0.85, letterSpacing: '-0.02em',
+                            }}>
+                                M:S:CS
                             </span>
-                            <Triangle color={flChrome.snapText} />
+                            <span style={{
+                                fontFamily: dawFont.lcd, fontSize: 34, lineHeight: 1, marginTop: 4,
+                                color: flChrome.timerCyan, letterSpacing: '-2px',
+                                textShadow: '0 0 5px rgba(128,255,255,0.4)',
+                            }}>
+                                {transport.currentBar}:
+                                {String(Math.floor(transport.currentStep / 4)).padStart(2, '0')}:
+                                {String((transport.currentStep % 4) * 25).padStart(2, '0')}
+                            </span>
+                        </div>
+
+                        <div style={{
+                            flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 4, padding: '0 4px',
+                            background: flChrome.panel, border: `1px solid ${flChrome.border}`,
+                            boxShadow: flChrome.innerPanel,
+                        }}>
+                            <button title="Previous pattern (not simulated)"
+                                style={{ ...dawBtn(), width: 20, height: 34 }}>
+                                <Triangle color={flChrome.text} />
+                            </button>
+                            <div title="Selected pattern" style={{
+                                flex: 1, minWidth: 0, height: 34, position: 'relative',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                background: flChrome.inputFace,
+                                borderTop: `1px solid ${flChrome.inputEdge}`,
+                                borderLeft: `1px solid ${flChrome.inputEdge}`,
+                                borderRight: '1px solid #ffffff', borderBottom: '1px solid #ffffff',
+                            }}>
+                                <span style={{
+                                    color: flChrome.inputText, fontSize: 17, fontFamily: dawFont.condensed,
+                                }}>
+                                    Pattern 1
+                                </span>
+                                <div style={{
+                                    position: 'absolute', right: 4, display: 'flex', flexDirection: 'column', gap: 3,
+                                }}>
+                                    <Triangle up color={flChrome.inputArrow} />
+                                    <Triangle color={flChrome.inputArrow} />
+                                </div>
+                            </div>
+                            <button title="Add pattern (not simulated — the Academy has one pattern)"
+                                style={{
+                                    ...dawBtn(), width: 26, height: 34,
+                                    color: flChrome.text, fontSize: 19, fontWeight: 700,
+                                    fontFamily: dawFont.condensed, paddingBottom: 3,
+                                }}>
+                                +
+                            </button>
                         </div>
                     </div>
 
-                    <button title="Plugin store (not simulated)"
-                        style={{ ...dawBtn(), width: 36, height: '100%', marginLeft: 4, background: flChrome.cartFace }}>
-                        <ShoppingCart size={16} color={flChrome.btnIcon}
-                            style={{ filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.8))' }} />
-                    </button>
+                    {/* Window toggles, snap, store */}
+                    <div style={{
+                        height: 40, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 3,
+                        padding: '0 4px', background: flChrome.panel,
+                        border: `1px solid ${flChrome.border}`, boxShadow: flChrome.innerPanel,
+                    }}>
+                        {TOGGLES.map(t => {
+                            const Icon = t.icon;
+                            const isBrowser = t.id === 'browser';
+                            const on = isBrowser ? browserOpen : !!wins.find(w => w.id === t.id)?.open;
+                            // A lesson that limits its windows shouldn't offer toggles for the rest
+                            const allowed = isBrowser
+                                || !visibleWindows?.length
+                                || visibleWindows.includes(t.id as WinId);
+                            if (!allowed) return null;
+                            return (
+                                <button key={t.id}
+                                    onClick={() => isBrowser ? setBrowserOpen(v => !v) : toggleWin(t.id as WinId)}
+                                    data-academy-id={`daw-toggle-${t.id}`}
+                                    title={t.label}
+                                    style={{ ...dawBtn(on), width: 42, height: 32 }}>
+                                    <Icon size={16} color={flChrome.btnIcon}
+                                        style={{ filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.8))' }} />
+                                </button>
+                            );
+                        })}
+
+                        <div style={{
+                            flex: 1, minWidth: 0, display: 'flex', alignItems: 'center',
+                            justifyContent: 'flex-end', gap: 8,
+                        }}>
+                            <Magnet size={14} color="#ffffff" style={{ opacity: 0.4, flexShrink: 0 }} />
+                            <div title="Snap (not simulated)" style={{
+                                width: 92, height: 26, padding: '0 8px', flexShrink: 0,
+                                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                background: flChrome.dark, border: `1px solid ${flChrome.border}`,
+                                borderRadius: 2, boxShadow: flChrome.innerPanel,
+                            }}>
+                                <span style={{ color: flChrome.snapText, fontSize: 14, fontFamily: dawFont.condensed }}>
+                                    (none)
+                                </span>
+                                <Triangle color={flChrome.snapText} />
+                            </div>
+                        </div>
+
+                        <button title="Plugin store (not simulated)"
+                            style={{ ...dawBtn(), width: 38, height: 32, background: flChrome.cartFace }}>
+                            <ShoppingCart size={17} color={flChrome.btnIcon}
+                                style={{ filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.8))' }} />
+                        </button>
+                    </div>
                 </div>
             </div>
 
