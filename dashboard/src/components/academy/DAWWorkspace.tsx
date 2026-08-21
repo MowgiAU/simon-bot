@@ -28,7 +28,7 @@ import { Mixer } from './Mixer';
 import { PianoRoll } from './PianoRoll';
 import { ParametricEQ } from './ParametricEQ';
 import { DAWWindow, WindowRect } from './DAWWindow';
-import { daw, dawFx, dawFont, flChrome, flBrowserInk } from './dawTheme';
+import { daw, dawFx, dawFont, flChrome, flBrowserInk, flRackWidth } from './dawTheme';
 
 type WinId = 'rack' | 'playlist' | 'mixer' | 'piano' | 'eq';
 
@@ -163,11 +163,13 @@ export const DAWWorkspace: React.FC<DAWWorkspaceProps> = ({
         const only = visibleWindows && visibleWindows.length ? new Set<WinId>(visibleWindows) : null;
         const open = (id: WinId, fallback: boolean) => only ? only.has(id) : fallback;
         return [
-            // Widths come from each panel's real content width (the Channel Rack's two
-            // modules add up to ~700px), so a window never opens already clipped.
-            { id: 'rack', title: 'Channel rack', rect: { x: 14, y: 12, w: 716, h: 300 }, open: open('rack', true), z: 3 },
-            { id: 'playlist', title: 'Playlist', rect: { x: 14, y: 328, w: 880, h: 340 }, open: open('playlist', true), z: 2 },
-            { id: 'mixer', title: 'Mixer', rect: { x: 746, y: 12, w: 600, h: 430 }, open: open('mixer', true), z: 1 },
+            // Widths come from each panel's real content width, so a window never opens
+            // already clipped. The rack's comes from flRackWidth, computed from its own
+            // row geometry — a hardcoded number here went stale the moment the rack was
+            // redesigned and cut the last steps off.
+            { id: 'rack', title: 'Channel rack', rect: { x: 14, y: 12, w: flRackWidth, h: 302 }, open: open('rack', true), z: 3 },
+            { id: 'playlist', title: 'Playlist', rect: { x: 14, y: 330, w: 880, h: 340 }, open: open('playlist', true), z: 2 },
+            { id: 'mixer', title: 'Mixer', rect: { x: flRackWidth + 28, y: 12, w: 600, h: 430 }, open: open('mixer', true), z: 1 },
             { id: 'piano', title: 'Piano roll', rect: { x: 260, y: 120, w: 640, h: 340 }, open: open('piano', false), z: 4 },
             { id: 'eq', title: 'Parametric EQ 2', rect: { x: 180, y: 70, w: 700, h: 380 }, open: open('eq', false), z: 5 },
         ];

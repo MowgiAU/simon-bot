@@ -235,6 +235,23 @@ export const flRackSize = {
 } as const;
 
 /**
+ * Natural width of a Channel Rack window — the row content plus every layer of
+ * padding, border and window frame around it.
+ *
+ * Derived rather than hardcoded on purpose: the rack's default window size was a
+ * fixed number that silently stopped matching when the row layout changed, leaving
+ * the last steps clipped off the right edge. Computing it here means the two can't
+ * drift apart again.
+ */
+export const flRackWidth =
+    flRackSize.leftW                                              // controls
+    + flRackSize.gap                                              // gap before the grid
+    + (16 * flRackSize.step + 15 * flRackSize.stepGap)            // the 16 pads
+    + 20 + 2                                                      // content panel padding + border
+    + 20                                                          // scroll area padding
+    + 8;                                                          // window frame
+
+/**
  * FL colour-codes its browser tree by folder kind, which is most of what makes the
  * panel readable at a glance. From the browser mockup.
  */
