@@ -32,6 +32,10 @@ export const AnalyticsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const location = useLocation();
     // Track the previous path so we don't fire a page_view on mount twice
     const prevPathRef = useRef<string | null>(null);
+    // The current page_view event's id and when it started, so time-on-page can be
+    // reported against it once the visitor leaves — the duration isn't known until then.
+    const pageViewIdRef = useRef<string | null>(null);
+    const pageViewStartRef = useRef<number>(Date.now());
 
     // Fire-and-forget POST helper — never throws to caller
     const post = (url: string, body: unknown): void => {
@@ -48,6 +52,28 @@ export const AnalyticsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body),
         }).catch(() => undefined);
+    };
+
+    // sendBeacon fires reliably during page unload where a normal fetch can get
+    // cancelled mid-flight; falls back to a fire-and-forget PATCH when unavailable
+    // (e.g. a plain route change, where there's no unload risk).
+    const beaconPatch = (url: string, body: unknown): void => {
+        if (navigator.sendBeacon) {
+            navigator.sendBeacon(url, new Blob([JSON.stringify(body)], { type: 'application/json' }));
+        } else {
+            patch(url, body);
+        }
+    };
+
+    // Reports how long the visitor was on the page_view currently tracked in
+    // pageViewIdRef, then clears it — called right before switching to a new page and
+    // on unload, so every page_view except possibly the very last gets a duration.
+    const flushPageViewDuration = (): void => {
+        const id = pageViewIdRef.current;
+        if (!id) return;
+        const elapsed = Math.round((Date.now() - pageViewStartRef.current) / 1000);
+        beaconPatch(`/api/analytics/event/${id}`, { durationSecs: elapsed });
+        pageViewIdRef.current = null;
     };
 
     const trackEvent = (type: string, path?: string, metadata?: Record<string, unknown>): void => {
@@ -83,6 +109,7 @@ export const AnalyticsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
         // End session on page unload via sendBeacon
         const handleUnload = () => {
+            flushPageViewDuration();
             const sid = sessionIdRef.current;
             if (!sid) return;
             const elapsed = Math.round((Date.now() - startTimeRef.current) / 1000);
@@ -106,9 +133,25 @@ export const AnalyticsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         const currentPath = location.pathname + location.search;
         if (prevPathRef.current === currentPath) return;
         prevPathRef.current = currentPath;
+        // The page being left (if any) is done being viewed the moment the path changes.
+        flushPageViewDuration();
         // Small delay to let session initialise on first render
         const tid = setTimeout(() => {
-            trackEvent('page_view', location.pathname);
+            const sid = sessionIdRef.current;
+            if (!sid) return;
+            fetch('/api/analytics/event', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sessionId: sid, type: 'page_view', path: location.pathname }),
+            })
+                .then(r => r.ok ? r.json() : null)
+                .then((data: { eventId?: string } | null) => {
+                    if (data?.eventId) {
+                        pageViewIdRef.current = data.eventId;
+                        pageViewStartRef.current = Date.now();
+                    }
+                })
+                .catch(() => undefined);
         }, 100);
         return () => clearTimeout(tid);
     }, [location.pathname, location.search]);

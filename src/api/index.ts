@@ -4595,7 +4595,7 @@ app.get('/api/guilds/:guildId/my-permissions', async (req, res) => {
         if (isAdmin) {
             return res.json({ 
                 canManagePlugins: true, 
-                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content', 'account-management', 'anti-piracy', 'leveling', 'fuji-radio', 'studio-guide', 'bot-identity', 'bot-messenger', 'booster-color', 'private-messages', 'auto-messages', 'auto-responder', 'server-boost', 'reports', 'articles', 'article-review', 'pause', 'voice-stats', 'spam-guard', 'muzzle', 'track-announcer', 'profile-styles', 'academy', 'head-to-head', 'drum-kit', 'bug-reports', 'plugin-registry', 'activity-logs', 'duplicate-profiles', 'projects', 'vote-fraud', 'slots', 'platform-analytics', 'collabs', 'echo', 'command-guard', 'channel-scraper']
+                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content', 'account-management', 'anti-piracy', 'leveling', 'fuji-radio', 'studio-guide', 'bot-identity', 'bot-messenger', 'booster-color', 'private-messages', 'auto-messages', 'auto-responder', 'server-boost', 'reports', 'articles', 'article-review', 'article-analytics', 'pause', 'voice-stats', 'spam-guard', 'muzzle', 'track-announcer', 'profile-styles', 'academy', 'head-to-head', 'drum-kit', 'bug-reports', 'plugin-registry', 'activity-logs', 'duplicate-profiles', 'projects', 'vote-fraud', 'slots', 'platform-analytics', 'collabs', 'echo', 'command-guard', 'channel-scraper']
             });
         }
 
@@ -7088,6 +7088,17 @@ app.post('/api/bot-messenger/:guildId/send', async (req, res) => {
             payload.message_reference = { message_id: replyTo, fail_if_not_exists: false };
         }
         const response = await discordReq('post', `/channels/${channelId}/messages`, payload, botToken);
+        // Persisted so the message can be found and edited later — without this row,
+        // the only trace of a sent message is Discord's own response, discarded the
+        // moment this request finishes.
+        db.botMessage.create({
+            data: {
+                guildId, channelId, messageId: response.data.id,
+                content: content || null,
+                embeds: embeds && embeds.length > 0 ? embeds : undefined,
+                sentByUserId: req.session.user.id, sentByName: req.session.user.username || req.session.user.id,
+            },
+        }).catch((e: unknown) => logger.warn('Failed to log sent bot message', e));
         res.json(response.data);
     } catch (err: any) {
         logger.error('Failed to send message via messenger', err);
@@ -7129,10 +7140,78 @@ app.post('/api/bot-messenger/:guildId/send-with-files', attachmentUpload.array('
             fd,
             { headers: { Authorization: `Bot ${token}`, ...fd.getHeaders() }, maxContentLength: Infinity, maxBodyLength: Infinity }
         );
+        // Editable later via the same history the plain /send route logs to — attachments
+        // themselves can't be swapped through a text edit, but the caption (content) can.
+        db.botMessage.create({
+            data: {
+                guildId, channelId, messageId: response.data.id,
+                content: content?.trim() || null,
+                sentByUserId: req.session.user.id, sentByName: req.session.user.username || req.session.user.id,
+            },
+        }).catch((e: unknown) => logger.warn('Failed to log sent bot message', e));
         res.json(response.data);
     } catch (err: any) {
         logger.error('Failed to send message with files', err);
         res.status(err.response?.status || 500).json({ error: err.response?.data?.message || 'Failed to send' });
+    }
+});
+
+// List messages the dashboard has sent, most recent first — the picker for editing one.
+app.get('/api/bot-messenger/:guildId/messages', async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+    const { guildId } = req.params;
+    if (!hasDashboardAccess(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
+
+    const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 30));
+    try {
+        const messages = await db.botMessage.findMany({
+            where: { guildId },
+            orderBy: { createdAt: 'desc' },
+            take: limit,
+        });
+        res.json(messages);
+    } catch (err: any) {
+        logger.error('Failed to list bot messenger history', err);
+        res.status(500).json({ error: 'Failed to load message history' });
+    }
+});
+
+// Edit a message the dashboard previously sent.
+app.patch('/api/bot-messenger/:guildId/messages/:id', async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+    const { guildId, id } = req.params;
+    if (!hasDashboardAccess(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
+
+    const { content, embeds, useSimon } = req.body;
+    if (!content && (!embeds || embeds.length === 0)) {
+        return res.status(400).json({ error: 'Edited message must have content or embeds' });
+    }
+
+    try {
+        const logged = await db.botMessage.findFirst({ where: { id, guildId } });
+        if (!logged) return res.status(404).json({ error: 'Message not found' });
+
+        const botToken = useSimon && process.env.SIMON_BOT_TOKEN ? process.env.SIMON_BOT_TOKEN : undefined;
+        const payload: any = {};
+        if (content !== undefined) payload.content = content;
+        if (embeds && embeds.length > 0) payload.embeds = embeds;
+        const response = await discordReq(
+            'patch', `/channels/${logged.channelId}/messages/${logged.messageId}`, payload, botToken,
+        );
+
+        const updated = await db.botMessage.update({
+            where: { id },
+            data: {
+                content: content ?? logged.content,
+                embeds: embeds && embeds.length > 0 ? embeds : logged.embeds,
+                editCount: { increment: 1 },
+                lastEditAt: new Date(),
+            },
+        });
+        res.json({ discord: response.data, message: updated });
+    } catch (err: any) {
+        logger.error('Failed to edit bot messenger message', err);
+        res.status(err.response?.status || 500).json({ error: err.response?.data?.message || 'Failed to edit message' });
     }
 });
 
@@ -16521,7 +16600,7 @@ app.get('/sitemap-articles.xml', async (req, res) => {
 
 const VALID_EVENT_TYPES = [
     'page_view', 'track_play', 'search', 'battle_view', 'profile_view',
-    'playlist_play', 'battle_submit', 'track_upload', 'download_apk',
+    'playlist_play', 'battle_submit', 'track_upload', 'download_apk', 'article_share',
 ] as const;
 
 /** GET /api/download/apk — track APK download and redirect */
@@ -16598,18 +16677,41 @@ app.delete('/api/analytics/session/:id', async (req: any, res) => {
     }
 });
 
-/** POST /api/analytics/event — log a session event */
+/**
+ * POST /api/analytics/event — log a session event.
+ * Awaited (not fire-and-forget like most analytics writes here) because the caller
+ * needs the created row's id back — a page_view's time-on-page isn't known until the
+ * visitor navigates away, so the client holds onto this id and reports duration
+ * against it later via PATCH /api/analytics/event/:id.
+ */
 app.post('/api/analytics/event', async (req: any, res) => {
     try {
         const { sessionId, type, path: eventPath, metadata } = req.body ?? {};
         if (!sessionId || !type) return res.status(400).json({ error: 'sessionId and type required' });
         if (!VALID_EVENT_TYPES.includes(type)) return res.status(400).json({ error: 'invalid type' });
-        db.sessionEvent.create({
+        const event = await db.sessionEvent.create({
             data: { sessionId, type, path: eventPath ?? null, metadata: metadata ?? undefined },
-        }).catch((e: unknown) => logger.warn('Session event create failed', e));
-        res.json({ ok: true });
+        });
+        res.json({ ok: true, eventId: event.id });
     } catch (e) {
         logger.warn('POST /api/analytics/event error', e);
+        res.json({ ok: true });
+    }
+});
+
+/** PATCH /api/analytics/event/:id — report how long a visitor stayed on a page_view */
+app.patch('/api/analytics/event/:id', async (req: any, res) => {
+    try {
+        const { id } = req.params;
+        const { durationSecs } = req.body ?? {};
+        if (durationSecs == null) return res.json({ ok: true });
+        await db.sessionEvent.update({
+            where: { id },
+            data: { durationSecs: Math.max(0, Number(durationSecs)) },
+        });
+        res.json({ ok: true });
+    } catch {
+        // Never fail the beacon — the browser doesn't read the response anyway.
         res.json({ ok: true });
     }
 });
@@ -16737,6 +16839,99 @@ app.get('/api/admin/analytics/overview', requireAdmin, async (_req, res) => {
     } catch (e) {
         logger.error('GET /api/admin/analytics/overview error', e);
         res.status(500).json({ error: 'Failed to load analytics' });
+    }
+});
+
+/**
+ * GET /api/admin/analytics/articles — per-article stats for every published article.
+ *
+ * Views/shares aren't stored on the Article row itself (aside from the simple
+ * `viewCount` counter) — they're derived here from session_events, matched by exact
+ * path (`/article/<slug>`) for views and by `article_share` events for shares. This
+ * piggybacks on the site-wide analytics pipeline (AnalyticsProvider) rather than a
+ * parallel per-article tracking system, so a page_view already fires for every article
+ * visit without the article reader needing to know anything about analytics.
+ */
+app.get('/api/admin/analytics/articles', requireAdmin, async (_req, res) => {
+    try {
+        const rows = await db.$queryRaw<{
+            id: string; slug: string; title: string; authorName: string; status: string;
+            publishedAt: Date | null; viewCount: number;
+            views: bigint; uniqueViewers: bigint; avgDurationSecs: number | null; shares: bigint;
+        }[]>`
+            SELECT
+                a.id, a.slug, a.title, a."authorName", a.status, a."publishedAt", a."viewCount",
+                COUNT(se.id) FILTER (WHERE se.type = 'page_view') AS "views",
+                COUNT(DISTINCT se."sessionId") FILTER (WHERE se.type = 'page_view') AS "uniqueViewers",
+                AVG(se."durationSecs") FILTER (WHERE se.type = 'page_view' AND se."durationSecs" IS NOT NULL) AS "avgDurationSecs",
+                COUNT(se.id) FILTER (WHERE se.type = 'article_share') AS "shares"
+            FROM articles a
+            LEFT JOIN session_events se ON se.path = '/article/' || a.slug
+            GROUP BY a.id
+            ORDER BY "views" DESC, a."publishedAt" DESC NULLS LAST
+        `;
+        res.json(rows.map(r => ({
+            id: r.id, slug: r.slug, title: r.title, authorName: r.authorName,
+            status: r.status, publishedAt: r.publishedAt, viewCount: r.viewCount,
+            views: Number(r.views), uniqueViewers: Number(r.uniqueViewers),
+            avgDurationSecs: r.avgDurationSecs != null ? Math.round(r.avgDurationSecs) : null,
+            shares: Number(r.shares),
+        })));
+    } catch (e) {
+        logger.error('GET /api/admin/analytics/articles error', e);
+        res.status(500).json({ error: 'Failed to load article analytics' });
+    }
+});
+
+/** GET /api/admin/analytics/articles/:id — one article's stats in detail, plus a 30-day views chart */
+app.get('/api/admin/analytics/articles/:id', requireAdmin, async (req, res) => {
+    try {
+        const article = await db.article.findUnique({
+            where: { id: req.params.id },
+            select: { id: true, slug: true, title: true, authorName: true, status: true, publishedAt: true, viewCount: true },
+        });
+        if (!article) return res.status(404).json({ error: 'Article not found' });
+        const path = `/article/${article.slug}`;
+        const ago30 = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+        const [totals, byDayRaw, sharesByMethodRaw] = await Promise.all([
+            db.$queryRaw<{ views: bigint; uniqueViewers: bigint; avgDurationSecs: number | null }[]>`
+                SELECT
+                    COUNT(*) AS "views",
+                    COUNT(DISTINCT "sessionId") AS "uniqueViewers",
+                    AVG("durationSecs") FILTER (WHERE "durationSecs" IS NOT NULL) AS "avgDurationSecs"
+                FROM session_events
+                WHERE type = 'page_view' AND path = ${path}
+            `,
+            db.$queryRaw<{ date: Date; count: bigint }[]>`
+                SELECT DATE_TRUNC('day', "createdAt") AS date, COUNT(*) AS count
+                FROM session_events
+                WHERE type = 'page_view' AND path = ${path} AND "createdAt" >= ${ago30}
+                GROUP BY date ORDER BY date ASC
+            `,
+            db.$queryRaw<{ method: string | null; count: bigint }[]>`
+                SELECT metadata->>'method' AS method, COUNT(*) AS count
+                FROM session_events
+                WHERE type = 'article_share' AND path = ${path}
+                GROUP BY method
+            `,
+        ]);
+
+        const sharesByMethod: Record<string, number> = {};
+        for (const r of sharesByMethodRaw) sharesByMethod[r.method || 'unknown'] = Number(r.count);
+
+        res.json({
+            article,
+            views: Number(totals[0]?.views ?? 0),
+            uniqueViewers: Number(totals[0]?.uniqueViewers ?? 0),
+            avgDurationSecs: totals[0]?.avgDurationSecs != null ? Math.round(totals[0].avgDurationSecs) : null,
+            shares: Object.values(sharesByMethod).reduce((a, b) => a + b, 0),
+            sharesByMethod,
+            viewsByDay: byDayRaw.map(r => ({ date: r.date.toISOString().slice(0, 10), count: Number(r.count) })),
+        });
+    } catch (e) {
+        logger.error('GET /api/admin/analytics/articles/:id error', e);
+        res.status(500).json({ error: 'Failed to load article analytics' });
     }
 });
 

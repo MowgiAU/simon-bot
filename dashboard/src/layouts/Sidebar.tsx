@@ -417,7 +417,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
         )}
 
         {/* ── Content ── */}
-        {['articles', 'article-review', 'featured-content'].some(p => permissions.accessiblePlugins.includes(p)) && (
+        {['articles', 'article-review', 'article-analytics', 'featured-content'].some(p => permissions.accessiblePlugins.includes(p)) && (
           <NavGroup id="content" label="Content" icon={<FileText size={12} style={{ marginRight: 6, verticalAlign: 'middle', opacity: 0.5 }} />} collapsed={collapsed}>
             {permissions.accessiblePlugins.includes('featured-content') && (
               <button className={`nav-item ${activeSection === 'featured-content' ? 'active' : ''}`} onClick={() => onNavigate('featured-content')} title={collapsed ? "Featured Content" : ""}>
@@ -435,6 +435,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
               <button className={`nav-item ${activeSection === 'article-review' ? 'active' : ''}`} onClick={() => onNavigate('article-review')} title={collapsed ? "Article Review" : ""}>
                 <span className="nav-icon"><AnimatedWrapper icon={ClipboardCheck} size={20} /></span>
                 <span className="nav-label">Article Review</span>
+              </button>
+            )}
+            {permissions.accessiblePlugins.includes('article-analytics') && (
+              <button className={`nav-item ${activeSection === 'article-analytics' ? 'active' : ''}`} onClick={() => onNavigate('article-analytics')} title={collapsed ? "Article Analytics" : ""}>
+                <span className="nav-icon"><AnimatedWrapper icon={BarChart2} size={20} /></span>
+                <span className="nav-label">Article Analytics</span>
               </button>
             )}
           </NavGroup>

@@ -213,6 +213,7 @@ model Guild {
   serverBoostSettings         ServerBoostSettings?
   reactionRoles               ReactionRole[]
   articles                    Article[]
+  botMessages                 BotMessage[]
   voiceStatSettings           VoiceStatSettings?
   spamGuardSettings           SpamGuardSettings?
   spamGuardIncidents          SpamGuardIncident[]
@@ -2953,6 +2954,33 @@ model ServerBoostSettings {
 
 // Reaction Roles (Bot Messenger)
 // ──────────────────────────────────────────────
+// A message sent from the dashboard's Bot Messenger. Persisted so it can be
+// edited later — before this model existed, the dashboard posted straight to
+// Discord's REST API and threw away the response, so there was nothing to
+// find the message by afterward.
+model BotMessage {
+  id        String  @id @default(cuid())
+  guildId   String
+  channelId String
+  messageId String // Discord message ID returned by the send call
+  content   String? @db.Text
+  embeds    Json? // raw embed objects, as sent
+
+  sentByUserId String
+  sentByName   String
+
+  editCount  Int       @default(0)
+  lastEditAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  @@index([guildId, channelId])
+  @@index([messageId])
+  @@map("bot_messages")
+}
+
 model ReactionRole {
   id        String    @id @default(cuid())
   guildId   String
@@ -3938,10 +3966,16 @@ model SessionEvent {
   createdAt DateTime    @default(now())
   sessionId String
   session   UserSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  type      String      // "page_view" | "track_play" | "search" | "battle_view" | "profile_view" | "playlist_play" | "battle_submit" | "track_upload" | "download_apk"
+  type      String      // "page_view" | "track_play" | "search" | "battle_view" | "profile_view" | "playlist_play" | "battle_submit" | "track_upload" | "download_apk" | "article_share"
   path      String?
   metadata  Json?
+  // How long the visitor stayed on this specific page_view before navigating away or
+  // closing the tab. Reported separately from the initial event (via a PATCH beacon
+  // fired on route change / unload) since it isn't known until the visit ends — the
+  // session-level durationSecs on UserSession covers the whole visit, not one page.
+  durationSecs Int?
 
+  @@index([type, path])
   @@map("session_events")
 }
 

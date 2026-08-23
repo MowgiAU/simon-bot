@@ -153,6 +153,7 @@ const PageEmbedsPage         = lazy(() => import("./pages/PageEmbeds").then(m =>
 const SlotMachinePage        = lazy(() => import("./pages/SlotMachinePage").then(m => ({ default: m.SlotMachinePage })));
 const SlotMachineSettings    = lazy(() => import("./pages/SlotMachineSettings").then(m => ({ default: m.SlotMachineSettings })));
 const PlatformAnalytics      = lazy(() => import("./pages/PlatformAnalytics").then(m => ({ default: m.PlatformAnalytics })));
+const ArticleAnalyticsPage   = lazy(() => import("./pages/ArticleAnalytics").then(m => ({ default: m.ArticleAnalyticsPage })));
 // ErrorBoundary is imported statically above — NOT lazy. It is the outermost
 
 // Minimal inline spinner used while a lazy chunk loads
@@ -221,6 +222,7 @@ type Section =
   | "activity-logs"
   | "vote-fraud"
   | "platform-analytics"
+  | "article-analytics"
   | "echo"
   | "command-guard";
 
@@ -598,6 +600,8 @@ const AdminDashboard: React.FC = () => {
           return <PageEmbedsPage />;
         case "platform-analytics":
           return <PlatformAnalytics />;
+        case "article-analytics":
+          return <ArticleAnalyticsPage />;
         default:
           return null;
       }

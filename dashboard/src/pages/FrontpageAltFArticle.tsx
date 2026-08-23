@@ -15,6 +15,7 @@ import {
 import { AltHeader } from '../components/altshell/AltHeader';
 import { AltActivitySidebar } from '../components/altshell/AltActivitySidebar';
 import { AltSpinner } from '../components/altshell/AltSpinner';
+import { useAnalytics } from '../components/Analytics';
 import { BookOpen, ChevronLeft, Eye, Clock, Calendar, Tag, Share2, Bookmark } from 'lucide-react';
 
 const glass: React.CSSProperties = {
@@ -43,6 +44,7 @@ interface Article {
 export const FrontpageAltFArticle: React.FC = () => {
     const navigate = useNavigate();
     const { player } = usePlayer();
+    const { trackEvent } = useAnalytics();
     // Live route is /article/:slug; the preview URL falls back to ?slug=.
     const slug = decodeURIComponent(window.location.pathname.match(/^\/article\/([^/?#]+)/)?.[1] || '')
         || new URLSearchParams(window.location.search).get('slug');
@@ -71,10 +73,20 @@ export const FrontpageAltFArticle: React.FC = () => {
     const shareArticle = async () => {
         if (!article) return;
         const url = `${window.location.origin}/article/${article.slug}`;
+        const path = `/article/${article.slug}`;
         try {
-            if (navigator.share) { await navigator.share({ title: article.title, url }); return; }
+            if (navigator.share) {
+                await navigator.share({ title: article.title, url });
+                trackEvent('article_share', path, { articleId: article.id, slug: article.slug, method: 'native' });
+                return;
+            }
         } catch { /* user cancelled native share — fall through to copy */ }
-        try { await navigator.clipboard.writeText(url); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch {}
+        try {
+            await navigator.clipboard.writeText(url);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+            trackEvent('article_share', path, { articleId: article.id, slug: article.slug, method: 'copy_link' });
+        } catch {}
     };
 
     useEffect(() => {

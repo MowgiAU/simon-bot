@@ -35,6 +35,9 @@ import {
     FileAudio,
     FileImage,
     File,
+    History,
+    Pencil,
+    Check,
 } from 'lucide-react';
 
 const API = '';
@@ -1356,7 +1359,7 @@ function ReactionRolesTab({ guildId }: { guildId: string }) {
 export function BotMessengerPage() {
     const { selectedGuild } = useAuth();
     const guildId = selectedGuild?.id || '';
-    const [tab, setTab] = useState<'send' | 'embed' | 'forum' | 'reaction-roles' | 'whisper'>('send');
+    const [tab, setTab] = useState<'send' | 'embed' | 'forum' | 'reaction-roles' | 'whisper' | 'history'>('send');
     const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
     useEffect(() => {
@@ -1588,7 +1591,7 @@ export function BotMessengerPage() {
 
             {/* Tabs */}
             <div style={{ display: 'flex', gap: '4px', marginBottom: spacing.lg, background: colors.surface, borderRadius: borderRadius.md, padding: '4px', width: isMobile ? '100%' : 'fit-content' }}>
-                {([['send', 'Send Message', MessageSquare], ['embed', 'Embed Builder', Code2], ['forum', 'Forum', LayoutList], ['reaction-roles', 'Reaction Roles', Shield], ['whisper', 'Whisper', Lock]] as const).map(([key, label, Icon]) => (
+                {([['send', 'Send Message', MessageSquare], ['embed', 'Embed Builder', Code2], ['forum', 'Forum', LayoutList], ['reaction-roles', 'Reaction Roles', Shield], ['whisper', 'Whisper', Lock], ['history', 'Sent Messages', History]] as const).map(([key, label, Icon]) => (
                     <button key={key} onClick={() => setTab(key as any)} style={{
                         flex: isMobile ? 1 : undefined,
                         padding: isMobile ? '10px 8px' : '10px 20px', borderRadius: borderRadius.sm, border: 'none', cursor: 'pointer',
@@ -1954,6 +1957,11 @@ export function BotMessengerPage() {
             {tab === 'whisper' && (
                 <WhisperTab guildId={guildId} />
             )}
+
+            {/* ============== SENT MESSAGES (HISTORY) TAB ============== */}
+            {tab === 'history' && (
+                <HistoryTab guildId={guildId} />
+            )}
         </div>
     );
 }
@@ -2085,6 +2093,147 @@ function WhisperTab({ guildId }: { guildId: string }) {
                     </>
                 )}
             </div>
+        </div>
+    );
+}
+
+// ── Sent Messages (History) Tab ─────────────────────────────────────────────────
+
+interface BotMessageLog {
+    id: string;
+    channelId: string;
+    messageId: string;
+    content: string | null;
+    embeds: any[] | null;
+    sentByName: string;
+    editCount: number;
+    lastEditAt: string | null;
+    createdAt: string;
+}
+
+function HistoryTab({ guildId }: { guildId: string }) {
+    const [messages, setMessages] = useState<BotMessageLog[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [editingId, setEditingId] = useState<string | null>(null);
+    const [editText, setEditText] = useState('');
+    const [saving, setSaving] = useState(false);
+    const [status, setStatus] = useState<{ id: string; type: 'success' | 'error'; text: string } | null>(null);
+
+    const load = useCallback(() => {
+        setLoading(true);
+        axios.get(`${API_URL}/api/bot-messenger/${guildId}/messages`, { withCredentials: true })
+            .then(r => setMessages(r.data ?? []))
+            .catch(() => setMessages([]))
+            .finally(() => setLoading(false));
+    }, [guildId]);
+
+    useEffect(() => { load(); }, [load]);
+
+    const startEdit = (m: BotMessageLog) => {
+        setEditingId(m.id);
+        setEditText(m.content ?? '');
+        setStatus(null);
+    };
+
+    const saveEdit = async (m: BotMessageLog) => {
+        if (!editText.trim() && (!m.embeds || m.embeds.length === 0)) {
+            setStatus({ id: m.id, type: 'error', text: 'Message needs content' });
+            return;
+        }
+        setSaving(true);
+        try {
+            const res = await axios.patch(
+                `${API_URL}/api/bot-messenger/${guildId}/messages/${m.id}`,
+                { content: editText.trim() },
+                { withCredentials: true },
+            );
+            setMessages(prev => prev.map(x => x.id === m.id ? res.data.message : x));
+            setEditingId(null);
+            setStatus({ id: m.id, type: 'success', text: 'Edited!' });
+            setTimeout(() => setStatus(null), 2500);
+        } catch (err: any) {
+            setStatus({ id: m.id, type: 'error', text: err.response?.data?.error || 'Failed to edit' });
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.md }}>
+            <div style={{ ...cardStyle, padding: spacing.md }}>
+                <p style={{ margin: 0, fontSize: '13px', color: colors.textSecondary }}>
+                    Every message sent from the <strong>Send Message</strong> tab is logged here so it can be edited
+                    later. Only the text content can be changed — embeds and attachments are fixed once sent.
+                    Messages sent before this feature was added won't appear, since nothing was recorded for them
+                    at the time.
+                </p>
+            </div>
+
+            {loading ? (
+                <div style={{ textAlign: 'center', padding: spacing.xl, color: colors.textTertiary }}>
+                    <Loader size={20} className="spin" /> Loading…
+                </div>
+            ) : messages.length === 0 ? (
+                <div style={{ ...cardStyle, textAlign: 'center', padding: spacing.xl, color: colors.textTertiary }}>
+                    No sent messages yet.
+                </div>
+            ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {messages.map(m => (
+                        <div key={m.id} style={{
+                            padding: '12px 14px', background: 'rgba(255,255,255,0.03)',
+                            borderRadius: borderRadius.sm, border: `1px solid ${colors.border}`,
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                    {editingId === m.id ? (
+                                        <textarea
+                                            value={editText}
+                                            onChange={e => setEditText(e.target.value)}
+                                            style={{ ...textareaStyle, minHeight: 60 }}
+                                            autoFocus
+                                        />
+                                    ) : (
+                                        <div style={{ fontSize: '14px', color: colors.textPrimary, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                                            {m.content || <span style={{ color: colors.textTertiary, fontStyle: 'italic' }}>
+                                                {m.embeds && m.embeds.length > 0 ? '(embed only — not editable here)' : '(empty)'}
+                                            </span>}
+                                        </div>
+                                    )}
+                                    <div style={{ fontSize: '11px', color: colors.textTertiary, marginTop: 6 }}>
+                                        #{m.channelId} · sent by {m.sentByName} · {new Date(m.createdAt).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                                        {m.editCount > 0 && <> · edited {m.editCount}× {m.lastEditAt && `(last ${new Date(m.lastEditAt).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })})`}</>}
+                                    </div>
+                                    {status?.id === m.id && (
+                                        <div style={{ fontSize: '12px', marginTop: 6, color: status.type === 'success' ? '#10B981' : '#EF4444' }}>
+                                            {status.text}
+                                        </div>
+                                    )}
+                                </div>
+                                <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                                    {editingId === m.id ? (
+                                        <>
+                                            <button onClick={() => saveEdit(m)} disabled={saving} title="Save"
+                                                style={{ background: 'none', border: 'none', cursor: saving ? 'default' : 'pointer', color: colors.primary, padding: 4, display: 'flex', opacity: saving ? 0.5 : 1 }}>
+                                                <Check size={16} />
+                                            </button>
+                                            <button onClick={() => setEditingId(null)} disabled={saving} title="Cancel"
+                                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.textTertiary, padding: 4, display: 'flex' }}>
+                                                <X size={16} />
+                                            </button>
+                                        </>
+                                    ) : (
+                                        <button onClick={() => startEdit(m)} title="Edit message"
+                                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.textTertiary, padding: 4, display: 'flex' }}>
+                                            <Pencil size={16} />
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
         </div>
     );
 }
