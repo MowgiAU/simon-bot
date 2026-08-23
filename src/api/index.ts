@@ -16644,8 +16644,14 @@ app.post('/api/analytics/session', async (req: any, res) => {
     }
 });
 
-/** PATCH /api/analytics/session/:id — heartbeat */
-app.patch('/api/analytics/session/:id', async (req: any, res) => {
+/**
+ * PATCH /api/analytics/session/:id — heartbeat.
+ * Also registered under POST: `navigator.sendBeacon` — used for the end-of-session
+ * update on page unload, since a beacon survives the page closing where a normal fetch
+ * can get cancelled mid-flight — can only ever send POST, never PATCH. Without this
+ * alias every beacon-flushed session duration 404s and is silently lost.
+ */
+const sessionHeartbeatHandler = async (req: any, res: any) => {
     try {
         const { id } = req.params;
         const { durationSecs } = req.body ?? {};
@@ -16657,7 +16663,9 @@ app.patch('/api/analytics/session/:id', async (req: any, res) => {
     } catch {
         res.json({ ok: true });
     }
-});
+};
+app.patch('/api/analytics/session/:id', sessionHeartbeatHandler);
+app.post('/api/analytics/session/:id', sessionHeartbeatHandler);
 
 /** DELETE /api/analytics/session/:id — end session */
 app.delete('/api/analytics/session/:id', async (req: any, res) => {
@@ -16699,8 +16707,13 @@ app.post('/api/analytics/event', async (req: any, res) => {
     }
 });
 
-/** PATCH /api/analytics/event/:id — report how long a visitor stayed on a page_view */
-app.patch('/api/analytics/event/:id', async (req: any, res) => {
+/**
+ * PATCH /api/analytics/event/:id — report how long a visitor stayed on a page_view.
+ * Also registered under POST for the same reason as the session heartbeat above:
+ * `sendBeacon` (used on route change and unload, where a normal fetch risks being
+ * cancelled) can only send POST.
+ */
+const eventDurationHandler = async (req: any, res: any) => {
     try {
         const { id } = req.params;
         const { durationSecs } = req.body ?? {};
@@ -16714,7 +16727,9 @@ app.patch('/api/analytics/event/:id', async (req: any, res) => {
         // Never fail the beacon — the browser doesn't read the response anyway.
         res.json({ ok: true });
     }
-});
+};
+app.patch('/api/analytics/event/:id', eventDurationHandler);
+app.post('/api/analytics/event/:id', eventDurationHandler);
 
 /** GET /api/admin/analytics/overview — admin analytics summary */
 app.get('/api/admin/analytics/overview', requireAdmin, async (_req, res) => {
