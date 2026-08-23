@@ -38,6 +38,7 @@ import {
     History,
     Pencil,
     Check,
+    Forward,
 } from 'lucide-react';
 
 const API = '';
@@ -289,6 +290,43 @@ const ReactPicker: React.FC<{
 };
 
 // ---------------------------------------------------------------------------
+// Forward Picker — pick a destination channel and forward a message into it
+// ---------------------------------------------------------------------------
+const ForwardPicker: React.FC<{
+    guildId: string;
+    onForward: (targetChannelId: string) => void;
+    onClose: () => void;
+    busy: boolean;
+}> = ({ guildId, onForward, onClose, busy }) => {
+    const [targetChannelId, setTargetChannelId] = useState('');
+    const ref = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const handle = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) onClose(); };
+        document.addEventListener('mousedown', handle);
+        return () => document.removeEventListener('mousedown', handle);
+    }, [onClose]);
+
+    return (
+        <div ref={ref} style={{
+            position: 'absolute', bottom: '100%', right: 0, zIndex: 1000,
+            background: colors.surface, border: `1px solid ${colors.border}`, borderRadius: borderRadius.lg,
+            boxShadow: '0 8px 24px rgba(0,0,0,0.5)', width: '280px', marginBottom: '6px', padding: spacing.md,
+        }}>
+            <label style={{ ...labelStyle, marginTop: 0 }}>Forward to</label>
+            <ChannelSelect guildId={guildId} value={targetChannelId} onChange={v => setTargetChannelId(v as string)} placeholder="Choose a channel..." />
+            <button
+                onClick={() => targetChannelId && onForward(targetChannelId)}
+                disabled={!targetChannelId || busy}
+                style={{ ...btnPrimary, width: '100%', justifyContent: 'center', marginTop: spacing.sm, opacity: (!targetChannelId || busy) ? 0.6 : 1 }}
+            >
+                <Forward size={14} /> {busy ? 'Forwarding...' : 'Forward'}
+            </button>
+        </div>
+    );
+};
+
+// ---------------------------------------------------------------------------
 // Message Feed Component
 // ---------------------------------------------------------------------------
 const MessageFeed: React.FC<{
@@ -300,6 +338,15 @@ const MessageFeed: React.FC<{
     const [loading, setLoading] = useState(false);
     const [reactingTo, setReactingTo] = useState<string | null>(null); // message id with picker open
     const [reactStatus, setReactStatus] = useState<{ id: string; ok: boolean; msg?: string } | null>(null);
+    // Inline edit — the pencil next to a message swaps its content for a textarea in place,
+    // rather than routing through a separate history tab, so fixing a typo is a two-click
+    // affair right where the message already is.
+    const [editingId, setEditingId] = useState<string | null>(null);
+    const [editText, setEditText] = useState('');
+    const [editSaving, setEditSaving] = useState(false);
+    const [editStatus, setEditStatus] = useState<{ id: string; ok: boolean; msg?: string } | null>(null);
+    const [forwardingId, setForwardingId] = useState<string | null>(null);
+    const [forwardBusy, setForwardBusy] = useState(false);
     const feedRef = useRef<HTMLDivElement>(null);
     const intervalRef = useRef<ReturnType<typeof setInterval>>();
     // Track whether the user is scrolled to (near) the bottom so polling doesn't yank them down
@@ -344,6 +391,51 @@ const MessageFeed: React.FC<{
         author.avatar
             ? `https://cdn.discordapp.com/avatars/${author.id}/${author.avatar}.png?size=64`
             : `https://cdn.discordapp.com/embed/avatars/${parseInt(author.id) % 5}.png`;
+
+    const startEdit = (msg: DiscordMessage) => {
+        setEditingId(msg.id);
+        setEditText(msg.content || '');
+        setEditStatus(null);
+    };
+
+    // Works whether or not this message was sent through the dashboard — the endpoint
+    // edits by Discord's own channel + message ID and adopts the message into the
+    // tracked history on its first edit, which is what makes editing something sent
+    // before that history existed possible at all.
+    const saveEdit = async (msg: DiscordMessage) => {
+        if (!editText.trim()) { setEditStatus({ id: msg.id, ok: false, msg: 'Message needs content' }); return; }
+        setEditSaving(true);
+        try {
+            await axios.patch(
+                `${API}/api/bot-messenger/${guildId}/channels/${channelId}/messages/${msg.id}`,
+                { content: editText.trim() },
+                { withCredentials: true },
+            );
+            setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, content: editText.trim() } : m));
+            setEditingId(null);
+            setEditStatus({ id: msg.id, ok: true });
+            setTimeout(() => setEditStatus(null), 2500);
+        } catch (err: any) {
+            setEditStatus({ id: msg.id, ok: false, msg: err.response?.data?.error || 'Failed to edit' });
+        } finally {
+            setEditSaving(false);
+        }
+    };
+
+    const forwardMessage = async (msg: DiscordMessage, targetChannelId: string) => {
+        setForwardBusy(true);
+        try {
+            await axios.post(`${API}/api/bot-messenger/${guildId}/forward`, {
+                sourceChannelId: channelId, messageId: msg.id, targetChannelId,
+            }, { withCredentials: true });
+            setForwardingId(null);
+        } catch (err: any) {
+            setEditStatus({ id: msg.id, ok: false, msg: err.response?.data?.error || 'Failed to forward' });
+            setTimeout(() => setEditStatus(null), 3000);
+        } finally {
+            setForwardBusy(false);
+        }
+    };
 
     if (!channelId) return <div style={{ color: colors.textTertiary, padding: spacing.lg, textAlign: 'center' }}>Select a channel to view messages</div>;
 
@@ -404,7 +496,30 @@ const MessageFeed: React.FC<{
                                     {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                 </span>
                             </div>
-                            {msg.content && <div style={{ color: colors.textSecondary, fontSize: '14px', marginTop: '2px', wordBreak: 'break-word', lineHeight: 1.5 }}>{renderContent(msg.content)}</div>}
+                            {editingId === msg.id ? (
+                                <div style={{ marginTop: '4px' }}>
+                                    <textarea
+                                        value={editText}
+                                        onChange={e => setEditText(e.target.value)}
+                                        style={{ ...textareaStyle, minHeight: 50, fontSize: '13px' }}
+                                        autoFocus
+                                        onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveEdit(msg); } if (e.key === 'Escape') setEditingId(null); }}
+                                    />
+                                    <div style={{ display: 'flex', gap: '6px', marginTop: '4px' }}>
+                                        <button onClick={() => saveEdit(msg)} disabled={editSaving} style={{ ...btnPrimary, padding: '4px 12px', fontSize: '12px', opacity: editSaving ? 0.6 : 1 }}>
+                                            <Check size={12} /> {editSaving ? 'Saving...' : 'Save'}
+                                        </button>
+                                        <button onClick={() => setEditingId(null)} disabled={editSaving} style={{ ...btnSecondary, padding: '4px 12px', fontSize: '12px' }}>
+                                            Cancel
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : (
+                                msg.content && <div style={{ color: colors.textSecondary, fontSize: '14px', marginTop: '2px', wordBreak: 'break-word', lineHeight: 1.5 }}>{renderContent(msg.content)}</div>
+                            )}
+                            {editStatus?.id === msg.id && !editStatus.ok && (
+                                <div style={{ color: '#EF4444', fontSize: '11px', marginTop: '4px' }}>{editStatus.msg}</div>
+                            )}
                             {msg.embeds && msg.embeds.length > 0 && (
                                 <div style={{ marginTop: '4px', padding: '6px 10px', borderLeft: `3px solid ${msg.embeds[0].color ? `#${msg.embeds[0].color.toString(16).padStart(6, '0')}` : colors.primary}`, background: 'rgba(0,0,0,0.15)', borderRadius: '4px', fontSize: '13px', color: colors.textSecondary }}>
                                     {msg.embeds[0].title && <div style={{ fontWeight: 600, color: colors.textPrimary }}>{msg.embeds[0].title}</div>}
@@ -472,6 +587,34 @@ const MessageFeed: React.FC<{
                             >
                                 <Reply size={15} />
                             </button>
+                            {msg.author.bot && (
+                                <button
+                                    onClick={() => startEdit(msg)}
+                                    title="Edit message"
+                                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: editingId === msg.id ? colors.primary : colors.textTertiary, padding: '4px' }}
+                                    onMouseEnter={e => (e.currentTarget.style.color = colors.primary)}
+                                    onMouseLeave={e => (e.currentTarget.style.color = editingId === msg.id ? colors.primary : colors.textTertiary)}
+                                >
+                                    <Pencil size={15} />
+                                </button>
+                            )}
+                            <button
+                                onClick={() => setForwardingId(forwardingId === msg.id ? null : msg.id)}
+                                title="Forward to another channel"
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: forwardingId === msg.id ? colors.primary : colors.textTertiary, padding: '4px' }}
+                                onMouseEnter={e => (e.currentTarget.style.color = colors.primary)}
+                                onMouseLeave={e => (e.currentTarget.style.color = forwardingId === msg.id ? colors.primary : colors.textTertiary)}
+                            >
+                                <Forward size={15} />
+                            </button>
+                            {forwardingId === msg.id && (
+                                <ForwardPicker
+                                    guildId={guildId}
+                                    busy={forwardBusy}
+                                    onClose={() => setForwardingId(null)}
+                                    onForward={(targetChannelId) => forwardMessage(msg, targetChannelId)}
+                                />
+                            )}
                             <button
                                 onClick={() => setReactingTo(reactingTo === msg.id ? null : msg.id)}
                                 title="Add reaction"
@@ -1584,7 +1727,8 @@ export function BotMessengerPage() {
             {/* Explanation */}
             <div className="settings-explanation" style={{ background: 'linear-gradient(118deg, rgba(36, 44, 61, 0.8), rgba(26, 30, 46, 0.9))', border: '1px solid #3E455633', padding: spacing.md, borderRadius: borderRadius.md, marginBottom: spacing.lg, borderLeft: `4px solid ${colors.primary}` }}>
                 <p style={{ margin: 0, color: colors.textPrimary }}>
-                    Use the <strong>Send Message</strong> tab to send text messages with emoji, stickers, and reply functionality. 
+                    Use the <strong>Send Message</strong> tab to send text messages with emoji, stickers, and reply functionality —
+                    hover a message there for pencil (edit) and forward icons, which work on any message the bot has sent, old or new.
                     Use the <strong>Embed Builder</strong> tab to create rich embeds with titles, descriptions, fields, images, and more — similar to Discohook.
                 </p>
             </div>
@@ -2164,8 +2308,9 @@ function HistoryTab({ guildId }: { guildId: string }) {
                 <p style={{ margin: 0, fontSize: '13px', color: colors.textSecondary }}>
                     Every message sent from the <strong>Send Message</strong> tab is logged here so it can be edited
                     later. Only the text content can be changed — embeds and attachments are fixed once sent.
-                    Messages sent before this feature was added won't appear, since nothing was recorded for them
-                    at the time.
+                    Messages sent before this feature was added won't appear here until they're edited at least
+                    once — use the pencil icon next to a message in the <strong>Send Message</strong> tab's channel
+                    view, which works on any message the bot sent, logged or not, and adds it here the first time.
                 </p>
             </div>
 

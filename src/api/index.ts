@@ -583,6 +583,27 @@ const discordReq = async (method: string, path: string, data?: any, token?: stri
     }
 };
 
+/**
+ * Like discordReq, but for actions Discord restricts to a message's own author (editing,
+ * and forwarding acts as sending a new message so this doesn't apply there — kept for
+ * editing specifically). Fuji Studio can send as either of two bot identities (main /
+ * "Simon"), and existing messenger routes require the caller to say which one up front
+ * via `useSimon`. For editing an arbitrary message found in a channel's history, the
+ * caller usually doesn't know which bot originally sent it — so this tries the main
+ * bot's token first and, only on Discord's "not this message's author" error (50005),
+ * retries with the Simon token if one is configured.
+ */
+const discordReqAsOwner = async (method: string, path: string, data?: any): Promise<any> => {
+    try {
+        return await discordReq(method, path, data);
+    } catch (e: any) {
+        if (e.response?.data?.code === 50005 && process.env.SIMON_BOT_TOKEN) {
+            return discordReq(method, path, data, process.env.SIMON_BOT_TOKEN);
+        }
+        throw e;
+    }
+};
+
 // Cache of server nicknames keyed by `${guildId}:${userId}` (REST message fetches omit member data,
 // so we resolve nicknames separately and cache them to avoid hammering Discord on each poll).
 const memberNickCache = new Map<string, { nick: string | null; timestamp: number }>();
@@ -7182,7 +7203,7 @@ app.patch('/api/bot-messenger/:guildId/messages/:id', async (req, res) => {
     const { guildId, id } = req.params;
     if (!hasDashboardAccess(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
 
-    const { content, embeds, useSimon } = req.body;
+    const { content, embeds } = req.body;
     if (!content && (!embeds || embeds.length === 0)) {
         return res.status(400).json({ error: 'Edited message must have content or embeds' });
     }
@@ -7191,12 +7212,15 @@ app.patch('/api/bot-messenger/:guildId/messages/:id', async (req, res) => {
         const logged = await db.botMessage.findFirst({ where: { id, guildId } });
         if (!logged) return res.status(404).json({ error: 'Message not found' });
 
-        const botToken = useSimon && process.env.SIMON_BOT_TOKEN ? process.env.SIMON_BOT_TOKEN : undefined;
         const payload: any = {};
         if (content !== undefined) payload.content = content;
         if (embeds && embeds.length > 0) payload.embeds = embeds;
-        const response = await discordReq(
-            'patch', `/channels/${logged.channelId}/messages/${logged.messageId}`, payload, botToken,
+        // discordReqAsOwner rather than picking a token from `useSimon`: the caller (the
+        // History tab) has no reliable way to know which bot identity actually sent this
+        // message, so guessing wrong would 403. This tries the main bot first and falls
+        // back to Simon automatically on Discord's "not this message's author" error.
+        const response = await discordReqAsOwner(
+            'patch', `/channels/${logged.channelId}/messages/${logged.messageId}`, payload,
         );
 
         const updated = await db.botMessage.update({
@@ -7212,6 +7236,82 @@ app.patch('/api/bot-messenger/:guildId/messages/:id', async (req, res) => {
     } catch (err: any) {
         logger.error('Failed to edit bot messenger message', err);
         res.status(err.response?.status || 500).json({ error: err.response?.data?.message || 'Failed to edit message' });
+    }
+});
+
+/**
+ * Edit any bot-authored message directly by its channel + Discord message ID — unlike
+ * the route above, this doesn't require the message to already be in BotMessage's log,
+ * so messages sent before that logging existed (or sent any other way) can be edited
+ * too. The first edit through this route "adopts" the message into the log, so it
+ * shows up in Sent Messages history from then on with an accurate edit count — its
+ * original sender is unknown (nothing recorded it), so sentByName reflects whoever
+ * makes this first edit, not who originally sent it.
+ */
+app.patch('/api/bot-messenger/:guildId/channels/:channelId/messages/:messageId', async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+    const { guildId, channelId, messageId } = req.params;
+    if (!hasDashboardAccess(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
+
+    const { content } = req.body;
+    if (!content?.trim()) return res.status(400).json({ error: 'Edited message needs content' });
+
+    try {
+        const response = await discordReqAsOwner(
+            'patch', `/channels/${channelId}/messages/${messageId}`, { content },
+        );
+
+        const existing = await db.botMessage.findFirst({ where: { messageId, guildId } });
+        const updated = existing
+            ? await db.botMessage.update({
+                where: { id: existing.id },
+                data: { content, editCount: { increment: 1 }, lastEditAt: new Date() },
+            })
+            : await db.botMessage.create({
+                data: {
+                    guildId, channelId, messageId, content,
+                    sentByUserId: req.session.user.id, sentByName: req.session.user.username || req.session.user.id,
+                    editCount: 1, lastEditAt: new Date(),
+                },
+            });
+        res.json({ discord: response.data, message: updated });
+    } catch (err: any) {
+        logger.error('Failed to edit message by id', err);
+        res.status(err.response?.status || 500).json({ error: err.response?.data?.message || 'Failed to edit message' });
+    }
+});
+
+/**
+ * Forward a message to another channel using Discord's native forward feature
+ * (message_reference type 1) rather than copying its text — this preserves the
+ * original as a linked snapshot (author, embeds, attachments) instead of a plain
+ * repost that looks like the bot wrote it itself.
+ */
+app.post('/api/bot-messenger/:guildId/forward', async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'Unauthorized' });
+    const { guildId } = req.params;
+    if (!hasDashboardAccess(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
+
+    const { sourceChannelId, messageId, targetChannelId } = req.body;
+    if (!sourceChannelId || !messageId || !targetChannelId) {
+        return res.status(400).json({ error: 'sourceChannelId, messageId, and targetChannelId are required' });
+    }
+
+    try {
+        const response = await discordReq('post', `/channels/${targetChannelId}/messages`, {
+            message_reference: { type: 1, message_id: messageId, channel_id: sourceChannelId },
+        });
+        db.botMessage.create({
+            data: {
+                guildId, channelId: targetChannelId, messageId: response.data.id,
+                content: null,
+                sentByUserId: req.session.user.id, sentByName: req.session.user.username || req.session.user.id,
+            },
+        }).catch((e: unknown) => logger.warn('Failed to log forwarded bot message', e));
+        res.json(response.data);
+    } catch (err: any) {
+        logger.error('Failed to forward message', err);
+        res.status(err.response?.status || 500).json({ error: err.response?.data?.message || 'Failed to forward message' });
     }
 });
 
