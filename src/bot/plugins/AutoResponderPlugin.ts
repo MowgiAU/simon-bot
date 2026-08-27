@@ -48,7 +48,9 @@ export class AutoResponderPlugin implements IPlugin {
     private context: IPluginContext | null = null;
     private logger = new Logger('AutoResponderPlugin');
     private censor!: WordCensor;
-    // Per-rule/category per-user cooldown tracker (userId:entityId -> expiry timestamp)
+    // Cooldown tracker. Keyed `guildId:categoryId` for a category cooldown (server-wide —
+    // no user in the key, so it blocks every user once tripped) or `userId:ruleId` for a
+    // standalone rule's own cooldown (per-user). -> expiry timestamp.
     private cooldowns = new Map<string, number>();
     // Global per-user cooldown tracker (guildId:userId -> expiry timestamp)
     private userCooldowns = new Map<string, number>();
@@ -295,11 +297,16 @@ export class AutoResponderPlugin implements IPlugin {
             if (!match) continue;
 
             // Cooldown check (in-memory for speed) — only runs if message matched
-            // When cooldown comes from a category, use the category ID so that
-            // ANY rule in the category firing puts that user's category on cooldown.
-            // Cooldowns are per-user so different users don't block each other.
-            const cooldownEntity = cat ? cat.id : rule.id;
-            const cooldownKey = `${msg.author.id}:${cooldownEntity}`;
+            // A category cooldown is server-wide: the key has no user in it, so once ANY
+            // user fires ANY rule in the category, that category is silent for everyone
+            // until it expires. This is what makes a 600s category cooldown actually mean
+            // "at most one reply from this category every 10 minutes" rather than "every
+            // 10 minutes per person" — with a few dozen common-word rules in one category,
+            // the per-user version let a busy server's worth of different people each fire
+            // it independently, which read as the cooldown doing nothing.
+            // A rule with no category keeps the old per-user behaviour, since nothing here
+            // was reported as a problem for standalone rules and changing it wasn't asked for.
+            const cooldownKey = cat ? `${guildId}:${cat.id}` : `${msg.author.id}:${rule.id}`;
             if (effectiveCooldownSeconds > 0) {
                 const expiresAt = this.cooldowns.get(cooldownKey) || 0;
                 if (Date.now() < expiresAt) {

@@ -646,7 +646,7 @@ const CategoryCard: React.FC<CategoryCardProps> = ({ category, guildId, ruleCoun
                             <input type="number" min={0} max={86400} value={draft.cooldownSeconds}
                                 onChange={e => update({ cooldownSeconds: parseInt(e.target.value) || 0 })}
                                 style={{ ...inputBase, maxWidth: '140px' }} />
-                            <p style={{ margin: '4px 0 0', fontSize: '10px', color: colors.textTertiary }}>Applies to all rules in this category</p>
+                            <p style={{ margin: '4px 0 0', fontSize: '10px', color: colors.textTertiary }}>Applies to all rules in this category, server-wide — once any rule fires, the whole category is silent for everyone until it expires</p>
                         </div>
                         <div>
                             <EmojiInputWithPicker
@@ -1066,7 +1066,7 @@ const RuleCard: React.FC<RuleCardProps> = ({ rule, guildId, categories, onUpdate
                                 <input type="number" min={0} max={86400} value={draft.cooldownSeconds}
                                     onChange={e => update({ cooldownSeconds: parseInt(e.target.value) || 0 })}
                                     style={{ ...inputBase, maxWidth: '140px' }} />
-                                <p style={{ margin: '4px 0 0', fontSize: '10px', color: colors.textTertiary }}>How long before this rule can fire again</p>
+                                <p style={{ margin: '4px 0 0', fontSize: '10px', color: colors.textTertiary }}>How long before this rule can fire again for the same user. Only used when the rule has no category — a category's own cooldown always takes over instead</p>
                             </div>
                             <div>
                                 <EmojiInputWithPicker
