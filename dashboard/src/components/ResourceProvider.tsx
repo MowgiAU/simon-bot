@@ -24,7 +24,8 @@ interface ResourceContextType {
     roles: DiscordRole[];
     loading: boolean;
     error: string | null;
-    refresh: () => Promise<void>;
+    /** `force: true` bypasses the server's 5-minute cache too, not just this client's copy */
+    refresh: (force?: boolean) => Promise<void>;
 }
 
 const ResourceContext = createContext<ResourceContextType | undefined>(undefined);
@@ -40,16 +41,17 @@ export const ResourceProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const fetchResources = async () => {
+    const fetchResources = async (force = false) => {
         if (!selectedGuild) return;
-        
+
         setLoading(true);
         setError(null);
-        
+
         try {
+            const suffix = force ? '?refresh=1' : '';
             const [channelsRes, rolesRes] = await Promise.all([
-                fetch(`/api/guilds/${selectedGuild.id}/channels`),
-                fetch(`/api/guilds/${selectedGuild.id}/roles`)
+                fetch(`/api/guilds/${selectedGuild.id}/channels${suffix}`),
+                fetch(`/api/guilds/${selectedGuild.id}/roles${suffix}`)
             ]);
 
             if (!channelsRes.ok || !rolesRes.ok) {

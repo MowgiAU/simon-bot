@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useRef, useEffect, useCallback } from 'react';
+import { RefreshCw } from 'lucide-react';
 import { colors, borderRadius, spacing } from '../theme/theme';
 import { useResources, DiscordChannel } from './ResourceProvider';
 
@@ -94,7 +95,7 @@ export const ChannelSelect: React.FC<ChannelSelectProps> = ({
     multiple = false,
     channelTypes
 }) => {
-    const { channels, loading } = useResources();
+    const { channels, loading, refresh } = useResources();
     const [open, setOpen] = useState(false);
     const [search, setSearch] = useState('');
     const [favIds, setFavIds] = useState<string[]>(() => getFavorites(guildId));
@@ -225,14 +226,14 @@ export const ChannelSelect: React.FC<ChannelSelectProps> = ({
                     flexDirection: 'column',
                 }}>
                     {/* Search */}
-                    <div style={{ padding: '8px', borderBottom: `1px solid ${colors.border}` }}>
+                    <div style={{ padding: '8px', borderBottom: `1px solid ${colors.border}`, display: 'flex', gap: '6px' }}>
                         <input
                             ref={searchRef}
                             value={search}
                             onChange={e => setSearch(e.target.value)}
                             placeholder="Search channels..."
                             style={{
-                                width: '100%',
+                                flex: 1,
                                 padding: '6px 8px',
                                 backgroundColor: colors.background,
                                 color: colors.textPrimary,
@@ -242,6 +243,23 @@ export const ChannelSelect: React.FC<ChannelSelectProps> = ({
                                 fontSize: '12px',
                             }}
                         />
+                        <button
+                            type="button"
+                            onClick={() => refresh(true)}
+                            disabled={loading}
+                            title="Refresh channel list from Discord"
+                            style={{
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                width: '28px', flexShrink: 0,
+                                backgroundColor: colors.background,
+                                border: `1px solid ${colors.border}`,
+                                borderRadius: '4px',
+                                color: colors.textSecondary,
+                                cursor: loading ? 'default' : 'pointer',
+                            }}
+                        >
+                            <RefreshCw size={13} className={loading ? 'spin' : undefined} />
+                        </button>
                     </div>
 
                     {/* Scrollable list */}

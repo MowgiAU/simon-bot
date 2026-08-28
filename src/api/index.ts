@@ -4408,6 +4408,10 @@ app.get('/api/guilds/:guildId/channels', async (req, res) => {
             return res.status(500).json({ error: 'Server configuration error' });
         }
 
+        // ?refresh=1 drops the 5-minute in-memory cache before fetching, for a manual
+        // refresh button — otherwise a channel created/renamed in Discord can take up to
+        // 5 minutes to show up here regardless of how many times the page is reloaded.
+        if (req.query.refresh) delete discordCache.get(guildId)?.channels;
         const response = await discordReq('GET', `/guilds/${guildId}/channels`);
         
         const channels = (response.data || [])
@@ -4445,6 +4449,8 @@ app.get('/api/guilds/:guildId/roles', async (req, res) => {
             return res.status(500).json({ error: 'Missing token' });
         }
 
+        // See the equivalent comment on the channels route above.
+        if (req.query.refresh) delete discordCache.get(guildId)?.roles;
         const response = await discordReq('GET', `/guilds/${guildId}/roles`);
         res.json(response.data || []);
     } catch (e: any) {
