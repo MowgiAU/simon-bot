@@ -199,9 +199,11 @@ export class AutoResponderPlugin implements IPlugin {
         for (const rule of rules) {
             // Resolve effective settings — category values take precedence when set
             const cat = rule.categoryId ? categoryMap.get(rule.categoryId) : null;
-            // Channel filters: category fully overrides rule when category is assigned
+            // Channel/role filters: category fully overrides rule when category is assigned
             const effectiveAllowedChannels = cat ? cat.allowedChannels : rule.allowedChannels;
             const effectiveIgnoredChannels  = cat ? cat.ignoredChannels  : rule.ignoredChannels;
+            const effectiveAllowedRoles = cat ? cat.allowedRoles : rule.allowedRoles;
+            const effectiveIgnoredRoles = cat ? cat.ignoredRoles : rule.ignoredRoles;
             // Cooldown: category cooldown takes precedence only when it's explicitly set (> 0).
             // If the category has no cooldown (0/default), fall back to the rule's own cooldown.
             // This prevents a category's default-zero from silently wiping a rule-level cooldown.
@@ -221,6 +223,23 @@ export class AutoResponderPlugin implements IPlugin {
                 try {
                     const ignored: string[] = JSON.parse(effectiveIgnoredChannels);
                     if (ignored.includes(channelId)) continue;
+                } catch { /* ignore parse errors */ }
+            }
+
+            // Role filtering. msg.member is the triggering user's GuildMember, which
+            // messageCreate already provides for guild messages — no extra fetch needed.
+            // A member with no roles simply can't match a non-empty allow-list, same as
+            // the channel filter's behaviour above.
+            if (effectiveAllowedRoles) {
+                try {
+                    const allowed: string[] = JSON.parse(effectiveAllowedRoles);
+                    if (allowed.length > 0 && !msg.member?.roles.cache.hasAny(...allowed)) continue;
+                } catch { /* ignore parse errors */ }
+            }
+            if (effectiveIgnoredRoles) {
+                try {
+                    const ignored: string[] = JSON.parse(effectiveIgnoredRoles);
+                    if (ignored.length > 0 && msg.member?.roles.cache.hasAny(...ignored)) continue;
                 } catch { /* ignore parse errors */ }
             }
 

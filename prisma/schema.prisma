@@ -3032,6 +3032,8 @@ model AutoResponderRule {
   enabled               Boolean   @default(true)
   allowedChannels       String?   @db.Text // JSON array of channel IDs (null = all channels)
   ignoredChannels       String?   @db.Text // JSON array of ignored channel IDs
+  allowedRoles          String?   @db.Text // JSON array of role IDs (null = all roles)
+  ignoredRoles          String?   @db.Text // JSON array of ignored role IDs
   cooldownSeconds       Int       @default(0)
   cooldownReactionEmoji String? // emoji to react with when rule is on cooldown
   lastTriggeredAt       DateTime?
@@ -3054,6 +3056,8 @@ model AutoResponderCategory {
   name                  String  @default("New Category")
   allowedChannels       String? @db.Text // JSON array of allowed channel IDs
   ignoredChannels       String? @db.Text // JSON array of ignored channel IDs
+  allowedRoles          String? @db.Text // JSON array of allowed role IDs (null = all roles)
+  ignoredRoles          String? @db.Text // JSON array of ignored role IDs
   cooldownSeconds       Int     @default(0)
   cooldownReactionEmoji String?
 

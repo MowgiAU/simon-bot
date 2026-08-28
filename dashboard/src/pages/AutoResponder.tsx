@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { colors, spacing, borderRadius } from '../theme/theme';
 import { ChannelSelect } from '../components/ChannelSelect';
+import { RoleSelect } from '../components/RoleSelect';
 import { useAuth } from '../components/AuthProvider';
 import {
     Zap, Plus, Trash2, ToggleLeft, ToggleRight, Save, AlertCircle,
@@ -44,6 +45,8 @@ interface AutoResponderRule {
     enabled: boolean;
     allowedChannels: string | null;
     ignoredChannels: string | null;
+    allowedRoles: string | null;
+    ignoredRoles: string | null;
     cooldownSeconds: number;
     cooldownReactionEmoji: string | null;
     matchCount: number;
@@ -57,6 +60,8 @@ interface AutoResponderCategory {
     name: string;
     allowedChannels: string | null;
     ignoredChannels: string | null;
+    allowedRoles: string | null;
+    ignoredRoles: string | null;
     cooldownSeconds: number;
     cooldownReactionEmoji: string | null;
 }
@@ -558,6 +563,8 @@ const CategoryCard: React.FC<CategoryCardProps> = ({ category, guildId, ruleCoun
                     name: draft.name,
                     allowedChannels: parseChannels(draft.allowedChannels),
                     ignoredChannels: parseChannels(draft.ignoredChannels),
+                    allowedRoles: parseChannels(draft.allowedRoles),
+                    ignoredRoles: parseChannels(draft.ignoredRoles),
                     cooldownSeconds: draft.cooldownSeconds,
                     cooldownReactionEmoji: draft.cooldownReactionEmoji || null,
                 }),
@@ -634,6 +641,22 @@ const CategoryCard: React.FC<CategoryCardProps> = ({ category, guildId, ruleCoun
                         <span style={labelStyle}>Ignored Channels</span>
                         <ChannelSelect guildId={guildId} value={parseChannels(draft.ignoredChannels)}
                             onChange={v => { const a = Array.isArray(v) ? v : v ? [v] : []; update({ ignoredChannels: a.length ? JSON.stringify(a) : null }); }}
+                            placeholder="None..." multiple />
+                    </div>
+                </div>
+
+                {/* Role filters */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '14px' }}>
+                    <div>
+                        <span style={labelStyle}>Allowed Roles (empty = all)</span>
+                        <RoleSelect guildId={guildId} value={parseChannels(draft.allowedRoles)}
+                            onChange={v => { const a = Array.isArray(v) ? v : v ? [v] : []; update({ allowedRoles: a.length ? JSON.stringify(a) : null }); }}
+                            placeholder="All roles..." multiple />
+                    </div>
+                    <div>
+                        <span style={labelStyle}>Ignored Roles</span>
+                        <RoleSelect guildId={guildId} value={parseChannels(draft.ignoredRoles)}
+                            onChange={v => { const a = Array.isArray(v) ? v : v ? [v] : []; update({ ignoredRoles: a.length ? JSON.stringify(a) : null }); }}
                             placeholder="None..." multiple />
                     </div>
                 </div>
@@ -785,6 +808,8 @@ const RuleCard: React.FC<RuleCardProps> = ({ rule, guildId, categories, onUpdate
                     enabled: draft.enabled,
                     allowedChannels: parseChannels(draft.allowedChannels),
                     ignoredChannels: parseChannels(draft.ignoredChannels),
+                    allowedRoles: parseChannels(draft.allowedRoles),
+                    ignoredRoles: parseChannels(draft.ignoredRoles),
                     cooldownSeconds: draft.cooldownSeconds,
                     cooldownReactionEmoji: draft.cooldownReactionEmoji || null,
                     categoryId: draft.categoryId || null,
@@ -1028,11 +1053,11 @@ const RuleCard: React.FC<RuleCardProps> = ({ rule, guildId, categories, onUpdate
                         </p>
                     </div>
 
-                    {/* Channel filters — disabled when category is assigned */}
+                    {/* Channel/role filters — disabled when category is assigned */}
                     {draft.categoryId ? (
                         <div style={{ marginBottom: '16px', padding: '10px 12px', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: borderRadius.sm, border: `1px dashed ${colors.glassBorder}`, color: colors.textTertiary, fontSize: '12px' }}>
                             <FolderOpen size={13} style={{ verticalAlign: 'middle', marginRight: '6px' }} />
-                            Channel filters and cooldown are inherited from the <strong style={{ color: colors.textSecondary }}>{categories.find(c => c.id === draft.categoryId)?.name ?? 'category'}</strong>.
+                            Channel filters, role filters, and cooldown are inherited from the <strong style={{ color: colors.textSecondary }}>{categories.find(c => c.id === draft.categoryId)?.name ?? 'category'}</strong>.
                         </div>
                     ) : (
                         <>
@@ -1053,6 +1078,29 @@ const RuleCard: React.FC<RuleCardProps> = ({ rule, guildId, categories, onUpdate
                                 guildId={guildId}
                                 value={parseChannels(draft.ignoredChannels)}
                                 onChange={v => { const a = Array.isArray(v) ? v : v ? [v] : []; update({ ignoredChannels: a.length ? JSON.stringify(a) : null }); }}
+                                placeholder="None..."
+                                multiple
+                            />
+                        </div>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+                        <div>
+                            <span style={labelStyle}>Allowed Roles (empty = all)</span>
+                            <RoleSelect
+                                guildId={guildId}
+                                value={parseChannels(draft.allowedRoles)}
+                                onChange={v => { const a = Array.isArray(v) ? v : v ? [v] : []; update({ allowedRoles: a.length ? JSON.stringify(a) : null }); }}
+                                placeholder="All roles..."
+                                multiple
+                            />
+                        </div>
+                        <div>
+                            <span style={labelStyle}>Ignored Roles</span>
+                            <RoleSelect
+                                guildId={guildId}
+                                value={parseChannels(draft.ignoredRoles)}
+                                onChange={v => { const a = Array.isArray(v) ? v : v ? [v] : []; update({ ignoredRoles: a.length ? JSON.stringify(a) : null }); }}
                                 placeholder="None..."
                                 multiple
                             />

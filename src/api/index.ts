@@ -7746,13 +7746,15 @@ app.put('/api/auto-responder/:guildId/categories/:categoryId', async (req: any, 
     try {
         const existing = await db.autoResponderCategory.findFirst({ where: { id: categoryId, guildId } });
         if (!existing) return res.status(404).json({ error: 'Category not found' });
-        const { name, allowedChannels, ignoredChannels, cooldownSeconds, cooldownReactionEmoji } = req.body;
+        const { name, allowedChannels, ignoredChannels, allowedRoles, ignoredRoles, cooldownSeconds, cooldownReactionEmoji } = req.body;
         const updated = await db.autoResponderCategory.update({
             where: { id: categoryId },
             data: {
                 name: name !== undefined ? String(name).slice(0, 100) : undefined,
                 allowedChannels: allowedChannels !== undefined ? (allowedChannels ? JSON.stringify(allowedChannels) : null) : undefined,
                 ignoredChannels: ignoredChannels !== undefined ? (ignoredChannels ? JSON.stringify(ignoredChannels) : null) : undefined,
+                allowedRoles: allowedRoles !== undefined ? (allowedRoles ? JSON.stringify(allowedRoles) : null) : undefined,
+                ignoredRoles: ignoredRoles !== undefined ? (ignoredRoles ? JSON.stringify(ignoredRoles) : null) : undefined,
                 cooldownSeconds: cooldownSeconds !== undefined ? Math.max(0, Math.min(86400, parseInt(cooldownSeconds) || 0)) : undefined,
                 cooldownReactionEmoji: cooldownReactionEmoji !== undefined ? (cooldownReactionEmoji ? String(cooldownReactionEmoji).slice(0, 100) : null) : undefined,
             },
@@ -7829,7 +7831,7 @@ app.put('/api/auto-responder/:guildId/:ruleId', async (req: any, res) => {
         const existing = await db.autoResponderRule.findFirst({ where: { id: ruleId, guildId } });
         if (!existing) return res.status(404).json({ error: 'Rule not found' });
 
-        const { name, trigger, triggerType, response, enabled, allowedChannels, ignoredChannels, cooldownSeconds, cooldownReactionEmoji, embedJson, mentionUser, reactionEmoji, categoryId } = req.body;
+        const { name, trigger, triggerType, response, enabled, allowedChannels, ignoredChannels, allowedRoles, ignoredRoles, cooldownSeconds, cooldownReactionEmoji, embedJson, mentionUser, reactionEmoji, categoryId } = req.body;
 
         // Validate trigger type
         // Must stay in sync with the plugin's switch and the dashboard's TRIGGER_TYPES.
@@ -7861,6 +7863,8 @@ app.put('/api/auto-responder/:guildId/:ruleId', async (req: any, res) => {
                 enabled: enabled !== undefined ? !!enabled : undefined,
                 allowedChannels: allowedChannels !== undefined ? (allowedChannels ? JSON.stringify(allowedChannels) : null) : undefined,
                 ignoredChannels: ignoredChannels !== undefined ? (ignoredChannels ? JSON.stringify(ignoredChannels) : null) : undefined,
+                allowedRoles: allowedRoles !== undefined ? (allowedRoles ? JSON.stringify(allowedRoles) : null) : undefined,
+                ignoredRoles: ignoredRoles !== undefined ? (ignoredRoles ? JSON.stringify(ignoredRoles) : null) : undefined,
                 cooldownSeconds: cooldownSeconds !== undefined ? Math.max(0, Math.min(86400, parseInt(cooldownSeconds) || 0)) : undefined,
                 cooldownReactionEmoji: cooldownReactionEmoji !== undefined ? (cooldownReactionEmoji ? String(cooldownReactionEmoji).slice(0, 100) : null) : undefined,
                 embedJson: embedJson !== undefined ? (embedJson ? JSON.stringify(embedJson) : null) : undefined,
