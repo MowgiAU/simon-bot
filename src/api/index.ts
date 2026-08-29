@@ -1038,7 +1038,13 @@ app.use((_req, res, next) => {
 });
 // Compress all responses >1KB (gzip) \u2014 critical for large JSON payloads (waveforms, track listings)
 app.use(compression());
-app.use(express.json({ limit: '10mb' }));
+// Keep the exact bytes of every JSON body around. Signature verification (the Devvit
+// bridge) has to hash what the sender actually sent — re-stringifying the parsed object
+// is not guaranteed to reproduce it byte for byte.
+app.use(express.json({
+    limit: '10mb',
+    verify: (req: any, _res, buf) => { req.rawBody = buf.toString('utf8'); },
+}));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Explicitly stamp charset=utf-8 on every JSON response so no proxy or client
 // can infer Latin-1 and corrupt emojis / special characters.
@@ -4622,7 +4628,7 @@ app.get('/api/guilds/:guildId/my-permissions', async (req, res) => {
         if (isAdmin) {
             return res.json({ 
                 canManagePlugins: true, 
-                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content', 'account-management', 'anti-piracy', 'leveling', 'fuji-radio', 'studio-guide', 'bot-identity', 'bot-messenger', 'booster-color', 'private-messages', 'auto-messages', 'auto-responder', 'server-boost', 'reports', 'articles', 'article-review', 'article-analytics', 'pause', 'voice-stats', 'spam-guard', 'muzzle', 'track-announcer', 'profile-styles', 'academy', 'head-to-head', 'drum-kit', 'bug-reports', 'plugin-registry', 'activity-logs', 'duplicate-profiles', 'projects', 'vote-fraud', 'slots', 'platform-analytics', 'collabs', 'echo', 'command-guard', 'channel-scraper']
+                accessiblePlugins: ['moderation', 'word-filter', 'logs', 'stats', 'logger', 'plugins', 'economy', 'production-feedback', 'welcome-gate', 'email-client', 'tickets', 'channel-rules', 'musician-profiles', 'musician-profiles-admin', 'discover-musicians', 'fuji-studio', 'beat-battle', 'featured-content', 'account-management', 'anti-piracy', 'leveling', 'fuji-radio', 'studio-guide', 'bot-identity', 'bot-messenger', 'booster-color', 'private-messages', 'auto-messages', 'auto-responder', 'server-boost', 'reports', 'articles', 'article-review', 'article-analytics', 'pause', 'voice-stats', 'spam-guard', 'muzzle', 'track-announcer', 'profile-styles', 'academy', 'head-to-head', 'drum-kit', 'bug-reports', 'plugin-registry', 'activity-logs', 'duplicate-profiles', 'projects', 'vote-fraud', 'slots', 'platform-analytics', 'collabs', 'echo', 'command-guard', 'channel-scraper', 'reddit']
             });
         }
 
@@ -19319,6 +19325,496 @@ app.post('/api/track-announcer/:guildId', requireAuth, async (req: any, res) => 
         res.json(settings);
     } catch (e: any) {
         logger.error(`Track announcer save settings error: ${e.message}`);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// --- Reddit Bridge (Devvit) ------------------------------
+
+const REDDIT_JOB_KINDS = [
+    'submit_post', 'submit_comment', 'edit_post', 'sticky',
+    'unsticky', 'set_flair', 'lock', 'crosspost',
+];
+const REDDIT_SIG_WINDOW_MS = 5 * 60_000; // reject anything older than 5 minutes
+const REDDIT_TOKEN_MASK = 'devvit_at_...';
+const REDDIT_SECRET_MASK = '••••••••';
+
+/** Hides credentials on read. The dashboard sends the mask back untouched, and the save path ignores it. */
+const maskRedditSettings = (settings: any) => ({
+    ...settings,
+    devvitToken: settings.devvitToken ? REDDIT_TOKEN_MASK + settings.devvitToken.slice(-4) : null,
+    eventSecret: settings.eventSecret ? REDDIT_SECRET_MASK : null,
+});
+
+/**
+ * Verifies an inbound call from the Devvit app.
+ *
+ * The app signs `timestamp + "." + rawBody` with the shared eventSecret. We can't
+ * trust the body to tell us which secret to use, so the subreddit comes from a
+ * header and we verify against every enabled install of it (normally exactly one).
+ */
+const verifyDevvitSignature = async (req: any): Promise<{ ok: boolean; settings?: any; error?: string }> => {
+    const subreddit = String(req.headers['x-fuji-subreddit'] || '').replace(/^\/?r\//, '');
+    const timestamp = String(req.headers['x-fuji-timestamp'] || '');
+    const signature = String(req.headers['x-fuji-signature'] || '');
+
+    if (!subreddit || !timestamp || !signature) {
+        return { ok: false, error: 'Missing signature headers' };
+    }
+
+    const ts = Number(timestamp);
+    if (!Number.isFinite(ts) || Math.abs(Date.now() - ts) > REDDIT_SIG_WINDOW_MS) {
+        return { ok: false, error: 'Signature timestamp outside the accepted window' };
+    }
+
+    const candidates = await db.redditSettings.findMany({
+        where: { subreddit, enabled: true, eventSecret: { not: null } },
+    });
+    if (candidates.length === 0) return { ok: false, error: 'No enabled install for that subreddit' };
+
+    const rawBody: string = req.rawBody ?? '';
+    const provided = signature.replace(/^sha256=/, '');
+
+    for (const settings of candidates) {
+        const expected = crypto
+            .createHmac('sha256', settings.eventSecret!)
+            .update(`${timestamp}.${rawBody}`)
+            .digest('hex');
+        if (provided.length === expected.length &&
+            crypto.timingSafeEqual(Buffer.from(provided), Buffer.from(expected))) {
+            return { ok: true, settings };
+        }
+    }
+
+    return { ok: false, error: 'Invalid signature' };
+};
+
+// ── Devvit-facing routes (HMAC-signed, no session) ────────────────────────────
+// Registered before the :guildId routes so a subreddit can never be read as a guild id.
+
+app.post('/api/reddit/events', async (req: any, res) => {
+    try {
+        const auth = await verifyDevvitSignature(req);
+        if (!auth.ok) {
+            logger.warn(`[Reddit] Rejected inbound event from ${req.ip}: ${auth.error}`);
+            return res.status(401).json({ error: 'Unauthorized' });
+        }
+
+        const payload = req.body ?? {};
+        const { kind, redditId } = payload;
+        if (!kind || !redditId) return res.status(400).json({ error: 'kind and redditId are required' });
+
+        const data = {
+            guildId: auth.settings.guildId,
+            subreddit: auth.settings.subreddit,
+            kind: String(kind),
+            redditId: String(redditId),
+            author: payload.author ? String(payload.author) : null,
+            title: payload.title ? String(payload.title) : null,
+            body: payload.body ? String(payload.body) : null,
+            permalink: payload.permalink ? String(payload.permalink) : null,
+            flair: payload.flair ? String(payload.flair) : null,
+            raw: payload.raw ?? null,
+        };
+
+        // Triggers can fire more than once for the same item; the unique index absorbs it.
+        const event = await db.redditEvent.upsert({
+            where: { redditId_kind: { redditId: data.redditId, kind: data.kind } },
+            create: data,
+            update: {},
+        });
+
+        res.json({ ok: true, id: event.id });
+    } catch (e: any) {
+        logger.error(`Reddit inbound event error: ${e.message}`);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+app.post('/api/reddit/link/pending', async (req: any, res) => {
+    try {
+        const auth = await verifyDevvitSignature(req);
+        if (!auth.ok) {
+            logger.warn(`[Reddit] Rejected link code from ${req.ip}: ${auth.error}`);
+            return res.status(401).json({ error: 'Unauthorized' });
+        }
+
+        const payload = req.body ?? {};
+        const { code, redditUsername, ttlMinutes } = payload;
+        if (!code || !redditUsername) return res.status(400).json({ error: 'code and redditUsername are required' });
+
+        const expiresAt = new Date(Date.now() + (Number(ttlMinutes) || 15) * 60_000);
+
+        // A user who re-runs the menu action replaces their previous code.
+        await db.redditLinkCode.deleteMany({ where: { redditUsername: String(redditUsername), usedAt: null } });
+        await db.redditLinkCode.create({
+            data: {
+                code: String(code).toUpperCase(),
+                redditUsername: String(redditUsername),
+                subreddit: auth.settings.subreddit,
+                expiresAt,
+            },
+        });
+
+        res.json({ ok: true, expiresAt });
+    } catch (e: any) {
+        logger.error(`Reddit link pending error: ${e.message}`);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+/** Reconcile safety net: the Devvit cron pulls anything the push path dropped. */
+app.get('/api/reddit/jobs/pending', async (req: any, res) => {
+    try {
+        const auth = await verifyDevvitSignature(req);
+        if (!auth.ok) return res.status(401).json({ error: 'Unauthorized' });
+
+        // Only jobs that have been sitting unclaimed for a while — the bot plugin
+        // owns the fast path and we don't want the two racing each other.
+        const stale = new Date(Date.now() - 10 * 60_000);
+        const jobs = await db.redditJob.findMany({
+            where: {
+                guildId: auth.settings.guildId,
+                subreddit: auth.settings.subreddit,
+                status: 'pending',
+                scheduledFor: { lte: stale },
+            },
+            orderBy: { scheduledFor: 'asc' },
+            take: 5,
+            select: { id: true, kind: true, payload: true },
+        });
+
+        await db.redditSettings.update({
+            where: { id: auth.settings.id },
+            data: { lastReconcileAt: new Date() },
+        });
+
+        res.json({ ok: true, jobs });
+    } catch (e: any) {
+        logger.error(`Reddit reconcile error: ${e.message}`);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// ── Account linking (dashboard side) ──────────────────────────────────────────
+
+app.post('/api/reddit/link/redeem', requireAuth, async (req: any, res) => {
+    try {
+        const code = String(req.body?.code || '').trim().toUpperCase();
+        if (!code) return res.status(400).json({ error: 'A code is required' });
+
+        const record = await db.redditLinkCode.findUnique({ where: { code } });
+        if (!record || record.usedAt || record.expiresAt < new Date()) {
+            return res.status(400).json({ error: 'That code is invalid or has expired' });
+        }
+
+        const existing = await db.redditLink.findUnique({ where: { redditUsername: record.redditUsername } });
+        if (existing && existing.userId !== req.session.user.id) {
+            return res.status(409).json({ error: 'That Reddit account is already linked to another Fuji account' });
+        }
+
+        const discordId = req.session.user.discordId || req.session.user.id || null;
+
+        const link = await db.redditLink.upsert({
+            where: { userId: req.session.user.id },
+            create: { userId: req.session.user.id, redditUsername: record.redditUsername, discordId },
+            update: { redditUsername: record.redditUsername, discordId, verifiedAt: new Date() },
+        });
+
+        await db.redditLinkCode.update({ where: { id: record.id }, data: { usedAt: new Date() } });
+
+        // Best-effort role grant — a missing role or a user who isn't in the guild
+        // must not fail the link itself.
+        if (record.subreddit && discordId) {
+            const settings = await db.redditSettings.findFirst({
+                where: { subreddit: record.subreddit, enabled: true, linkedRoleId: { not: null } },
+            });
+            if (settings?.linkedRoleId) {
+                await discordReq('put', `/guilds/${settings.guildId}/members/${discordId}/roles/${settings.linkedRoleId}`)
+                    .catch((err: any) => logger.warn(`[Reddit] Could not grant linked role: ${err.message}`));
+            }
+        }
+
+        res.json({ ok: true, redditUsername: link.redditUsername });
+    } catch (e: any) {
+        logger.error(`Reddit link redeem error: ${e.message}`);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+app.get('/api/reddit/link/me', requireAuth, async (req: any, res) => {
+    try {
+        const link = await db.redditLink.findUnique({ where: { userId: req.session.user.id } });
+        res.json({ link: link ? { redditUsername: link.redditUsername, verifiedAt: link.verifiedAt } : null });
+    } catch (e: any) {
+        logger.error(`Reddit link me error: ${e.message}`);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// ── Dashboard routes ──────────────────────────────────────────────────────────
+
+app.get('/api/reddit/:guildId/settings', requireAuth, async (req: any, res) => {
+    try {
+        const { guildId } = req.params;
+        if (!hasDashboardAccess(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
+
+        const settings = await db.redditSettings.findFirst({ where: { guildId } });
+        res.json(settings ? maskRedditSettings(settings) : null);
+    } catch (e: any) {
+        logger.error(`Reddit get settings error: ${e.message}`);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+app.post('/api/reddit/:guildId/settings', requireAuth, async (req: any, res) => {
+    try {
+        const { guildId } = req.params;
+        if (!isTrueAdmin(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
+
+        const subreddit = String(req.body?.subreddit || '').replace(/^\/?r\//, '').trim();
+        if (!subreddit) return res.status(400).json({ error: 'A subreddit is required' });
+
+        const {
+            enabled, devvitEndpointBase, devvitToken, eventSecret,
+            mirrorChannelId, modAlertChannelId, mirrorFlairs, linkedRoleId,
+        } = req.body;
+
+        const data: any = {
+            enabled: enabled ?? false,
+            devvitEndpointBase: devvitEndpointBase || null,
+            mirrorChannelId: mirrorChannelId || null,
+            modAlertChannelId: modAlertChannelId || null,
+            mirrorFlairs: Array.isArray(mirrorFlairs)
+                ? mirrorFlairs.map((f: any) => String(f).trim()).filter(Boolean)
+                : [],
+            linkedRoleId: linkedRoleId || null,
+        };
+
+        // Never write the masked placeholder back over a real credential.
+        if (devvitToken && !devvitToken.startsWith(REDDIT_TOKEN_MASK)) data.devvitToken = devvitToken;
+        if (eventSecret && eventSecret !== REDDIT_SECRET_MASK) data.eventSecret = eventSecret;
+
+        const settings = await db.redditSettings.upsert({
+            where: { guildId_subreddit: { guildId, subreddit } },
+            create: { guildId, subreddit, ...data },
+            update: data,
+        });
+
+        res.json(maskRedditSettings(settings));
+    } catch (e: any) {
+        logger.error(`Reddit save settings error: ${e.message}`);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// ── Recurring threads ─────────────────────────────────────────────────────────
+
+app.get('/api/reddit/:guildId/threads', requireAuth, async (req: any, res) => {
+    try {
+        const { guildId } = req.params;
+        if (!hasDashboardAccess(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
+
+        const threads = await db.redditScheduledThread.findMany({
+            where: { guildId },
+            orderBy: { createdAt: 'asc' },
+        });
+        res.json(threads);
+    } catch (e: any) {
+        logger.error(`Reddit list threads error: ${e.message}`);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+const readThreadBody = (body: any) => {
+    const intervalMinutes = Number(body?.intervalMinutes);
+    return {
+        name: String(body?.name || '').trim(),
+        title: String(body?.title || '').trim(),
+        bodyTemplate: String(body?.bodyTemplate || ''),
+        intervalMinutes: Number.isFinite(intervalMinutes) && intervalMinutes >= 5 ? Math.floor(intervalMinutes) : 10080,
+        enabled: body?.enabled ?? true,
+        flairId: body?.flairId || null,
+        flairText: body?.flairText || null,
+        sticky: body?.sticky ?? false,
+        stickySlot: body?.stickySlot === 1 ? 1 : 2,
+        unstickyPrevious: body?.unstickyPrevious ?? true,
+        lockPrevious: body?.lockPrevious ?? false,
+        distinguish: body?.distinguish ?? false,
+    };
+};
+
+app.post('/api/reddit/:guildId/threads', requireAuth, async (req: any, res) => {
+    try {
+        const { guildId } = req.params;
+        if (!isTrueAdmin(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
+
+        const settings = await db.redditSettings.findFirst({ where: { guildId } });
+        if (!settings) return res.status(400).json({ error: 'Configure the Reddit connection first' });
+
+        const data = readThreadBody(req.body);
+        if (!data.name || !data.title) return res.status(400).json({ error: 'A name and title are required' });
+
+        // nextRunAt is explicit so an admin can schedule the first run rather than
+        // having it fire the moment the row is created.
+        const nextRunAt = req.body?.nextRunAt ? new Date(req.body.nextRunAt) : new Date(Date.now() + data.intervalMinutes * 60_000);
+
+        const thread = await db.redditScheduledThread.create({
+            data: { guildId, subreddit: settings.subreddit, ...data, nextRunAt },
+        });
+        res.json(thread);
+    } catch (e: any) {
+        logger.error(`Reddit create thread error: ${e.message}`);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+app.put('/api/reddit/:guildId/threads/:id', requireAuth, async (req: any, res) => {
+    try {
+        const { guildId, id } = req.params;
+        if (!isTrueAdmin(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
+
+        const existing = await db.redditScheduledThread.findFirst({ where: { id, guildId } });
+        if (!existing) return res.status(404).json({ error: 'Not found' });
+
+        const data: any = readThreadBody(req.body);
+        if (req.body?.nextRunAt) data.nextRunAt = new Date(req.body.nextRunAt);
+
+        const thread = await db.redditScheduledThread.update({ where: { id }, data });
+        res.json(thread);
+    } catch (e: any) {
+        logger.error(`Reddit update thread error: ${e.message}`);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+app.delete('/api/reddit/:guildId/threads/:id', requireAuth, async (req: any, res) => {
+    try {
+        const { guildId, id } = req.params;
+        if (!isTrueAdmin(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
+
+        const existing = await db.redditScheduledThread.findFirst({ where: { id, guildId } });
+        if (!existing) return res.status(404).json({ error: 'Not found' });
+
+        await db.redditScheduledThread.delete({ where: { id } });
+        res.json({ ok: true });
+    } catch (e: any) {
+        logger.error(`Reddit delete thread error: ${e.message}`);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+/** Fire a recurring thread immediately without disturbing its cadence. */
+app.post('/api/reddit/:guildId/threads/:id/run-now', requireAuth, async (req: any, res) => {
+    try {
+        const { guildId, id } = req.params;
+        if (!isTrueAdmin(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
+
+        const thread = await db.redditScheduledThread.findFirst({ where: { id, guildId } });
+        if (!thread) return res.status(404).json({ error: 'Not found' });
+
+        await db.redditScheduledThread.update({ where: { id }, data: { nextRunAt: new Date() } });
+        res.json({ ok: true });
+    } catch (e: any) {
+        logger.error(`Reddit run thread error: ${e.message}`);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// ── Job queue ─────────────────────────────────────────────────────────────────
+
+app.get('/api/reddit/:guildId/jobs', requireAuth, async (req: any, res) => {
+    try {
+        const { guildId } = req.params;
+        if (!hasDashboardAccess(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
+
+        const limit = Math.min(Number(req.query.limit) || 50, 200);
+        const where: any = { guildId };
+        if (req.query.status) where.status = String(req.query.status);
+
+        const jobs = await db.redditJob.findMany({
+            where,
+            orderBy: { createdAt: 'desc' },
+            take: limit,
+        });
+        res.json(jobs);
+    } catch (e: any) {
+        logger.error(`Reddit list jobs error: ${e.message}`);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+app.post('/api/reddit/:guildId/jobs/:id/retry', requireAuth, async (req: any, res) => {
+    try {
+        const { guildId, id } = req.params;
+        if (!isTrueAdmin(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
+
+        const job = await db.redditJob.findFirst({ where: { id, guildId } });
+        if (!job) return res.status(404).json({ error: 'Not found' });
+        if (job.status === 'done') return res.status(400).json({ error: 'That job already succeeded' });
+
+        // Reset attempts so a manual retry gets the full backoff budget again.
+        const updated = await db.redditJob.update({
+            where: { id },
+            data: { status: 'pending', attempts: 0, lastError: null, claimedAt: null, scheduledFor: new Date() },
+        });
+        res.json(updated);
+    } catch (e: any) {
+        logger.error(`Reddit retry job error: ${e.message}`);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+/** Ad-hoc "post to Reddit now" from the dashboard. */
+app.post('/api/reddit/:guildId/post', requireAuth, async (req: any, res) => {
+    try {
+        const { guildId } = req.params;
+        if (!isTrueAdmin(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
+
+        const settings = await db.redditSettings.findFirst({ where: { guildId } });
+        if (!settings) return res.status(400).json({ error: 'Configure the Reddit connection first' });
+        if (!settings.enabled) return res.status(400).json({ error: 'The Reddit bridge is disabled' });
+
+        const kind = String(req.body?.kind || 'submit_post');
+        if (!REDDIT_JOB_KINDS.includes(kind)) return res.status(400).json({ error: 'Unknown job kind' });
+
+        const payload = req.body?.payload ?? {};
+        if (kind === 'submit_post' && !String(payload.title || '').trim()) {
+            return res.status(400).json({ error: 'A post title is required' });
+        }
+
+        const job = await db.redditJob.create({
+            data: { guildId, subreddit: settings.subreddit, kind, payload },
+        });
+
+        logger.info(`[Reddit] ${req.session.user.username} queued a ${kind} for r/${settings.subreddit}`);
+        res.json(job);
+    } catch (e: any) {
+        logger.error(`Reddit ad-hoc post error: ${e.message}`);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// ── Mirrored events feed ──────────────────────────────────────────────────────
+
+app.get('/api/reddit/:guildId/events', requireAuth, async (req: any, res) => {
+    try {
+        const { guildId } = req.params;
+        if (!hasDashboardAccess(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
+
+        const limit = Math.min(Number(req.query.limit) || 50, 200);
+        const events = await db.redditEvent.findMany({
+            where: { guildId },
+            orderBy: { createdAt: 'desc' },
+            take: limit,
+            select: {
+                id: true, kind: true, redditId: true, author: true, title: true,
+                permalink: true, flair: true, mirroredAt: true, createdAt: true,
+            },
+        });
+        res.json(events);
+    } catch (e: any) {
+        logger.error(`Reddit list events error: ${e.message}`);
         res.status(500).json({ error: 'Internal server error' });
     }
 });

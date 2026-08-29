@@ -61,6 +61,7 @@ const BattleDetailPage       = lazy(() => import("./pages/BattleDetailPage").the
 const ProjectCleanupGuide    = lazy(() => import("./pages/ProjectCleanupGuide").then(m => ({ default: m.ProjectCleanupGuide })));
 const LatestReleasesPage     = lazy(() => import("./pages/LatestReleasesPage").then(m => ({ default: m.LatestReleasesPage })));
 const AccountSettingsPage    = lazy(() => import("./pages/AccountSettingsPage").then(m => ({ default: m.AccountSettingsPage })));
+const LinkRedditPage         = lazy(() => import("./pages/LinkReddit").then(m => ({ default: m.LinkRedditPage })));
 const AcademyPage            = lazy(() => import("./pages/Academy").then(m => ({ default: m.AcademyPage })));
 const CompleteAccountPage   = lazy(() => import("./pages/CompleteAccountPage").then(m => ({ default: m.CompleteAccountPage })));
 const LoginPage              = lazy(() => import("./pages/LoginPage").then(m => ({ default: m.LoginPage })));
@@ -125,6 +126,7 @@ const ServerBoostPage        = lazy(() => import("./pages/ServerBoost").then(m =
 const VoiceStatsPage         = lazy(() => import("./pages/VoiceStats").then(m => ({ default: m.VoiceStatsPage })));
 const SpamGuardPage          = lazy(() => import("./pages/SpamGuard").then(m => ({ default: m.SpamGuardPage })));
 const ChannelScraperPage     = lazy(() => import("./pages/ChannelScraper").then(m => ({ default: m.ChannelScraperPage })));
+const RedditPage             = lazy(() => import("./pages/Reddit").then(m => ({ default: m.RedditPage })));
 const MuzzlePage             = lazy(() => import("./pages/Muzzle").then(m => ({ default: m.MuzzlePage })));
 const AntiExternalForwardPage = lazy(() => import("./pages/AntiExternalForward").then(m => ({ default: m.AntiExternalForwardPage })));
 const TrackAnnouncerPage     = lazy(() => import("./pages/TrackAnnouncer"));
@@ -208,6 +210,7 @@ type Section =
   | "voice-stats"
   | "spam-guard"
   | "channel-scraper"
+  | "reddit"
   | "muzzle"
   | "track-announcer"
   | "academy"
@@ -554,6 +557,8 @@ const AdminDashboard: React.FC = () => {
           return <SpamGuardPage />;
         case "channel-scraper":
           return <ChannelScraperPage />;
+        case "reddit":
+          return <RedditPage />;
         case "muzzle":
           return <MuzzlePage guildId={selectedGuild.id} />;
         case "track-announcer":
@@ -722,6 +727,7 @@ const AdminDashboard: React.FC = () => {
                 "voice-stats": "stats",
                 "spam-guard": "overview",
                 "channel-scraper": "overview",
+                "reddit": "messaging",
                 "muzzle": "overview",
                 "track-announcer": "overview",
                 "anti-external-forward": "overview",
@@ -859,6 +865,7 @@ const AppInternal: React.FC = () => {
       { test: p => p === '/forgot-password',   title: 'Fuji Studio | Forgot Password' },
       { test: p => p === '/reset-password',    title: 'Fuji Studio | Reset Password' },
       { test: p => p === '/account',           title: 'Fuji Studio | Account Settings' },
+      { test: p => p === '/link/reddit',      title: 'Fuji Studio | Link Reddit' },
       { test: p => p === '/complete-account',  title: 'Fuji Studio | Complete Account' },
       { test: p => p === '/write' || p.startsWith('/write/'), title: 'Fuji Studio | Writing Studio' },
       { test: p => p === '/appeal' || p === '/support', title: 'Fuji Studio | Support' },
@@ -1094,6 +1101,11 @@ const AppInternal: React.FC = () => {
   // /account → Account settings (password, email verification, 2FA, Discord)
   if (currentPath === '/account') {
     return <Suspense fallback={<PageSpinner />}><AccountSettingsPage /></Suspense>;
+  }
+
+  // /link/reddit → Redeem the code minted by the subreddit menu action
+  if (currentPath === '/link/reddit') {
+    return <Suspense fallback={<PageSpinner />}><LinkRedditPage /></Suspense>;
   }
 
   // /bank → Savings + loans (member-facing)

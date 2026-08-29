@@ -78,6 +78,7 @@ model User {
   notificationPreferences  NotificationPreferences?
   apkDownloads             ApkDownload[]
   sessions                 UserSession[]
+  redditLink               RedditLink?
 
   @@map("users")
 }
@@ -4227,4 +4228,154 @@ model CapturedMessage {
   @@unique([channelId, messageId]) // dedupe: backfill and real-time capture can overlap
   @@index([guildId, createdAt])
   @@map("captured_messages")
+}
+
+// ─── Reddit Bridge (Devvit) ───────────────────────────────────────────────────
+
+/// Per-guild connection to one subreddit's Devvit app installation.
+model RedditSettings {
+  id      String  @id @default(cuid())
+  guildId String
+  enabled Boolean @default(false)
+
+  subreddit          String // without the r/ prefix
+  devvitEndpointBase String? // e.g. https://fuji-studio.devvit.net
+  devvitToken        String? // managed bearer token (devvit_at_...)
+  eventSecret        String? // shared HMAC secret for inbound Devvit calls
+
+  // Where mirrored Reddit activity lands in Discord
+  mirrorChannelId   String?
+  modAlertChannelId String?
+  mirrorFlairs      String[] @default([]) // empty = mirror everything
+
+  // Role granted when a user links their Reddit account
+  linkedRoleId String?
+
+  lastReconcileAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([guildId, subreddit])
+  @@index([enabled])
+  @@map("reddit_settings")
+}
+
+/// Outbound work queue: written by the API/dashboard, drained by RedditBridgePlugin.
+model RedditJob {
+  id        String @id @default(cuid())
+  guildId   String
+  subreddit String
+
+  kind    String // submit_post | submit_comment | edit_post | sticky | unsticky | set_flair | lock | crosspost
+  payload Json
+
+  status    String    @default("pending") // pending | claimed | done | failed
+  attempts  Int       @default(0)
+  lastError String?
+  claimedAt DateTime?
+
+  redditId  String? // t3_xxx / t1_xxx returned by Devvit
+  permalink String?
+
+  /// Set by the scheduler so a job can be queued ahead of time.
+  scheduledFor DateTime @default(now())
+
+  /// Links a job back to the recurring thread that produced it, if any.
+  threadId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, scheduledFor])
+  @@index([guildId, createdAt])
+  @@map("reddit_jobs")
+}
+
+/// A recurring subreddit thread (Feedback Friday, weekly Q&A, ...).
+model RedditScheduledThread {
+  id        String  @id @default(cuid())
+  guildId   String
+  subreddit String
+  enabled   Boolean @default(true)
+
+  name         String // internal label shown in the dashboard
+  title        String // supports {{...}} tokens
+  bodyTemplate String @db.Text
+
+  intervalMinutes Int // cadence; 10080 = weekly
+
+  flairId          String?
+  flairText        String?
+  sticky           Boolean @default(false)
+  stickySlot       Int     @default(2) // 1 = top slot, 2 = bottom slot
+  unstickyPrevious Boolean @default(true)
+  lockPrevious     Boolean @default(false)
+  distinguish      Boolean @default(false)
+
+  lastPostedAt  DateTime?
+  lastPostId    String?
+  lastPermalink String?
+  nextRunAt     DateTime  @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([enabled, nextRunAt])
+  @@index([guildId])
+  @@map("reddit_scheduled_threads")
+}
+
+/// Inbound Reddit activity pushed to us by the Devvit app's triggers.
+model RedditEvent {
+  id        String @id @default(cuid())
+  guildId   String
+  subreddit String
+
+  kind      String // post-create | post-flair | comment-create | mod-action
+  redditId  String
+  author    String?
+  title     String?
+  body      String? @db.Text
+  permalink String?
+  flair     String?
+  raw       Json?
+
+  /// null = not yet mirrored to Discord (claim-by-stamping guard).
+  mirroredAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@unique([redditId, kind])
+  @@index([mirroredAt])
+  @@index([guildId, createdAt])
+  @@map("reddit_events")
+}
+
+/// A confirmed Reddit <-> Fuji account link.
+model RedditLink {
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  redditUsername String   @unique
+  discordId      String?
+  verifiedAt     DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([discordId])
+  @@map("reddit_links")
+}
+
+/// Short-lived code minted by the Devvit menu action, redeemed on the dashboard.
+model RedditLinkCode {
+  id             String    @id @default(cuid())
+  code           String    @unique
+  redditUsername String
+  subreddit      String?
+  expiresAt      DateTime
+  usedAt         DateTime?
+  createdAt      DateTime  @default(now())
+
+  @@index([expiresAt])
+  @@map("reddit_link_codes")
 }

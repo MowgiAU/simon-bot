@@ -51,6 +51,7 @@ import { TrackAnnouncerPlugin } from './plugins/TrackAnnouncerPlugin';
 import { HeadToHeadAnnouncerPlugin } from './plugins/HeadToHeadAnnouncerPlugin';
 import { EchoPlugin } from './plugins/EchoPlugin';
 import { CommandGuardPlugin } from './plugins/CommandGuardPlugin';
+import { RedditBridgePlugin } from './plugins/RedditBridgePlugin';
 import { FujiGenerator } from './utils/FujiGenerator';
 import { FujiScanner } from './utils/FujiScanner';
 import { softDeleteMiddleware } from '../services/softDelete.js';
@@ -186,6 +187,7 @@ export class SimonBot {
       this.pluginManager.register(new HeadToHeadAnnouncerPlugin());
       this.pluginManager.register(new EchoPlugin());
       this.pluginManager.register(new CommandGuardPlugin());
+      this.pluginManager.register(new RedditBridgePlugin());
 
       // Initialize enabled plugins
       for (const plugin of this.pluginManager.getEnabled()) {

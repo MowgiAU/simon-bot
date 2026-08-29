@@ -291,7 +291,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
         )}
 
         {/* ── Messaging ── */}
-        {['bot-identity', 'fuji-radio', 'track-announcer', 'bot-messenger', 'private-messages'].some(p => permissions.accessiblePlugins.includes(p)) && (
+        {['bot-identity', 'fuji-radio', 'track-announcer', 'reddit', 'bot-messenger', 'private-messages'].some(p => permissions.accessiblePlugins.includes(p)) && (
           <NavGroup id="messaging" label="Messaging" icon={<Send size={12} style={{ marginRight: 6, verticalAlign: 'middle', opacity: 0.5 }} />} collapsed={collapsed}>
             {permissions.accessiblePlugins.includes('bot-identity') && (
               <button className={`nav-item ${activeSection === 'bot-identity' ? 'active' : ''}`} onClick={() => onNavigate('bot-identity')} title={collapsed ? "Bot Identity" : ""}>
@@ -309,6 +309,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
               <button className={`nav-item ${activeSection === 'track-announcer' ? 'active' : ''}`} onClick={() => onNavigate('track-announcer')} title={collapsed ? "Track Announcer" : ""}>
                 <span className="nav-icon"><AnimatedWrapper icon={Megaphone} size={20} /></span>
                 <span className="nav-label">Track Announcer</span>
+              </button>
+            )}
+            {permissions.accessiblePlugins.includes('reddit') && (
+              <button className={`nav-item ${activeSection === 'reddit' ? 'active' : ''}`} onClick={() => onNavigate('reddit')} title={collapsed ? "Reddit Bridge" : ""}>
+                <span className="nav-icon"><AnimatedWrapper icon={MessageSquare} size={20} /></span>
+                <span className="nav-label">Reddit Bridge</span>
               </button>
             )}
             {permissions.accessiblePlugins.includes('bot-messenger') && (
