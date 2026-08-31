@@ -326,7 +326,7 @@ export const TermsPage: React.FC = () => {
                             <ul style={{ margin: '0 0 10px 0', paddingLeft: '20px' }}>
                                 <Bullet label="Word Filter">Message text is checked against a configurable list of banned words/phrases. Content is read in memory and immediately discarded — it is never written to our database.</Bullet>
                                 <Bullet label="Spam Guard">Message content is analysed to detect floods, duplicate messages, and external server invite links. Content is processed in memory only and not stored.</Bullet>
-                                <Bullet label="Anti-Piracy Detection">Messages are scanned for piracy-related keywords. Borderline cases may be sent to OpenAI's API for secondary analysis (see Section 4). Content is not stored by us.</Bullet>
+                                <Bullet label="Anti-Piracy Detection">Messages are scanned for piracy-related keywords. Borderline cases may be sent to OpenAI's API for secondary analysis (see Section 5). Content is not stored by us.</Bullet>
                                 <Bullet label="Channel Rules">Message content is checked against per-channel rules configured by server admins. Content is processed in memory only and not stored.</Bullet>
                                 <Bullet label="Auto Responder">Messages are matched against regex patterns to trigger automated replies. Content is processed in memory only and not stored.</Bullet>
                                 <Bullet label="Production Feedback Scoring">Feedback messages posted in designated channels are sent to OpenAI's API to score their quality. The text is transmitted transiently and not stored by us after the API call completes.</Bullet>
@@ -390,7 +390,64 @@ export const TermsPage: React.FC = () => {
                         </div>
                     </Section>
 
-                    <Section title="4. AI Processing">
+                    <Section title="4. Reddit-Specific Disclosures">
+                        <div style={{ backgroundColor: colors.surface, borderLeft: `4px solid ${colors.primary}`, borderRadius: borderRadius.md, padding: spacing.md, marginBottom: '16px' }}>
+                            <P>
+                                This section describes how the Fuji Studio Reddit app handles data. The app is built on
+                                Reddit's Developer Platform (Devvit) and is installed only on subreddits our team
+                                moderates. It is provided to satisfy Reddit's Developer Terms and app review requirements.
+                            </P>
+                        </div>
+
+                        <div style={{ marginBottom: '16px' }}>
+                            <p style={{ color: colors.textPrimary, fontWeight: 600, fontSize: '14px', margin: '0 0 6px 0' }}>What the App Sends to Fuji Studio</p>
+                            <P>
+                                The app makes outbound requests to a single domain, fujistud.io. Every request is signed
+                                with a shared secret. The following data is transmitted:
+                            </P>
+                            <ul style={{ margin: '0 0 10px 0', paddingLeft: '20px' }}>
+                                <Bullet label="Subreddit Activity">When a post is created or its flair changes — and, if a moderator enables it, when a comment is created — we receive the item's Reddit ID, author username, title, body text, permalink, and flair. This is used to relay subreddit activity into our Discord server so moderators can see it where they already work.</Bullet>
+                                <Bullet label="Moderation Log Events">Mod actions on the subreddit are received as the action name, the acting moderator's username, the affected user where applicable, and a permalink. Used for moderator alerting only.</Bullet>
+                                <Bullet label="Account Link Requests">Only when you yourself run the "Link my Fuji Studio account" menu item, the app sends a randomly generated short code and your Reddit username so the code can be redeemed on fujistud.io.</Bullet>
+                            </ul>
+                        </div>
+
+                        <div style={{ marginBottom: '16px' }}>
+                            <p style={{ color: colors.textPrimary, fontWeight: 600, fontSize: '14px', margin: '0 0 6px 0' }}>What Fuji Studio Sends to Reddit</p>
+                            <P>
+                                Fuji Studio sends the app scheduled and ad-hoc posting instructions — post titles, body
+                                text, flair, and sticky or lock actions — composed by our moderators. Content posted this
+                                way is published by the app's own Reddit account, not by yours. No personal data about
+                                Fuji Studio members is transmitted to Reddit.
+                            </P>
+                        </div>
+
+                        <div style={{ marginBottom: '16px' }}>
+                            <p style={{ color: colors.textPrimary, fontWeight: 600, fontSize: '14px', margin: '0 0 6px 0' }}>Account Linking</p>
+                            <P>
+                                Linking is always initiated by you and requires no Reddit password, OAuth grant, or access
+                                token. We store only your Reddit username alongside your Fuji Studio account. We never gain
+                                the ability to act as you on Reddit. You can ask us to remove the link at any time, and
+                                doing so deletes the stored username.
+                            </P>
+                        </div>
+
+                        <div style={{ marginBottom: '16px' }}>
+                            <p style={{ color: colors.textPrimary, fontWeight: 600, fontSize: '14px', margin: '0 0 6px 0' }}>Limits on Use</p>
+                            <ul style={{ margin: '0 0 10px 0', paddingLeft: '20px' }}>
+                                <Bullet label="No Training">Reddit content and user data are never used to train machine learning models.</Bullet>
+                                <Bullet label="No Sale or Sharing">Reddit data is never sold, licensed, or shared with third parties.</Bullet>
+                                <Bullet label="No Private Data">The app cannot access and does not request your subscribed subreddits, voting history, saved content, browsing history, or friends list.</Bullet>
+                                <Bullet label="Retention">Mirrored activity records are retained for operational history and removed on request. Unredeemed link codes expire after 15 minutes.</Bullet>
+                            </ul>
+                            <P>
+                                Reddit's own collection and use of your data, independent of our app, is governed by{' '}
+                                <a href="https://www.reddit.com/policies/privacy-policy" style={{ color: colors.primary }} target="_blank" rel="noopener noreferrer">Reddit's Privacy Policy</a>.
+                            </P>
+                        </div>
+                    </Section>
+
+                    <Section title="5. AI Processing">
                         <div style={{ backgroundColor: 'rgba(242, 120, 10, 0.08)', borderLeft: `4px solid ${colors.primary}`, borderRadius: borderRadius.md, padding: spacing.md, marginBottom: '12px' }}>
                             <P>
                                 Certain features of Fuji Studio use OpenAI's API (GPT-4o-mini) to process content.
@@ -419,7 +476,7 @@ export const TermsPage: React.FC = () => {
                         </P>
                     </Section>
 
-                    <Section title="5. Third-Party Services">
+                    <Section title="6. Third-Party Services">
                         <P>We share data with the following trusted third parties only to the extent necessary to operate the platform:</P>
                         <ul style={{ margin: '0 0 10px 0', paddingLeft: '20px' }}>
                             <Bullet label="Cloudflare R2">
@@ -431,7 +488,12 @@ export const TermsPage: React.FC = () => {
                                 Your email address is transmitted to Resend solely to deliver these messages.
                             </Bullet>
                             <Bullet label="OpenAI">
-                                Message content is sent to OpenAI for AI-powered features as described in Section 4.
+                                Message content is sent to OpenAI for AI-powered features as described in Section 5.
+                            </Bullet>
+                            <Bullet label="Reddit">
+                                Our Reddit app runs on Reddit's Developer Platform (Devvit) and is installed only on
+                                subreddits we moderate. Subreddit activity we receive is described in Section 4. Our use
+                                of Reddit is subject to Reddit's Terms of Service and Privacy Policy.
                             </Bullet>
                             <Bullet label="Discord">
                                 Authentication uses Discord OAuth2. When you log in with Discord, we receive your Discord ID,
@@ -442,7 +504,7 @@ export const TermsPage: React.FC = () => {
                         <P>We do not sell your personal data to any third party, ever.</P>
                     </Section>
 
-                    <Section title="6. Data Visibility">
+                    <Section title="7. Data Visibility">
                         <ul style={{ margin: '0 0 10px 0', paddingLeft: '20px' }}>
                             <Bullet label="Public Profiles &amp; Tracks">
                                 Your musician profile and any tracks/files you mark as Public are visible to all visitors,
@@ -463,7 +525,7 @@ export const TermsPage: React.FC = () => {
                         </ul>
                     </Section>
 
-                    <Section title="7. Cookies &amp; Session Storage">
+                    <Section title="8. Cookies &amp; Session Storage">
                         <ul style={{ margin: '0 0 10px 0', paddingLeft: '20px' }}>
                             <Bullet label="Session Cookie">
                                 A single HTTP-only session cookie is set on login to keep you authenticated. This cookie
@@ -476,7 +538,7 @@ export const TermsPage: React.FC = () => {
                         <P>We do not use advertising cookies, tracking pixels, or analytics cookies from third parties.</P>
                     </Section>
 
-                    <Section title="8. Data Retention">
+                    <Section title="9. Data Retention">
                         <ul style={{ margin: '0 0 10px 0', paddingLeft: '20px' }}>
                             <Bullet label="Active Accounts">Data is retained for as long as your account is active.</Bullet>
                             <Bullet label="Deleted Accounts">
@@ -494,7 +556,7 @@ export const TermsPage: React.FC = () => {
                         </ul>
                     </Section>
 
-                    <Section title="9. Security">
+                    <Section title="10. Security">
                         <ul style={{ margin: '0 0 10px 0', paddingLeft: '20px' }}>
                             <Bullet label="Passwords">Hashed with bcrypt. Never stored in plaintext.</Bullet>
                             <Bullet label="Private Messages">Encrypted at rest with AES-256-GCM.</Bullet>
@@ -508,7 +570,7 @@ export const TermsPage: React.FC = () => {
                         </P>
                     </Section>
 
-                    <Section title="10. Your Rights">
+                    <Section title="11. Your Rights">
                         <P>You have the following rights over your personal data:</P>
                         <ul style={{ margin: '0 0 10px 0', paddingLeft: '20px' }}>
                             <Bullet label="Access">Request a copy of the personal data we hold about you.</Bullet>
@@ -524,7 +586,7 @@ export const TermsPage: React.FC = () => {
                         </P>
                     </Section>
 
-                    <Section title="11. Children's Privacy">
+                    <Section title="12. Children's Privacy">
                         <P>
                             Fuji Studio is not directed at children under 13. We do not knowingly collect personal data from
                             children under 13. If you believe a child under 13 has provided us with personal data, please
@@ -533,7 +595,7 @@ export const TermsPage: React.FC = () => {
                         </P>
                     </Section>
 
-                    <Section title="12. Changes to This Policy">
+                    <Section title="13. Changes to This Policy">
                         <P>
                             We may update this Privacy Policy from time to time. Material changes will be announced via our
                             website and official Discord server. The "Last updated" date at the top of this page reflects
