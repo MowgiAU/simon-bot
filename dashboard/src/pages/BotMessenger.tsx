@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { colors, spacing, borderRadius } from '../theme/theme';
 import { ChannelSelect } from '../components/ChannelSelect';
 import { RoleSelect } from '../components/RoleSelect';
@@ -144,6 +145,96 @@ const defaultEmbed: EmbedData = {
     imageUrl: '',
     timestamp: false,
 };
+
+/** EmbedData → the raw embed object Discord's API expects. Shared by sending a new embed
+ *  and saving an edit to an existing one. Returns {} if every optional field is empty. */
+function buildEmbedPayload(embed: EmbedData): Record<string, any> {
+    const embedPayload: any = {};
+    if (embed.title) embedPayload.title = embed.title;
+    if (embed.description) embedPayload.description = embed.description;
+    if (embed.url) embedPayload.url = embed.url;
+    if (embed.color) embedPayload.color = parseInt(embed.color.replace('#', ''), 16);
+    if (embed.authorName) embedPayload.author = { name: embed.authorName, url: embed.authorUrl || undefined, icon_url: embed.authorIconUrl || undefined };
+    if (embed.footerText) embedPayload.footer = { text: embed.footerText, icon_url: embed.footerIconUrl || undefined };
+    if (embed.thumbnailUrl) embedPayload.thumbnail = { url: embed.thumbnailUrl };
+    if (embed.imageUrl) embedPayload.image = { url: embed.imageUrl };
+    if (embed.timestamp) embedPayload.timestamp = new Date().toISOString();
+    if (embed.fields.length > 0) embedPayload.fields = embed.fields.filter(f => f.name || f.value);
+
+    // Convert link categories to embed fields
+    const linkFields: any[] = [];
+    for (const cat of (embed.linkCategories || [])) {
+        if (!cat.category) continue;
+        const validLinks = cat.links.filter(l => l.title && l.url);
+        if (validLinks.length === 0) continue;
+        linkFields.push({
+            name: `🔗 ${cat.category}`,
+            value: validLinks.map(l => {
+                const desc = l.description ? `\n  ${l.description}` : '';
+                // Discord only renders [text](url) as a clickable link when the URL
+                // has a scheme — without http(s):// it shows the raw markdown as
+                // literal text instead, which is exactly what was reported.
+                return `• [${l.title}](${normalizeUrl(l.url)})${desc}`;
+            }).join('\n'),
+            inline: false,
+        });
+    }
+    if (linkFields.length > 0) {
+        embedPayload.fields = [...(embedPayload.fields || []), ...linkFields];
+    }
+
+    // Convert info categories to embed fields — same grouping as links, no URL.
+    const infoFields: any[] = [];
+    for (const cat of (embed.infoCategories || [])) {
+        if (!cat.category) continue;
+        const validItems = cat.items.filter(i => i.title);
+        if (validItems.length === 0) continue;
+        infoFields.push({
+            name: cat.category,
+            value: validItems.map(i => {
+                const desc = i.description ? `\n  ${i.description}` : '';
+                return `• ${i.title}${desc}`;
+            }).join('\n'),
+            inline: false,
+        });
+    }
+    if (infoFields.length > 0) {
+        embedPayload.fields = [...(embedPayload.fields || []), ...infoFields];
+    }
+
+    return embedPayload;
+}
+
+/**
+ * The inverse of buildEmbedPayload — loads an existing (already-sent) Discord embed back
+ * into EmbedData for editing. linkCategories/infoCategories always come back empty: those
+ * are a dashboard-only authoring convenience for composing a NEW embed, and Discord has no
+ * concept of them once sent — a field that started as a link category is indistinguishable
+ * from an ordinary field on the way back, so it's loaded as one (still fully editable, just
+ * not reconstructed into the category UI).
+ */
+function discordEmbedToEmbedData(raw: any): EmbedData {
+    return {
+        ...defaultEmbed,
+        title: raw?.title ?? '',
+        description: raw?.description ?? '',
+        url: raw?.url ?? '',
+        // 0 is a real (black) color Discord allows — only null/undefined means "unset".
+        color: raw?.color != null ? '#' + raw.color.toString(16).padStart(6, '0').toUpperCase() : defaultEmbed.color,
+        fields: Array.isArray(raw?.fields) ? raw.fields.map((f: any) => ({ name: f.name ?? '', value: f.value ?? '', inline: !!f.inline })) : [],
+        authorName: raw?.author?.name ?? '',
+        authorIconUrl: raw?.author?.icon_url ?? '',
+        authorUrl: raw?.author?.url ?? '',
+        footerText: raw?.footer?.text ?? '',
+        footerIconUrl: raw?.footer?.icon_url ?? '',
+        thumbnailUrl: raw?.thumbnail?.url ?? '',
+        imageUrl: raw?.image?.url ?? '',
+        // Reconstructing the original historical timestamp isn't meaningful here — this
+        // field means "stamp with the current time on save", so it's just whether one was
+        // present before, not a datetime to restore.
+        timestamp: !!raw?.timestamp,
+    };
+}
 
 // ---------------------------------------------------------------------------
 // Shared styles
@@ -327,6 +418,80 @@ const ForwardPicker: React.FC<{
 };
 
 // ---------------------------------------------------------------------------
+// Embed Edit Modal — reuses EmbedBuilder (the same form the Embed Builder tab uses to
+// compose a new embed) to edit an existing one in place.
+// ---------------------------------------------------------------------------
+const EmbedEditModal: React.FC<{
+    guildId: string;
+    channelId: string;
+    message: DiscordMessage;
+    onClose: () => void;
+    onSaved: (updated: { content: string; embeds: any[] }) => void;
+}> = ({ guildId, channelId, message, onClose, onSaved }) => {
+    const [content, setContent] = useState(message.content || '');
+    const [draft, setDraft] = useState<EmbedData>(() => discordEmbedToEmbedData(message.embeds?.[0]));
+    const [saving, setSaving] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    const handleSave = async () => {
+        const embedPayload = buildEmbedPayload(draft);
+        const hasEmbed = Object.keys(embedPayload).length > 0;
+        if (!content.trim() && !hasEmbed) {
+            setError('Message needs content or an embed');
+            return;
+        }
+        setSaving(true);
+        setError(null);
+        try {
+            await axios.patch(
+                `${API}/api/bot-messenger/${guildId}/channels/${channelId}/messages/${message.id}`,
+                { content: content.trim(), embeds: hasEmbed ? [embedPayload] : [] },
+                { withCredentials: true },
+            );
+            onSaved({ content: content.trim(), embeds: hasEmbed ? [embedPayload] : [] });
+        } catch (err: any) {
+            setError(err.response?.data?.error || 'Failed to save');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    return createPortal(
+        <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 3000, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+            <div onClick={e => e.stopPropagation()} style={{ background: colors.surface, border: `1px solid ${colors.border}`, borderRadius: borderRadius.lg, width: '100%', maxWidth: 720, maxHeight: '88vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 24px 60px rgba(0,0,0,0.7)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: `1px solid ${colors.border}`, flexShrink: 0 }}>
+                    <h2 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: colors.textPrimary, display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <Code2 size={17} /> Edit Embed
+                    </h2>
+                    <button onClick={onClose} style={{ background: 'none', border: 'none', color: colors.textTertiary, cursor: 'pointer', padding: 4, display: 'flex' }}><X size={18} /></button>
+                </div>
+
+                <div style={{ flex: 1, overflowY: 'auto', padding: 20, display: 'flex', flexDirection: 'column', gap: spacing.md }}>
+                    {error && (
+                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '10px 12px', borderRadius: 8, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', fontSize: 12, color: '#EF4444' }}>
+                            <AlertCircle size={14} style={{ flexShrink: 0, marginTop: 1 }} /> {error}
+                        </div>
+                    )}
+                    <div>
+                        <label style={labelStyle}>Message Content (optional)</label>
+                        <textarea style={textareaStyle} value={content} onChange={e => setContent(e.target.value)} placeholder="Text above the embed" rows={2} />
+                    </div>
+                    <EmbedBuilder embed={draft} onChange={setDraft} guildId={guildId} />
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '14px 20px', borderTop: `1px solid ${colors.border}`, flexShrink: 0 }}>
+                    <button onClick={onClose} disabled={saving} style={btnSecondary}>Cancel</button>
+                    <button onClick={handleSave} disabled={saving} style={{ ...btnPrimary, opacity: saving ? 0.6 : 1 }}>
+                        <Check size={14} /> {saving ? 'Saving...' : 'Save'}
+                    </button>
+                </div>
+            </div>
+        </div>,
+        document.body,
+    );
+};
+
+// ---------------------------------------------------------------------------
 // Message Feed Component
 // ---------------------------------------------------------------------------
 const MessageFeed: React.FC<{
@@ -347,6 +512,9 @@ const MessageFeed: React.FC<{
     const [editStatus, setEditStatus] = useState<{ id: string; ok: boolean; msg?: string } | null>(null);
     const [forwardingId, setForwardingId] = useState<string | null>(null);
     const [forwardBusy, setForwardBusy] = useState(false);
+    // Which message (if any) has its embed being edited in the modal — only ever one at a
+    // time, so an id is enough; the modal owns its own draft state once open.
+    const [embedEditingId, setEmbedEditingId] = useState<string | null>(null);
     const feedRef = useRef<HTMLDivElement>(null);
     const intervalRef = useRef<ReturnType<typeof setInterval>>();
     // Track whether the user is scrolled to (near) the bottom so polling doesn't yank them down
@@ -598,6 +766,17 @@ const MessageFeed: React.FC<{
                                     <Pencil size={15} />
                                 </button>
                             )}
+                            {msg.author.bot && msg.embeds?.length === 1 && (
+                                <button
+                                    onClick={() => setEmbedEditingId(msg.id)}
+                                    title="Edit embed"
+                                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: embedEditingId === msg.id ? colors.primary : colors.textTertiary, padding: '4px' }}
+                                    onMouseEnter={e => (e.currentTarget.style.color = colors.primary)}
+                                    onMouseLeave={e => (e.currentTarget.style.color = embedEditingId === msg.id ? colors.primary : colors.textTertiary)}
+                                >
+                                    <Code2 size={15} />
+                                </button>
+                            )}
                             <button
                                 onClick={() => setForwardingId(forwardingId === msg.id ? null : msg.id)}
                                 title="Forward to another channel"
@@ -660,6 +839,22 @@ const MessageFeed: React.FC<{
                     </div>
                 ))}
             </div>
+            {embedEditingId && (() => {
+                const msg = messages.find(m => m.id === embedEditingId);
+                if (!msg) return null;
+                return (
+                    <EmbedEditModal
+                        guildId={guildId}
+                        channelId={channelId}
+                        message={msg}
+                        onClose={() => setEmbedEditingId(null)}
+                        onSaved={updated => {
+                            setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, content: updated.content, embeds: updated.embeds } : m));
+                            setEmbedEditingId(null);
+                        }}
+                    />
+                );
+            })()}
         </div>
     );
 };
@@ -1642,58 +1837,7 @@ export function BotMessengerPage() {
         setEmbedSending(true);
         clearStatus();
         try {
-            const embedPayload: any = {};
-            if (embed.title) embedPayload.title = embed.title;
-            if (embed.description) embedPayload.description = embed.description;
-            if (embed.url) embedPayload.url = embed.url;
-            if (embed.color) embedPayload.color = parseInt(embed.color.replace('#', ''), 16);
-            if (embed.authorName) embedPayload.author = { name: embed.authorName, url: embed.authorUrl || undefined, icon_url: embed.authorIconUrl || undefined };
-            if (embed.footerText) embedPayload.footer = { text: embed.footerText, icon_url: embed.footerIconUrl || undefined };
-            if (embed.thumbnailUrl) embedPayload.thumbnail = { url: embed.thumbnailUrl };
-            if (embed.imageUrl) embedPayload.image = { url: embed.imageUrl };
-            if (embed.timestamp) embedPayload.timestamp = new Date().toISOString();
-            if (embed.fields.length > 0) embedPayload.fields = embed.fields.filter(f => f.name || f.value);
-
-            // Convert link categories to embed fields
-            const linkFields: any[] = [];
-            for (const cat of (embed.linkCategories || [])) {
-                if (!cat.category) continue;
-                const validLinks = cat.links.filter(l => l.title && l.url);
-                if (validLinks.length === 0) continue;
-                linkFields.push({
-                    name: `🔗 ${cat.category}`,
-                    value: validLinks.map(l => {
-                        const desc = l.description ? `\n  ${l.description}` : '';
-                        // Discord only renders [text](url) as a clickable link when the URL
-                        // has a scheme — without http(s):// it shows the raw markdown as
-                        // literal text instead, which is exactly what was reported.
-                        return `• [${l.title}](${normalizeUrl(l.url)})${desc}`;
-                    }).join('\n'),
-                    inline: false,
-                });
-            }
-            if (linkFields.length > 0) {
-                embedPayload.fields = [...(embedPayload.fields || []), ...linkFields];
-            }
-
-            // Convert info categories to embed fields — same grouping as links, no URL.
-            const infoFields: any[] = [];
-            for (const cat of (embed.infoCategories || [])) {
-                if (!cat.category) continue;
-                const validItems = cat.items.filter(i => i.title);
-                if (validItems.length === 0) continue;
-                infoFields.push({
-                    name: cat.category,
-                    value: validItems.map(i => {
-                        const desc = i.description ? `\n  ${i.description}` : '';
-                        return `• ${i.title}${desc}`;
-                    }).join('\n'),
-                    inline: false,
-                });
-            }
-            if (infoFields.length > 0) {
-                embedPayload.fields = [...(embedPayload.fields || []), ...infoFields];
-            }
+            const embedPayload = buildEmbedPayload(embed);
 
             await axios.post(`${API}/api/bot-messenger/${guildId}/send`, {
                 channelId: embedChannelId,

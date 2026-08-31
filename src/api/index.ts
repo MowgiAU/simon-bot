@@ -7265,23 +7265,36 @@ app.patch('/api/bot-messenger/:guildId/channels/:channelId/messages/:messageId',
     const { guildId, channelId, messageId } = req.params;
     if (!hasDashboardAccess(guildId, req)) return res.status(403).json({ error: 'Forbidden' });
 
-    const { content } = req.body;
-    if (!content?.trim()) return res.status(400).json({ error: 'Edited message needs content' });
+    const { content, embeds } = req.body;
+    const hasContent = typeof content === 'string' && content.trim().length > 0;
+    const hasEmbeds = Array.isArray(embeds) && embeds.length > 0;
+    if (!hasContent && !hasEmbeds) {
+        return res.status(400).json({ error: 'Edited message must have content or embeds' });
+    }
 
     try {
+        const payload: any = {};
+        if (content !== undefined) payload.content = content;
+        if (hasEmbeds) payload.embeds = embeds;
         const response = await discordReqAsOwner(
-            'patch', `/channels/${channelId}/messages/${messageId}`, { content },
+            'patch', `/channels/${channelId}/messages/${messageId}`, payload,
         );
 
         const existing = await db.botMessage.findFirst({ where: { messageId, guildId } });
         const updated = existing
             ? await db.botMessage.update({
                 where: { id: existing.id },
-                data: { content, editCount: { increment: 1 }, lastEditAt: new Date() },
+                data: {
+                    content: content !== undefined ? content : undefined,
+                    embeds: hasEmbeds ? embeds : undefined,
+                    editCount: { increment: 1 },
+                    lastEditAt: new Date(),
+                },
             })
             : await db.botMessage.create({
                 data: {
-                    guildId, channelId, messageId, content,
+                    guildId, channelId, messageId, content: content ?? null,
+                    embeds: hasEmbeds ? embeds : undefined,
                     sentByUserId: req.session.user.id, sentByName: req.session.user.username || req.session.user.id,
                     editCount: 1, lastEditAt: new Date(),
                 },
