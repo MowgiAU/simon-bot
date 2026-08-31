@@ -31,7 +31,10 @@ export class RedditBridgePlugin implements IPlugin {
     readonly version = '1.0.0';
     readonly description = 'Posts scheduled threads and Fuji content to Reddit via a Devvit app, and mirrors subreddit activity back into Discord.';
     readonly author = 'Fuji Studio';
-    readonly defaultEnabled = false;
+    // Controls whether the plugin initializes at all, not per-guild opt-in: with this
+    // false the timers below never start. Nothing can reach Reddit until an admin
+    // creates a RedditSettings row and enables it, which every timer path checks.
+    readonly defaultEnabled = true;
 
     readonly requiredPermissions: PermissionResolvable[] = [];
     readonly commands: string[] = [];
