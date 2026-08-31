@@ -403,8 +403,11 @@ export const RedditPage: React.FC = () => {
                             style={input}
                             value={form.devvitEndpointBase}
                             onChange={e => setForm({ ...form, devvitEndpointBase: e.target.value })}
-                            placeholder="https://fuji-studio.devvit.net"
+                            placeholder="https://fuji-studio-t5_2qh1n-external.devvit.net"
                         />
+                        <p style={{ margin: '6px 0 0', fontSize: '12px', color: colors.textSecondary }}>
+                            Format: <code>https://&lt;app-slug&gt;-&lt;subreddit-t5-id&gt;-external.devvit.net</code> — no trailing path.
+                        </p>
                     </div>
                     <div>
                         <label style={label}>Devvit managed token</label>
