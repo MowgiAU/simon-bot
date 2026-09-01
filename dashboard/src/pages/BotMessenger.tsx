@@ -148,6 +148,15 @@ const defaultEmbed: EmbedData = {
 
 /** EmbedData → the raw embed object Discord's API expects. Shared by sending a new embed
  *  and saving an edit to an existing one. Returns {} if every optional field is empty. */
+/**
+ * Marks an Info category's field name so it can be told apart from an ordinary field when
+ * an embed is loaded back for editing (see discordEmbedToEmbedData). A zero-width space —
+ * invisible in Discord, so it doesn't change how the field actually looks to anyone reading
+ * the message. Link categories don't need this: their "🔗 " prefix is already visible *and*
+ * specific enough (combined with the "• [title](url)" line format) to detect reliably.
+ */
+const INFO_CATEGORY_MARKER = '​';
+
 function buildEmbedPayload(embed: EmbedData): Record<string, any> {
     const embedPayload: any = {};
     if (embed.title) embedPayload.title = embed.title;
@@ -198,7 +207,7 @@ function buildEmbedPayload(embed: EmbedData): Record<string, any> {
         const validItems = cat.items.filter(i => i.title);
         if (validItems.length === 0) continue;
         infoFields.push({
-            name: cat.category,
+            name: INFO_CATEGORY_MARKER + cat.category,
             value: validItems.map(i => {
                 const desc = i.description ? `\n  ${i.description}` : '';
                 return `• ${i.title}${desc}`;
@@ -214,14 +223,77 @@ function buildEmbedPayload(embed: EmbedData): Record<string, any> {
 }
 
 /**
+ * Parses a link-category field's value back into individual links — the inverse of the
+ * "• [title](url)\n  description" format buildEmbedPayload produces. Returns null (leave the
+ * field as an ordinary one) if any line doesn't match exactly: conservative on purpose, since
+ * a false-positive reconstruction would silently discard content someone typed by hand into
+ * what only happened to look like a link list.
+ */
+function parseLinkCategoryValue(value: string): EmbedLink[] | null {
+    const lines = value.split('\n');
+    const links: EmbedLink[] = [];
+    for (let i = 0; i < lines.length; i++) {
+        const m = lines[i].match(/^• \[(.*)\]\((.*)\)$/);
+        if (!m) return null;
+        const link: EmbedLink = { title: m[1], url: m[2] };
+        if (lines[i + 1]?.startsWith('  ')) {
+            link.description = lines[i + 1].slice(2);
+            i++;
+        }
+        links.push(link);
+    }
+    return links.length > 0 ? links : null;
+}
+
+/** Same idea as parseLinkCategoryValue, for Info categories' "• title\n  description" format. */
+function parseInfoCategoryValue(value: string): EmbedInfoItem[] | null {
+    const lines = value.split('\n');
+    const items: EmbedInfoItem[] = [];
+    for (let i = 0; i < lines.length; i++) {
+        const m = lines[i].match(/^• (.*)$/);
+        if (!m) return null;
+        const item: EmbedInfoItem = { title: m[1] };
+        if (lines[i + 1]?.startsWith('  ')) {
+            item.description = lines[i + 1].slice(2);
+            i++;
+        }
+        items.push(item);
+    }
+    return items.length > 0 ? items : null;
+}
+
+/**
  * The inverse of buildEmbedPayload — loads an existing (already-sent) Discord embed back
- * into EmbedData for editing. linkCategories/infoCategories always come back empty: those
- * are a dashboard-only authoring convenience for composing a NEW embed, and Discord has no
- * concept of them once sent — a field that started as a link category is indistinguishable
- * from an ordinary field on the way back, so it's loaded as one (still fully editable, just
- * not reconstructed into the category UI).
+ * into EmbedData for editing, including reconstructing Link/Info categories rather than
+ * leaving them as raw fields.
+ *
+ * Link categories reconstruct for ANY previously-sent embed — their "🔗 " prefix has always
+ * been visible and specific enough to detect. Info categories only reconstruct for embeds
+ * sent AFTER this was added: they now carry an invisible marker (INFO_CATEGORY_MARKER) for
+ * exactly this purpose, but nothing marked fields sent before it existed, and there's no way
+ * to tell an old info-category field apart from a genuinely ordinary one after the fact — old
+ * ones still load fine, just as plain fields in the Fields section rather than under Info.
  */
 function discordEmbedToEmbedData(raw: any): EmbedData {
+    const fields: EmbedField[] = [];
+    const linkCategories: EmbedLinkCategory[] = [];
+    const infoCategories: EmbedInfoCategory[] = [];
+
+    for (const f of (Array.isArray(raw?.fields) ? raw.fields : [])) {
+        const name: string = f.name ?? '';
+        const value: string = f.value ?? '';
+
+        if (name.startsWith('🔗 ')) {
+            const links = parseLinkCategoryValue(value);
+            if (links) { linkCategories.push({ category: name.replace(/^🔗\s*/, ''), links }); continue; }
+        }
+        if (name.startsWith(INFO_CATEGORY_MARKER)) {
+            const items = parseInfoCategoryValue(value);
+            if (items) { infoCategories.push({ category: name.slice(INFO_CATEGORY_MARKER.length), items }); continue; }
+        }
+        fields.push({ name, value, inline: !!f.inline });
+    }
+
     return {
         ...defaultEmbed,
         title: raw?.title ?? '',
@@ -229,7 +301,9 @@ function discordEmbedToEmbedData(raw: any): EmbedData {
         url: raw?.url ?? '',
         // 0 is a real (black) color Discord allows — only null/undefined means "unset".
         color: raw?.color != null ? '#' + raw.color.toString(16).padStart(6, '0').toUpperCase() : defaultEmbed.color,
-        fields: Array.isArray(raw?.fields) ? raw.fields.map((f: any) => ({ name: f.name ?? '', value: f.value ?? '', inline: !!f.inline })) : [],
+        fields,
+        linkCategories,
+        infoCategories,
         authorName: raw?.author?.name ?? '',
         authorIconUrl: raw?.author?.icon_url ?? '',
         authorUrl: raw?.author?.url ?? '',
