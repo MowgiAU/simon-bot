@@ -604,6 +604,35 @@ const discordReqAsOwner = async (method: string, path: string, data?: any): Prom
     }
 };
 
+/**
+ * Discord's 400 "Invalid Form Body" response carries a top-level `message` (just that
+ * generic phrase) plus a nested `errors` tree naming exactly which field failed and why —
+ * e.g. `{ embeds: { '0': { fields: { '0': { value: { _errors: [{ message: 'This field is
+ * required' }] } } } } } }` for a field missing its value. Every bot-messenger route used to
+ * forward only the generic `message`, so a validation failure gave no clue which field
+ * caused it. This walks the tree and turns it into readable "embeds.0.fields.0.value: This
+ * field is required" lines.
+ */
+function flattenDiscordErrors(errors: any, path = ''): string[] {
+    if (!errors || typeof errors !== 'object') return [];
+    if (Array.isArray(errors._errors)) {
+        return errors._errors.map((e: any) => `${path}: ${e.message || e.code || 'invalid'}`);
+    }
+    const out: string[] = [];
+    for (const key of Object.keys(errors)) {
+        out.push(...flattenDiscordErrors(errors[key], path ? `${path}.${key}` : key));
+    }
+    return out;
+}
+
+/** Best available description of a failed Discord API call — field-level detail when
+ *  Discord provides it (see flattenDiscordErrors), falling back to its generic message. */
+function discordErrorMessage(err: any, fallback: string): string {
+    const detail = flattenDiscordErrors(err.response?.data?.errors);
+    if (detail.length > 0) return detail.join('; ');
+    return err.response?.data?.message || fallback;
+}
+
 // Cache of server nicknames keyed by `${guildId}:${userId}` (REST message fetches omit member data,
 // so we resolve nicknames separately and cache them to avoid hammering Discord on each poll).
 const memberNickCache = new Map<string, { nick: string | null; timestamp: number }>();
@@ -7135,7 +7164,7 @@ app.post('/api/bot-messenger/:guildId/send', async (req, res) => {
         res.json(response.data);
     } catch (err: any) {
         logger.error('Failed to send message via messenger', err);
-        res.status(err.response?.status || 500).json({ error: err.response?.data?.message || 'Failed to send message' });
+        res.status(err.response?.status || 500).json({ error: discordErrorMessage(err, 'Failed to send message') });
     }
 });
 
@@ -7185,7 +7214,7 @@ app.post('/api/bot-messenger/:guildId/send-with-files', attachmentUpload.array('
         res.json(response.data);
     } catch (err: any) {
         logger.error('Failed to send message with files', err);
-        res.status(err.response?.status || 500).json({ error: err.response?.data?.message || 'Failed to send' });
+        res.status(err.response?.status || 500).json({ error: discordErrorMessage(err, 'Failed to send') });
     }
 });
 
@@ -7247,7 +7276,7 @@ app.patch('/api/bot-messenger/:guildId/messages/:id', async (req, res) => {
         res.json({ discord: response.data, message: updated });
     } catch (err: any) {
         logger.error('Failed to edit bot messenger message', err);
-        res.status(err.response?.status || 500).json({ error: err.response?.data?.message || 'Failed to edit message' });
+        res.status(err.response?.status || 500).json({ error: discordErrorMessage(err, 'Failed to edit message') });
     }
 });
 
@@ -7302,7 +7331,7 @@ app.patch('/api/bot-messenger/:guildId/channels/:channelId/messages/:messageId',
         res.json({ discord: response.data, message: updated });
     } catch (err: any) {
         logger.error('Failed to edit message by id', err);
-        res.status(err.response?.status || 500).json({ error: err.response?.data?.message || 'Failed to edit message' });
+        res.status(err.response?.status || 500).json({ error: discordErrorMessage(err, 'Failed to edit message') });
     }
 });
 
@@ -7336,7 +7365,7 @@ app.post('/api/bot-messenger/:guildId/forward', async (req, res) => {
         res.json(response.data);
     } catch (err: any) {
         logger.error('Failed to forward message', err);
-        res.status(err.response?.status || 500).json({ error: err.response?.data?.message || 'Failed to forward message' });
+        res.status(err.response?.status || 500).json({ error: discordErrorMessage(err, 'Failed to forward message') });
     }
 });
 
@@ -7364,7 +7393,7 @@ app.post('/api/bot-messenger/:guildId/react', async (req, res) => {
         res.json({ success: true });
     } catch (err: any) {
         logger.error('Failed to add reaction', err);
-        res.status(err.response?.status || 500).json({ error: err.response?.data?.message || 'Failed to react' });
+        res.status(err.response?.status || 500).json({ error: discordErrorMessage(err, 'Failed to react') });
     }
 });
 
@@ -7455,7 +7484,7 @@ app.post('/api/bot-messenger/:guildId/forum-post', async (req, res) => {
         res.json(response.data);
     } catch (err: any) {
         logger.error('Failed to create forum post', err);
-        res.status(err.response?.status || 500).json({ error: err.response?.data?.message || 'Failed to create post' });
+        res.status(err.response?.status || 500).json({ error: discordErrorMessage(err, 'Failed to create post') });
     }
 });
 

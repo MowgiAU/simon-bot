@@ -152,14 +152,22 @@ function buildEmbedPayload(embed: EmbedData): Record<string, any> {
     const embedPayload: any = {};
     if (embed.title) embedPayload.title = embed.title;
     if (embed.description) embedPayload.description = embed.description;
-    if (embed.url) embedPayload.url = embed.url;
+    // Discord rejects the whole request ("Invalid Form Body") if any URL field lacks a
+    // scheme — a bare "example.com" typed into Image URL or the like fails the same way
+    // an incomplete field does below. normalizeUrl() only runs inside these truthy
+    // branches, so an empty string never becomes the invalid "https://" on its own.
+    if (embed.url) embedPayload.url = normalizeUrl(embed.url);
     if (embed.color) embedPayload.color = parseInt(embed.color.replace('#', ''), 16);
-    if (embed.authorName) embedPayload.author = { name: embed.authorName, url: embed.authorUrl || undefined, icon_url: embed.authorIconUrl || undefined };
-    if (embed.footerText) embedPayload.footer = { text: embed.footerText, icon_url: embed.footerIconUrl || undefined };
-    if (embed.thumbnailUrl) embedPayload.thumbnail = { url: embed.thumbnailUrl };
-    if (embed.imageUrl) embedPayload.image = { url: embed.imageUrl };
+    if (embed.authorName) embedPayload.author = { name: embed.authorName, url: embed.authorUrl ? normalizeUrl(embed.authorUrl) : undefined, icon_url: embed.authorIconUrl ? normalizeUrl(embed.authorIconUrl) : undefined };
+    if (embed.footerText) embedPayload.footer = { text: embed.footerText, icon_url: embed.footerIconUrl ? normalizeUrl(embed.footerIconUrl) : undefined };
+    if (embed.thumbnailUrl) embedPayload.thumbnail = { url: normalizeUrl(embed.thumbnailUrl) };
+    if (embed.imageUrl) embedPayload.image = { url: normalizeUrl(embed.imageUrl) };
     if (embed.timestamp) embedPayload.timestamp = new Date().toISOString();
-    if (embed.fields.length > 0) embedPayload.fields = embed.fields.filter(f => f.name || f.value);
+    // Discord requires BOTH name and value on a field (1-256 / 1-1024 chars) -- a field
+    // with only one side filled in used to pass this filter and get sent anyway, which is
+    // exactly the "Invalid Form Body" this was causing. Silently drop incomplete fields
+    // instead of sending something Discord will reject outright.
+    if (embed.fields.length > 0) embedPayload.fields = embed.fields.filter(f => f.name.trim() && f.value.trim());
 
     // Convert link categories to embed fields
     const linkFields: any[] = [];
