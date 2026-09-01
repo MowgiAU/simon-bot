@@ -222,6 +222,24 @@ function buildEmbedPayload(embed: EmbedData): Record<string, any> {
     return embedPayload;
 }
 
+/** Discord's aggregate 6000-char embed limit (EMBED_SIZE) sums title + description +
+ *  every field's name and value + footer text + author name — everything else (URLs,
+ *  image/thumbnail links, color, the timestamp toggle) doesn't count toward it. Computed
+ *  from the actual outgoing payload (not the raw EmbedData draft) so Link/Info category
+ *  text is counted once flattened, matching what Discord will actually see. */
+const EMBED_SIZE_LIMIT = 6000;
+function embedCharCount(payload: Record<string, any>): number {
+    let total = 0;
+    total += payload.title?.length || 0;
+    total += payload.description?.length || 0;
+    total += payload.footer?.text?.length || 0;
+    total += payload.author?.name?.length || 0;
+    if (Array.isArray(payload.fields)) {
+        for (const f of payload.fields) total += (f.name?.length || 0) + (f.value?.length || 0);
+    }
+    return total;
+}
+
 /**
  * Parses a link-category field's value back into individual links — the inverse of the
  * "• [title](url)\n  description" format buildEmbedPayload produces. Returns null (leave the
@@ -1192,8 +1210,21 @@ const EmbedBuilder: React.FC<{
         <div style={{ color: colors.textSecondary, fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: spacing.lg, marginBottom: spacing.sm }}>{title}</div>
     );
 
+    // Live total against Discord's aggregate 6000-char embed limit, computed from the
+    // actual payload that would be sent (so Link/Info category text counts once flattened,
+    // not just what's visible in the form) -- the whole point is to see this coming instead
+    // of finding out from Discord's error after hitting Send/Save.
+    const charTotal = embedCharCount(buildEmbedPayload(embed));
+    const charColor = charTotal > EMBED_SIZE_LIMIT ? '#EF4444' : charTotal > EMBED_SIZE_LIMIT * 0.85 ? '#F59E0B' : colors.textTertiary;
+
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.md }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <span style={{ fontSize: '12px', fontWeight: 600, color: charColor }}>
+                    {charTotal.toLocaleString()} / {EMBED_SIZE_LIMIT.toLocaleString()} characters
+                    {charTotal > EMBED_SIZE_LIMIT ? ' — over Discord’s limit' : ''}
+                </span>
+            </div>
             {/* Body */}
             {sectionTitle('Body')}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: spacing.md, flexWrap: 'wrap' } as any}>
@@ -1347,12 +1378,14 @@ const EmbedBuilder: React.FC<{
                     <div style={{ display: 'flex', gap: spacing.sm }}>
                         <input style={{ ...inputStyle, flex: 1 }} value={embed.thumbnailUrl} onChange={e => update({ thumbnailUrl: e.target.value })} placeholder="https://..." />
                     </div>
+                    <p style={{ margin: '4px 0 0', fontSize: '11px', color: colors.textTertiary }}>Small icon in the corner — doesn't affect the embed's width</p>
                 </div>
                 <div>
                     <label style={labelStyle}>Image URL</label>
                     <div style={{ display: 'flex', gap: spacing.sm }}>
                         <input style={{ ...inputStyle, flex: 1 }} value={embed.imageUrl} onChange={e => update({ imageUrl: e.target.value })} placeholder="https://..." />
                     </div>
+                    <p style={{ margin: '4px 0 0', fontSize: '11px', color: colors.textTertiary }}>Full-width banner — this is what makes an embed render wide</p>
                 </div>
             </div>
             <div style={{ marginTop: spacing.sm }}>
