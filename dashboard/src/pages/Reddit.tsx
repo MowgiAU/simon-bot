@@ -403,10 +403,10 @@ export const RedditPage: React.FC = () => {
                             style={input}
                             value={form.devvitEndpointBase}
                             onChange={e => setForm({ ...form, devvitEndpointBase: e.target.value })}
-                            placeholder="https://fuji-studio-t5_2qh1n-external.devvit.net"
+                            placeholder="https://fuji-studio-g6wmo1-external.devvit.net"
                         />
                         <p style={{ margin: '6px 0 0', fontSize: '12px', color: colors.textSecondary }}>
-                            Format: <code>https://&lt;app-slug&gt;-&lt;subreddit-t5-id&gt;-external.devvit.net</code> — no trailing path.
+                            Format: <code>https://&lt;app-slug&gt;-&lt;subreddit-id&gt;-external.devvit.net</code> — the bare id from the subreddit's about.json (<code>data.id</code>), without the <code>t5_</code> prefix, and no trailing path.
                         </p>
                     </div>
                     <div>
