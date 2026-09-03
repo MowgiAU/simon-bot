@@ -6,7 +6,7 @@ import path from 'path';
 import axios from 'axios';
 import FormData from 'form-data';
 import fs from 'fs';
-import { FeedbackAIService } from '../services/FeedbackAIService';
+import { FeedbackAIService, FeedbackAnalysisContext } from '../services/FeedbackAIService';
 
 export class ProductionFeedbackPlugin implements IPlugin {
     id = 'production-feedback';
@@ -474,10 +474,25 @@ export class ProductionFeedbackPlugin implements IPlugin {
         if (wordCount < 3) return; // Too short to be meaningful feedback
 
         if (this.ai) {
-            const result = await this.ai.analyzeFeedback(message.content);
-            
+            // Give the AI the thread context — a reply like "yeah the low end thing,
+            // try cutting around 250" is only judgeable against what it answers.
+            const analysisContext: FeedbackAnalysisContext = { model: settings.aiModel || undefined };
+            try {
+                analysisContext.threadTitle = (channel as ThreadChannel).name;
+                const starter = await (channel as ThreadChannel).fetchStarterMessage().catch(() => null);
+                if (starter?.content) analysisContext.threadStarter = starter.content;
+                if (message.reference?.messageId) {
+                    const replied = await message.channel.messages.fetch(message.reference.messageId).catch(() => null);
+                    if (replied?.content) analysisContext.repliedTo = replied.content;
+                }
+            } catch (e) {
+                this.logger.warn('Failed to build feedback analysis context', e);
+            }
+
+            const result = await this.ai.analyzeFeedback(message.content, analysisContext);
+
             // Save FeedbackPost to DB
-            await this.context.db.feedbackPost.create({
+            const post = await this.context.db.feedbackPost.create({
                 data: {
                     guildId: message.guildId,
                     channelId: channel.parentId!, // Forum ID
@@ -532,8 +547,63 @@ export class ProductionFeedbackPlugin implements IPlugin {
                         this.logger.warn('Failed to post AI rejection to modlog channel', e);
                     }
                 }
+            } else if (result.state === 'UNSURE' && message.guildId) {
+                // Borderline: send it to staff instead of dropping it silently.
+                await this.queueForReview(message, post.id, result);
             }
-            // UNSURE: queued silently for staff review — no reaction
+        }
+    }
+
+    /**
+     * Post a borderline text reply to the review channel with approve/deny buttons.
+     * The original message stays in the thread — approval only awards the points.
+     */
+    private async queueForReview(
+        message: Message,
+        postId: string,
+        result: { score: number; reason: string }
+    ) {
+        if (!this.context || !message.guildId) return;
+
+        const settings = await this.getSettings(message.guildId);
+        const reviewChannelId = settings?.reviewChannelId || settings?.modLogChannelId;
+        if (!reviewChannelId) return;
+
+        const reviewChannel = this.context.client.channels.cache.get(reviewChannelId) as TextChannel | null;
+        if (!reviewChannel) return;
+
+        try {
+            const embed = new EmbedBuilder()
+                .setTitle('❓ Feedback Needs Review (AI unsure)')
+                .setColor(0xFEE75C)
+                .addFields(
+                    { name: 'User', value: `<@${message.author.id}>`, inline: true },
+                    { name: 'Score', value: `${result.score}/10`, inline: true },
+                    { name: 'Thread', value: `<#${message.channel.id}>`, inline: true },
+                    { name: 'Reason', value: result.reason || 'No reason provided' },
+                    { name: 'Content', value: message.content.slice(0, 1000) || '(no text)' },
+                )
+                .setTimestamp();
+
+            const row = new ActionRowBuilder<ButtonBuilder>()
+                .addComponents(
+                    new ButtonBuilder()
+                        .setCustomId(`feedback_approve_${postId}`)
+                        .setLabel('Award Points')
+                        .setStyle(ButtonStyle.Success),
+                    new ButtonBuilder()
+                        .setCustomId(`feedback_deny_${postId}`)
+                        .setLabel('Deny')
+                        .setStyle(ButtonStyle.Danger)
+                );
+
+            const reviewMessage = await reviewChannel.send({ embeds: [embed], components: [row] });
+            await this.context.db.feedbackPost.update({
+                where: { id: postId },
+                data: { moderationMessageId: reviewMessage.id }
+            });
+        } catch (e) {
+            this.logger.warn('Failed to queue borderline feedback for review', e);
         }
     }
 
@@ -756,8 +826,10 @@ export class ProductionFeedbackPlugin implements IPlugin {
                 
                 const channel = interaction.guild!.channels.cache.get(post.channelId); // Forum
                 
-                // Repost Logic
-                if (channel && channel.type === ChannelType.GuildForum) {
+                // Repost Logic — only audio replies were deleted from the thread and
+                // need reposting. Borderline text replies are still in place, so
+                // approving them just awards the points.
+                if (post.hasAudio && channel && channel.type === ChannelType.GuildForum) {
                     const webhooks = await channel.fetchWebhooks();
                     let webhook = webhooks.find(w => w.name === 'Simon-Masquerade');
                     if (!webhook) {
@@ -787,7 +859,7 @@ export class ProductionFeedbackPlugin implements IPlugin {
                     }
 
                     await webhook.send(payload);
-                } else {
+                } else if (post.hasAudio) {
                     const thread = interaction.guild!.channels.cache.get(post.threadId);
                     if (thread && thread.isThread()) {
                         await thread.send({
