@@ -511,8 +511,11 @@ export class ProductionFeedbackPlugin implements IPlugin {
                 // Reward with feedback points
                 await this.rewardUser(message.author.id, message.guildId, settings.feedbackPointsReward);
                 // React to indicate success
-                await message.react('✅');
+                await message.react('✅').catch(() => {});
             } else if (result.state === 'DENIED' && message.guildId) {
+                // React so the user knows the reply didn't earn points
+                await message.react('❌').catch(() => {});
+
                 await this.context.logAction({
                     guildId: message.guildId,
                     actionType: 'FEEDBACK_DENIED',
