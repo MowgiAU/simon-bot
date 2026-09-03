@@ -419,24 +419,15 @@ export const RedditPage: React.FC = () => {
                             placeholder="devvit_at_..."
                         />
                     </div>
-                    <div>
-                        <label style={label}>Shared event secret</label>
-                        <input
-                            style={input}
-                            type="password"
-                            value={form.eventSecret}
-                            onChange={e => setForm({ ...form, eventSecret: e.target.value })}
-                            placeholder="Used to sign inbound Reddit events"
-                        />
-                    </div>
                 </div>
 
                 <div style={{ marginTop: spacing.md, padding: spacing.sm, borderRadius: borderRadius.sm, border: `1px dashed ${colors.border}` }}>
                     <p style={{ margin: `0 0 ${spacing.sm} 0`, fontSize: '12px', color: colors.warning }}>
-                        Mirroring is currently handled inside the Devvit app, which posts to a Discord
-                        webhook directly — Reddit declined our request to let it call fujistud.io. Set the
-                        webhook URL and flair filter in the app's Developer Settings. The three fields
-                        below are inactive until that domain request is approved.
+                        Mirroring is handled inside the Devvit app, which posts to a Discord webhook
+                        directly. Reddit's fetch policy does not allow a Devvit app to call a domain its
+                        own developer controls, so fujistud.io will never be approved and these three
+                        fields do nothing — set the webhook URL, flair filter and comment toggle in the
+                        Devvit app's settings instead.
                     </p>
 
                     <label style={label}>Mirror Reddit posts to</label>
