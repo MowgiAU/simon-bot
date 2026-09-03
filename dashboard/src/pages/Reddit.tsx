@@ -431,7 +431,14 @@ export const RedditPage: React.FC = () => {
                     </div>
                 </div>
 
-                <div style={{ marginTop: spacing.md }}>
+                <div style={{ marginTop: spacing.md, padding: spacing.sm, borderRadius: borderRadius.sm, border: `1px dashed ${colors.border}` }}>
+                    <p style={{ margin: `0 0 ${spacing.sm} 0`, fontSize: '12px', color: colors.warning }}>
+                        Mirroring is currently handled inside the Devvit app, which posts to a Discord
+                        webhook directly — Reddit declined our request to let it call fujistud.io. Set the
+                        webhook URL and flair filter in the app's Developer Settings. The three fields
+                        below are inactive until that domain request is approved.
+                    </p>
+
                     <label style={label}>Mirror Reddit posts to</label>
                     <ChannelSelect
                         guildId={guildId}
@@ -439,26 +446,26 @@ export const RedditPage: React.FC = () => {
                         onChange={v => setForm({ ...form, mirrorChannelId: Array.isArray(v) ? v[0] : v })}
                         placeholder="Select a channel..."
                     />
-                </div>
 
-                <div style={{ marginTop: spacing.md }}>
-                    <label style={label}>Mod alerts to</label>
-                    <ChannelSelect
-                        guildId={guildId}
-                        value={form.modAlertChannelId}
-                        onChange={v => setForm({ ...form, modAlertChannelId: Array.isArray(v) ? v[0] : v })}
-                        placeholder="Falls back to the mirror channel"
-                    />
-                </div>
+                    <div style={{ marginTop: spacing.md }}>
+                        <label style={label}>Mod alerts to</label>
+                        <ChannelSelect
+                            guildId={guildId}
+                            value={form.modAlertChannelId}
+                            onChange={v => setForm({ ...form, modAlertChannelId: Array.isArray(v) ? v[0] : v })}
+                            placeholder="Falls back to the mirror channel"
+                        />
+                    </div>
 
-                <div style={{ marginTop: spacing.md }}>
-                    <label style={label}>Only mirror these flairs</label>
-                    <input
-                        style={input}
-                        value={form.mirrorFlairs}
-                        onChange={e => setForm({ ...form, mirrorFlairs: e.target.value })}
-                        placeholder="Leave empty to mirror every post"
-                    />
+                    <div style={{ marginTop: spacing.md }}>
+                        <label style={label}>Only mirror these flairs</label>
+                        <input
+                            style={input}
+                            value={form.mirrorFlairs}
+                            onChange={e => setForm({ ...form, mirrorFlairs: e.target.value })}
+                            placeholder="Leave empty to mirror every post"
+                        />
+                    </div>
                 </div>
 
                 <div style={{ marginTop: spacing.md }}>
@@ -726,7 +733,9 @@ export const RedditPage: React.FC = () => {
                 <h2 style={{ margin: `0 0 ${spacing.md} 0`, fontSize: '16px' }}>Recent subreddit activity</h2>
                 {events.length === 0 ? (
                     <p style={{ margin: 0, fontSize: '13px', color: colors.textSecondary }}>
-                        Nothing received yet. Reddit events arrive once the Devvit app's triggers are installed and signing correctly.
+                        Nothing here yet — and nothing will arrive while mirroring goes straight from the
+                        Devvit app to a Discord webhook. Reddit activity shows up in Discord, not in this
+                        feed. This fills in only if the fujistud.io fetch domain is approved.
                     </p>
                 ) : (
                     events.map(event => (

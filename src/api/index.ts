@@ -19541,17 +19541,55 @@ app.get('/api/reddit/jobs/pending', async (req: any, res) => {
 
 // ── Account linking (dashboard side) ──────────────────────────────────────────
 
+/**
+ * Resolves an account-link code to a Reddit username.
+ *
+ * Reddit rejected our fetch-domain request, so the Devvit app can no longer push codes
+ * to us — we call it instead. The local RedditLinkCode table is still consulted first
+ * because it is populated if the domain is ever approved and the push path comes back.
+ */
+const resolveRedditLinkCode = async (code: string): Promise<{ redditUsername: string; subreddit: string | null } | null> => {
+    const local = await db.redditLinkCode.findUnique({ where: { code } });
+    if (local && !local.usedAt && local.expiresAt >= new Date()) {
+        await db.redditLinkCode.update({ where: { id: local.id }, data: { usedAt: new Date() } });
+        return { redditUsername: local.redditUsername, subreddit: local.subreddit };
+    }
+
+    const installs = await db.redditSettings.findMany({
+        where: { enabled: true, devvitToken: { not: null }, devvitEndpointBase: { not: null } },
+    });
+
+    for (const install of installs) {
+        try {
+            const response = await axios.post(
+                `${install.devvitEndpointBase!.replace(/\/$/, '')}/external/link/verify`,
+                { code },
+                {
+                    headers: { Authorization: `bearer ${install.devvitToken}`, 'Content-Type': 'application/json' },
+                    timeout: 15_000,
+                    validateStatus: () => true,
+                }
+            );
+            if (response.status >= 200 && response.status < 300 && response.data?.ok && response.data.redditUsername) {
+                return { redditUsername: String(response.data.redditUsername), subreddit: install.subreddit };
+            }
+        } catch (err: any) {
+            logger.warn(`[Reddit] link verify failed against r/${install.subreddit}: ${err.message}`);
+        }
+    }
+
+    return null;
+};
+
 app.post('/api/reddit/link/redeem', requireAuth, async (req: any, res) => {
     try {
         const code = String(req.body?.code || '').trim().toUpperCase();
         if (!code) return res.status(400).json({ error: 'A code is required' });
 
-        const record = await db.redditLinkCode.findUnique({ where: { code } });
-        if (!record || record.usedAt || record.expiresAt < new Date()) {
-            return res.status(400).json({ error: 'That code is invalid or has expired' });
-        }
+        const resolved = await resolveRedditLinkCode(code);
+        if (!resolved) return res.status(400).json({ error: 'That code is invalid or has expired' });
 
-        const existing = await db.redditLink.findUnique({ where: { redditUsername: record.redditUsername } });
+        const existing = await db.redditLink.findUnique({ where: { redditUsername: resolved.redditUsername } });
         if (existing && existing.userId !== req.session.user.id) {
             return res.status(409).json({ error: 'That Reddit account is already linked to another Fuji account' });
         }
@@ -19560,17 +19598,15 @@ app.post('/api/reddit/link/redeem', requireAuth, async (req: any, res) => {
 
         const link = await db.redditLink.upsert({
             where: { userId: req.session.user.id },
-            create: { userId: req.session.user.id, redditUsername: record.redditUsername, discordId },
-            update: { redditUsername: record.redditUsername, discordId, verifiedAt: new Date() },
+            create: { userId: req.session.user.id, redditUsername: resolved.redditUsername, discordId },
+            update: { redditUsername: resolved.redditUsername, discordId, verifiedAt: new Date() },
         });
-
-        await db.redditLinkCode.update({ where: { id: record.id }, data: { usedAt: new Date() } });
 
         // Best-effort role grant — a missing role or a user who isn't in the guild
         // must not fail the link itself.
-        if (record.subreddit && discordId) {
+        if (resolved.subreddit && discordId) {
             const settings = await db.redditSettings.findFirst({
-                where: { subreddit: record.subreddit, enabled: true, linkedRoleId: { not: null } },
+                where: { subreddit: resolved.subreddit, enabled: true, linkedRoleId: { not: null } },
             });
             if (settings?.linkedRoleId) {
                 await discordReq('put', `/guilds/${settings.guildId}/members/${discordId}/roles/${settings.linkedRoleId}`)

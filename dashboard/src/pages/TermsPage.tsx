@@ -400,16 +400,20 @@ export const TermsPage: React.FC = () => {
                         </div>
 
                         <div style={{ marginBottom: '16px' }}>
-                            <p style={{ color: colors.textPrimary, fontWeight: 600, fontSize: '14px', margin: '0 0 6px 0' }}>What the App Sends to Fuji Studio</p>
+                            <p style={{ color: colors.textPrimary, fontWeight: 600, fontSize: '14px', margin: '0 0 6px 0' }}>Subreddit Activity Sent to Discord</p>
                             <P>
-                                The app makes outbound requests to a single domain, fujistud.io. Every request is signed
-                                with a shared secret. The following data is transmitted:
+                                The app posts subreddit activity directly to a Discord webhook configured by our
+                                moderators. It is the app's only outbound destination. The following is transmitted:
                             </P>
                             <ul style={{ margin: '0 0 10px 0', paddingLeft: '20px' }}>
-                                <Bullet label="Subreddit Activity">When a post is created or its flair changes — and, if a moderator enables it, when a comment is created — we receive the item's Reddit ID, author username, title, body text, permalink, and flair. This is used to relay subreddit activity into our Discord server so moderators can see it where they already work.</Bullet>
-                                <Bullet label="Moderation Log Events">Mod actions on the subreddit are received as the action name, the acting moderator's username, the affected user where applicable, and a permalink. Used for moderator alerting only.</Bullet>
-                                <Bullet label="Account Link Requests">Only when you yourself run the "Link my Fuji Studio account" menu item, the app sends a randomly generated short code and your Reddit username so the code can be redeemed on fujistud.io.</Bullet>
+                                <Bullet label="Posts and Flair Changes">When a post is created or its flair changes, we relay the title, an excerpt of the body, the author's Reddit username, the permalink and the flair, so moderators can see subreddit activity in the Discord server they already work in.</Bullet>
+                                <Bullet label="Comments">Only if a moderator explicitly enables comment mirroring. Off by default.</Bullet>
+                                <Bullet label="Moderation Log Events">The action name, the acting moderator's username, the affected user where applicable, and a permalink. Used for moderator alerting only.</Bullet>
                             </ul>
+                            <P>
+                                This information is already publicly visible on the subreddit. Nothing private is
+                                accessed or relayed, and the app does not send this data to fujistud.io.
+                            </P>
                         </div>
 
                         <div style={{ marginBottom: '16px' }}>
@@ -426,7 +430,9 @@ export const TermsPage: React.FC = () => {
                             <p style={{ color: colors.textPrimary, fontWeight: 600, fontSize: '14px', margin: '0 0 6px 0' }}>Account Linking</p>
                             <P>
                                 Linking is always initiated by you and requires no Reddit password, OAuth grant, or access
-                                token. We store only your Reddit username alongside your Fuji Studio account. We never gain
+                                token. You request a short code from a subreddit menu item; when you enter it on
+                                fujistud.io, our server asks the app to exchange that code for your username. Codes are
+                                single-use and expire after 15 minutes. We store only your Reddit username alongside your Fuji Studio account. We never gain
                                 the ability to act as you on Reddit. You can ask us to remove the link at any time, and
                                 doing so deletes the stored username.
                             </P>
