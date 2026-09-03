@@ -4,6 +4,9 @@ import DOMPurify from 'dompurify';
 import { colors, borderRadius, spacing } from '../theme/theme';
 import { showToast } from '../components/Toast';
 import { ConfirmModal } from '../components/ConfirmModal';
+import { ChannelSelect } from '../components/ChannelSelect';
+import { RoleSelect } from '../components/RoleSelect';
+import { useAuth } from '../components/AuthProvider';
 import {
     Mail, Send, Trash2, Settings, ArrowLeft, RefreshCw, Paperclip,
     MoreHorizontal, X, Plus, Bold, Italic, Underline, List, Inbox,
@@ -145,6 +148,12 @@ const ThreadMessage: React.FC<{ msg: Email; isLastRendered: boolean; autoExpand:
 
 export const EmailClientPage: React.FC<EmailPageProps> = ({ searchParam }) => {
     const isMobile = useMobile();
+    // Email settings (Discord Channel ID / Notify Role ID below) aren't stored per-guild --
+    // this whole feature is a single global config, not scoped to /api/guilds/:guildId. But
+    // picking a channel/role still needs a guild to list them FROM, so this uses whichever
+    // guild is currently selected in the sidebar, same as every other page implicitly does.
+    const { selectedGuild } = useAuth();
+    const guildId = selectedGuild?.id || '';
     const [view, setView] = useState<'inbox' | 'sent' | 'trash' | 'settings'>('inbox');
     const [emails, setEmails] = useState<Email[]>([]);
     const [selectedEmail, setSelectedEmail] = useState<Email | null>(null);
@@ -383,8 +392,6 @@ export const EmailClientPage: React.FC<EmailPageProps> = ({ searchParam }) => {
                         { label: 'Webhook Secret', key: 'webhookSecret', placeholder: 'Paste whsec_ from Resend or generate one', hasGenerate: true },
                         { label: 'Default From Name', key: 'fromName', placeholder: 'Fuji Studio' },
                         { label: 'Default From Email', key: 'fromEmail', placeholder: 'hello@fujistud.io' },
-                        { label: 'Discord Channel ID (Alerts)', key: 'channelId', placeholder: '' },
-                        { label: 'Notify Role ID', key: 'roleId', placeholder: '' },
                     ].map(({ label, key, placeholder, hasGenerate }) => (
                         <div key={key} style={{ marginBottom: 16 }}>
                             <div style={{ fontSize: 10, fontWeight: 700, color: colors.textTertiary, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>{label}</div>
@@ -397,6 +404,22 @@ export const EmailClientPage: React.FC<EmailPageProps> = ({ searchParam }) => {
                             </div>
                         </div>
                     ))}
+                    {/* Channel/role pickers, not raw ID text fields — same components used
+                        everywhere else in the dashboard, so this gets the refresh button and
+                        the rest for free. The setting itself is still a plain global string;
+                        only how it's chosen changed. */}
+                    <div style={{ marginBottom: 16 }}>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: colors.textTertiary, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>Discord Channel (Alerts)</div>
+                        <ChannelSelect guildId={guildId} value={settings.channelId || ''}
+                            onChange={v => setSettings({ ...settings, channelId: v as string })}
+                            placeholder="Choose a channel..." />
+                    </div>
+                    <div style={{ marginBottom: 16 }}>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: colors.textTertiary, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>Notify Role</div>
+                        <RoleSelect guildId={guildId} value={settings.roleId || ''}
+                            onChange={v => setSettings({ ...settings, roleId: v as string })}
+                            placeholder="Choose a role..." />
+                    </div>
                     <button onClick={saveSettings} style={{ padding: '9px 20px', borderRadius: borderRadius.md, border: 'none', background: colors.primary, color: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: 13 }}>Save Settings</button>
                 </div>
             ) : (
