@@ -49,6 +49,7 @@ interface AutoResponderRule {
     ignoredRoles: string | null;
     cooldownSeconds: number;
     cooldownReactionEmoji: string | null;
+    minDurationSeconds: number | null;
     matchCount: number;
     lastTriggeredAt: string | null;
     categoryId: string | null;
@@ -813,6 +814,7 @@ const RuleCard: React.FC<RuleCardProps> = ({ rule, guildId, categories, onUpdate
                     cooldownSeconds: draft.cooldownSeconds,
                     cooldownReactionEmoji: draft.cooldownReactionEmoji || null,
                     categoryId: draft.categoryId || null,
+                    minDurationSeconds: draft.triggerType === 'audioAttachment' ? (draft.minDurationSeconds || null) : null,
                 }),
             });
             if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error || 'Save failed'); }
@@ -947,6 +949,19 @@ const RuleCard: React.FC<RuleCardProps> = ({ rule, guildId, categories, onUpdate
                             {regexError && <p style={{ margin: '4px 0 0', fontSize: '10px', color: '#ef4444' }}>{regexError}</p>}
                         </div>
                     </div>
+
+                    {draft.triggerType === 'audioAttachment' && (
+                        <div style={{ marginBottom: '16px', maxWidth: '260px' }}>
+                            <span style={labelStyle}>Minimum Duration (seconds, 0 = any length)</span>
+                            <input type="number" min={0} max={3600} value={draft.minDurationSeconds ?? 0}
+                                onChange={e => update({ minDurationSeconds: parseInt(e.target.value) || 0 })}
+                                style={inputBase} />
+                            <p style={{ margin: '4px 0 0', fontSize: '10px', color: colors.textTertiary }}>
+                                Skip files shorter than this — a 3-second snippet won't trigger, a 30-second clip will.
+                                Checked by downloading the file and reading its actual length, not the filename.
+                            </p>
+                        </div>
+                    )}
 
                     {/* Mention user toggle */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px', padding: '10px 12px', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: borderRadius.sm, border: `1px solid ${colors.glassBorder}` }}>

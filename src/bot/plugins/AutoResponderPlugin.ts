@@ -7,9 +7,15 @@ import {
     Guild,
 } from 'discord.js';
 import { z } from 'zod';
+import axios from 'axios';
+import * as mm from 'music-metadata';
 import { IPlugin, IPluginContext } from '../types/plugin';
 import { Logger } from '../utils/logger';
 import { WordCensor } from '../../services/WordCensor.js';
+
+/** Shared with AutoResponderPlugin.hasAudioAttachment and its duration probe, so the two
+ *  can never drift apart on what counts as "an audio file". */
+const AUDIO_EXT = /\.(mp3|wav|flac|ogg|oga|opus|m4a|aac|aiff?|wma|alac)$/i;
 
 /**
  * YAGPDB-style auto-responder.  Matches incoming messages against
@@ -111,7 +117,6 @@ export class AutoResponderPlugin implements IPlugin {
      * audio and are left out.
      */
     private hasAudioAttachment(msg: Message): boolean {
-        const AUDIO_EXT = /\.(mp3|wav|flac|ogg|oga|opus|m4a|aac|aiff?|wma|alac)$/i;
         return msg.attachments.some(a =>
             (a.contentType || '').toLowerCase().startsWith('audio/') || AUDIO_EXT.test(a.name || ''),
         );
@@ -185,6 +190,34 @@ export class AutoResponderPlugin implements IPlugin {
                 }
             }
             return simonMsg;
+        };
+
+        // Lazily probes the message's audio attachment for its duration — memoized so
+        // multiple audioAttachment rules with a minDurationSeconds filter (or the same rule
+        // matching more than one attachment) only download and parse the file once per
+        // message, not once per rule. null means "couldn't determine" (no audio attachment,
+        // download failed, or the file's metadata didn't include a duration) — callers treat
+        // that as "doesn't qualify" rather than guessing, same as a malformed regex is
+        // skipped rather than assumed to match.
+        let audioDurationFetched = false;
+        let audioDurationSecs: number | null = null;
+        const getAudioDurationSecs = async (): Promise<number | null> => {
+            if (!audioDurationFetched) {
+                audioDurationFetched = true;
+                const attachment = msg.attachments.find(a =>
+                    (a.contentType || '').toLowerCase().startsWith('audio/') || AUDIO_EXT.test(a.name || ''),
+                );
+                if (attachment) {
+                    try {
+                        const resp = await axios.get(attachment.url, { responseType: 'arraybuffer', timeout: 15_000 });
+                        const metadata = await mm.parseBuffer(Buffer.from(resp.data), attachment.contentType || undefined);
+                        audioDurationSecs = metadata.format.duration ?? null;
+                    } catch (err: any) {
+                        this.logger.warn(`AutoResponder: failed to probe audio duration for ${attachment.name}: ${err?.message}`);
+                    }
+                }
+            }
+            return audioDurationSecs;
         };
 
         let textResponseSent = false; // only the first matching rule sends a text/embed reply
@@ -268,6 +301,12 @@ export class AutoResponderPlugin implements IPlugin {
                                 return wanted.includes(ext);
                             });
                             if (!ok) break;
+                        }
+                        // e.g. "only fire for clips at least 5 seconds long" — a short
+                        // scrap/preview shouldn't trigger the same reaction as a full track.
+                        if (rule.minDurationSeconds && rule.minDurationSeconds > 0) {
+                            const durationSecs = await getAudioDurationSecs();
+                            if (durationSecs == null || durationSecs < rule.minDurationSeconds) break;
                         }
                         match = [msg.content || ''];
                         break;

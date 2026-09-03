@@ -7885,7 +7885,7 @@ app.put('/api/auto-responder/:guildId/:ruleId', async (req: any, res) => {
         const existing = await db.autoResponderRule.findFirst({ where: { id: ruleId, guildId } });
         if (!existing) return res.status(404).json({ error: 'Rule not found' });
 
-        const { name, trigger, triggerType, response, enabled, allowedChannels, ignoredChannels, allowedRoles, ignoredRoles, cooldownSeconds, cooldownReactionEmoji, embedJson, mentionUser, reactionEmoji, categoryId } = req.body;
+        const { name, trigger, triggerType, response, enabled, allowedChannels, ignoredChannels, allowedRoles, ignoredRoles, cooldownSeconds, cooldownReactionEmoji, embedJson, mentionUser, reactionEmoji, categoryId, minDurationSeconds } = req.body;
 
         // Validate trigger type
         // Must stay in sync with the plugin's switch and the dashboard's TRIGGER_TYPES.
@@ -7925,6 +7925,7 @@ app.put('/api/auto-responder/:guildId/:ruleId', async (req: any, res) => {
                 mentionUser: mentionUser !== undefined ? !!mentionUser : undefined,
                 reactionEmoji: reactionEmoji !== undefined ? (reactionEmoji ? String(reactionEmoji).slice(0, 100) : null) : undefined,
                 categoryId: categoryId !== undefined ? (categoryId || null) : undefined,
+                minDurationSeconds: minDurationSeconds !== undefined ? (minDurationSeconds ? Math.max(0, Math.min(3600, parseInt(minDurationSeconds) || 0)) : null) : undefined,
             },
         });
         res.json(updated);
