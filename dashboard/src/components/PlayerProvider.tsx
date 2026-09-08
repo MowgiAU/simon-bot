@@ -205,9 +205,9 @@ export const PlayerProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
       const nextT = prev.queue[nextIndex];
       hasRecordedPlay.current = null;
-      audio.src = nextT.url || '';
+      audio.src = pickAudioUrl(nextT);
       audio.play().catch(() => {});
-      
+
       return {
         ...prev,
         currentTrack: {
@@ -217,7 +217,8 @@ export const PlayerProvider: React.FC<{ children: ReactNode }> = ({ children }) 
           username: nextT.profile?.username || nextT.username || '',
           slug: nextT.slug || '',
           cover: nextT.coverUrl || nextT.cover || '',
-          url: nextT.url
+          url: nextT.url,
+          mp3Url: nextT.mp3Url || null
         },
         currentIndex: nextIndex,
         isPlaying: true,
@@ -247,7 +248,7 @@ export const PlayerProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
       const prevT = prev.queue[prevIndex];
       hasRecordedPlay.current = null;
-      audio.src = prevT.url || '';
+      audio.src = pickAudioUrl(prevT);
       audio.play().catch(() => {});
 
       return {
@@ -259,7 +260,8 @@ export const PlayerProvider: React.FC<{ children: ReactNode }> = ({ children }) 
           username: prevT.profile?.username || prevT.username || '',
           slug: prevT.slug || '',
           cover: prevT.coverUrl || prevT.cover || '',
-          url: prevT.url
+          url: prevT.url,
+          mp3Url: prevT.mp3Url || null
         },
         currentIndex: prevIndex,
         isPlaying: true,

@@ -144,7 +144,11 @@ export const FrontpageAltF: React.FC = () => {
                 actionLabel: 'Play Now',
                 onAction: () => {
                     if (!t.url) return;
-                    setTrack({ id: t.id, title: t.title, artist: p?.displayName || p?.username || '', url: t.url, coverUrl: t.coverUrl }, []);
+                    // Just this one track as the queue: there's no adjacent list here (it's a single
+                    // curated slide), but a one-item queue at least keeps Next/Prev from silently
+                    // stopping playback the way an empty queue does.
+                    const queueTrack = { id: t.id, title: t.title, artist: p?.displayName || p?.username || '', url: t.url, coverUrl: t.coverUrl };
+                    setTrack(queueTrack, [queueTrack]);
                 },
             });
         } else if (featured.featuredType === 'artist' && featured.featuredArtist) {

@@ -93,12 +93,17 @@ export const TrackFeed: React.FC<Props> = ({ params, title, backTo, browseTo, cr
     const play = useCallback((t: FeedTrack) => {
         const url = trackAudioUrl(t);
         if (!url) return;
+        // `tracks`, not []: this feed already holds the full scrollable list (and grows it
+        // via loadMore as the user nears the end), so the global player's Next/Prev have a
+        // real queue to walk instead of stopping dead after one track. This queue tracks
+        // FeedTrack objects directly — PlayerProvider reads `.url`/`.mp3Url` off them the
+        // same way it does for any other queue.
         setTrack({
             id: t.id, title: t.title, artist: artistName(t),
             username: t.profile?.username, slug: t.slug || undefined,
             url, coverUrl: t.coverUrl || undefined,
-        }, []);
-    }, [setTrack]);
+        }, tracks);
+    }, [setTrack, tracks]);
 
     // ── Which slide is centred ────────────────────────────────────────────────
     // Also derives whether the bottom nav has auto-hidden. Deliberately computed
