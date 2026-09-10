@@ -45,12 +45,13 @@ export const FrontpageAltFSearch: React.FC = () => {
     }, [q]);
 
     const playTrack = (t: any) => {
-        setTrack({
-            id: t.id, title: t.title,
-            artist: t.profile?.displayName || t.profile?.username || 'Unknown',
-            url: t.url, coverUrl: t.coverUrl,
-            username: t.profile?.username, slug: t.slug,
-        }, []);
+        const queue = results.tracks.map(rt => ({
+            id: rt.id, title: rt.title,
+            artist: rt.profile?.displayName || rt.profile?.username || 'Unknown',
+            url: rt.url, mp3Url: rt.mp3Url, coverUrl: rt.coverUrl,
+            username: rt.profile?.username, slug: rt.slug,
+        }));
+        setTrack(queue.find(qt => qt.id === t.id) || queue[0], queue);
     };
 
     const totalResults = results.tracks.length + results.profiles.length + results.genres.length;

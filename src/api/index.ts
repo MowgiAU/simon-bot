@@ -11784,6 +11784,7 @@ app.get('/api/search', publicCache(30), async (req, res) => {
                 },
                 select: {
                     id: true, title: true, slug: true, coverUrl: true, playCount: true,
+                    url: true, mp3Url: true, duration: true,
                     profile: { select: { username: true, displayName: true, avatar: true } },
                 },
                 orderBy: { playCount: 'desc' },
