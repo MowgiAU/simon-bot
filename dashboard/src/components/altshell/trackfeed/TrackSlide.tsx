@@ -68,7 +68,11 @@ export const TrackSlide: React.FC<Props> = ({
     const [dragRatio, setDragRatio] = useState(0);
     const barRef = useRef<HTMLDivElement>(null);
 
-    const cover = track.coverUrl || null;
+    // Falls back to the gradient+icon placeholder below if the cover URL 404s
+    // (e.g. a missing default-artwork asset) instead of leaving a blank slide.
+    const [erroredCoverUrl, setErroredCoverUrl] = useState<string | null>(null);
+    const cover = (track.coverUrl && track.coverUrl !== erroredCoverUrl) ? track.coverUrl : null;
+    const handleCoverError = useCallback(() => setErroredCoverUrl(track.coverUrl || null), [track.coverUrl]);
     const total = duration || track.duration || 0;
     const ratio = dragging ? dragRatio : (total > 0 ? Math.min(1, Math.max(0, currentTime / total)) : 0);
     const accent = track.genres?.[0] ? genreAccent(track.genres[0].name) : PRIMARY;
@@ -143,9 +147,9 @@ export const TrackSlide: React.FC<Props> = ({
             {/* ── Artwork ── */}
             {cover && near ? (
                 <>
-                    <img src={cover} alt="" aria-hidden referrerPolicy="no-referrer"
+                    <img src={cover} alt="" aria-hidden referrerPolicy="no-referrer" onError={handleCoverError}
                         style={{ position: 'absolute', inset: -30, width: 'calc(100% + 60px)', height: 'calc(100% + 60px)', objectFit: 'cover', filter: 'blur(38px) brightness(0.5) saturate(1.6)' }} />
-                    <img src={cover} alt={track.title} referrerPolicy="no-referrer"
+                    <img src={cover} alt={track.title} referrerPolicy="no-referrer" onError={handleCoverError}
                         style={{
                             position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover',
                             animation: playing && active ? 'fujiKenBurns 24s ease-in-out infinite alternate' : undefined,
