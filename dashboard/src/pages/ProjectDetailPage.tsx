@@ -486,7 +486,7 @@ export const ProjectDetailPage: React.FC<Props> = ({ projectId }) => {
                       </button>
                     </div>
                   )}
-                  <input ref={audioInputRef} type="file" accept="audio/*" style={{ display: 'none' }} onChange={handleAudioUpload} />
+                  <input ref={audioInputRef} type="file" accept="audio/*,.mp3,.wav,.flac,.ogg,.m4a,.aac,.aiff,.aif,.opus,.wma" style={{ display: 'none' }} onChange={handleAudioUpload} />
                 </div>
 
                 {/* Version actions */}

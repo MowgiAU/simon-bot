@@ -955,7 +955,7 @@ export const BeatBattlePage: React.FC = () => {
                                                 <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '3px 10px', backgroundColor: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: borderRadius.sm, cursor: uploadingRuleIdx === ri ? 'not-allowed' : 'pointer', fontSize: '11px', color: colors.textPrimary }}>
                                                     {uploadingRuleIdx === ri ? <Loader2 size={11} style={{ animation: 'spin 1s linear infinite' }} /> : <Music size={11} />}
                                                     {uploadingRuleIdx === ri ? 'Uploading...' : 'Add Sample'}
-                                                    <input type="file" accept="audio/*" style={{ display: 'none' }} disabled={uploadingRuleIdx === ri} onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadRuleSample(ri, f); e.target.value = ''; }} />
+                                                    <input type="file" accept="audio/*,.mp3,.wav,.flac,.ogg,.m4a,.aac,.aiff,.aif,.opus,.wma" style={{ display: 'none' }} disabled={uploadingRuleIdx === ri} onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadRuleSample(ri, f); e.target.value = ''; }} />
                                                 </label>
                                             </div>
                                         </div>

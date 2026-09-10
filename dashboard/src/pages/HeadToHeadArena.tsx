@@ -885,7 +885,7 @@ export const ActiveMatchPanel: React.FC<{ match: MatchInfo; myUserId: string; on
                             boxShadow: `0 0 18px ${NEON.pink}66`,
                         }}>
                             <Upload size={18} /> {submitting ? 'Uploading…' : (mySubmitted ? 'Replace Submission' : 'Submit Track')}
-                            <input type="file" accept="audio/*" style={{ display: 'none' }}
+                            <input type="file" accept="audio/*,.mp3,.wav,.flac,.ogg,.m4a,.aac,.aiff,.aif,.opus,.wma" style={{ display: 'none' }}
                                 disabled={submitting}
                                 onChange={e => e.target.files?.[0] && submit(e.target.files[0])} />
                         </label>

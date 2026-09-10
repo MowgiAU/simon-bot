@@ -424,7 +424,7 @@ export const ArticleEditorRich: React.FC<ArticleEditorRichProps> = ({ value, onC
             {/* Hidden file inputs */}
             <input ref={imageInputRef} type="file" accept="image/*" style={{ display: 'none' }}
                 onChange={e => { const f = e.target.files?.[0]; if (f) doImageUpload(f); e.target.value = ''; }} />
-            <input ref={audioInputRef} type="file" accept="audio/*" style={{ display: 'none' }}
+            <input ref={audioInputRef} type="file" accept="audio/*,.mp3,.wav,.flac,.ogg,.m4a,.aac,.aiff,.aif,.opus,.wma" style={{ display: 'none' }}
                 onChange={e => { const f = e.target.files?.[0]; if (f) doFileUpload(f, 'audio'); e.target.value = ''; }} />
             <input ref={projectInputRef} type="file" style={{ display: 'none' }}
                 onChange={e => { const f = e.target.files?.[0]; if (f) doFileUpload(f, 'project'); e.target.value = ''; }} />

@@ -3,12 +3,13 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./components/AuthProvider";
 import { AnalyticsProvider } from "./components/Analytics";
 import { ResourceProvider } from "./components/ResourceProvider";
-import { PlayerProvider } from "./components/PlayerProvider";
+import { PlayerProvider, usePlayer } from "./components/PlayerProvider";
 import { GlobalPlayer } from "./components/GlobalPlayer";
+import { BugReportButton } from "./components/BugReportButton";
+import { useAltBreakpoint } from "./components/altshell/useAltBreakpoint";
 import { ToastContainer } from "./components/Toast";
 import { ChatProvider, useChat } from "./components/ChatProvider";
 import { ChatHead } from "./components/ChatHead";
-import { useAltBreakpoint } from "./components/altshell/useAltBreakpoint";
 import './lib/errorCapture'; // initialise global error listener as side-effect
 import { registerPushNotifications, unregisterPushNotifications, initPushNotificationListeners } from './services/PushNotificationService';
 import { Sidebar } from "./layouts/Sidebar";
@@ -1248,6 +1249,26 @@ const AppInternal: React.FC = () => {
  * useAuth() and usePlayer() are available in EVERY route without crashing.
  * ResourceProvider is only loaded for /dashboard (it fetches guild data).
  */
+/**
+ * Floats the bug-report trigger above the docked player/mobile nav on every
+ * route. Used to live inside the retired DiscoveryLayout, which only wrapped
+ * the old public site — once that layout was dropped in the Alt F migration
+ * the button silently stopped rendering anywhere. Mounting it here (alongside
+ * GlobalPlayer, which took the same "always on" route) keeps it visible
+ * regardless of which layout a page uses.
+ */
+const GlobalBugReport: React.FC = () => {
+  const { player } = usePlayer();
+  const bp = useAltBreakpoint();
+  const isMobile = bp === 'xs' || bp === 'sm';
+  const hasPlayer = !!player.currentTrack;
+  const collapsed = localStorage.getItem('player_collapsed') === '1';
+  const bottom = isMobile
+    ? (!hasPlayer ? '76px' : collapsed ? '120px' : '176px')
+    : (!hasPlayer ? '24px' : collapsed ? '60px' : '96px');
+  return <BugReportButton bottom={bottom} right={isMobile ? '16px' : '24px'} />;
+};
+
 /** Renders floating chat head windows from ChatProvider state */
 const ChatHeadContainer: React.FC = () => {
   const { openChats } = useChat();
@@ -1299,6 +1320,7 @@ export const App: React.FC = () => {
             <ChatWrapper>
               <AppInternal />
               <GlobalPlayer />
+              <GlobalBugReport />
               <ToastContainer />
               <ImpersonationBanner />
             </ChatWrapper>

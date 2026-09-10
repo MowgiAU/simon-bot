@@ -832,7 +832,7 @@ export const MyTracksPage: React.FC = () => {
                                 {audioFile ? `${audioFile.name} (${(audioFile.size / 1024 / 1024).toFixed(1)}MB)` : dragOver === 'audio' ? 'Drop to select' : (isEdit ? 'Drop a file or click to replace — Max 100MB' : 'Drop audio here or click — MP3, WAV, FLAC, OGG · Max 100MB')}
                             </div>
                         </div>
-                        <input type="file" accept="audio/*" onChange={e => setAudioFile(e.target.files?.[0] || null)} style={{ display: 'none' }} />
+                        <input type="file" accept="audio/*,.mp3,.wav,.flac,.ogg,.m4a,.aac,.aiff,.aif,.opus,.wma" onChange={e => setAudioFile(e.target.files?.[0] || null)} style={{ display: 'none' }} />
                     </label>
 
                     {/* Artwork */}

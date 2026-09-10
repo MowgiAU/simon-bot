@@ -305,7 +305,7 @@ const PoolCard: React.FC<{
                     )}
                     <label style={{ background: colors.background, color: colors.textPrimary, padding: '6px 10px', borderRadius: 6, cursor: 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', gap: 4, border: `1px solid ${colors.border}` }}>
                         <Upload size={14} /> Upload
-                        <input type="file" multiple accept={NON_AUDIO_CATEGORIES.has(uploadCategory) ? undefined : 'audio/*'} style={{ display: 'none' }}
+                        <input type="file" multiple accept={NON_AUDIO_CATEGORIES.has(uploadCategory) ? undefined : 'audio/*,.mp3,.wav,.flac,.ogg,.m4a,.aac,.aiff,.aif,.opus,.wma'} style={{ display: 'none' }}
                             onChange={e => e.target.files && onUpload(e.target.files, uploadCategory, uploadPluginName)} />
                     </label>
                     <button onClick={onToggle} style={{ background: 'transparent', border: `1px solid ${colors.border}`, color: colors.textSecondary, padding: '6px 10px', borderRadius: 6, cursor: 'pointer', fontSize: 13 }}>
