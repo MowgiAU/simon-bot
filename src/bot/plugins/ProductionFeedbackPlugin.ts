@@ -446,16 +446,20 @@ export class ProductionFeedbackPlugin implements IPlugin {
 
         if (isOpener) return; // Handled by onThreadCreate
 
-        // OP self-feedback block: thread owners can't earn rewards on their own posts
-        if (channel.ownerId === message.author.id) return;
-
         // --- Audio Interception Logic ---
+        // Deliberately ahead of the OP self-reward check below. A thread owner
+        // dropping a second track into their own thread still goes through
+        // review — otherwise they'd get unlimited songs on one thread's worth of
+        // points. They just never earn anything for it (see the approve handler).
         const hasAudio = message.attachments.some(a => a.contentType?.startsWith('audio/') || a.contentType?.startsWith('video/'));
         if (hasAudio) {
             // Delete and Queue
             await this.handleAudioIntercept(message);
             return;
         }
+
+        // OP self-feedback block: thread owners can't earn rewards on their own posts
+        if (channel.ownerId === message.author.id) return;
 
         // --- AI Feedback Logic ---
         // Earn Points: "Users can only earn points once per thread"
@@ -630,6 +634,14 @@ export class ProductionFeedbackPlugin implements IPlugin {
         return count > 0;
     }
 
+    /** True when the user owns the thread the post is in — i.e. it's their own track, not feedback. */
+    private async isOwnThread(guild: Message['guild'], threadId: string | null, userId: string): Promise<boolean> {
+        if (!guild || !threadId) return false;
+        const thread = guild.channels.cache.get(threadId)
+            ?? await guild.channels.fetch(threadId).catch(() => null);
+        return !!thread && thread.isThread() && thread.ownerId === userId;
+    }
+
     private async rewardUser(userId: string, guildId: string, amount: number) {
         if (!this.context) return;
         await this.context.db.feedbackPoints.upsert({
@@ -683,6 +695,12 @@ export class ProductionFeedbackPlugin implements IPlugin {
         
         const attachment = message.attachments.first();
 
+        // The thread owner posting more audio is a different call for the
+        // reviewer than someone leaving audio feedback: it's either a revised
+        // mix (fine) or a second song dodging the per-thread cost (not fine).
+        const isOwnerPost = message.channel.isThread()
+            && (message.channel as ThreadChannel).ownerId === message.author.id;
+
         // 1. Fetch the original track from the starter message
         let originalAttachment: Attachment | null = null;
         try {
@@ -704,8 +722,11 @@ export class ProductionFeedbackPlugin implements IPlugin {
                      if (originalAttachment) files.push({ attachment: originalAttachment.url, name: `ORIGINAL_${originalAttachment.name}` });
                      files.push({ attachment: attachment.url, name: `FEEDBACK_${attachment.name}` });
 
+                     const header = isOwnerPost
+                         ? `**Pending Audio Review** — ⚠️ thread owner posting another track in their own thread (revised mix, or a second song avoiding the point cost?)`
+                         : `**Pending Audio Review**`;
                      reviewMessage = await reviewChannel.send({
-                         content: `**Pending Audio Review**\nUser: <@${message.author.id}>\nThread: <#${message.channel.id}>\nOriginal Content: "${message.content}"`,
+                         content: `${header}\nUser: <@${message.author.id}>\nThread: <#${message.channel.id}>\nOriginal Content: "${message.content}"`,
                          files,
                          // Original Content above is raw user text and could contain @everyone/other
                          // mentions — only allow the one legitimate ping (the review's own author).
@@ -763,7 +784,9 @@ export class ProductionFeedbackPlugin implements IPlugin {
 
         // Notify user
         const response = await (message.channel as TextChannel).send({
-            content: `<@${message.author.id}> your audio reply has been queued for moderation. It will appear once approved.`,
+            content: isOwnerPost
+                ? `<@${message.author.id}> extra tracks in your own thread need approval — yours has been queued and will appear once approved.`
+                : `<@${message.author.id}> your audio reply has been queued for moderation. It will appear once approved.`,
             allowedMentions: { users: [message.author.id] },
         });
         setTimeout(() => response.delete().catch(() => {}), 10000);
@@ -874,25 +897,30 @@ export class ProductionFeedbackPlugin implements IPlugin {
                     }
                 }
 
-                // Reward with feedback points
-                const settings = await this.context.db.feedbackSettings.findUnique({ where: { guildId: interaction.guildId } });
-                const reward = settings?.feedbackPointsReward || 1;
-                await this.context.db.$transaction(async (tx: any) => {
-                     await tx.feedbackPoints.upsert({
-                        where: { guildId_userId: { guildId: post.guildId, userId: post.userId } },
-                        update: { balance: { increment: reward }, totalEarned: { increment: reward } },
-                        create: { guildId: post.guildId, userId: post.userId, balance: reward, totalEarned: reward }
+                // Reward with feedback points — but never for a post in the
+                // author's own thread. Approving one of those just lets the
+                // track through; it isn't feedback, so it earns nothing.
+                const ownThread = await this.isOwnThread(interaction.guild!, post.threadId, post.userId);
+                if (!ownThread) {
+                    const settings = await this.context.db.feedbackSettings.findUnique({ where: { guildId: interaction.guildId } });
+                    const reward = settings?.feedbackPointsReward || 1;
+                    await this.context.db.$transaction(async (tx: any) => {
+                         await tx.feedbackPoints.upsert({
+                            where: { guildId_userId: { guildId: post.guildId, userId: post.userId } },
+                            update: { balance: { increment: reward }, totalEarned: { increment: reward } },
+                            create: { guildId: post.guildId, userId: post.userId, balance: reward, totalEarned: reward }
+                        });
+                        await tx.feedbackPointsTransaction.create({
+                            data: {
+                                guildId: post.guildId,
+                                userId: post.userId,
+                                amount: reward,
+                                type: 'EARNED_FEEDBACK',
+                                reason: 'Feedback Approved by Admin (Button)'
+                            }
+                        });
                     });
-                    await tx.feedbackPointsTransaction.create({
-                        data: {
-                            guildId: post.guildId,
-                            userId: post.userId,
-                            amount: reward,
-                            type: 'EARNED_FEEDBACK',
-                            reason: 'Feedback Approved by Admin (Button)'
-                        }
-                    });
-                });
+                }
 
                 // Update DB state
                 await this.context.db.feedbackPost.update({
