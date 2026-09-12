@@ -6,7 +6,19 @@ import path from 'path';
 import axios from 'axios';
 import FormData from 'form-data';
 import fs from 'fs';
+import * as mm from 'music-metadata';
 import { FeedbackAIService, FeedbackAnalysisContext } from '../services/FeedbackAIService';
+
+/**
+ * Audio at or under this length is a clip — "the swoosh", a two-bar snippet,
+ * the section someone is asking about — so it's discussion and passes freely.
+ * Anything longer is a track, and a track that isn't the thread's opening post
+ * needs approval rather than riding on a thread someone already paid for.
+ */
+const CLIP_MAX_SECONDS = 30;
+
+/** Past this, probing isn't worth the download — nothing this big is a 30s clip. */
+const PROBE_MAX_BYTES = 25 * 1024 * 1024;
 
 export class ProductionFeedbackPlugin implements IPlugin {
     id = 'production-feedback';
@@ -447,15 +459,25 @@ export class ProductionFeedbackPlugin implements IPlugin {
         if (isOpener) return; // Handled by onThreadCreate
 
         // --- Audio Interception Logic ---
-        // Deliberately ahead of the OP self-reward check below. A thread owner
-        // dropping a second track into their own thread still goes through
-        // review — otherwise they'd get unlimited songs on one thread's worth of
-        // points. They just never earn anything for it (see the approve handler).
-        const hasAudio = message.attachments.some(a => a.contentType?.startsWith('audio/') || a.contentType?.startsWith('video/'));
-        if (hasAudio) {
-            // Delete and Queue
-            await this.handleAudioIntercept(message);
-            return;
+        // Any full-length audio that isn't the thread's opening post needs
+        // approval, whoever posted it — including the thread owner, who would
+        // otherwise get unlimited songs on one thread's worth of points. Short
+        // clips are how people actually discuss a mix, so they pass untouched.
+        //
+        // Deliberately ahead of the OP self-reward check below: the owner still
+        // gets reviewed, they just never earn for it (see the approve handler).
+        const audioAttachments = [...message.attachments.values()].filter(
+            a => a.contentType?.startsWith('audio/') || a.contentType?.startsWith('video/'),
+        );
+        if (audioAttachments.length) {
+            const lengths = await Promise.all(audioAttachments.map(a => this.isLongerThanClip(a)));
+            if (lengths.some(Boolean)) {
+                // Delete and Queue
+                await this.handleAudioIntercept(message);
+                return;
+            }
+            // Clip-length only — falls through to the normal text-feedback path,
+            // so an explanation posted alongside it can still earn as usual.
         }
 
         // OP self-feedback block: thread owners can't earn rewards on their own posts
@@ -634,6 +656,27 @@ export class ProductionFeedbackPlugin implements IPlugin {
         return count > 0;
     }
 
+    /**
+     * True when an attachment runs longer than a discussion clip.
+     *
+     * Unknown duration counts as long on purpose: a file we can't read must not
+     * become the way past review. A mod approving the occasional odd-format clip
+     * is a far cheaper mistake than a track slipping through unseen.
+     */
+    private async isLongerThanClip(attachment: Attachment): Promise<boolean> {
+        if (attachment.size > PROBE_MAX_BYTES) return true;
+        try {
+            const resp = await axios.get(attachment.url, { responseType: 'arraybuffer', timeout: 20_000 });
+            const metadata = await mm.parseBuffer(Buffer.from(resp.data), attachment.contentType || undefined);
+            const secs = metadata.format.duration;
+            if (secs == null) return true;
+            return secs > CLIP_MAX_SECONDS;
+        } catch (err: any) {
+            this.logger.warn(`Feedback: couldn't probe duration for ${attachment.name}: ${err?.message}`);
+            return true;
+        }
+    }
+
     /** True when the user owns the thread the post is in — i.e. it's their own track, not feedback. */
     private async isOwnThread(guild: Message['guild'], threadId: string | null, userId: string): Promise<boolean> {
         if (!guild || !threadId) return false;
@@ -785,8 +828,8 @@ export class ProductionFeedbackPlugin implements IPlugin {
         // Notify user
         const response = await (message.channel as TextChannel).send({
             content: isOwnerPost
-                ? `<@${message.author.id}> extra tracks in your own thread need approval — yours has been queued and will appear once approved.`
-                : `<@${message.author.id}> your audio reply has been queued for moderation. It will appear once approved.`,
+                ? `<@${message.author.id}> extra full-length tracks in your own thread need approval — yours is queued and will appear once approved. Clips under ${CLIP_MAX_SECONDS}s post normally.`
+                : `<@${message.author.id}> audio over ${CLIP_MAX_SECONDS}s needs approval — yours is queued and will appear once approved. Shorter clips post normally.`,
             allowedMentions: { users: [message.author.id] },
         });
         setTimeout(() => response.delete().catch(() => {}), 10000);
