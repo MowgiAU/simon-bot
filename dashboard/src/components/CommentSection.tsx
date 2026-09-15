@@ -315,18 +315,40 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ trackId, profile
     // Links like ".../track#comment-<id>" (e.g. the Recent Comments sidebar) jump to
     // and briefly highlight that comment. Runs once comments have actually loaded,
     // since the element doesn't exist before then.
+    //
+    // The pages hosting this keep growing after comments arrive (artwork, waveform,
+    // lyrics), which pushes the comment down — so a single smooth scroll lands short.
+    // Instead: jump instantly, then re-align a few times while layout settles, and
+    // stop the moment the visitor scrolls themselves.
     const location = useLocation();
     const [highlightId, setHighlightId] = useState<string | null>(null);
     useEffect(() => {
         const m = location.hash.match(/^#comment-(.+)$/);
         if (!m || loading) return;
         const id = decodeURIComponent(m[1]);
-        const el = document.getElementById(`comment-${id}`);
-        if (!el) return;
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        setHighlightId(id);
-        const t = setTimeout(() => setHighlightId(null), 2500);
-        return () => clearTimeout(t);
+        if (!document.getElementById(`comment-${id}`)) return;
+
+        let userScrolled = false;
+        const onUserScroll = () => { userScrolled = true; };
+        const opts = { passive: true } as AddEventListenerOptions;
+        window.addEventListener('wheel', onUserScroll, opts);
+        window.addEventListener('touchmove', onUserScroll, opts);
+        window.addEventListener('keydown', onUserScroll);
+
+        const align = () => {
+            if (userScrolled) return;
+            document.getElementById(`comment-${id}`)?.scrollIntoView({ behavior: 'auto', block: 'center' });
+        };
+        const timers = [0, 250, 600, 1000, 1500].map(ms => setTimeout(align, ms));
+        timers.push(setTimeout(() => setHighlightId(id), 1500));
+        timers.push(setTimeout(() => setHighlightId(null), 5000));
+
+        return () => {
+            timers.forEach(clearTimeout);
+            window.removeEventListener('wheel', onUserScroll);
+            window.removeEventListener('touchmove', onUserScroll);
+            window.removeEventListener('keydown', onUserScroll);
+        };
     }, [location.hash, loading, comments.length]);
 
     // Close pickers on outside click
