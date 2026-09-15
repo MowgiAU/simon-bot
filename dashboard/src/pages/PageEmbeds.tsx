@@ -60,6 +60,11 @@ export const PageEmbedsPage: React.FC = () => {
     ...KNOWN_PATHS,
     ...embeds.filter(e => !KNOWN_PATHS.some(k => k.path === e.path)).map(e => ({ path: e.path, label: e.path, custom: true })),
   ];
+  // A just-added custom path has no saved row yet, and the editor only renders
+  // inside this list — without this it opens invisibly and Add does nothing.
+  if (editing && !allPaths.some(p => p.path === editing.path)) {
+    allPaths.push({ path: editing.path, label: editing.path, custom: true });
+  }
 
   const startEdit = (path: string, label: string) => {
     const existing = embedMap.get(path);
@@ -100,8 +105,12 @@ export const PageEmbedsPage: React.FC = () => {
   };
 
   const addCustom = () => {
-    if (!newPath.trim()) return;
-    const p = newPath.trim().startsWith('/') ? newPath.trim() : `/${newPath.trim()}`;
+    // Shared links are matched on the bare path, so "/foo/", "/foo?x" or a pasted
+    // full URL would save but never match — normalise to "/foo".
+    let p = newPath.trim().replace(/^https?:\/\/[^/]+/i, '').split(/[?#]/)[0];
+    if (!p.startsWith('/')) p = `/${p}`;
+    if (p.length > 1) p = p.replace(/\/+$/, '');
+    if (p === '/') return; // already listed as Home
     setShowAddForm(false);
     setNewPath('');
     startEdit(p, p);

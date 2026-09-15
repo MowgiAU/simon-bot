@@ -17217,7 +17217,9 @@ if (fs.existsSync(distPath)) {
             const baseUrl = `${req.protocol}://${req.get('host')}`;
             const toAbsolute = (u: string | null | undefined): string | null =>
                 u ? (u.startsWith('http') ? u : `${baseUrl}${u}`) : null;
-            const defaultImage = `${baseUrl}/og-default.png`;
+            // og-default.png never existed — it fell through to the SPA and served HTML,
+            // so every embed without its own image showed a broken preview.
+            const defaultImage = `${baseUrl}/fujistudiothumbnail.png`;
 
             try {
                 // ── Track page: /profile/:username/:slug  or  /track/:username/:slug ──
@@ -17469,13 +17471,45 @@ if (fs.existsSync(distPath)) {
                     const [, slug] = articleMatch;
                     const article: any = await (db as any).article?.findFirst?.({ where: { slug, status: 'published' } });
                     if (article) {
-                        const title = article.metaTitle || article.title || 'Article';
-                        const desc  = article.metaDescription || article.excerpt || article.content?.slice(0, 160) || '';
-                        const image = toAbsolute(article.coverImageUrl) ?? defaultImage;
+                        // content is rich editor HTML — strip it before it can become the
+                        // description, or the preview shows literal tags and entities.
+                        const plain = String(article.content || '')
+                            .replace(/<(script|style)[\s\S]*?<\/\1>/gi, ' ')
+                            .replace(/<[^>]+>/g, ' ')
+                            .replace(/&nbsp;/gi, ' ').replace(/&amp;/gi, '&').replace(/&lt;/gi, '<').replace(/&gt;/gi, '>').replace(/&quot;/gi, '"').replace(/&#39;/gi, "'")
+                            .replace(/\s+/g, ' ').trim();
+                        const clip = (s: string, n: number) => s.length > n ? `${s.slice(0, n - 1).replace(/\s+\S*$/, '')}…` : s;
+
+                        const baseTitle = (article.metaTitle || article.title || 'Article').trim();
+                        const title = /\|\s*Fuji Studio\s*$/i.test(baseTitle) ? baseTitle : `${baseTitle} | Fuji Studio`;
+                        const desc = clip(
+                            (article.metaDescription || article.excerpt || article.subtitle || plain || `Read ${baseTitle} on Fuji Studio.`).trim(),
+                            200,
+                        );
+                        // Cover → square thumbnail → first image in the body → site default.
+                        const firstBodyImg = String(article.content || '').match(/<img[^>]+src=["']([^"']+)["']/i)?.[1];
+                        const image = toAbsolute(article.coverImageUrl)
+                            ?? toAbsolute(article.squareThumbnailUrl)
+                            ?? toAbsolute(firstBodyImg && !firstBodyImg.startsWith('data:') ? firstBodyImg : null)
+                            ?? defaultImage;
+
                         const extras: string[] = [];
                         if (article.publishedAt) extras.push(`<meta property="article:published_time" content="${new Date(article.publishedAt).toISOString()}">`);
                         if (article.updatedAt)   extras.push(`<meta property="article:modified_time" content="${new Date(article.updatedAt).toISOString()}">`);
-                        return res.send(ogPage({ title: `${title} | Fuji Studio`, description: desc, type: 'article', url: `${baseUrl}/article/${slug}`, image, imageAlt: title }, extras));
+                        if (article.authorName)  extras.push(`<meta property="article:author" content="${escapeHtml(article.authorName)}">`);
+                        if (article.category)    extras.push(`<meta property="article:section" content="${escapeHtml(article.category)}">`);
+                        const schema = {
+                            '@type': 'Article',
+                            headline: baseTitle,
+                            description: desc,
+                            image,
+                            url: `${baseUrl}/article/${slug}`,
+                            ...(article.publishedAt ? { datePublished: new Date(article.publishedAt).toISOString() } : {}),
+                            ...(article.updatedAt ? { dateModified: new Date(article.updatedAt).toISOString() } : {}),
+                            ...(article.authorName ? { author: { '@type': 'Person', name: article.authorName } } : {}),
+                            publisher: { '@id': `${baseUrl}/#organization` },
+                        };
+                        return res.send(ogPage({ title, description: desc, type: 'article', url: `${baseUrl}/article/${slug}`, image, imageAlt: baseTitle }, extras, schema));
                     }
                 }
 
