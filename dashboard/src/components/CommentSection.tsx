@@ -10,7 +10,7 @@ import {
     MessageCircle, Send, Trash2, Edit3, X, Smile, Image as ImageIcon,
     Search, Loader2, ChevronDown, Reply, ThumbsUp, ThumbsDown
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 
 const API = import.meta.env.VITE_API_URL || '';
 
@@ -312,6 +312,23 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ trackId, profile
         fetchComments();
     }, [fetchComments]);
 
+    // Links like ".../track#comment-<id>" (e.g. the Recent Comments sidebar) jump to
+    // and briefly highlight that comment. Runs once comments have actually loaded,
+    // since the element doesn't exist before then.
+    const location = useLocation();
+    const [highlightId, setHighlightId] = useState<string | null>(null);
+    useEffect(() => {
+        const m = location.hash.match(/^#comment-(.+)$/);
+        if (!m || loading) return;
+        const id = decodeURIComponent(m[1]);
+        const el = document.getElementById(`comment-${id}`);
+        if (!el) return;
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setHighlightId(id);
+        const t = setTimeout(() => setHighlightId(null), 2500);
+        return () => clearTimeout(t);
+    }, [location.hash, loading, comments.length]);
+
     // Close pickers on outside click
     useEffect(() => {
         const handler = (e: MouseEvent) => {
@@ -584,7 +601,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ trackId, profile
             ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                     {comments.map(comment => (
-                        <div key={comment.id} style={{ display: 'flex', gap: '12px', padding: '12px', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: borderRadius.md, border: '1px solid rgba(255,255,255,0.04)' }}>
+                        <div key={comment.id} id={`comment-${comment.id}`} style={{ display: 'flex', gap: '12px', padding: '12px', backgroundColor: highlightId === comment.id ? `${colors.primary}1f` : 'rgba(255,255,255,0.02)', borderRadius: borderRadius.md, border: `1px solid ${highlightId === comment.id ? colors.primary : 'rgba(255,255,255,0.04)'}`, transition: 'background-color 0.6s, border-color 0.6s', scrollMarginTop: 80 }}>
                             {/* Avatar */}
                             <div style={{ flexShrink: 0 }}>
                                 {comment.profileUsername ? (

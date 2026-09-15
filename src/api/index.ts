@@ -21751,6 +21751,7 @@ app.get('/api/comments/recent', async (_req: any, res) => {
             where: {
                 createdAt: { gte: since },
                 deletedAt: null,
+                hiddenAt: null,
                 parentId: null,
                 OR: [
                     { track: { isPublic: true, status: 'active' } },
@@ -21762,7 +21763,8 @@ app.get('/api/comments/recent', async (_req: any, res) => {
             select: {
                 id: true, userId: true, username: true, avatarUrl: true,
                 content: true, trackId: true, profileId: true, createdAt: true,
-                track: { select: { id: true, title: true, coverUrl: true } },
+                // slug + owner username are what the sidebar needs to link to the comment
+                track: { select: { id: true, title: true, slug: true, coverUrl: true, profile: { select: { username: true } } } },
                 profile: { select: { id: true, username: true, displayName: true } },
             },
         });

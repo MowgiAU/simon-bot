@@ -218,8 +218,12 @@ export const AltActivitySidebar: React.FC<{ topSlot?: React.ReactNode; showCommu
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                     {comments.map((c: any) => {
                         const targetName = c.track?.title || c.profile?.displayName || c.profile?.username || 'a post';
-                        return (
-                            <div key={c.id} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                        const targetPath = c.track?.slug && c.track?.profile?.username
+                            ? `/profile/${c.track.profile.username}/${c.track.slug}`
+                            : c.profile?.username ? `/profile/${c.profile.username}` : null;
+                        const rowStyle: React.CSSProperties = { display: 'flex', gap: 10, alignItems: 'flex-start', textDecoration: 'none', color: 'inherit', borderRadius: 8, margin: -4, padding: 4, transition: 'background 0.15s' };
+                        const body = (
+                            <>
                                 <div style={{ width: 28, height: 28, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, background: S_HIGH, marginTop: 1 }}>
                                     {c.avatarUrl && (
                                         <img src={c.avatarUrl} alt="" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -234,7 +238,16 @@ export const AltActivitySidebar: React.FC<{ topSlot?: React.ReactNode; showCommu
                                         {c.content.length > 80 ? c.content.slice(0, 80) + '…' : c.content}
                                     </p>
                                 </div>
-                            </div>
+                            </>
+                        );
+                        return targetPath ? (
+                            <Link key={c.id} to={`${targetPath}#comment-${c.id}`} style={rowStyle}
+                                onMouseEnter={e => (e.currentTarget.style.background = S_HIGH)}
+                                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                                {body}
+                            </Link>
+                        ) : (
+                            <div key={c.id} style={rowStyle}>{body}</div>
                         );
                     })}
                 </div>
