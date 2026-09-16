@@ -434,6 +434,12 @@ model Member {
   lastDailyAt       DateTime?
   earnedRoles       String[]  @default([])
 
+  // Every role the member held, kept current while they're in the guild so it
+  // survives them leaving. earnedRoles only ever covered level rewards, so
+  // manually-assigned roles had nothing to restore from.
+  stickyRoles        String[]  @default([])
+  stickyRolesSavedAt DateTime?
+
   // Currency system
   balance Int @default(0)
 

@@ -59,7 +59,7 @@ export class LevelingPlugin implements IPlugin {
 
     readonly requiredPermissions = [PermissionFlagsBits.ManageRoles];
     readonly commands = ['rank', 'leaderboard', 'xp', 'leveling-sync', 'xpboost'];
-    readonly events = ['interactionCreate', 'messageCreate', 'voiceStateUpdate', 'messageReactionAdd', 'guildMemberAdd'];
+    readonly events = ['interactionCreate', 'messageCreate', 'voiceStateUpdate', 'messageReactionAdd', 'guildMemberAdd', 'guildMemberRemove', 'guildMemberUpdate'];
     readonly dashboardSections = ['leveling'];
     readonly defaultEnabled = true;
 
@@ -279,31 +279,97 @@ export class LevelingPlugin implements IPlugin {
             const dbMember = await this.db.member.findUnique({
                 where: { guildId_userId: { guildId: member.guild.id, userId: member.id } },
             });
-            if (!dbMember || !dbMember.earnedRoles || dbMember.earnedRoles.length === 0) return;
+            if (!dbMember) return;
+
+            // Everything they held when they left, plus level rewards flagged sticky.
+            // The second set is kept for members who left before role snapshots
+            // existed — earnedRoles is all we have for them.
+            const wanted = new Set<string>(dbMember.stickyRoles ?? []);
 
             const settings = await this.getSettings(member.guild.id);
-            if (!settings) return;
-
-            const rewards = await this.db.levelRoleReward.findMany({
-                where: { settingsId: settings.id, sticky: true },
-            });
-            const stickyRoleIds = new Set(rewards.map(r => r.roleId));
-
-            let restored = 0;
-            for (const roleId of dbMember.earnedRoles) {
-                if (!stickyRoleIds.has(roleId)) continue;
-                const role = member.guild.roles.cache.get(roleId);
-                if (role) {
-                    await member.roles.add(role, 'Leveling: Sticky role restore').catch(() => {});
-                    restored++;
-                }
+            if (settings && dbMember.earnedRoles?.length) {
+                const rewards = await this.db.levelRoleReward.findMany({
+                    where: { settingsId: settings.id, sticky: true },
+                });
+                const rewardIds = new Set(rewards.map(r => r.roleId));
+                for (const roleId of dbMember.earnedRoles) if (rewardIds.has(roleId)) wanted.add(roleId);
             }
-            if (restored > 0) {
-                this.logger.info(`Restored ${restored} sticky roles for ${member.user.username} in ${member.guild.name}`);
-            }
+            if (wanted.size === 0) return;
+
+            const toRestore = [...wanted]
+                .map(id => member.guild.roles.cache.get(id))
+                .filter((r: any) => r && this.canRestoreRole(member.guild, r));
+
+            if (toRestore.length === 0) return;
+            // One API call rather than one per role.
+            await member.roles.add(toRestore, 'Sticky roles: restored on rejoin').catch((e: any) =>
+                this.logger.warn(`Sticky role restore failed for ${member.user.username}: ${e?.message}`));
+
+            const skipped = wanted.size - toRestore.length;
+            this.logger.info(
+                `Restored ${toRestore.length} sticky roles for ${member.user.username} in ${member.guild.name}` +
+                (skipped > 0 ? ` (${skipped} skipped: deleted, managed, above the bot, or permission-bearing)` : ''),
+            );
         } catch (e) {
             this.logger.error('Sticky role restore error', e);
         }
+    }
+
+    /**
+     * Roles that carry staff power are deliberately not handed back automatically:
+     * someone kicked without their roles being stripped would otherwise walk back
+     * in with them. They're re-added by hand instead.
+     */
+    private static readonly PRIVILEGED_PERMISSIONS = [
+        PermissionFlagsBits.Administrator,
+        PermissionFlagsBits.ManageGuild,
+        PermissionFlagsBits.ManageRoles,
+        PermissionFlagsBits.ManageChannels,
+        PermissionFlagsBits.BanMembers,
+        PermissionFlagsBits.KickMembers,
+    ];
+
+    /** Whether the bot can and should re-add this role. */
+    private canRestoreRole(guild: any, role: any): boolean {
+        if (role.id === guild.id) return false;          // @everyone
+        if (role.managed) return false;                   // bot/integration/booster roles — Discord owns these
+        const me = guild.members.me;
+        if (!me || role.position >= me.roles.highest.position) return false; // above the bot: the add would just fail
+        return !LevelingPlugin.PRIVILEGED_PERMISSIONS.some(p => role.permissions.has(p));
+    }
+
+    /** Snapshot the member's current roles so they survive a leave. */
+    private async saveRoles(member: any): Promise<void> {
+        if (member.user?.bot) return;
+        const guildId = member.guild?.id;
+        if (!guildId || !member.roles?.cache) return;
+        const roleIds = [...member.roles.cache.keys()].filter((id: string) => id !== guildId);
+        try {
+            await this.db.member.upsert({
+                where: { guildId_userId: { guildId, userId: member.id } },
+                update: { stickyRoles: roleIds, stickyRolesSavedAt: new Date() },
+                create: { guildId, userId: member.id, stickyRoles: roleIds, stickyRolesSavedAt: new Date() },
+            });
+        } catch (e: any) {
+            this.logger.warn(`Could not save sticky roles for ${member.id}: ${e?.message}`);
+        }
+    }
+
+    async onGuildMemberRemove(member: any): Promise<void> {
+        await this.saveRoles(member);
+    }
+
+    /**
+     * Keeps the snapshot current while they're still here. Without this, a member
+     * who isn't in the cache when they leave would have no roles to save — and by
+     * definition anyone whose roles changed has been cached.
+     */
+    async onGuildMemberUpdate(oldMember: any, newMember: any): Promise<void> {
+        const before = oldMember?.roles?.cache;
+        const after = newMember?.roles?.cache;
+        if (!after) return;
+        if (before && before.size === after.size && before.every((_: any, id: string) => after.has(id))) return;
+        await this.saveRoles(newMember);
     }
 
     // ─────────────────────────────────────────
