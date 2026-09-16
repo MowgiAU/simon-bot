@@ -496,6 +496,7 @@ export class ModerationPlugin implements IPlugin {
         const target = interaction.options.getMember('user') as GuildMember;
         const durationStr = interaction.options.getString('duration') || '5m';
         const reason = interaction.options.getString('reason') || 'No reason provided';
+        const notify = interaction.options.getBoolean('notify') ?? true;
 
         if (!target) return interaction.reply({ content: 'User not found', flags: MessageFlags.Ephemeral });
         if (!target.moderatable) return interaction.reply({ content: 'Cannot timeout user.', flags: MessageFlags.Ephemeral });
@@ -509,10 +510,10 @@ export class ModerationPlugin implements IPlugin {
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
         try {
-            await this.sendDM(interaction.guildId!, target, 'timeout', reason, durationStr);
+            if (notify) await this.sendDM(interaction.guildId!, target, 'timeout', reason, durationStr);
             await target.timeout(ms, reason);
-            await this.logAction(interaction.guildId!, 'timeout', interaction.user.id, target.id, { reason, duration: durationStr });
-            await interaction.editReply({ content: `⏳ **${target.user.tag}** timed out for ${durationStr}. Reason: ${reason}` });
+            await this.logAction(interaction.guildId!, 'timeout', interaction.user.id, target.id, { reason, duration: durationStr, notified: notify });
+            await interaction.editReply({ content: `⏳ **${target.user.tag}** timed out for ${durationStr}${notify ? '' : ' (not notified)'}. Reason: ${reason}` });
         } catch (e) {
             this.logger.error('Timeout failed', e);
             await interaction.editReply({ content: 'Timeout failed.' });

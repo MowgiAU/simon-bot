@@ -857,7 +857,8 @@ export class SimonBot {
         .setDescription('Timeout a user')
         .addUserOption(opt => opt.setName('user').setDescription('User to timeout').setRequired(true))
         .addStringOption(opt => opt.setName('duration').setDescription('Duration (e.g. 10m, 1h, 1d, 7d)').setRequired(true))
-        .addStringOption(opt => opt.setName('reason').setDescription('Reason for timeout').setRequired(false));
+        .addStringOption(opt => opt.setName('reason').setDescription('Reason for timeout').setRequired(false))
+        .addBooleanOption(opt => opt.setName('notify').setDescription('DM the user that they were timed out (default: yes)').setRequired(false));
 
     const purgeCommand = new SlashCommandBuilder()
         .setName('purge')
