@@ -6,7 +6,7 @@
  */
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Home, Search, BarChart3, Swords, Tag, User, Newspaper, Users, Zap, MoreHorizontal } from 'lucide-react';
+import { Home, Search, BarChart3, Swords, Tag, User, Newspaper, Users, Zap, MoreHorizontal, ArrowRightLeft } from 'lucide-react';
 import { PRIMARY, SUB, BORDER, FONT } from './AltSidebar';
 import { RadialPieMenu, PieItem } from './RadialPieMenu';
 import { useAuth } from '../AuthProvider';
@@ -34,6 +34,7 @@ const PIE_NAV: { key: string; label: string; icon: React.ReactNode; to: string }
     { key: 'Arena',   label: 'Arena',   icon: <Zap size={20} />,       to: '/arena' },
     { key: 'Genres',  label: 'Genres',  icon: <Tag size={20} />,       to: '/genres' },
     { key: 'Collabs', label: 'Collabs', icon: <Users size={20} />,     to: '/collabs' },
+    { key: 'Convert', label: 'Convert', icon: <ArrowRightLeft size={20} />, to: '/convert' },
 ];
 
 // How far you have to scroll down before the bar bothers hiding — avoids it

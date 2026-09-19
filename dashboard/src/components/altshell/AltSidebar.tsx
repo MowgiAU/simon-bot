@@ -12,7 +12,7 @@ import { useAltBreakpoint } from './useAltBreakpoint';
 import { AltMobileNav } from './AltMobileNav';
 import {
     Home, Search, User, Newspaper, BarChart3, Swords, Tag, Users, Zap, Landmark, LineChart,
-    HelpCircle, LogOut, PanelLeftClose, PanelLeftOpen,
+    HelpCircle, LogOut, PanelLeftClose, PanelLeftOpen, ArrowRightLeft,
 } from 'lucide-react';
 
 // Alt desktop palette (exported for reuse by Alt pages)
@@ -37,6 +37,7 @@ const NAV = [
     // Genres + Collabs stay on /preview until their live routes are migrated (later stage).
     { icon: Tag,       label: 'Genres',  to: '/genres' },
     { icon: Users,     label: 'Collabs', to: '/collabs' },
+    { icon: ArrowRightLeft, label: 'Convert', to: '/convert' },
 ];
 
 const LS_KEY = 'fuji_left_sidebar_collapsed';

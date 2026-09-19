@@ -111,6 +111,7 @@ const HeadToHeadArchive        = lazy(() => import("./pages/HeadToHeadArchive").
 const BankPage                 = lazy(() => import("./pages/BankPage").then(m => ({ default: m.BankPage })));
 const MarketPage               = lazy(() => import("./pages/MarketPage").then(m => ({ default: m.MarketPage })));
 const FrontpageAltFContact     = lazy(() => import("./pages/FrontpageAltFContact"));
+const FrontpageAltFConvert     = lazy(() => import("./pages/FrontpageAltFConvert"));
 const NotFoundPage             = lazy(() => import("./pages/NotFoundPage").then(m => ({ default: m.NotFoundPage })));
 const FrontpageAltFUpload       = lazy(() => import("./pages/FrontpageAltFUpload"));
 const FrontpageAltFLearn       = lazy(() => import("./pages/FrontpageAltFLearn").then(m => ({ default: m.FrontpageAltFLearn })));
@@ -857,6 +858,7 @@ const AppInternal: React.FC = () => {
       { test: p => p.startsWith('/collabs/'),  title: 'Fuji Studio | Collab' },
       { test: p => p === '/upload',            title: 'Fuji Studio | Upload a Track' },
       { test: p => p === '/contact',           title: 'Fuji Studio | Contact Us' },
+      { test: p => p === '/convert',           title: 'Fuji Studio | Project Converter' },
       { test: p => p === '/projects' || p.startsWith('/projects/'), title: 'Fuji Studio | Projects' },
       { test: p => p === '/new',               title: 'Fuji Studio | New Releases' },
       { test: p => p === '/download',          title: 'Fuji Studio | Download' },
@@ -1237,6 +1239,11 @@ const AppInternal: React.FC = () => {
   // /contact → Public contact form
   if (currentPath === '/contact') {
     return <Suspense fallback={<PageSpinner />}><FrontpageAltFContact /></Suspense>;
+  }
+
+  // /convert → Project converter (Ableton Live → FL Studio); sign-in prompt shown internally
+  if (currentPath === '/convert') {
+    return <Suspense fallback={<PageSpinner />}><FrontpageAltFConvert /></Suspense>;
   }
 
   // Any unmatched path lands on a proper 404 instead of silently falling back

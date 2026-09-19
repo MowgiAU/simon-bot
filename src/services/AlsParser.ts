@@ -79,11 +79,13 @@ export class AlsParser {
         if (!liveset) throw new Error('Not a valid Ableton Live Set — missing <LiveSet> element');
 
         // ── Tempo ──────────────────────────────────────────────────────────────
-        const tempoNode = liveset?.MasterTrack?.DeviceChain?.Mixer?.Tempo;
+        // Live 12 renamed MasterTrack → MainTrack
+        const mainTrack = liveset?.MainTrack ?? liveset?.MasterTrack;
+        const tempoNode = mainTrack?.DeviceChain?.Mixer?.Tempo;
         const bpm = toNum(tempoNode?.Manual ?? tempoNode?.AutomationTarget, 120);
 
         // ── Time signature ─────────────────────────────────────────────────────
-        const tsSrc = liveset?.MasterTrack?.DeviceChain?.Mixer?.TimeSignature
+        const tsSrc = mainTrack?.DeviceChain?.Mixer?.TimeSignature
             ?.TimeSignatures?.RemoteableTimeSignature;
         const tsArr = asArray(tsSrc);
         const tsNode = tsArr[0] ?? {};

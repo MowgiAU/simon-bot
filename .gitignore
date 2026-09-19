@@ -25,3 +25,6 @@ data/reputationData.json
 # Claude Code working directory
 .claude/
 feedbackPoints.json
+
+# Server-side temp files (project zip processing, project converter)
+/uploads/

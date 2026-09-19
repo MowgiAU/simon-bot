@@ -29,6 +29,7 @@ import { FLPParser } from '../bot/utils/FLPParser.js';
 import { AlsParser } from '../services/AlsParser.js';
 import { MediaConverter } from '../services/MediaConverter.js';
 import { ProjectZipProcessor } from '../services/ProjectZipProcessor.js';
+import { convertAbletonUpload, readConversion, sweepConversions } from '../services/projectConvert/ConvertService.js';
 import { R2Storage } from '../services/R2Storage.js';
 import { runBackup, pgDump } from '../services/DatabaseBackup.js';
 import { softDeleteMiddleware, withHardDelete } from '../services/softDelete.js';
@@ -23547,6 +23548,81 @@ app.post('/api/bug-reports', requireAuth, bugReportLimiter, bugReportUpload.sing
         logger.error('POST /api/bug-reports error', e);
         res.status(500).json({ error: 'Failed to submit bug report' });
     }
+});
+
+// ── Project converter (Ableton Live → FL Studio) ──────────────────────────────
+// Upload a zipped Live project (or a bare .als) → FL Studio bundle kept for an hour.
+// Outputs live outside public/uploads so they're only reachable via the owner-checked
+// download route below.
+const convertTempDir = path.join(PROJECT_ROOT, 'uploads', 'tmp', 'convert-in');
+const convertOutDir = path.join(PROJECT_ROOT, 'uploads', 'tmp', 'convert-out');
+fs.mkdirSync(convertTempDir, { recursive: true });
+setInterval(() => sweepConversions(convertOutDir), 15 * 60 * 1000).unref();
+
+const convertUpload = multer({
+    storage: multer.diskStorage({
+        destination: (_req, _file, cb) => cb(null, convertTempDir),
+        filename: (_req, file, cb) => cb(null, `in-${Date.now()}-${Math.round(Math.random() * 1e9)}${path.extname(file.originalname).toLowerCase()}`),
+    }),
+    limits: { fileSize: 200 * 1024 * 1024, files: 1 },
+    fileFilter: (_req, file, cb) => {
+        if (/\.(zip|als)$/i.test(file.originalname)) cb(null, true);
+        else cb(new Error('Upload a .zip of your Ableton project folder, or an .als file.'));
+    },
+});
+
+const convertLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000,
+    max: 10,
+    standardHeaders: true,
+    legacyHeaders: false,
+    keyGenerator: rlKey,
+    message: { error: 'You can convert up to 10 projects an hour. Please try again later.' },
+});
+
+// Conversions are CPU-bound and synchronous — run one at a time so a burst can't stall the API
+let convertQueue: Promise<unknown> = Promise.resolve();
+
+app.post('/api/convert/ableton-to-fl', requireAuth, convertLimiter, (req: any, res) => {
+    convertUpload.single('project')(req, res, async (err: any) => {
+        if (err) {
+            const tooBig = err?.code === 'LIMIT_FILE_SIZE';
+            res.status(400).json({ error: tooBig ? 'That file is over the 200 MB limit.' : err.message || 'Upload failed.' });
+            return;
+        }
+        if (!req.file) { res.status(400).json({ error: 'No file uploaded.' }); return; }
+        const inputPath = req.file.path;
+        try {
+            const userId = (await resolveSessionUserId(req)) ?? String(req.session.user.id);
+            const job = convertQueue.then(() => convertAbletonUpload(inputPath, req.file.originalname, userId, convertOutDir));
+            convertQueue = job.catch(() => undefined);
+            const meta = await job;
+            logger.info(`[Convert] ${userId} converted "${meta.projectName}" (${meta.report.stats.tracks} tracks, ${meta.samplesIncluded}/${meta.report.stats.samples} samples)`);
+            res.json({
+                id: meta.id,
+                projectName: meta.projectName,
+                downloadName: meta.downloadName,
+                report: meta.report,
+                samplesIncluded: meta.samplesIncluded,
+                missingSamples: meta.missingSamples,
+            });
+        } catch (e: any) {
+            logger.warn(`[Convert] failed for ${req.file.originalname}: ${e?.message}`);
+            res.status(422).json({ error: e?.message || 'Conversion failed.' });
+        } finally {
+            fs.rm(inputPath, { force: true }, () => {});
+        }
+    });
+});
+
+app.get('/api/convert/download/:id', requireAuth, async (req: any, res) => {
+    const meta = readConversion(convertOutDir, req.params.id);
+    const userId = (await resolveSessionUserId(req)) ?? String(req.session.user.id);
+    if (!meta || meta.userId !== userId) {
+        res.status(404).json({ error: 'This conversion has expired — please convert the project again.' });
+        return;
+    }
+    res.download(path.join(convertOutDir, `${meta.id}.zip`), meta.downloadName);
 });
 
 // Public "Contact Us" form → store a ContactMessage row + drop it into the team
