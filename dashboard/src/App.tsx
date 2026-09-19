@@ -1241,7 +1241,8 @@ const AppInternal: React.FC = () => {
     return <Suspense fallback={<PageSpinner />}><FrontpageAltFContact /></Suspense>;
   }
 
-  // /convert → Project converter (Ableton Live → FL Studio); sign-in prompt shown internally
+  // /convert → Project converter (Ableton Live → FL Studio); sign-in prompt shown internally.
+  // Unlisted (direct link only) until the converter is finished — add it to AltSidebar/AltMobileNav then.
   if (currentPath === '/convert') {
     return <Suspense fallback={<PageSpinner />}><FrontpageAltFConvert /></Suspense>;
   }
