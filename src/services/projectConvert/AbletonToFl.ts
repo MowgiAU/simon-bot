@@ -13,8 +13,12 @@
  */
 import { readAls } from './AlsReader.js';
 import { CHANNEL_AUDIO_CLIP, CHANNEL_SAMPLER, writeFlp } from './FlpWriter.js';
-import type { FlChannel, FlItem, FlPattern, FlTrack } from './FlpWriter.js';
-import type { ConversionReport, ConvProject, ConvSampleRef, ConvSamplerZone } from './types.js';
+import type { FlChannel, FlInsertEffects, FlItem, FlPattern, FlTrack } from './FlpWriter.js';
+import { vst3ClassId } from './FlVst.js';
+import type { FlVst3Plugin } from './FlVst.js';
+import type { ConversionReport, ConvPlugin, ConvProject, ConvSampleRef, ConvSamplerZone } from './types.js';
+
+const MIXER_SLOTS = 10;
 
 export interface AlsToFlpOptions {
     projectName?: string;
@@ -81,6 +85,23 @@ export function convertAlsToFlp(als: Buffer, opts: AlsToFlpOptions = {}): AlsToF
         warnings.push(`Only the first ${MAX_TRACKS} tracks were converted (the set has ${convertible.length}).`);
     }
 
+    const insertEffects: FlInsertEffects[] = [];
+    const pluginsNeeded = new Set<string>();
+
+    /** FL finds VST3s by class ID, so the path is only a hint for its plugin database. */
+    const flPlugin = (p: ConvPlugin): FlVst3Plugin => ({
+        name: p.name,
+        path: `C:\\Program Files\\Common Files\\VST3\\${p.name}.vst3`,
+        classId: vst3ClassId(p.classId),
+        kind: p.kind === 'instrument' ? 'generator' : 'effect',
+        processorState: p.processorState,
+        controllerState: p.controllerState,
+    });
+    const notePlugin = (p: ConvPlugin) => {
+        pluginsNeeded.add(p.name);
+        if (!p.enabled) warnings.push(`${p.name} was switched off in Live — it's active in FL; bypass it there if needed.`);
+    };
+
     convertible.slice(0, MAX_TRACKS).forEach((track, trackIdx) => {
         const insert = trackIdx + 1;
         tracks.push({ name: track.name, color: track.color });
@@ -89,12 +110,29 @@ export function convertAlsToFlp(als: Buffer, opts: AlsToFlpOptions = {}): AlsToF
             warnings.push(`"${track.name}": devices not converted — ${track.devices.join(', ')}.`);
         }
 
+        // VST3 effects go on the track's mixer insert, in chain order
+        if (track.effects.length) {
+            const fx = track.effects.slice(0, MIXER_SLOTS);
+            insertEffects.push({ insert, plugins: fx.map(flPlugin) });
+            fx.forEach(notePlugin);
+            converted.push(`"${track.name}": ${fx.map((p) => p.name).join(', ')} → mixer insert ${insert}, with their settings.`);
+            if (track.effects.length > MIXER_SLOTS) {
+                warnings.push(`"${track.name}": only the first ${MIXER_SLOTS} plugin effects fit on an FL mixer insert — ${track.effects.slice(MIXER_SLOTS).map((p) => p.name).join(', ')} were left off.`);
+            }
+        }
+
         if (track.kind === 'midi') {
             // route(liveKey) → which channel plays it, at which FL key
             let route: (key: number) => { channel: number; key: number } | null;
             const inst = track.instrument;
 
-            if (inst?.kind === 'drumRack') {
+            if (inst?.kind === 'plugin') {
+                const channel = channels.length;
+                channels.push({ name: track.name, color: track.color, type: CHANNEL_SAMPLER, insert, plugin: flPlugin(inst.plugin) });
+                notePlugin(inst.plugin);
+                converted.push(`"${track.name}": ${inst.plugin.name} → loaded with its preset.`);
+                route = (key) => ({ channel, key });
+            } else if (inst?.kind === 'drumRack') {
                 // One Sampler channel per pad, like an FL drum kit; every pad plays on C5
                 const pads = new Map<number, { channel: number; key: number }>();
                 for (const pad of inst.pads) {
@@ -168,6 +206,9 @@ export function convertAlsToFlp(als: Buffer, opts: AlsToFlpOptions = {}): AlsToF
     if (channels.length === 0) {
         channels.push({ name: 'Sampler', color: null, type: CHANNEL_SAMPLER, insert: 0 });
     }
+    if (pluginsNeeded.size) {
+        warnings.unshift(`Install these VST3 plugins for FL Studio before opening the project: ${[...pluginsNeeded].join(', ')}. Any that are missing will show FL's "plugin not found" message.`);
+    }
 
     const flp = writeFlp({
         title: project.name,
@@ -179,6 +220,7 @@ export function convertAlsToFlp(als: Buffer, opts: AlsToFlpOptions = {}): AlsToF
         items,
         tracks,
         markers: project.locators.map((l) => ({ pos: l.time, name: l.name })),
+        insertEffects,
     });
 
     return {

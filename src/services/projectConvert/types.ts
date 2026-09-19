@@ -55,9 +55,20 @@ export interface ConvSamplerZone {
     sampleCount: number;     // >1 = multi-sample instrument collapsed to `sample`
 }
 
+/** A third-party VST3 with its saved state (identical bytes in every VST3 host). */
+export interface ConvPlugin {
+    name: string;
+    kind: 'instrument' | 'effect';
+    classId: number[];       // the four 32-bit VST3 class-ID fields
+    processorState: Buffer;  // component state — the plugin's settings / preset
+    controllerState: Buffer; // editor state (may be empty)
+    enabled: boolean;
+}
+
 export type ConvInstrument =
     | { kind: 'simpler'; device: string; zone: ConvSamplerZone }
-    | { kind: 'drumRack'; device: string; pads: ConvSamplerZone[] };
+    | { kind: 'drumRack'; device: string; pads: ConvSamplerZone[] }
+    | { kind: 'plugin'; device: string; plugin: ConvPlugin };
 
 export interface ConvTrack {
     name: string;
@@ -68,6 +79,7 @@ export interface ConvTrack {
     pan: number;             // -1 .. 1
     devices: string[];       // devices that can't be converted, for the report
     instrument: ConvInstrument | null;
+    effects: ConvPlugin[];   // VST3 effects on the track, in chain order
     clips: ConvClip[];
 }
 

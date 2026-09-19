@@ -17,7 +17,7 @@
 import zlib from 'node:zlib';
 import { XMLParser } from 'fast-xml-parser';
 import type {
-    ConvAudioClip, ConvClip, ConvInstrument, ConvMidiClip, ConvNote, ConvProject, ConvSampleRef, ConvSamplerZone, ConvTrack,
+    ConvAudioClip, ConvClip, ConvInstrument, ConvMidiClip, ConvNote, ConvPlugin, ConvProject, ConvSampleRef, ConvSamplerZone, ConvTrack,
 } from './types.js';
 
 // Live's clip/track colour palette (first 28 entries; later indices wrap).
@@ -255,18 +255,48 @@ function readDrumRack(rack: any): ConvSamplerZone[] {
     return pads.sort((a, b) => (a.triggerNote ?? 0) - (b.triggerNote ?? 0));
 }
 
+const hexBytes = (v: unknown) => Buffer.from(String(v ?? '').replace(/\s/g, ''), 'hex');
+
 /**
- * Picks the track's instrument if we can convert it (Drum Rack of samplers, or a
- * single-sample Simpler/Sampler, optionally wrapped in a one-chain Instrument Rack).
- * Returns the instrument and the names of every other device, for the report.
+ * A VST3 PluginDevice → ConvPlugin. The Uid and state blobs are what any VST3 host
+ * hands back to the plugin, so presets carry over. VST2/AU aren't supported yet.
  */
-function readInstrument(track: any): { instrument: ConvInstrument | null; devices: string[] } {
+function readPlugin(dev: any): ConvPlugin | null {
+    const info = dev?.PluginDesc?.Vst3PluginInfo;
+    const preset = info?.Preset?.Vst3Preset;
+    const uid = info?.Uid ?? preset?.Uid;
+    const classId = [0, 1, 2, 3].map((i) => parseInt(val(uid?.[`Fields.${i}`]) ?? '', 10));
+    if (!info || classId.some((n) => !Number.isFinite(n))) return null;
+    const processorState = hexBytes(preset?.ProcessorState);
+    if (!processorState.length) return null;
+    return {
+        name: val(info.Name) || 'VST3 plugin',
+        kind: num(info.DeviceType ?? preset?.DeviceType) === 1 ? 'instrument' : 'effect',
+        classId,
+        processorState,
+        controllerState: hexBytes(preset?.ControllerState),
+        enabled: bool(dev?.On?.Manual, true),
+    };
+}
+
+/**
+ * Picks the track's instrument if we can convert it (a VST3, a Drum Rack of samplers, or a
+ * single-sample Simpler/Sampler, optionally wrapped in a one-chain Instrument Rack), and its
+ * VST3 effects. Returns them and the names of every other device, for the report.
+ */
+function readInstrument(track: any): { instrument: ConvInstrument | null; effects: ConvPlugin[]; devices: string[] } {
     const top = deviceList(track?.DeviceChain?.DeviceChain?.Devices ?? track?.DeviceChain?.Devices);
     const devices: string[] = [];
+    const effects: ConvPlugin[] = [];
     let instrument: ConvInstrument | null = null;
 
     for (const [tag, dev] of top) {
         const name = deviceName(tag, dev);
+        if (tag === 'PluginDevice') {
+            const plugin = readPlugin(dev);
+            if (plugin?.kind === 'instrument' && !instrument) { instrument = { kind: 'plugin', device: plugin.name, plugin }; continue; }
+            if (plugin?.kind === 'effect') { effects.push(plugin); continue; }
+        }
         if (!instrument) {
             let target: [string, any] = [tag, dev];
             let rackExtras: string[] = [];   // other devices inside a one-chain rack (MIDI effects, FX)
@@ -289,7 +319,7 @@ function readInstrument(track: any): { instrument: ConvInstrument | null; device
         }
         devices.push(name);
     }
-    return { instrument, devices };
+    return { instrument, effects, devices };
 }
 
 export function readAls(buffer: Buffer, projectName = 'Converted Project'): ConvProject {
@@ -304,6 +334,7 @@ export function readAls(buffer: Buffer, projectName = 'Converted Project'): Conv
         ignoreAttributes: false,
         attributeNamePrefix: '@_',
         parseAttributeValue: false,
+        parseTagValue: false,   // keep plugin state hex as text (all-digit hex would become a number)
         isArray: (name) => ARRAY_TAGS.has(name),
     }).parse(xml);
 

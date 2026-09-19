@@ -19,6 +19,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { vst3SlotParams, vst3Wrapper } from './FlVst.js';
+import type { FlVst3Plugin } from './FlVst.js';
 
 const TEMPLATE_PATH = path.join(path.dirname(fileURLToPath(import.meta.url)), 'templates', 'Empty-FL21.flp');
 
@@ -28,12 +30,18 @@ const PATTERN_BASE = 0x5000; // playlist item index offset for patterns
 
 // Event ids (names from PyFLP)
 const EV = {
-    TimeSigNum: 17, TimeSigDen: 18, ChannelType: 21, ChannelInsert: 22,
-    ChannelNew: 64, PatternNew: 65, ArrangementNew: 99,
-    ChannelColor: 128, PatternColor: 150, Tempo: 156, TimeMarker: 148,
-    Title: 194, PatternName: 193, SamplePath: 196, PluginName: 203, TimeMarkerName: 205,
-    PatternNotes: 224, Playlist: 233, TrackData: 238, TrackName: 239,
+    TimeSigNum: 17, TimeSigDen: 18, ChannelType: 21, ChannelInsert: 22, PluginFlag: 41,
+    ChannelNew: 64, PatternNew: 65, SlotIndex: 98, ArrangementNew: 99,
+    ChannelColor: 128, ChannelFlags: 132, ChannelMisc: 143, PatternColor: 150, PluginIcon: 155,
+    Tempo: 156, TimeMarker: 148,
+    Title: 194, PatternName: 193, SamplePath: 196, InternalName: 201, PluginName: 203, TimeMarkerName: 205,
+    SlotParams: 212, PluginData: 213, PatternNotes: 224, Playlist: 233, InsertParams: 236,
+    TrackData: 238, TrackName: 239,
 } as const;
+
+const CHANNEL_PLUGIN = 2;
+const DEFAULT_PLUGIN_COLOR = 6972764;  // FL's default slot/channel colour (#5C656A)
+const MIXER_SLOTS = 10;
 
 export const CHANNEL_SAMPLER = 0;
 export const CHANNEL_AUDIO_CLIP = 4;
@@ -41,9 +49,16 @@ export const CHANNEL_AUDIO_CLIP = 4;
 export interface FlChannel {
     name: string;
     color: string | null;
-    type: number;               // CHANNEL_SAMPLER | CHANNEL_AUDIO_CLIP
+    type: number;               // CHANNEL_SAMPLER | CHANNEL_AUDIO_CLIP (ignored when `plugin` is set)
     insert: number;             // mixer insert (0 = master)
     samplePath?: string;
+    plugin?: FlVst3Plugin;      // VST3 instrument hosted in this channel
+}
+
+/** VST3 effects for one mixer insert, filling its slots in order (FL has 10). */
+export interface FlInsertEffects {
+    insert: number;
+    plugins: FlVst3Plugin[];
 }
 
 export interface FlNote {
@@ -79,6 +94,7 @@ export interface FlProject {
     items: FlItem[];
     tracks: FlTrack[];
     markers: { pos: number; name: string }[];
+    insertEffects: FlInsertEffects[];
 }
 
 interface Ev { id: number; value: number | Buffer }
@@ -229,15 +245,25 @@ export function writeFlp(project: FlProject): Buffer {
         out.push({ id: EV.PatternNotes, value: notesPayload(p.notes) });
     });
 
+    // A VST channel is the Sampler block with the plugin fields swapped in (values as FL 21.2 writes them)
     const channelEvents = (ch: FlChannel, iid: number): Ev[] => {
         const evs: Ev[] = [];
+        const vst = ch.plugin;
         for (const e of channelTpl) {
             if (e.id === EV.ChannelNew) evs.push({ id: e.id, value: iid });
-            else if (e.id === EV.ChannelType) evs.push({ id: e.id, value: ch.type });
+            else if (e.id === EV.ChannelType) evs.push({ id: e.id, value: vst ? CHANNEL_PLUGIN : ch.type });
             else if (e.id === EV.PluginName) evs.push({ id: e.id, value: text(ch.name) });
             else if (e.id === EV.ChannelColor) evs.push({ id: e.id, value: flColor(ch.color, e.value as number) });
             else if (e.id === EV.ChannelInsert) evs.push({ id: e.id, value: Math.min(125, ch.insert) });
             else if (e.id === EV.SamplePath) continue;
+            else if (vst && e.id === EV.InternalName) evs.push({ id: e.id, value: text('Fruity Wrapper') });
+            else if (vst && e.id === EV.SlotParams) evs.push({ id: e.id, value: vst3SlotParams('generator', 0) });
+            else if (vst && e.id === EV.PluginFlag) {
+                evs.push({ id: e.id, value: 1 });
+                evs.push({ id: EV.PluginData, value: vst3Wrapper(vst) });
+            }
+            else if (vst && e.id === EV.ChannelFlags) evs.push({ id: e.id, value: 131074 });
+            else if (vst && e.id === EV.ChannelMisc) evs.push({ id: e.id, value: 10 });
             else evs.push(e);
         }
         if (ch.samplePath) evs.push({ id: EV.SamplePath, value: text(ch.samplePath) });
@@ -254,9 +280,29 @@ export function writeFlp(project: FlProject): Buffer {
     project.channels.slice(1).forEach((ch, i) => out.push(...channelEvents(ch, i + 1)));
 
     // Arrangement: playlist, markers, then track metadata
+    // Mixer: the n-th insert-params event (236) opens insert n (0 = master); within an insert,
+    // a slot's plugin events precede that slot's index event (98 k)
+    const effectsByInsert = new Map(project.insertEffects.map((fx) => [fx.insert, fx.plugins.slice(0, MIXER_SLOTS)]));
+    let insertNo = -1;
+
     let trackNo = 0;
     for (let i = 0; i < rest.length; i++) {
         const e = rest[i];
+        if (e.id === EV.InsertParams) insertNo++;
+        if (e.id === EV.SlotIndex && insertNo >= 0) {
+            const plugin = effectsByInsert.get(insertNo)?.[e.value as number];
+            if (plugin) {
+                out.push(
+                    { id: EV.InternalName, value: text('Fruity Wrapper') },
+                    { id: EV.SlotParams, value: vst3SlotParams('effect', insertNo) },
+                    { id: EV.PluginName, value: text(plugin.name) },
+                    { id: EV.PluginIcon, value: 0 },
+                    { id: EV.ChannelColor, value: DEFAULT_PLUGIN_COLOR },
+                    { id: EV.PluginFlag, value: 0 },
+                    { id: EV.PluginData, value: vst3Wrapper(plugin) },
+                );
+            }
+        }
         if (e.id === EV.Playlist) {
             out.push({ id: e.id, value: playlistPayload(project.items, project.bpm) });
             for (const m of project.markers) {
