@@ -67,6 +67,10 @@ export interface ConvSamplerZone {
     sliceStyle?: 'transient' | 'beat' | 'region' | 'manual';
     /** The loop's length in beats per its warp markers (Fruity Slicer's header wants it). */
     sampleBeats?: number;
+    /** Slice mode: whether Simpler's Warp was on (slices follow the song tempo) or off (original speed). */
+    sliceWarped?: boolean;
+    /** The sample's length in seconds. */
+    sampleSeconds?: number;
 }
 
 /** A third-party plugin with its saved state (the plugin's own bytes, identical in every host). */

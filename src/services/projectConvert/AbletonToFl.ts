@@ -215,7 +215,11 @@ export function convertAlsToFlp(als: Buffer, opts: AlsToFlpOptions = {}): AlsToF
                     const channel = channels.length;
                     const zone = inst.zone;
                     const slices = zone.slices!;
-                    const state = fruitySlicerState({ samplePath: registerSample(zone.sample), sampleRate: zone.sampleRate, slices, beats: zone.sampleBeats });
+                    // Warp off in Live → slices at original speed: state the song's tempo so Auto-fit is a no-op.
+                    // Warp on → the warped length, so Auto-fit stretches the slices as Live did.
+                    const seconds = zone.sampleSeconds ?? 0;
+                    const beats = zone.sliceWarped && zone.sampleBeats ? zone.sampleBeats : (seconds * project.bpm) / 60;
+                    const state = fruitySlicerState({ samplePath: registerSample(zone.sample), sampleRate: zone.sampleRate, slices, beats, seconds });
                     channels.push({ name, color: track.color, type: CHANNEL_SAMPLER, insert, native: { name: FRUITY_SLICER, state } });
                     converted.push(`"${name}": sliced ${inst.device} → Fruity Slicer with the same ${slices.length} slices.`);
                     if (zone.sliceStyle === 'beat') warnings.push(`"${name}": slices were made on a beat grid in Live — check they line up in Fruity Slicer.`);

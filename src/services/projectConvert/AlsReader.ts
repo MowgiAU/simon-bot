@@ -269,7 +269,7 @@ function beatToSeconds(markers: { sec: number; beat: number }[], beat: number): 
  * detected (InitialSlicePointsFromOnsets, filtered here by the Sensitivity setting), manual points,
  * or the grid/region settings to derive them from.
  */
-function readSlices(part: any): Pick<ConvSamplerZone, 'slices' | 'sliceStyle' | 'sampleBeats'> {
+function readSlices(part: any): Pick<ConvSamplerZone, 'slices' | 'sliceStyle' | 'sampleBeats' | 'sliceWarped' | 'sampleSeconds'> {
     const rate = num(part?.SampleRef?.DefaultSampleRate, 44100);
     const startSec = num(part?.SampleStart) / rate;
     const endSec = num(part?.SampleEnd, num(part?.SampleRef?.DefaultDuration)) / rate;
@@ -277,6 +277,7 @@ function readSlices(part: any): Pick<ConvSamplerZone, 'slices' | 'sliceStyle' | 
         .map((m) => ({ sec: attrNum(m, 'SecTime'), beat: attrNum(m, 'BeatTime') }))
         .sort((a, b) => a.sec - b.sec);
     const sampleBeats = markers.length > 1 ? markers[markers.length - 1].beat : undefined;
+    const sliceWarped = bool(part?.SampleWarpProperties?.IsWarped);
     const style = SLICE_STYLES[num(part?.SlicingStyle)] ?? 'transient';
     const points = (list: any) => arr<any>(list?.SlicePoint).map((p) => ({ sec: attrNum(p, 'TimeInSeconds'), energy: attrNum(p, 'NormalizedEnergy', 1) }));
 
@@ -303,7 +304,7 @@ function readSlices(part: any): Pick<ConvSamplerZone, 'slices' | 'sliceStyle' | 
         .sort((a, b) => a - b)
         .slice(0, MAX_SLICES);
     if (!slices.length || slices[0] > startSec + 0.001) slices.unshift(startSec);
-    return { slices, sliceStyle: style, sampleBeats };
+    return { slices, sliceStyle: style, sampleBeats, sliceWarped, sampleSeconds: endSec - startSec };
 }
 
 function readZone(sampler: any, name: string, triggerNote: number | null, sendingNote: number | null): ConvSamplerZone | null {

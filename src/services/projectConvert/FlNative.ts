@@ -3,6 +3,7 @@
  *
  * Fruity Slicer — decoded from the Fruity Slicer presets FL ships (FL Mobile/Instruments):
  *   u32 15, f32 loop length in beats, f32 loop tempo, u32 0, u32 0, u32 4, u32 0, u32 4,
+ *   (with Auto-fit on — its default — the slices are stretched from the loop tempo to the song's)
  *   u8-length-prefixed sample path, u32 slice count, then per slice:
  *     u8-length-prefixed name (empty), u32 start (sample frames), u32 trigger key, f32 -1, u8 0
  *   then a tail: u8 1, u32 60, u8 0, u32 sample rate, u8 1, 1, 1, u32 0.
@@ -16,7 +17,9 @@ export interface SlicerSetup {
     samplePath: string;
     sampleRate: number;
     slices: number[];        // start times in seconds
-    beats?: number;          // loop length in beats, when known
+    /** Loop length in beats and seconds: with Auto-fit, slices play at (beats / seconds) → song tempo. */
+    beats: number;
+    seconds: number;
 }
 
 function pstring(s: string): Buffer {
@@ -25,9 +28,8 @@ function pstring(s: string): Buffer {
 }
 
 export function fruitySlicerState(s: SlicerSetup): Buffer {
-    const duration = s.slices.length ? s.slices[s.slices.length - 1] : 0;
-    const beats = s.beats && s.beats > 0 ? s.beats : 4;
-    const bpm = duration > 0 && s.beats ? (s.beats / duration) * 60 : 120;
+    const beats = s.beats > 0 ? s.beats : 4;
+    const bpm = s.seconds > 0 ? (beats / s.seconds) * 60 : 120;
 
     const head = Buffer.alloc(32);
     head.writeUInt32LE(15, 0);
