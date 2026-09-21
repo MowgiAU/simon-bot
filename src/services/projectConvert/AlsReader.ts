@@ -17,7 +17,7 @@
 import zlib from 'node:zlib';
 import { XMLParser } from 'fast-xml-parser';
 import type {
-    ConvAudioClip, ConvClip, ConvInstrument, ConvMidiClip, ConvNote, ConvPlugin, ConvProject, ConvSampleRef, ConvSamplerZone, ConvTrack,
+    ConvAudioClip, ConvClip, ConvInstrument, ConvLayer, ConvMidiClip, ConvNote, ConvPlugin, ConvProject, ConvSampleRef, ConvSamplerZone, ConvTrack,
 } from './types.js';
 
 // Live's clip/track colour palette (first 28 entries; later indices wrap).
@@ -35,7 +35,7 @@ const TRACK_TYPES: Record<string, ConvTrack['kind']> = {
 const ARRAY_TAGS = new Set([
     'MidiTrack', 'AudioTrack', 'GroupTrack', 'ReturnTrack',
     'MidiClip', 'AudioClip', 'KeyTrack', 'MidiNoteEvent', 'Locator', 'WarpMarker',
-    'DrumBranch', 'InstrumentBranch', 'MultiSamplePart',
+    'DrumBranch', 'InstrumentBranch', 'AudioEffectBranch', 'MultiSamplePart', 'TrackSendHolder', 'SendPreBool',
 ]);
 
 function val(node: any): string | undefined {
@@ -310,47 +310,86 @@ function readPlugin(dev: any): ConvPlugin | null {
     };
 }
 
-/**
- * Picks the track's instrument if we can convert it (a VST3, a Drum Rack of samplers, or a
- * single-sample Simpler/Sampler, optionally wrapped in a one-chain Instrument Rack), and its
- * VST3 effects. Returns them and the names of every other device, for the report.
- */
-function readInstrument(track: any): { instrument: ConvInstrument | null; effects: ConvPlugin[]; devices: string[] } {
-    const top = deviceList(track?.DeviceChain?.DeviceChain?.Devices ?? track?.DeviceChain?.Devices);
-    const devices: string[] = [];
-    const effects: ConvPlugin[] = [];
-    let instrument: ConvInstrument | null = null;
+interface ChainResult { instrument: ConvInstrument | null; effects: ConvPlugin[]; devices: string[] }
 
-    for (const [tag, dev] of top) {
+/** Flattens nested layer racks into their individual layers, narrowing key zones as it goes. */
+function toLayers(inst: ConvInstrument, base: Omit<ConvLayer, 'instrument'>): ConvLayer[] {
+    if (inst.kind !== 'layers') return [{ ...base, instrument: inst }];
+    return inst.layers.map((l) => ({
+        name: l.name,
+        volume: base.volume * l.volume,
+        keyMin: Math.max(base.keyMin, l.keyMin),
+        keyMax: Math.min(base.keyMax, l.keyMax),
+        instrument: l.instrument,
+    }));
+}
+
+/**
+ * Walks a device chain (a track's, or one inside a rack), descending into racks:
+ *   - the first instrument found becomes the chain's instrument: a VST, a Drum Rack of samplers,
+ *     a single-sample Simpler/Sampler, or an Instrument Rack (one chain is unwrapped; several
+ *     become layers that all play the same notes, filtered by each chain's key zone)
+ *   - VST effects are collected in order, including those inside single-chain Audio Effect Racks
+ *   - everything else is listed by name for the report
+ */
+function readDeviceChain(list: [string, any][], where = ''): ChainResult {
+    const out: ChainResult = { instrument: null, effects: [], devices: [] };
+    const skip = (name: string) => out.devices.push(where ? `${name} (in ${where})` : name);
+    const absorb = (inner: ChainResult) => { out.effects.push(...inner.effects); out.devices.push(...inner.devices); };
+
+    for (const [tag, dev] of list) {
         const name = deviceName(tag, dev);
+
         if (tag === 'PluginDevice') {
             const plugin = readPlugin(dev);
-            if (plugin?.kind === 'instrument' && !instrument) { instrument = { kind: 'plugin', device: plugin.name, plugin }; continue; }
-            if (plugin?.kind === 'effect') { effects.push(plugin); continue; }
+            if (plugin?.kind === 'instrument' && !out.instrument) out.instrument = { kind: 'plugin', device: plugin.name, plugin };
+            else if (plugin?.kind === 'effect') out.effects.push(plugin);
+            else skip(name);
+            continue;
         }
-        if (!instrument) {
-            let target: [string, any] = [tag, dev];
-            let rackExtras: string[] = [];   // other devices inside a one-chain rack (MIDI effects, FX)
-            if (tag === 'InstrumentGroupDevice') {
-                const chains = arr<any>(dev?.Branches?.InstrumentBranch);
-                const inner = chains.length === 1 ? deviceList(chains[0]?.DeviceChain?.MidiToAudioDeviceChain?.Devices) : [];
-                const hit = inner.find(([t]) => t === 'DrumGroupDevice' || SAMPLER_TAGS.includes(t));
-                if (hit) {
-                    target = hit;
-                    rackExtras = inner.filter((d) => d !== hit).map(([t, d]) => `${deviceName(t, d)} (in ${name})`);
-                }
-            }
-            if (target[0] === 'DrumGroupDevice') {
-                const pads = readDrumRack(target[1]);
-                if (pads.length) { instrument = { kind: 'drumRack', device: name, pads }; devices.push(...rackExtras); continue; }
-            } else if (SAMPLER_TAGS.includes(target[0])) {
-                const zone = readZone(target[1], '', null, null);
-                if (zone) { instrument = { kind: 'simpler', device: name, zone }; devices.push(...rackExtras); continue; }
-            }
+        if (tag === 'DrumGroupDevice' && !out.instrument) {
+            const pads = readDrumRack(dev);
+            if (pads.length) { out.instrument = { kind: 'drumRack', device: name, pads }; continue; }
         }
-        devices.push(name);
+        if (SAMPLER_TAGS.includes(tag) && !out.instrument) {
+            const zone = readZone(dev, '', null, null);
+            if (zone) { out.instrument = { kind: 'simpler', device: name, zone }; continue; }
+        }
+        if (tag === 'InstrumentGroupDevice' && !out.instrument) {
+            const layers: ConvLayer[] = [];
+            for (const br of arr<any>(dev?.Branches?.InstrumentBranch)) {
+                if (!bool(br?.MixerDevice?.Speaker?.Manual, true)) continue;         // muted chain
+                const inner = readDeviceChain(deviceList(br?.DeviceChain?.MidiToAudioDeviceChain?.Devices), name);
+                absorb(inner);
+                if (!inner.instrument) continue;
+                const keys = br?.ZoneSettings?.KeyRange;
+                layers.push(...toLayers(inner.instrument, {
+                    name: val(br?.Name?.EffectiveName) || name,
+                    keyMin: num(keys?.Min, 0),
+                    keyMax: num(keys?.Max, 127),
+                    volume: num(br?.MixerDevice?.Volume?.Manual, 1),
+                }));
+            }
+            if (layers.length === 1) out.instrument = layers[0].instrument;
+            else if (layers.length > 1) out.instrument = { kind: 'layers', device: name, layers };
+            continue;
+        }
+        if (tag === 'AudioEffectGroupDevice') {
+            const chains = arr<any>(dev?.Branches?.AudioEffectBranch);
+            if (chains.length === 1) {
+                absorb(readDeviceChain(deviceList(chains[0]?.DeviceChain?.AudioToAudioDeviceChain?.Devices), name));
+            } else {
+                skip(`${name} (${chains.length} parallel chains)`);
+            }
+            continue;
+        }
+        skip(name);
     }
-    return { instrument, effects, devices };
+    return out;
+}
+
+function readInstrument(track: any): ChainResult {
+    return readDeviceChain(deviceList(track?.DeviceChain?.DeviceChain?.Devices ?? track?.DeviceChain?.Devices));
 }
 
 export function readAls(buffer: Buffer, projectName = 'Converted Project'): ConvProject {
@@ -404,8 +443,14 @@ export function readAls(buffer: Buffer, projectName = 'Converted Project'): Conv
             }
             clips.sort((a, b) => a.start - b.start);
 
+            const groupId = val(t?.TrackGroupId);
             tracks.push({
                 _order: order.get(`${tag}:${t['@_Id']}`) ?? 1e6,
+                id: String(t['@_Id'] ?? ''),
+                groupId: groupId && groupId !== '-1' ? groupId : null,
+                sends: arr<any>(tMixer?.Sends?.TrackSendHolder)
+                    .sort((a, b) => attrNum(a, 'Id') - attrNum(b, 'Id'))
+                    .map((h) => num(h?.Send?.Manual, 0)),
                 name: val(t?.Name?.EffectiveName) || val(t?.Name?.UserName) || `${kind} ${tracks.length + 1}`,
                 kind,
                 color: trackColor,
@@ -431,5 +476,9 @@ export function readAls(buffer: Buffer, projectName = 'Converted Project'): Conv
         denominator: num(ts?.Denominator, 4),
         tracks: tracks.map(({ _order, ...t }) => t),
         locators,
+        main: (({ effects, devices }) => ({ effects, devices }))(readInstrument(main)),
+        returnsPre: arr<any>(set?.SendsPre?.SendPreBool)
+            .sort((a, b) => attrNum(a, 'Id') - attrNum(b, 'Id'))
+            .map((b) => b['@_Value'] === 'true'),
     };
 }

@@ -9,18 +9,20 @@
  *     other      → one empty Sampler channel named after the track.
  *   Audio track  → one playlist track; each distinct sample becomes an audio-clip channel.
  *   Locators     → playlist time markers.
- *   Each converted track is routed to its own mixer insert, in track order.
+ *   Mixer        → every track, group and return gets its own insert; tracks in a group route
+ *                  to the group's insert, sends become routes to the return inserts.
  * VST2/VST3 effects go on the track's mixer insert with their saved state. Ableton's own
  * instruments and effects can't carry over — they're listed in the report instead.
  */
 import { readAls } from './AlsReader.js';
 import { CHANNEL_AUDIO_CLIP, CHANNEL_SAMPLER, writeFlp } from './FlpWriter.js';
-import type { FlChannel, FlInsertEffects, FlItem, FlPattern, FlTrack } from './FlpWriter.js';
+import type { FlChannel, FlInsert, FlInsertEffects, FlItem, FlPattern, FlTrack } from './FlpWriter.js';
 import { vst3ClassId } from './FlVst.js';
 import type { FlPlugin } from './FlVst.js';
-import type { ConversionReport, ConvPlugin, ConvProject, ConvSampleRef, ConvSamplerZone } from './types.js';
+import type { ConversionReport, ConvInstrument, ConvPlugin, ConvProject, ConvSampleRef, ConvSamplerZone, ConvTrack } from './types.js';
 
 const MIXER_SLOTS = 10;
+const SEND_OFF = 0.001;     // Live's send minimum is 0.000316 (−70 dB = off)
 
 export interface AlsToFlpOptions {
     projectName?: string;
@@ -82,11 +84,6 @@ export function convertAlsToFlp(als: Buffer, opts: AlsToFlpOptions = {}): AlsToF
         }
     };
 
-    const convertible = project.tracks.filter((t) => t.kind === 'midi' || t.kind === 'audio');
-    if (convertible.length > MAX_TRACKS) {
-        warnings.push(`Only the first ${MAX_TRACKS} tracks were converted (the set has ${convertible.length}).`);
-    }
-
     const insertEffects: FlInsertEffects[] = [];
     const pluginsNeeded = new Set<string>();
 
@@ -111,71 +108,122 @@ export function convertAlsToFlp(als: Buffer, opts: AlsToFlpOptions = {}): AlsToF
         if (!p.enabled) warnings.push(`${p.name} was switched off in Live — it's active in FL; bypass it there if needed.`);
     };
 
-    convertible.slice(0, MAX_TRACKS).forEach((track, trackIdx) => {
-        const insert = trackIdx + 1;
+    /** Puts a track's VST effects on its mixer insert, in chain order, and reports the rest. */
+    const placeEffects = (name: string, effects: ConvPlugin[], devices: string[], insert: number) => {
+        if (devices.length) warnings.push(`"${name}": devices not converted — ${devices.join(', ')}.`);
+        if (!effects.length) return;
+        const fx = effects.slice(0, MIXER_SLOTS);
+        insertEffects.push({ insert, plugins: fx.map(flPlugin) });
+        fx.forEach(notePlugin);
+        converted.push(`"${name}": ${fx.map((p) => p.name).join(', ')} → ${insert ? `mixer insert ${insert}` : 'the master'}, with their settings.`);
+        if (effects.length > MIXER_SLOTS) {
+            warnings.push(`"${name}": only the first ${MIXER_SLOTS} plugin effects fit on an FL mixer insert — ${effects.slice(MIXER_SLOTS).map((p) => p.name).join(', ')} were left off.`);
+        }
+    };
+
+    // ── Mixer: every track gets an insert — tracks and groups in order, then returns ──
+    // Tracks in a group route to the group's insert (groups nest the same way), everything
+    // else to the master; sends become extra routes to the return inserts at the send level.
+    const mixerTracks = [...project.tracks.filter((t) => t.kind !== 'return'), ...project.tracks.filter((t) => t.kind === 'return')];
+    if (mixerTracks.length > MAX_TRACKS) {
+        warnings.push(`Only the first ${MAX_TRACKS} tracks were converted (the set has ${mixerTracks.length}).`);
+    }
+    const insertOf = new Map<ConvTrack, number>();
+    mixerTracks.slice(0, MAX_TRACKS).forEach((t, i) => insertOf.set(t, i + 1));
+    const groupInserts = new Map([...insertOf].filter(([t]) => t.kind === 'group').map(([t, ins]) => [t.id, ins]));
+    const returnInserts = project.tracks.filter((t) => t.kind === 'return').map((t) => insertOf.get(t));
+
+    const inserts: FlInsert[] = [];
+    let sendCount = 0;
+    for (const [t, insert] of insertOf) {
+        const routes: FlInsert['routes'] = [{ to: (t.groupId && groupInserts.get(t.groupId)) || 0 }];
+        if (t.kind !== 'return') {
+            t.sends.forEach((gain, i) => {
+                const to = returnInserts[i];
+                if (to && gain > SEND_OFF) { routes.push({ to, level: Math.min(1, gain) }); sendCount++; }
+            });
+        }
+        inserts.push({ insert, name: t.name, color: t.color, routes });
+        placeEffects(t.name, t.effects, t.devices, insert);
+    }
+    placeEffects('Main', project.main.effects, project.main.devices, 0);
+
+    const groups = mixerTracks.filter((t) => t.kind === 'group').length;
+    const returns = returnInserts.length;
+    if (groups || returns) {
+        converted.push(`Mixer: ${groups} group${groups === 1 ? '' : 's'} and ${returns} return${returns === 1 ? '' : 's'} routed as in Live${sendCount ? `, with ${sendCount} send${sendCount === 1 ? '' : 's'}` : ''}.`);
+    }
+    project.returnsPre.forEach((pre, i) => {
+        if (pre && returnInserts[i]) {
+            warnings.push(`Return "${project.tracks.filter((t) => t.kind === 'return')[i].name}" was pre-fader in Live — FL sends are post-fader, so its level now follows each track's fader.`);
+        }
+    });
+
+    const playable = project.tracks.filter((t) => (t.kind === 'midi' || t.kind === 'audio') && insertOf.has(t));
+    playable.forEach((track, trackIdx) => {
+        const insert = insertOf.get(track)!;
         tracks.push({ name: track.name, color: track.color });
 
-        if (track.devices.length) {
-            warnings.push(`"${track.name}": devices not converted — ${track.devices.join(', ')}.`);
-        }
-
-        // VST effects go on the track's mixer insert, in chain order
-        if (track.effects.length) {
-            const fx = track.effects.slice(0, MIXER_SLOTS);
-            insertEffects.push({ insert, plugins: fx.map(flPlugin) });
-            fx.forEach(notePlugin);
-            converted.push(`"${track.name}": ${fx.map((p) => p.name).join(', ')} → mixer insert ${insert}, with their settings.`);
-            if (track.effects.length > MIXER_SLOTS) {
-                warnings.push(`"${track.name}": only the first ${MIXER_SLOTS} plugin effects fit on an FL mixer insert — ${track.effects.slice(MIXER_SLOTS).map((p) => p.name).join(', ')} were left off.`);
-            }
-        }
-
         if (track.kind === 'midi') {
-            // route(liveKey) → which channel plays it, at which FL key
-            let route: (key: number) => { channel: number; key: number } | null;
-            const inst = track.instrument;
-
-            if (inst?.kind === 'plugin') {
-                const channel = channels.length;
-                channels.push({ name: track.name, color: track.color, type: CHANNEL_SAMPLER, insert, plugin: flPlugin(inst.plugin) });
-                notePlugin(inst.plugin);
-                converted.push(`"${track.name}": ${inst.plugin.name} → loaded with its preset.`);
-                route = (key) => ({ channel, key });
-            } else if (inst?.kind === 'drumRack') {
-                // One Sampler channel per pad, like an FL drum kit; every pad plays on C5
-                const pads = new Map<number, { channel: number; key: number }>();
-                for (const pad of inst.pads) {
-                    pads.set(pad.triggerNote!, { channel: channels.length, key: flKey(pad.sendingNote ?? 60, pad) });
-                    channels.push({ name: pad.name, color: track.color, type: CHANNEL_SAMPLER, insert, samplePath: registerSample(pad.sample) });
-                    zoneWarnings(track.name, pad);
+            // Creates the channel(s) for an instrument; returns route(liveKey) → the channels
+            // that play that note, at which FL key (several for layered racks, none if unmapped)
+            type Route = (key: number) => { channel: number; key: number }[];
+            const setup = (inst: ConvInstrument | null, name: string): Route => {
+                if (inst?.kind === 'plugin') {
+                    const channel = channels.length;
+                    channels.push({ name, color: track.color, type: CHANNEL_SAMPLER, insert, plugin: flPlugin(inst.plugin) });
+                    notePlugin(inst.plugin);
+                    converted.push(`"${name}": ${inst.plugin.name} → loaded with its preset.`);
+                    return (key) => [{ channel, key }];
                 }
-                converted.push(`"${track.name}": ${inst.device} → ${inst.pads.length} Sampler channels, one per pad.`);
-                route = (key) => pads.get(key) ?? null;
-            } else if (inst?.kind === 'simpler') {
-                const channel = channels.length;
-                const zone = inst.zone;
-                channels.push({ name: track.name, color: track.color, type: CHANNEL_SAMPLER, insert, samplePath: registerSample(zone.sample) });
-                zoneWarnings(track.name, zone);
-                converted.push(`"${track.name}": ${inst.device} → Sampler with "${zone.sample.file}".`);
-                const shift = flKey(0, zone);
-                if (shift !== 0) {
-                    warnings.push(`"${track.name}": notes were shifted ${shift > 0 ? '+' : ''}${shift} semitones so "${zone.name}" plays at the same pitch as in Live.`);
+                if (inst?.kind === 'drumRack') {
+                    // One Sampler channel per pad, like an FL drum kit; every pad plays on C5
+                    const pads = new Map<number, { channel: number; key: number }>();
+                    for (const pad of inst.pads) {
+                        pads.set(pad.triggerNote!, { channel: channels.length, key: flKey(pad.sendingNote ?? 60, pad) });
+                        channels.push({ name: pad.name, color: track.color, type: CHANNEL_SAMPLER, insert, samplePath: registerSample(pad.sample) });
+                        zoneWarnings(name, pad);
+                    }
+                    converted.push(`"${name}": ${inst.device} → ${inst.pads.length} Sampler channels, one per pad.`);
+                    return (key) => { const pad = pads.get(key); return pad ? [pad] : []; };
                 }
-                route = (key) => ({ channel, key: flKey(key, zone) });
-            } else {
+                if (inst?.kind === 'simpler') {
+                    const channel = channels.length;
+                    const zone = inst.zone;
+                    channels.push({ name, color: track.color, type: CHANNEL_SAMPLER, insert, samplePath: registerSample(zone.sample) });
+                    zoneWarnings(name, zone);
+                    converted.push(`"${name}": ${inst.device} → Sampler with "${zone.sample.file}".`);
+                    const shift = flKey(0, zone);
+                    if (shift !== 0) {
+                        warnings.push(`"${name}": notes were shifted ${shift > 0 ? '+' : ''}${shift} semitones so "${zone.name}" plays at the same pitch as in Live.`);
+                    }
+                    return (key) => [{ channel, key: flKey(key, zone) }];
+                }
+                if (inst?.kind === 'layers') {
+                    // Each rack chain becomes its own channel; notes go to every chain whose key zone holds them
+                    const routes = inst.layers.map((layer) => ({ layer, route: setup(layer.instrument, `${track.name} – ${layer.name}`) }));
+                    converted.push(`"${track.name}": ${inst.device} → ${inst.layers.length} layered channels (${inst.layers.map((l) => l.name).join(', ')}).`);
+                    if (inst.layers.some((l) => Math.abs(l.volume - inst.layers[0].volume) > 0.01)) {
+                        warnings.push(`"${track.name}": the rack's chains had different volumes in Live — balance the layered channels in FL.`);
+                    }
+                    return (key) => routes.flatMap(({ layer, route }) => (key >= layer.keyMin && key <= layer.keyMax ? route(key) : []));
+                }
                 const channel = channels.length;
-                channels.push({ name: track.name, color: track.color, type: CHANNEL_SAMPLER, insert });
-                route = (key) => ({ channel, key });
-            }
+                channels.push({ name, color: track.color, type: CHANNEL_SAMPLER, insert });
+                return (key) => [{ channel, key }];
+            };
+            const route = setup(track.instrument, track.name);
 
             let unmapped = 0;
             for (const clip of track.clips) {
                 if (clip.kind !== 'midi' || clip.length <= 0) continue;
                 const clipNotes: FlPattern['notes'] = [];
                 for (const n of clip.notes) {
-                    const r = route(n.key);
-                    if (!r || r.key < 0 || r.key > 131) { unmapped++; continue; }
-                    clipNotes.push({ channel: r.channel, pos: n.time, length: n.duration, key: r.key, velocity: n.velocity });
+                    const targets = route(n.key).filter((r) => r.key >= 0 && r.key <= 131);
+                    if (!targets.length) { unmapped++; continue; }
+                    for (const r of targets) {
+                        clipNotes.push({ channel: r.channel, pos: n.time, length: n.duration, key: r.key, velocity: n.velocity });
+                    }
                 }
                 patterns.push({ name: clip.name || track.name, color: clip.color, notes: clipNotes });
                 items.push({ kind: 'pattern', pattern: patterns.length, track: trackIdx, start: clip.start, length: clip.length, muted: clip.muted });
@@ -209,9 +257,6 @@ export function convertAlsToFlp(als: Buffer, opts: AlsToFlpOptions = {}): AlsToF
         }
     });
 
-    for (const t of project.tracks) {
-        if (t.kind === 'return') warnings.push(`Return track "${t.name}" was not converted — rebuild sends on the FL mixer.`);
-    }
     if (channels.length === 0) {
         channels.push({ name: 'Sampler', color: null, type: CHANNEL_SAMPLER, insert: 0 });
     }
@@ -230,6 +275,7 @@ export function convertAlsToFlp(als: Buffer, opts: AlsToFlpOptions = {}): AlsToF
         tracks,
         markers: project.locators.map((l) => ({ pos: l.time, name: l.name })),
         insertEffects,
+        inserts,
     });
 
     return {

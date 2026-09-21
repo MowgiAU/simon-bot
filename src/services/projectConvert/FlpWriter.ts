@@ -37,7 +37,25 @@ const EV = {
     Title: 194, PatternName: 193, SamplePath: 196, InternalName: 201, PluginName: 203, TimeMarkerName: 205,
     SlotParams: 212, PluginData: 213, PatternNotes: 224, Playlist: 233, InsertParams: 236,
     TrackData: 238, TrackName: 239,
+    InsertStart: 42, InsertColor: 149, InsertName: 204, InsertRouting: 235, MixerParams: 225,
 } as const;
+
+/**
+ * Mixer parameters (event 225) are 12-byte records: u32 0, u8 param id, u8 0x1f,
+ * u16 0x2000 + insert * 64 + slot, i32 value. Param 64 + n is the send level to insert n
+ * (0–12800 = 0–100%); FL only stores levels that differ from 100%.
+ */
+const MIXER_ROUTE_PARAM = 64;
+const MIXER_FULL = 12800;
+
+function mixerParam(id: number, insert: number, value: number): Buffer {
+    const b = Buffer.alloc(12);
+    b[4] = id;
+    b[5] = 0x1f;
+    b.writeUInt16LE(0x2000 + insert * 64, 6);
+    b.writeInt32LE(value, 8);
+    return b;
+}
 
 const CHANNEL_PLUGIN = 2;
 const DEFAULT_PLUGIN_COLOR = 6972764;  // FL's default slot/channel colour (#5C656A)
@@ -59,6 +77,15 @@ export interface FlChannel {
 export interface FlInsertEffects {
     insert: number;
     plugins: FlPlugin[];
+}
+
+/** A mixer insert's name, colour and where it routes (insert 0 = master). */
+export interface FlInsert {
+    insert: number;
+    name: string;
+    color: string | null;
+    /** Destinations; level is the send amount 0–1 (omitted = 100%, FL's default, not stored). */
+    routes: { to: number; level?: number }[];
 }
 
 export interface FlNote {
@@ -95,6 +122,7 @@ export interface FlProject {
     tracks: FlTrack[];
     markers: { pos: number; name: string }[];
     insertEffects: FlInsertEffects[];
+    inserts: FlInsert[];
 }
 
 interface Ev { id: number; value: number | Buffer }
@@ -283,11 +311,32 @@ export function writeFlp(project: FlProject): Buffer {
     // Mixer: the n-th insert-params event (236) opens insert n (0 = master); within an insert,
     // a slot's plugin events precede that slot's index event (98 k)
     const effectsByInsert = new Map(project.insertEffects.map((fx) => [fx.insert, fx.plugins.slice(0, MIXER_SLOTS)]));
+    const insertsByIndex = new Map(project.inserts.map((ins) => [ins.insert, ins]));
     let insertNo = -1;
 
     let trackNo = 0;
     for (let i = 0; i < rest.length; i++) {
         const e = rest[i];
+
+        // Name and colour come just before the event that opens their insert
+        if (e.id === EV.InsertStart && rest[i + 1]?.id === EV.InsertParams) {
+            const next = insertsByIndex.get(insertNo + 1);
+            if (next?.color) out.push({ id: EV.InsertColor, value: flColor(next.color, 0) });
+            if (next?.name) out.push({ id: EV.InsertName, value: text(next.name) });
+        }
+        if (e.id === EV.InsertRouting && insertsByIndex.has(insertNo)) {
+            const routing = Buffer.alloc((e.value as Buffer).length);
+            for (const r of insertsByIndex.get(insertNo)!.routes) if (r.to < routing.length) routing[r.to] = 1;
+            out.push({ id: e.id, value: routing });
+            continue;
+        }
+        if (e.id === EV.MixerParams) {
+            const levels = project.inserts.flatMap((ins) => ins.routes
+                .filter((r) => r.level !== undefined && r.level < 1)
+                .map((r) => mixerParam(MIXER_ROUTE_PARAM + r.to, ins.insert, Math.round(Math.max(0, r.level!) * MIXER_FULL))));
+            out.push({ id: e.id, value: Buffer.concat([e.value as Buffer, ...levels]) });
+            continue;
+        }
         if (e.id === EV.InsertParams) insertNo++;
         if (e.id === EV.SlotIndex && insertNo >= 0) {
             const plugin = effectsByInsert.get(insertNo)?.[e.value as number];

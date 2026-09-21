@@ -83,9 +83,22 @@ export type ConvPlugin = ConvVst3Plugin | ConvVst2Plugin;
 export type ConvInstrument =
     | { kind: 'simpler'; device: string; zone: ConvSamplerZone }
     | { kind: 'drumRack'; device: string; pads: ConvSamplerZone[] }
-    | { kind: 'plugin'; device: string; plugin: ConvPlugin };
+    | { kind: 'plugin'; device: string; plugin: ConvPlugin }
+    | { kind: 'layers'; device: string; layers: ConvLayer[] };
+
+/** One chain of a multi-chain Instrument Rack: plays the notes inside its key zone. */
+export interface ConvLayer {
+    name: string;
+    keyMin: number;
+    keyMax: number;
+    volume: number;          // linear gain of the chain, 1 = 0 dB
+    instrument: Exclude<ConvInstrument, { kind: 'layers' }>;
+}
 
 export interface ConvTrack {
+    id: string;              // Live's track Id (group tracks are referenced by it)
+    groupId: string | null;  // Id of the group track this track sits in
+    sends: number[];         // send level to each return track, linear gain (≈0.0003 = off)
     name: string;
     kind: 'midi' | 'audio' | 'group' | 'return';
     color: string | null;    // '#RRGGBB'
@@ -111,6 +124,10 @@ export interface ConvProject {
     denominator: number;
     tracks: ConvTrack[];
     locators: ConvLocator[];
+    /** The Main (master) track's plugins and other devices. */
+    main: { effects: ConvPlugin[]; devices: string[] };
+    /** Per return track: true if its sends are pre-fader. */
+    returnsPre: boolean[];
 }
 
 export interface ConversionReport {
