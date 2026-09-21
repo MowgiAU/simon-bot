@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
-<title>Converter Test Set</title>
+<title>Ableton Project Converter</title>
 <style>
 :root {
   --ground: #f3f4f6;
@@ -77,9 +77,8 @@ footer { margin-top: 40px; color: var(--muted); font-size: 13px; }
 
 <div class="wrap">
   <header class="top">
-    <div class="eyebrow">Fuji Studio · Ableton → FL Studio converter</div>
-    <h1>Build one Ableton set that covers everything</h1>
-    <p class="lede">We're building a converter that turns Ableton Live projects into FL Studio projects. This set is our test case, so it needs a bit of every feature Live has, not a good song. Sound doesn't matter, but every plugin should be on a clearly <strong>non-default preset</strong> so we can tell whether its settings came across.</p>
+    <h1>Ableton Project Converter</h1>
+    <p class="lede">To learn how Ableton projects work and how to convert them properly to FL Studio, we need a few projects that contain as much information as possible. This checklist covers everything we’d like one project to include.</p>
   </header>
 
   <div class="bar" role="status" aria-live="polite">
@@ -95,6 +94,7 @@ footer { margin-top: 40px; color: var(--muted); font-size: 13px; }
       <li><label><input type="checkbox" id="c-plugins"><span class="txt">Install <strong>Vital</strong> (vital.audio), <strong>OTT</strong> (xferrecords.com) and <strong>Valhalla Supermassive</strong> (valhalladsp.com), each in <em>both</em> VST2 and VST3.<span class="why">These three are the only third-party plugins needed. Please don't use others; we can't open what we don't have.</span></span><span class="pill need">Needed</span></label></li>
       <li><label><input type="checkbox" id="c-vst2"><span class="txt">Make sure Live shows VST2 plugins: <code>Settings → Plug-Ins</code> → turn on the VST2 custom folder (Windows) or system folder, then rescan.<span class="why">Under Plug-Ins in the browser you should see both a VST folder and a VST3 folder.</span></span><span class="pill need">Needed</span></label></li>
       <li><label><input type="checkbox" id="c-setup"><span class="txt">New set at <strong>128 BPM, 4/4</strong>, about 32 bars long. Put <strong>everything in Arrangement View</strong>.<span class="why">The converter reads the arrangement. Clips that only exist in Session View are ignored.</span></span><span class="pill need">Needed</span></label></li>
+      <li><label><input type="checkbox" id="c-presets"><span class="txt">Put every plugin on a clearly <strong>non-default preset</strong>. The song itself doesn’t need to sound good.<span class="why">That’s how we can tell whether a plugin’s settings came across.</span></span><span class="pill need">Needed</span></label></li>
       <li><label><input type="checkbox" id="c-os"><span class="txt">Windows is best. On a Mac, always pick the <strong>VST3</strong> version of a plugin, never the AU (Audio Units) one.<span class="why">AU plugins can't be opened on Windows, which is what we test with.</span></span><span class="pill need">Needed</span></label></li>
     </ul>
   </section>
@@ -204,7 +204,7 @@ footer { margin-top: 40px; color: var(--muted); font-size: 13px; }
     </ul>
   </section>
 
-  <footer>Fuji Studio · project converter test brief. Your ticks are saved in this browser only.</footer>
+  <footer>Your ticks are saved in this browser only.</footer>
 </div>
 
 <script>
