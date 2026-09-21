@@ -28,8 +28,15 @@ export interface ConvAudioClip {
     color: string | null;
     muted: boolean;
     sample: ConvSampleRef;
-    sampleOffset: number;    // beats into the sample where playback starts
+    /** Where playback starts in the sample: beats if warped, seconds if not (as Live stores it). */
+    sampleOffset: number;
     warped: boolean;
+    /** Warped clips: the whole sample's length in beats per its warp markers. */
+    sampleBeats?: number;
+    /** Warped clips with more than one tempo segment (FL can only stretch evenly). */
+    complexWarp?: boolean;
+    /** Warped clips with Loop on: each pass as { at: beats into the clip, from: sample beat, length }. */
+    loopPasses?: { at: number; from: number; length: number }[];
 }
 
 export type ConvClip = ConvMidiClip | ConvAudioClip;
@@ -53,6 +60,13 @@ export interface ConvSamplerZone {
     mode: 'classic' | 'oneShot' | 'slice';
     sampleStart: number;     // frames into the sample
     sampleCount: number;     // >1 = multi-sample instrument collapsed to `sample`
+    sampleRate: number;
+    /** Slice mode: slice start times in seconds from the start of the file, in order. */
+    slices?: number[];
+    /** How the slices were derived ('beat' is approximate — see readSlices). */
+    sliceStyle?: 'transient' | 'beat' | 'region' | 'manual';
+    /** The loop's length in beats per its warp markers (Fruity Slicer's header wants it). */
+    sampleBeats?: number;
 }
 
 /** A third-party plugin with its saved state (the plugin's own bytes, identical in every host). */
@@ -60,6 +74,8 @@ interface ConvPluginBase {
     name: string;
     kind: 'instrument' | 'effect';
     enabled: boolean;
+    /** Live automation-target id → the plugin parameter it drives (VST2: id = index). */
+    paramTargets: Record<string, { id: number; name: string }>;
 }
 
 export interface ConvVst3Plugin extends ConvPluginBase {
@@ -82,9 +98,12 @@ export type ConvPlugin = ConvVst3Plugin | ConvVst2Plugin;
 
 export type ConvInstrument =
     | { kind: 'simpler'; device: string; zone: ConvSamplerZone }
-    | { kind: 'drumRack'; device: string; pads: ConvSamplerZone[] }
+    | { kind: 'drumRack'; device: string; pads: ConvSamplerZone[]; otherPads: ConvOtherPad[] }
     | { kind: 'plugin'; device: string; plugin: ConvPlugin }
     | { kind: 'layers'; device: string; layers: ConvLayer[] };
+
+/** A Drum Rack pad without a sample (a synth like DS Kick, a Max device…): kept as an empty channel. */
+export interface ConvOtherPad { triggerNote: number; name: string; device: string }
 
 /** One chain of a multi-chain Instrument Rack: plays the notes inside its key zone. */
 export interface ConvLayer {
@@ -93,6 +112,19 @@ export interface ConvLayer {
     keyMax: number;
     volume: number;          // linear gain of the chain, 1 = 0 dB
     instrument: Exclude<ConvInstrument, { kind: 'layers' }>;
+}
+
+export type ConvAutomationTarget =
+    | { kind: 'volume' }                                   // linear gain, 1 = 0 dB
+    | { kind: 'pan' }                                      // -1 .. 1
+    | { kind: 'send'; index: number }                      // linear gain to return `index`
+    | { kind: 'plugin'; plugin: ConvPlugin; param: number; paramName: string }  // 0 .. 1
+    | { kind: 'tempo' };                                   // BPM
+
+/** An arrangement automation lane: points in beats (time 0 holds the value from the start). */
+export interface ConvAutomation {
+    target: ConvAutomationTarget;
+    points: { time: number; value: number }[];
 }
 
 export interface ConvTrack {
@@ -108,6 +140,9 @@ export interface ConvTrack {
     devices: string[];       // devices that can't be converted, for the report
     instrument: ConvInstrument | null;
     effects: ConvPlugin[];   // VST3 effects on the track, in chain order
+    automation: ConvAutomation[];
+    /** Automated parameters that can't be carried over (Ableton devices etc.). */
+    otherAutomation: number;
     clips: ConvClip[];
 }
 
@@ -128,6 +163,9 @@ export interface ConvProject {
     main: { effects: ConvPlugin[]; devices: string[] };
     /** Per return track: true if its sends are pre-fader. */
     returnsPre: boolean[];
+    tempoAutomation: ConvAutomation | null;
+    /** Time-signature changes after the start (the first signature is numerator/denominator). */
+    timeSignatures: { time: number; numerator: number; denominator: number }[];
 }
 
 export interface ConversionReport {

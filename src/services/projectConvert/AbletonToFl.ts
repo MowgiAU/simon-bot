@@ -5,6 +5,7 @@
  *   MIDI track   → one playlist track; each arrangement MIDI clip becomes its own pattern on it.
  *     Drum Rack  → one Sampler channel per pad, loaded with the pad's sample (like an FL kit).
  *     Simpler    → one Sampler channel loaded with the sample; notes shifted to keep pitch.
+ *                  In Slice mode, a Fruity Slicer with the same slice points instead.
  *     VST2/VST3  → an FL plugin channel loaded with the plugin's saved state.
  *     other      → one empty Sampler channel named after the track.
  *   Audio track  → one playlist track; each distinct sample becomes an audio-clip channel.
@@ -15,14 +16,25 @@
  * instruments and effects can't carry over — they're listed in the report instead.
  */
 import { readAls } from './AlsReader.js';
-import { CHANNEL_AUDIO_CLIP, CHANNEL_SAMPLER, writeFlp } from './FlpWriter.js';
-import type { FlChannel, FlInsert, FlInsertEffects, FlItem, FlPattern, FlTrack } from './FlpWriter.js';
+import { CHANNEL_AUDIO_CLIP, CHANNEL_SAMPLER, MIXER_PAN, MIXER_VOLUME, writeFlp } from './FlpWriter.js';
+import type { FlAutomationPoint, FlAutomationTarget, FlChannel, FlInsert, FlInsertEffects, FlItem, FlPattern, FlTrack } from './FlpWriter.js';
+import { FRUITY_SLICER, SLICER_FIRST_KEY, fruitySlicerState } from './FlNative.js';
 import { vst3ClassId } from './FlVst.js';
 import type { FlPlugin } from './FlVst.js';
-import type { ConversionReport, ConvInstrument, ConvPlugin, ConvProject, ConvSampleRef, ConvSamplerZone, ConvTrack } from './types.js';
+import type { ConversionReport, ConvAutomation, ConvInstrument, ConvPlugin, ConvProject, ConvSampleRef, ConvSamplerZone, ConvTrack } from './types.js';
 
 const MIXER_SLOTS = 10;
+const LIVE_FIRST_SLICE_KEY = 36;   // Simpler's Slice mode starts at C1
 const SEND_OFF = 0.001;     // Live's send minimum is 0.000316 (−70 dB = off)
+
+/**
+ * FL's mixer fader: 0–16000, with 0 dB at 12800 and +5.6 dB at the top. A power law through
+ * those two points (gain = (v / 12800) ^ 2.9) is used to place Live's linear track gain.
+ */
+const FL_FADER_UNITY = 12800;
+const FL_FADER_MAX = 16000;
+const FL_PAN_RANGE = 6400;
+const flFader = (gain: number) => Math.min(FL_FADER_MAX, FL_FADER_UNITY * Math.max(0, gain) ** (1 / 2.9));
 
 export interface AlsToFlpOptions {
     projectName?: string;
@@ -73,7 +85,7 @@ export function convertAlsToFlp(als: Buffer, opts: AlsToFlpOptions = {}): AlsToF
     const flKey = (liveKey: number, zone: ConvSamplerZone) => liveKey - zone.rootKey + 60 + zone.transpose;
 
     const zoneWarnings = (track: string, zone: ConvSamplerZone) => {
-        if (zone.mode === 'slice') {
+        if (zone.mode === 'slice' && !zone.slices?.length) {
             warnings.push(`"${track}": "${zone.name}" was a sliced Simpler — the whole sample is loaded; re-slice it in FL (e.g. Slicex).`);
         }
         if (zone.sampleCount > 1) {
@@ -86,6 +98,8 @@ export function convertAlsToFlp(als: Buffer, opts: AlsToFlpOptions = {}): AlsToF
 
     const insertEffects: FlInsertEffects[] = [];
     const pluginsNeeded = new Set<string>();
+    const pluginChannel = new Map<ConvPlugin, number>();                      // instrument → channel
+    const pluginSlot = new Map<ConvPlugin, { insert: number; slot: number }>(); // effect → insert slot
 
     /** FL finds VST3s by class ID, so their path is only a hint for its plugin database. */
     const flPlugin = (p: ConvPlugin): FlPlugin => {
@@ -114,6 +128,7 @@ export function convertAlsToFlp(als: Buffer, opts: AlsToFlpOptions = {}): AlsToF
         if (!effects.length) return;
         const fx = effects.slice(0, MIXER_SLOTS);
         insertEffects.push({ insert, plugins: fx.map(flPlugin) });
+        fx.forEach((p, slot) => pluginSlot.set(p, { insert, slot }));
         fx.forEach(notePlugin);
         converted.push(`"${name}": ${fx.map((p) => p.name).join(', ')} → ${insert ? `mixer insert ${insert}` : 'the master'}, with their settings.`);
         if (effects.length > MIXER_SLOTS) {
@@ -143,7 +158,7 @@ export function convertAlsToFlp(als: Buffer, opts: AlsToFlpOptions = {}): AlsToF
                 if (to && gain > SEND_OFF) { routes.push({ to, level: Math.min(1, gain) }); sendCount++; }
             });
         }
-        inserts.push({ insert, name: t.name, color: t.color, routes });
+        inserts.push({ insert, name: t.name, color: t.color, routes, volume: flFader(t.volume), pan: t.pan * FL_PAN_RANGE });
         placeEffects(t.name, t.effects, t.devices, insert);
     }
     placeEffects('Main', project.main.effects, project.main.devices, 0);
@@ -172,6 +187,7 @@ export function convertAlsToFlp(als: Buffer, opts: AlsToFlpOptions = {}): AlsToF
                 if (inst?.kind === 'plugin') {
                     const channel = channels.length;
                     channels.push({ name, color: track.color, type: CHANNEL_SAMPLER, insert, plugin: flPlugin(inst.plugin) });
+                    pluginChannel.set(inst.plugin, channel);
                     notePlugin(inst.plugin);
                     converted.push(`"${name}": ${inst.plugin.name} → loaded with its preset.`);
                     return (key) => [{ channel, key }];
@@ -184,8 +200,29 @@ export function convertAlsToFlp(als: Buffer, opts: AlsToFlpOptions = {}): AlsToF
                         channels.push({ name: pad.name, color: track.color, type: CHANNEL_SAMPLER, insert, samplePath: registerSample(pad.sample) });
                         zoneWarnings(name, pad);
                     }
+                    // Pads holding a synth or Max device: an empty channel keeps their notes
+                    for (const pad of inst.otherPads) {
+                        pads.set(pad.triggerNote, { channel: channels.length, key: 60 });
+                        channels.push({ name: pad.name, color: track.color, type: CHANNEL_SAMPLER, insert });
+                        warnings.push(`"${name}": pad "${pad.name}" used ${pad.device}, which can't come across — it has an empty channel with its notes; load a sound there in FL.`);
+                    }
                     converted.push(`"${name}": ${inst.device} → ${inst.pads.length} Sampler channels, one per pad.`);
                     return (key) => { const pad = pads.get(key); return pad ? [pad] : []; };
+                }
+                if (inst?.kind === 'simpler' && inst.zone.mode === 'slice' && inst.zone.slices?.length) {
+                    // Sliced Simpler → Fruity Slicer holding the loop at Live's slice points.
+                    // Live plays slice n on C1 + n; Fruity Slicer on C5 + n.
+                    const channel = channels.length;
+                    const zone = inst.zone;
+                    const slices = zone.slices!;
+                    const state = fruitySlicerState({ samplePath: registerSample(zone.sample), sampleRate: zone.sampleRate, slices, beats: zone.sampleBeats });
+                    channels.push({ name, color: track.color, type: CHANNEL_SAMPLER, insert, native: { name: FRUITY_SLICER, state } });
+                    converted.push(`"${name}": sliced ${inst.device} → Fruity Slicer with the same ${slices.length} slices.`);
+                    if (zone.sliceStyle === 'beat') warnings.push(`"${name}": slices were made on a beat grid in Live — check they line up in Fruity Slicer.`);
+                    return (key) => {
+                        const n = key - LIVE_FIRST_SLICE_KEY;
+                        return n >= 0 && n < slices.length ? [{ channel, key: SLICER_FIRST_KEY + n }] : [];
+                    };
                 }
                 if (inst?.kind === 'simpler') {
                     const channel = channels.length;
@@ -237,25 +274,93 @@ export function convertAlsToFlp(als: Buffer, opts: AlsToFlpOptions = {}): AlsToF
         for (const clip of track.clips) {
             if (clip.kind !== 'audio' || clip.length <= 0) continue;
             const outputPath = registerSample(clip.sample);
-            let channel = audioChannels.get(outputPath);
+            // Warped clips: FL stretches the channel's sample to the same length in beats as Live did.
+            // Stretch is per channel, so one file used at two different stretches gets two channels.
+            const stretch = clip.warped ? clip.sampleBeats : undefined;
+            const key = stretch ? `${outputPath}|${stretch.toFixed(3)}` : outputPath;
+            let channel = audioChannels.get(key);
             if (channel === undefined) {
                 channel = channels.length;
-                channels.push({ name: clip.sample.file.replace(/\.[^.]+$/, ''), color: clip.color, type: CHANNEL_AUDIO_CLIP, insert, samplePath: outputPath });
-                audioChannels.set(outputPath, channel);
+                channels.push({ name: clip.sample.file.replace(/\.[^.]+$/, ''), color: clip.color, type: CHANNEL_AUDIO_CLIP, insert, samplePath: outputPath, stretchBeats: stretch });
+                audioChannels.set(key, channel);
             }
-            if (clip.warped) {
-                warnings.push(`"${track.name}" @ bar ${Math.floor(clip.start / project.numerator) + 1}: "${clip.name}" was warped in Live — check its timing in FL.`);
+            const bar = Math.floor(clip.start / project.numerator) + 1;
+            if (clip.warped && !stretch) {
+                warnings.push(`"${track.name}" @ bar ${bar}: "${clip.name}" was warped in Live but its warp markers couldn't be read — check its timing in FL.`);
+            } else if (clip.complexWarp) {
+                warnings.push(`"${track.name}" @ bar ${bar}: "${clip.name}" had several warp markers in Live — FL stretches it evenly, so check its timing.`);
             }
+            // Offsets in beats of (stretched) audio; unwarped clips store theirs in seconds
+            const offsetBeats = clip.warped ? clip.sampleOffset : (clip.sampleOffset * project.bpm) / 60;
             // Live allows a clip to start before its sample (negative offset = leading silence); FL doesn't
-            const lead = Math.max(0, -clip.sampleOffset);
+            const lead = Math.max(0, -offsetBeats);
             if (clip.length - lead <= 0) continue;
-            items.push({
-                kind: 'audio', channel, track: trackIdx, muted: clip.muted,
-                start: clip.start + lead, length: clip.length - lead, offset: clip.sampleOffset + lead,
-            });
+            if (clip.loopPasses && clip.loopPasses.length > 1) {
+                // A looped clip becomes one playlist clip per pass through its loop
+                for (const pass of clip.loopPasses) {
+                    const skip = Math.max(0, -pass.from);
+                    if (pass.length - skip <= 0) continue;
+                    items.push({
+                        kind: 'audio', channel, track: trackIdx, muted: clip.muted,
+                        start: clip.start + pass.at + skip, length: pass.length - skip, offset: pass.from + skip,
+                    });
+                }
+            } else {
+                items.push({
+                    kind: 'audio', channel, track: trackIdx, muted: clip.muted,
+                    start: clip.start + lead, length: clip.length - lead, offset: offsetBeats + lead,
+                });
+            }
             audioClips++;
         }
     });
+
+    // ── Automation: one FL automation clip per automated lane, on its own playlist track ──
+    const automationTargets: FlAutomationTarget[] = [];
+    let automationClips = 0, vst3Params = 0, unsupported = 0;
+    const addClip = (name: string, color: string | null, points: FlAutomationPoint[], target: { param: number; dest: number }) => {
+        const channel = channels.length;
+        channels.push({ name, color, type: CHANNEL_SAMPLER, insert: 0, automation: points });
+        automationTargets.push({ channel, ...target });
+        const track = tracks.length;
+        tracks.push({ name, color });
+        items.push({ kind: 'automation', channel, track, start: 0, length: Math.max(4, ...points.map((p) => p.time)) });
+        automationClips++;
+    };
+    const mixerTarget = (insert: number, param: number) => ({ param: 0x1f00 | param, dest: 0x2000 + insert * 64 });
+    const scale = (a: ConvAutomation, f: (v: number) => number) => a.points.map((p) => ({ time: p.time, value: f(p.value) }));
+
+    for (const [t, insert] of insertOf) {
+        unsupported += t.otherAutomation;
+        for (const a of t.automation) {
+            const tg = a.target;
+            if (tg.kind === 'volume') addClip(`${t.name} – Volume`, t.color, scale(a, (v) => flFader(v) / FL_FADER_MAX), mixerTarget(insert, MIXER_VOLUME));
+            else if (tg.kind === 'pan') addClip(`${t.name} – Pan`, t.color, scale(a, (v) => (v + 1) / 2), mixerTarget(insert, MIXER_PAN));
+            else if (tg.kind === 'send') {
+                const to = returnInserts[tg.index];
+                if (to) addClip(`${t.name} – Send ${String.fromCharCode(65 + tg.index)}`, t.color, scale(a, (v) => Math.min(1, v)), mixerTarget(insert, 64 + to));
+            } else if (tg.kind === 'plugin') {
+                // VST2 parameter ids are indices; a VST3's FL index can't be known without loading it
+                if (tg.plugin.format !== 'vst2') { vst3Params++; continue; }
+                const channel = pluginChannel.get(tg.plugin);
+                const slot = pluginSlot.get(tg.plugin);
+                const dest = channel !== undefined ? channel : slot ? 0x2000 + slot.insert * 64 + slot.slot : undefined;
+                if (dest === undefined) { unsupported++; continue; }
+                addClip(`${t.name} – ${tg.plugin.name} ${tg.paramName}`, t.color, a.points, { param: 0x8000 + tg.param, dest });
+            }
+        }
+    }
+    if (project.tempoAutomation) {
+        const pts = project.tempoAutomation.points;
+        if (pts.some((p) => p.value < 60 || p.value > 180)) {
+            warnings.push("Tempo automation goes outside 60–180 BPM, the range of FL's tempo automation — those parts are clamped.");
+        }
+        addClip('Tempo', null, pts.map((p) => ({ time: p.time, value: (p.value - 60) / 120 })), { param: 0x0005, dest: 0x4000 });
+    }
+    if (automationClips) converted.push(`Automation: ${automationClips} lane${automationClips === 1 ? '' : 's'} → FL automation clips.`);
+    if (project.timeSignatures.length) converted.push(`${project.timeSignatures.length} time-signature change${project.timeSignatures.length === 1 ? '' : 's'} → playlist markers.`);
+    if (vst3Params) warnings.push(`${vst3Params} automated VST3 plugin parameter${vst3Params === 1 ? ' was' : 's were'} not converted — redraw ${vst3Params === 1 ? 'it' : 'them'} in FL.`);
+    if (unsupported) warnings.push(`${unsupported} automated parameter${unsupported === 1 ? '' : 's'} on Ableton's own devices ha${unsupported === 1 ? 's' : 've'} no FL equivalent and ${unsupported === 1 ? 'was' : 'were'} skipped.`);
 
     if (channels.length === 0) {
         channels.push({ name: 'Sampler', color: null, type: CHANNEL_SAMPLER, insert: 0 });
@@ -276,6 +381,8 @@ export function convertAlsToFlp(als: Buffer, opts: AlsToFlpOptions = {}): AlsToF
         markers: project.locators.map((l) => ({ pos: l.time, name: l.name })),
         insertEffects,
         inserts,
+        automationTargets,
+        signatures: project.timeSignatures.map((s) => ({ pos: s.time, numerator: s.numerator, denominator: s.denominator })),
     });
 
     return {

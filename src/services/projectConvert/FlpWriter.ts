@@ -38,7 +38,21 @@ const EV = {
     SlotParams: 212, PluginData: 213, PatternNotes: 224, Playlist: 233, InsertParams: 236,
     TrackData: 238, TrackName: 239,
     InsertStart: 42, InsertColor: 149, InsertName: 204, InsertRouting: 235, MixerParams: 225,
+    Controller: 227, AutomationData: 234, AutomationAfter: 145, MarkerNumerator: 33, MarkerDenominator: 34,
+    ChannelParams: 215,
 } as const;
+
+const CHANNEL_AUTOMATION = 5;
+// Channel parameters (event 215): time-stretch length and mode (from an FL 21.2 reference)
+const STRETCH_TIME_OFFSET = 96;
+const STRETCH_MODE_OFFSET = 108;
+const STRETCH_MODE = 5;
+// The stretch length counts 192 units per beat (twice the project PPQ): a 16-beat loop fitted
+// to tempo in FL stores 3072
+const STRETCH_UNITS_PER_BEAT = 192;
+const SIGNATURE_MARKER = 0x08000000;
+export const MIXER_VOLUME = 192;
+export const MIXER_PAN = 193;
 
 /**
  * Mixer parameters (event 225) are 12-byte records: u32 0, u8 param id, u8 0x1f,
@@ -71,7 +85,24 @@ export interface FlChannel {
     insert: number;             // mixer insert (0 = master)
     samplePath?: string;
     plugin?: FlPlugin;          // VST instrument hosted in this channel
+    /** Makes this an automation-clip channel with these points (see automationPayload). */
+    automation?: FlAutomationPoint[];
+    /** Audio clips: stretch the sample to this many beats at the project tempo (Live's warp). */
+    stretchBeats?: number;
+    /** One of FL's own generator plugins (e.g. Fruity Slicer) with its state. */
+    native?: { name: string; state: Buffer };
 }
+
+/** An automation point: time in beats from the clip start, value normalised 0–1. */
+export interface FlAutomationPoint { time: number; value: number }
+
+/**
+ * What an automation clip drives (event 227): param and destination codes.
+ *   insert fader/pan/send:  param 0x1f00 | mixer param id, dest 0x2000 + insert * 64
+ *   plugin parameter n:     param 0x8000 + n, dest = the channel, or 0x2000 + insert * 64 + slot
+ *   tempo:                  param 0x0005, dest 0x4000
+ */
+export interface FlAutomationTarget { channel: number; param: number; dest: number }
 
 /** VST effects for one mixer insert, filling its slots in order (FL has 10). */
 export interface FlInsertEffects {
@@ -79,11 +110,13 @@ export interface FlInsertEffects {
     plugins: FlPlugin[];
 }
 
-/** A mixer insert's name, colour and where it routes (insert 0 = master). */
+/** A mixer insert's name, colour, fader and where it routes (insert 0 = master). */
 export interface FlInsert {
     insert: number;
     name: string;
     color: string | null;
+    volume?: number;            // fader value 0–16000 (12800 = 0 dB, FL's default)
+    pan?: number;               // -6400 .. 6400
     /** Destinations; level is the send amount 0–1 (omitted = 100%, FL's default, not stored). */
     routes: { to: number; level?: number }[];
 }
@@ -104,7 +137,8 @@ export interface FlPattern {
 
 export type FlItem =
     | { kind: 'pattern'; pattern: number; track: number; start: number; length: number; muted?: boolean }
-    | { kind: 'audio'; channel: number; track: number; start: number; length: number; offset: number; muted?: boolean };
+    | { kind: 'audio'; channel: number; track: number; start: number; length: number; offset: number; muted?: boolean }
+    | { kind: 'automation'; channel: number; track: number; start: number; length: number };
 
 export interface FlTrack {
     name: string;
@@ -123,6 +157,8 @@ export interface FlProject {
     markers: { pos: number; name: string }[];
     insertEffects: FlInsertEffects[];
     inserts: FlInsert[];
+    automationTargets: FlAutomationTarget[];
+    signatures: { pos: number; numerator: number; denominator: number }[];
 }
 
 interface Ev { id: number; value: number | Buffer }
@@ -168,6 +204,8 @@ function encodeEvent(e: Ev): Buffer {
 function text(s: string): Buffer {
     return Buffer.from(`${s.replace(/\0/g, '')}\0`, 'utf16le');
 }
+
+const hex = (s: string) => Buffer.from(s, 'hex');
 
 /** '#RRGGBB' → FL's 0x00BBGGRR */
 function flColor(hex: string | null, fallback: number): number {
@@ -222,11 +260,14 @@ function playlistPayload(items: FlItem[], bpm: number): Buffer {
         b.writeUInt16LE(PLAYLIST_TRACKS - 1 - it.track, o + 12);
         b.writeUInt16LE(0, o + 14);                                      // group
         b.writeUInt16LE(0x0078, o + 16);
-        b.writeUInt16LE(it.muted ? 0x2040 : 0x0040, o + 18);             // item flags (0x2000 = muted)
+        b.writeUInt16LE('muted' in it && it.muted ? 0x2040 : 0x0040, o + 18); // item flags (0x2000 = muted)
         b.writeUInt32LE(0x80806440, o + 20);
         if (it.kind === 'pattern') {
             b.writeInt32LE(0, o + 24);                                   // start offset (ticks)
             b.writeInt32LE(len, o + 28);                                 // end offset (ticks)
+        } else if (it.kind === 'automation') {
+            b.writeFloatLE(-1, o + 24);                                  // whole clip
+            b.writeFloatLE(-1, o + 28);
         } else {
             b.writeFloatLE(it.offset * msPerBeat, o + 24);               // start offset (ms)
             b.writeFloatLE((it.offset + it.length) * msPerBeat, o + 28); // end offset (ms)
@@ -234,6 +275,41 @@ function playlistPayload(items: FlItem[], bpm: number): Buffer {
         b.writeUInt32LE(i + 1, o + 32);
         b.writeFloatLE(1, o + 52);
     });
+    return b;
+}
+
+/**
+ * Automation clip data (event 234, from FL 20–21 projects): a 17-byte header, u32 point count,
+ * 24-byte points { f64 beats since the previous point, f64 value 0–1, f32 tension, u32 flags },
+ * then a fixed 112-byte tail (LFO settings, identical across FL's own clips).
+ */
+const AUTOMATION_HEADER = hex('0100000040000000000400000003000000');
+const AUTOMATION_TAIL = hex(
+    '01000000ffffffffffffffffffffffffffffffff800000008000000000000000800000000500000003000000010000000000000000000000'
+    + '000000000000f03f00000000000000000100000000000000fffffffffffffffffffffffffbb2000000000000000000000000000000000000');
+
+function automationPayload(points: FlAutomationPoint[]): Buffer {
+    const sorted = [...points].sort((a, b) => a.time - b.time);
+    const b = Buffer.alloc(4 + sorted.length * 24);
+    b.writeUInt32LE(sorted.length, 0);
+    let prev = 0;
+    sorted.forEach((pt, i) => {
+        const o = 4 + i * 24;
+        b.writeDoubleLE(Math.max(0, pt.time - prev), o);
+        b.writeDoubleLE(Math.min(1, Math.max(0, pt.value)), o + 8);
+        prev = pt.time;
+    });
+    return Buffer.concat([AUTOMATION_HEADER, b, AUTOMATION_TAIL]);
+}
+
+/** Event 227: links automation channel → target. */
+function controllerPayload(t: FlAutomationTarget): Buffer {
+    const b = Buffer.alloc(20);
+    b.writeUInt16LE(t.channel, 2);
+    b.writeUInt16LE(t.param, 8);
+    b.writeUInt16LE(t.dest, 10);
+    b.writeUInt32LE(8, 12);
+    b.writeUInt32LE(469, 16);
     return b;
 }
 
@@ -272,14 +348,39 @@ export function writeFlp(project: FlProject): Buffer {
         out.push({ id: EV.PatternNew, value: i + 1 });
         out.push({ id: EV.PatternNotes, value: notesPayload(p.notes) });
     });
+    // Automation links sit with the pattern data, before the channel rack
+    for (const t of project.automationTargets) out.push({ id: EV.Controller, value: controllerPayload(t) });
 
     // A VST channel is the Sampler block with the plugin fields swapped in (values as FL 21.2 writes them)
     const channelEvents = (ch: FlChannel, iid: number): Ev[] => {
         const evs: Ev[] = [];
         const vst = ch.plugin;
+        const native = ch.native;
         for (const e of channelTpl) {
             if (e.id === EV.ChannelNew) evs.push({ id: e.id, value: iid });
-            else if (e.id === EV.ChannelType) evs.push({ id: e.id, value: vst ? CHANNEL_PLUGIN : ch.type });
+            else if (e.id === EV.ChannelType) evs.push({ id: e.id, value: vst || native ? CHANNEL_PLUGIN : ch.automation ? CHANNEL_AUTOMATION : ch.type });
+            else if (ch.stretchBeats && e.id === EV.ChannelParams) {
+                // Time stretching: length in ticks, and mode 5, as FL sets them when fitting to tempo
+                const params = Buffer.from(e.value as Buffer);
+                params.writeInt32LE(Math.round(ch.stretchBeats * STRETCH_UNITS_PER_BEAT), STRETCH_TIME_OFFSET);
+                params.writeInt32LE(STRETCH_MODE, STRETCH_MODE_OFFSET);
+                // FL writes these on every audio clip it creates; with the Sampler defaults (-1, 1)
+                // the stretch length is read in the wrong unit
+                params.writeInt32LE(140, 0);
+                params.writeInt32LE(3, 44);
+                params.writeInt32LE(0, 48);
+                evs.push({ id: e.id, value: params });
+            }
+            else if (native && e.id === EV.InternalName) evs.push({ id: e.id, value: text(native.name) });
+            else if (native && e.id === EV.SlotParams) evs.push({ id: e.id, value: pluginSlotParams('generator', 0) });
+            else if (native && e.id === EV.PluginFlag) {
+                evs.push({ id: e.id, value: 0 });
+                evs.push({ id: EV.PluginData, value: native.state });
+            }
+            else if (ch.automation && e.id === EV.AutomationAfter) {
+                evs.push(e);
+                evs.push({ id: EV.AutomationData, value: automationPayload(ch.automation) });
+            }
             else if (e.id === EV.PluginName) evs.push({ id: e.id, value: text(ch.name) });
             else if (e.id === EV.ChannelColor) evs.push({ id: e.id, value: flColor(ch.color, e.value as number) });
             else if (e.id === EV.ChannelInsert) evs.push({ id: e.id, value: Math.min(125, ch.insert) });
@@ -331,10 +432,18 @@ export function writeFlp(project: FlProject): Buffer {
             continue;
         }
         if (e.id === EV.MixerParams) {
+            // Faders and pans: patch the template's existing records in place
+            const params = Buffer.from(e.value as Buffer);
+            for (let o = 0; o + 12 <= params.length; o += 12) {
+                const ins = insertsByIndex.get((params.readUInt16LE(o + 6) - 0x2000) >> 6);
+                if (!ins || (params.readUInt16LE(o + 6) & 63) !== 0) continue;
+                if (params[o + 4] === MIXER_VOLUME && ins.volume !== undefined) params.writeInt32LE(Math.round(ins.volume), o + 8);
+                if (params[o + 4] === MIXER_PAN && ins.pan !== undefined) params.writeInt32LE(Math.round(ins.pan), o + 8);
+            }
             const levels = project.inserts.flatMap((ins) => ins.routes
                 .filter((r) => r.level !== undefined && r.level < 1)
                 .map((r) => mixerParam(MIXER_ROUTE_PARAM + r.to, ins.insert, Math.round(Math.max(0, r.level!) * MIXER_FULL))));
-            out.push({ id: e.id, value: Buffer.concat([e.value as Buffer, ...levels]) });
+            out.push({ id: e.id, value: Buffer.concat([params, ...levels]) });
             continue;
         }
         if (e.id === EV.InsertParams) insertNo++;
@@ -357,6 +466,13 @@ export function writeFlp(project: FlProject): Buffer {
             for (const m of project.markers) {
                 out.push({ id: EV.TimeMarker, value: ticks(m.pos) });
                 out.push({ id: EV.TimeMarkerName, value: text(m.name) });
+            }
+            // Time-signature markers: marker type 8 in the top byte, then numerator/denominator
+            for (const s of project.signatures) {
+                out.push({ id: EV.TimeMarker, value: (ticks(s.pos) | SIGNATURE_MARKER) >>> 0 });
+                out.push({ id: EV.TimeMarkerName, value: text(`${s.numerator}/${s.denominator}`) });
+                out.push({ id: EV.MarkerNumerator, value: s.numerator });
+                out.push({ id: EV.MarkerDenominator, value: s.denominator });
             }
             continue;
         }

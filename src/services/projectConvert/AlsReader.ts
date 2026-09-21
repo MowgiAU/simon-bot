@@ -17,7 +17,8 @@
 import zlib from 'node:zlib';
 import { XMLParser } from 'fast-xml-parser';
 import type {
-    ConvAudioClip, ConvClip, ConvInstrument, ConvLayer, ConvMidiClip, ConvNote, ConvPlugin, ConvProject, ConvSampleRef, ConvSamplerZone, ConvTrack,
+    ConvAudioClip, ConvAutomation, ConvAutomationTarget, ConvClip, ConvInstrument, ConvLayer, ConvMidiClip, ConvNote, ConvPlugin,
+    ConvOtherPad, ConvProject, ConvSampleRef, ConvSamplerZone, ConvTrack,
 } from './types.js';
 
 // Live's clip/track colour palette (first 28 entries; later indices wrap).
@@ -36,6 +37,7 @@ const ARRAY_TAGS = new Set([
     'MidiTrack', 'AudioTrack', 'GroupTrack', 'ReturnTrack',
     'MidiClip', 'AudioClip', 'KeyTrack', 'MidiNoteEvent', 'Locator', 'WarpMarker',
     'DrumBranch', 'InstrumentBranch', 'AudioEffectBranch', 'MultiSamplePart', 'TrackSendHolder', 'SendPreBool',
+    'PluginFloatParameter', 'AutomationEnvelope', 'FloatEvent', 'EnumEvent', 'BoolEvent', 'SlicePoint',
 ]);
 
 function val(node: any): string | undefined {
@@ -151,6 +153,7 @@ function readAudioClip(clip: any, trackColor: string | null): ConvAudioClip | nu
     const start = num(clip.CurrentStart, attrNum(clip, 'Time'));
     const length = Math.max(0, num(clip.CurrentEnd, start) - start);
     const loop = clip?.Loop ?? {};
+    const warped = bool(clip.IsWarped);
     return {
         kind: 'audio',
         name: val(clip.Name) ?? sample.file,
@@ -160,8 +163,34 @@ function readAudioClip(clip: any, trackColor: string | null): ConvAudioClip | nu
         muted: bool(clip.Disabled),
         sample,
         sampleOffset: num(loop.LoopStart) + num(loop.StartRelative),
-        warped: bool(clip.IsWarped),
+        warped,
+        ...(warped ? warpedLength(clip) : {}),
+        // Looped warped clips repeat their loop region; FL audio clips don't loop, so keep the passes
+        ...(warped && bool(loop.LoopOn)
+            ? { loopPasses: contentSegments(clip, length).map((s) => ({ at: s.at, from: s.from, length: s.to - s.from })) }
+            : {}),
     };
+}
+
+/**
+ * A warped clip's whole-sample length in beats: Live's warp markers map seconds to beats; the
+ * last segment's tempo is extended to the end of the file.
+ */
+function warpedLength(clip: any): Pick<ConvAudioClip, 'sampleBeats' | 'complexWarp'> {
+    const markers = arr<any>(clip?.WarpMarkers?.WarpMarker)
+        .map((m) => ({ sec: attrNum(m, 'SecTime'), beat: attrNum(m, 'BeatTime') }))
+        .sort((a, b) => a.sec - b.sec);
+    const ref = clip?.SampleRef;
+    const duration = num(ref?.DefaultDuration) / (num(ref?.DefaultSampleRate, 44100) || 44100);
+    if (markers.length < 2 || !(duration > 0)) return {};
+    const tempo = (a: { sec: number; beat: number }, b: { sec: number; beat: number }) => (b.beat - a.beat) / (b.sec - a.sec || 1);
+    const [a, b] = markers.slice(-2);
+    const perSec = tempo(a, b);
+    const beatAt = (sec: number) => b.beat + (sec - b.sec) * perSec;
+    const sampleBeats = beatAt(duration) - beatAt(0);
+    // Live keeps a helper marker right after the first; any other tempo change is a real warp curve
+    const tempos = new Set(markers.slice(1).map((m, i) => tempo(markers[i], m).toFixed(2)));
+    return { sampleBeats: sampleBeats > 0 ? sampleBeats : undefined, complexWarp: tempos.size > 1 };
 }
 
 // ── Instruments ────────────────────────────────────────────────────────────────
@@ -221,12 +250,72 @@ function findSampler(node: any, depth = 0): any | null {
  * A Simpler/Sampler → zone. Multi-sample instruments (round-robins, velocity layers,
  * key splits) collapse to their first active sample; `sampleCount` records how many there were.
  */
+const SLICE_STYLES = ['transient', 'beat', 'region', 'manual'] as const;
+// Simpler's beat-slicing divisions, in beats (1/32 note … 4 bars)
+const SLICE_BEAT_DIVISIONS = [0.125, 0.25, 0.5, 1, 2, 4, 8, 16];
+const MAX_SLICES = 128;
+
+/** Seconds at a beat position, via the sample's warp markers (piecewise linear). */
+function beatToSeconds(markers: { sec: number; beat: number }[], beat: number): number {
+    if (markers.length < 2) return beat * 0.5;                    // 120 BPM if unwarped
+    let i = 1;
+    while (i < markers.length - 1 && markers[i].beat < beat) i++;
+    const a = markers[i - 1], b = markers[i];
+    return a.sec + ((beat - a.beat) * (b.sec - a.sec)) / (b.beat - a.beat || 1);
+}
+
+/**
+ * Slice start times (seconds) for a Simpler in Slice mode. Live stores the transient points it
+ * detected (InitialSlicePointsFromOnsets, filtered here by the Sensitivity setting), manual points,
+ * or the grid/region settings to derive them from.
+ */
+function readSlices(part: any): Pick<ConvSamplerZone, 'slices' | 'sliceStyle' | 'sampleBeats'> {
+    const rate = num(part?.SampleRef?.DefaultSampleRate, 44100);
+    const startSec = num(part?.SampleStart) / rate;
+    const endSec = num(part?.SampleEnd, num(part?.SampleRef?.DefaultDuration)) / rate;
+    const markers = arr<any>(part?.SampleWarpProperties?.WarpMarkers?.WarpMarker)
+        .map((m) => ({ sec: attrNum(m, 'SecTime'), beat: attrNum(m, 'BeatTime') }))
+        .sort((a, b) => a.sec - b.sec);
+    const sampleBeats = markers.length > 1 ? markers[markers.length - 1].beat : undefined;
+    const style = SLICE_STYLES[num(part?.SlicingStyle)] ?? 'transient';
+    const points = (list: any) => arr<any>(list?.SlicePoint).map((p) => ({ sec: attrNum(p, 'TimeInSeconds'), energy: attrNum(p, 'NormalizedEnergy', 1) }));
+
+    let times: number[];
+    if (style === 'manual') {
+        times = points(part?.ManualSlicePoints).map((p) => p.sec);
+    } else if (style === 'region') {
+        const n = Math.max(1, num(part?.SlicingRegions, 8));
+        times = Array.from({ length: n }, (_, i) => startSec + ((endSec - startSec) * i) / n);
+    } else if (style === 'beat') {
+        const step = SLICE_BEAT_DIVISIONS[num(part?.SlicingBeatGrid, 3)] ?? 1;
+        times = [];
+        for (let b = 0; times.length < MAX_SLICES; b += step) {
+            const t = beatToSeconds(markers, b);
+            if (t >= endSec) break;
+            times.push(t);
+        }
+    } else {
+        // Sensitivity 0–100: more sensitive keeps quieter transients
+        const minEnergy = 1 - num(part?.SlicingThreshold, 100) / 100;
+        times = points(part?.InitialSlicePointsFromOnsets).filter((p) => p.energy >= minEnergy - 1e-9).map((p) => p.sec);
+    }
+    const slices = [...new Set(times.filter((t) => t >= startSec - 1e-6 && t < endSec).map((t) => Math.max(startSec, t)))]
+        .sort((a, b) => a - b)
+        .slice(0, MAX_SLICES);
+    if (!slices.length || slices[0] > startSec + 0.001) slices.unshift(startSec);
+    return { slices, sliceStyle: style, sampleBeats };
+}
+
 function readZone(sampler: any, name: string, triggerNote: number | null, sendingNote: number | null): ConvSamplerZone | null {
     const parts = arr<any>(sampler?.Player?.MultiSampleMap?.SampleParts?.MultiSamplePart)
         .filter((p) => readSampleRef(p?.SampleRef));
-    const part = parts.find((p) => bool(p?.IsActive, true)) ?? parts[0];
+    // Multi-sample instruments collapse to one sample: the zone covering middle C, else the first
+    const active = parts.filter((p) => bool(p?.IsActive, true));
+    const covers = (p: any, key: number) => num(p?.KeyRange?.Min, 0) <= key && key <= num(p?.KeyRange?.Max, 127);
+    const part = active.find((p) => covers(p, 60)) ?? active[0] ?? parts[0];
     const sample = part && readSampleRef(part.SampleRef);
     if (!sample) return null;
+    const mode = PLAYBACK_MODES[num(sampler?.Globals?.PlaybackMode)] ?? 'classic';
     return {
         sampleCount: parts.length,
         name: name || val(part?.Name) || sample.file.replace(/\.[^.]+$/, ''),
@@ -235,13 +324,16 @@ function readZone(sampler: any, name: string, triggerNote: number | null, sendin
         sendingNote,
         rootKey: num(part?.RootKey, 60),
         transpose: num(sampler?.Pitch?.TransposeKey?.Manual),
-        mode: PLAYBACK_MODES[num(sampler?.Globals?.PlaybackMode)] ?? 'classic',
+        mode,
         sampleStart: num(part?.SampleStart),
+        sampleRate: num(part?.SampleRef?.DefaultSampleRate, 44100),
+        ...(mode === 'slice' ? readSlices(part) : {}),
     };
 }
 
-function readDrumRack(rack: any): ConvSamplerZone[] {
+function readDrumRack(rack: any): { pads: ConvSamplerZone[]; otherPads: ConvOtherPad[] } {
     const pads: ConvSamplerZone[] = [];
+    const otherPads: ConvOtherPad[] = [];
     for (const branch of arr<any>(rack?.Branches?.DrumBranch)) {
         const info = branch?.BranchInfo;
         // Live stores the pad's trigger note inverted
@@ -250,9 +342,12 @@ function readDrumRack(rack: any): ConvSamplerZone[] {
         const sampler = findSampler(branch?.DeviceChain);
         const name = val(branch?.Name?.EffectiveName) || val(branch?.Name?.UserName) || '';
         const zone = sampler && readZone(sampler, name, 128 - receiving, num(info?.SendingNote, 60));
-        if (zone) pads.push(zone);
+        if (zone) { pads.push(zone); continue; }
+        const [tag, dev] = deviceList(branch?.DeviceChain?.MidiToAudioDeviceChain?.Devices)[0] ?? [];
+        if (tag) otherPads.push({ triggerNote: 128 - receiving, name: name || deviceName(tag, dev), device: deviceName(tag, dev) });
     }
-    return pads.sort((a, b) => (a.triggerNote ?? 0) - (b.triggerNote ?? 0));
+    pads.sort((a, b) => (a.triggerNote ?? 0) - (b.triggerNote ?? 0));
+    return { pads, otherPads };
 }
 
 const hexBytes = (v: unknown) => Buffer.from(String(v ?? '').replace(/\s/g, ''), 'hex');
@@ -261,8 +356,20 @@ const hexBytes = (v: unknown) => Buffer.from(String(v ?? '').replace(/\s/g, ''),
  * A VST3 PluginDevice → ConvPlugin. The Uid and state blobs are what any VST3 host
  * hands back to the plugin, so presets carry over. VST2/AU aren't supported yet.
  */
+/** Live automation-target id → plugin parameter, from the device's ParameterList. */
+function readParamTargets(dev: any): Record<string, { id: number; name: string }> {
+    const out: Record<string, { id: number; name: string }> = {};
+    for (const p of arr<any>(dev?.ParameterList?.PluginFloatParameter)) {
+        const target = p?.ParameterValue?.AutomationTarget?.['@_Id'];
+        const id = num(p?.ParameterId, -1);
+        if (target != null && id >= 0) out[String(target)] = { id, name: val(p?.ParameterName) || `Parameter ${id}` };
+    }
+    return out;
+}
+
 function readPlugin(dev: any): ConvPlugin | null {
     const enabled = bool(dev?.On?.Manual, true);
+    const paramTargets = readParamTargets(dev);
 
     const info = dev?.PluginDesc?.Vst3PluginInfo;
     if (info) {
@@ -279,6 +386,7 @@ function readPlugin(dev: any): ConvPlugin | null {
             processorState,
             controllerState: hexBytes(preset?.ControllerState),
             enabled,
+        paramTargets,
         };
     }
 
@@ -307,6 +415,7 @@ function readPlugin(dev: any): ConvPlugin | null {
         chunk: isParamList ? undefined : buffer,
         params,
         enabled,
+        paramTargets,
     };
 }
 
@@ -348,8 +457,8 @@ function readDeviceChain(list: [string, any][], where = ''): ChainResult {
             continue;
         }
         if (tag === 'DrumGroupDevice' && !out.instrument) {
-            const pads = readDrumRack(dev);
-            if (pads.length) { out.instrument = { kind: 'drumRack', device: name, pads }; continue; }
+            const { pads, otherPads } = readDrumRack(dev);
+            if (pads.length || otherPads.length) { out.instrument = { kind: 'drumRack', device: name, pads, otherPads }; continue; }
         }
         if (SAMPLER_TAGS.includes(tag) && !out.instrument) {
             const zone = readZone(dev, '', null, null);
@@ -390,6 +499,73 @@ function readDeviceChain(list: [string, any][], where = ''): ChainResult {
 
 function readInstrument(track: any): ChainResult {
     return readDeviceChain(deviceList(track?.DeviceChain?.DeviceChain?.Devices ?? track?.DeviceChain?.Devices));
+}
+
+// ── Automation ─────────────────────────────────────────────────────────────────
+
+/** Live's "value before the arrangement starts" event sits at this time. */
+const PRE_ROLL_TIME = -63072000;
+
+const targetId = (node: any): string | undefined => {
+    const id = node?.AutomationTarget?.['@_Id'];
+    return id == null ? undefined : String(id);
+};
+
+/** An envelope's breakpoints in beats, with the pre-roll value placed at time 0. */
+function envelopePoints(env: any): { time: number; value: number }[] {
+    const events = env?.Automation?.Events ?? {};
+    const raw = [...arr<any>(events.FloatEvent), ...arr<any>(events.EnumEvent), ...arr<any>(events.BoolEvent)]
+        .map((e) => ({
+            time: attrNum(e, 'Time'),
+            value: e['@_Value'] === 'true' ? 1 : e['@_Value'] === 'false' ? 0 : attrNum(e, 'Value'),
+        }))
+        .sort((a, b) => a.time - b.time);
+    return raw.map((p) => (p.time <= PRE_ROLL_TIME + 1 ? { ...p, time: 0 } : p)).filter((p) => p.time >= 0);
+}
+
+/** Every VST plugin reachable from a chain result (instrument, layers and effects). */
+function chainPlugins(chain: ChainResult): ConvPlugin[] {
+    const inst = chain.instrument;
+    const fromInst = inst?.kind === 'plugin' ? [inst.plugin]
+        : inst?.kind === 'layers' ? inst.layers.flatMap((l) => (l.instrument.kind === 'plugin' ? [l.instrument.plugin] : []))
+            : [];
+    return [...fromInst, ...chain.effects];
+}
+
+/** Resolves a track's arrangement envelopes against the targets we know how to carry over. */
+function readAutomation(owner: any, targets: Map<string, ConvAutomationTarget>): { automation: ConvAutomation[]; otherAutomation: number } {
+    const automation: ConvAutomation[] = [];
+    let otherAutomation = 0;
+    for (const env of arr<any>(owner?.AutomationEnvelopes?.Envelopes?.AutomationEnvelope)) {
+        const points = envelopePoints(env);
+        if (points.length < 2) continue;                    // a lone pre-roll value isn't automation
+        const target = targets.get(String(env?.EnvelopeTarget?.PointeeId?.['@_Value']));
+        if (target) automation.push({ target, points });
+        else otherAutomation++;
+    }
+    return { automation, otherAutomation };
+}
+
+function trackTargets(mixer: any, chain: ChainResult): Map<string, ConvAutomationTarget> {
+    const targets = new Map<string, ConvAutomationTarget>();
+    const vol = targetId(mixer?.Volume);
+    const pan = targetId(mixer?.Pan);
+    if (vol) targets.set(vol, { kind: 'volume' });
+    if (pan) targets.set(pan, { kind: 'pan' });
+    arr<any>(mixer?.Sends?.TrackSendHolder)
+        .sort((a, b) => attrNum(a, 'Id') - attrNum(b, 'Id'))
+        .forEach((h, index) => { const id = targetId(h?.Send); if (id) targets.set(id, { kind: 'send', index }); });
+    for (const plugin of chainPlugins(chain)) {
+        for (const [id, p] of Object.entries(plugin.paramTargets)) {
+            targets.set(id, { kind: 'plugin', plugin, param: p.id, paramName: p.name });
+        }
+    }
+    return targets;
+}
+
+/** Live packs a signature into one number: (numerator − 1) + 99 × log2(denominator). */
+function decodeSignature(v: number): { numerator: number; denominator: number } {
+    return { numerator: (Math.round(v) % 99) + 1, denominator: 2 ** Math.floor(Math.round(v) / 99) };
 }
 
 export function readAls(buffer: Buffer, projectName = 'Converted Project'): ConvProject {
@@ -443,6 +619,7 @@ export function readAls(buffer: Buffer, projectName = 'Converted Project'): Conv
             }
             clips.sort((a, b) => a.start - b.start);
 
+            const chain = readInstrument(t);
             const groupId = val(t?.TrackGroupId);
             tracks.push({
                 _order: order.get(`${tag}:${t['@_Id']}`) ?? 1e6,
@@ -457,7 +634,8 @@ export function readAls(buffer: Buffer, projectName = 'Converted Project'): Conv
                 muted: !bool(tMixer?.Speaker?.Manual, true),
                 volume: num(tMixer?.Volume?.Manual, 1),
                 pan: num(tMixer?.Pan?.Manual, 0),
-                ...readInstrument(t),
+                ...chain,
+                ...readAutomation(t, trackTargets(tMixer, chain)),
                 clips,
             });
         }
@@ -480,5 +658,23 @@ export function readAls(buffer: Buffer, projectName = 'Converted Project'): Conv
         returnsPre: arr<any>(set?.SendsPre?.SendPreBool)
             .sort((a, b) => attrNum(a, 'Id') - attrNum(b, 'Id'))
             .map((b) => b['@_Value'] === 'true'),
+        ...readMainAutomation(main, mixer),
     };
+}
+
+/** Tempo automation and time-signature changes live on the Main track's envelopes. */
+function readMainAutomation(main: any, mixer: any): Pick<ConvProject, 'tempoAutomation' | 'timeSignatures'> {
+    const tempoId = targetId(mixer?.Tempo);
+    const sigId = targetId(mixer?.TimeSignature);
+    let tempoAutomation: ConvAutomation | null = null;
+    const timeSignatures: ConvProject['timeSignatures'] = [];
+    for (const env of arr<any>(main?.AutomationEnvelopes?.Envelopes?.AutomationEnvelope)) {
+        const pointee = String(env?.EnvelopeTarget?.PointeeId?.['@_Value']);
+        const points = envelopePoints(env);
+        if (pointee === tempoId && points.length > 1) tempoAutomation = { target: { kind: 'tempo' }, points };
+        if (pointee === sigId) {
+            for (const p of points) if (p.time > 0) timeSignatures.push({ time: p.time, ...decodeSignature(p.value) });
+        }
+    }
+    return { tempoAutomation, timeSignatures };
 }
