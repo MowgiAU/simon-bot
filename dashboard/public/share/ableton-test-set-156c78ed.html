@@ -64,6 +64,8 @@ ul.checks input:focus-visible { outline: 2px solid var(--accent); outline-offset
 ul.checks .txt { min-width: 0; }
 ul.checks input:checked ~ .txt { color: var(--muted); text-decoration: line-through; text-decoration-color: var(--rule); }
 ul.checks .why { display: block; font-size: 13px; color: var(--muted); text-decoration: none; margin-top: 2px; }
+ul.checks a { color: var(--accent); text-underline-offset: 2px; }
+ul.checks a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 code { font: 13px var(--mono); background: var(--code-bg); padding: 1px 5px; border-radius: 3px; overflow-wrap: anywhere; }
 footer { margin-top: 40px; color: var(--muted); font-size: 13px; }
 @media (max-width: 520px) {
@@ -91,7 +93,7 @@ footer { margin-top: 40px; color: var(--muted); font-size: 13px; }
     <h2>Before you start</h2>
     <p class="sub">Install these free plugins first. Our test machine has them in both formats, so everything you use can be opened on our side.</p>
     <ul class="checks">
-      <li><label><input type="checkbox" id="c-plugins"><span class="txt">Install <strong>Vital</strong> (vital.audio), <strong>OTT</strong> (xferrecords.com) and <strong>Valhalla Supermassive</strong> (valhalladsp.com), each in <em>both</em> VST2 and VST3.<span class="why">These three are the only third-party plugins needed. Please don't use others; we can't open what we don't have.</span></span><span class="pill need">Needed</span></label></li>
+      <li><label><input type="checkbox" id="c-plugins"><span class="txt">Install <strong>Vital</strong> (<a href="https://vital.audio/" target="_blank" rel="noopener">vital.audio</a>), <strong>OTT</strong> (<a href="https://xferrecords.com/freeware" target="_blank" rel="noopener">xferrecords.com/freeware</a>) and <strong>Valhalla Supermassive</strong> (<a href="https://valhalladsp.com/shop/reverb/valhalla-supermassive/" target="_blank" rel="noopener">valhalladsp.com</a>), each in <em>both</em> VST2 and VST3.<span class="why">These three are the only third-party plugins needed. Please don't use others; we can't open what we don't have.</span></span><span class="pill need">Needed</span></label></li>
       <li><label><input type="checkbox" id="c-vst2"><span class="txt">Make sure Live shows VST2 plugins: <code>Settings → Plug-Ins</code> → turn on the VST2 custom folder (Windows) or system folder, then rescan.<span class="why">Under Plug-Ins in the browser you should see both a VST folder and a VST3 folder.</span></span><span class="pill need">Needed</span></label></li>
       <li><label><input type="checkbox" id="c-setup"><span class="txt">New set at <strong>128 BPM, 4/4</strong>, about 32 bars long. Put <strong>everything in Arrangement View</strong>.<span class="why">The converter reads the arrangement. Clips that only exist in Session View are ignored.</span></span><span class="pill need">Needed</span></label></li>
       <li><label><input type="checkbox" id="c-presets"><span class="txt">Put every plugin on a clearly <strong>non-default preset</strong>. The song itself doesn’t need to sound good.<span class="why">That’s how we can tell whether a plugin’s settings came across.</span></span><span class="pill need">Needed</span></label></li>
