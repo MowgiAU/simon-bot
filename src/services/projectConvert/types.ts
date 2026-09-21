@@ -55,15 +55,30 @@ export interface ConvSamplerZone {
     sampleCount: number;     // >1 = multi-sample instrument collapsed to `sample`
 }
 
-/** A third-party VST3 with its saved state (identical bytes in every VST3 host). */
-export interface ConvPlugin {
+/** A third-party plugin with its saved state (the plugin's own bytes, identical in every host). */
+interface ConvPluginBase {
     name: string;
     kind: 'instrument' | 'effect';
+    enabled: boolean;
+}
+
+export interface ConvVst3Plugin extends ConvPluginBase {
+    format: 'vst3';
     classId: number[];       // the four 32-bit VST3 class-ID fields
     processorState: Buffer;  // component state — the plugin's settings / preset
     controllerState: Buffer; // editor state (may be empty)
-    enabled: boolean;
 }
+
+export interface ConvVst2Plugin extends ConvPluginBase {
+    format: 'vst2';
+    uniqueId: number;
+    vstVersion: number;
+    path: string;            // .dll path on the source machine
+    chunk?: Buffer;          // the plugin's own chunk, for plugins that save one…
+    params?: number[];       // …otherwise its parameter values (0–1)
+}
+
+export type ConvPlugin = ConvVst3Plugin | ConvVst2Plugin;
 
 export type ConvInstrument =
     | { kind: 'simpler'; device: string; zone: ConvSamplerZone }

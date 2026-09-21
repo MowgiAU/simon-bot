@@ -19,8 +19,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { vst3SlotParams, vst3Wrapper } from './FlVst.js';
-import type { FlVst3Plugin } from './FlVst.js';
+import { pluginSlotParams, pluginWrapper } from './FlVst.js';
+import type { FlPlugin } from './FlVst.js';
 
 const TEMPLATE_PATH = path.join(path.dirname(fileURLToPath(import.meta.url)), 'templates', 'Empty-FL21.flp');
 
@@ -52,13 +52,13 @@ export interface FlChannel {
     type: number;               // CHANNEL_SAMPLER | CHANNEL_AUDIO_CLIP (ignored when `plugin` is set)
     insert: number;             // mixer insert (0 = master)
     samplePath?: string;
-    plugin?: FlVst3Plugin;      // VST3 instrument hosted in this channel
+    plugin?: FlPlugin;          // VST instrument hosted in this channel
 }
 
-/** VST3 effects for one mixer insert, filling its slots in order (FL has 10). */
+/** VST effects for one mixer insert, filling its slots in order (FL has 10). */
 export interface FlInsertEffects {
     insert: number;
-    plugins: FlVst3Plugin[];
+    plugins: FlPlugin[];
 }
 
 export interface FlNote {
@@ -257,10 +257,10 @@ export function writeFlp(project: FlProject): Buffer {
             else if (e.id === EV.ChannelInsert) evs.push({ id: e.id, value: Math.min(125, ch.insert) });
             else if (e.id === EV.SamplePath) continue;
             else if (vst && e.id === EV.InternalName) evs.push({ id: e.id, value: text('Fruity Wrapper') });
-            else if (vst && e.id === EV.SlotParams) evs.push({ id: e.id, value: vst3SlotParams('generator', 0) });
+            else if (vst && e.id === EV.SlotParams) evs.push({ id: e.id, value: pluginSlotParams('generator', 0) });
             else if (vst && e.id === EV.PluginFlag) {
                 evs.push({ id: e.id, value: 1 });
-                evs.push({ id: EV.PluginData, value: vst3Wrapper(vst) });
+                evs.push({ id: EV.PluginData, value: pluginWrapper(vst) });
             }
             else if (vst && e.id === EV.ChannelFlags) evs.push({ id: e.id, value: 131074 });
             else if (vst && e.id === EV.ChannelMisc) evs.push({ id: e.id, value: 10 });
@@ -294,12 +294,12 @@ export function writeFlp(project: FlProject): Buffer {
             if (plugin) {
                 out.push(
                     { id: EV.InternalName, value: text('Fruity Wrapper') },
-                    { id: EV.SlotParams, value: vst3SlotParams('effect', insertNo) },
+                    { id: EV.SlotParams, value: pluginSlotParams('effect', insertNo) },
                     { id: EV.PluginName, value: text(plugin.name) },
                     { id: EV.PluginIcon, value: 0 },
                     { id: EV.ChannelColor, value: DEFAULT_PLUGIN_COLOR },
                     { id: EV.PluginFlag, value: 0 },
-                    { id: EV.PluginData, value: vst3Wrapper(plugin) },
+                    { id: EV.PluginData, value: pluginWrapper(plugin) },
                 );
             }
         }

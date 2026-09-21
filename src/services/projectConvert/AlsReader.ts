@@ -262,20 +262,51 @@ const hexBytes = (v: unknown) => Buffer.from(String(v ?? '').replace(/\s/g, ''),
  * hands back to the plugin, so presets carry over. VST2/AU aren't supported yet.
  */
 function readPlugin(dev: any): ConvPlugin | null {
+    const enabled = bool(dev?.On?.Manual, true);
+
     const info = dev?.PluginDesc?.Vst3PluginInfo;
-    const preset = info?.Preset?.Vst3Preset;
-    const uid = info?.Uid ?? preset?.Uid;
-    const classId = [0, 1, 2, 3].map((i) => parseInt(val(uid?.[`Fields.${i}`]) ?? '', 10));
-    if (!info || classId.some((n) => !Number.isFinite(n))) return null;
-    const processorState = hexBytes(preset?.ProcessorState);
-    if (!processorState.length) return null;
+    if (info) {
+        const preset = info.Preset?.Vst3Preset;
+        const uid = info.Uid ?? preset?.Uid;
+        const classId = [0, 1, 2, 3].map((i) => parseInt(val(uid?.[`Fields.${i}`]) ?? '', 10));
+        const processorState = hexBytes(preset?.ProcessorState);
+        if (classId.some((n) => !Number.isFinite(n)) || !processorState.length) return null;
+        return {
+            format: 'vst3',
+            name: val(info.Name) || 'VST3 plugin',
+            kind: num(info.DeviceType ?? preset?.DeviceType) === 1 ? 'instrument' : 'effect',
+            classId,
+            processorState,
+            controllerState: hexBytes(preset?.ControllerState),
+            enabled,
+        };
+    }
+
+    // VST2: <Buffer> holds either the plugin's own chunk, or (for plugins without one) a program
+    // name followed by one f32 per parameter
+    const v2 = dev?.PluginDesc?.VstPluginInfo;
+    if (!v2) return null;
+    const uniqueId = parseInt(val(v2.UniqueId) ?? '', 10);
+    const buffer = hexBytes(v2.Preset?.VstPreset?.Buffer);
+    if (!Number.isFinite(uniqueId) || !buffer.length) return null;
+    const paramCount = num(v2.NumberOfParameters);
+    const nameBytes = buffer.length - paramCount * 4;
+    const isParamList = paramCount > 0 && nameBytes >= 0 && nameBytes <= 64
+        && !/^(VC2!|CcnK)/.test(buffer.subarray(0, 4).toString('latin1'));
+    const params = isParamList
+        ? Array.from({ length: paramCount }, (_, i) => buffer.readFloatLE(nameBytes + i * 4))
+        : undefined;
     return {
-        name: val(info.Name) || 'VST3 plugin',
-        kind: num(info.DeviceType ?? preset?.DeviceType) === 1 ? 'instrument' : 'effect',
-        classId,
-        processorState,
-        controllerState: hexBytes(preset?.ControllerState),
-        enabled: bool(dev?.On?.Manual, true),
+        format: 'vst2',
+        name: val(v2.PlugName) || 'VST plugin',
+        // VST2 category 2 = synth
+        kind: num(v2.Category) === 2 ? 'instrument' : 'effect',
+        uniqueId: uniqueId >>> 0,
+        vstVersion: num(v2.VstVersion, 2400) || 2400,
+        path: (val(v2.Path) ?? '').replace(/\//g, '\\'),
+        chunk: isParamList ? undefined : buffer,
+        params,
+        enabled,
     };
 }
 

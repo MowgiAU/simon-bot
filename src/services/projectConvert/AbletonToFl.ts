@@ -5,17 +5,19 @@
  *   MIDI track   → one playlist track; each arrangement MIDI clip becomes its own pattern on it.
  *     Drum Rack  → one Sampler channel per pad, loaded with the pad's sample (like an FL kit).
  *     Simpler    → one Sampler channel loaded with the sample; notes shifted to keep pitch.
+ *     VST2/VST3  → an FL plugin channel loaded with the plugin's saved state.
  *     other      → one empty Sampler channel named after the track.
  *   Audio track  → one playlist track; each distinct sample becomes an audio-clip channel.
  *   Locators     → playlist time markers.
  *   Each converted track is routed to its own mixer insert, in track order.
- * Instruments and effects can't carry over — they're listed in the report instead.
+ * VST2/VST3 effects go on the track's mixer insert with their saved state. Ableton's own
+ * instruments and effects can't carry over — they're listed in the report instead.
  */
 import { readAls } from './AlsReader.js';
 import { CHANNEL_AUDIO_CLIP, CHANNEL_SAMPLER, writeFlp } from './FlpWriter.js';
 import type { FlChannel, FlInsertEffects, FlItem, FlPattern, FlTrack } from './FlpWriter.js';
 import { vst3ClassId } from './FlVst.js';
-import type { FlVst3Plugin } from './FlVst.js';
+import type { FlPlugin } from './FlVst.js';
 import type { ConversionReport, ConvPlugin, ConvProject, ConvSampleRef, ConvSamplerZone } from './types.js';
 
 const MIXER_SLOTS = 10;
@@ -88,15 +90,22 @@ export function convertAlsToFlp(als: Buffer, opts: AlsToFlpOptions = {}): AlsToF
     const insertEffects: FlInsertEffects[] = [];
     const pluginsNeeded = new Set<string>();
 
-    /** FL finds VST3s by class ID, so the path is only a hint for its plugin database. */
-    const flPlugin = (p: ConvPlugin): FlVst3Plugin => ({
-        name: p.name,
-        path: `C:\\Program Files\\Common Files\\VST3\\${p.name}.vst3`,
-        classId: vst3ClassId(p.classId),
-        kind: p.kind === 'instrument' ? 'generator' : 'effect',
-        processorState: p.processorState,
-        controllerState: p.controllerState,
-    });
+    /** FL finds VST3s by class ID, so their path is only a hint for its plugin database. */
+    const flPlugin = (p: ConvPlugin): FlPlugin => {
+        const kind = p.kind === 'instrument' ? 'generator' : 'effect';
+        return p.format === 'vst3'
+            ? {
+                format: 'vst3', name: p.name, kind,
+                path: `C:\\Program Files\\Common Files\\VST3\\${p.name}.vst3`,
+                classId: vst3ClassId(p.classId),
+                processorState: p.processorState,
+                controllerState: p.controllerState,
+            }
+            : {
+                format: 'vst2', name: p.name, kind, path: p.path,
+                uniqueId: p.uniqueId, vstVersion: p.vstVersion, chunk: p.chunk, params: p.params,
+            };
+    };
     const notePlugin = (p: ConvPlugin) => {
         pluginsNeeded.add(p.name);
         if (!p.enabled) warnings.push(`${p.name} was switched off in Live — it's active in FL; bypass it there if needed.`);
@@ -110,7 +119,7 @@ export function convertAlsToFlp(als: Buffer, opts: AlsToFlpOptions = {}): AlsToF
             warnings.push(`"${track.name}": devices not converted — ${track.devices.join(', ')}.`);
         }
 
-        // VST3 effects go on the track's mixer insert, in chain order
+        // VST effects go on the track's mixer insert, in chain order
         if (track.effects.length) {
             const fx = track.effects.slice(0, MIXER_SLOTS);
             insertEffects.push({ insert, plugins: fx.map(flPlugin) });
@@ -207,7 +216,7 @@ export function convertAlsToFlp(als: Buffer, opts: AlsToFlpOptions = {}): AlsToF
         channels.push({ name: 'Sampler', color: null, type: CHANNEL_SAMPLER, insert: 0 });
     }
     if (pluginsNeeded.size) {
-        warnings.unshift(`Install these VST3 plugins for FL Studio before opening the project: ${[...pluginsNeeded].join(', ')}. Any that are missing will show FL's "plugin not found" message.`);
+        warnings.unshift(`Install these plugins for FL Studio before opening the project: ${[...pluginsNeeded].join(', ')}. Any that are missing will show FL's "plugin not found" message.`);
     }
 
     const flp = writeFlp({
