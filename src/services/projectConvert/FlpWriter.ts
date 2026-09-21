@@ -30,7 +30,7 @@ const PATTERN_BASE = 0x5000; // playlist item index offset for patterns
 
 // Event ids (names from PyFLP)
 const EV = {
-    TimeSigNum: 17, TimeSigDen: 18, ChannelType: 21, ChannelInsert: 22, PluginFlag: 41,
+    TimeSigNum: 17, TimeSigDen: 18, ChannelType: 21, ChannelInsert: 22, CustomColor: 41,
     ChannelNew: 64, PatternNew: 65, SlotIndex: 98, ArrangementNew: 99,
     ChannelColor: 128, ChannelFlags: 132, ChannelMisc: 143, PatternColor: 150, PluginIcon: 155,
     Tempo: 156, TimeMarker: 148,
@@ -384,8 +384,8 @@ export function writeFlp(project: FlProject): Buffer {
             }
             else if (native && e.id === EV.InternalName) evs.push({ id: e.id, value: text(native.name) });
             else if (native && e.id === EV.SlotParams) evs.push({ id: e.id, value: pluginSlotParams('generator', 0) });
-            else if (native && e.id === EV.PluginFlag) {
-                evs.push({ id: e.id, value: 0 });
+            else if (native && e.id === EV.CustomColor) {
+                evs.push({ id: e.id, value: ch.color ? 1 : 0 });
                 evs.push({ id: EV.PluginData, value: native.state });
             }
             else if (ch.automation && e.id === EV.AutomationAfter) {
@@ -398,10 +398,12 @@ export function writeFlp(project: FlProject): Buffer {
             else if (e.id === EV.SamplePath) continue;
             else if (vst && e.id === EV.InternalName) evs.push({ id: e.id, value: text('Fruity Wrapper') });
             else if (vst && e.id === EV.SlotParams) evs.push({ id: e.id, value: pluginSlotParams('generator', 0) });
-            else if (vst && e.id === EV.PluginFlag) {
+            else if (vst && e.id === EV.CustomColor) {
                 evs.push({ id: e.id, value: 1 });
                 evs.push({ id: EV.PluginData, value: pluginWrapper(vst) });
             }
+            // Event 41 is the channel's custom-colour flag: FL ignores the colour (128) unless it's 1
+            else if (e.id === EV.CustomColor) evs.push({ id: e.id, value: ch.color ? 1 : e.value });
             else if (vst && e.id === EV.ChannelFlags) evs.push({ id: e.id, value: 131074 });
             else if (vst && e.id === EV.ChannelMisc) evs.push({ id: e.id, value: 10 });
             else evs.push(e);
@@ -470,7 +472,7 @@ export function writeFlp(project: FlProject): Buffer {
                     { id: EV.PluginName, value: text(plugin.name) },
                     { id: EV.PluginIcon, value: 0 },
                     { id: EV.ChannelColor, value: DEFAULT_PLUGIN_COLOR },
-                    { id: EV.PluginFlag, value: 0 },
+                    { id: EV.CustomColor, value: 0 },
                     { id: EV.PluginData, value: pluginWrapper(plugin) },
                 );
             }
