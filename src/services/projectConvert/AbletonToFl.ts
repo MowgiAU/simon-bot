@@ -24,6 +24,7 @@ import type { FlPlugin } from './FlVst.js';
 import type { ConversionReport, ConvAutomation, ConvInstrument, ConvPlugin, ConvProject, ConvSampleRef, ConvSamplerZone, ConvTrack } from './types.js';
 
 const MIXER_SLOTS = 10;
+const FUJI_URL = 'https://fujistud.io';
 const LIVE_FIRST_SLICE_KEY = 36;   // Simpler's Slice mode starts at C1
 const SEND_OFF = 0.001;     // Live's send minimum is 0.000316 (−70 dB = off)
 
@@ -285,7 +286,7 @@ export function convertAlsToFlp(als: Buffer, opts: AlsToFlpOptions = {}): AlsToF
             let channel = audioChannels.get(key);
             if (channel === undefined) {
                 channel = channels.length;
-                channels.push({ name: clip.sample.file.replace(/\.[^.]+$/, ''), color: clip.color, type: CHANNEL_AUDIO_CLIP, insert, samplePath: outputPath, stretchBeats: stretch });
+                channels.push({ name: clip.sample.file.replace(/\.[^.]+$/, ''), color: track.color, type: CHANNEL_AUDIO_CLIP, insert, samplePath: outputPath, stretchBeats: stretch });
                 audioChannels.set(key, channel);
             }
             const bar = Math.floor(clip.start / project.numerator) + 1;
@@ -322,12 +323,16 @@ export function convertAlsToFlp(als: Buffer, opts: AlsToFlpOptions = {}): AlsToF
     // ── Automation: one FL automation clip per automated lane, on its own playlist track ──
     const automationTargets: FlAutomationTarget[] = [];
     let automationClips = 0, vst3Params = 0, unsupported = 0;
-    const addClip = (name: string, color: string | null, points: FlAutomationPoint[], target: { param: number; dest: number }) => {
+    const automationOwner = new Map<number, number>();   // automation playlist track → the track it sits under
+    const playlistTrackOf = new Map(playable.map((t, i) => [t, i]));
+    const addClip = (name: string, color: string | null, points: FlAutomationPoint[], target: { param: number; dest: number }, owner?: ConvTrack) => {
         const channel = channels.length;
         channels.push({ name, color, type: CHANNEL_SAMPLER, insert: 0, automation: points });
         automationTargets.push({ channel, ...target });
         const track = tracks.length;
         tracks.push({ name, color });
+        const ownerIdx = owner && playlistTrackOf.get(owner);
+        if (ownerIdx !== undefined) automationOwner.set(track, ownerIdx);
         items.push({ kind: 'automation', channel, track, start: 0, length: Math.max(4, ...points.map((p) => p.time)) });
         automationClips++;
     };
@@ -338,11 +343,11 @@ export function convertAlsToFlp(als: Buffer, opts: AlsToFlpOptions = {}): AlsToF
         unsupported += t.otherAutomation;
         for (const a of t.automation) {
             const tg = a.target;
-            if (tg.kind === 'volume') addClip(`${t.name} – Volume`, t.color, scale(a, (v) => flFader(v) / FL_FADER_MAX), mixerTarget(insert, MIXER_VOLUME));
-            else if (tg.kind === 'pan') addClip(`${t.name} – Pan`, t.color, scale(a, (v) => (v + 1) / 2), mixerTarget(insert, MIXER_PAN));
+            if (tg.kind === 'volume') addClip(`${t.name} – Volume`, t.color, scale(a, (v) => flFader(v) / FL_FADER_MAX), mixerTarget(insert, MIXER_VOLUME), t);
+            else if (tg.kind === 'pan') addClip(`${t.name} – Pan`, t.color, scale(a, (v) => (v + 1) / 2), mixerTarget(insert, MIXER_PAN), t);
             else if (tg.kind === 'send') {
                 const to = returnInserts[tg.index];
-                if (to) addClip(`${t.name} – Send ${String.fromCharCode(65 + tg.index)}`, t.color, scale(a, (v) => Math.min(1, v)), mixerTarget(insert, 64 + to));
+                if (to) addClip(`${t.name} – Send ${String.fromCharCode(65 + tg.index)}`, t.color, scale(a, (v) => Math.min(1, v)), mixerTarget(insert, 64 + to), t);
             } else if (tg.kind === 'plugin') {
                 // VST2 parameter ids are indices; a VST3's FL index can't be known without loading it
                 if (tg.plugin.format !== 'vst2') { vst3Params++; continue; }
@@ -350,7 +355,7 @@ export function convertAlsToFlp(als: Buffer, opts: AlsToFlpOptions = {}): AlsToF
                 const slot = pluginSlot.get(tg.plugin);
                 const dest = channel !== undefined ? channel : slot ? 0x2000 + slot.insert * 64 + slot.slot : undefined;
                 if (dest === undefined) { unsupported++; continue; }
-                addClip(`${t.name} – ${tg.plugin.name} ${tg.paramName}`, t.color, a.points, { param: 0x8000 + tg.param, dest });
+                addClip(`${t.name} – ${tg.plugin.name} ${tg.paramName}`, t.color, a.points, { param: 0x8000 + tg.param, dest }, t);
             }
         }
     }
@@ -366,6 +371,19 @@ export function convertAlsToFlp(als: Buffer, opts: AlsToFlpOptions = {}): AlsToF
     if (vst3Params) warnings.push(`${vst3Params} automated VST3 plugin parameter${vst3Params === 1 ? ' was' : 's were'} not converted — redraw ${vst3Params === 1 ? 'it' : 'them'} in FL.`);
     if (unsupported) warnings.push(`${unsupported} automated parameter${unsupported === 1 ? '' : 's'} on Ableton's own devices ha${unsupported === 1 ? 's' : 've'} no FL equivalent and ${unsupported === 1 ? 'was' : 'were'} skipped.`);
 
+    if (automationOwner.size) {
+        const order: number[] = [];
+        playable.forEach((_, i) => {
+            order.push(i);
+            for (const [auto, owner] of automationOwner) if (owner === i) order.push(auto);
+        });
+        tracks.forEach((_, i) => { if (!order.includes(i)) order.push(i); });
+        const newIndex = new Map(order.map((old, i) => [old, i]));
+        const reordered = order.map((old) => ({ ...tracks[old], grouped: automationOwner.has(old) }));
+        tracks.splice(0, tracks.length, ...reordered);
+        for (const it of items) it.track = newIndex.get(it.track)!;
+    }
+
     if (channels.length === 0) {
         channels.push({ name: 'Sampler', color: null, type: CHANNEL_SAMPLER, insert: 0 });
     }
@@ -375,6 +393,8 @@ export function convertAlsToFlp(als: Buffer, opts: AlsToFlpOptions = {}): AlsToF
 
     const flp = writeFlp({
         title: project.name,
+        comments: `Converted from ${project.source} with Fuji Studio — ${FUJI_URL}`,
+        url: FUJI_URL,
         bpm: project.bpm,
         numerator: project.numerator,
         denominator: project.denominator,

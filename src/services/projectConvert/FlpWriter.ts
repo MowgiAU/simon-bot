@@ -39,7 +39,7 @@ const EV = {
     TrackData: 238, TrackName: 239,
     InsertStart: 42, InsertColor: 149, InsertName: 204, InsertRouting: 235, MixerParams: 225,
     Controller: 227, AutomationData: 234, AutomationAfter: 145, MarkerNumerator: 33, MarkerDenominator: 34,
-    ChannelParams: 215,
+    ChannelParams: 215, TrackColorFlag: 43, Comments: 195, Url: 197,
 } as const;
 
 const CHANNEL_AUTOMATION = 5;
@@ -51,6 +51,8 @@ const STRETCH_MODE = 5;
 // to tempo in FL stores 3072
 const STRETCH_UNITS_PER_BEAT = 192;
 const SIGNATURE_MARKER = 0x08000000;
+// Track data (event 238): byte 46 = grouped with the track above
+const TRACK_GROUPED_OFFSET = 46;
 export const MIXER_VOLUME = 192;
 export const MIXER_PAN = 193;
 
@@ -143,10 +145,15 @@ export type FlItem =
 export interface FlTrack {
     name: string;
     color: string | null;
+    /** Grouped with the track above (FL folds it under that track). */
+    grouped?: boolean;
 }
 
 export interface FlProject {
     title: string;
+    /** Project info (F11): comments and web link. */
+    comments?: string;
+    url?: string;
     bpm: number;
     numerator: number;
     denominator: number;
@@ -338,7 +345,11 @@ export function writeFlp(project: FlProject): Buffer {
         if (e.id === EV.Tempo) out.push({ id: e.id, value: Math.round(project.bpm * 1000) });
         else if (e.id === EV.TimeSigNum) out.push({ id: e.id, value: project.numerator });
         else if (e.id === EV.TimeSigDen) out.push({ id: e.id, value: project.denominator });
-        else if (e.id === EV.Title) out.push({ id: e.id, value: text(project.title) });
+        else if (e.id === EV.Title) {
+            out.push({ id: e.id, value: text(project.title) });
+            if (project.url) out.push({ id: EV.Url, value: text(project.url) });
+        }
+        else if (e.id === EV.Comments && project.comments) out.push({ id: e.id, value: text(project.comments) });
         else out.push(e);
     }
 
@@ -419,11 +430,14 @@ export function writeFlp(project: FlProject): Buffer {
     for (let i = 0; i < rest.length; i++) {
         const e = rest[i];
 
-        // Name and colour come just before the event that opens their insert
+        // An insert opens with: colour (149), a custom-colour flag (42 — FL ignores the colour
+        // unless it's 1), then its name (204), then its params (236)
         if (e.id === EV.InsertStart && rest[i + 1]?.id === EV.InsertParams) {
             const next = insertsByIndex.get(insertNo + 1);
             if (next?.color) out.push({ id: EV.InsertColor, value: flColor(next.color, 0) });
+            out.push({ id: e.id, value: next?.color ? 1 : e.value });
             if (next?.name) out.push({ id: EV.InsertName, value: text(next.name) });
+            continue;
         }
         if (e.id === EV.InsertRouting && insertsByIndex.has(insertNo)) {
             const routing = Buffer.alloc((e.value as Buffer).length);
@@ -481,11 +495,18 @@ export function writeFlp(project: FlProject): Buffer {
             out.push(e);
             continue;
         }
-        // FL writes: track data (238), one flag event (43), then the name (239)
+        // FL writes: track data (238), its colour flag (43), then the name (239)
         const data = Buffer.from(e.value as Buffer);
         data.writeUInt32LE(flColor(track.color, data.readUInt32LE(4)), 4);
+        if (track.grouped) data[TRACK_GROUPED_OFFSET] = 1;
         out.push({ id: e.id, value: data });
-        if (rest[i + 1]?.id !== EV.TrackData) out.push(rest[++i]);
+        // The event after track data (43) is its custom-colour flag: FL shows the colour only when it's 1
+        if (rest[i + 1]?.id === EV.TrackColorFlag) {
+            i++;
+            out.push({ id: EV.TrackColorFlag, value: track.color ? 1 : rest[i].value });
+        } else if (rest[i + 1]?.id !== EV.TrackData) {
+            out.push(rest[++i]);
+        }
         out.push({ id: EV.TrackName, value: text(track.name) });
     }
 
