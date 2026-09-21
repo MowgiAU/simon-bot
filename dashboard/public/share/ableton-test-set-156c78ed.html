@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Converter Test Set</title>
+<style>
+:root {
+  --ground: #f3f4f6;
+  --panel: #ffffff;
+  --ink: #171a21;
+  --muted: #5d6472;
+  --rule: #dfe2e8;
+  --accent: #d9650a;
+  --accent-soft: #fbe9da;
+  --need: #b3261e;
+  --need-soft: #fbe3e1;
+  --nice: #3c5a8a;
+  --nice-soft: #e3eaf6;
+  --done: #2f7d4f;
+  --code-bg: #eef0f4;
+  --display: "Archivo", "Arial Narrow", system-ui, sans-serif;
+  --body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ground: #111318; --panel: #1a1d24; --ink: #e8eaef; --muted: #9aa1ae; --rule: #2b2f39;
+    --accent: #f2862a; --accent-soft: #3a2513; --need: #ff8a80; --need-soft: #3b1c1a;
+    --nice: #9db8e6; --nice-soft: #1d2638; --done: #6fcf97; --code-bg: #242833;
+  }
+}
+:root[data-theme="dark"] {
+  --ground: #111318; --panel: #1a1d24; --ink: #e8eaef; --muted: #9aa1ae; --rule: #2b2f39;
+  --accent: #f2862a; --accent-soft: #3a2513; --need: #ff8a80; --need-soft: #3b1c1a;
+  --nice: #9db8e6; --nice-soft: #1d2638; --done: #6fcf97; --code-bg: #242833;
+}
+* { box-sizing: border-box; }
+body { background: var(--ground); color: var(--ink); font: 15px/1.6 var(--body); padding-inline: 16px; padding-block: 0 64px; }
+.wrap { max-width: 760px; margin: 0 auto; }
+header.top { padding-block: 40px 20px; }
+.eyebrow { font: 500 12px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+h1 { font: 800 clamp(30px, 6vw, 44px)/1.05 var(--display); font-stretch: 85%; margin: 10px 0 12px; text-wrap: balance; letter-spacing: -.01em; }
+.lede { color: var(--muted); max-width: 62ch; margin: 0; }
+.bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 2; background: var(--ground); padding-block: 10px; margin-bottom: 8px; border-bottom: 1px solid var(--rule); display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.meter { flex: 1 1 200px; height: 6px; background: var(--rule); border-radius: 3px; overflow: hidden; }
+.meter > span { display: block; height: 100%; width: 0; background: var(--done); transition: width .25s; }
+.count { font: 500 13px var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+.legend { display: flex; gap: 8px; }
+.pill { font: 600 11px/1 var(--mono); letter-spacing: .04em; text-transform: uppercase; padding: 4px 7px; border-radius: 4px; white-space: nowrap; }
+.pill.need { color: var(--need); background: var(--need-soft); }
+.pill.nice { color: var(--nice); background: var(--nice-soft); }
+section { margin-top: 34px; }
+h2 { font: 700 22px/1.2 var(--display); font-stretch: 90%; margin: 0 0 4px; text-wrap: balance; }
+.track-name { font: 500 13px var(--mono); color: var(--accent); background: var(--accent-soft); padding: 2px 7px; border-radius: 4px; }
+.sub { color: var(--muted); margin: 0 0 12px; max-width: 64ch; }
+ul.checks { list-style: none; margin: 0; padding: 0; background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; }
+ul.checks li { border-top: 1px solid var(--rule); }
+ul.checks li:first-child { border-top: 0; }
+ul.checks label { display: grid; grid-template-columns: 22px 1fr auto; gap: 12px; align-items: start; padding: 12px 14px; cursor: pointer; }
+ul.checks input { width: 18px; height: 18px; margin: 2px 0 0; accent-color: var(--done); }
+ul.checks input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+ul.checks .txt { min-width: 0; }
+ul.checks input:checked ~ .txt { color: var(--muted); text-decoration: line-through; text-decoration-color: var(--rule); }
+ul.checks .why { display: block; font-size: 13px; color: var(--muted); text-decoration: none; margin-top: 2px; }
+code { font: 13px var(--mono); background: var(--code-bg); padding: 1px 5px; border-radius: 3px; overflow-wrap: anywhere; }
+footer { margin-top: 40px; color: var(--muted); font-size: 13px; }
+@media (max-width: 520px) {
+  ul.checks label { grid-template-columns: 22px 1fr; }
+  ul.checks .pill { grid-column: 2; justify-self: start; }
+}
+@media (prefers-reduced-motion: reduce) { .meter > span { transition: none; } }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="top">
+    <div class="eyebrow">Fuji Studio · Ableton → FL Studio converter</div>
+    <h1>Build one Ableton set that covers everything</h1>
+    <p class="lede">We're building a converter that turns Ableton Live projects into FL Studio projects. This set is our test case, so it needs a bit of every feature Live has, not a good song. Sound doesn't matter, but every plugin should be on a clearly <strong>non-default preset</strong> so we can tell whether its settings came across.</p>
+  </header>
+
+  <div class="bar" role="status" aria-live="polite">
+    <div class="meter" aria-hidden="true"><span id="meter"></span></div>
+    <span class="count" id="count">0 / 0 done</span>
+    <span class="legend"><span class="pill need">Needed</span><span class="pill nice">Nice to have</span></span>
+  </div>
+
+  <section>
+    <h2>Before you start</h2>
+    <p class="sub">Install these free plugins first. Our test machine has them in both formats, so everything you use can be opened on our side.</p>
+    <ul class="checks">
+      <li><label><input type="checkbox" id="c-plugins"><span class="txt">Install <strong>Vital</strong> (vital.audio), <strong>OTT</strong> (xferrecords.com) and <strong>Valhalla Supermassive</strong> (valhalladsp.com), each in <em>both</em> VST2 and VST3.<span class="why">These three are the only third-party plugins needed. Please don't use others; we can't open what we don't have.</span></span><span class="pill need">Needed</span></label></li>
+      <li><label><input type="checkbox" id="c-vst2"><span class="txt">Make sure Live shows VST2 plugins: <code>Settings → Plug-Ins</code> → turn on the VST2 custom folder (Windows) or system folder, then rescan.<span class="why">Under Plug-Ins in the browser you should see both a VST folder and a VST3 folder.</span></span><span class="pill need">Needed</span></label></li>
+      <li><label><input type="checkbox" id="c-setup"><span class="txt">New set at <strong>128 BPM, 4/4</strong>, about 32 bars long. Put <strong>everything in Arrangement View</strong>.<span class="why">The converter reads the arrangement. Clips that only exist in Session View are ignored.</span></span><span class="pill need">Needed</span></label></li>
+      <li><label><input type="checkbox" id="c-os"><span class="txt">Windows is best. On a Mac, always pick the <strong>VST3</strong> version of a plugin, never the AU (Audio Units) one.<span class="why">AU plugins can't be opened on Windows, which is what we test with.</span></span><span class="pill need">Needed</span></label></li>
+    </ul>
+  </section>
+
+  <section>
+    <h2><span class="track-name">VST2 Synth</span> MIDI track</h2>
+    <p class="sub">Please name every track exactly as shown in the orange label, so we can match them up.</p>
+    <ul class="checks">
+      <li><label><input type="checkbox" id="t1-vital"><span class="txt"><strong>Vital (VST2)</strong> on a non-default preset, with an 8-bar MIDI clip.</span><span class="pill need">Needed</span></label></li>
+      <li><label><input type="checkbox" id="t1-ott"><span class="txt"><strong>OTT (VST2)</strong> after Vital, with its depth changed from the default.</span><span class="pill need">Needed</span></label></li>
+      <li><label><input type="checkbox" id="t1-auto"><span class="txt">Arrangement automation on one Vital parameter, such as filter cutoff sweeping over 8 bars.</span><span class="pill nice">Nice to have</span></label></li>
+    </ul>
+  </section>
+
+  <section>
+    <h2><span class="track-name">Rack VST3</span> MIDI track</h2>
+    <ul class="checks">
+      <li><label><input type="checkbox" id="t2-inst"><span class="txt"><strong>Vital (VST3)</strong> inside an <strong>Instrument Rack</strong> with one chain (select the device, then <code>Ctrl+G</code> / <code>Cmd+G</code>).</span><span class="pill need">Needed</span></label></li>
+      <li><label><input type="checkbox" id="t2-fx"><span class="txt"><strong>Valhalla Supermassive (VST3)</strong> inside an <strong>Audio Effect Rack</strong> after it.</span><span class="pill need">Needed</span></label></li>
+      <li><label><input type="checkbox" id="t2-macro"><span class="txt">Map a rack Macro to Supermassive's Mix, and set the macro to something other than 0.</span><span class="pill nice">Nice to have</span></label></li>
+    </ul>
+  </section>
+
+  <section>
+    <h2><span class="track-name">Layered</span> MIDI track</h2>
+    <ul class="checks">
+      <li><label><input type="checkbox" id="t3-layer"><span class="txt">An Instrument Rack with <strong>two chains</strong>: Vital (VST3) in one and an Ableton synth (Drift, Wavetable or Operator) in the other. Give the two chains different volumes.</span><span class="pill need">Needed</span></label></li>
+      <li><label><input type="checkbox" id="t3-split"><span class="txt">Use a key zone so one chain plays only the low notes.</span><span class="pill nice">Nice to have</span></label></li>
+    </ul>
+  </section>
+
+  <section>
+    <h2><span class="track-name">Drums</span> Drum Rack</h2>
+    <ul class="checks">
+      <li><label><input type="checkbox" id="t4-kit"><span class="txt">A <strong>Drum Rack</strong> with kick, snare, clap, closed hat and open hat, playing a 16-bar beat.</span><span class="pill need">Needed</span></label></li>
+      <li><label><input type="checkbox" id="t4-own"><span class="txt">At least two pads use samples <strong>from your own folders</strong>, not Live's library.<span class="why">This checks that "Collect All and Save" copies them into the project.</span></span><span class="pill need">Needed</span></label></li>
+      <li><label><input type="checkbox" id="t4-choke"><span class="txt">Put the closed and open hats in the same <strong>choke group</strong>.</span><span class="pill need">Needed</span></label></li>
+      <li><label><input type="checkbox" id="t4-mix"><span class="txt">Change the <strong>volume and pan</strong> of a couple of pads, and <strong>transpose</strong> one pad.</span><span class="pill need">Needed</span></label></li>
+      <li><label><input type="checkbox" id="t4-synth"><span class="txt">One pad plays a synth instead of a sample (e.g. <strong>DS Kick</strong> or Operator).</span><span class="pill nice">Nice to have</span></label></li>
+      <li><label><input type="checkbox" id="t4-rr"><span class="txt">One pad holds several samples, as round-robin or velocity layers.</span><span class="pill nice">Nice to have</span></label></li>
+    </ul>
+  </section>
+
+  <section>
+    <h2><span class="track-name">Simpler Keys</span> and <span class="track-name">Simpler Slice</span></h2>
+    <ul class="checks">
+      <li><label><input type="checkbox" id="t5-classic"><span class="txt"><span class="track-name">Simpler Keys</span>: Simpler in Classic mode with a pitched one-shot whose root is <strong>not C</strong> (e.g. a sample tuned to A), with the correct root set. Transpose it <code>+2 st</code> in Simpler and play a short melody.</span><span class="pill need">Needed</span></label></li>
+      <li><label><input type="checkbox" id="t5-start"><span class="txt">In the same Simpler, move the sample's <strong>start point</strong> in a little.</span><span class="pill nice">Nice to have</span></label></li>
+      <li><label><input type="checkbox" id="t6-slice"><span class="txt"><span class="track-name">Simpler Slice</span>: Simpler in <strong>Slice</strong> mode on a drum loop, with a clip that triggers the slices out of order.</span><span class="pill need">Needed</span></label></li>
+      <li><label><input type="checkbox" id="t7-multi"><span class="txt"><span class="track-name">Multisample</span>: a <strong>Sampler</strong> with a multi-sample instrument (several zones across the keyboard), if your Live edition has Sampler.</span><span class="pill nice">Nice to have</span></label></li>
+    </ul>
+  </section>
+
+  <section>
+    <h2><span class="track-name">Audio</span> audio track</h2>
+    <p class="sub">Four clips on one audio track, placed one after another.</p>
+    <ul class="checks">
+      <li><label><input type="checkbox" id="t8-warp"><span class="txt">A loop recorded at a <strong>different tempo</strong> (e.g. 90 BPM), <strong>warped</strong> to 128.</span><span class="pill need">Needed</span></label></li>
+      <li><label><input type="checkbox" id="t8-nowarp"><span class="txt">An audio clip with <strong>Warp switched off</strong>.</span><span class="pill need">Needed</span></label></li>
+      <li><label><input type="checkbox" id="t8-trim"><span class="txt">A clip with its <strong>start trimmed</strong>, a <strong>fade in and out</strong>, clip gain changed, and transposed <code>-3 st</code>.</span><span class="pill need">Needed</span></label></li>
+      <li><label><input type="checkbox" id="t8-loop"><span class="txt">A short <strong>looped</strong> clip dragged out so it repeats several times.</span><span class="pill need">Needed</span></label></li>
+      <li><label><input type="checkbox" id="t8-rev"><span class="txt">A <strong>reversed</strong> clip.</span><span class="pill nice">Nice to have</span></label></li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Groups, returns and sends</h2>
+    <ul class="checks">
+      <li><label><input type="checkbox" id="g-group"><span class="txt">Group <span class="track-name">Simpler Keys</span> and <span class="track-name">Simpler Slice</span> into a group track named <span class="track-name">Group Bus</span>, with <strong>OTT (VST3)</strong> on the group.</span><span class="pill need">Needed</span></label></li>
+      <li><label><input type="checkbox" id="g-retA"><span class="txt">Return <strong>A</strong>: <strong>Valhalla Supermassive (VST3)</strong> on a non-default preset.</span><span class="pill need">Needed</span></label></li>
+      <li><label><input type="checkbox" id="g-retB"><span class="txt">Return <strong>B</strong>: Ableton's own <strong>Reverb</strong> or <strong>Delay</strong>.</span><span class="pill need">Needed</span></label></li>
+      <li><label><input type="checkbox" id="g-sends"><span class="txt">Turn sends up (they start fully off): <span class="track-name">VST2 Synth</span> → A at about <code>-6 dB</code>, <span class="track-name">Rack VST3</span> → B at about <code>-12 dB</code>, <span class="track-name">Drums</span> → A at about <code>-20 dB</code>.</span><span class="pill need">Needed</span></label></li>
+      <li><label><input type="checkbox" id="g-pre"><span class="txt">Switch <strong>one return to Pre</strong>-fader (the Pre/Post button on the return track).</span><span class="pill nice">Nice to have</span></label></li>
+      <li><label><input type="checkbox" id="g-sendauto"><span class="txt">Automate one send so it rises over a few bars.</span><span class="pill nice">Nice to have</span></label></li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Mixer and routing</h2>
+    <ul class="checks">
+      <li><label><input type="checkbox" id="m-levels"><span class="txt">Give tracks <strong>different volumes and pans</strong>, and give each track its own <strong>colour</strong>.</span><span class="pill need">Needed</span></label></li>
+      <li><label><input type="checkbox" id="m-mute"><span class="txt"><strong>Mute</strong> one track (speaker button off), and <strong>switch off</strong> one plugin (its device power button).</span><span class="pill need">Needed</span></label></li>
+      <li><label><input type="checkbox" id="m-vol"><span class="txt">Arrangement <strong>volume automation</strong> on one track, e.g. a fade-out at the end.</span><span class="pill need">Needed</span></label></li>
+      <li><label><input type="checkbox" id="m-sc"><span class="txt"><strong>Sidechain</strong>: Ableton's Compressor on <span class="track-name">Layered</span>, keyed from <span class="track-name">Drums</span>.</span><span class="pill nice">Nice to have</span></label></li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Timeline and clips</h2>
+    <ul class="checks">
+      <li><label><input type="checkbox" id="l-loc"><span class="txt"><strong>Locators</strong> named <code>Intro</code> at bar 1, <code>Drop</code> at bar 9 and <code>Outro</code> at bar 25.</span><span class="pill need">Needed</span></label></li>
+      <li><label><input type="checkbox" id="l-midiloop"><span class="txt">A 1-bar MIDI clip with <strong>Loop on</strong>, dragged out to 8 bars.</span><span class="pill need">Needed</span></label></li>
+      <li><label><input type="checkbox" id="l-vel"><span class="txt">MIDI notes with a <strong>range of velocities</strong>, and one <strong>deactivated</strong> (muted) clip.</span><span class="pill need">Needed</span></label></li>
+      <li><label><input type="checkbox" id="l-env"><span class="txt">A MIDI clip with a <strong>pitch bend or mod wheel</strong> envelope drawn in the clip.</span><span class="pill nice">Nice to have</span></label></li>
+      <li><label><input type="checkbox" id="l-tempo"><span class="txt"><strong>Tempo automation</strong> from 128 up to 140 at bar 17.</span><span class="pill nice">Nice to have</span></label></li>
+      <li><label><input type="checkbox" id="l-ts"><span class="txt">One bar in <strong>3/4</strong> somewhere after bar 24.</span><span class="pill nice">Nice to have</span></label></li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Save and send it back</h2>
+    <ul class="checks">
+      <li><label><input type="checkbox" id="s-collect"><span class="txt">Save, then <code>File → Collect All and Save</code>, ticking <strong>every</strong> "Collect files from" option, including the library and factory packs.</span><span class="pill need">Needed</span></label></li>
+      <li><label><input type="checkbox" id="s-export"><span class="txt"><code>File → Export Audio/Video</code>: export the whole song as a WAV named <code>reference.wav</code> into the project folder.<span class="why">We'll compare the converted project against this by ear.</span></span><span class="pill need">Needed</span></label></li>
+      <li><label><input type="checkbox" id="s-zip"><span class="txt"><strong>Zip the whole project folder</strong> (the one containing the .als) and send it over.</span><span class="pill need">Needed</span></label></li>
+      <li><label><input type="checkbox" id="s-info"><span class="txt">Include a note with your <strong>Live version and edition</strong> (e.g. "Live 12.1 Suite"), <strong>Windows or Mac</strong>, and anything on this list you couldn't do.</span><span class="pill need">Needed</span></label></li>
+    </ul>
+  </section>
+
+  <footer>Fuji Studio · project converter test brief. Your ticks are saved in this browser only.</footer>
+</div>
+
+<script>
+(function () {
+  var boxes = Array.prototype.slice.call(document.querySelectorAll('ul.checks input[type=checkbox]'));
+  var KEY = 'converter-test-set-v1';
+  var state = {};
+  try { state = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch (e) { state = {}; }
+  function render() {
+    var done = boxes.filter(function (b) { return b.checked; }).length;
+    document.getElementById('count').textContent = done + ' / ' + boxes.length + ' done';
+    document.getElementById('meter').style.width = (boxes.length ? (done / boxes.length) * 100 : 0) + '%';
+  }
+  boxes.forEach(function (b) {
+    b.checked = !!state[b.id];
+    b.addEventListener('change', function () {
+      state[b.id] = b.checked;
+      try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { /* storage blocked: ticks just won't persist */ }
+      render();
+    });
+  });
+  render();
+})();
+</script>
+</body>
+</html>
