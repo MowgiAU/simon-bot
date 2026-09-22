@@ -166,6 +166,9 @@ function readAudioClip(clip: any, trackColor: string | null): ConvAudioClip | nu
         sample,
         sampleOffset: num(loop.LoopStart) + num(loop.StartRelative),
         warped,
+        fadeIn: bool(clip.Fade, true) ? num(clip?.Fades?.FadeInLength) : 0,
+        fadeOut: bool(clip.Fade, true) ? num(clip?.Fades?.FadeOutLength) : 0,
+        gain: num(clip.SampleVolume, 1),
         ...(warped ? warpedLength(clip) : {}),
         // Looped warped clips repeat their loop region; FL audio clips don't loop, so keep the passes
         ...(warped && bool(loop.LoopOn)

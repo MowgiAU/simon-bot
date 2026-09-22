@@ -300,20 +300,28 @@ export function convertAlsToFlp(als: Buffer, opts: AlsToFlpOptions = {}): AlsToF
             // Live allows a clip to start before its sample (negative offset = leading silence); FL doesn't
             const lead = Math.max(0, -offsetBeats);
             if (clip.length - lead <= 0) continue;
+            // Fades in ms (FL's unit): Live keeps them in beats for warped clips, seconds otherwise
+            const toMs = (v: number) => (clip.warped ? (v * 60000) / project.bpm : v * 1000);
+            const fade = { gain: clip.gain, fadeInMs: toMs(clip.fadeIn), fadeOutMs: toMs(clip.fadeOut) };
             if (clip.loopPasses && clip.loopPasses.length > 1) {
-                // A looped clip becomes one playlist clip per pass through its loop
-                for (const pass of clip.loopPasses) {
+                // A looped clip becomes one playlist clip per pass through its loop; the clip's fade-in
+                // goes on the first pass and its fade-out on the last
+                const passes = clip.loopPasses.filter((pass) => pass.length - Math.max(0, -pass.from) > 0);
+                passes.forEach((pass, n) => {
                     const skip = Math.max(0, -pass.from);
-                    if (pass.length - skip <= 0) continue;
                     items.push({
                         kind: 'audio', channel, track: trackIdx, muted: clip.muted,
                         start: clip.start + pass.at + skip, length: pass.length - skip, offset: pass.from + skip,
+                        gain: fade.gain,
+                        fadeInMs: n === 0 ? fade.fadeInMs : 0,
+                        fadeOutMs: n === passes.length - 1 ? fade.fadeOutMs : 0,
                     });
-                }
+                });
             } else {
                 items.push({
                     kind: 'audio', channel, track: trackIdx, muted: clip.muted,
                     start: clip.start + lead, length: clip.length - lead, offset: offsetBeats + lead,
+                    ...fade,
                 });
             }
             audioClips++;

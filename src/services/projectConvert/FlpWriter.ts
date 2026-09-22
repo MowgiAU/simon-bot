@@ -139,7 +139,11 @@ export interface FlPattern {
 
 export type FlItem =
     | { kind: 'pattern'; pattern: number; track: number; start: number; length: number; muted?: boolean }
-    | { kind: 'audio'; channel: number; track: number; start: number; length: number; offset: number; muted?: boolean }
+    | {
+        kind: 'audio'; channel: number; track: number; start: number; length: number; offset: number; muted?: boolean;
+        /** Clip fades in ms and clip gain (linear), as FL 21's playlist clip fade handles store them. */
+        fadeInMs?: number; fadeOutMs?: number; gain?: number;
+    }
     | { kind: 'automation'; channel: number; track: number; start: number; length: number };
 
 export interface FlTrack {
@@ -280,7 +284,18 @@ function playlistPayload(items: FlItem[], bpm: number): Buffer {
             b.writeFloatLE((it.offset + it.length) * msPerBeat, o + 28); // end offset (ms)
         }
         b.writeUInt32LE(i + 1, o + 32);
-        b.writeFloatLE(1, o + 52);
+        // Audio clip fades and gain (read from FL's own projects): fade-in ms at 36, fade-out ms
+        // at 44 (curves at 40/48, 0 = linear), linear gain at 52, and at 56 the flags that switch
+        // the fades on (1 = fade-in, 2 = fade-out) — without them FL ignores the lengths
+        if (it.kind === 'audio') {
+            const clipMs = it.length * msPerBeat;
+            const fadeIn = Math.min(clipMs, Math.max(0, it.fadeInMs ?? 0));
+            const fadeOut = Math.min(clipMs, Math.max(0, it.fadeOutMs ?? 0));
+            b.writeFloatLE(fadeIn, o + 36);
+            b.writeFloatLE(fadeOut, o + 44);
+            b.writeUInt32LE((fadeIn > 0 ? 1 : 0) | (fadeOut > 0 ? 2 : 0), o + 56);
+        }
+        b.writeFloatLE(it.kind === 'audio' ? Math.max(0, it.gain ?? 1) : 1, o + 52);
     });
     return b;
 }

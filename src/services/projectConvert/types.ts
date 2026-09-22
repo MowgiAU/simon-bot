@@ -35,6 +35,10 @@ export interface ConvAudioClip {
     sampleBeats?: number;
     /** Warped clips with more than one tempo segment (FL can only stretch evenly). */
     complexWarp?: boolean;
+    /** Fade lengths, in the clip's own units (beats if warped, seconds if not), and clip gain (linear). */
+    fadeIn: number;
+    fadeOut: number;
+    gain: number;
     /** Warped clips with Loop on: each pass as { at: beats into the clip, from: sample beat, length }. */
     loopPasses?: { at: number; from: number; length: number }[];
 }
