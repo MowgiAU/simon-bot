@@ -215,7 +215,7 @@ const DEVICE_LABELS: Record<string, string> = {
     MidiVelocity: 'Velocity', Chorus2: 'Chorus-Ensemble', Eq8: 'EQ Eight', PingPongDelay: 'Ping Pong Delay',
     PluginDevice: 'VST plugin', AuPluginDevice: 'AU plugin', UltraAnalog: 'Analog', InstrumentVector: 'Wavetable',
     InstrumentImpulse: 'Impulse', LoungeLizard: 'Electric', StringStudio: 'Tension',
-    Compressor2: 'Compressor', MultibandDynamics: 'Multiband Dynamics', Redux2: 'Redux',
+    Compressor2: 'Compressor', MultibandDynamics: 'Multiband Dynamics', Redux2: 'Redux', AutoPan2: 'Auto Pan',
 };
 
 /** Device display name: plugin name, the user's rename, or Live's name for the device type. */
