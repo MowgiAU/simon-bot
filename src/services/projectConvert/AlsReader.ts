@@ -17,7 +17,7 @@
 import zlib from 'node:zlib';
 import { XMLParser } from 'fast-xml-parser';
 import type {
-    ConvAudioClip, ConvAutomation, ConvAutomationTarget, ConvChain, ConvClip, ConvEffect, ConvInstrument, ConvLayer, ConvMidiClip, ConvNote, ConvPlugin,
+    ConvAudioClip, ConvAutomation, ConvAutomationTarget, ConvChain, ConvClip, ConvClipEnvelope, ConvEffect, ConvInstrument, ConvLayer, ConvMidiClip, ConvNote, ConvPlugin,
     ConvOtherPad, ConvProject, ConvSampleRef, ConvSamplerZone, ConvTrack, ConvZonePart, SampleTrimRange,
 } from './types.js';
 import { LIVE_EFFECTS } from './LiveEffects.js';
@@ -626,6 +626,55 @@ function trackTargets(mixer: any, chain: ChainResult): Map<string, ConvAutomatio
     return targets;
 }
 
+/** The track mixer's volume, pan and send targets a clip envelope can point at, by id and mode. */
+function mixerEnvelopeTargets(mixer: any): Map<string, { target: ConvAutomationTarget; mode: 'set' | 'modulate' }> {
+    const out = new Map<string, { target: ConvAutomationTarget; mode: 'set' | 'modulate' }>();
+    const add = (param: any, target: ConvAutomationTarget) => {
+        const set = param?.AutomationTarget?.['@_Id'], mod = param?.ModulationTarget?.['@_Id'];
+        if (set != null) out.set(String(set), { target, mode: 'set' });
+        if (mod != null) out.set(String(mod), { target, mode: 'modulate' });
+    };
+    add(mixer?.Volume, { kind: 'volume' });
+    add(mixer?.Pan, { kind: 'pan' });
+    arr<any>(mixer?.Sends?.TrackSendHolder)
+        .sort((a, b) => attrNum(a, 'Id') - attrNum(b, 'Id'))
+        .forEach((h, index) => add(h?.Send, { kind: 'send', index }));
+    return out;
+}
+
+/**
+ * A clip's mixer envelopes on the arrangement timeline. Envelope times are in the clip's content
+ * beats (like its notes), so they follow the clip's start marker and loop like the notes do.
+ */
+function readClipEnvelopes(raw: any, clip: ConvClip, targets: ReturnType<typeof mixerEnvelopeTargets>): ConvClipEnvelope[] {
+    const out: ConvClipEnvelope[] = [];
+    for (const env of arr<any>(raw?.Envelopes?.Envelopes?.ClipEnvelope)) {
+        const hit = targets.get(val(env?.EnvelopeTarget?.PointeeId) ?? '');
+        if (!hit) continue;
+        const events = arr<any>(env?.Automation?.Events?.FloatEvent)
+            .map((e) => ({ time: attrNum(e, 'Time'), value: attrNum(e, 'Value') }))
+            .sort((a, b) => a.time - b.time);
+        if (!events.length) continue;
+        // Value at content time t: linear between events; at a step (two events at one time) the later one
+        const valueAt = (t: number) => {
+            let i = -1;
+            for (let k = 0; k < events.length; k++) if (events[k].time <= t) i = k;
+            if (i < 0) return events[0].value;
+            const a = events[i], b = events[i + 1];
+            return !b || b.time === a.time ? a.value : a.value + ((b.value - a.value) * (t - a.time)) / (b.time - a.time);
+        };
+        const points: ConvClipEnvelope['points'] = [];
+        for (const seg of contentSegments(raw, clip.length)) {
+            const at = clip.start + seg.at;
+            points.push({ time: at, value: valueAt(seg.from) });
+            for (const e of events) if (e.time > seg.from && e.time < seg.to) points.push({ time: at + e.time - seg.from, value: e.value });
+            points.push({ time: at + (seg.to - seg.from), value: valueAt(seg.to - 1e-6) });
+        }
+        out.push({ ...hit, start: clip.start, end: clip.start + clip.length, points });
+    }
+    return out;
+}
+
 /** Live packs a signature into one number: (numerator − 1) + 99 × log2(denominator). */
 function decodeSignature(v: number): { numerator: number; denominator: number } {
     return { numerator: (Math.round(v) % 99) + 1, denominator: 2 ** Math.floor(Math.round(v) / 99) };
@@ -677,14 +726,26 @@ export function readAls(buffer: Buffer, projectName = 'Converted Project'): Conv
             const seq = t?.DeviceChain?.MainSequencer;
             const clips: ConvClip[] = [];
 
+            const envTargets = mixerEnvelopeTargets(tMixer);
+            const clipEnvelopes: ConvClipEnvelope[] = [];
+            let allClipEnvelopes = 0;
             const midiSrc = seq?.ClipTimeable?.ArrangerAutomation?.Events;
-            for (const c of arr<any>(midiSrc?.MidiClip)) clips.push(readMidiClip(c, trackColor));
+            for (const c of arr<any>(midiSrc?.MidiClip)) {
+                const clip = readMidiClip(c, trackColor);
+                clips.push(clip);
+                if (!clip.muted) clipEnvelopes.push(...readClipEnvelopes(c, clip, envTargets));
+                if (!clip.muted) allClipEnvelopes += arr(c?.Envelopes?.Envelopes?.ClipEnvelope).length;
+            }
 
             const audioSrcs = [seq?.Sample?.ArrangerAutomation?.Events, midiSrc];
             for (const src of audioSrcs) {
                 for (const c of arr<any>(src?.AudioClip)) {
                     const a = readAudioClip(c, trackColor);
-                    if (a) clips.push(a);
+                    if (!a) continue;
+                    clips.push(a);
+                    // Unwarped clips keep their envelopes in seconds, not beats — those are left out
+                    if (!a.muted && a.warped) clipEnvelopes.push(...readClipEnvelopes(c, a, envTargets));
+                    if (!a.muted) allClipEnvelopes += arr(c?.Envelopes?.Envelopes?.ClipEnvelope).length;
                 }
             }
             clips.sort((a, b) => a.start - b.start);
@@ -707,6 +768,8 @@ export function readAls(buffer: Buffer, projectName = 'Converted Project'): Conv
                 ...chain,
                 ...readAutomation(t, trackTargets(tMixer, chain)),
                 clips,
+                clipEnvelopes,
+                otherClipEnvelopes: allClipEnvelopes - clipEnvelopes.length,
             });
         }
     }

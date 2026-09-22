@@ -25,7 +25,7 @@ import { FRUITY_SLICER, SLICER_FIRST_KEY, fruitySlicerState } from './FlNative.j
 import { LIVE_EFFECT_TARGETS, flLevel, liveEffectToFl } from './LiveEffects.js';
 import { vst3ClassId } from './FlVst.js';
 import type { FlPlugin } from './FlVst.js';
-import type { ConversionReport, ConvAutomation, ConvChain, ConvEffect, ConvInstrument, ConvPlugin, ConvProject, ConvSampleRef, ConvSamplerZone, ConvTrack, SampleTrimRange } from './types.js';
+import type { ConversionReport, ConvAutomation, ConvAutomationTarget, ConvChain, ConvEffect, ConvInstrument, ConvPlugin, ConvProject, ConvSampleRef, ConvSamplerZone, ConvTrack, SampleTrimRange } from './types.js';
 
 const MIXER_SLOTS = 10;
 const FUJI_URL = 'https://fujistud.io';
@@ -471,11 +471,68 @@ export function convertAlsToFlp(als: Buffer, opts: AlsToFlpOptions = {}): AlsToF
         automationClips++;
     };
     const mixerTarget = (insert: number, param: number) => ({ param: 0x1f00 | param, dest: 0x2000 + insert * 64 });
+
+    /**
+     * A track's automation with its volume/pan/send clip envelopes folded in: one lane per parameter
+     * that follows the track's own automation (or its fixed setting) and, while a clip with an
+     * envelope plays, the envelope — replacing the value ('set') or scaling volume/sends
+     * (-1…1 = silent…unchanged) and offsetting pan ('modulate'). FL has no clip envelopes, so this is
+     * where they can live.
+     */
+    let clipEnvelopeCount = 0;
+    const withClipEnvelopes = (t: ConvTrack): ConvAutomation[] => {
+        if (!t.clipEnvelopes.length) return t.automation;
+        const same = (a: ConvAutomationTarget, b: ConvAutomationTarget) =>
+            a.kind === b.kind && (a.kind !== 'send' || (b.kind === 'send' && a.index === b.index));
+        // Linear interpolation over [{time, value}] points (held before the first and after the last)
+        const at = (pts: { time: number; value: number }[], time: number) => {
+            if (!pts.length) return 0;
+            if (time <= pts[0].time) return pts[0].value;
+            for (let i = 1; i < pts.length; i++) {
+                const a = pts[i - 1], b = pts[i];
+                if (time <= b.time) return b.time === a.time ? b.value : a.value + ((b.value - a.value) * (time - a.time)) / (b.time - a.time);
+            }
+            return pts[pts.length - 1].value;
+        };
+        const EDGE = 1 / 192;              // envelopes step in and out at the clip's edges
+        const lanes = [...t.automation];
+        const targets: ConvAutomationTarget[] = [];
+        for (const e of t.clipEnvelopes) if (!targets.some((x) => same(x, e.target))) targets.push(e.target);
+        for (const target of targets) {
+            const idx = lanes.findIndex((a) => same(a.target, target));
+            const fixed = target.kind === 'volume' ? t.volume : target.kind === 'pan' ? t.pan : target.kind === 'send' ? (t.sends[target.index] ?? 0) : 0;
+            const base = idx >= 0 ? lanes[idx].points : [{ time: 0, value: fixed }];
+            const envs = t.clipEnvelopes.filter((e) => same(e.target, target)).sort((a, b) => a.start - b.start);
+            const combine = (mode: 'set' | 'modulate', b: number, v: number) =>
+                mode === 'set' ? v : target.kind === 'pan' ? Math.max(-1, Math.min(1, b + v)) : b * Math.max(0, (v + 1) / 2);
+            const inside = (time: number) => envs.some((e) => time >= e.start && time <= e.end);
+            const out = base.filter((p) => !inside(p.time)).map((p) => ({ ...p }));
+            for (const e of envs) {
+                if (e.start > 0) out.push({ time: e.start - EDGE, value: at(base, e.start - EDGE) });
+                // The envelope's own points in order (two at one time are a step — keep both), and the
+                // track automation's points inside the clip, each combined with the other at that time
+                const inner: { time: number; value: number }[] = [
+                    ...e.points.map((p) => ({ time: p.time, value: combine(e.mode, at(base, p.time), p.value) })),
+                    ...base.filter((p) => p.time > e.start && p.time < e.end).map((p) => ({ time: p.time, value: combine(e.mode, p.value, at(e.points, p.time)) })),
+                ];
+                out.push(...inner.map((p, i) => ({ ...p, order: i })).sort((a, b) => a.time - b.time || a.order - b.order).map(({ time, value }) => ({ time, value })));
+                out.push({ time: e.end + EDGE, value: at(base, e.end + EDGE) });
+            }
+            out.sort((a, b) => a.time - b.time);
+            if (idx >= 0) lanes[idx] = { target, points: out };
+            else lanes.push({ target, points: out });
+        }
+        return lanes;
+    };
     const scale = (a: ConvAutomation, f: (v: number) => number) => a.points.map((p) => ({ time: p.time, value: f(p.value) }));
 
     for (const [t, insert] of insertOf) {
         unsupported += t.otherAutomation;
-        for (const a of t.automation) {
+        clipEnvelopeCount += t.clipEnvelopes.length;
+        if (t.otherClipEnvelopes) {
+            warnings.push(`"${t.name}": ${t.otherClipEnvelopes} envelope${t.otherClipEnvelopes === 1 ? '' : 's'} drawn inside clips on device settings or pitch bend ${t.otherClipEnvelopes === 1 ? 'was' : 'were'} not converted.`);
+        }
+        for (const a of withClipEnvelopes(t)) {
             const tg = a.target;
             if (tg.kind === 'volume') addClip(`${t.name} – Volume`, t.color, scale(a, (v) => flFader(v) / FL_FADER_MAX), mixerTarget(insert, MIXER_VOLUME), t);
             else if (tg.kind === 'pan') addClip(`${t.name} – Pan`, t.color, scale(a, (v) => (v + 1) / 2), mixerTarget(insert, MIXER_PAN), t);
@@ -500,6 +557,7 @@ export function convertAlsToFlp(als: Buffer, opts: AlsToFlpOptions = {}): AlsToF
     }
     if (rackReturnInserts) converted.push(`Drum Rack return chains: ${rackReturnInserts} → their own mixer inserts, fed by the pads that send to them.`);
     if (padInserts) converted.push(`Drum pads with their own effects or sends: ${padInserts} → their own mixer inserts, routed into their drum track.`);
+    if (clipEnvelopeCount) converted.push(`Clip envelopes: ${clipEnvelopeCount} volume/pan/send envelope${clipEnvelopeCount === 1 ? '' : 's'} drawn inside clips → folded into the tracks' automation clips.`);
     if (automationClips) converted.push(`Automation: ${automationClips} lane${automationClips === 1 ? '' : 's'} → FL automation clips.`);
     if (project.timeSignatures.length) converted.push(`${project.timeSignatures.length} time-signature change${project.timeSignatures.length === 1 ? '' : 's'} → playlist markers.`);
     if (vst3Params) warnings.push(`${vst3Params} automated VST3 plugin parameter${vst3Params === 1 ? ' was' : 's were'} not converted — redraw ${vst3Params === 1 ? 'it' : 'them'} in FL.`);

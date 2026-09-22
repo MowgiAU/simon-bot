@@ -180,6 +180,19 @@ export interface ConvAutomation {
     points: { time: number; value: number }[];
 }
 
+/**
+ * A clip envelope on the track's volume, pan or a send, placed on the arrangement: points in
+ * arrangement beats across the clip [start, end]. 'set' envelopes replace the value while the clip
+ * plays; 'modulate' ones scale it (volume/sends: -1…1 = silent…unchanged) or offset it (pan).
+ */
+export interface ConvClipEnvelope {
+    target: ConvAutomationTarget;
+    mode: 'set' | 'modulate';
+    start: number;
+    end: number;
+    points: { time: number; value: number }[];
+}
+
 export interface ConvTrack {
     id: string;              // Live's track Id (group tracks are referenced by it)
     groupId: string | null;  // Id of the group track this track sits in
@@ -197,6 +210,10 @@ export interface ConvTrack {
     /** Automated parameters that can't be carried over (Ableton devices etc.). */
     otherAutomation: number;
     clips: ConvClip[];
+    /** Volume/pan/send envelopes drawn inside the track's arrangement clips. */
+    clipEnvelopes: ConvClipEnvelope[];
+    /** Clip envelopes on anything else (device settings, pitch bend…), which don't carry over. */
+    otherClipEnvelopes: number;
 }
 
 export interface ConvLocator {
