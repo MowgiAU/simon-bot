@@ -12,16 +12,18 @@
  *   Locators     → playlist time markers.
  *   Mixer        → every track, group and return gets its own insert; tracks in a group route
  *                  to the group's insert, sends become routes to the return inserts.
- * VST2/VST3 effects go on the track's mixer insert with their saved state. Ableton's own
- * instruments and effects can't carry over — they're listed in the report instead.
+ * VST2/VST3 effects go on the track's mixer insert with their saved state; Live's own effects
+ * become FL's equivalents with matching settings where FL has one (LiveEffects.ts). Ableton's
+ * own instruments, and effects without an FL equivalent, are listed in the report instead.
  */
 import { readAls } from './AlsReader.js';
 import { CHANNEL_AUDIO_CLIP, CHANNEL_SAMPLER, MIXER_PAN, MIXER_VOLUME, writeFlp } from './FlpWriter.js';
 import type { FlAutomationPoint, FlAutomationTarget, FlChannel, FlInsert, FlInsertEffects, FlItem, FlPattern, FlTrack } from './FlpWriter.js';
 import { FRUITY_SLICER, SLICER_FIRST_KEY, fruitySlicerState } from './FlNative.js';
+import { LIVE_EFFECT_TARGETS, liveEffectToFl } from './LiveEffects.js';
 import { vst3ClassId } from './FlVst.js';
 import type { FlPlugin } from './FlVst.js';
-import type { ConversionReport, ConvAutomation, ConvInstrument, ConvPlugin, ConvProject, ConvSampleRef, ConvSamplerZone, ConvTrack } from './types.js';
+import type { ConversionReport, ConvAutomation, ConvEffect, ConvInstrument, ConvPlugin, ConvProject, ConvSampleRef, ConvSamplerZone, ConvTrack } from './types.js';
 
 const MIXER_SLOTS = 10;
 const FUJI_URL = 'https://fujistud.io';
@@ -123,18 +125,37 @@ export function convertAlsToFlp(als: Buffer, opts: AlsToFlpOptions = {}): AlsToF
         if (!p.enabled) warnings.push(`${p.name} was switched off in Live — it's active in FL; bypass it there if needed.`);
     };
 
-    /** Puts a track's VST effects on its mixer insert, in chain order, and reports the rest. */
-    const placeEffects = (name: string, effects: ConvPlugin[], devices: string[], insert: number) => {
-        if (devices.length) warnings.push(`"${name}": devices not converted — ${devices.join(', ')}.`);
-        if (!effects.length) return;
-        const fx = effects.slice(0, MIXER_SLOTS);
-        insertEffects.push({ insert, plugins: fx.map(flPlugin) });
-        fx.forEach((p, slot) => pluginSlot.set(p, { insert, slot }));
-        fx.forEach(notePlugin);
-        converted.push(`"${name}": ${fx.map((p) => p.name).join(', ')} → ${insert ? `mixer insert ${insert}` : 'the master'}, with their settings.`);
-        if (effects.length > MIXER_SLOTS) {
-            warnings.push(`"${name}": only the first ${MIXER_SLOTS} plugin effects fit on an FL mixer insert — ${effects.slice(MIXER_SLOTS).map((p) => p.name).join(', ')} were left off.`);
+    /**
+     * Puts a track's effects on its mixer insert, in chain order: VSTs as themselves, Live's own
+     * effects as FL's equivalents (LiveEffects.ts). Reports the rest.
+     */
+    const placeEffects = (name: string, effects: ConvEffect[], devices: string[], insert: number) => {
+        const skipped = [...devices];
+        const slots: FlInsertEffects['plugins'] = [];
+        const placed: string[] = [];
+        const leftOff: string[] = [];
+        for (const e of effects) {
+            if (e.format === 'live') {
+                const fl = liveEffectToFl(e);
+                if (!fl) { skipped.push(e.name); continue; }
+                if (slots.length + fl.effects.length > MIXER_SLOTS) { leftOff.push(e.name); continue; }
+                slots.push(...fl.effects);
+                placed.push(`${e.name} (as ${LIVE_EFFECT_TARGETS[e.device]})`);
+                for (const note of fl.notes) warnings.push(`"${name}": ${e.name} — ${note}.`);
+                if (!e.enabled) warnings.push(`"${name}": ${e.name} was switched off in Live — it's active in FL; bypass it there if needed.`);
+                continue;
+            }
+            if (slots.length >= MIXER_SLOTS) { leftOff.push(e.name); continue; }
+            pluginSlot.set(e, { insert, slot: slots.length });
+            slots.push(flPlugin(e));
+            placed.push(e.name);
+            notePlugin(e);
         }
+        if (skipped.length) warnings.push(`"${name}": devices not converted — ${skipped.join(', ')}.`);
+        if (leftOff.length) warnings.push(`"${name}": an FL mixer insert holds ${MIXER_SLOTS} effects — ${leftOff.join(', ')} were left off.`);
+        if (!slots.length) return;
+        insertEffects.push({ insert, plugins: slots });
+        converted.push(`"${name}": ${placed.join(', ')} → ${insert ? `mixer insert ${insert}` : 'the master'}, with their settings.`);
     };
 
     // ── Mixer: every track gets an insert — tracks and groups in order, then returns ──

@@ -20,7 +20,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { pluginSlotParams, pluginWrapper } from './FlVst.js';
-import type { FlPlugin } from './FlVst.js';
+import type { FlNativeEffect, FlPlugin } from './FlVst.js';
 
 const TEMPLATE_PATH = path.join(path.dirname(fileURLToPath(import.meta.url)), 'templates', 'Empty-FL21.flp');
 
@@ -30,7 +30,7 @@ const PATTERN_BASE = 0x5000; // playlist item index offset for patterns
 
 // Event ids (names from PyFLP)
 const EV = {
-    TimeSigNum: 17, TimeSigDen: 18, ChannelType: 21, ChannelInsert: 22, CustomColor: 41,
+    SongMode: 9, TimeSigNum: 17, TimeSigDen: 18, ChannelType: 21, ChannelInsert: 22, CustomColor: 41,
     ChannelNew: 64, PatternNew: 65, SlotIndex: 98, ArrangementNew: 99,
     ChannelColor: 128, ChannelFlags: 132, ChannelMisc: 143, PatternColor: 150, PluginIcon: 155,
     Tempo: 156, TimeMarker: 148,
@@ -106,10 +106,10 @@ export interface FlAutomationPoint { time: number; value: number }
  */
 export interface FlAutomationTarget { channel: number; param: number; dest: number }
 
-/** VST effects for one mixer insert, filling its slots in order (FL has 10). */
+/** Effects for one mixer insert — VSTs or FL's own — filling its slots in order (FL has 10). */
 export interface FlInsertEffects {
     insert: number;
-    plugins: FlPlugin[];
+    plugins: (FlPlugin | FlNativeEffect)[];
 }
 
 /** A mixer insert's name, colour, fader and where it routes (insert 0 = master). */
@@ -357,7 +357,9 @@ export function writeFlp(project: FlProject): Buffer {
 
     // Header: tempo, time signature, title
     for (const e of header) {
-        if (e.id === EV.Tempo) out.push({ id: e.id, value: Math.round(project.bpm * 1000) });
+        // Open in Song mode (the template is saved in Pattern mode), so play and render cover the arrangement
+        if (e.id === EV.SongMode) out.push({ id: e.id, value: 1 });
+        else if (e.id === EV.Tempo) out.push({ id: e.id, value: Math.round(project.bpm * 1000) });
         else if (e.id === EV.TimeSigNum) out.push({ id: e.id, value: project.numerator });
         else if (e.id === EV.TimeSigDen) out.push({ id: e.id, value: project.denominator });
         else if (e.id === EV.Title) {
@@ -480,7 +482,17 @@ export function writeFlp(project: FlProject): Buffer {
         if (e.id === EV.InsertParams) insertNo++;
         if (e.id === EV.SlotIndex && insertNo >= 0) {
             const plugin = effectsByInsert.get(insertNo)?.[e.value as number];
-            if (plugin) {
+            if (plugin?.format === 'native') {
+                // FL's own effects: the plugin's name, then its state — no wrapper
+                out.push(
+                    { id: EV.InternalName, value: text(plugin.name) },
+                    { id: EV.SlotParams, value: pluginSlotParams('effect', insertNo) },
+                    { id: EV.PluginIcon, value: 0 },
+                    { id: EV.ChannelColor, value: DEFAULT_PLUGIN_COLOR },
+                    { id: EV.CustomColor, value: 0 },
+                    { id: EV.PluginData, value: plugin.state },
+                );
+            } else if (plugin) {
                 out.push(
                     { id: EV.InternalName, value: text('Fruity Wrapper') },
                     { id: EV.SlotParams, value: pluginSlotParams('effect', insertNo) },

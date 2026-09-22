@@ -47,6 +47,13 @@ export interface FlVst2Plugin extends FlPluginBase {
 
 export type FlPlugin = FlVst3Plugin | FlVst2Plugin;
 
+/** One of FL's own effects (Fruity Parametric EQ 2, Fruity Limiter…) with its native state. */
+export interface FlNativeEffect {
+    format: 'native';
+    name: string;             // FL's plugin name, e.g. "Fruity Parametric EQ 2"
+    state: Buffer;            // the plugin's event 213 payload (see FlNative.ts)
+}
+
 /**
  * Live stores a VST3 class ID as four signed/unsigned 32-bit "Fields"; FL stores the 16-byte
  * TUID in the VST3 SDK's Windows (COM) layout: l1 little-endian, l2 as two swapped 16-bit

@@ -104,6 +104,17 @@ export interface ConvVst2Plugin extends ConvPluginBase {
 
 export type ConvPlugin = ConvVst3Plugin | ConvVst2Plugin;
 
+/** One of Live's own audio effects (EQ Eight, Compressor…): its device XML, mapped to FL's own effects later. */
+export interface ConvLiveEffect {
+    format: 'live';
+    device: string;          // Live's device tag, e.g. "Eq8"
+    name: string;            // what the user sees (their rename, or the device name)
+    enabled: boolean;
+    xml: any;
+}
+
+export type ConvEffect = ConvPlugin | ConvLiveEffect;
+
 export type ConvInstrument =
     | { kind: 'simpler'; device: string; zone: ConvSamplerZone }
     | { kind: 'drumRack'; device: string; pads: ConvSamplerZone[]; otherPads: ConvOtherPad[] }
@@ -147,7 +158,7 @@ export interface ConvTrack {
     pan: number;             // -1 .. 1
     devices: string[];       // devices that can't be converted, for the report
     instrument: ConvInstrument | null;
-    effects: ConvPlugin[];   // VST3 effects on the track, in chain order
+    effects: ConvEffect[];   // audio effects on the track (VSTs and Live's own), in chain order
     automation: ConvAutomation[];
     /** Automated parameters that can't be carried over (Ableton devices etc.). */
     otherAutomation: number;
@@ -168,7 +179,7 @@ export interface ConvProject {
     tracks: ConvTrack[];
     locators: ConvLocator[];
     /** The Main (master) track's plugins and other devices. */
-    main: { effects: ConvPlugin[]; devices: string[] };
+    main: { effects: ConvEffect[]; devices: string[] };
     /** Per return track: true if its sends are pre-fader. */
     returnsPre: boolean[];
     tempoAutomation: ConvAutomation | null;

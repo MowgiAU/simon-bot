@@ -17,9 +17,10 @@
 import zlib from 'node:zlib';
 import { XMLParser } from 'fast-xml-parser';
 import type {
-    ConvAudioClip, ConvAutomation, ConvAutomationTarget, ConvClip, ConvInstrument, ConvLayer, ConvMidiClip, ConvNote, ConvPlugin,
+    ConvAudioClip, ConvAutomation, ConvAutomationTarget, ConvClip, ConvEffect, ConvInstrument, ConvLayer, ConvMidiClip, ConvNote, ConvPlugin,
     ConvOtherPad, ConvProject, ConvSampleRef, ConvSamplerZone, ConvTrack,
 } from './types.js';
+import { LIVE_EFFECTS } from './LiveEffects.js';
 
 // Live's 70-colour clip/track palette, in index order (5 rows of 14 as shown in Live). Verified
 // against the colour tables in Live 12's own controller scripts (MIDI Remote Scripts).
@@ -224,14 +225,14 @@ function deviceName(tag: string, dev: any): string {
         ?? (val(dev?.UserName) || DEVICE_LABELS[tag] || tag.replace(/([a-z])([A-Z0-9])/g, '$1 $2'));
 }
 
-/** Flatten a <Devices> node into [tag, node] pairs. */
+/** Flatten a <Devices> node into [tag, node] pairs, in chain order. */
 function deviceList(devices: any): [string, any][] {
     const out: [string, any][] = [];
     for (const [tag, list] of Object.entries<any>(devices ?? {})) {
         if (tag.startsWith('@_')) continue;
         for (const dev of arr<any>(list)) out.push([tag, dev]);
     }
-    return out;
+    return out.sort((a, b) => Number(a[1]?.['@_seq'] ?? 0) - Number(b[1]?.['@_seq'] ?? 0));
 }
 
 /** Depth-limited search for the first sampler device (pads may nest it in a chain or rack). */
@@ -425,7 +426,7 @@ function readPlugin(dev: any): ConvPlugin | null {
     };
 }
 
-interface ChainResult { instrument: ConvInstrument | null; effects: ConvPlugin[]; devices: string[] }
+interface ChainResult { instrument: ConvInstrument | null; effects: ConvEffect[]; devices: string[] }
 
 /** Flattens nested layer racks into their individual layers, narrowing key zones as it goes. */
 function toLayers(inst: ConvInstrument, base: Omit<ConvLayer, 'instrument'>): ConvLayer[] {
@@ -444,7 +445,8 @@ function toLayers(inst: ConvInstrument, base: Omit<ConvLayer, 'instrument'>): Co
  *   - the first instrument found becomes the chain's instrument: a VST, a Drum Rack of samplers,
  *     a single-sample Simpler/Sampler, or an Instrument Rack (one chain is unwrapped; several
  *     become layers that all play the same notes, filtered by each chain's key zone)
- *   - VST effects are collected in order, including those inside single-chain Audio Effect Racks
+ *   - VST effects and Live's own effects that FL has an equivalent for (LIVE_EFFECTS) are
+ *     collected in order, including those inside single-chain Audio Effect Racks
  *   - everything else is listed by name for the report
  */
 function readDeviceChain(list: [string, any][], where = ''): ChainResult {
@@ -498,6 +500,10 @@ function readDeviceChain(list: [string, any][], where = ''): ChainResult {
             }
             continue;
         }
+        if (LIVE_EFFECTS.has(tag)) {
+            out.effects.push({ format: 'live', device: tag, name, enabled: bool(dev?.On?.Manual, true), xml: dev });
+            continue;
+        }
         skip(name);
     }
     return out;
@@ -535,7 +541,7 @@ function chainPlugins(chain: ChainResult): ConvPlugin[] {
     const fromInst = inst?.kind === 'plugin' ? [inst.plugin]
         : inst?.kind === 'layers' ? inst.layers.flatMap((l) => (l.instrument.kind === 'plugin' ? [l.instrument.plugin] : []))
             : [];
-    return [...fromInst, ...chain.effects];
+    return [...fromInst, ...chain.effects.filter((e): e is ConvPlugin => e.format !== 'live')];
 }
 
 /** Resolves a track's arrangement envelopes against the targets we know how to carry over. */
@@ -582,12 +588,19 @@ export function readAls(buffer: Buffer, projectName = 'Converted Project'): Conv
         throw new Error('Not a valid Ableton Live Set (.als is not gzip-compressed)');
     }
 
+    let seq = 0;
     const doc = new XMLParser({
         ignoreAttributes: false,
         attributeNamePrefix: '@_',
         parseAttributeValue: false,
         parseTagValue: false,   // keep plugin state hex as text (all-digit hex would become a number)
         isArray: (name) => ARRAY_TAGS.has(name),
+        // Number every element in document order: the parser groups same-named siblings, which
+        // would otherwise lose the order of a device chain that mixes device types
+        updateTag: (tag, _path, attrs) => {
+            if (attrs && Object.keys(attrs).length) attrs['@_seq'] = String(seq++);   // devices always have an Id
+            return tag;
+        },
     }).parse(xml);
 
     const ableton = doc?.Ableton;
