@@ -52,6 +52,16 @@ export interface ConvSampleRef {
 }
 
 /** One sample-playing voice: a Simpler, or one Drum Rack pad. */
+/** One sample zone of a multi-sample instrument: which notes and velocities play it. */
+export interface ConvZonePart {
+    sample: ConvSampleRef;
+    name: string;
+    keyMin: number; keyMax: number;
+    velMin: number; velMax: number;
+    rootKey: number;
+    sampleStart: number;
+}
+
 export interface ConvSamplerZone {
     name: string;
     sample: ConvSampleRef;
@@ -75,6 +85,10 @@ export interface ConvSamplerZone {
     sliceWarped?: boolean;
     /** The sample's length in seconds. */
     sampleSeconds?: number;
+    /** Multi-sample instruments: every active zone (absent when there's only one sample). */
+    parts?: ConvZonePart[];
+    /** Round-robin across zones that cover the same note (absent = overlapping zones layer). */
+    roundRobin?: 'sequential' | 'random';
     /** Drum pads: the effects after the pad's sampler, devices that can't convert, and the chain's level. */
     chain?: ConvChain & { sends: number[] };
 }
@@ -140,6 +154,8 @@ export interface ConvLayer {
     name: string;
     keyMin: number;
     keyMax: number;
+    velMin: number;          // the chain's velocity zone
+    velMax: number;
     volume: number;          // linear gain of the chain, 1 = 0 dB
     instrument: Exclude<ConvInstrument, { kind: 'layers' }>;
 }

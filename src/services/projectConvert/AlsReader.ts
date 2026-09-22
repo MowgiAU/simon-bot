@@ -18,7 +18,7 @@ import zlib from 'node:zlib';
 import { XMLParser } from 'fast-xml-parser';
 import type {
     ConvAudioClip, ConvAutomation, ConvAutomationTarget, ConvChain, ConvClip, ConvEffect, ConvInstrument, ConvLayer, ConvMidiClip, ConvNote, ConvPlugin,
-    ConvOtherPad, ConvProject, ConvSampleRef, ConvSamplerZone, ConvTrack,
+    ConvOtherPad, ConvProject, ConvSampleRef, ConvSamplerZone, ConvTrack, ConvZonePart,
 } from './types.js';
 import { LIVE_EFFECTS } from './LiveEffects.js';
 
@@ -324,8 +324,24 @@ function readZone(sampler: any, name: string, triggerNote: number | null, sendin
     const sample = part && readSampleRef(part.SampleRef);
     if (!sample) return null;
     const mode = PLAYBACK_MODES[num(sampler?.Globals?.PlaybackMode)] ?? 'classic';
+    // Every active zone, for instruments that use more than one sample (key splits, velocity
+    // layers, round-robin alternates)
+    const zoneParts: ConvZonePart[] = active.flatMap((p) => {
+        const ref = readSampleRef(p?.SampleRef);
+        return ref ? [{
+            sample: ref,
+            name: val(p?.Name)?.replace(/\.[^.]+$/, '') || ref.file.replace(/\.[^.]+$/, ''),
+            keyMin: num(p?.KeyRange?.Min, 0), keyMax: num(p?.KeyRange?.Max, 127),
+            velMin: num(p?.VelocityRange?.Min, 1), velMax: num(p?.VelocityRange?.Max, 127),
+            rootKey: num(p?.RootKey, 60),
+            sampleStart: num(p?.SampleStart),
+        }] : [];
+    });
+    const map = sampler?.Player?.MultiSampleMap;
     return {
         sampleCount: parts.length,
+        parts: zoneParts.length > 1 ? zoneParts : undefined,
+        roundRobin: bool(map?.RoundRobin) ? (num(map?.RoundRobinMode) === 0 ? 'sequential' : 'random') : undefined,
         name: name || val(part?.Name) || sample.file.replace(/\.[^.]+$/, ''),
         sample,
         triggerNote,
@@ -454,6 +470,8 @@ function toLayers(inst: ConvInstrument, base: Omit<ConvLayer, 'instrument'>): Co
         volume: base.volume * l.volume,
         keyMin: Math.max(base.keyMin, l.keyMin),
         keyMax: Math.min(base.keyMax, l.keyMax),
+        velMin: Math.max(base.velMin, l.velMin),
+        velMax: Math.min(base.velMax, l.velMax),
         instrument: l.instrument,
     }));
 }
@@ -497,11 +515,13 @@ function readDeviceChain(list: [string, any][], where = ''): ChainResult {
                 const inner = readDeviceChain(deviceList(br?.DeviceChain?.MidiToAudioDeviceChain?.Devices), name);
                 absorb(inner);
                 if (!inner.instrument) continue;
-                const keys = br?.ZoneSettings?.KeyRange;
+                const keys = br?.ZoneSettings?.KeyRange, vels = br?.ZoneSettings?.VelocityRange;
                 layers.push(...toLayers(inner.instrument, {
                     name: val(br?.Name?.EffectiveName) || name,
                     keyMin: num(keys?.Min, 0),
                     keyMax: num(keys?.Max, 127),
+                    velMin: num(vels?.Min, 1),
+                    velMax: num(vels?.Max, 127),
                     volume: num(br?.MixerDevice?.Volume?.Manual, 1),
                 }));
             }

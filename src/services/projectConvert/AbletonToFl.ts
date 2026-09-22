@@ -95,10 +95,10 @@ export function convertAlsToFlp(als: Buffer, opts: AlsToFlpOptions = {}): AlsToF
         if (zone.mode === 'slice' && !zone.slices?.length) {
             warnings.push(`"${track}": "${zone.name}" was a sliced Simpler — the whole sample is loaded; re-slice it in FL (e.g. Slicex).`);
         }
-        if (zone.sampleCount > 1) {
+        if (zone.sampleCount > 1 && !zone.parts) {
             warnings.push(`"${track}": "${zone.name}" used ${zone.sampleCount} samples (round-robin / layers) — only "${zone.sample.file}" was loaded.`);
         }
-        if (zone.sampleStart > 0) {
+        if (zone.sampleStart > 0 || zone.parts?.some((p) => p.sampleStart > 0)) {
             warnings.push(`"${track}": "${zone.name}" had its sample start moved in Live — trim the start in FL's Sampler.`);
         }
     };
@@ -211,9 +211,36 @@ export function convertAlsToFlp(als: Buffer, opts: AlsToFlpOptions = {}): AlsToF
         tracks.push({ name: track.name, color: track.color });
 
         if (track.kind === 'midi') {
-            // Creates the channel(s) for an instrument; returns route(liveKey) → the channels
+            // Creates the channel(s) for an instrument; returns route(liveKey, velocity) → the channels
             // that play that note, at which FL key (several for layered racks, none if unmapped)
-            type Route = (key: number) => { channel: number; key: number }[];
+            type Route = (key: number, velocity: number) => { channel: number; key: number }[];
+
+            // A sampler's channels: one for a single sample; for multi-sample instruments one per
+            // zone, with each note going to every zone covering its key and velocity (overlapping
+            // zones layer in Live) — or to one of them in turn when Live round-robins them
+            const zoneRoute = (zone: ConvSamplerZone, baseName: string, ins: number): Route => {
+                const parts = zone.parts;
+                if (!parts) {
+                    const channel = channels.length;
+                    channels.push({ name: baseName, color: track.color, type: CHANNEL_SAMPLER, insert: ins, samplePath: registerSample(zone.sample) });
+                    return (key) => [{ channel, key: flKey(key, zone) }];
+                }
+                const partChannels = parts.map((p) => {
+                    channels.push({ name: `${baseName} – ${p.name}`, color: track.color, type: CHANNEL_SAMPLER, insert: ins, samplePath: registerSample(p.sample) });
+                    return channels.length - 1;
+                });
+                let turn = 0, seed = 0x2545f491;
+                return (key, velocity) => {
+                    const hits = parts.flatMap((p, i) => (key >= p.keyMin && key <= p.keyMax && velocity >= p.velMin && velocity <= p.velMax ? [i] : []));
+                    let chosen = hits;
+                    if (zone.roundRobin && hits.length > 1) {
+                        seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+                        chosen = [hits[zone.roundRobin === 'random' ? seed % hits.length : turn++ % hits.length]];
+                    }
+                    return chosen.map((i) => ({ channel: partChannels[i], key: key - parts[i].rootKey + 60 + zone.transpose }));
+                };
+            };
+
             const setup = (inst: ConvInstrument | null, name: string): Route => {
                 if (inst?.kind === 'plugin') {
                     const channel = channels.length;
@@ -225,7 +252,7 @@ export function convertAlsToFlp(als: Buffer, opts: AlsToFlpOptions = {}): AlsToF
                 }
                 if (inst?.kind === 'drumRack') {
                     // One Sampler channel per pad, like an FL drum kit; every pad plays on C5
-                    const pads = new Map<number, { channel: number; key: number }>();
+                    const pads = new Map<number, (velocity: number) => { channel: number; key: number }[]>();
                     // A rack chain (pad or return) as its own insert feeding the drum track's insert, at
                     // the chain's level — as the chain feeds the rack. Returns 0 when FL's mixer is full.
                     const chainInsert = (chain: ConvChain, extraRoutes: FlInsert['routes'] = []): number => {
@@ -263,18 +290,23 @@ export function convertAlsToFlp(als: Buffer, opts: AlsToFlpOptions = {}): AlsToF
                         } else if (chain?.devices.length) {
                             placeEffects(`${name} › ${pad.name}`, [], chain.devices, insert);
                         }
-                        pads.set(pad.triggerNote!, { channel: channels.length, key: flKey(pad.sendingNote ?? 60, pad) });
-                        channels.push({ name: pad.name, color: track.color, type: CHANNEL_SAMPLER, insert: padInsert, samplePath: registerSample(pad.sample) });
+                        // The pad's sampler hears the pad's sending note
+                        const padRoute = zoneRoute(pad, pad.name, padInsert);
+                        pads.set(pad.triggerNote!, (velocity) => padRoute(pad.sendingNote ?? 60, velocity));
                         zoneWarnings(name, pad);
                     }
                     // Pads holding a synth or Max device: an empty channel keeps their notes
                     for (const pad of inst.otherPads) {
-                        pads.set(pad.triggerNote, { channel: channels.length, key: 60 });
+                        const channel = channels.length;
+                        pads.set(pad.triggerNote, () => [{ channel, key: 60 }]);
                         channels.push({ name: pad.name, color: track.color, type: CHANNEL_SAMPLER, insert });
                         warnings.push(`"${name}": pad "${pad.name}" used ${pad.device}, which can't come across — it has an empty channel with its notes; load a sound there in FL.`);
                     }
-                    converted.push(`"${name}": ${inst.device} → ${inst.pads.length} Sampler channels, one per pad.`);
-                    return (key) => { const pad = pads.get(key); return pad ? [pad] : []; };
+                    const multi = inst.pads.filter((p) => p.parts);
+                    converted.push(multi.length
+                        ? `"${name}": ${inst.device} → Sampler channels for ${inst.pads.length} pads; ${multi.map((p) => `"${p.name}"`).join(', ')} ${multi.length === 1 ? 'uses' : 'use'} several samples, each on its own channel${multi.some((p) => p.roundRobin) ? ' (round-robin as in Live)' : ''}.`
+                        : `"${name}": ${inst.device} → ${inst.pads.length} Sampler channels, one per pad.`);
+                    return (key, velocity) => pads.get(key)?.(velocity) ?? [];
                 }
                 if (inst?.kind === 'simpler' && inst.zone.mode === 'slice' && inst.zone.slices?.length) {
                     // Sliced Simpler → Fruity Slicer holding the loop at Live's slice points.
@@ -296,25 +328,28 @@ export function convertAlsToFlp(als: Buffer, opts: AlsToFlpOptions = {}): AlsToF
                     };
                 }
                 if (inst?.kind === 'simpler') {
-                    const channel = channels.length;
                     const zone = inst.zone;
-                    channels.push({ name, color: track.color, type: CHANNEL_SAMPLER, insert, samplePath: registerSample(zone.sample) });
                     zoneWarnings(name, zone);
-                    converted.push(`"${name}": ${inst.device} → Sampler with "${zone.sample.file}".`);
-                    const shift = flKey(0, zone);
-                    if (shift !== 0) {
-                        warnings.push(`"${name}": notes were shifted ${shift > 0 ? '+' : ''}${shift} semitones so "${zone.name}" plays at the same pitch as in Live.`);
+                    if (zone.parts) {
+                        converted.push(`"${name}": ${inst.device} → ${zone.parts.length} Sampler channels, one per sample zone${zone.roundRobin ? ', taking turns (round-robin) as in Live' : ''}.`);
+                    } else {
+                        converted.push(`"${name}": ${inst.device} → Sampler with "${zone.sample.file}".`);
+                        const shift = flKey(0, zone);
+                        if (shift !== 0) {
+                            warnings.push(`"${name}": notes were shifted ${shift > 0 ? '+' : ''}${shift} semitones so "${zone.name}" plays at the same pitch as in Live.`);
+                        }
                     }
-                    return (key) => [{ channel, key: flKey(key, zone) }];
+                    return zoneRoute(zone, name, insert);
                 }
                 if (inst?.kind === 'layers') {
-                    // Each rack chain becomes its own channel; notes go to every chain whose key zone holds them
+                    // Each rack chain becomes its own channel; notes go to every chain whose key and velocity zones hold them
                     const routes = inst.layers.map((layer) => ({ layer, route: setup(layer.instrument, `${track.name} – ${layer.name}`) }));
                     converted.push(`"${track.name}": ${inst.device} → ${inst.layers.length} layered channels (${inst.layers.map((l) => l.name).join(', ')}).`);
                     if (inst.layers.some((l) => Math.abs(l.volume - inst.layers[0].volume) > 0.01)) {
                         warnings.push(`"${track.name}": the rack's chains had different volumes in Live — balance the layered channels in FL.`);
                     }
-                    return (key) => routes.flatMap(({ layer, route }) => (key >= layer.keyMin && key <= layer.keyMax ? route(key) : []));
+                    return (key, velocity) => routes.flatMap(({ layer, route }) =>
+                        (key >= layer.keyMin && key <= layer.keyMax && velocity >= layer.velMin && velocity <= layer.velMax ? route(key, velocity) : []));
                 }
                 const channel = channels.length;
                 channels.push({ name, color: track.color, type: CHANNEL_SAMPLER, insert });
@@ -327,7 +362,7 @@ export function convertAlsToFlp(als: Buffer, opts: AlsToFlpOptions = {}): AlsToF
                 if (clip.kind !== 'midi' || clip.length <= 0) continue;
                 const clipNotes: FlPattern['notes'] = [];
                 for (const n of clip.notes) {
-                    const targets = route(n.key).filter((r) => r.key >= 0 && r.key <= 131);
+                    const targets = route(n.key, n.velocity).filter((r) => r.key >= 0 && r.key <= 131);
                     if (!targets.length) { unmapped++; continue; }
                     for (const r of targets) {
                         clipNotes.push({ channel: r.channel, pos: n.time, length: n.duration, key: r.key, velocity: n.velocity });
