@@ -17,7 +17,7 @@
 import zlib from 'node:zlib';
 import { XMLParser } from 'fast-xml-parser';
 import type {
-    ConvAudioClip, ConvAutomation, ConvAutomationTarget, ConvClip, ConvEffect, ConvInstrument, ConvLayer, ConvMidiClip, ConvNote, ConvPlugin,
+    ConvAudioClip, ConvAutomation, ConvAutomationTarget, ConvChain, ConvClip, ConvEffect, ConvInstrument, ConvLayer, ConvMidiClip, ConvNote, ConvPlugin,
     ConvOtherPad, ConvProject, ConvSampleRef, ConvSamplerZone, ConvTrack,
 } from './types.js';
 import { LIVE_EFFECTS } from './LiveEffects.js';
@@ -339,7 +339,13 @@ function readZone(sampler: any, name: string, triggerNote: number | null, sendin
     };
 }
 
-function readDrumRack(rack: any): { pads: ConvSamplerZone[]; otherPads: ConvOtherPad[] } {
+/** A rack chain's effects and mixer level (Live's pan is <Panorama>). */
+function readChain(name: string, devices: any, mixer: any): ConvChain {
+    const chain = readDeviceChain(deviceList(devices), name);
+    return { name, effects: chain.effects, devices: chain.devices, volume: num(mixer?.Volume?.Manual, 1), pan: num(mixer?.Panorama?.Manual, 0) };
+}
+
+function readDrumRack(rack: any): { pads: ConvSamplerZone[]; otherPads: ConvOtherPad[]; returns: ConvChain[] } {
     const pads: ConvSamplerZone[] = [];
     const otherPads: ConvOtherPad[] = [];
     for (const branch of arr<any>(rack?.Branches?.DrumBranch)) {
@@ -350,12 +356,23 @@ function readDrumRack(rack: any): { pads: ConvSamplerZone[]; otherPads: ConvOthe
         const sampler = findSampler(branch?.DeviceChain);
         const name = val(branch?.Name?.EffectiveName) || val(branch?.Name?.UserName) || '';
         const zone = sampler && readZone(sampler, name, 128 - receiving, num(info?.SendingNote, 60));
-        if (zone) { pads.push(zone); continue; }
+        if (zone) {
+            // The pad's own chain: effects after its sampler, its level, and its sends to the rack's returns
+            zone.chain = {
+                ...readChain(name, branch?.DeviceChain?.MidiToAudioDeviceChain?.Devices, branch?.MixerDevice),
+                sends: arr<any>(branch?.MixerDevice?.SendInfos?.AudioBranchSendInfo).map((s) => num(s?.Send?.Manual, 0)),
+            };
+            pads.push(zone);
+            continue;
+        }
         const [tag, dev] = deviceList(branch?.DeviceChain?.MidiToAudioDeviceChain?.Devices)[0] ?? [];
         if (tag) otherPads.push({ triggerNote: 128 - receiving, name: name || deviceName(tag, dev), device: deviceName(tag, dev) });
     }
     pads.sort((a, b) => (a.triggerNote ?? 0) - (b.triggerNote ?? 0));
-    return { pads, otherPads };
+    // The rack's return chains, which pads send into
+    const returns = arr<any>(rack?.ReturnBranches?.ReturnBranch).map((rb, i) =>
+        readChain(val(rb?.Name?.EffectiveName) || `Return ${String.fromCharCode(65 + i)}`, rb?.DeviceChain?.AudioToAudioDeviceChain?.Devices, rb?.MixerDevice));
+    return { pads, otherPads, returns };
 }
 
 const hexBytes = (v: unknown) => Buffer.from(String(v ?? '').replace(/\s/g, ''), 'hex');
@@ -466,8 +483,8 @@ function readDeviceChain(list: [string, any][], where = ''): ChainResult {
             continue;
         }
         if (tag === 'DrumGroupDevice' && !out.instrument) {
-            const { pads, otherPads } = readDrumRack(dev);
-            if (pads.length || otherPads.length) { out.instrument = { kind: 'drumRack', device: name, pads, otherPads }; continue; }
+            const { pads, otherPads, returns } = readDrumRack(dev);
+            if (pads.length || otherPads.length) { out.instrument = { kind: 'drumRack', device: name, pads, otherPads, returns }; continue; }
         }
         if (SAMPLER_TAGS.includes(tag) && !out.instrument) {
             const zone = readZone(dev, '', null, null);

@@ -75,6 +75,8 @@ export interface ConvSamplerZone {
     sliceWarped?: boolean;
     /** The sample's length in seconds. */
     sampleSeconds?: number;
+    /** Drum pads: the effects after the pad's sampler, devices that can't convert, and the chain's level. */
+    chain?: ConvChain & { sends: number[] };
 }
 
 /** A third-party plugin with its saved state (the plugin's own bytes, identical in every host). */
@@ -115,9 +117,18 @@ export interface ConvLiveEffect {
 
 export type ConvEffect = ConvPlugin | ConvLiveEffect;
 
+/** A chain inside a rack — a drum pad's effects or a Drum Rack return — with its mixer level. */
+export interface ConvChain {
+    name: string;
+    effects: ConvEffect[];
+    devices: string[];       // devices that can't convert
+    volume: number;          // linear gain
+    pan: number;             // -1 … 1
+}
+
 export type ConvInstrument =
     | { kind: 'simpler'; device: string; zone: ConvSamplerZone }
-    | { kind: 'drumRack'; device: string; pads: ConvSamplerZone[]; otherPads: ConvOtherPad[] }
+    | { kind: 'drumRack'; device: string; pads: ConvSamplerZone[]; otherPads: ConvOtherPad[]; returns: ConvChain[] }
     | { kind: 'plugin'; device: string; plugin: ConvPlugin }
     | { kind: 'layers'; device: string; layers: ConvLayer[] };
 

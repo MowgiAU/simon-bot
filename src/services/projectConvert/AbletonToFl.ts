@@ -4,6 +4,8 @@
  * Mapping:
  *   MIDI track   → one playlist track; each arrangement MIDI clip becomes its own pattern on it.
  *     Drum Rack  → one Sampler channel per pad, loaded with the pad's sample (like an FL kit).
+ *                  Pads with effects or sends, and the rack's return chains, get their own mixer
+ *                  inserts routed into the drum track's insert.
  *     Simpler    → one Sampler channel loaded with the sample; notes shifted to keep pitch.
  *                  In Slice mode, a Fruity Slicer with the same slice points instead.
  *     VST2/VST3  → an FL plugin channel loaded with the plugin's saved state.
@@ -23,7 +25,7 @@ import { FRUITY_SLICER, SLICER_FIRST_KEY, fruitySlicerState } from './FlNative.j
 import { LIVE_EFFECT_TARGETS, flLevel, liveEffectToFl } from './LiveEffects.js';
 import { vst3ClassId } from './FlVst.js';
 import type { FlPlugin } from './FlVst.js';
-import type { ConversionReport, ConvAutomation, ConvEffect, ConvInstrument, ConvPlugin, ConvProject, ConvSampleRef, ConvSamplerZone, ConvTrack } from './types.js';
+import type { ConversionReport, ConvAutomation, ConvChain, ConvEffect, ConvInstrument, ConvPlugin, ConvProject, ConvSampleRef, ConvSamplerZone, ConvTrack } from './types.js';
 
 const MIXER_SLOTS = 10;
 const FUJI_URL = 'https://fujistud.io';
@@ -199,6 +201,10 @@ export function convertAlsToFlp(als: Buffer, opts: AlsToFlpOptions = {}): AlsToF
         }
     });
 
+    // Inserts after the tracks' own are free for drum pads that carry their own effects
+    let nextInsert = insertOf.size + 1;
+    let padInserts = 0, rackReturnInserts = 0;
+
     const playable = project.tracks.filter((t) => (t.kind === 'midi' || t.kind === 'audio') && insertOf.has(t));
     playable.forEach((track, trackIdx) => {
         const insert = insertOf.get(track)!;
@@ -220,9 +226,45 @@ export function convertAlsToFlp(als: Buffer, opts: AlsToFlpOptions = {}): AlsToF
                 if (inst?.kind === 'drumRack') {
                     // One Sampler channel per pad, like an FL drum kit; every pad plays on C5
                     const pads = new Map<number, { channel: number; key: number }>();
+                    // A rack chain (pad or return) as its own insert feeding the drum track's insert, at
+                    // the chain's level — as the chain feeds the rack. Returns 0 when FL's mixer is full.
+                    const chainInsert = (chain: ConvChain, extraRoutes: FlInsert['routes'] = []): number => {
+                        if (nextInsert > MAX_TRACKS) return 0;
+                        const ins = nextInsert++;
+                        inserts.push({
+                            insert: ins, name: `${name} – ${chain.name}`, color: track.color, routes: [{ to: insert }, ...extraRoutes],
+                            volume: flFader(chain.volume), pan: chain.pan * FL_PAN_RANGE,
+                        });
+                        placeEffects(`${name} › ${chain.name}`, chain.effects, chain.devices, ins);
+                        return ins;
+                    };
+                    // The rack's returns (Live shows them as the rack's return chains)
+                    const rackReturns = inst.returns.map((r, i) => {
+                        if (!r.effects.length) return 0;
+                        const ins = chainInsert(r);
+                        if (!ins) { warnings.push(`"${name} › ${r.name}": FL's mixer is full, so this return was left off.`); return 0; }
+                        rackReturnInserts++;
+                        if (!inst.pads.some((p) => (p.chain?.sends[i] ?? 0) > SEND_OFF)) {
+                            warnings.push(`"${name} › ${r.name}": no pad sends to this return in Live either — route a pad's insert to insert ${ins} in FL to use it.`);
+                        }
+                        return ins;
+                    });
                     for (const pad of inst.pads) {
+                        // A pad with its own effects or sends gets its own insert: effects sit there, and
+                        // sends leave from there (FL channels feed one insert; inserts can send)
+                        let padInsert = insert;
+                        const chain = pad.chain;
+                        const sends: FlInsert['routes'] = (chain?.sends ?? []).flatMap((gain, i) =>
+                            rackReturns[i] && gain > SEND_OFF ? [{ to: rackReturns[i], level: Math.min(1, flLevel(gain)) }] : []);
+                        if (chain && (chain.effects.length || sends.length)) {
+                            padInsert = chainInsert(chain, sends) || insert;
+                            if (padInsert === insert) warnings.push(`"${name} › ${pad.name}": FL's mixer is full, so this pad's effects and sends were left off.`);
+                            else padInserts++;
+                        } else if (chain?.devices.length) {
+                            placeEffects(`${name} › ${pad.name}`, [], chain.devices, insert);
+                        }
                         pads.set(pad.triggerNote!, { channel: channels.length, key: flKey(pad.sendingNote ?? 60, pad) });
-                        channels.push({ name: pad.name, color: track.color, type: CHANNEL_SAMPLER, insert, samplePath: registerSample(pad.sample) });
+                        channels.push({ name: pad.name, color: track.color, type: CHANNEL_SAMPLER, insert: padInsert, samplePath: registerSample(pad.sample) });
                         zoneWarnings(name, pad);
                     }
                     // Pads holding a synth or Max device: an empty channel keeps their notes
@@ -396,6 +438,8 @@ export function convertAlsToFlp(als: Buffer, opts: AlsToFlpOptions = {}): AlsToF
         // FL's tempo spans 10–522 BPM; the clip covers all of it (see the writer's automation range)
         addClip('Tempo', null, pts.map((p) => ({ time: p.time, value: Math.min(1, Math.max(0, (p.value - FL_TEMPO_MIN) / FL_TEMPO_SPAN)) })), { param: 0x0005, dest: 0x4000 });
     }
+    if (rackReturnInserts) converted.push(`Drum Rack return chains: ${rackReturnInserts} → their own mixer inserts, fed by the pads that send to them.`);
+    if (padInserts) converted.push(`Drum pads with their own effects or sends: ${padInserts} → their own mixer inserts, routed into their drum track.`);
     if (automationClips) converted.push(`Automation: ${automationClips} lane${automationClips === 1 ? '' : 's'} → FL automation clips.`);
     if (project.timeSignatures.length) converted.push(`${project.timeSignatures.length} time-signature change${project.timeSignatures.length === 1 ? '' : 's'} → playlist markers.`);
     if (vst3Params) warnings.push(`${vst3Params} automated VST3 plugin parameter${vst3Params === 1 ? ' was' : 's were'} not converted — redraw ${vst3Params === 1 ? 'it' : 'them'} in FL.`);
