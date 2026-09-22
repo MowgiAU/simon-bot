@@ -274,6 +274,16 @@ export class LevelingPlugin implements IPlugin {
     async onGuildMemberAdd(member: any): Promise<void> {
         if (member.user.bot) return;
 
+        // Role changes during the join window are ignored (see onGuildMemberUpdate),
+        // so save the settled set once restores and welcome/onboarding roles are done.
+        // A failed restore skips this, keeping the pre-leave snapshot for next time.
+        let restoreFailed = false;
+        setTimeout(async () => {
+            if (restoreFailed) return;
+            const fresh = await member.guild.members.fetch(member.id).catch(() => null);
+            if (fresh) await this.saveRoles(fresh);
+        }, LevelingPlugin.JOIN_SETTLE_MS);
+
         // Restore sticky roles
         try {
             const dbMember = await this.db.member.findUnique({
@@ -302,8 +312,10 @@ export class LevelingPlugin implements IPlugin {
 
             if (toRestore.length === 0) return;
             // One API call rather than one per role.
-            await member.roles.add(toRestore, 'Sticky roles: restored on rejoin').catch((e: any) =>
-                this.logger.warn(`Sticky role restore failed for ${member.user.username}: ${e?.message}`));
+            await member.roles.add(toRestore, 'Sticky roles: restored on rejoin').catch((e: any) => {
+                restoreFailed = true;
+                this.logger.warn(`Sticky role restore failed for ${member.user.username}: ${e?.message}`);
+            });
 
             const skipped = wanted.size - toRestore.length;
             this.logger.info(
@@ -320,6 +332,9 @@ export class LevelingPlugin implements IPlugin {
      * someone kicked without their roles being stripped would otherwise walk back
      * in with them. They're re-added by hand instead.
      */
+    /** How long after a join role changes are treated as setup rather than real changes. */
+    private static readonly JOIN_SETTLE_MS = 60_000;
+
     private static readonly PRIVILEGED_PERMISSIONS = [
         PermissionFlagsBits.Administrator,
         PermissionFlagsBits.ManageGuild,
@@ -365,6 +380,12 @@ export class LevelingPlugin implements IPlugin {
      * definition anyone whose roles changed has been cached.
      */
     async onGuildMemberUpdate(oldMember: any, newMember: any): Promise<void> {
+        // Just rejoined: roles are still being assigned (welcome gate, onboarding, our
+        // own restore). Saving here overwrote the pre-leave snapshot before the restore
+        // had read it, so nearly every rejoin came back with one role. onGuildMemberAdd
+        // saves the settled set when the window closes.
+        if (newMember?.joinedTimestamp && Date.now() - newMember.joinedTimestamp < LevelingPlugin.JOIN_SETTLE_MS) return;
+
         const before = oldMember?.roles?.cache;
         const after = newMember?.roles?.cache;
         if (!after) return;
