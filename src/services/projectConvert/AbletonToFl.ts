@@ -20,7 +20,7 @@ import { readAls } from './AlsReader.js';
 import { CHANNEL_AUDIO_CLIP, CHANNEL_SAMPLER, MIXER_PAN, MIXER_VOLUME, writeFlp } from './FlpWriter.js';
 import type { FlAutomationPoint, FlAutomationTarget, FlChannel, FlInsert, FlInsertEffects, FlItem, FlPattern, FlTrack } from './FlpWriter.js';
 import { FRUITY_SLICER, SLICER_FIRST_KEY, fruitySlicerState } from './FlNative.js';
-import { LIVE_EFFECT_TARGETS, liveEffectToFl } from './LiveEffects.js';
+import { LIVE_EFFECT_TARGETS, flLevel, liveEffectToFl } from './LiveEffects.js';
 import { vst3ClassId } from './FlVst.js';
 import type { FlPlugin } from './FlVst.js';
 import type { ConversionReport, ConvAutomation, ConvEffect, ConvInstrument, ConvPlugin, ConvProject, ConvSampleRef, ConvSamplerZone, ConvTrack } from './types.js';
@@ -31,13 +31,15 @@ const LIVE_FIRST_SLICE_KEY = 36;   // Simpler's Slice mode starts at C1
 const SEND_OFF = 0.001;     // Live's send minimum is 0.000316 (−70 dB = off)
 
 /**
- * FL's mixer fader: 0–16000, with 0 dB at 12800 and +5.6 dB at the top. A power law through
- * those two points (gain = (v / 12800) ^ 2.9) is used to place Live's linear track gain.
+ * FL's volume law (mixer faders, send levels, and its own volume knobs), measured by rendering:
+ * a control at r (1 = 0 dB) gives gain = (11^r − 1) / 10 — so r = 0.5 is −12.7 dB and the
+ * fader's top (16000, r = 1.25) +5.6 dB. flLevel (LiveEffects.ts) inverts it for Live's linear gains.
  */
 const FL_FADER_UNITY = 12800;
 const FL_FADER_MAX = 16000;
 const FL_PAN_RANGE = 6400;
-const flFader = (gain: number) => Math.min(FL_FADER_MAX, FL_FADER_UNITY * Math.max(0, gain) ** (1 / 2.9));
+const FL_TEMPO_MIN = 10, FL_TEMPO_SPAN = 512;   // FL tempo: 10–522 BPM
+const flFader = (gain: number) => Math.min(FL_FADER_MAX, FL_FADER_UNITY * flLevel(gain));
 
 export interface AlsToFlpOptions {
     projectName?: string;
@@ -136,12 +138,13 @@ export function convertAlsToFlp(als: Buffer, opts: AlsToFlpOptions = {}): AlsToF
         const leftOff: string[] = [];
         for (const e of effects) {
             if (e.format === 'live') {
-                const fl = liveEffectToFl(e);
+                const fl = liveEffectToFl(e, { bpm: project.bpm });
                 if (!fl) { skipped.push(e.name); continue; }
+                for (const note of fl.notes) warnings.push(`"${name}": ${e.name} — ${note}.`);
+                if (!fl.effects.length) continue;               // does nothing at these settings
                 if (slots.length + fl.effects.length > MIXER_SLOTS) { leftOff.push(e.name); continue; }
                 slots.push(...fl.effects);
                 placed.push(`${e.name} (as ${LIVE_EFFECT_TARGETS[e.device]})`);
-                for (const note of fl.notes) warnings.push(`"${name}": ${e.name} — ${note}.`);
                 if (!e.enabled) warnings.push(`"${name}": ${e.name} was switched off in Live — it's active in FL; bypass it there if needed.`);
                 continue;
             }
@@ -152,7 +155,7 @@ export function convertAlsToFlp(als: Buffer, opts: AlsToFlpOptions = {}): AlsToF
             notePlugin(e);
         }
         if (skipped.length) warnings.push(`"${name}": devices not converted — ${skipped.join(', ')}.`);
-        if (leftOff.length) warnings.push(`"${name}": an FL mixer insert holds ${MIXER_SLOTS} effects — ${leftOff.join(', ')} were left off.`);
+        if (leftOff.length) warnings.push(`"${name}": an FL mixer insert holds ${MIXER_SLOTS} effects — ${leftOff.join(', ')} ${leftOff.length === 1 ? 'was' : 'were'} left off.`);
         if (!slots.length) return;
         insertEffects.push({ insert, plugins: slots });
         converted.push(`"${name}": ${placed.join(', ')} → ${insert ? `mixer insert ${insert}` : 'the master'}, with their settings.`);
@@ -177,7 +180,7 @@ export function convertAlsToFlp(als: Buffer, opts: AlsToFlpOptions = {}): AlsToF
         if (t.kind !== 'return') {
             t.sends.forEach((gain, i) => {
                 const to = returnInserts[i];
-                if (to && gain > SEND_OFF) { routes.push({ to, level: Math.min(1, gain) }); sendCount++; }
+                if (to && gain > SEND_OFF) { routes.push({ to, level: Math.min(1, flLevel(gain)) }); sendCount++; }
             });
         }
         inserts.push({ insert, name: t.name, color: t.color, routes, volume: flFader(t.volume), pan: t.pan * FL_PAN_RANGE });
@@ -376,7 +379,7 @@ export function convertAlsToFlp(als: Buffer, opts: AlsToFlpOptions = {}): AlsToF
             else if (tg.kind === 'pan') addClip(`${t.name} – Pan`, t.color, scale(a, (v) => (v + 1) / 2), mixerTarget(insert, MIXER_PAN), t);
             else if (tg.kind === 'send') {
                 const to = returnInserts[tg.index];
-                if (to) addClip(`${t.name} – Send ${String.fromCharCode(65 + tg.index)}`, t.color, scale(a, (v) => Math.min(1, v)), mixerTarget(insert, 64 + to), t);
+                if (to) addClip(`${t.name} – Send ${String.fromCharCode(65 + tg.index)}`, t.color, scale(a, (v) => Math.min(1, flLevel(v))), mixerTarget(insert, 64 + to), t);
             } else if (tg.kind === 'plugin') {
                 // VST2 parameter ids are indices; a VST3's FL index can't be known without loading it
                 if (tg.plugin.format !== 'vst2') { vst3Params++; continue; }
@@ -390,10 +393,8 @@ export function convertAlsToFlp(als: Buffer, opts: AlsToFlpOptions = {}): AlsToF
     }
     if (project.tempoAutomation) {
         const pts = project.tempoAutomation.points;
-        if (pts.some((p) => p.value < 60 || p.value > 180)) {
-            warnings.push("Tempo automation goes outside 60–180 BPM, the range of FL's tempo automation — those parts are clamped.");
-        }
-        addClip('Tempo', null, pts.map((p) => ({ time: p.time, value: (p.value - 60) / 120 })), { param: 0x0005, dest: 0x4000 });
+        // FL's tempo spans 10–522 BPM; the clip covers all of it (see the writer's automation range)
+        addClip('Tempo', null, pts.map((p) => ({ time: p.time, value: Math.min(1, Math.max(0, (p.value - FL_TEMPO_MIN) / FL_TEMPO_SPAN)) })), { param: 0x0005, dest: 0x4000 });
     }
     if (automationClips) converted.push(`Automation: ${automationClips} lane${automationClips === 1 ? '' : 's'} → FL automation clips.`);
     if (project.timeSignatures.length) converted.push(`${project.timeSignatures.length} time-signature change${project.timeSignatures.length === 1 ? '' : 's'} → playlist markers.`);

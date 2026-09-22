@@ -39,10 +39,11 @@ const EV = {
     TrackData: 238, TrackName: 239,
     InsertStart: 42, InsertColor: 149, InsertName: 204, InsertRouting: 235, MixerParams: 225,
     Controller: 227, AutomationData: 234, AutomationAfter: 145, MarkerNumerator: 33, MarkerDenominator: 34,
-    ChannelParams: 215, TrackColorFlag: 43, Comments: 195, Url: 197,
+    ChannelParams: 215, ChannelLevels: 219, TrackColorFlag: 43, Comments: 195, Url: 197,
 } as const;
 
 const CHANNEL_AUTOMATION = 5;
+const AUTOMATION_FULL_RANGE = 12800;
 // Channel parameters (event 215): time-stretch length and mode (from an FL 21.2 reference)
 const STRETCH_TIME_OFFSET = 96;
 const STRETCH_MODE_OFFSET = 108;
@@ -408,6 +409,15 @@ export function writeFlp(project: FlProject): Buffer {
             else if (ch.automation && e.id === EV.AutomationAfter) {
                 evs.push(e);
                 evs.push({ id: EV.AutomationData, value: automationPayload(ch.automation) });
+            }
+            else if (ch.automation && e.id === EV.ChannelLevels) {
+                // On an automation channel, the first two values of 219 are the clip's range in the
+                // target's units (0–12800 = its full span). The template Sampler's pan/volume (6400,
+                // 10000) would squeeze every clip into 50–78% of its target — full span instead.
+                const levels = Buffer.from(e.value as Buffer);
+                levels.writeInt32LE(0, 0);
+                levels.writeInt32LE(AUTOMATION_FULL_RANGE, 4);
+                evs.push({ id: e.id, value: levels });
             }
             else if (e.id === EV.PluginName) evs.push({ id: e.id, value: text(ch.name) });
             else if (e.id === EV.ChannelColor) evs.push({ id: e.id, value: flColor(ch.color, e.value as number) });

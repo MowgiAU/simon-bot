@@ -10,9 +10,10 @@ import type { ConvLiveEffect } from './types.js';
 import type { FlNativeEffect } from './FlVst.js';
 
 /** Live device tags we can convert (the reader keeps these; everything else is reported). */
-export const LIVE_EFFECTS = new Set(['Eq8', 'Compressor2', 'GlueCompressor']);
+export const LIVE_EFFECTS = new Set(['Eq8', 'Compressor2', 'GlueCompressor', 'Delay', 'Reverb', 'StereoGain']);
 
 export interface LiveEffectResult {
+    /** Empty when the effect does nothing at its settings (a flat EQ, a unity Utility): it's left out. */
     effects: FlNativeEffect[];
     /** Anything about the conversion the user should know (settings FL can't match). */
     notes: string[];
@@ -40,6 +41,13 @@ function interp(points: [number, number][], x: number): number {
 }
 const flip = (points: [number, number][]): [number, number][] => points.map(([a, b]) => [b, a] as [number, number]).sort((p, q) => p[0] - q[0]);
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
+
+/**
+ * FL's volume law — mixer faders, send levels and its plugins' volume knobs, measured by rendering:
+ * a control at r (1 = 0 dB) gives gain = (11^r − 1) / 10, so r = 0.5 is −12.7 dB and 1.25 is +5.6 dB.
+ * Returns the r for a linear gain.
+ */
+export const flLevel = (gain: number) => Math.log(10 * Math.max(0, gain) + 1) / Math.log(11);
 
 // ── EQ Eight → Fruity Parametric EQ 2 ─────────────────────────────────────────
 //
@@ -132,9 +140,9 @@ function eq8(d: ConvLiveEffect): LiveEffectResult {
     if (Math.round(manual(d.xml?.Mode)) !== 0) notes.push('it was in L/R or M/S mode — FL uses its left/mid settings for both sides');
     if (Math.abs(manual(d.xml?.GlobalGain)) >= 0.05) notes.push(`its output gain (${manual(d.xml?.GlobalGain).toFixed(1)} dB) isn't included`);
 
-    // Parametric EQ 2 has 7 bands; an EQ Eight using all 8 becomes two
+    // Parametric EQ 2 has 7 bands; an EQ Eight using all 8 becomes two (and one with none, nothing)
     const effects: FlNativeEffect[] = [];
-    for (let i = 0; i < Math.max(1, bands.length); i += PEQ2_BANDS) {
+    for (let i = 0; i < bands.length; i += PEQ2_BANDS) {
         effects.push({ format: 'native', name: PEQ2, state: peq2State(bands.slice(i, i + PEQ2_BANDS)) });
     }
     return { effects, notes };
@@ -223,17 +231,171 @@ function glueCompressor(d: ConvLiveEffect): LiveEffectResult {
     };
 }
 
+// ── Delay → Fruity Delay 3 ────────────────────────────────────────────────────
+//
+// State: 27 × i32 (FL's default preset below). Measured in FL 21 with a click and with noise:
+//   [2]  stereo mode: 0 mono, 1 stereo, 2 ping-pong      [3]  tempo sync on/off
+//   [5]  time — synced: 192 per beat; free: (0.01222 · v + 0.63)³ ms, reaching its 1 s maximum at ~800
+//   [14] feedback filter on/off   [16] its type: 0 low-pass, 1 high-pass, 2 band-pass
+//   [17] cutoff (table below)     [18] band-pass width (table below)
+//   [15] feedback: each repeat is v / 5000 of the one before
+//   [24] wet level, [26] dry level: v / 6000 (6000 = 0 dB)
+
+const FRUITY_DELAY_3 = 'Fruity Delay 3';
+const DELAY3_DEFAULT = [1, 6000, 1, 1, 0, 192, 3000, 500, 6000, 3000, 0, 0, 0, 0, 1, 3000, 0, 6000, 0, 0, 0, 0, 60000, 6000, 6000, 0, 6000];
+const D3_MODE = 2, D3_SYNC = 3, D3_TIME = 5, D3_FILTER_ON = 14, D3_FEEDBACK = 15, D3_FILTER_TYPE = 16, D3_CUTOFF = 17, D3_WIDTH = 18, D3_WET = 24, D3_DRY = 26;
+const D3_PING_PONG = 2, D3_BANDPASS = 2;
+const D3_TICKS_PER_BEAT = 192;
+const D3_LEVEL_FULL = 6000;
+const D3_FEEDBACK_UNITY = 5000;
+const D3_FREE_MAX_MS = 1000;
+// Cutoff value → frequency (Hz), from the low-pass's -3 dB point
+const D3_CUTOFF_HZ: [number, number][] = [[1000, 403], [2000, 761], [3000, 1280], [4000, 4974], [5000, 11831], [6000, 20000]];
+// Band-pass width value → -3 dB width in octaves
+const D3_WIDTH_OCTAVES: [number, number][] = [[0, 6.25], [1000, 5.54], [2000, 4.25], [3000, 3.0], [4000, 2.17], [5000, 1.54], [6000, 1.0]];
+
+// Live's synced delay times, in 16th notes, by index
+const DELAY_SIXTEENTHS = [1, 2, 3, 4, 5, 6, 8, 16];
+
+function delay(d: ConvLiveEffect, ctx: LiveEffectContext): LiveEffectResult {
+    const x = d.xml;
+    const notes: string[] = [];
+    const st = [...DELAY3_DEFAULT];
+
+    if (manualBool(x?.DelayLine_SyncL, true)) {
+        const sixteenths = DELAY_SIXTEENTHS[Math.round(manual(x?.DelayLine_SyncedSixteenthL, 2))] ?? 3;
+        st[D3_SYNC] = 1;
+        st[D3_TIME] = (sixteenths * D3_TICKS_PER_BEAT) / 4;
+    } else {
+        const ms = manual(x?.DelayLine_TimeL, 0.25) * 1000;
+        if (ms <= D3_FREE_MAX_MS) {
+            st[D3_SYNC] = 0;
+            st[D3_TIME] = (Math.cbrt(ms) - 0.63) / 0.01222;
+        } else {
+            // Beyond the free-running range: the same time as a synced value at the song's tempo
+            st[D3_SYNC] = 1;
+            st[D3_TIME] = (ms / (60000 / ctx.bpm)) * D3_TICKS_PER_BEAT;
+        }
+    }
+    if (!manualBool(x?.DelayLine_Link, true)) {
+        const same = manualBool(x?.DelayLine_SyncL) === manualBool(x?.DelayLine_SyncR)
+            && manual(x?.DelayLine_SyncedSixteenthL) === manual(x?.DelayLine_SyncedSixteenthR)
+            && Math.abs(manual(x?.DelayLine_TimeL) - manual(x?.DelayLine_TimeR)) < 0.001;
+        if (!same) notes.push('its left and right times differed — FL uses the left time for both');
+    }
+    if (manualBool(x?.DelayLine_PingPong)) st[D3_MODE] = D3_PING_PONG;
+
+    st[D3_FEEDBACK] = clamp(manual(x?.Feedback, 0.5) * D3_FEEDBACK_UNITY, 0, D3_FEEDBACK_UNITY);
+    if (manualBool(x?.Freeze)) notes.push('Freeze was on — FL repeats at its full feedback instead');
+
+    if (manualBool(x?.Filter_On)) {
+        st[D3_FILTER_ON] = 1;
+        st[D3_FILTER_TYPE] = D3_BANDPASS;
+        st[D3_CUTOFF] = clamp(interp(flip(D3_CUTOFF_HZ.map(([v, hz]) => [v, Math.log(hz)] as [number, number])), Math.log(manual(x?.Filter_Frequency, 1000))), 1000, 6000);
+        st[D3_WIDTH] = clamp(interp(flip(D3_WIDTH_OCTAVES), manual(x?.Filter_Bandwidth, 8)), 0, 6000);
+    } else {
+        st[D3_FILTER_ON] = 0;
+    }
+    if (manual(x?.Modulation_AmountTime) > 0 || manual(x?.Modulation_AmountFilter) > 0) notes.push('its modulation isn\'t included');
+
+    // Live's Dry/Wet crossfades the two; on a return track it's usually fully wet
+    const mix = clamp(manual(x?.DryWet, 0.5), 0, 1);
+    st[D3_WET] = mix * D3_LEVEL_FULL;
+    st[D3_DRY] = (1 - mix) * D3_LEVEL_FULL;
+
+    const b = Buffer.alloc(st.length * 4);
+    st.forEach((v, i) => b.writeInt32LE(Math.round(v), i * 4));
+    return { effects: [{ format: 'native', name: FRUITY_DELAY_3, state: b }], notes };
+}
+
+// ── Reverb → Fruity Reeverb 2 ─────────────────────────────────────────────────
+//
+// State: 13 × i32 + 1 byte. Measured in FL 21 with a click (decay by backward integration) and noise:
+//   [0] low cut (Hz)     [1] high cut (× 100 Hz, 0 = off)
+//   [2] pre-delay of the tail, tempo-synced: 192 per beat (early reflections aren't delayed)
+//   [3] room size 0–100  [5] decay (RT60 table below)
+//   [10] dry (curve below), [11] early reflections, [12] wet: v / 128 (128 = 0 dB; FL's default wet is 87)
+
+const FRUITY_REEVERB_2 = 'Fruity Reeverb 2';
+const REEVERB2_DEFAULT = Buffer.from('4b000000280000000000000032000000640000000f0000002800000064000000f4010000000000008000000080000000' + '5700000000', 'hex');
+const RV_LOW_CUT = 0, RV_HIGH_CUT = 1, RV_PREDELAY = 2, RV_SIZE = 3, RV_DECAY = 5, RV_DRY = 10, RV_EARLY = 11, RV_WET = 12;
+const RV_LEVEL_FULL = 128;
+const RV_WET_FULL = 87;             // FL's own default wet level — its balanced 100%-wet level
+const RV_TICKS_PER_BEAT = 192;
+// Decay value → measured RT60 (s)
+const RV_DECAY_RT60: [number, number][] = [[1, 0.35], [3, 0.52], [5, 0.74], [8, 1.04], [15, 1.98], [30, 3.83], [60, 7.57], [100, 12.2]];
+// The dry level isn't linear: value → dB (the wet and early levels are linear)
+const RV_DRY_DB: [number, number][] = [[1, -60], [32, -21.7], [64, -12.7], [96, -6], [128, 0]];
+
+function reverb(d: ConvLiveEffect, ctx: LiveEffectContext): LiveEffectResult {
+    const x = d.xml;
+    const notes: string[] = [];
+    const st = Buffer.from(REEVERB2_DEFAULT);
+    const set = (i: number, v: number) => st.writeInt32LE(Math.round(v), i * 4);
+
+    set(RV_DECAY, clamp(interp(flip(RV_DECAY_RT60), manual(x?.DecayTime, 1200) / 1000), 1, 100));
+    set(RV_PREDELAY, clamp((manual(x?.PreDelay, 2.5) / (60000 / ctx.bpm)) * RV_TICKS_PER_BEAT, 0, 4 * RV_TICKS_PER_BEAT));
+    // Live's room size runs 0.22–500 (100 by default), FL's 0–100 (50): matched on a log scale
+    set(RV_SIZE, clamp(50 + (50 / Math.log2(5)) * Math.log2(Math.max(0.22, manual(x?.RoomSize, 100)) / 100), 0, 100));
+
+    // Live filters the reverb's input with a band (centre ± half its width in octaves)
+    const centre = manual(x?.BandFreq, 830), halfWidth = manual(x?.BandWidth, 5.85) / 2;
+    set(RV_LOW_CUT, manualBool(x?.BandLowOn, true) ? clamp(centre / 2 ** halfWidth, 20, 1000) : 20);
+    set(RV_HIGH_CUT, manualBool(x?.BandHighOn, true) ? clamp((centre * 2 ** halfWidth) / 100, 10, 200) : 0);
+
+    const mix = clamp(manual(x?.DryWet, 0.5), 0, 1);
+    set(RV_DRY, mix >= 0.999 ? 0 : interp(flip(RV_DRY_DB), 20 * Math.log10(1 - mix)));
+    set(RV_WET, mix * RV_WET_FULL * clamp(manual(x?.MixDiffuse, 1), 0, 2));
+    set(RV_EARLY, clamp(manual(x?.MixReflect, 1), 0, 2) * RV_LEVEL_FULL);
+    if (manualBool(x?.FreezeOn)) notes.push('Freeze was on, which FL\'s reverb can\'t do');
+    return { effects: [{ format: 'native', name: FRUITY_REEVERB_2, state: st }], notes };
+}
+
+// ── Utility → Fruity Balance ──────────────────────────────────────────────────
+//
+// State: i32 pan (-128 … 127), i32 volume (256 = 0 dB, up to 320 = +5.6 dB, on FL's volume law).
+
+const FRUITY_BALANCE = 'Fruity Balance';
+const BALANCE_UNITY = 256, BALANCE_MAX = 320;
+
+function utility(d: ConvLiveEffect): LiveEffectResult {
+    const x = d.xml;
+    const notes: string[] = [];
+    const gain = manualBool(x?.Mute) ? 0 : manual(x?.Gain, 1);
+    const balance = manual(x?.Balance);
+    const st = Buffer.alloc(8);
+    st.writeInt32LE(Math.round(clamp(balance * 128, -128, 127)), 0);
+    st.writeInt32LE(Math.round(clamp(BALANCE_UNITY * flLevel(gain), 0, BALANCE_MAX)), 4);
+    if (Math.abs(manual(x?.StereoWidth, 1) - 1) > 0.01 || manualBool(x?.Mono)) {
+        notes.push(manualBool(x?.Mono)
+            ? 'it made the track mono — set that in FL (e.g. Fruity Stereo Shaper)'
+            : `its stereo width (${Math.round(manual(x?.StereoWidth, 1) * 100)}%) isn't included — set it in FL (e.g. Fruity Stereo Shaper)`);
+    }
+    if (manualBool(x?.BassMono)) notes.push('Bass Mono was on, which isn\'t included');
+    if (manualBool(x?.PhaseInvertL) || manualBool(x?.PhaseInvertR)) notes.push('its phase invert isn\'t included');
+    if (gain > 1.9) notes.push('its gain was above +5.6 dB — Fruity Balance tops out there');
+    // At unity gain and centred, Fruity Balance would do nothing — leave it out (and free the slot)
+    const neutral = Math.abs(20 * Math.log10(Math.max(gain, 1e-6))) < 0.05 && Math.abs(balance) < 0.005;
+    return { effects: neutral ? [] : [{ format: 'native', name: FRUITY_BALANCE, state: st }], notes };
+}
+
 // ── Dispatch ─────────────────────────────────────────────────────────────────
 
-const CONVERTERS: Record<string, (d: ConvLiveEffect) => LiveEffectResult | null> = {
+/** What a mapping may need to know about the song. */
+export interface LiveEffectContext { bpm: number }
+
+const CONVERTERS: Record<string, (d: ConvLiveEffect, ctx: LiveEffectContext) => LiveEffectResult | null> = {
     Eq8: eq8,
     Compressor2: compressor2,
     GlueCompressor: glueCompressor,
+    Delay: delay,
+    Reverb: reverb,
+    StereoGain: utility,
 };
 
 /** FL's own effects for one Live effect, or null if there's no equivalent. */
-export function liveEffectToFl(d: ConvLiveEffect): LiveEffectResult | null {
-    return CONVERTERS[d.device]?.(d) ?? null;
+export function liveEffectToFl(d: ConvLiveEffect, ctx: LiveEffectContext): LiveEffectResult | null {
+    return CONVERTERS[d.device]?.(d, ctx) ?? null;
 }
 
 /** The FL plugin a Live effect becomes, for the report. */
@@ -241,4 +403,7 @@ export const LIVE_EFFECT_TARGETS: Record<string, string> = {
     Eq8: PEQ2,
     Compressor2: FRUITY_COMPRESSOR,
     GlueCompressor: FRUITY_COMPRESSOR,
+    Delay: FRUITY_DELAY_3,
+    Reverb: FRUITY_REEVERB_2,
+    StereoGain: FRUITY_BALANCE,
 };
