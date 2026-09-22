@@ -60,7 +60,11 @@ export interface ConvZonePart {
     velMin: number; velMax: number;
     rootKey: number;
     sampleStart: number;
+    /** Set when Live plays only part of the file (start/end markers moved): frames [start, end). */
+    trim?: SampleTrimRange;
 }
+
+export interface SampleTrimRange { start: number; end: number }
 
 export interface ConvSamplerZone {
     name: string;
@@ -73,6 +77,8 @@ export interface ConvSamplerZone {
     transpose: number;       // semitones
     mode: 'classic' | 'oneShot' | 'slice';
     sampleStart: number;     // frames into the sample
+    /** Set when Live plays only part of the file (start/end markers moved): frames [start, end). */
+    trim?: SampleTrimRange;
     sampleCount: number;     // >1 = multi-sample instrument collapsed to `sample`
     sampleRate: number;
     /** Slice mode: slice start times in seconds from the start of the file, in order. */

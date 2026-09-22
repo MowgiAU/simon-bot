@@ -25,7 +25,7 @@ import { FRUITY_SLICER, SLICER_FIRST_KEY, fruitySlicerState } from './FlNative.j
 import { LIVE_EFFECT_TARGETS, flLevel, liveEffectToFl } from './LiveEffects.js';
 import { vst3ClassId } from './FlVst.js';
 import type { FlPlugin } from './FlVst.js';
-import type { ConversionReport, ConvAutomation, ConvChain, ConvEffect, ConvInstrument, ConvPlugin, ConvProject, ConvSampleRef, ConvSamplerZone, ConvTrack } from './types.js';
+import type { ConversionReport, ConvAutomation, ConvChain, ConvEffect, ConvInstrument, ConvPlugin, ConvProject, ConvSampleRef, ConvSamplerZone, ConvTrack, SampleTrimRange } from './types.js';
 
 const MIXER_SLOTS = 10;
 const FUJI_URL = 'https://fujistud.io';
@@ -54,7 +54,7 @@ export interface AlsToFlpResult {
     project: ConvProject;
     report: ConversionReport;
     /** Samples referenced by the output, with where they were on the source machine. */
-    samples: { fileName: string; outputPath: string; sourcePath: string; sourceRelPath: string }[];
+    samples: { fileName: string; outputPath: string; sourcePath: string; sourceRelPath: string; trim?: SampleTrimRange }[];
 }
 
 const MAX_TRACKS = 125; // mixer inserts available for 1:1 routing
@@ -74,16 +74,20 @@ export function convertAlsToFlp(als: Buffer, opts: AlsToFlpOptions = {}): AlsToF
     const samplePaths = new Map<string, string>();
     let notes = 0, midiClips = 0, audioClips = 0;
 
-    /** Adds a sample to the output bundle once; returns its path relative to the .flp. */
-    const registerSample = (ref: ConvSampleRef): string => {
-        const key = ref.path || ref.relPath;
+    /**
+     * Adds a sample to the output bundle once; returns its path relative to the .flp. A trimmed
+     * sample (only part of it played in Live) is shipped as its own cut-down "(trimmed)" copy.
+     */
+    const registerSample = (ref: ConvSampleRef, trim?: SampleTrimRange): string => {
+        const key = (ref.path || ref.relPath) + (trim ? `|${trim.start}-${trim.end}` : '');
         const existing = samplePaths.get(key);
         if (existing) return existing;
-        // Disambiguate identical file names from different folders
-        const taken = samples.filter((s) => s.fileName.toLowerCase() === ref.file.toLowerCase()).length;
-        const fileName = taken ? ref.file.replace(/(\.[^.]+)?$/, ` (${taken + 1})$1`) : ref.file;
+        const wanted = trim ? ref.file.replace(/(\.[^.]+)?$/, ' (trimmed)$1') : ref.file;
+        // Disambiguate identical file names from different folders (or different trims)
+        const taken = samples.filter((s) => s.fileName.toLowerCase() === wanted.toLowerCase()).length;
+        const fileName = taken ? wanted.replace(/(\.[^.]+)?$/, ` (${taken + 1})$1`) : wanted;
         const outputPath = `${sampleFolder}/${fileName}`;
-        samples.push({ fileName, outputPath, sourcePath: ref.path, sourceRelPath: ref.relPath });
+        samples.push({ fileName, outputPath, sourcePath: ref.path, sourceRelPath: ref.relPath, trim });
         samplePaths.set(key, outputPath);
         return outputPath;
     };
@@ -98,8 +102,8 @@ export function convertAlsToFlp(als: Buffer, opts: AlsToFlpOptions = {}): AlsToF
         if (zone.sampleCount > 1 && !zone.parts) {
             warnings.push(`"${track}": "${zone.name}" used ${zone.sampleCount} samples (round-robin / layers) — only "${zone.sample.file}" was loaded.`);
         }
-        if (zone.sampleStart > 0 || zone.parts?.some((p) => p.sampleStart > 0)) {
-            warnings.push(`"${track}": "${zone.name}" had its sample start moved in Live — trim the start in FL's Sampler.`);
+        if (zone.trim || zone.parts?.some((p) => p.trim)) {
+            converted.push(`"${track}": "${zone.name}" played only part of its sample in Live — the sample is included trimmed to that part.`);
         }
     };
 
@@ -222,11 +226,11 @@ export function convertAlsToFlp(als: Buffer, opts: AlsToFlpOptions = {}): AlsToF
                 const parts = zone.parts;
                 if (!parts) {
                     const channel = channels.length;
-                    channels.push({ name: baseName, color: track.color, type: CHANNEL_SAMPLER, insert: ins, samplePath: registerSample(zone.sample) });
+                    channels.push({ name: baseName, color: track.color, type: CHANNEL_SAMPLER, insert: ins, samplePath: registerSample(zone.sample, zone.trim) });
                     return (key) => [{ channel, key: flKey(key, zone) }];
                 }
                 const partChannels = parts.map((p) => {
-                    channels.push({ name: `${baseName} – ${p.name}`, color: track.color, type: CHANNEL_SAMPLER, insert: ins, samplePath: registerSample(p.sample) });
+                    channels.push({ name: `${baseName} – ${p.name}`, color: track.color, type: CHANNEL_SAMPLER, insert: ins, samplePath: registerSample(p.sample, p.trim) });
                     return channels.length - 1;
                 });
                 let turn = 0, seed = 0x2545f491;

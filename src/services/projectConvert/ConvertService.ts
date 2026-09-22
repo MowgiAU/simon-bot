@@ -16,6 +16,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import AdmZip from 'adm-zip';
 import { convertAlsToFlp } from './AbletonToFl.js';
+import { trimAudio } from './SampleTrim.js';
 import type { ConversionReport } from './types.js';
 
 export const RETENTION_MS = 60 * 60 * 1000;
@@ -120,7 +121,14 @@ export function convertAbletonUpload(inputPath: string, originalName: string, us
             if (same.length === 1) entry = same[0];
         }
         if (entry) {
-            out.addFile(`${root}${s.outputPath}`, entry.getData());
+            // Samples Live only played part of are shipped cut down to that part
+            let data = entry.getData();
+            if (s.trim) {
+                const trimmed = trimAudio(data, s.trim.start, s.trim.end);
+                if (trimmed) data = trimmed;
+                else result.report.warnings.push(`"${s.fileName}" couldn't be trimmed (its audio format isn't supported) — it's included whole; set its start/end in FL's Sampler.`);
+            }
+            out.addFile(`${root}${s.outputPath}`, data);
             samplesIncluded++;
         } else {
             missingSamples.push(s.fileName);

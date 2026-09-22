@@ -18,7 +18,7 @@ import zlib from 'node:zlib';
 import { XMLParser } from 'fast-xml-parser';
 import type {
     ConvAudioClip, ConvAutomation, ConvAutomationTarget, ConvChain, ConvClip, ConvEffect, ConvInstrument, ConvLayer, ConvMidiClip, ConvNote, ConvPlugin,
-    ConvOtherPad, ConvProject, ConvSampleRef, ConvSamplerZone, ConvTrack, ConvZonePart,
+    ConvOtherPad, ConvProject, ConvSampleRef, ConvSamplerZone, ConvTrack, ConvZonePart, SampleTrimRange,
 } from './types.js';
 import { LIVE_EFFECTS } from './LiveEffects.js';
 
@@ -335,6 +335,7 @@ function readZone(sampler: any, name: string, triggerNote: number | null, sendin
             velMin: num(p?.VelocityRange?.Min, 1), velMax: num(p?.VelocityRange?.Max, 127),
             rootKey: num(p?.RootKey, 60),
             sampleStart: num(p?.SampleStart),
+            trim: mode === 'slice' ? undefined : zoneTrim(p),
         }] : [];
     });
     const map = sampler?.Player?.MultiSampleMap;
@@ -350,9 +351,19 @@ function readZone(sampler: any, name: string, triggerNote: number | null, sendin
         transpose: num(sampler?.Pitch?.TransposeKey?.Manual),
         mode,
         sampleStart: num(part?.SampleStart),
+        trim: mode === 'slice' ? undefined : zoneTrim(part),   // slice points are measured on the whole file
         sampleRate: num(part?.SampleRef?.DefaultSampleRate, 44100),
         ...(mode === 'slice' ? readSlices(part) : {}),
     };
+}
+
+/** The part of its file a zone plays, when its start or end marker was moved (else undefined). */
+function zoneTrim(part: any): SampleTrimRange | undefined {
+    const total = num(part?.SampleRef?.DefaultDuration, 0);
+    const start = Math.max(0, num(part?.SampleStart));
+    // Live's SampleEnd is the last frame played
+    const end = num(part?.SampleEnd, total - 1) + 1;
+    return start > 0 || (total > 0 && end < total) ? { start, end: total > 0 ? Math.min(end, total) : end } : undefined;
 }
 
 /** A rack chain's effects and mixer level (Live's pan is <Panorama>). */
