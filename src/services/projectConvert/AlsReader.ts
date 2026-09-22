@@ -479,6 +479,7 @@ function toLayers(inst: ConvInstrument, base: Omit<ConvLayer, 'instrument'>): Co
     return inst.layers.map((l) => ({
         name: l.name,
         volume: base.volume * l.volume,
+        pan: Math.max(-1, Math.min(1, base.pan + l.pan)),
         keyMin: Math.max(base.keyMin, l.keyMin),
         keyMax: Math.min(base.keyMax, l.keyMax),
         velMin: Math.max(base.velMin, l.velMin),
@@ -534,6 +535,7 @@ function readDeviceChain(list: [string, any][], where = ''): ChainResult {
                     velMin: num(vels?.Min, 1),
                     velMax: num(vels?.Max, 127),
                     volume: num(br?.MixerDevice?.Volume?.Manual, 1),
+                    pan: num(br?.MixerDevice?.Panorama?.Manual, 0),
                 }));
             }
             if (layers.length === 1) out.instrument = layers[0].instrument;

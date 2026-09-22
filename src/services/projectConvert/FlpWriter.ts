@@ -94,6 +94,9 @@ export interface FlChannel {
     stretchBeats?: number;
     /** One of FL's own generator plugins (e.g. Fruity Slicer) with its state. */
     native?: { name: string; state: Buffer };
+    /** Channel volume (0–12800 on FL's volume law; FL's default is 10000) and pan (0–12800, 6400 = centre). */
+    volume?: number;
+    pan?: number;
 }
 
 /** An automation point: time in beats from the clip start, value normalised 0–1. */
@@ -409,6 +412,14 @@ export function writeFlp(project: FlProject): Buffer {
             else if (ch.automation && e.id === EV.AutomationAfter) {
                 evs.push(e);
                 evs.push({ id: EV.AutomationData, value: automationPayload(ch.automation) });
+            }
+            else if (!ch.automation && e.id === EV.ChannelLevels && (ch.volume !== undefined || ch.pan !== undefined)) {
+                // Channel levels (219): pan (0 left … 6400 centre … 12800 right), then volume
+                // (FL's volume law, 12800 = 0 dB; new channels sit at 10000)
+                const levels = Buffer.from(e.value as Buffer);
+                if (ch.pan !== undefined) levels.writeInt32LE(Math.round(Math.max(0, Math.min(12800, ch.pan))), 0);
+                if (ch.volume !== undefined) levels.writeInt32LE(Math.round(Math.max(0, Math.min(12800, ch.volume))), 4);
+                evs.push({ id: e.id, value: levels });
             }
             else if (ch.automation && e.id === EV.ChannelLevels) {
                 // On an automation channel, the first two values of 219 are the clip's range in the

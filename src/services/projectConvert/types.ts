@@ -163,6 +163,7 @@ export interface ConvLayer {
     velMin: number;          // the chain's velocity zone
     velMax: number;
     volume: number;          // linear gain of the chain, 1 = 0 dB
+    pan: number;             // the chain's pan, -1 … 1
     instrument: Exclude<ConvInstrument, { kind: 'layers' }>;
 }
 

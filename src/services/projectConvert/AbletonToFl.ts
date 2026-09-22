@@ -40,6 +40,9 @@ const SEND_OFF = 0.001;     // Live's send minimum is 0.000316 (−70 dB = off)
 const FL_FADER_UNITY = 12800;
 const FL_FADER_MAX = 16000;
 const FL_PAN_RANGE = 6400;
+// Channel volume (event 219) uses the same law: 12800 = 0 dB; FL gives new channels 10000
+const FL_CHANNEL_UNITY = 12800;
+const FL_CHANNEL_DEFAULT_GAIN = (11 ** (10000 / FL_CHANNEL_UNITY) - 1) / 10;
 const FL_TEMPO_MIN = 10, FL_TEMPO_SPAN = 512;   // FL tempo: 10–522 BPM
 const flFader = (gain: number) => Math.min(FL_FADER_MAX, FL_FADER_UNITY * flLevel(gain));
 
@@ -94,6 +97,18 @@ export function convertAlsToFlp(als: Buffer, opts: AlsToFlpOptions = {}): AlsToF
 
     /** FL's Sampler plays a sample at original pitch on C5 (60); Live plays it on rootKey. */
     const flKey = (liveKey: number, zone: ConvSamplerZone) => liveKey - zone.rootKey + 60 + zone.transpose;
+
+    /**
+     * A rack chain's level on the channels it made (channels[from, to)): its gain relative to FL's
+     * default channel volume (10000 ≈ −5.2 dB on FL's volume law), and its pan. Unity chains are left alone.
+     */
+    const chainLevel = (from: number, to: number, gain: number, pan: number) => {
+        const unity = Math.abs(gain - 1) < 0.001, centred = Math.abs(pan) < 0.005;
+        for (let i = from; i < to; i++) {
+            if (!unity) channels[i].volume = FL_CHANNEL_UNITY * flLevel(FL_CHANNEL_DEFAULT_GAIN * gain);
+            if (!centred) channels[i].pan = FL_CHANNEL_UNITY / 2 * (1 + Math.max(-1, Math.min(1, pan)));
+        }
+    };
 
     const zoneWarnings = (track: string, zone: ConvSamplerZone) => {
         if (zone.mode === 'slice' && !zone.slices?.length) {
@@ -295,7 +310,11 @@ export function convertAlsToFlp(als: Buffer, opts: AlsToFlpOptions = {}): AlsToF
                             placeEffects(`${name} › ${pad.name}`, [], chain.devices, insert);
                         }
                         // The pad's sampler hears the pad's sending note
+                        const first = channels.length;
                         const padRoute = zoneRoute(pad, pad.name, padInsert);
+                        // A pad on the drum track's insert takes its chain's level on its channel (pads
+                        // with their own insert have it on that insert's fader)
+                        if (chain && padInsert === insert) chainLevel(first, channels.length, chain.volume, chain.pan);
                         pads.set(pad.triggerNote!, (velocity) => padRoute(pad.sendingNote ?? 60, velocity));
                         zoneWarnings(name, pad);
                     }
@@ -347,11 +366,13 @@ export function convertAlsToFlp(als: Buffer, opts: AlsToFlpOptions = {}): AlsToF
                 }
                 if (inst?.kind === 'layers') {
                     // Each rack chain becomes its own channel; notes go to every chain whose key and velocity zones hold them
-                    const routes = inst.layers.map((layer) => ({ layer, route: setup(layer.instrument, `${track.name} – ${layer.name}`) }));
-                    converted.push(`"${track.name}": ${inst.device} → ${inst.layers.length} layered channels (${inst.layers.map((l) => l.name).join(', ')}).`);
-                    if (inst.layers.some((l) => Math.abs(l.volume - inst.layers[0].volume) > 0.01)) {
-                        warnings.push(`"${track.name}": the rack's chains had different volumes in Live — balance the layered channels in FL.`);
-                    }
+                    const routes = inst.layers.map((layer) => {
+                        const first = channels.length;
+                        const route = setup(layer.instrument, `${track.name} – ${layer.name}`);
+                        chainLevel(first, channels.length, layer.volume, layer.pan);
+                        return { layer, route };
+                    });
+                    converted.push(`"${track.name}": ${inst.device} → ${inst.layers.length} layered channels (${inst.layers.map((l) => l.name).join(', ')}), at the chains' levels.`);
                     return (key, velocity) => routes.flatMap(({ layer, route }) =>
                         (key >= layer.keyMin && key <= layer.keyMax && velocity >= layer.velMin && velocity <= layer.velMax ? route(key, velocity) : []));
                 }
