@@ -20,10 +20,10 @@ const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(
 
 async function main() {
     const args = process.argv.slice(2);
-    const dir = args.find((a) => !a.startsWith('--'));
     const dry = args.includes('--dry');
     const replace = args.includes('--replace');
     const linksFile = args[args.indexOf('--links') + 1];
+    const dir = args.find((a, i) => !a.startsWith('--') && a !== linksFile && !args[i - 1]?.startsWith('--links'));
     const links: Record<string, string> = args.includes('--links') ? JSON.parse(fs.readFileSync(linksFile, 'utf8')) : {};
 
     const db = new PrismaClient();
