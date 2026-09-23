@@ -22,9 +22,10 @@ async function main() {
     const args = process.argv.slice(2);
     const dry = args.includes('--dry');
     const replace = args.includes('--replace');
-    const linksFile = args[args.indexOf('--links') + 1];
-    const dir = args.find((a, i) => !a.startsWith('--') && a !== linksFile && !args[i - 1]?.startsWith('--links'));
-    const links: Record<string, string> = args.includes('--links') ? JSON.parse(fs.readFileSync(linksFile, 'utf8')) : {};
+    const linksAt = args.indexOf('--links');
+    const linksFile = linksAt >= 0 ? args[linksAt + 1] : undefined;
+    const dir = args.find((a, i) => !a.startsWith('--') && i !== linksAt + 1);
+    const links: Record<string, string> = linksFile ? JSON.parse(fs.readFileSync(linksFile, "utf8")) : {};
 
     const db = new PrismaClient();
     try {
