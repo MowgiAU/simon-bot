@@ -33,6 +33,8 @@ export interface FlVst3Plugin extends FlPluginBase {
     classId: Buffer;          // 16 bytes
     processorState: Buffer;
     controllerState: Buffer;
+    /** FL's parameter-id list (chunk 4): an automation link names a parameter by its index here. */
+    paramIds?: number[];
 }
 
 export interface FlVst2Plugin extends FlPluginBase {
@@ -89,6 +91,14 @@ const VST2_PARAMS_TAIL = Buffer.concat([u32(1), Buffer.alloc(25)]);
 function vst3State(p: FlVst3Plugin): Buffer {
     const chunks = [sub(3, p.processorState)];
     if (p.controllerState.length) chunks.push(sub(2, p.controllerState));
+    // Chunk 4 is FL's own list of the plugin's parameter ids, in the order FL numbers them: an
+    // automation link names a parameter by its place in this list, not by its id
+    if (p.paramIds?.length) {
+        const list = Buffer.alloc(4 + p.paramIds.length * 4);
+        list.writeUInt32LE(p.paramIds.length, 0);
+        p.paramIds.forEach((id, i) => list.writeUInt32LE(id >>> 0, 4 + i * 4));
+        chunks.push(sub(4, list));
+    }
     return Buffer.concat([VST3_STATE_HEADER, ...chunks]);
 }
 

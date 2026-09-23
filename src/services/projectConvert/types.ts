@@ -110,6 +110,8 @@ interface ConvPluginBase {
 
 export interface ConvVst3Plugin extends ConvPluginBase {
     format: 'vst3';
+    /** The VST3 parameter ids Live exposes for this plugin, in Live's order. */
+    paramIds: number[];
     classId: number[];       // the four 32-bit VST3 class-ID fields
     processorState: Buffer;  // component state — the plugin's settings / preset
     controllerState: Buffer; // editor state (may be empty)

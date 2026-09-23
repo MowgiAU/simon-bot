@@ -137,6 +137,9 @@ export function convertAlsToFlp(als: Buffer, opts: AlsToFlpOptions = {}): AlsToF
                 classId: vst3ClassId(p.classId),
                 processorState: p.processorState,
                 controllerState: p.controllerState,
+                // FL numbers a plugin's parameters by their place in this list (see FlVst.ts), so
+                // writing Live's own list makes an automation link land on the same parameter
+                paramIds: p.paramIds,
             }
             : {
                 format: 'vst2', name: p.name, kind, path: p.path,
@@ -540,13 +543,17 @@ export function convertAlsToFlp(als: Buffer, opts: AlsToFlpOptions = {}): AlsToF
                 const to = returnInserts[tg.index];
                 if (to) addClip(`${t.name} – Send ${String.fromCharCode(65 + tg.index)}`, t.color, scale(a, (v) => Math.min(1, flLevel(v))), mixerTarget(insert, 64 + to), t);
             } else if (tg.kind === 'plugin') {
-                // VST2 parameter ids are indices; a VST3's FL index can't be known without loading it
-                if (tg.plugin.format !== 'vst2') { vst3Params++; continue; }
+                // VST2 parameter ids are already indices; a VST3's is its place in the id list we wrote
+                let index = tg.param;
+                if (tg.plugin.format === 'vst3') {
+                    index = tg.plugin.paramIds.indexOf(tg.param);
+                    if (index < 0) { vst3Params++; continue; }
+                }
                 const channel = pluginChannel.get(tg.plugin);
                 const slot = pluginSlot.get(tg.plugin);
                 const dest = channel !== undefined ? channel : slot ? 0x2000 + slot.insert * 64 + slot.slot : undefined;
                 if (dest === undefined) { unsupported++; continue; }
-                addClip(`${t.name} – ${tg.plugin.name} ${tg.paramName}`, t.color, a.points, { param: 0x8000 + tg.param, dest }, t);
+                addClip(`${t.name} – ${tg.plugin.name} ${tg.paramName}`, t.color, a.points, { param: 0x8000 + index, dest }, t);
             }
         }
     }

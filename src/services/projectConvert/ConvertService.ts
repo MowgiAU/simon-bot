@@ -61,6 +61,8 @@ function reportText(meta: Omit<ConversionMeta, 'id' | 'userId' | 'createdAt' | '
         `Samples: ${meta.samplesIncluded} of ${r.stats.samples} included`,
         '',
         'Open the .flp from inside this folder so FL Studio finds the Samples folder next to it.',
+        '',
+        'Converted with Fuji Studio — https://fujistud.io',
     ];
     if (r.converted.length) lines.push('', 'Converted instruments', ...r.converted.map((c) => `  • ${c}`));
     if (meta.missingSamples.length) {

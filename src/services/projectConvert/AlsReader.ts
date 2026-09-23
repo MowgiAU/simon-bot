@@ -419,6 +419,12 @@ function readParamTargets(dev: any): Record<string, { id: number; name: string }
     return out;
 }
 
+/** The parameter ids Live exposes for a plugin, in its own order (its automatable slots). */
+function readParamIds(dev: any): number[] {
+    const ids = arr<any>(dev?.ParameterList?.PluginFloatParameter).map((p) => num(p?.ParameterId, -1)).filter((id) => id >= 0);
+    return [...new Set(ids)];
+}
+
 function readPlugin(dev: any): ConvPlugin | null {
     const enabled = bool(dev?.On?.Manual, true);
     const paramTargets = readParamTargets(dev);
@@ -437,6 +443,7 @@ function readPlugin(dev: any): ConvPlugin | null {
             classId,
             processorState,
             controllerState: hexBytes(preset?.ControllerState),
+            paramIds: readParamIds(dev),
             enabled,
         paramTargets,
         };
