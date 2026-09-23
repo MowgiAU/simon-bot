@@ -36,7 +36,9 @@ function safeName(s: string): string {
     return s.replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').replace(/^\.+/, '').trim().slice(0, 100) || 'Converted Project';
 }
 
-const norm = (p: string) => p.replace(/\\/g, '/').replace(/^\/+/, '').toLowerCase();
+// Zips made by Windows Explorer store paths with backslashes, so every entry name is normalised
+const slashes = (p: string) => p.replace(/\\/g, '/').replace(/^\/+/, '');
+const norm = (p: string) => slashes(p).toLowerCase();
 
 /** The project's .als: skip Live's Backup folder and macOS resource forks; prefer the shallowest. */
 function pickAls(entries: AdmZip.IZipEntry[]): AdmZip.IZipEntry | null {
@@ -45,7 +47,7 @@ function pickAls(entries: AdmZip.IZipEntry[]): AdmZip.IZipEntry | null {
         return !e.isDirectory && n.endsWith('.als') && !n.includes('/backup/') && !n.startsWith('__macosx/')
             && !path.posix.basename(n).startsWith('._');
     });
-    candidates.sort((a, b) => a.entryName.split('/').length - b.entryName.split('/').length || b.header.size - a.header.size);
+    candidates.sort((a, b) => slashes(a.entryName).split('/').length - slashes(b.entryName).split('/').length || b.header.size - a.header.size);
     return candidates[0] ?? null;
 }
 
@@ -87,7 +89,7 @@ export function convertAbletonUpload(inputPath: string, originalName: string, us
         const als = pickAls(zip.getEntries());
         if (!als) throw new Error('No Ableton Live Set (.als) was found in the zip.');
         alsBuffer = als.getData();
-        alsName = path.posix.basename(als.entryName);
+        alsName = path.posix.basename(slashes(als.entryName));
         alsDir = path.posix.dirname(norm(als.entryName));
         if (alsDir === '.') alsDir = '';
     }

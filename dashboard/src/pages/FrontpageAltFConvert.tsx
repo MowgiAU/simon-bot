@@ -237,7 +237,7 @@ const FrontpageAltFConvert: React.FC = () => {
                             </div>
                             <div>
                                 <h1 style={{ margin: 0, fontSize: narrow ? 22 : 26, fontWeight: 800 }}>Project Converter</h1>
-                                <p style={{ margin: '4px 0 0', color: SUB, fontSize: 14 }}>Turn an Ableton Live project into an FL Studio project — arrangement, MIDI, samples, drum kits and VST3 plugins included.</p>
+                                <p style={{ margin: '4px 0 0', color: SUB, fontSize: 14 }}>Turn an Ableton Live project into an FL Studio project — arrangement, MIDI, samples, drum kits, mixer and effects included.</p>
                             </div>
                         </div>
 
@@ -275,9 +275,10 @@ const FrontpageAltFConvert: React.FC = () => {
                             )}
 
                             <p style={{ margin: '20px 0 0', color: SUB, fontSize: 12, lineHeight: 1.6 }}>
-                                Ableton’s own instruments and effects can’t be opened in FL Studio, so those tracks arrive as empty channels with their MIDI —
-                                the report lists what each one used. Drum Racks and Simplers come across as FL Sampler channels with their samples loaded,
-                                and VST3 plugins (Serum, Kontakt, FabFilter…) open in FL with their presets, as long as they’re installed.
+                                Your VST plugins (Serum, Kontakt, FabFilter…) open in FL with their presets, as long as they’re installed, and Ableton’s own
+                                effects — EQ Eight, Compressor, Reverb, Delay, Auto Filter, Saturator and more — become FL’s equivalents with matching settings.
+                                Drum Racks and Simplers come across as FL Sampler channels with their samples loaded. Ableton’s own instruments can’t be opened
+                                in FL Studio, so those tracks arrive as empty channels with their MIDI — the report lists what each one used.
                             </p>
                         </div>
                     </div>
