@@ -205,6 +205,19 @@ export interface ConvClipEnvelope {
     points: { time: number; value: number }[];
 }
 
+/**
+ * What Live's MIDI devices do to the notes before they reach the instrument. FL has no equivalents,
+ * so these are baked into the notes at conversion.
+ *
+ * `zones` are a MIDI rack's chains: a note plays once per zone that covers it (transposed by that
+ * chain's Pitch devices) and not at all when no zone covers it, exactly as the rack filters it.
+ * `transpose` is from Pitch devices sitting on the chain itself.
+ */
+export interface ConvMidiShape {
+    zones: { name: string; keyMin: number; keyMax: number; velMin: number; velMax: number; transpose: number }[];
+    transpose: number;
+}
+
 export interface ConvTrack {
     id: string;              // Live's track Id (group tracks are referenced by it)
     groupId: string | null;  // Id of the group track this track sits in
@@ -224,6 +237,8 @@ export interface ConvTrack {
     /** Set when the track takes its audio from another track's plugin output (multi-output plugins). */
     pluginOutput?: { trackId: string; device: number; output: number };
     clips: ConvClip[];
+    /** What the track's MIDI devices do to its notes (baked in — FL has no equivalents). */
+    midi?: ConvMidiShape;
     /** Volume/pan/send envelopes drawn inside the track's arrangement clips. */
     clipEnvelopes: ConvClipEnvelope[];
     /** Clip envelopes on anything else (device settings, pitch bend…), which don't carry over. */

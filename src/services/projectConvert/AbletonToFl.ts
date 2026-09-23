@@ -26,7 +26,7 @@ import { FRUITY_SLICER, SLICER_FIRST_KEY, fruitySlicerState } from './FlNative.j
 import { LIVE_EFFECT_TARGETS, flLevel, liveEffectToFl } from './LiveEffects.js';
 import { vst3ClassId } from './FlVst.js';
 import type { FlPlugin } from './FlVst.js';
-import type { ConversionReport, ConvAutomation, ConvAutomationTarget, ConvChain, ConvEffect, ConvInstrument, ConvPlugin, ConvProject, ConvSampleRef, ConvSamplerZone, ConvTrack, SampleTrimRange } from './types.js';
+import type { ConversionReport, ConvMidiShape, ConvNote, ConvAutomation, ConvAutomationTarget, ConvChain, ConvEffect, ConvInstrument, ConvPlugin, ConvProject, ConvSampleRef, ConvSamplerZone, ConvTrack, SampleTrimRange } from './types.js';
 
 const MIXER_SLOTS = 10;
 const FUJI_URL = 'https://fujistud.io';
@@ -99,6 +99,26 @@ const DEVICE_NOTES: Record<string, string> = {
         'is parallel compression: a send to a heavily compressed Fruity Compressor blended back in.',
     ].join(' '),
 };
+
+/**
+ * Applies what Live's MIDI devices did to a clip's notes, since FL has no equivalents: a Pitch
+ * device transposes them, and a MIDI rack passes each note through every chain whose key and
+ * velocity zone covers it (so a note can play twice, transposed differently) and drops the notes
+ * no chain covers — which is how those "key map" racks decide which articulation sounds.
+ */
+function shapeNotes(notes: ConvNote[], midi: ConvMidiShape | undefined): { notes: ConvNote[]; dropped: number } {
+    if (!midi) return { notes, dropped: 0 };
+    const shifted = midi.transpose ? notes.map((n) => ({ ...n, key: n.key + midi.transpose })) : notes;
+    if (!midi.zones.length) return { notes: shifted, dropped: 0 };
+    const out: ConvNote[] = [];
+    let dropped = 0;
+    for (const n of shifted) {
+        const zones = midi.zones.filter((z) => n.key >= z.keyMin && n.key <= z.keyMax && n.velocity >= z.velMin && n.velocity <= z.velMax);
+        if (!zones.length) { dropped++; continue; }
+        for (const z of zones) out.push(z.transpose ? { ...n, key: n.key + z.transpose } : n);
+    }
+    return { notes: out, dropped };
+}
 
 /** The library whose name (or alias) appears in the names around the instance — longest match wins. */
 function libraryGuess(hints: (string | undefined)[], libraries: LibraryEntry[]): string | null {
@@ -316,6 +336,7 @@ export function convertAlsToFlp(als: Buffer, opts: AlsToFlpOptions = {}): AlsToF
     const spillTail = new Map<number, number>();  // insert → the last insert its chain continues on
     let spillInserts = 0;
     let rackChains = 0;
+    let midiShaped = 0;
 
     /**
      * A further insert for a chain that has filled its ten slots: it takes over where the chain
@@ -557,11 +578,23 @@ export function convertAlsToFlp(als: Buffer, opts: AlsToFlpOptions = {}): AlsToF
             };
             const route = setup(track.instrument, track.name);
 
+            let outsideZones = 0;
+            if (track.midi) {
+                const bits = [
+                    track.midi.transpose ? `transposed by ${track.midi.transpose > 0 ? '+' : ''}${track.midi.transpose}` : '',
+                    track.midi.zones.length ? `routed through ${track.midi.zones.length} key zone${track.midi.zones.length === 1 ? '' : 's'}` : '',
+                ].filter(Boolean);
+                converted.push(`"${track.name}": MIDI devices baked into the notes — ${bits.join(' and ')}, as they played in Live.`);
+                midiShaped++;
+            }
+
             let unmapped = 0;
             for (const clip of track.clips) {
                 if (clip.kind !== 'midi' || clip.length <= 0) continue;
                 const clipNotes: FlPattern['notes'] = [];
-                for (const n of clip.notes) {
+                const shaped = shapeNotes(clip.notes, track.midi);
+                outsideZones += shaped.dropped;
+                for (const n of shaped.notes) {
                     const targets = route(n.key, n.velocity).filter((r) => r.key >= 0 && r.key <= 131);
                     if (!targets.length) { unmapped++; continue; }
                     for (const r of targets) {
@@ -574,6 +607,9 @@ export function convertAlsToFlp(als: Buffer, opts: AlsToFlpOptions = {}): AlsToF
                 midiClips++;
             }
             if (unmapped) warnings.push(`"${track.name}": ${unmapped} notes had no drum pad or were out of FL's range and were dropped.`);
+            if (outsideZones) {
+                warnings.push(`"${track.name}": ${outsideZones} notes fell outside every chain of its MIDI rack, so they don't play — they didn't in Live either.`);
+            }
             return;
         }
 
@@ -734,6 +770,7 @@ export function convertAlsToFlp(als: Buffer, opts: AlsToFlpOptions = {}): AlsToF
         // FL's tempo spans 10–522 BPM; the clip covers all of it (see the writer's automation range)
         addClip('Tempo', null, pts.map((p) => ({ time: p.time, value: Math.min(1, Math.max(0, (p.value - FL_TEMPO_MIN) / FL_TEMPO_SPAN)) })), { param: 0x0005, dest: 0x4000 });
     }
+    if (midiShaped) converted.push(`MIDI devices: ${midiShaped} track${midiShaped === 1 ? ' had its' : 's had their'} notes shaped the way Live's MIDI devices shaped them (FL has no equivalents to load).`);
     if (rackChains) converted.push(`Parallel Audio Effect Racks: ${rackChains} chain${rackChains === 1 ? '' : 's'} → their own mixer inserts, fed side by side and summed back into the track.`);
     if (spillInserts) converted.push(`Long effect chains: ${spillInserts} extra mixer insert${spillInserts === 1 ? '' : 's'} chained on, so chains of more than ${MIXER_SLOTS} effects carry over in full.`);
     if (rackReturnInserts) converted.push(`Drum Rack return chains: ${rackReturnInserts} → their own mixer inserts, fed by the pads that send to them.`);

@@ -17,7 +17,7 @@
 import zlib from 'node:zlib';
 import { XMLParser } from 'fast-xml-parser';
 import type {
-    ConvAudioClip, ConvAutomation, ConvAutomationTarget, ConvChain, ConvClip, ConvClipEnvelope, ConvEffect, ConvInstrument, ConvLayer, ConvMidiClip, ConvNote, ConvPlugin,
+    ConvAudioClip, ConvAutomation, ConvAutomationTarget, ConvChain, ConvClip, ConvClipEnvelope, ConvEffect, ConvInstrument, ConvLayer, ConvMidiClip, ConvMidiShape, ConvNote, ConvPlugin,
     ConvOtherPad, ConvProject, ConvSampleRef, ConvSamplerZone, ConvTrack, ConvZonePart, SampleTrimRange,
 } from './types.js';
 import { LIVE_EFFECTS } from './LiveEffects.js';
@@ -482,7 +482,30 @@ function readPlugin(dev: any): ConvPlugin | null {
     };
 }
 
-interface ChainResult { instrument: ConvInstrument | null; effects: ConvEffect[]; devices: string[] }
+interface ChainResult { instrument: ConvInstrument | null; effects: ConvEffect[]; devices: string[]; midi?: ConvMidiShape }
+
+/**
+ * MIDI devices that only move notes around can be baked into the notes themselves. A MIDI Effect
+ * Rack passes a note through each chain whose key and velocity zone covers it — and drops it when
+ * none does — so its chains become zones; Pitch devices become a transpose.
+ */
+function readMidiRack(dev: any, skip: (name: string) => void): ConvMidiShape['zones'] {
+    return arr<any>(dev?.Branches?.MidiEffectBranch).map((br, i) => {
+        const inner = deviceList(br?.DeviceChain?.MidiToMidiDeviceChain?.Devices);
+        let transpose = 0;
+        for (const [tag, d] of inner) {
+            if (tag === 'MidiPitcher') transpose += Math.round(num(d?.Pitch?.Manual, 0));
+            else skip(deviceName(tag, d));
+        }
+        const keys = br?.ZoneSettings?.KeyRange, vels = br?.ZoneSettings?.VelocityRange;
+        return {
+            name: val(br?.Name?.EffectiveName) || val(br?.Name?.UserName) || `Chain ${i + 1}`,
+            keyMin: num(keys?.Min, 0), keyMax: num(keys?.Max, 127),
+            velMin: num(vels?.Min, 0), velMax: num(vels?.Max, 127),
+            transpose,
+        };
+    });
+}
 
 /** Flattens nested layer racks into their individual layers, narrowing key zones as it goes. */
 function toLayers(inst: ConvInstrument, base: Omit<ConvLayer, 'instrument'>): ConvLayer[] {
@@ -510,6 +533,7 @@ function toLayers(inst: ConvInstrument, base: Omit<ConvLayer, 'instrument'>): Co
  */
 function readDeviceChain(list: [string, any][], where = ''): ChainResult {
     const out: ChainResult = { instrument: null, effects: [], devices: [] };
+    const midi: ConvMidiShape = { zones: [], transpose: 0 };
     const skip = (name: string) => out.devices.push(where ? `${name} (in ${where})` : name);
     const absorb = (inner: ChainResult) => { out.effects.push(...inner.effects); out.devices.push(...inner.devices); };
 
@@ -568,12 +592,24 @@ function readDeviceChain(list: [string, any][], where = ''): ChainResult {
             }
             continue;
         }
+        // MIDI devices that only move notes about are baked into the notes themselves
+        if (tag === 'MidiPitcher') {
+            if (bool(dev?.On?.Manual, true)) midi.transpose += Math.round(num(dev?.Pitch?.Manual, 0));
+            continue;
+        }
+        if (tag === 'MidiEffectGroupDevice') {
+            if (!bool(dev?.On?.Manual, true)) continue;           // switched off: passes notes through
+            const zones = readMidiRack(dev, skip);
+            if (zones.length) midi.zones.push(...zones);
+            continue;
+        }
         if (LIVE_EFFECTS.has(tag)) {
             out.effects.push({ format: 'live', device: tag, name, enabled: bool(dev?.On?.Manual, true), xml: dev });
             continue;
         }
         skip(name);
     }
+    if (midi.zones.length || midi.transpose) out.midi = midi;
     return out;
 }
 
