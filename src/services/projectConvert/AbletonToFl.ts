@@ -637,6 +637,7 @@ export function convertAlsToFlp(als: Buffer, opts: AlsToFlpOptions = {}): AlsToF
             source: project.source,
             target: 'FL Studio 21+',
             stats: { tracks: tracks.length, midiClips, audioClips, notes, samples: samples.length },
+            plugins: [...pluginsNeeded].sort((a, b) => a.localeCompare(b)),
             converted,
             warnings,
         },

@@ -246,6 +246,8 @@ export interface ConversionReport {
     source: string;
     target: string;
     stats: { tracks: number; midiClips: number; audioClips: number; notes: number; samples: number };
+    /** Plugins the project needs in FL, by the name Live had for them. */
+    plugins: string[];
     converted: string[];     // instruments that came across, e.g. Drum Rack → Sampler channels
     warnings: string[];
 }

@@ -3,7 +3,7 @@
  * Upload a zipped Live project (or a bare .als) → POST /api/convert/ableton-to-fl,
  * then show the conversion report and a download link (kept for an hour).
  */
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../components/AuthProvider';
@@ -12,7 +12,7 @@ import { AltHeader } from '../components/altshell/AltHeader';
 import { useAltBreakpoint } from '../components/altshell/useAltBreakpoint';
 import {
     ArrowRightLeft, ArrowRight, UploadCloud, FileArchive, CheckCircle2, AlertTriangle, FileWarning,
-    Download, RotateCcw, Loader2, LogIn, FolderInput, FileAudio,
+    Download, RotateCcw, Loader2, LogIn, FolderInput, FileAudio, Puzzle,
 } from 'lucide-react';
 
 interface ConvertResult {
@@ -25,6 +25,7 @@ interface ConvertResult {
         source: string;
         target: string;
         stats: { tracks: number; midiClips: number; audioClips: number; notes: number; samples: number };
+        plugins: string[];
         converted: string[];
         warnings: string[];
     };
@@ -37,6 +38,16 @@ type Phase =
     | { kind: 'done'; result: ConvertResult }
     | { kind: 'error'; message: string };
 
+interface KnownPlugin {
+    name: string;
+    aliases: string[] | null;
+    displayName: string | null;
+    imageUrl: string | null;
+    link: string | null;
+    developer: string | null;
+    description: string | null;
+}
+
 const MAX_MB = 200;
 const WARNINGS_COLLAPSED = 6;
 
@@ -47,7 +58,20 @@ const FrontpageAltFConvert: React.FC = () => {
     const [phase, setPhase] = useState<Phase>({ kind: 'idle' });
     const [dragging, setDragging] = useState(false);
     const [showAllWarnings, setShowAllWarnings] = useState(false);
+    const [registry, setRegistry] = useState<KnownPlugin[]>([]);
     const inputRef = useRef<HTMLInputElement>(null);
+
+    // The site's plugin list, used to show what a converted project needs
+    useEffect(() => {
+        axios.get<KnownPlugin[]>('/api/plugins/registry').then(({ data }) => setRegistry(data)).catch(() => setRegistry([]));
+    }, []);
+
+    /** The registry entry for a plugin name as Live had it, by name or alias (case-insensitive). */
+    const matchPlugin = (name: string): KnownPlugin | undefined => {
+        const want = name.trim().toLowerCase();
+        return registry.find((p) => p.name.trim().toLowerCase() === want
+            || (Array.isArray(p.aliases) ? p.aliases : []).some((a) => String(a).split(',').some((one) => one.trim().toLowerCase() === want)));
+    };
 
     const start = async (file: File) => {
         if (!/\.(zip|als)$/i.test(file.name)) {
@@ -191,6 +215,40 @@ const FrontpageAltFConvert: React.FC = () => {
                     Unzip the download and open the .flp from inside its folder so FL Studio finds the Samples folder next to it.
                     The full report is included as <em>Conversion report.txt</em>.
                 </p>
+
+                {r.report.plugins?.length > 0 && section(`Plugins this project needs (${r.report.plugins.length})`,
+                    <>
+                        <p style={{ margin: '0 0 12px', color: SUB, fontSize: 13 }}>
+                            Install these in FL Studio before opening the project — anything missing shows FL's “plugin not found” message.
+                        </p>
+                        <div style={{ display: 'grid', gridTemplateColumns: narrow ? '1fr' : 'repeat(auto-fill, minmax(260px, 1fr))', gap: 10 }}>
+                            {r.report.plugins.map((name) => {
+                                const known = matchPlugin(name);
+                                const body = (
+                                    <>
+                                        {known?.imageUrl
+                                            ? <img src={known.imageUrl} alt="" style={{ width: 48, height: 48, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />
+                                            : <div style={{ width: 48, height: 48, borderRadius: 8, background: S_HIGH, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Puzzle size={20} color={SUB} /></div>}
+                                        <div style={{ minWidth: 0 }}>
+                                            <div style={{ fontSize: 14, fontWeight: 800, overflowWrap: 'anywhere' }}>{known?.displayName || name}</div>
+                                            <div style={{ fontSize: 12, color: SUB, marginTop: 2 }}>
+                                                {known?.developer || 'Not in our plugin list yet'}{known?.link ? ' · Get it' : ''}
+                                            </div>
+                                            {known?.description && (
+                                                <div style={{ fontSize: 12, color: SUB, marginTop: 6, lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                                                    {known.description}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </>
+                                );
+                                const style: React.CSSProperties = { display: 'flex', gap: 12, background: BG, border: `1px solid ${BORDER}`, borderRadius: 12, padding: 12, textDecoration: 'none', color: TEXT };
+                                return known?.link
+                                    ? <a key={name} href={known.link.startsWith('http') ? known.link : `https://${known.link}`} target="_blank" rel="noopener noreferrer" style={style}>{body}</a>
+                                    : <div key={name} style={style}>{body}</div>;
+                            })}
+                        </div>
+                    </>)}
 
                 {r.report.converted.length > 0 && section('Converted instruments',
                     <ul style={ul}>{r.report.converted.map((c, i) => listRow(<CheckCircle2 size={15} color={SECONDARY} />, c, i))}</ul>)}
