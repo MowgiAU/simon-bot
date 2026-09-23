@@ -63,13 +63,16 @@ export const MIXER_PAN = 193;
  * (0–12800 = 0–100%); FL only stores levels that differ from 100%.
  */
 const MIXER_ROUTE_PARAM = 64;
+// Slot on/off (measured by rendering): param 0 of insert*64 + slot, 0 = bypassed. Param 1 next to
+// it is the slot's dry/wet mix (12800 = fully wet).
+const SLOT_ENABLED_PARAM = 0;
 const MIXER_FULL = 12800;
 
-function mixerParam(id: number, insert: number, value: number): Buffer {
+function mixerParam(id: number, insert: number, value: number, slot = 0): Buffer {
     const b = Buffer.alloc(12);
     b[4] = id;
     b[5] = 0x1f;
-    b.writeUInt16LE(0x2000 + insert * 64, 6);
+    b.writeUInt16LE(0x2000 + insert * 64 + slot, 6);
     b.writeInt32LE(value, 8);
     return b;
 }
@@ -461,7 +464,7 @@ export function writeFlp(project: FlProject): Buffer {
 
     // Arrangement: playlist, markers, then track metadata
     // Mixer: the n-th insert-params event (236) opens insert n (0 = master); within an insert,
-    // a slot's plugin events precede that slot's index event (98 k)
+    // a slot's plugin events follow that slot's index event (98 k)
     const effectsByInsert = new Map(project.insertEffects.map((fx) => [fx.insert, fx.plugins.slice(0, MIXER_SLOTS)]));
     const insertsByIndex = new Map(project.inserts.map((ins) => [ins.insert, ins]));
     let insertNo = -1;
@@ -497,17 +500,25 @@ export function writeFlp(project: FlProject): Buffer {
             const levels = project.inserts.flatMap((ins) => ins.routes
                 .filter((r) => r.level !== undefined && r.level < 1)
                 .map((r) => mixerParam(MIXER_ROUTE_PARAM + r.to, ins.insert, Math.round(Math.max(0, r.level!) * MIXER_FULL))));
-            out.push({ id: e.id, value: Buffer.concat([params, ...levels]) });
+            // Effects that were switched off in the source: the slot's own on/off switch
+            const bypassed = project.insertEffects.flatMap((fx) => fx.plugins
+                .map((p, slot) => ({ p, slot }))
+                .filter(({ p }) => p.enabled === false)
+                .map(({ slot }) => mixerParam(SLOT_ENABLED_PARAM, fx.insert, 0, slot)));
+            out.push({ id: e.id, value: Buffer.concat([params, ...levels, ...bypassed]) });
             continue;
         }
         if (e.id === EV.InsertParams) insertNo++;
         if (e.id === EV.SlotIndex && insertNo >= 0) {
+            // A slot's plugin follows its index event (98 k): FL fills the slot it last named, so
+            // events written before it land in the slot before — overwriting whatever is there
             const plugin = effectsByInsert.get(insertNo)?.[e.value as number];
+            out.push(e);
             if (plugin?.format === 'native') {
                 // FL's own effects: the plugin's name, then its state — no wrapper
                 out.push(
                     { id: EV.InternalName, value: text(plugin.name) },
-                    { id: EV.SlotParams, value: pluginSlotParams('effect', insertNo) },
+                    { id: EV.SlotParams, value: pluginSlotParams('effect', insertNo, e.value as number) },
                     { id: EV.PluginIcon, value: 0 },
                     { id: EV.ChannelColor, value: DEFAULT_PLUGIN_COLOR },
                     { id: EV.CustomColor, value: 0 },
@@ -516,7 +527,7 @@ export function writeFlp(project: FlProject): Buffer {
             } else if (plugin) {
                 out.push(
                     { id: EV.InternalName, value: text('Fruity Wrapper') },
-                    { id: EV.SlotParams, value: pluginSlotParams('effect', insertNo) },
+                    { id: EV.SlotParams, value: pluginSlotParams('effect', insertNo, e.value as number) },
                     { id: EV.PluginName, value: text(plugin.name) },
                     { id: EV.PluginIcon, value: 0 },
                     { id: EV.ChannelColor, value: DEFAULT_PLUGIN_COLOR },
@@ -524,6 +535,7 @@ export function writeFlp(project: FlProject): Buffer {
                     { id: EV.PluginData, value: pluginWrapper(plugin) },
                 );
             }
+            continue;
         }
         if (e.id === EV.Playlist) {
             out.push({ id: e.id, value: playlistPayload(project.items, project.bpm) });

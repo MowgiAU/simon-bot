@@ -31,6 +31,8 @@ interface FlPluginBase {
      * insert (index = output number; 0 = the channel's insert). Omitted = one output, unrouted.
      */
     outputRouting?: number[];
+    /** false = the slot sits bypassed in FL, as the device was switched off in the source. */
+    enabled?: boolean;
 }
 
 export interface FlVst3Plugin extends FlPluginBase {
@@ -59,6 +61,7 @@ export interface FlNativeEffect {
     format: 'native';
     name: string;             // FL's plugin name, e.g. "Fruity Parametric EQ 2"
     state: Buffer;            // the plugin's event 213 payload (see FlNative.ts)
+    enabled?: boolean;        // false = the slot sits bypassed, as it was in the source
 }
 
 /**
@@ -156,10 +159,13 @@ export function pluginWrapper(p: FlPlugin): Buffer {
 }
 
 /** Event 212 for a plugin slot. `insert` is the mixer insert for effects, 0 for channels. */
-export function pluginSlotParams(kind: 'generator' | 'effect', insert: number): Buffer {
+export function pluginSlotParams(kind: 'generator' | 'effect', insert: number, slot = 0): Buffer {
     const b = hex(kind === 'generator'
         ? '00000000000000000200000000000000500100000000000000000000000000000000000056000000' + '9a0000000000000000000000'
         : '00000000000000000200000000000000400100000000000000000000000000000000000070000000' + 'b30000000000000000000000');
     b.writeUInt32LE(insert, 0);
+    // The slot this plugin fills: FL reads it from here, not from the slot-index event, so
+    // without it every effect on an insert lands in the same slot and only the last survives
+    b.writeUInt32LE(slot, 4);
     return b;
 }

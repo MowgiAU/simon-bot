@@ -182,7 +182,9 @@ export function convertAlsToFlp(als: Buffer, opts: AlsToFlpOptions = {}): AlsToF
         if (LIBRARY_HOSTS.test(p.name)) {
             librariesUsed.push({ plugin: p.name, track: where, library: libraryGuess([where, p.label, ...hints], knownLibraries) });
         }
-        if (!p.enabled) warnings.push(`${p.name} was switched off in Live — it's active in FL; bypass it there if needed.`);
+        // Effects land on a bypassed slot when they were off; a switched-off instrument has no
+        // equivalent in FL, so that one is worth saying out loud
+        if (!p.enabled && p.kind === 'instrument') warnings.push(`${p.name} was switched off in Live — it plays in FL; mute its channel there if you want it silent.`);
     };
 
     /**
@@ -191,32 +193,50 @@ export function convertAlsToFlp(als: Buffer, opts: AlsToFlpOptions = {}): AlsToF
      */
     const placeEffects = (name: string, effects: ConvEffect[], devices: string[], insert: number) => {
         const skipped = [...devices];
-        const slots: FlInsertEffects['plugins'] = [];
         const placed: string[] = [];
         const leftOff: string[] = [];
+        // An FL insert holds ten effects, so a longer chain continues on further inserts, each
+        // feeding the next — the last one takes over where the track's insert used to route to.
+        const chain: { insert: number; slots: FlInsertEffects['plugins'] }[] = [{ insert, slots: [] }];
+        const room = (needed: number): FlInsertEffects['plugins'] | null => {
+            const last = chain[chain.length - 1];
+            if (last.slots.length + needed <= MIXER_SLOTS) return last.slots;
+            const next = spillInsert(insert);
+            if (next === null) return null;
+            chain.push({ insert: next, slots: [] });
+            return chain[chain.length - 1].slots;
+        };
         for (const e of effects) {
             if (e.format === 'live') {
                 const fl = liveEffectToFl(e, { bpm: project.bpm });
                 if (!fl) { skipped.push(e.name); continue; }
                 for (const note of fl.notes) warnings.push(`"${name}": ${e.name} — ${note}.`);
                 if (!fl.effects.length) continue;               // does nothing at these settings
-                if (slots.length + fl.effects.length > MIXER_SLOTS) { leftOff.push(e.name); continue; }
-                slots.push(...fl.effects);
-                placed.push(`${e.name} (as ${LIVE_EFFECT_TARGETS[e.device]})`);
-                if (!e.enabled) warnings.push(`"${name}": ${e.name} was switched off in Live — it's active in FL; bypass it there if needed.`);
+                const slots = room(fl.effects.length);
+                if (!slots) { leftOff.push(e.name); continue; }
+                // A device switched off in Live lands on a bypassed slot, as it sat in the set
+                slots.push(...fl.effects.map((f) => (e.enabled ? f : { ...f, enabled: false })));
+                placed.push(`${e.name} (as ${LIVE_EFFECT_TARGETS[e.device]}${e.enabled ? '' : ', bypassed'})`);
                 continue;
             }
-            if (slots.length >= MIXER_SLOTS) { leftOff.push(e.name); continue; }
-            pluginSlot.set(e, { insert, slot: slots.length });
-            slots.push(flPlugin(e));
-            placed.push(e.name);
+            const slots = room(1);
+            if (!slots) { leftOff.push(e.name); continue; }
+            pluginSlot.set(e, { insert: chain[chain.length - 1].insert, slot: slots.length });
+            slots.push({ ...flPlugin(e), enabled: e.enabled });
+            placed.push(e.enabled ? e.name : `${e.name} (bypassed)`);
             notePlugin(e, name);
         }
         if (skipped.length) warnings.push(`"${name}": devices not converted — ${skipped.join(', ')}.`);
-        if (leftOff.length) warnings.push(`"${name}": an FL mixer insert holds ${MIXER_SLOTS} effects — ${leftOff.join(', ')} ${leftOff.length === 1 ? 'was' : 'were'} left off.`);
-        if (!slots.length) return;
-        insertEffects.push({ insert, plugins: slots });
-        converted.push(`"${name}": ${placed.join(', ')} → ${insert ? `mixer insert ${insert}` : 'the master'}, with their settings.`);
+        if (leftOff.length) {
+            const what = `${leftOff.join(', ')} ${leftOff.length === 1 ? 'was' : 'were'} left off`;
+            warnings.push(insert === 0
+                ? `"${name}": FL's master holds ${MIXER_SLOTS} effects and nothing can follow it, so ${what} — put them on a track insert instead.`
+                : `"${name}": FL's mixer has no free inserts left to continue this chain on, so ${what}.`);
+        }
+        for (const part of chain) if (part.slots.length) insertEffects.push({ insert: part.insert, plugins: part.slots });
+        if (!placed.length) return;
+        const extra = chain.length - 1;
+        converted.push(`"${name}": ${placed.join(', ')} → ${insert ? `mixer insert ${insert}` : 'the master'}, with their settings${extra ? `, continuing on ${extra} more insert${extra === 1 ? '' : 's'} chained after it` : ''}.`);
     };
 
     // ── Mixer: every track gets an insert — tracks and groups in order, then returns ──
@@ -232,6 +252,29 @@ export function convertAlsToFlp(als: Buffer, opts: AlsToFlpOptions = {}): AlsToF
     const returnInserts = project.tracks.filter((t) => t.kind === 'return').map((t) => insertOf.get(t));
 
     const inserts: FlInsert[] = [];
+    // Inserts after the tracks' own are free: for chains of over ten effects, and for drum pads
+    // that carry their own effects
+    let nextInsert = insertOf.size + 1;
+    const spillTail = new Map<number, number>();  // insert → the last insert its chain continues on
+    let spillInserts = 0;
+
+    /**
+     * A further insert for a chain that has filled its ten slots: it takes over where the chain
+     * currently routes to (its sends included — they stay at the end of the chain, as in Live), and
+     * the insert it continues from feeds it instead. Null when the mixer is full, or for the master,
+     * which has nothing after it.
+     */
+    const spillInsert = (insert: number): number | null => {
+        const tail = inserts.find((i) => i.insert === (spillTail.get(insert) ?? insert));
+        if (!tail || nextInsert > MAX_TRACKS) return null;
+        const next = nextInsert++;
+        inserts.push({ insert: next, name: `${tail.name} FX`, color: tail.color, routes: tail.routes });
+        tail.routes = [{ to: next }];
+        spillTail.set(insert, next);
+        spillInserts++;
+        return next;
+    };
+
     let sendCount = 0;
     for (const [t, insert] of insertOf) {
         const routes: FlInsert['routes'] = [{ to: (t.groupId && groupInserts.get(t.groupId)) || 0 }];
@@ -269,8 +312,6 @@ export function convertAlsToFlp(als: Buffer, opts: AlsToFlpOptions = {}): AlsToF
     }
     let outputTracks = 0;
 
-    // Inserts after the tracks' own are free for drum pads that carry their own effects
-    let nextInsert = insertOf.size + 1;
     let padInserts = 0, rackReturnInserts = 0;
 
     const playable = project.tracks.filter((t) => (t.kind === 'midi' || t.kind === 'audio') && insertOf.has(t));
@@ -617,6 +658,7 @@ export function convertAlsToFlp(als: Buffer, opts: AlsToFlpOptions = {}): AlsToF
         // FL's tempo spans 10–522 BPM; the clip covers all of it (see the writer's automation range)
         addClip('Tempo', null, pts.map((p) => ({ time: p.time, value: Math.min(1, Math.max(0, (p.value - FL_TEMPO_MIN) / FL_TEMPO_SPAN)) })), { param: 0x0005, dest: 0x4000 });
     }
+    if (spillInserts) converted.push(`Long effect chains: ${spillInserts} extra mixer insert${spillInserts === 1 ? '' : 's'} chained on, so chains of more than ${MIXER_SLOTS} effects carry over in full.`);
     if (rackReturnInserts) converted.push(`Drum Rack return chains: ${rackReturnInserts} → their own mixer inserts, fed by the pads that send to them.`);
     if (padInserts) converted.push(`Drum pads with their own effects or sends: ${padInserts} → their own mixer inserts, routed into their drum track.`);
     if (clipEnvelopeCount) converted.push(`Clip envelopes: ${clipEnvelopeCount} volume/pan/send envelope${clipEnvelopeCount === 1 ? '' : 's'} drawn inside clips → folded into the tracks' automation clips.`);

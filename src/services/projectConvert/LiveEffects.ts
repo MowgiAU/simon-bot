@@ -427,6 +427,19 @@ function reverb(d: ConvLiveEffect, ctx: LiveEffectContext): LiveEffectResult {
 const FRUITY_BALANCE = 'Fruity Balance';
 const BALANCE_UNITY = 256, BALANCE_MAX = 320;
 
+/**
+ * Polarity: Fruity Stereo Enhancer, whose state is 6 × i32 — [1] is its volume (256 = 0 dB) and
+ * [5] its phase inversion, 1 = left, 2 = right (measured by rendering two copies of a signal
+ * against each other and watching them cancel). One slot per inverted channel.
+ */
+const FRUITY_STEREO_ENHANCER = 'Fruity Stereo Enhancer';
+const phaseInvert = (channel: 'left' | 'right') => {
+    const b = Buffer.alloc(24);
+    b.writeInt32LE(BALANCE_UNITY, 4);
+    b.writeInt32LE(channel === 'left' ? 1 : 2, 20);
+    return { format: 'native' as const, name: FRUITY_STEREO_ENHANCER, state: b };
+};
+
 function utility(d: ConvLiveEffect): LiveEffectResult {
     const x = d.xml;
     const notes: string[] = [];
@@ -441,11 +454,14 @@ function utility(d: ConvLiveEffect): LiveEffectResult {
             : `its stereo width (${Math.round(manual(x?.StereoWidth, 1) * 100)}%) isn't included — set it in FL (e.g. Fruity Stereo Shaper)`);
     }
     if (manualBool(x?.BassMono)) notes.push('Bass Mono was on, which isn\'t included');
-    if (manualBool(x?.PhaseInvertL) || manualBool(x?.PhaseInvertR)) notes.push('its phase invert isn\'t included');
+    const inverted = [
+        ...(manualBool(x?.PhaseInvertL) ? [phaseInvert('left')] : []),
+        ...(manualBool(x?.PhaseInvertR) ? [phaseInvert('right')] : []),
+    ];
     if (gain > 1.9) notes.push('its gain was above +5.6 dB — Fruity Balance tops out there');
     // At unity gain and centred, Fruity Balance would do nothing — leave it out (and free the slot)
     const neutral = Math.abs(20 * Math.log10(Math.max(gain, 1e-6))) < 0.05 && Math.abs(balance) < 0.005;
-    return { effects: neutral ? [] : [{ format: 'native', name: FRUITY_BALANCE, state: st }], notes };
+    return { effects: [...(neutral ? [] : [{ format: 'native' as const, name: FRUITY_BALANCE, state: st }]), ...inverted], notes };
 }
 
 // ── Auto Filter → Fruity Filter ───────────────────────────────────────────────
