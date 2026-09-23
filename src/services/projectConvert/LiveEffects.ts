@@ -428,15 +428,27 @@ const FRUITY_BALANCE = 'Fruity Balance';
 const BALANCE_UNITY = 256, BALANCE_MAX = 320;
 
 /**
- * Polarity: Fruity Stereo Enhancer, whose state is 6 × i32 — [1] is its volume (256 = 0 dB) and
- * [5] its phase inversion, 1 = left, 2 = right (measured by rendering two copies of a signal
- * against each other and watching them cancel). One slot per inverted channel.
+ * Width and polarity: Fruity Stereo Enhancer, whose state is 6 × i32 — [1] volume (256 = 0 dB,
+ * FL's volume law), [2] stereo separation (−128 widest … 0 … 128 mono) and [5] phase inversion
+ * (1 = left, 2 = right). Measured by rendering pure mid (L = R) and pure side (L = −R) signals:
+ * separation s scales side against mid by (128 − s) / (128 + s), at an overall level of
+ * (256 − s)(128 + s) / 32768 — so unlike Live's width, it also moves the middle, which the
+ * enhancer's own volume puts back.
  */
 const FRUITY_STEREO_ENHANCER = 'Fruity Stereo Enhancer';
-const phaseInvert = (channel: 'left' | 'right') => {
+const SEPARATION_LIMIT = 128;
+const sideRatio = (sep: number) => (SEPARATION_LIMIT - sep) / (SEPARATION_LIMIT + sep);
+const separationLevel = (sep: number) => (2 * SEPARATION_LIMIT - sep) * (SEPARATION_LIMIT + sep) / (2 * SEPARATION_LIMIT ** 2);
+
+/** One Stereo Enhancer slot: Live's width (1 = unchanged, 0 = mono, 2 = twice as wide) and/or a phase invert. */
+const stereoEnhancer = (width: number | null, invert: 'left' | 'right' | null) => {
+    // Live's width is the side/mid ratio, so pick the separation that gives it and undo the
+    // level it costs with the plugin's own volume
+    const sep = width === null ? 0 : clamp(Math.round(SEPARATION_LIMIT * (1 - width) / (1 + width)), -SEPARATION_LIMIT, SEPARATION_LIMIT);
     const b = Buffer.alloc(24);
-    b.writeInt32LE(BALANCE_UNITY, 4);
-    b.writeInt32LE(channel === 'left' ? 1 : 2, 20);
+    b.writeInt32LE(Math.round(clamp(BALANCE_UNITY * flLevel(1 / separationLevel(sep)), 0, BALANCE_MAX)), 4);
+    b.writeInt32LE(sep, 8);
+    b.writeInt32LE(invert === null ? 0 : invert === 'left' ? 1 : 2, 20);
     return { format: 'native' as const, name: FRUITY_STEREO_ENHANCER, state: b };
 };
 
@@ -448,20 +460,22 @@ function utility(d: ConvLiveEffect): LiveEffectResult {
     const st = Buffer.alloc(8);
     st.writeInt32LE(Math.round(clamp(balance * 128, -128, 127)), 0);
     st.writeInt32LE(Math.round(clamp(BALANCE_UNITY * flLevel(gain), 0, BALANCE_MAX)), 4);
-    if (Math.abs(manual(x?.StereoWidth, 1) - 1) > 0.01 || manualBool(x?.Mono)) {
-        notes.push(manualBool(x?.Mono)
-            ? 'it made the track mono — set that in FL (e.g. Fruity Stereo Shaper)'
-            : `its stereo width (${Math.round(manual(x?.StereoWidth, 1) * 100)}%) isn't included — set it in FL (e.g. Fruity Stereo Shaper)`);
-    }
     if (manualBool(x?.BassMono)) notes.push('Bass Mono was on, which isn\'t included');
-    const inverted = [
-        ...(manualBool(x?.PhaseInvertL) ? [phaseInvert('left')] : []),
-        ...(manualBool(x?.PhaseInvertR) ? [phaseInvert('right')] : []),
+    // Width (Mono is width 0) and phase invert both live in the Stereo Enhancer, so they share a
+    // slot where they can — inverting both channels needs one slot each
+    const width = manualBool(x?.Mono) ? 0 : manual(x?.StereoWidth, 1);
+    const inverts: ('left' | 'right')[] = [
+        ...(manualBool(x?.PhaseInvertL) ? ['left' as const] : []),
+        ...(manualBool(x?.PhaseInvertR) ? ['right' as const] : []),
     ];
+    const widened = Math.abs(width - 1) > 0.01 ? width : null;
+    const shapers = inverts.length
+        ? inverts.map((side, i) => stereoEnhancer(i === 0 ? widened : null, side))
+        : (widened === null ? [] : [stereoEnhancer(widened, null)]);
     if (gain > 1.9) notes.push('its gain was above +5.6 dB — Fruity Balance tops out there');
     // At unity gain and centred, Fruity Balance would do nothing — leave it out (and free the slot)
     const neutral = Math.abs(20 * Math.log10(Math.max(gain, 1e-6))) < 0.05 && Math.abs(balance) < 0.005;
-    return { effects: [...(neutral ? [] : [{ format: 'native' as const, name: FRUITY_BALANCE, state: st }]), ...inverted], notes };
+    return { effects: [...(neutral ? [] : [{ format: 'native' as const, name: FRUITY_BALANCE, state: st }]), ...shapers], notes };
 }
 
 // ── Auto Filter → Fruity Filter ───────────────────────────────────────────────

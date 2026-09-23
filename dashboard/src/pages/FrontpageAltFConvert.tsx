@@ -29,6 +29,8 @@ interface ConvertResult {
         /** Kontakt-style players in the project, with the library each one looks like. */
         libraries: { plugin: string; track: string; library: string | null }[];
         converted: string[];
+        /** Devices that couldn't come across, with the reason. */
+        deviceNotes: { device: string; why: string }[];
         warnings: string[];
     };
 }
@@ -301,6 +303,16 @@ const FrontpageAltFConvert: React.FC = () => {
                             </button>
                         )}
                     </>)}
+
+                {(r.report.deviceNotes ?? []).length > 0 && section('Why some devices couldn’t come across',
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                        {r.report.deviceNotes.map((n) => (
+                            <div key={n.device} style={{ background: BG, border: `1px solid ${BORDER}`, borderRadius: 12, padding: 14 }}>
+                                <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 6 }}>{n.device}</div>
+                                <div style={{ fontSize: 13, color: SUB, lineHeight: 1.6 }}>{n.why}</div>
+                            </div>
+                        ))}
+                    </div>)}
 
                 <button onClick={() => setPhase({ kind: 'idle' })}
                     style={{ marginTop: 26, display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px', background: S_HIGH, border: `1px solid ${BORDER}`, borderRadius: 10, color: TEXT, fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: FONT }}>

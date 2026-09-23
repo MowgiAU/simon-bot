@@ -66,6 +66,27 @@ const LIBRARY_HOSTS = /kontakt|battery|falcon|\bopus\b|\bplay\b|sine player|ezdr
 
 const plain = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 
+/**
+ * Why a device can't come across, for the devices where "not converted" on its own would leave the
+ * user guessing. Keyed by the name the reader gives the device; matched against the names reported
+ * per track (which may carry a "(in Audio Effect Rack)" suffix).
+ */
+const DEVICE_NOTES: Record<string, string> = {
+    'Multiband Dynamics': [
+        'Live splits the signal into three bands and each band can compress in two directions at once:',
+        'downward above its upper threshold, and upward below its lower threshold, with its own ratio,',
+        'attack and release for each direction, and with the crossover points wherever you put them.',
+        'FL has no effect with that shape. Fruity Multiband Compressor compresses downward only, and',
+        'Maximus is a multiband compressor/limiter driven by envelope curves rather than by Live\'s',
+        'threshold-and-ratio pairs, so neither can be given settings that behave like the device you',
+        'had — any mapping would be an invented setting that changes the mix rather than carries it.',
+        'It is left out rather than approximated. If your Multiband Dynamics was only compressing',
+        'downward, Fruity Multiband Compressor (or Maximus) set by ear on that track gets close; if it',
+        'was using the upward stage — the "below" half, which lifts quiet passages — the usual stand-in',
+        'is parallel compression: a send to a heavily compressed Fruity Compressor blended back in.',
+    ].join(' '),
+};
+
 /** The library whose name (or alias) appears in the names around the instance — longest match wins. */
 function libraryGuess(hints: (string | undefined)[], libraries: LibraryEntry[]): string | null {
     const text = ` ${hints.filter(Boolean).map((h) => plain(h!)).join(' | ')} `;
@@ -154,6 +175,7 @@ export function convertAlsToFlp(als: Buffer, opts: AlsToFlpOptions = {}): AlsToF
     const insertEffects: FlInsertEffects[] = [];
     const pluginsNeeded = new Set<string>();
     const knownLibraries = opts.libraries ?? [];
+    const skippedDevices = new Set<string>();
     const librariesUsed: ConversionReport['libraries'] = [];
     const pluginChannel = new Map<ConvPlugin, number>();                      // instrument → channel
     const pluginSlot = new Map<ConvPlugin, { insert: number; slot: number }>(); // effect → insert slot
@@ -226,7 +248,10 @@ export function convertAlsToFlp(als: Buffer, opts: AlsToFlpOptions = {}): AlsToF
             placed.push(e.enabled ? e.name : `${e.name} (bypassed)`);
             notePlugin(e, name);
         }
-        if (skipped.length) warnings.push(`"${name}": devices not converted — ${skipped.join(', ')}.`);
+        if (skipped.length) {
+            warnings.push(`"${name}": devices not converted — ${skipped.join(', ')}.`);
+            for (const dev of skipped) skippedDevices.add(dev.replace(/\s*\(in .*\)$/, ''));
+        }
         if (leftOff.length) {
             const what = `${leftOff.join(', ')} ${leftOff.length === 1 ? 'was' : 'were'} left off`;
             warnings.push(insert === 0
@@ -715,6 +740,7 @@ export function convertAlsToFlp(als: Buffer, opts: AlsToFlpOptions = {}): AlsToF
             stats: { tracks: tracks.length, midiClips, audioClips, notes, samples: samples.length },
             plugins: [...pluginsNeeded].sort((a, b) => a.localeCompare(b)),
             libraries: librariesUsed,
+            deviceNotes: [...skippedDevices].filter((d) => DEVICE_NOTES[d]).sort().map((device) => ({ device, why: DEVICE_NOTES[device] })),
             converted,
             warnings,
         },

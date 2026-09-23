@@ -257,5 +257,7 @@ export interface ConversionReport {
      */
     libraries: { plugin: string; track: string; library: string | null }[];
     converted: string[];     // instruments that came across, e.g. Drum Rack → Sampler channels
+    /** Devices that couldn't come across, with why — one entry per kind of device, not per track. */
+    deviceNotes: { device: string; why: string }[];
     warnings: string[];
 }

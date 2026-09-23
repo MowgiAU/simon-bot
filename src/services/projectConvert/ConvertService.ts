@@ -52,6 +52,18 @@ function pickAls(entries: AdmZip.IZipEntry[]): AdmZip.IZipEntry | null {
     return candidates[0] ?? null;
 }
 
+/** Breaks a paragraph into lines of at most `width` characters, for the plain-text report. */
+function wrap(text: string, width: number): string[] {
+    const lines: string[] = [];
+    let line = '';
+    for (const word of text.split(' ')) {
+        if (line && line.length + 1 + word.length > width) { lines.push(line); line = word; }
+        else line = line ? `${line} ${word}` : word;
+    }
+    if (line) lines.push(line);
+    return lines;
+}
+
 function reportText(meta: Omit<ConversionMeta, 'id' | 'userId' | 'createdAt' | 'downloadName'>): string {
     const r = meta.report;
     const lines = [
@@ -79,6 +91,10 @@ function reportText(meta: Omit<ConversionMeta, 'id' | 'userId' | 'createdAt' | '
             'with every "Collect files from" option ticked, then convert again):', ...meta.missingSamples.map((s) => `  • ${s}`));
     }
     if (r.warnings.length) lines.push('', 'Things to check in FL Studio', ...r.warnings.map((w) => `  • ${w}`));
+    if (r.deviceNotes.length) {
+        lines.push('', 'Why some devices couldn\'t come across');
+        for (const n of r.deviceNotes) lines.push(`  • ${n.device}`, ...wrap(n.why, 86).map((l) => `      ${l}`));
+    }
     return lines.join('\r\n') + '\r\n';
 }
 
