@@ -139,7 +139,15 @@ export interface ConvLiveEffect {
     xml: any;
 }
 
-export type ConvEffect = ConvPlugin | ConvLiveEffect;
+/** An Audio Effect Rack with more than one chain: its chains run in parallel and sum together. */
+export interface ConvRackEffect {
+    format: 'rack';
+    name: string;
+    enabled: boolean;
+    chains: ConvChain[];
+}
+
+export type ConvEffect = ConvPlugin | ConvLiveEffect | ConvRackEffect;
 
 /** A chain inside a rack — a drum pad's effects or a Drum Rack return — with its mixer level. */
 export interface ConvChain {

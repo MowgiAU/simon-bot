@@ -557,8 +557,14 @@ function readDeviceChain(list: [string, any][], where = ''): ChainResult {
             const chains = arr<any>(dev?.Branches?.AudioEffectBranch);
             if (chains.length === 1) {
                 absorb(readDeviceChain(deviceList(chains[0]?.DeviceChain?.AudioToAudioDeviceChain?.Devices), name));
-            } else {
-                skip(`${name} (${chains.length} parallel chains)`);
+            } else if (chains.length > 1) {
+                // Parallel chains: each one gets its own mixer insert later, summed back together
+                const branches = chains.map((c, i) => readChain(
+                    val(c?.Name?.EffectiveName) || val(c?.Name?.UserName) || `Chain ${i + 1}`,
+                    c?.DeviceChain?.AudioToAudioDeviceChain?.Devices,
+                    c?.MixerDevice,
+                ));
+                out.effects.push({ format: 'rack', name, enabled: bool(dev?.On?.Manual, true), chains: branches });
             }
             continue;
         }
@@ -603,7 +609,8 @@ function chainPlugins(chain: ChainResult): ConvPlugin[] {
     const fromInst = inst?.kind === 'plugin' ? [inst.plugin]
         : inst?.kind === 'layers' ? inst.layers.flatMap((l) => (l.instrument.kind === 'plugin' ? [l.instrument.plugin] : []))
             : [];
-    return [...fromInst, ...chain.effects.filter((e): e is ConvPlugin => e.format !== 'live')];
+    const effects = chain.effects.flatMap((e) => (e.format === 'rack' ? e.chains.flatMap((c) => c.effects) : [e]));
+    return [...fromInst, ...effects.filter((e): e is ConvPlugin => e.format !== 'live' && e.format !== 'rack')];
 }
 
 /** Resolves a track's arrangement envelopes against the targets we know how to carry over. */

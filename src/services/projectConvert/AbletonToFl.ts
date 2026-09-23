@@ -258,6 +258,22 @@ export function convertAlsToFlp(als: Buffer, opts: AlsToFlpOptions = {}): AlsToF
                 placed.push(`${e.name} (as ${LIVE_EFFECT_TARGETS[e.device]}${e.enabled ? '' : ', bypassed'})`);
                 continue;
             }
+            if (e.format === 'rack') {
+                // Parallel chains: each gets an insert fed from where the chain has got to, and
+                // they all sum into the insert the rest of the chain continues on
+                const after = branchOut(insert, e.chains.length);
+                if (!after) { leftOff.push(e.name); continue; }
+                e.chains.forEach((c, i) => {
+                    placeEffects(`${name} › ${c.name}`, c.effects, c.devices, after.chainInserts[i]);
+                    const entry = inserts.find((ins) => ins.insert === after.chainInserts[i]);
+                    if (entry) { entry.name = c.name; entry.volume = flFader(c.volume); entry.pan = c.pan * FL_PAN_RANGE; }
+                });
+                chain.push({ insert: after.next, slots: [] });
+                placed.push(`${e.name} (${e.chains.length} parallel chains${e.enabled ? '' : ', switched off in Live'})`);
+                rackChains += e.chains.length;
+                if (!e.enabled) warnings.push(`"${name}": ${e.name} was switched off in Live — its chains are active in FL; mute their inserts there if needed.`);
+                continue;
+            }
             const slots = room(1);
             if (!slots) { leftOff.push(e.name); continue; }
             pluginSlot.set(e, { insert: chain[chain.length - 1].insert, slot: slots.length });
@@ -299,6 +315,7 @@ export function convertAlsToFlp(als: Buffer, opts: AlsToFlpOptions = {}): AlsToF
     let nextInsert = insertOf.size + 1;
     const spillTail = new Map<number, number>();  // insert → the last insert its chain continues on
     let spillInserts = 0;
+    let rackChains = 0;
 
     /**
      * A further insert for a chain that has filled its ten slots: it takes over where the chain
@@ -315,6 +332,23 @@ export function convertAlsToFlp(als: Buffer, opts: AlsToFlpOptions = {}): AlsToF
         spillTail.set(insert, next);
         spillInserts++;
         return next;
+    };
+
+    /**
+     * Splits the chain in two at a parallel rack: `count` inserts are fed from where the chain has
+     * got to, and each of them feeds a further insert that carries the rest of the chain — so the
+     * chains run side by side and sum back together, as they do inside the rack. Null when the
+     * mixer hasn't the inserts to spare.
+     */
+    const branchOut = (insert: number, count: number): { next: number; chainInserts: number[] } | null => {
+        if (nextInsert + count > MAX_TRACKS) return null;
+        const feeder = inserts.find((i) => i.insert === (spillTail.get(insert) ?? insert));
+        const next = spillInsert(insert);
+        if (next === null || !feeder) return null;
+        const chainInserts = Array.from({ length: count }, () => nextInsert++);
+        for (const c of chainInserts) inserts.push({ insert: c, name: feeder.name, color: feeder.color, routes: [{ to: next }] });
+        feeder.routes = chainInserts.map((c) => ({ to: c }));
+        return { next, chainInserts };
     };
 
     let sendCount = 0;
@@ -700,6 +734,7 @@ export function convertAlsToFlp(als: Buffer, opts: AlsToFlpOptions = {}): AlsToF
         // FL's tempo spans 10–522 BPM; the clip covers all of it (see the writer's automation range)
         addClip('Tempo', null, pts.map((p) => ({ time: p.time, value: Math.min(1, Math.max(0, (p.value - FL_TEMPO_MIN) / FL_TEMPO_SPAN)) })), { param: 0x0005, dest: 0x4000 });
     }
+    if (rackChains) converted.push(`Parallel Audio Effect Racks: ${rackChains} chain${rackChains === 1 ? '' : 's'} → their own mixer inserts, fed side by side and summed back into the track.`);
     if (spillInserts) converted.push(`Long effect chains: ${spillInserts} extra mixer insert${spillInserts === 1 ? '' : 's'} chained on, so chains of more than ${MIXER_SLOTS} effects carry over in full.`);
     if (rackReturnInserts) converted.push(`Drum Rack return chains: ${rackReturnInserts} → their own mixer inserts, fed by the pads that send to them.`);
     if (padInserts) converted.push(`Drum pads with their own effects or sends: ${padInserts} → their own mixer inserts, routed into their drum track.`);
