@@ -40,11 +40,18 @@ export async function uploadFile(
     }
 
     // Storage is a different origin, so no cookies here — the signature is the whole authorisation
-    await axios.put(signed.url, file, {
-        headers: { 'Content-Type': contentType },
-        withCredentials: false,
-        onUploadProgress: (e) => onProgress?.(e.total ? Math.round((e.loaded / e.total) * 100) : 0),
-    });
+    try {
+        await axios.put(signed.url, file, {
+            headers: { 'Content-Type': contentType },
+            withCredentials: false,
+            onUploadProgress: (e) => onProgress?.(e.total ? Math.round((e.loaded / e.total) * 100) : 0),
+        });
+    } catch (e: any) {
+        // No response at all means the browser blocked it (storage not allowing this origin yet),
+        // which is a reason to fall back rather than to fail the upload
+        if (!e?.response) throw new DirectUploadUnavailable('The browser could not reach storage.');
+        throw new Error('That upload failed — please try again.');
+    }
 
     return { key: signed.key, name: file.name, size: file.size };
 }

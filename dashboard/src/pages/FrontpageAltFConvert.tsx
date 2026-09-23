@@ -119,20 +119,31 @@ const FrontpageAltFConvert: React.FC = () => {
                 result = (await axios.post<ConvertResult>('/api/convert/from-upload', { key: up.key, name: up.name }, { withCredentials: true })).data;
             } catch (e) {
                 if (!(e instanceof DirectUploadUnavailable)) throw e;
-                const form = new FormData();
-                form.append('project', file);
-                result = (await axios.post<ConvertResult>('/api/convert/ableton-to-fl', form, {
-                    withCredentials: true,
-                    onUploadProgress: (ev) => {
-                        const pct = ev.total ? Math.round((ev.loaded / ev.total) * 100) : 0;
-                        setPhase(pct >= 100 ? { kind: 'converting', file: file.name } : { kind: 'uploading', pct, file: file.name });
-                    },
-                })).data;
+                result = await uploadInPieces(file);
             }
             setPhase({ kind: 'done', result });
         } catch (e: any) {
             setPhase({ kind: 'error', message: e?.response?.data?.error || e?.message || 'Conversion failed. Please try again.' });
         }
+    };
+
+    /**
+     * The way in when storage can't take the file directly: the project goes through the API in
+     * pieces, since a proxied request body can't exceed 100 MB in one go.
+     */
+    const uploadInPieces = async (file: File): Promise<ConvertResult> => {
+        const { data: started } = await axios.post<{ uploadId: string; chunkSize: number }>(
+            '/api/convert/upload/start', { name: file.name, size: file.size }, { withCredentials: true });
+        for (let sent = 0; sent < file.size; sent += started.chunkSize) {
+            const form = new FormData();
+            form.append('uploadId', started.uploadId);
+            form.append('chunk', file.slice(sent, Math.min(sent + started.chunkSize, file.size)));
+            await axios.post('/api/convert/upload/chunk', form, { withCredentials: true });
+            setPhase({ kind: 'uploading', pct: Math.round((Math.min(sent + started.chunkSize, file.size) / file.size) * 100), file: file.name });
+        }
+        setPhase({ kind: 'converting', file: file.name });
+        const { data } = await axios.post<ConvertResult>('/api/convert/upload/finish', { uploadId: started.uploadId }, { withCredentials: true });
+        return data;
     };
 
     const onPick = (files: FileList | null) => {
