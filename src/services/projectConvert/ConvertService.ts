@@ -17,6 +17,7 @@ import crypto from 'node:crypto';
 import AdmZip from 'adm-zip';
 import { convertAlsToFlp } from './AbletonToFl.js';
 import { trimAudio } from './SampleTrim.js';
+import type { LibraryEntry } from './AbletonToFl.js';
 import type { ConversionReport } from './types.js';
 
 export const RETENTION_MS = 60 * 60 * 1000;
@@ -65,6 +66,14 @@ function reportText(meta: Omit<ConversionMeta, 'id' | 'userId' | 'createdAt' | '
         'Converted with Fuji Studio — https://fujistud.io',
     ];
     if (r.converted.length) lines.push('', 'Converted instruments', ...r.converted.map((c) => `  • ${c}`));
+    if (r.libraries.length) {
+        lines.push('', 'Sample libraries these tracks need',
+            'The player opens with its preset, but its sounds live in a library installed on your',
+            'machine — without it you get a "content missing" message, in FL and in Live alike.',
+            ...r.libraries.map((l) => `  • ${l.plugin} on "${l.track}" — ${l.library ? `library: ${l.library}` : 'library unknown (the player keeps that inside its own saved data)'}`),
+            'Install or register the library (Kontakt: Native Access, or Libraries → Add Library and',
+            'point it at the library folder), then open the project again.');
+    }
     if (meta.missingSamples.length) {
         lines.push('', 'Samples not found in your upload (re-save in Live with File → Collect All and Save,',
             'with every "Collect files from" option ticked, then convert again):', ...meta.missingSamples.map((s) => `  • ${s}`));
@@ -73,7 +82,7 @@ function reportText(meta: Omit<ConversionMeta, 'id' | 'userId' | 'createdAt' | '
     return lines.join('\r\n') + '\r\n';
 }
 
-export function convertAbletonUpload(inputPath: string, originalName: string, userId: string, outDir: string): ConversionMeta {
+export function convertAbletonUpload(inputPath: string, originalName: string, userId: string, outDir: string, libraries: LibraryEntry[] = []): ConversionMeta {
     let alsBuffer: Buffer;
     let alsName: string;
     let zip: AdmZip | null = null;
@@ -97,7 +106,7 @@ export function convertAbletonUpload(inputPath: string, originalName: string, us
     }
 
     const projectName = safeName(alsName.replace(/\.als$/i, ''));
-    const result = convertAlsToFlp(alsBuffer, { projectName, sampleFolder: 'Samples' });
+    const result = convertAlsToFlp(alsBuffer, { projectName, sampleFolder: 'Samples', libraries });
 
     // Match every referenced sample against the upload
     const out = new AdmZip();

@@ -23594,7 +23594,11 @@ app.post('/api/convert/ableton-to-fl', requireAuth, convertLimiter, (req: any, r
         const inputPath = req.file.path;
         try {
             const userId = (await resolveSessionUserId(req)) ?? String(req.session.user.id);
-            const job = convertQueue.then(() => convertAbletonUpload(inputPath, req.file.originalname, userId, convertOutDir));
+            // Sample libraries from the plugin registry, so the report can name the one a Kontakt
+            // instance is loading (its own saved state doesn't say)
+            const libraries = (await db.knownPlugin.findMany({ where: { isActive: true, category: 'library' }, select: { name: true, displayName: true, aliases: true } }))
+                .map((l) => ({ name: l.displayName || l.name, aliases: [l.name, ...(Array.isArray(l.aliases) ? l.aliases as string[] : [])] }));
+            const job = convertQueue.then(() => convertAbletonUpload(inputPath, req.file.originalname, userId, convertOutDir, libraries));
             convertQueue = job.catch(() => undefined);
             const meta = await job;
             logger.info(`[Convert] ${userId} converted "${meta.projectName}" (${meta.report.stats.tracks} tracks, ${meta.samplesIncluded}/${meta.report.stats.samples} samples)`);

@@ -50,6 +50,35 @@ export interface AlsToFlpOptions {
     projectName?: string;
     /** Folder (relative to the .flp) the samples will be shipped in, e.g. 'Samples'. */
     sampleFolder?: string;
+    /** Known sample libraries, used to name the library a Kontakt-style player is loading. */
+    libraries?: LibraryEntry[];
+}
+
+/** A sample library as the plugin registry knows it. */
+export interface LibraryEntry { name: string; aliases?: string[] }
+
+/**
+ * Players whose sounds live in a library installed on the machine, not in the project. Their saved
+ * state only references the library (and Kontakt's is compressed, so the name can't be read out of
+ * it), which is why a project opens with "content missing" when the library isn't installed.
+ */
+const LIBRARY_HOSTS = /kontakt|battery|falcon|\bopus\b|\bplay\b|sine player|ezdrummer|superior drummer|\bengine\b|halion sonic/i;
+
+const plain = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+
+/** The library whose name (or alias) appears in the names around the instance — longest match wins. */
+function libraryGuess(hints: (string | undefined)[], libraries: LibraryEntry[]): string | null {
+    const text = ` ${hints.filter(Boolean).map((h) => plain(h!)).join(' | ')} `;
+    let best: { name: string; len: number } | null = null;
+    for (const lib of libraries) {
+        for (const alias of [lib.name, ...(lib.aliases ?? [])]) {
+            const n = plain(alias);
+            if (n.length < 4) continue;
+            if (!text.includes(` ${n} `) && !text.includes(` ${n} |`) && !text.includes(`| ${n} `)) continue;
+            if (!best || n.length > best.len) best = { name: lib.name, len: n.length };
+        }
+    }
+    return best?.name ?? null;
 }
 
 export interface AlsToFlpResult {
@@ -124,6 +153,8 @@ export function convertAlsToFlp(als: Buffer, opts: AlsToFlpOptions = {}): AlsToF
 
     const insertEffects: FlInsertEffects[] = [];
     const pluginsNeeded = new Set<string>();
+    const knownLibraries = opts.libraries ?? [];
+    const librariesUsed: ConversionReport['libraries'] = [];
     const pluginChannel = new Map<ConvPlugin, number>();                      // instrument → channel
     const pluginSlot = new Map<ConvPlugin, { insert: number; slot: number }>(); // effect → insert slot
 
@@ -146,8 +177,11 @@ export function convertAlsToFlp(als: Buffer, opts: AlsToFlpOptions = {}): AlsToF
                 uniqueId: p.uniqueId, vstVersion: p.vstVersion, chunk: p.chunk, params: p.params,
             };
     };
-    const notePlugin = (p: ConvPlugin) => {
+    const notePlugin = (p: ConvPlugin, where: string, hints: string[] = []) => {
         pluginsNeeded.add(p.name);
+        if (LIBRARY_HOSTS.test(p.name)) {
+            librariesUsed.push({ plugin: p.name, track: where, library: libraryGuess([where, p.label, ...hints], knownLibraries) });
+        }
         if (!p.enabled) warnings.push(`${p.name} was switched off in Live — it's active in FL; bypass it there if needed.`);
     };
 
@@ -176,7 +210,7 @@ export function convertAlsToFlp(als: Buffer, opts: AlsToFlpOptions = {}): AlsToF
             pluginSlot.set(e, { insert, slot: slots.length });
             slots.push(flPlugin(e));
             placed.push(e.name);
-            notePlugin(e);
+            notePlugin(e, name);
         }
         if (skipped.length) warnings.push(`"${name}": devices not converted — ${skipped.join(', ')}.`);
         if (leftOff.length) warnings.push(`"${name}": an FL mixer insert holds ${MIXER_SLOTS} effects — ${leftOff.join(', ')} ${leftOff.length === 1 ? 'was' : 'were'} left off.`);
@@ -289,7 +323,7 @@ export function convertAlsToFlp(als: Buffer, opts: AlsToFlpOptions = {}): AlsToF
                     }
                     channels.push({ name, color: track.color, type: CHANNEL_SAMPLER, insert, plugin: fl });
                     pluginChannel.set(inst.plugin, channel);
-                    notePlugin(inst.plugin);
+                    notePlugin(inst.plugin, name, [track.name, ...track.devices]);
                     converted.push(`"${name}": ${inst.plugin.name} → loaded with its preset.`);
                     return (key) => [{ channel, key }];
                 }
@@ -638,6 +672,7 @@ export function convertAlsToFlp(als: Buffer, opts: AlsToFlpOptions = {}): AlsToF
             target: 'FL Studio 21+',
             stats: { tracks: tracks.length, midiClips, audioClips, notes, samples: samples.length },
             plugins: [...pluginsNeeded].sort((a, b) => a.localeCompare(b)),
+            libraries: librariesUsed,
             converted,
             warnings,
         },

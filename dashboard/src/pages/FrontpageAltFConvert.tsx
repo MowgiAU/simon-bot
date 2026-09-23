@@ -12,7 +12,7 @@ import { AltHeader } from '../components/altshell/AltHeader';
 import { useAltBreakpoint } from '../components/altshell/useAltBreakpoint';
 import {
     ArrowRightLeft, ArrowRight, UploadCloud, FileArchive, CheckCircle2, AlertTriangle, FileWarning,
-    Download, RotateCcw, Loader2, LogIn, FolderInput, FileAudio, Puzzle,
+    Download, RotateCcw, Loader2, LogIn, FolderInput, FileAudio, Puzzle, Boxes,
 } from 'lucide-react';
 
 interface ConvertResult {
@@ -26,6 +26,8 @@ interface ConvertResult {
         target: string;
         stats: { tracks: number; midiClips: number; audioClips: number; notes: number; samples: number };
         plugins: string[];
+        /** Kontakt-style players in the project, with the library each one looks like. */
+        libraries: { plugin: string; track: string; library: string | null }[];
         converted: string[];
         warnings: string[];
     };
@@ -170,6 +172,40 @@ const FrontpageAltFConvert: React.FC = () => {
     const renderResult = (r: ConvertResult) => {
         const { stats } = r.report;
         const warnings = showAllWarnings ? r.report.warnings : r.report.warnings.slice(0, WARNINGS_COLLAPSED);
+        // Sample-library players: the ones we could name, grouped by library, then the rest
+        const libs = r.report.libraries ?? [];
+        const namedLibraries = [...libs.filter((l) => l.library)
+            .reduce((map, l) => map.set(l.library!, [...(map.get(l.library!) ?? []), l]), new Map<string, typeof libs>())];
+        const unknownLibraries = libs.filter((l) => !l.library);
+
+        const cardGrid: React.CSSProperties = { display: 'grid', gridTemplateColumns: narrow ? '1fr' : 'repeat(auto-fill, minmax(260px, 1fr))', gap: 10 };
+        /** A plugin or library as a card: its picture and blurb from our list when we have it. */
+        const itemCard = (name: string, note?: string) => {
+            const known = matchPlugin(name);
+            const body = (
+                <>
+                    {known?.imageUrl
+                        ? <img src={known.imageUrl} alt="" style={{ width: 48, height: 48, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />
+                        : <div style={{ width: 48, height: 48, borderRadius: 8, background: S_HIGH, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Puzzle size={20} color={SUB} /></div>}
+                    <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: 14, fontWeight: 800, overflowWrap: 'anywhere' }}>{known?.displayName || name}</div>
+                        <div style={{ fontSize: 12, color: SUB, marginTop: 2 }}>
+                            {known?.developer || 'Not in our plugin list yet'}{known?.link ? ' · Get it' : ''}
+                        </div>
+                        {note && <div style={{ fontSize: 12, color: SUB, marginTop: 6, overflowWrap: 'anywhere' }}>{note}</div>}
+                        {known?.description && (
+                            <div style={{ fontSize: 12, color: SUB, marginTop: 6, lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                                {known.description}
+                            </div>
+                        )}
+                    </div>
+                </>
+            );
+            const style: React.CSSProperties = { display: 'flex', gap: 12, background: BG, border: `1px solid ${BORDER}`, borderRadius: 12, padding: 12, textDecoration: 'none', color: TEXT };
+            return known?.link
+                ? <a key={name} href={known.link.startsWith('http') ? known.link : `https://${known.link}`} target="_blank" rel="noopener noreferrer" style={style}>{body}</a>
+                : <div key={name} style={style}>{body}</div>;
+        };
         const tile = (label: string, value: string | number) => (
             <div style={{ flex: '1 1 120px', background: BG, border: `1px solid ${BORDER}`, borderRadius: 12, padding: '14px 16px' }}>
                 <div style={{ fontSize: 22, fontWeight: 800 }}>{value}</div>
@@ -221,33 +257,27 @@ const FrontpageAltFConvert: React.FC = () => {
                         <p style={{ margin: '0 0 12px', color: SUB, fontSize: 13 }}>
                             Install these in FL Studio before opening the project — anything missing shows FL's “plugin not found” message.
                         </p>
-                        <div style={{ display: 'grid', gridTemplateColumns: narrow ? '1fr' : 'repeat(auto-fill, minmax(260px, 1fr))', gap: 10 }}>
-                            {r.report.plugins.map((name) => {
-                                const known = matchPlugin(name);
-                                const body = (
-                                    <>
-                                        {known?.imageUrl
-                                            ? <img src={known.imageUrl} alt="" style={{ width: 48, height: 48, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />
-                                            : <div style={{ width: 48, height: 48, borderRadius: 8, background: S_HIGH, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Puzzle size={20} color={SUB} /></div>}
-                                        <div style={{ minWidth: 0 }}>
-                                            <div style={{ fontSize: 14, fontWeight: 800, overflowWrap: 'anywhere' }}>{known?.displayName || name}</div>
-                                            <div style={{ fontSize: 12, color: SUB, marginTop: 2 }}>
-                                                {known?.developer || 'Not in our plugin list yet'}{known?.link ? ' · Get it' : ''}
-                                            </div>
-                                            {known?.description && (
-                                                <div style={{ fontSize: 12, color: SUB, marginTop: 6, lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                                                    {known.description}
-                                                </div>
-                                            )}
-                                        </div>
-                                    </>
-                                );
-                                const style: React.CSSProperties = { display: 'flex', gap: 12, background: BG, border: `1px solid ${BORDER}`, borderRadius: 12, padding: 12, textDecoration: 'none', color: TEXT };
-                                return known?.link
-                                    ? <a key={name} href={known.link.startsWith('http') ? known.link : `https://${known.link}`} target="_blank" rel="noopener noreferrer" style={style}>{body}</a>
-                                    : <div key={name} style={style}>{body}</div>;
-                            })}
-                        </div>
+                        <div style={cardGrid}>{r.report.plugins.map((name) => itemCard(name))}</div>
+                    </>)}
+
+                {namedLibraries.length + unknownLibraries.length > 0 && section(`Sample libraries these tracks need (${namedLibraries.length + unknownLibraries.length})`,
+                    <>
+                        <p style={{ margin: '0 0 12px', color: SUB, fontSize: 13 }}>
+                            The player opens with its preset, but its sounds live in a library installed on your machine — without it
+                            you get a “content missing” message, in FL Studio and in Live alike. Install or register the library
+                            (Kontakt: Native Access, or Libraries → Add Library), then open the project again.
+                        </p>
+                        {namedLibraries.length > 0 && (
+                            <div style={cardGrid}>
+                                {namedLibraries.map(([library, on]) => itemCard(library, `${on[0].plugin} on ${on.map((l) => `“${l.track}”`).join(', ')}`))}
+                            </div>
+                        )}
+                        {unknownLibraries.length > 0 && (
+                            <ul style={{ ...ul, marginTop: namedLibraries.length ? 12 : 0 }}>
+                                {unknownLibraries.map((l, i) => listRow(<Boxes size={15} color={TERTIARY} />,
+                                    `${l.plugin} on “${l.track}” — we couldn't tell which library: the player keeps that inside its own saved data.`, i))}
+                            </ul>
+                        )}
                     </>)}
 
                 {r.report.converted.length > 0 && section('Converted instruments',

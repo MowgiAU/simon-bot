@@ -428,6 +428,8 @@ function readParamIds(dev: any): number[] {
 function readPlugin(dev: any): ConvPlugin | null {
     const enabled = bool(dev?.On?.Manual, true);
     const paramTargets = readParamTargets(dev);
+    // Live keeps the user's rename of the device here; for a sample player it often names the library
+    const label = val(dev?.UserName) || undefined;
 
     const info = dev?.PluginDesc?.Vst3PluginInfo;
     if (info) {
@@ -439,6 +441,7 @@ function readPlugin(dev: any): ConvPlugin | null {
         return {
             format: 'vst3',
             name: val(info.Name) || 'VST3 plugin',
+            label,
             kind: num(info.DeviceType ?? preset?.DeviceType) === 1 ? 'instrument' : 'effect',
             classId,
             processorState,
@@ -466,6 +469,7 @@ function readPlugin(dev: any): ConvPlugin | null {
     return {
         format: 'vst2',
         name: val(v2.PlugName) || 'VST plugin',
+        label,
         // VST2 category 2 = synth
         kind: num(v2.Category) === 2 ? 'instrument' : 'effect',
         uniqueId: uniqueId >>> 0,

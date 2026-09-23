@@ -102,6 +102,8 @@ export interface ConvSamplerZone {
 /** A third-party plugin with its saved state (the plugin's own bytes, identical in every host). */
 interface ConvPluginBase {
     name: string;
+    /** The user's rename of the device in Live, when they gave it one. */
+    label?: string;
     kind: 'instrument' | 'effect';
     enabled: boolean;
     /** Live automation-target id → the plugin parameter it drives (VST2: id = index). */
@@ -248,6 +250,12 @@ export interface ConversionReport {
     stats: { tracks: number; midiClips: number; audioClips: number; notes: number; samples: number };
     /** Plugins the project needs in FL, by the name Live had for them. */
     plugins: string[];
+    /**
+     * Sample-library players in the project (Kontakt and friends). Their library lives outside the
+     * project — the player only stores a reference to it — so each instance is listed with the
+     * library it looks like, guessed from the names around it (see libraryGuess in AbletonToFl).
+     */
+    libraries: { plugin: string; track: string; library: string | null }[];
     converted: string[];     // instruments that came across, e.g. Drum Rack → Sampler channels
     warnings: string[];
 }
