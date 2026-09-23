@@ -255,7 +255,7 @@ export interface ConversionReport {
      * project — the player only stores a reference to it — so each instance is listed with the
      * library it looks like, guessed from the names around it (see libraryGuess in AbletonToFl).
      */
-    libraries: { plugin: string; track: string; library: string | null }[];
+    libraries: { plugin: string; track: string; library: string | null; fingerprint: string }[];
     converted: string[];     // instruments that came across, e.g. Drum Rack → Sampler channels
     /** Devices that couldn't come across, with why — one entry per kind of device, not per track. */
     deviceNotes: { device: string; why: string }[];

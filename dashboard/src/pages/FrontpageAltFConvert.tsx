@@ -27,7 +27,7 @@ interface ConvertResult {
         stats: { tracks: number; midiClips: number; audioClips: number; notes: number; samples: number };
         plugins: string[];
         /** Kontakt-style players in the project, with the library each one looks like. */
-        libraries: { plugin: string; track: string; library: string | null }[];
+        libraries: { plugin: string; track: string; library: string | null; fingerprint: string }[];
         converted: string[];
         /** Devices that couldn't come across, with the reason. */
         deviceNotes: { device: string; why: string }[];
@@ -63,6 +63,11 @@ const FrontpageAltFConvert: React.FC = () => {
     const [dragging, setDragging] = useState(false);
     const [showAllWarnings, setShowAllWarnings] = useState(false);
     const [registry, setRegistry] = useState<KnownPlugin[]>([]);
+    // Libraries the user names for players we couldn't identify: fingerprint -> what they typed / saved
+    const [libraryDraft, setLibraryDraft] = useState<Record<string, string>>({});
+    const [namedByYou, setNamedByYou] = useState<Record<string, string>>({});
+    const [naming, setNaming] = useState<string | null>(null);
+    const [namingError, setNamingError] = useState('');
     const inputRef = useRef<HTMLInputElement>(null);
 
     // The site's plugin list, used to show what a converted project needs
@@ -75,6 +80,22 @@ const FrontpageAltFConvert: React.FC = () => {
         const want = name.trim().toLowerCase();
         return registry.find((p) => p.name.trim().toLowerCase() === want
             || (Array.isArray(p.aliases) ? p.aliases : []).some((a) => String(a).split(',').some((one) => one.trim().toLowerCase() === want)));
+    };
+
+    /** Tells the site which library this player loads, keyed by the hash of its saved state. */
+    const nameLibrary = async (fingerprint: string, plugin: string) => {
+        const library = (libraryDraft[fingerprint] ?? '').trim();
+        if (library.length < 2) return;
+        setNaming(fingerprint);
+        setNamingError('');
+        try {
+            const { data } = await axios.post<{ library: string }>('/api/convert/library-name', { fingerprint, plugin, library }, { withCredentials: true });
+            setNamedByYou((n) => ({ ...n, [fingerprint]: data.library }));
+        } catch (e: any) {
+            setNamingError(e?.response?.data?.error || 'That didn’t save — please try again.');
+        } finally {
+            setNaming(null);
+        }
     };
 
     const start = async (file: File) => {
@@ -275,10 +296,43 @@ const FrontpageAltFConvert: React.FC = () => {
                             </div>
                         )}
                         {unknownLibraries.length > 0 && (
-                            <ul style={{ ...ul, marginTop: namedLibraries.length ? 12 : 0 }}>
-                                {unknownLibraries.map((l, i) => listRow(<Boxes size={15} color={TERTIARY} />,
-                                    `${l.plugin} on “${l.track}” — we couldn't tell which library: the player keeps that inside its own saved data.`, i))}
-                            </ul>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: namedLibraries.length ? 12 : 0 }}>
+                                <p style={{ margin: 0, color: SUB, fontSize: 13 }}>
+                                    These keep the library name inside their own saved data, so we can't read it — but if you know it,
+                                    tell us once and every conversion of that same instrument gets named from then on.
+                                </p>
+                                {unknownLibraries.map((l) => {
+                                    const saved = namedByYou[l.fingerprint];
+                                    return (
+                                        <div key={`${l.fingerprint}-${l.track}`} style={{ background: BG, border: `1px solid ${BORDER}`, borderRadius: 12, padding: 12 }}>
+                                            <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 14 }}>
+                                                <Boxes size={15} color={TERTIARY} style={{ flexShrink: 0, marginTop: 3 }} />
+                                                <span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>{l.plugin} on “{l.track}”</span>
+                                            </div>
+                                            {saved ? (
+                                                <div style={{ marginTop: 8, fontSize: 13, color: SECONDARY, fontWeight: 700 }}>Saved as {saved} — thank you</div>
+                                            ) : (
+                                                <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+                                                    <input
+                                                        value={libraryDraft[l.fingerprint] ?? ''}
+                                                        onChange={(e) => setLibraryDraft((d) => ({ ...d, [l.fingerprint]: e.target.value }))}
+                                                        onKeyDown={(e) => { if (e.key === 'Enter') nameLibrary(l.fingerprint, l.plugin); }}
+                                                        placeholder="Which library is this? e.g. Shreddage 3"
+                                                        style={{ flex: '1 1 220px', minWidth: 0, padding: '9px 12px', background: S_HIGH, border: `1px solid ${BORDER}`, borderRadius: 9, color: TEXT, fontSize: 13, fontFamily: FONT }}
+                                                    />
+                                                    <button
+                                                        onClick={() => nameLibrary(l.fingerprint, l.plugin)}
+                                                        disabled={naming === l.fingerprint || (libraryDraft[l.fingerprint] ?? '').trim().length < 2}
+                                                        style={{ padding: '9px 16px', background: PRIMARY, border: 'none', borderRadius: 9, color: '#fff', fontSize: 13, fontWeight: 800, fontFamily: FONT, cursor: 'pointer', opacity: naming === l.fingerprint ? 0.6 : 1 }}>
+                                                        {naming === l.fingerprint ? 'Saving…' : 'Save name'}
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                                {namingError && <div style={{ fontSize: 13, color: PRIMARY }}>{namingError}</div>}
+                            </div>
                         )}
                     </>)}
 

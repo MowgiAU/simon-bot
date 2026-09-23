@@ -98,7 +98,14 @@ function reportText(meta: Omit<ConversionMeta, 'id' | 'userId' | 'createdAt' | '
     return lines.join('\r\n') + '\r\n';
 }
 
-export function convertAbletonUpload(inputPath: string, originalName: string, userId: string, outDir: string, libraries: LibraryEntry[] = []): ConversionMeta {
+export function convertAbletonUpload(
+    inputPath: string,
+    originalName: string,
+    userId: string,
+    outDir: string,
+    libraries: LibraryEntry[] = [],
+    fingerprints: Record<string, string> = {},
+): ConversionMeta {
     let alsBuffer: Buffer;
     let alsName: string;
     let zip: AdmZip | null = null;
@@ -122,7 +129,7 @@ export function convertAbletonUpload(inputPath: string, originalName: string, us
     }
 
     const projectName = safeName(alsName.replace(/\.als$/i, ''));
-    const result = convertAlsToFlp(alsBuffer, { projectName, sampleFolder: 'Samples', libraries });
+    const result = convertAlsToFlp(alsBuffer, { projectName, sampleFolder: 'Samples', libraries, fingerprints });
 
     // Match every referenced sample against the upload
     const out = new AdmZip();

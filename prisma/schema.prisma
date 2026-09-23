@@ -17,8 +17,8 @@ model Session {
   sess   Json
   expire DateTime
 
-  @@ignore
   @@map("session")
+  @@ignore
 }
 
 // --- User Accounts (Native auth with optional Discord linking) ---
@@ -64,21 +64,21 @@ model User {
   // Vote fraud / account ban
   banned    Boolean   @default(false)
   bannedAt  DateTime?
-  bannedFor String?   // Reason (e.g. "vote_fraud")
+  bannedFor String? // Reason (e.g. "vote_fraud")
 
   // Soft delete
   deletedAt DateTime?
 
-  storageQuotaBytes BigInt  @default(1073741824) // 1 GB free tier
-  storageTier       String  @default("free")     // "free" | "pro" | "unlimited"
+  storageQuotaBytes BigInt @default(1073741824) // 1 GB free tier
+  storageTier       String @default("free") // "free" | "pro" | "unlimited"
 
-  projects                 Project[]
-  desktopTokens            DesktopToken[]
-  deviceTokens             DeviceToken[]
-  notificationPreferences  NotificationPreferences?
-  apkDownloads             ApkDownload[]
-  sessions                 UserSession[]
-  redditLink               RedditLink?
+  projects                Project[]
+  desktopTokens           DesktopToken[]
+  deviceTokens            DeviceToken[]
+  notificationPreferences NotificationPreferences?
+  apkDownloads            ApkDownload[]
+  sessions                UserSession[]
+  redditLink              RedditLink?
 
   @@map("users")
 }
@@ -102,20 +102,20 @@ model NotificationPreferences {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   // Social interactions
-  comments         Boolean @default(true)
-  replies          Boolean @default(true)
-  likes            Boolean @default(true)
-  reposts          Boolean @default(true)
-  follows          Boolean @default(true)
-  messages         Boolean @default(true)
+  comments Boolean @default(true)
+  replies  Boolean @default(true)
+  likes    Boolean @default(true)
+  reposts  Boolean @default(true)
+  follows  Boolean @default(true)
+  messages Boolean @default(true)
 
   // Feed
-  followedUploads  Boolean @default(true)
-  newTracksGlobal  Boolean @default(false)
+  followedUploads Boolean @default(true)
+  newTracksGlobal Boolean @default(false)
 
   // Battles
-  battleResults    Boolean @default(true)
-  h2hUpdates       Boolean @default(true)
+  battleResults Boolean @default(true)
+  h2hUpdates    Boolean @default(true)
 
   // News by category
   newsNews         Boolean @default(true)
@@ -176,12 +176,12 @@ model Guild {
   stockTrades    StockTrade[]
 
   // Feedback Plugin
-  feedbackProfiles FeedbackProfile[]
-  feedbackPosts    FeedbackPost[]
-  feedbackSettings FeedbackSettings?
-  echoSettings     EchoSettings?
-  commandGuardSettings CommandGuardSettings?
-  feedbackPoints   FeedbackPoints[]
+  feedbackProfiles           FeedbackProfile[]
+  feedbackPosts              FeedbackPost[]
+  feedbackSettings           FeedbackSettings?
+  echoSettings               EchoSettings?
+  commandGuardSettings       CommandGuardSettings?
+  feedbackPoints             FeedbackPoints[]
   feedbackPointsTransactions FeedbackPointsTransaction[]
 
   // Ticket System
@@ -228,10 +228,10 @@ model Guild {
   headToHeadSettings HeadToHeadSettings?
 
   // Slot Machine
-  slotMachineSettings   SlotMachineSettings?
-  slotPot               SlotPot?
-  slotDailyTrackers     SlotDailyTracker[]
-  slotReturns           SlotReturn[]
+  slotMachineSettings SlotMachineSettings?
+  slotPot             SlotPot?
+  slotDailyTrackers   SlotDailyTracker[]
+  slotReturns         SlotReturn[]
 
   // Channel Scraper
   channelScraperSettings ChannelScraperSettings?
@@ -566,11 +566,11 @@ model PluginSettings {
 }
 
 model DashboardAccess {
-  id                  String   @id @default(cuid())
-  guildId             String   @unique
-  allowedRoles        String[] @default([]) // Roles that can login to dashboard
-  betaRoleIds         String[] @default([]) // Roles that get auto-invited for beta access
-  contributorRoleIds  String[] @default([]) // Roles that can write articles for staff approval (Writing Studio)
+  id                     String   @id @default(cuid())
+  guildId                String   @unique
+  allowedRoles           String[] @default([]) // Roles that can login to dashboard
+  betaRoleIds            String[] @default([]) // Roles that get auto-invited for beta access
+  contributorRoleIds     String[] @default([]) // Roles that can write articles for staff approval (Writing Studio)
   articleReviewChannelId String? // Discord channel to notify when an article is submitted for review
 
   guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
@@ -743,7 +743,7 @@ model Stock {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  guild       Guild            @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  guild       Guild             @relation(fields: [guildId], references: [id], onDelete: Cascade)
   pricePoints StockPricePoint[]
   holdings    StockHolding[]
   shorts      ShortPosition[]
@@ -776,8 +776,8 @@ model StockHolding {
   userId  String
   stockId String
 
-  shares   Int   @default(0)
-  avgCost  Float @default(0)
+  shares   Int      @default(0)
+  avgCost  Float    @default(0)
   // Powers three rules at once: minimum hold, flip fee, and time-weighted dividends.
   openedAt DateTime @default(now())
 
@@ -818,10 +818,10 @@ model StockTrade {
   stockId String
 
   action    String // 'BUY' | 'SELL' | 'SHORT_OPEN' | 'SHORT_CLOSE' | 'LIQUIDATE' | 'DIVIDEND' | 'DELIST_BUYBACK'
-  shares    Int    @default(0)
-  price     Float  @default(0)
-  coinDelta Int    @default(0) // signed, from the trader's perspective
-  feePaid   Int    @default(0)
+  shares    Int      @default(0)
+  price     Float    @default(0)
+  coinDelta Int      @default(0) // signed, from the trader's perspective
+  feePaid   Int      @default(0)
   createdAt DateTime @default(now())
 
   guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
@@ -893,9 +893,9 @@ model EconomyItem {
 
   createdAt DateTime @default(now())
 
-  guild          Guild                 @relation(fields: [guildId], references: [id], onDelete: Cascade)
-  purchaseLog    EconomyPurchaseLog[]
-  tokenGrants    EconomyTokenGrant[]
+  guild       Guild                @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  purchaseLog EconomyPurchaseLog[]
+  tokenGrants EconomyTokenGrant[]
 
   @@unique([guildId, name]) // Unique names per guild
   @@map("economy_items")
@@ -903,10 +903,10 @@ model EconomyItem {
 
 // Tracks individual purchases for per-user limit enforcement
 model EconomyPurchaseLog {
-  id        String   @id @default(cuid())
-  guildId   String
-  userId    String
-  itemId    String
+  id          String   @id @default(cuid())
+  guildId     String
+  userId      String
+  itemId      String
   purchasedAt DateTime @default(now())
 
   item  EconomyItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
@@ -1033,11 +1033,11 @@ model FeedbackSettings {
   modLogChannelId String?
 
   // Feedback Points system (separate from economy currency)
-  feedbackPointsReward Int @default(1)  // Points earned for giving approved feedback
+  feedbackPointsReward Int @default(1) // Points earned for giving approved feedback
   feedbackPointsCost   Int @default(5) // Points required to post a feedback thread
 
-  aiModel         String   @default("gpt-4o-mini")
-  approverRoleIds String[] @default([])
+  aiModel          String   @default("gpt-4o-mini")
+  approverRoleIds  String[] @default([])
   supportChannelId String?
 
   blockedUsers FeedbackBlock[]
@@ -1048,7 +1048,7 @@ model FeedbackSettings {
 }
 
 model FeedbackBlock {
-  id        String   @id @default(cuid())
+  id        String  @id @default(cuid())
   guildId   String
   userId    String
   reason    String?
@@ -1067,15 +1067,15 @@ model EchoSettings {
   id      String @id @default(cuid())
   guildId String @unique
 
-  enabled            Boolean  @default(false)
-  impersonateUser    Boolean  @default(true)       // post via webhook as original author
-  triggerChance      Int      @default(10)          // % chance per message to queue an echo (1-100)
-  minDelaySeconds    Int      @default(300)         // minimum wait before echoing (seconds)
-  maxDelaySeconds    Int      @default(1800)        // maximum wait
-  lookbackMessages   Int      @default(50)          // how many recent messages to pick from
-  channelIds         String[] @default([])          // empty = all text channels
-  blacklistUserIds   String[] @default([])          // never echo these users
-  whitelistUserIds   String[] @default([])          // if non-empty, only echo these users
+  enabled          Boolean  @default(false)
+  impersonateUser  Boolean  @default(true) // post via webhook as original author
+  triggerChance    Int      @default(10) // % chance per message to queue an echo (1-100)
+  minDelaySeconds  Int      @default(300) // minimum wait before echoing (seconds)
+  maxDelaySeconds  Int      @default(1800) // maximum wait
+  lookbackMessages Int      @default(50) // how many recent messages to pick from
+  channelIds       String[] @default([]) // empty = all text channels
+  blacklistUserIds String[] @default([]) // never echo these users
+  whitelistUserIds String[] @default([]) // if non-empty, only echo these users
 
   guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
 
@@ -1091,8 +1091,8 @@ model CommandGuardSettings {
 
   enabled Boolean @default(false)
 
-  guardedChannelIds       String[] @default([]) // channels where non-Fuji commands are blocked
-  whitelistedBotIds       String[] @default([]) // other bots exempt from message deletion
+  guardedChannelIds          String[] @default([]) // channels where non-Fuji commands are blocked
+  whitelistedBotIds          String[] @default([]) // other bots exempt from message deletion
   whitelistedCommandPrefixes String[] @default([]) // literal prefixes (e.g. "!poll") exempt from deletion
 
   deleteMessage Boolean @default(true)
@@ -1105,10 +1105,10 @@ model CommandGuardSettings {
 }
 
 model FeedbackPoints {
-  id        String   @id @default(cuid())
-  guildId   String
-  userId    String
-  balance   Int      @default(0)
+  id          String @id @default(cuid())
+  guildId     String
+  userId      String
+  balance     Int    @default(0)
   totalEarned Int    @default(0)
 
   createdAt DateTime @default(now())
@@ -1123,14 +1123,14 @@ model FeedbackPoints {
 
 // Feedback Points Transaction Log
 model FeedbackPointsTransaction {
-  id          String   @id @default(cuid())
-  guildId     String
-  userId      String
-  amount      Int      // Positive = earned, Negative = spent
-  type        String   // EARNED_FEEDBACK, SPENT_POST, BONUS, PENALTY
-  reason      String?
-  threadId    String? // Optional link to thread
-  messageId   String? // Optional link to message
+  id        String  @id @default(cuid())
+  guildId   String
+  userId    String
+  amount    Int // Positive = earned, Negative = spent
+  type      String // EARNED_FEEDBACK, SPENT_POST, BONUS, PENALTY
+  reason    String?
+  threadId  String? // Optional link to thread
+  messageId String? // Optional link to message
 
   createdAt DateTime @default(now())
 
@@ -1181,15 +1181,15 @@ model TicketSettings {
 }
 
 model Ticket {
-  id        String    @id @default(cuid())
-  channelId String    @unique
+  id        String  @id @default(cuid())
+  channelId String  @unique
   guildId   String
   ownerId   String
   ownerName String?
-  status    String    @default("open")
-  priority  String    @default("low") // low, medium, high
-  type      String    @default("discord") // "discord" | "web"
-  subject   String?   // Subject line for web-originated tickets
+  status    String  @default("open")
+  priority  String  @default("low") // low, medium, high
+  type      String  @default("discord") // "discord" | "web"
+  subject   String? // Subject line for web-originated tickets
 
   createdAt DateTime  @default(now())
   closedAt  DateTime?
@@ -1337,12 +1337,12 @@ model MusicianProfile {
   featuredPlaylist   Playlist? @relation("ProfileFeaturedPlaylist", fields: [featuredPlaylistId], references: [id], onDelete: SetNull)
 
   // Social / Competitive Display
-  showH2HRank       Boolean  @default(false)       // Opt-in: show Arena Elo in profile sidebar
-  featuredFriendIds String[] @default([])           // Up to 8 mutual-follow userIds to feature (MySpace Top 8)
+  showH2HRank       Boolean  @default(false) // Opt-in: show Arena Elo in profile sidebar
+  featuredFriendIds String[] @default([]) // Up to 8 mutual-follow userIds to feature (MySpace Top 8)
 
   // Profile Layout & Section Visibility
-  headerLayout        String  @default("left")      // "left" | "centered" | "minimal"
-  trackDisplayStyle   String  @default("list")      // "list" | "cards" | "compact"
+  headerLayout        String  @default("left") // "left" | "centered" | "minimal"
+  trackDisplayStyle   String  @default("list") // "list" | "cards" | "compact"
   showGearSection     Boolean @default(true)
   showSocialLinks     Boolean @default(true)
   showStatsBar        Boolean @default(true)
@@ -1373,7 +1373,7 @@ model Track {
   title       String
   slug        String? // URL identifier (e.g., 'hey-brother')
   description String? @db.Text
-  url         String  // OGG Opus stream (primary, ~128kbps)
+  url         String // OGG Opus stream (primary, ~128kbps)
   mp3Url      String? // MP3 192kbps fallback for iOS Safari
   coverUrl    String? // Cover image URL
 
@@ -1427,8 +1427,8 @@ model Track {
   samples TrackSample[]
   stems   TrackStem[]
 
-  profile        MusicianProfile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
-  isFeaturedIn   MusicianProfile? @relation("FeaturedTrack")
+  profile        MusicianProfile     @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  isFeaturedIn   MusicianProfile?    @relation("FeaturedTrack")
   plays          TrackPlay[]
   genres         TrackGenre[]
   battleEntries  BattleEntry[]
@@ -1461,8 +1461,8 @@ model Track {
 model TrackCollaborator {
   id           String    @id @default(cuid())
   trackId      String
-  profileId    String    // Collaborator's MusicianProfile.id
-  contribution String    // e.g. "vocals", "production", "guitar", "mixing"
+  profileId    String // Collaborator's MusicianProfile.id
+  contribution String // e.g. "vocals", "production", "guitar", "mixing"
   category     String    @default("collaboration") // "collaboration" | "1v1-battle" | "feature" | "remix" | "split"
   status       String    @default("pending") // "pending" | "accepted" | "rejected"
   invitedAt    DateTime  @default(now())
@@ -1555,7 +1555,7 @@ model Genre {
   // Relations
   profiles           ProfileGenre[]
   tracks             TrackGenre[]
-  primaryForProfiles MusicianProfile[] @relation("PrimaryGenre")
+  primaryForProfiles MusicianProfile[]   @relation("PrimaryGenre")
   subscriptions      GenreSubscription[]
   posts              GenrePost[]
   groups             GenreGroupGenre[]
@@ -1613,12 +1613,12 @@ model GenrePost {
   username  String
   avatarUrl String?
 
-  type     String  @default("discussion") // "discussion" | "track"
-  title    String
-  body     String? @db.Text
-  imageUrl String?
-  videoUrl String?
-  audioUrl String?
+  type          String   @default("discussion") // "discussion" | "track"
+  title         String
+  body          String?  @db.Text
+  imageUrl      String?
+  videoUrl      String?
+  audioUrl      String?
   extraGenreIds String[] @default([])
 
   trackId String? // FK to Track; set only for auto-created track posts
@@ -1675,11 +1675,11 @@ model GenrePostVote {
 }
 
 model GenreGroup {
-  id        String   @id @default(cuid())
+  id        String            @id @default(cuid())
   userId    String
   name      String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
   genres    GenreGroupGenre[]
 
   @@index([userId])
@@ -1842,11 +1842,11 @@ model KnownPlugin {
   id          String   @id @default(cuid())
   name        String   @unique // Primary match name (as it appears in FLP)
   aliases     Json?    @default("[]") // Additional match strings, case-insensitive
-  displayName String?  // Cleaner public-facing name
-  imageUrl    String?  // Logo / screenshot
-  link        String?  // Affiliate / referral URL
-  category    String?  // 'synth' | 'effect' | 'sampler' | 'utility' | 'other'
-  developer   String?  // Plugin developer / company name
+  displayName String? // Cleaner public-facing name
+  imageUrl    String? // Logo / screenshot
+  link        String? // Affiliate / referral URL
+  category    String? // 'synth' | 'effect' | 'sampler' | 'utility' | 'other'
+  developer   String? // Plugin developer / company name
   description String?  @db.Text
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
@@ -1931,7 +1931,6 @@ model ProjectFile {
 
 // ── Beat Market (Investment System) ──────────────────────────────────────────
 
-
 model SlotMachineSettings {
   id      String @id @default(cuid())
   guildId String @unique
@@ -1973,11 +1972,11 @@ model SlotDailyTracker {
 }
 
 model SlotReturn {
-  id          String   @id @default(cuid())
-  guildId     String
-  userId      String
-  amount      Int
-  returnedAt  DateTime @default(now())
+  id         String   @id @default(cuid())
+  guildId    String
+  userId     String
+  amount     Int
+  returnedAt DateTime @default(now())
 
   guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
 
@@ -2047,16 +2046,16 @@ model SampleCollectionItem {
 // ──────────────────────────────────────────────
 
 model BeatBattle {
-  id          String  @id @default(cuid())
-  slug        String? @unique
-  guildId     String
-  title            String
-  miniDescription  String? @db.VarChar(300) // Short summary for embeds, cards, and previews
-  description String? @db.Text
-  subtitle    String? @db.VarChar(200)
-  status           String  @default("upcoming") // upcoming | active | voting | completed
-  rules       String? @db.Text
-  rulesData   Json? // Array of { text, links: {label,url}[], samples: {name,url}[] }
+  id              String  @id @default(cuid())
+  slug            String? @unique
+  guildId         String
+  title           String
+  miniDescription String? @db.VarChar(300) // Short summary for embeds, cards, and previews
+  description     String? @db.Text
+  subtitle        String? @db.VarChar(200)
+  status          String  @default("upcoming") // upcoming | active | voting | completed
+  rules           String? @db.Text
+  rulesData       Json? // Array of { text, links: {label,url}[], samples: {name,url}[] }
 
   // Scheduling
   submissionStart DateTime?
@@ -2065,8 +2064,8 @@ model BeatBattle {
   votingEnd       DateTime?
 
   // Discord integration
-  announcementChannelId  String? // Where announcements go
-  submissionsChannelId   String? // Where submission announcements are posted (bot-only, users cannot post)
+  announcementChannelId String? // Where announcements go
+  submissionsChannelId  String? // Where submission announcements are posted (bot-only, users cannot post)
 
   // Winner
   winnerEntryId String? // Winning BattleEntry ID
@@ -2181,7 +2180,7 @@ model BattleVote {
   userId    String // Discord user ID
   rank      Int      @default(1) // 1 = 1st choice, 2 = 2nd, 3 = 3rd. Sudden death always uses 1.
   source    String   @default("web") // web | discord
-  ip        String?  // IP address at time of vote (for fraud detection)
+  ip        String? // IP address at time of vote (for fraud detection)
   createdAt DateTime @default(now())
 
   entry BattleEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
@@ -2195,18 +2194,18 @@ model BattleVote {
 }
 
 model BattleSponsor {
-  id          String   @id @default(cuid())
-  guildId     String
-  name        String
-  logoUrl     String?
-  websiteUrl  String?
-  description String?  @db.Text
+  id            String   @id @default(cuid())
+  guildId       String
+  name          String
+  logoUrl       String?
+  websiteUrl    String?
+  description   String?  @db.Text
   isActive      Boolean  @default(true)
   showOnPage    Boolean  @default(true)
   websiteClicks Int      @default(0)
   viewCount     Int      @default(0)
   createdAt     DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  updatedAt     DateTime @updatedAt
 
   guild   Guild               @relation(fields: [guildId], references: [id], onDelete: Cascade)
   battles BeatBattle[]
@@ -2220,10 +2219,10 @@ model BattleSponsor {
 model SponsorClick {
   id        String   @id @default(cuid())
   sponsorId String
-  linkId    String?  // null = website URL click, non-null = promo link
-  userId    String?  // null = anonymous
-  ipHash    String?  // first 16 chars of SHA-256(IP) — unique detection without storing PII
-  page      String?  // 'discover' | 'battles' | 'battle-detail' | etc.
+  linkId    String? // null = website URL click, non-null = promo link
+  userId    String? // null = anonymous
+  ipHash    String? // first 16 chars of SHA-256(IP) — unique detection without storing PII
+  page      String? // 'discover' | 'battles' | 'battle-detail' | etc.
   createdAt DateTime @default(now())
 
   sponsor BattleSponsor @relation(fields: [sponsorId], references: [id], onDelete: Cascade)
@@ -2246,7 +2245,6 @@ model BattleSponsorLink {
   @@index([sponsorId])
   @@map("battle_sponsor_links")
 }
-
 
 model BattleAnalytics {
   id        String   @id @default(cuid())
@@ -2466,7 +2464,7 @@ model Playlist {
   totalPlays         Int               @default(0)
   tracks             PlaylistTrack[]
   featuredByProfiles MusicianProfile[] @relation("ProfileFeaturedPlaylist")
-  battleId           String?           @unique  // Non-null for battle releases (1:1)
+  battleId           String?           @unique // Non-null for battle releases (1:1)
   battle             BeatBattle?       @relation("BattleRelease", fields: [battleId], references: [id], onDelete: SetNull)
   createdAt          DateTime          @default(now())
   updatedAt          DateTime          @updatedAt
@@ -3142,17 +3140,17 @@ model Report {
 }
 
 model BugReport {
-  id          String  @id @default(cuid())
-  userId      String  // reporter's Discord/native user ID
-  username    String  // cached at submission time
-  pageUrl     String
-  description String  @db.Text
-  errors      Json?   // last N window errors captured at submission
-  userAgent   String?
-  viewport    String?
+  id            String  @id @default(cuid())
+  userId        String // reporter's Discord/native user ID
+  username      String // cached at submission time
+  pageUrl       String
+  description   String  @db.Text
+  errors        Json? // last N window errors captured at submission
+  userAgent     String?
+  viewport      String?
   screenshotUrl String? // R2 URL of screenshot if provided
 
-  status         String    @default("open") // "open" | "investigating" | "resolved" | "closed"
+  status           String    @default("open") // "open" | "investigating" | "resolved" | "closed"
   resolvedByUserId String?
   resolvedByName   String?
   resolvedAt       DateTime?
@@ -3168,13 +3166,13 @@ model BugReport {
 
 // ──────────────────── Articles / News Plugin ────────────────────
 model Article {
-  id            String  @id @default(cuid())
-  guildId       String
-  slug          String  @unique
-  title         String
-  subtitle      String?
-  content       String  @db.Text // Rich HTML from WYSIWYG editor
-  excerpt       String? @db.Text // Short summary for cards / previews
+  id                 String  @id @default(cuid())
+  guildId            String
+  slug               String  @unique
+  title              String
+  subtitle           String?
+  content            String  @db.Text // Rich HTML from WYSIWYG editor
+  excerpt            String? @db.Text // Short summary for cards / previews
   coverImageUrl      String? // Hero / cover image (wide)
   squareThumbnailUrl String? // Square thumbnail for frontpage feature card
 
@@ -3419,7 +3417,7 @@ model SpamGuardIncident {
 
   // "Not Spam" undo — a mod decided this was a false positive
   falsePositive Boolean   @default(false)
-  resolvedBy    String?   // Discord user ID of the mod who marked it
+  resolvedBy    String? // Discord user ID of the mod who marked it
   resolvedAt    DateTime?
 
   // Alert-thread consolidation — repeat triggers from the same user reply into the
@@ -3548,19 +3546,19 @@ model AcademyProgress {
 // ──────────────────────────────────────────────
 
 model HeadToHeadSettings {
-  id                       String   @id @default(cuid())
-  guildId                  String   @unique
-  enabled                  Boolean  @default(true)
-  announceQueueEnabled     Boolean  @default(true)  // Post "looking for opponent" messages
+  id                       String  @id @default(cuid())
+  guildId                  String  @unique
+  enabled                  Boolean @default(true)
+  announceQueueEnabled     Boolean @default(true) // Post "looking for opponent" messages
   announcementChannelId    String?
-  defaultProductionMinutes Int      @default(60)
-  defaultVotingMinutes     Int      @default(30)
-  readyUpMinutes           Int      @default(5)
-  startingElo              Int      @default(1200)
-  kFactor                  Int      @default(32)
-  minVotesToFinalize       Int      @default(3)
-  maxQueueWaitMinutes      Int      @default(30)
-  samplesPerMatch          Int      @default(3)
+  defaultProductionMinutes Int     @default(60)
+  defaultVotingMinutes     Int     @default(30)
+  readyUpMinutes           Int     @default(5)
+  startingElo              Int     @default(1200)
+  kFactor                  Int     @default(32)
+  minVotesToFinalize       Int     @default(3)
+  maxQueueWaitMinutes      Int     @default(30)
+  samplesPerMatch          Int     @default(3)
 
   // Recurring "go vote" nudge. Distinct from announcementChannelId: the one-off
   // "voting is open" post fires once per match, this repeats on an interval for as
@@ -3570,8 +3568,8 @@ model HeadToHeadSettings {
   voteReminderIntervalMinutes Int       @default(180)
   voteReminderRoleId          String? // optional role to ping with each reminder
   lastVoteReminderAt          DateTime?
-  createdAt                DateTime @default(now())
-  updatedAt                DateTime @updatedAt
+  createdAt                   DateTime  @default(now())
+  updatedAt                   DateTime  @updatedAt
 
   guild Guild @relation(fields: [guildId], references: [id], onDelete: Cascade)
 
@@ -3633,13 +3631,13 @@ model H2HMatch {
   includeChords Boolean @default(false)
 
   // Melodics vote (each player votes yes/no per category — null = not voted yet)
-  melodicsVoteDeadline    DateTime?
-  challengerVoteBass      Boolean?
-  challengerVoteMelody    Boolean?
-  challengerVoteChords    Boolean?
-  opponentVoteBass        Boolean?
-  opponentVoteMelody      Boolean?
-  opponentVoteChords      Boolean?
+  melodicsVoteDeadline DateTime?
+  challengerVoteBass   Boolean?
+  challengerVoteMelody Boolean?
+  challengerVoteChords Boolean?
+  opponentVoteBass     Boolean?
+  opponentVoteMelody   Boolean?
+  opponentVoteChords   Boolean?
 
   // Sample assignment (string[] of H2HSample ids)
   sampleIds Json?
@@ -3661,12 +3659,12 @@ model H2HMatch {
   opponentSubmissionAt    DateTime?
 
   // Voting
-  votingStart        DateTime?
-  votingEnd          DateTime?
-  votingAnnouncedAt  DateTime? // set once the "ready to judge" Discord announcement is posted
-  winnerAnnouncedAt  DateTime? // set once the winner Discord announcement is posted
-  queueAnnouncedAt   DateTime? // set once the "looking for opponent" announcement is posted
-  matchNotifiedAt    DateTime? // set once both players have been DM'd that they got paired
+  votingStart       DateTime?
+  votingEnd         DateTime?
+  votingAnnouncedAt DateTime? // set once the "ready to judge" Discord announcement is posted
+  winnerAnnouncedAt DateTime? // set once the winner Discord announcement is posted
+  queueAnnouncedAt  DateTime? // set once the "looking for opponent" announcement is posted
+  matchNotifiedAt   DateTime? // set once both players have been DM'd that they got paired
 
   // Outcome
   winnerId      String?
@@ -3739,12 +3737,12 @@ model PageEmbed {
 
 model WebTicket {
   id        String   @id @default(cuid())
-  userId    String   // Discord ID of the ticket opener
+  userId    String // Discord ID of the ticket opener
   status    String   @default("open") // "open" | "closed"
   subject   String
   createdAt DateTime @default(now())
 
-  messages  WebTicketMessage[]
+  messages WebTicketMessage[]
 
   @@index([userId])
   @@index([status])
@@ -3754,12 +3752,12 @@ model WebTicket {
 model WebTicketMessage {
   id        String   @id @default(cuid())
   ticketId  String
-  senderId  String   // Discord ID of sender (user or admin)
+  senderId  String // Discord ID of sender (user or admin)
   content   String   @db.Text
   isAdmin   Boolean  @default(false)
   timestamp DateTime @default(now())
 
-  ticket    WebTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  ticket WebTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
 
   @@index([ticketId])
   @@map("web_ticket_messages")
@@ -3771,13 +3769,13 @@ model WebTicketMessage {
 
 model ActivityLog {
   id         String   @id @default(cuid())
-  userId     String?  // Internal DB user ID (null for unauthenticated)
+  userId     String? // Internal DB user ID (null for unauthenticated)
   ip         String?
   userAgent  String?  @db.VarChar(500)
-  action     String   // e.g. track.upload, comment.post, auth.login
-  targetId   String?  // ID of the entity acted on
-  targetType String?  // 'track' | 'comment' | 'profile' | 'battle' | etc.
-  metadata   Json?    // Extra context (track title, comment snippet, etc.)
+  action     String // e.g. track.upload, comment.post, auth.login
+  targetId   String? // ID of the entity acted on
+  targetType String? // 'track' | 'comment' | 'profile' | 'battle' | etc.
+  metadata   Json? // Extra context (track title, comment snippet, etc.)
   createdAt  DateTime @default(now())
 
   @@index([userId])
@@ -3800,12 +3798,12 @@ model SiteSetting {
 // ──────────────────────────────────────────────
 
 model Project {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   userId      String
   name        String
   slug        String
-  description String?  @db.Text
-  arrangement  Json?   // Latest parsed FLP arrangement data
+  description String?   @db.Text
+  arrangement Json? // Latest parsed FLP arrangement data
   deletedAt   DateTime?
 
   user          User               @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -3822,17 +3820,17 @@ model Project {
 }
 
 model ProjectVersion {
-  id            String   @id @default(cuid())
+  id            String  @id @default(cuid())
   projectId     String
   versionNumber Int
-  message       String?  @db.Text
-  totalFiles    Int      @default(0)
-  totalSize     BigInt   @default(0)
-  arrangement   Json?    // FLP parsed data specific to this version
-  isParsed      Boolean  @default(false)
-  audioUrl      String?  // Rendered audio attachment (MP3/WAV) for playback
+  message       String? @db.Text
+  totalFiles    Int     @default(0)
+  totalSize     BigInt  @default(0)
+  arrangement   Json? // FLP parsed data specific to this version
+  isParsed      Boolean @default(false)
+  audioUrl      String? // Rendered audio attachment (MP3/WAV) for playback
 
-  project     Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project     Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
   fileEntries ProjectFileEntry[]
   trackLinks  ProjectTrackLink[]
 
@@ -3846,8 +3844,8 @@ model ProjectVersion {
 model ProjectFileEntry {
   id          String  @id @default(cuid())
   versionId   String
-  filePath    String  // Relative path within project (e.g. "Samples/kick.wav")
-  fileHash    String  // SHA-256 hex, references ProjectFileBlob
+  filePath    String // Relative path within project (e.g. "Samples/kick.wav")
+  fileHash    String // SHA-256 hex, references ProjectFileBlob
   fileSize    Int
   isDirectory Boolean @default(false)
 
@@ -3860,7 +3858,7 @@ model ProjectFileEntry {
 
 model ProjectFileBlob {
   hash       String   @id // SHA-256 hex string
-  storageKey String   // R2 key: "project-blobs/{hash[0:2]}/{hash[2:]}"
+  storageKey String // R2 key: "project-blobs/{hash[0:2]}/{hash[2:]}"
   fileSize   Int
   mimeType   String?
   refCount   Int      @default(1)
@@ -3897,8 +3895,6 @@ model DesktopToken {
   @@map("desktop_tokens")
 }
 
-
-
 // ── Whisper Command ──────────────────────────────────────────────────────────
 
 model WhisperSettings {
@@ -3911,16 +3907,16 @@ model WhisperSettings {
 }
 
 model WhisperLog {
-  id              String   @id @default(cuid())
-  guildId         String
-  channelId       String
-  channelName     String
-  senderId        String
-  senderUsername  String
-  targetId        String
-  targetUsername  String
-  content         String   @db.Text
-  createdAt       DateTime @default(now())
+  id             String   @id @default(cuid())
+  guildId        String
+  channelId      String
+  channelName    String
+  senderId       String
+  senderUsername String
+  targetId       String
+  targetUsername String
+  content        String   @db.Text
+  createdAt      DateTime @default(now())
 
   @@index([guildId, createdAt(sort: Desc)])
   @@map("whisper_logs")
@@ -3932,11 +3928,11 @@ model MuzzleSettings {
   id                    String   @id @default(cuid())
   guildId               String   @unique
   enabled               Boolean  @default(true)
-  messageLimit          Int      @default(5)   // messages in window before muzzle
-  windowSeconds         Int      @default(5)   // sliding window in seconds
-  muzzleDurationMinutes Int      @default(10)  // how long to muzzle
-  muzzleRoleId          String?               // role to assign
-  logChannelId          String?               // optional log channel
+  messageLimit          Int      @default(5) // messages in window before muzzle
+  windowSeconds         Int      @default(5) // sliding window in seconds
+  muzzleDurationMinutes Int      @default(10) // how long to muzzle
+  muzzleRoleId          String? // role to assign
+  logChannelId          String? // optional log channel
   exemptRoleIds         String[] @default([]) // roles exempt from muzzle
   updatedAt             DateTime @updatedAt
 
@@ -3963,7 +3959,7 @@ model UserSession {
   lastSeenAt   DateTime       @updatedAt
   endedAt      DateTime?
   durationSecs Int?
-  platform     String         // "desktop" | "mobile_browser" | "android_app"
+  platform     String // "desktop" | "mobile_browser" | "android_app"
   userId       String?
   user         User?          @relation(fields: [userId], references: [id])
   ipHash       String?
@@ -3976,13 +3972,13 @@ model UserSession {
 }
 
 model SessionEvent {
-  id        String      @id @default(cuid())
-  createdAt DateTime    @default(now())
-  sessionId String
-  session   UserSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  type      String      // "page_view" | "track_play" | "search" | "battle_view" | "profile_view" | "playlist_play" | "battle_submit" | "track_upload" | "download_apk" | "article_share"
-  path      String?
-  metadata  Json?
+  id           String      @id @default(cuid())
+  createdAt    DateTime    @default(now())
+  sessionId    String
+  session      UserSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  type         String // "page_view" | "track_play" | "search" | "battle_view" | "profile_view" | "playlist_play" | "battle_submit" | "track_upload" | "download_apk" | "article_share"
+  path         String?
+  metadata     Json?
   // How long the visitor stayed on this specific page_view before navigating away or
   // closing the tab. Reported separately from the initial event (via a PATCH beacon
   // fired on route change / unload) since it isn't known until the visit ends — the
@@ -3998,25 +3994,25 @@ model SessionEvent {
 // ──────────────────────────────────────────────
 
 model CollabCallout {
-  id          String    @id @default(cuid())
+  id          String @id @default(cuid())
   profileId   String
   title       String
-  description String    @db.Text
-  status      String    @default("open")     // "open" | "matched" | "closed"
+  description String @db.Text
+  status      String @default("open") // "open" | "matched" | "closed"
 
-  genreTags   String[]  @default([])          // genre slugs
-  rolesWanted String[]  @default([])          // e.g. ["vocalist","mixing"]
+  genreTags   String[] @default([]) // genre slugs
+  rolesWanted String[] @default([]) // e.g. ["vocalist","mixing"]
 
-  sampleUrl   String?
-  sampleType  String?                          // "audio" | "image" | "other"
+  sampleUrl  String?
+  sampleType String? // "audio" | "image" | "other"
 
-  expiresAt   DateTime?
-  deletedAt   DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  expiresAt DateTime?
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
-  profile     MusicianProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
-  requests    CollabRequest[]
+  profile  MusicianProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  requests CollabRequest[]
 
   @@index([profileId])
   @@index([status, createdAt(sort: Desc)])
@@ -4026,16 +4022,16 @@ model CollabCallout {
 model CollabRequest {
   id          String    @id @default(cuid())
   calloutId   String
-  profileId   String                           // responder's MusicianProfile.id
+  profileId   String // responder's MusicianProfile.id
   message     String    @db.Text
   roleOffered String?
-  status      String    @default("pending")   // "pending" | "accepted" | "declined"
+  status      String    @default("pending") // "pending" | "accepted" | "declined"
   respondedAt DateTime?
   createdAt   DateTime  @default(now())
 
-  callout     CollabCallout   @relation(fields: [calloutId], references: [id], onDelete: Cascade)
-  profile     MusicianProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
-  project     CollabProject?
+  callout CollabCallout   @relation(fields: [calloutId], references: [id], onDelete: Cascade)
+  profile MusicianProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  project CollabProject?
 
   @@unique([calloutId, profileId])
   @@index([calloutId, status])
@@ -4044,27 +4040,27 @@ model CollabRequest {
 }
 
 model CollabProject {
-  id                    String    @id @default(cuid())
-  requestId             String    @unique
+  id                    String @id @default(cuid())
+  requestId             String @unique
   initiatorProfileId    String
   collaboratorProfileId String
-  status                String    @default("active") // "active" | "releasing" | "released" | "abandoned"
+  status                String @default("active") // "active" | "releasing" | "released" | "abandoned"
 
   // Optional desktop project link
-  projectId             String?   @unique
+  projectId String? @unique
 
   // Set on release
-  trackId               String?   @unique
+  trackId String? @unique
 
   // Joint approval flags
-  initiatorApproved     Boolean   @default(false)
-  collaboratorApproved  Boolean   @default(false)
+  initiatorApproved    Boolean @default(false)
+  collaboratorApproved Boolean @default(false)
 
   // Workspace conversation (reuses existing messaging system)
-  conversationId        String?   @unique
+  conversationId String? @unique
 
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   request      CollabRequest   @relation(fields: [requestId], references: [id], onDelete: Cascade)
   initiator    MusicianProfile @relation("CollabProjectInitiator", fields: [initiatorProfileId], references: [id], onDelete: Cascade)
@@ -4084,16 +4080,16 @@ model CollabProject {
 model CollabFile {
   id         String    @id @default(cuid())
   projectId  String
-  uploaderId String                           // MusicianProfile.id
+  uploaderId String // MusicianProfile.id
   label      String
   url        String
   mimeType   String?
   sizeBytes  Int       @default(0)
-  fileType   String    @default("other")      // "audio" | "project" | "image" | "other"
+  fileType   String    @default("other") // "audio" | "project" | "image" | "other"
   deletedAt  DateTime?
   createdAt  DateTime  @default(now())
 
-  project    CollabProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project CollabProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([projectId, createdAt(sort: Desc)])
   @@map("collab_files")
@@ -4102,26 +4098,26 @@ model CollabFile {
 model CollabUpdate {
   id        String   @id @default(cuid())
   projectId String
-  authorId  String                            // MusicianProfile.id
+  authorId  String // MusicianProfile.id
   content   String   @db.Text
-  kind      String   @default("update")       // "message" | "update"
+  kind      String   @default("update") // "message" | "update"
   createdAt DateTime @default(now())
 
-  project   CollabProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project CollabProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([projectId, createdAt(sort: Desc)])
   @@map("collab_updates")
 }
 
 model ContactMessage {
-  id          String   @id @default(cuid())
-  name        String
-  email       String
-  discord     String?                          // optional Discord username/id the user provides
-  message     String   @db.Text
-  userId      String?                          // set if submitted while logged in
-  handled     Boolean  @default(false)
-  createdAt   DateTime @default(now())
+  id        String   @id @default(cuid())
+  name      String
+  email     String
+  discord   String? // optional Discord username/id the user provides
+  message   String   @db.Text
+  userId    String? // set if submitted while logged in
+  handled   Boolean  @default(false)
+  createdAt DateTime @default(now())
 
   @@index([createdAt(sort: Desc)])
   @@map("contact_messages")
@@ -4184,14 +4180,14 @@ model ArticlePoll {
 }
 
 model ArticlePollVote {
-  id     String @id @default(cuid())
-  pollId String
-  poll   ArticlePoll @relation(fields: [pollId], references: [id], onDelete: Cascade)
-  userId String
+  id        String      @id @default(cuid())
+  pollId    String
+  poll      ArticlePoll @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  userId    String
   // string[] of option ids. One row per voter rather than one per selected option, so
   // changing a vote is a plain update and the unique constraint below does the work of
   // preventing double voting.
-  optionIds Json @default("[]")
+  optionIds Json        @default("[]")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -4208,7 +4204,7 @@ model ArticlePollVote {
 model ChannelScraperSettings {
   id             String   @id @default(cuid())
   guildId        String   @unique
-  channelId      String?  // null = not configured / disabled
+  channelId      String? // null = not configured / disabled
   backfillStatus String   @default("idle") // idle | running | done | error
   backfillCount  Int      @default(0)
   backfillError  String?
@@ -4387,4 +4383,23 @@ model RedditLinkCode {
 
   @@index([expiresAt])
   @@map("reddit_link_codes")
+}
+
+/// A sample-library player's saved state, by the library it loads.
+///
+/// Kontakt and friends keep the library reference inside their own compressed state, so a project
+/// can't say which library an instance needs. The state is byte-identical for the same instrument
+/// in every host, though, so its hash identifies it: once someone names one after converting, every
+/// later conversion of that same instrument is named automatically.
+model SampleLibraryFingerprint {
+  id        String   @id @default(cuid())
+  hash      String   @unique // sha1 of the plugin's saved state
+  plugin    String // the player, e.g. "Kontakt 8"
+  library   String // what it loads, e.g. "Shreddage 3"
+  namedById String? // the user who named it
+  uses      Int      @default(0) // conversions this has named
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("sample_library_fingerprints")
 }

@@ -23598,10 +23598,18 @@ app.post('/api/convert/ableton-to-fl', requireAuth, convertLimiter, (req: any, r
             // instance is loading (its own saved state doesn't say)
             const libraries = (await db.knownPlugin.findMany({ where: { isActive: true, category: 'library' }, select: { name: true, displayName: true, aliases: true } }))
                 .map((l) => ({ name: l.displayName || l.name, aliases: [l.name, ...(Array.isArray(l.aliases) ? l.aliases as string[] : [])] }));
-            const job = convertQueue.then(() => convertAbletonUpload(inputPath, req.file.originalname, userId, convertOutDir, libraries));
+            // Players someone has already named, by the hash of their saved state
+            const fingerprints = Object.fromEntries((await db.sampleLibraryFingerprint.findMany({ select: { hash: true, library: true } }))
+                .map((f) => [f.hash, f.library]));
+            const job = convertQueue.then(() => convertAbletonUpload(inputPath, req.file.originalname, userId, convertOutDir, libraries, fingerprints));
             convertQueue = job.catch(() => undefined);
             const meta = await job;
             logger.info(`[Convert] ${userId} converted "${meta.projectName}" (${meta.report.stats.tracks} tracks, ${meta.samplesIncluded}/${meta.report.stats.samples} samples)`);
+            const named = meta.report.libraries.filter((l) => l.library && fingerprints[l.fingerprint]).map((l) => l.fingerprint);
+            if (named.length) {
+                db.sampleLibraryFingerprint.updateMany({ where: { hash: { in: named } }, data: { uses: { increment: 1 } } })
+                    .catch(() => undefined);
+            }
             res.json({
                 id: meta.id,
                 projectName: meta.projectName,
@@ -23617,6 +23625,35 @@ app.post('/api/convert/ableton-to-fl', requireAuth, convertLimiter, (req: any, r
             fs.rm(inputPath, { force: true }, () => {});
         }
     });
+});
+
+/**
+ * Names the library a Kontakt-style player loads, keyed by the hash of its saved state, so every
+ * later conversion of that same instrument is named without anyone having to say so again.
+ * The first name wins; renaming one is an admin job.
+ */
+app.post('/api/convert/library-name', requireAuth, convertLimiter, async (req: any, res) => {
+    try {
+        const hash = String(req.body?.fingerprint ?? '').trim().toLowerCase();
+        const plugin = String(req.body?.plugin ?? '').trim().slice(0, 100);
+        const library = String(req.body?.library ?? '').trim().slice(0, 120);
+        if (!/^[0-9a-f]{40}$/.test(hash)) return res.status(400).json({ error: 'That conversion result looks wrong — convert the project again.' });
+        if (library.length < 2) return res.status(400).json({ error: 'Please type the library name.' });
+        const userId = (await resolveSessionUserId(req)) ?? String(req.session.user.id);
+        const existing = await db.sampleLibraryFingerprint.findUnique({ where: { hash } });
+        if (existing) return res.json({ library: existing.library, alreadyNamed: true });
+        // Prefer the registry's spelling when it knows the library
+        const known = (await db.knownPlugin.findMany({ where: { isActive: true, category: 'library' }, select: { name: true, displayName: true, aliases: true } }))
+            .find((k) => [k.name, k.displayName, ...(Array.isArray(k.aliases) ? k.aliases as string[] : [])]
+                .some((n) => n && String(n).trim().toLowerCase() === library.toLowerCase()));
+        const saved = await db.sampleLibraryFingerprint.create({
+            data: { hash, plugin: plugin || 'Kontakt', library: known?.displayName || known?.name || library, namedById: userId },
+        });
+        logger.info(`[Convert] ${userId} named a ${saved.plugin} instrument "${saved.library}"`);
+        res.json({ library: saved.library, alreadyNamed: false });
+    } catch {
+        res.status(500).json({ error: 'Internal server error' });
+    }
 });
 
 app.get('/api/convert/download/:id', requireAuth, async (req: any, res) => {

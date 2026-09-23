@@ -18,6 +18,7 @@
  * become FL's equivalents with matching settings where FL has one (LiveEffects.ts). Ableton's
  * own instruments, and effects without an FL equivalent, are listed in the report instead.
  */
+import crypto from 'node:crypto';
 import { readAls } from './AlsReader.js';
 import { CHANNEL_AUDIO_CLIP, CHANNEL_SAMPLER, MIXER_PAN, MIXER_VOLUME, writeFlp } from './FlpWriter.js';
 import type { FlAutomationPoint, FlAutomationTarget, FlChannel, FlInsert, FlInsertEffects, FlItem, FlPattern, FlTrack } from './FlpWriter.js';
@@ -52,6 +53,8 @@ export interface AlsToFlpOptions {
     sampleFolder?: string;
     /** Known sample libraries, used to name the library a Kontakt-style player is loading. */
     libraries?: LibraryEntry[];
+    /** Players named by someone before: state hash -> library (see stateFingerprint). */
+    fingerprints?: Record<string, string>;
 }
 
 /** A sample library as the plugin registry knows it. */
@@ -65,6 +68,16 @@ export interface LibraryEntry { name: string; aliases?: string[] }
 const LIBRARY_HOSTS = /kontakt|battery|falcon|\bopus\b|\bplay\b|sine player|ezdrummer|superior drummer|\bengine\b|halion sonic/i;
 
 const plain = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+
+/**
+ * Identifies the instrument a player has loaded: the plugin's saved state is byte-identical for
+ * the same instrument in every host, so its hash is the same in everyone's projects. That makes it
+ * a key for naming libraries the project itself can't name.
+ */
+function stateFingerprint(p: ConvPlugin): string {
+    const state = p.format === 'vst3' ? p.processorState : (p.chunk ?? Buffer.alloc(0));
+    return crypto.createHash('sha1').update(p.name).update(state).digest('hex');
+}
 
 /**
  * Why a device can't come across, for the devices where "not converted" on its own would leave the
@@ -175,6 +188,7 @@ export function convertAlsToFlp(als: Buffer, opts: AlsToFlpOptions = {}): AlsToF
     const insertEffects: FlInsertEffects[] = [];
     const pluginsNeeded = new Set<string>();
     const knownLibraries = opts.libraries ?? [];
+    const knownFingerprints = opts.fingerprints ?? {};
     const skippedDevices = new Set<string>();
     const librariesUsed: ConversionReport['libraries'] = [];
     const pluginChannel = new Map<ConvPlugin, number>();                      // instrument → channel
@@ -202,7 +216,10 @@ export function convertAlsToFlp(als: Buffer, opts: AlsToFlpOptions = {}): AlsToF
     const notePlugin = (p: ConvPlugin, where: string, hints: string[] = []) => {
         pluginsNeeded.add(p.name);
         if (LIBRARY_HOSTS.test(p.name)) {
-            librariesUsed.push({ plugin: p.name, track: where, library: libraryGuess([where, p.label, ...hints], knownLibraries) });
+            // A library someone has already named for this exact instrument beats a guess from names
+            const fingerprint = stateFingerprint(p);
+            const library = knownFingerprints[fingerprint] ?? libraryGuess([where, p.label, ...hints], knownLibraries);
+            librariesUsed.push({ plugin: p.name, track: where, library, fingerprint });
         }
         // Effects land on a bypassed slot when they were off; a switched-off instrument has no
         // equivalent in FL, so that one is worth saying out loud
