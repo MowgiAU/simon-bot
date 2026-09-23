@@ -28,3 +28,6 @@ feedbackPoints.json
 
 # Server-side temp files (project zip processing, project converter)
 /uploads/
+
+# Scratch scripts used while working on a feature
+scripts/tmp-*
