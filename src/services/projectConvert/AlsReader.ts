@@ -769,6 +769,12 @@ export function readAls(buffer: Buffer, projectName = 'Converted Project'): Conv
                 name: val(t?.Name?.EffectiveName) || val(t?.Name?.UserName) || `${kind} ${tracks.length + 1}`,
                 kind,
                 color: trackColor,
+                // A track fed by another track's plugin output: "AudioIn/Track.15/DeviceOut.0.S1"
+                // is that track's first device, stereo output 1 (Live shows it as "KT Out 2")
+                pluginOutput: (() => {
+                    const m = /AudioIn\/Track\.(\d+)\/DeviceOut\.(\d+)\.S(\d+)/.exec(val(t?.DeviceChain?.AudioInputRouting?.Target) ?? '');
+                    return m ? { trackId: m[1], device: Number(m[2]), output: Number(m[3]) } : undefined;
+                })(),
                 muted: !bool(tMixer?.Speaker?.Manual, true),
                 volume: num(tMixer?.Volume?.Manual, 1),
                 pan: num(tMixer?.Pan?.Manual, 0),

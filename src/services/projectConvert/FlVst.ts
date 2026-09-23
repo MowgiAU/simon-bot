@@ -26,6 +26,11 @@ interface FlPluginBase {
     vendor?: string;
     path: string;
     kind: 'generator' | 'effect';
+    /**
+     * Where each of the plugin's outputs goes, as a mixer-insert offset from the channel's own
+     * insert (index = output number; 0 = the channel's insert). Omitted = one output, unrouted.
+     */
+    outputRouting?: number[];
 }
 
 export interface FlVst3Plugin extends FlPluginBase {
@@ -120,7 +125,16 @@ export function pluginWrapper(p: FlPlugin): Buffer {
     const effect = p.kind === 'effect';
     const kind = Buffer.alloc(16);
     kind.writeUInt32LE(p.format === 'vst3' ? (effect ? 7 : 8) : (effect ? 0 : 4), 0);
-    const io30 = Buffer.alloc(16); io30.writeUInt32LE(effect ? 1 : 0, 0); io30.writeUInt32LE(1, 4);
+    // Sub 30 declares the plugin's inputs and outputs; sub 32 is one 12-byte record per output:
+    // the mixer insert it feeds, as an offset from the channel's insert (FL's multi-output routing)
+    const routing = p.outputRouting?.length ? p.outputRouting : [0];
+    const io30 = Buffer.alloc(16); io30.writeUInt32LE(effect ? 1 : 0, 0); io30.writeUInt32LE(routing.length, 4);
+    const io32 = Buffer.concat(routing.map((offset) => {
+        const b = Buffer.alloc(12);
+        b.writeInt32LE(offset, 0);
+        b.writeInt32LE(1, 4);
+        return b;
+    }));
 
     const id = p.format === 'vst3'
         ? [sub(52, p.classId)]
@@ -131,7 +145,7 @@ export function pluginWrapper(p: FlPlugin): Buffer {
         sub(2, SUB2),
         sub(30, io30),
         ...(effect ? [sub(31, IO_ONE)] : []),
-        sub(32, IO_ONE),
+        sub(32, io32),
         sub(50, kind),
         ...id,
         sub(54, Buffer.from(p.name, 'utf8')),

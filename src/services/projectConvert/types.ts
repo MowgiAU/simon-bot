@@ -211,6 +211,8 @@ export interface ConvTrack {
     automation: ConvAutomation[];
     /** Automated parameters that can't be carried over (Ableton devices etc.). */
     otherAutomation: number;
+    /** Set when the track takes its audio from another track's plugin output (multi-output plugins). */
+    pluginOutput?: { trackId: string; device: number; output: number };
     clips: ConvClip[];
     /** Volume/pan/send envelopes drawn inside the track's arrangement clips. */
     clipEnvelopes: ConvClipEnvelope[];

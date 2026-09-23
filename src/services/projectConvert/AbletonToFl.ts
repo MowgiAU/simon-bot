@@ -223,6 +223,18 @@ export function convertAlsToFlp(als: Buffer, opts: AlsToFlpOptions = {}): AlsToF
         }
     });
 
+    // Tracks fed by a plugin's extra outputs (Live's "KT Out 2" and friends): that output plays on
+    // their insert, which FL stores on the plugin as an offset from its channel's insert
+    const pluginOutputs = new Map<string, Map<number, number>>();
+    for (const t of project.tracks) {
+        const out = t.pluginOutput, ins = insertOf.get(t);
+        if (!out || ins === undefined) continue;
+        const outs = pluginOutputs.get(out.trackId) ?? new Map<number, number>();
+        outs.set(out.output, ins);
+        pluginOutputs.set(out.trackId, outs);
+    }
+    let outputTracks = 0;
+
     // Inserts after the tracks' own are free for drum pads that carry their own effects
     let nextInsert = insertOf.size + 1;
     let padInserts = 0, rackReturnInserts = 0;
@@ -266,7 +278,16 @@ export function convertAlsToFlp(als: Buffer, opts: AlsToFlpOptions = {}): AlsToF
             const setup = (inst: ConvInstrument | null, name: string): Route => {
                 if (inst?.kind === 'plugin') {
                     const channel = channels.length;
-                    channels.push({ name, color: track.color, type: CHANNEL_SAMPLER, insert, plugin: flPlugin(inst.plugin) });
+                    const fl = flPlugin(inst.plugin);
+                    // Its extra outputs feed the inserts of the tracks that took them in Live
+                    const outs = pluginOutputs.get(track.id);
+                    if (outs?.size) {
+                        const last = Math.max(...outs.keys());
+                        fl.outputRouting = Array.from({ length: last + 1 }, (_, i) => (outs.get(i) ?? insert) - insert);
+                        outputTracks += outs.size;
+                        converted.push(`"${name}": ${outs.size} extra plugin output${outs.size === 1 ? '' : 's'} → the mixer inserts of the tracks that took them in Live.`);
+                    }
+                    channels.push({ name, color: track.color, type: CHANNEL_SAMPLER, insert, plugin: fl });
                     pluginChannel.set(inst.plugin, channel);
                     notePlugin(inst.plugin);
                     converted.push(`"${name}": ${inst.plugin.name} → loaded with its preset.`);
