@@ -31,6 +31,7 @@ import { MediaConverter } from '../services/MediaConverter.js';
 import { ProjectZipProcessor } from '../services/ProjectZipProcessor.js';
 import { convertAbletonUpload, readConversion, sweepConversions } from '../services/projectConvert/ConvertService.js';
 import { R2Storage } from '../services/R2Storage.js';
+import { ProjectSyncService } from '../services/ProjectSyncService.js';
 import { claimUploadKey, presignUpload, UPLOAD_PURPOSES } from './directUpload.js';
 import { runBackup, pgDump } from '../services/DatabaseBackup.js';
 import { softDeleteMiddleware, withHardDelete } from '../services/softDelete.js';
@@ -23829,6 +23830,70 @@ app.post('/api/admin/convert/library-names/:id', requireAdmin, async (req: any, 
         res.json(updated);
     } catch {
         res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+/**
+ * Keeps a conversion: its .flp, samples and report become a project in the user's library, as
+ * version 1, so it can be opened, versioned and shared like any other project instead of
+ * disappearing with the hour-long download.
+ */
+app.post('/api/convert/:id/save-as-project', requireAuth, convertLimiter, async (req: any, res) => {
+    try {
+        const meta = readConversion(convertOutDir, req.params.id);
+        const userId = (await resolveSessionUserId(req)) ?? String(req.session.user.id);
+        if (!meta || meta.userId !== userId) {
+            return res.status(404).json({ error: 'This conversion has expired — please convert the project again.' });
+        }
+
+        const name = String(req.body?.name ?? '').trim().slice(0, 120) || meta.projectName;
+        const slugOf = (n: string) => n.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || `project-${Date.now()}`;
+        let slug = slugOf(name);
+        for (let suffix = 2; await db.project.findFirst({ where: { userId, slug, deletedAt: null } }); suffix++) {
+            slug = `${slugOf(name)}-${suffix}`;
+        }
+
+        // Every file in the bundle becomes a content-addressed blob, as the desktop app's sync does
+        const zip = new AdmZip(path.join(convertOutDir, `${meta.id}.zip`));
+        const files: { path: string; hash: string; size: number }[] = [];
+        for (const entry of zip.getEntries()) {
+            if (entry.isDirectory) continue;
+            const data = entry.getData();
+            const hash = crypto.createHash('sha256').update(data).digest('hex');
+            // Paths inside the project drop the bundle's own folder
+            const filePath = entry.entryName.replace(/\\/g, '/').split('/').slice(1).join('/') || entry.entryName;
+            const known = await db.projectFileBlob.findUnique({ where: { hash } });
+            if (!known) {
+                const mimeType = /\.flp$/i.test(filePath) ? 'application/octet-stream'
+                    : /\.wav$/i.test(filePath) ? 'audio/wav'
+                        : /\.txt$/i.test(filePath) ? 'text/plain' : 'application/octet-stream';
+                await ProjectSyncService.storeBlob(hash, data, mimeType);
+                await db.projectFileBlob.upsert({
+                    where: { hash },
+                    update: { mimeType },
+                    create: { hash, storageKey: `project-blobs/${hash.slice(0, 2)}/${hash.slice(2)}`, fileSize: data.length, mimeType },
+                });
+            }
+            files.push({ path: filePath, hash, size: data.length });
+        }
+
+        const project = await db.project.create({
+            data: { userId, name, slug, description: `Converted from ${meta.report.source} with Fuji Studio.` },
+        });
+        const version = await ProjectSyncService.finalizeVersion(project.id, files, db, 'Converted from Ableton');
+        // The arrangement the site shows for a project comes from the .flp we just wrote
+        try {
+            const arrangement = await ProjectSyncService.parseArrangementFromVersion(version.id, project.id, db);
+            if (arrangement) await db.project.update({ where: { id: project.id }, data: { arrangement: arrangement as any } });
+        } catch (e: any) {
+            logger.warn(`[Convert] arrangement parse failed for project ${project.id}: ${e?.message}`);
+        }
+
+        logger.info(`[Convert] ${userId} kept "${meta.projectName}" as project ${project.slug} (${files.length} files)`);
+        res.json({ id: project.id, name: project.name, slug: project.slug, files: files.length });
+    } catch (e: any) {
+        logger.error('[Convert] failed to save a conversion as a project', e);
+        res.status(500).json({ error: 'That could not be saved to your projects.' });
     }
 });
 

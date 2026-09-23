@@ -13,7 +13,7 @@ import { AltHeader } from '../components/altshell/AltHeader';
 import { useAltBreakpoint } from '../components/altshell/useAltBreakpoint';
 import {
     ArrowRightLeft, ArrowRight, UploadCloud, FileArchive, CheckCircle2, AlertTriangle, FileWarning,
-    Download, RotateCcw, Loader2, LogIn, FolderInput, FileAudio, Puzzle, Boxes,
+    Download, RotateCcw, Loader2, LogIn, FolderInput, FileAudio, Puzzle, Boxes, FolderPlus,
 } from 'lucide-react';
 
 interface ConvertResult {
@@ -69,6 +69,10 @@ const FrontpageAltFConvert: React.FC = () => {
     const [namedByYou, setNamedByYou] = useState<Record<string, { library: string; status: string }>>({});
     const [naming, setNaming] = useState<string | null>(null);
     const [namingError, setNamingError] = useState('');
+    // Keeping a conversion: it becomes a project in the user's library rather than expiring
+    const [saving, setSaving] = useState(false);
+    const [savedProject, setSavedProject] = useState<{ id: string; name: string } | null>(null);
+    const [saveError, setSaveError] = useState('');
     const inputRef = useRef<HTMLInputElement>(null);
 
     // The site's plugin list, used to show what a converted project needs
@@ -144,6 +148,20 @@ const FrontpageAltFConvert: React.FC = () => {
         setPhase({ kind: 'converting', file: file.name });
         const { data } = await axios.post<ConvertResult>('/api/convert/upload/finish', { uploadId: started.uploadId }, { withCredentials: true });
         return data;
+    };
+
+    /** Keeps the conversion as a project, so it outlives the hour the download lasts. */
+    const saveAsProject = async (id: string) => {
+        setSaving(true);
+        setSaveError('');
+        try {
+            const { data } = await axios.post<{ id: string; name: string }>(`/api/convert/${id}/save-as-project`, {}, { withCredentials: true });
+            setSavedProject(data);
+        } catch (e: any) {
+            setSaveError(e?.response?.data?.error || 'That could not be saved to your projects.');
+        } finally {
+            setSaving(false);
+        }
     };
 
     const onPick = (files: FileList | null) => {
@@ -393,10 +411,24 @@ const FrontpageAltFConvert: React.FC = () => {
                         ))}
                     </div>)}
 
-                <button onClick={() => setPhase({ kind: 'idle' })}
-                    style={{ marginTop: 26, display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px', background: S_HIGH, border: `1px solid ${BORDER}`, borderRadius: 10, color: TEXT, fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: FONT }}>
-                    <RotateCcw size={15} /> Convert another project
-                </button>
+                <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginTop: 26 }}>
+                    {savedProject ? (
+                        <Link to={`/projects/${savedProject.id}`}
+                            style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px', background: S_HIGH, border: `1px solid ${SECONDARY}`, borderRadius: 10, color: TEXT, fontSize: 14, fontWeight: 700, textDecoration: 'none' }}>
+                            <CheckCircle2 size={15} color={SECONDARY} /> Saved as “{savedProject.name}” — open it
+                        </Link>
+                    ) : (
+                        <button onClick={() => saveAsProject(r.id)} disabled={saving}
+                            style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px', background: S_HIGH, border: `1px solid ${BORDER}`, borderRadius: 10, color: TEXT, fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: FONT, opacity: saving ? 0.6 : 1 }}>
+                            <FolderPlus size={15} /> {saving ? 'Saving…' : 'Keep in my projects'}
+                        </button>
+                    )}
+                    <button onClick={() => setPhase({ kind: 'idle' })}
+                        style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px', background: S_HIGH, border: `1px solid ${BORDER}`, borderRadius: 10, color: TEXT, fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: FONT }}>
+                        <RotateCcw size={15} /> Convert another project
+                    </button>
+                </div>
+                {saveError && <div style={{ marginTop: 10, fontSize: 13, color: PRIMARY }}>{saveError}</div>}
             </div>
         );
     };
