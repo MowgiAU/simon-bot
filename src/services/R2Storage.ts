@@ -1,4 +1,8 @@
-import { S3Client, PutObjectCommand, DeleteObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3';
+import fs from 'node:fs';
+import { pipeline } from 'node:stream/promises';
+import type { Readable } from 'node:stream';
+import { S3Client, PutObjectCommand, DeleteObjectCommand, HeadObjectCommand, GetObjectCommand, PutBucketCorsCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { Logger } from '../bot/utils/logger.js';
 
 const logger = new Logger('R2Storage');
@@ -91,6 +95,40 @@ export class R2Storage {
         const cdnBase = (process.env.CDN_URL || '').replace(/\/$/, '');
         if (!cdnBase || !url.startsWith(cdnBase + '/')) return null;
         return url.slice(cdnBase.length + 1);
+    }
+
+    /**
+     * A URL the browser can PUT this object to directly, without the file passing through the API
+     * (and so without Cloudflare's 100 MB limit on a proxied request body). The signature covers
+     * the key and content type, so neither can be changed by whoever holds the URL.
+     */
+    static async presignPut(key: string, contentType: string, expiresInSeconds = 900): Promise<string> {
+        const command = new PutObjectCommand({ Bucket: process.env.R2_BUCKET_NAME!, Key: key, ContentType: contentType });
+        return getSignedUrl(getClient(), command, { expiresIn: expiresInSeconds });
+    }
+
+    /** Streams an object down to a local file, for work that needs it on disk. */
+    static async downloadToFile(key: string, destPath: string): Promise<void> {
+        const result = await getClient().send(new GetObjectCommand({ Bucket: process.env.R2_BUCKET_NAME!, Key: key }));
+        if (!result.Body) throw new Error(`R2 object ${key} is empty`);
+        await pipeline(result.Body as Readable, fs.createWriteStream(destPath));
+    }
+
+    /** Allows browsers on these origins to PUT straight to the bucket (run once per bucket). */
+    static async setCorsOrigins(origins: string[]): Promise<void> {
+        await getClient().send(new PutBucketCorsCommand({
+            Bucket: process.env.R2_BUCKET_NAME!,
+            CORSConfiguration: {
+                CORSRules: [{
+                    AllowedOrigins: origins,
+                    AllowedMethods: ['PUT', 'GET', 'HEAD'],
+                    AllowedHeaders: ['content-type'],
+                    ExposeHeaders: ['etag'],
+                    MaxAgeSeconds: 3600,
+                }],
+            },
+        }));
+        logger.info(`R2 CORS set for: ${origins.join(', ')}`);
     }
 
     /**

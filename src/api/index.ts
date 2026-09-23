@@ -31,6 +31,7 @@ import { MediaConverter } from '../services/MediaConverter.js';
 import { ProjectZipProcessor } from '../services/ProjectZipProcessor.js';
 import { convertAbletonUpload, readConversion, sweepConversions } from '../services/projectConvert/ConvertService.js';
 import { R2Storage } from '../services/R2Storage.js';
+import { claimUploadKey, presignUpload, UPLOAD_PURPOSES } from './directUpload.js';
 import { runBackup, pgDump } from '../services/DatabaseBackup.js';
 import { softDeleteMiddleware, withHardDelete } from '../services/softDelete.js';
 import { deleteStoredFile } from '../services/storageCleanup.js';
@@ -23550,6 +23551,31 @@ app.post('/api/bug-reports', requireAuth, bugReportLimiter, bugReportUpload.sing
     }
 });
 
+// ── Direct-to-R2 uploads ──────────────────────────────────────────────────────
+// The browser uploads straight to storage, so files never pass through the API (and never hit
+// Cloudflare's 100 MB limit on a proxied body). See src/api/directUpload.ts.
+const presignLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000,
+    max: 200,
+    standardHeaders: true,
+    legacyHeaders: false,
+    keyGenerator: rlKey,
+    message: { error: 'Too many uploads started. Please try again later.' },
+});
+
+app.post('/api/uploads/presign', requireAuth, presignLimiter, async (req: any, res) => {
+    try {
+        const purpose = String(req.body?.purpose ?? '');
+        if (!UPLOAD_PURPOSES[purpose]) return res.status(400).json({ error: 'Unknown upload type.' });
+        if (!R2Storage.isConfigured()) return res.status(501).json({ error: 'Direct uploads are not available right now.' });
+        const userId = (await resolveSessionUserId(req)) ?? String(req.session.user.id);
+        const signed = await presignUpload(purpose, userId, String(req.body?.name ?? ''), Number(req.body?.size ?? 0), String(req.body?.contentType ?? ''));
+        res.json(signed);
+    } catch (e: any) {
+        res.status(400).json({ error: e?.message || 'That upload could not be started.' });
+    }
+});
+
 // ── Project converter (Ableton Live → FL Studio) ──────────────────────────────
 // Upload a zipped Live project (or a bare .als) → FL Studio bundle kept for an hour.
 // Outputs live outside public/uploads so they're only reachable via the owner-checked
@@ -23564,7 +23590,7 @@ const convertUpload = multer({
         destination: (_req, _file, cb) => cb(null, convertTempDir),
         filename: (_req, file, cb) => cb(null, `in-${Date.now()}-${Math.round(Math.random() * 1e9)}${path.extname(file.originalname).toLowerCase()}`),
     }),
-    limits: { fileSize: 200 * 1024 * 1024, files: 1 },
+    limits: { fileSize: 300 * 1024 * 1024, files: 1 },
     fileFilter: (_req, file, cb) => {
         if (/\.(zip|als)$/i.test(file.originalname)) cb(null, true);
         else cb(new Error('Upload a .zip of your Ableton project folder, or an .als file.'));
@@ -23583,41 +23609,147 @@ const convertLimiter = rateLimit({
 // Conversions are CPU-bound and synchronous — run one at a time so a burst can't stall the API
 let convertQueue: Promise<unknown> = Promise.resolve();
 
+/** Converts an uploaded project file and returns what the results page needs. */
+async function runConversion(inputPath: string, originalName: string, userId: string) {
+    // Sample libraries from the plugin registry, so the report can name the one a Kontakt
+    // instance is loading (its own saved state doesn't say)
+    const libraries = (await db.knownPlugin.findMany({ where: { isActive: true, category: 'library' }, select: { name: true, displayName: true, aliases: true } }))
+        .map((l) => ({ name: l.displayName || l.name, aliases: [l.name, ...(Array.isArray(l.aliases) ? l.aliases as string[] : [])] }));
+    // Players someone has already named, by the hash of their saved state
+    const fingerprints = Object.fromEntries((await db.sampleLibraryFingerprint.findMany({ where: { status: 'approved' }, select: { hash: true, library: true } }))
+        .map((f) => [f.hash, f.library]));
+
+    const job = convertQueue.then(() => convertAbletonUpload(inputPath, originalName, userId, convertOutDir, libraries, fingerprints));
+    convertQueue = job.catch(() => undefined);
+    const meta = await job;
+    logger.info(`[Convert] ${userId} converted "${meta.projectName}" (${meta.report.stats.tracks} tracks, ${meta.samplesIncluded}/${meta.report.stats.samples} samples)`);
+
+    const named = meta.report.libraries.filter((l) => l.library && fingerprints[l.fingerprint]).map((l) => l.fingerprint);
+    if (named.length) {
+        db.sampleLibraryFingerprint.updateMany({ where: { hash: { in: named } }, data: { uses: { increment: 1 } } }).catch(() => undefined);
+    }
+    return {
+        id: meta.id,
+        projectName: meta.projectName,
+        downloadName: meta.downloadName,
+        report: meta.report,
+        samplesIncluded: meta.samplesIncluded,
+        missingSamples: meta.missingSamples,
+    };
+}
+
+// ── Chunked upload ────────────────────────────────────────────────────────────
+// Cloudflare caps a proxied request body at 100 MB, so bigger projects arrive in pieces
+// that are appended to one file and converted when the last piece lands.
+const MAX_PROJECT_BYTES = 300 * 1024 * 1024;
+const CHUNK_MAX_BYTES = 48 * 1024 * 1024;
+const PARTIAL_TTL_MS = 30 * 60 * 1000;
+
+interface PartialUpload { userId: string; name: string; size: number; received: number; file: string; at: number }
+const partialUploads = new Map<string, PartialUpload>();
+
+const chunkUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: CHUNK_MAX_BYTES, files: 1 } });
+const chunkLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000,
+    max: 400,
+    standardHeaders: true,
+    legacyHeaders: false,
+    keyGenerator: rlKey,
+    message: { error: 'Too many upload requests. Please try again later.' },
+});
+
+/** Drops partial uploads nobody finished. */
+function sweepPartialUploads() {
+    for (const [id, up] of partialUploads) {
+        if (Date.now() - up.at < PARTIAL_TTL_MS) continue;
+        partialUploads.delete(id);
+        fs.rm(up.file, { force: true }, () => {});
+    }
+}
+setInterval(sweepPartialUploads, 10 * 60 * 1000).unref();
+
+app.post('/api/convert/from-upload', requireAuth, convertLimiter, async (req: any, res) => {
+    const key = String(req.body?.key ?? '');
+    const name = String(req.body?.name ?? '');
+    const userId = (await resolveSessionUserId(req)) ?? String(req.session.user.id);
+    const local = path.join(convertTempDir, `in-${crypto.randomUUID()}${path.extname(name).toLowerCase() || '.zip'}`);
+    try {
+        await claimUploadKey(key, 'convert', userId);
+        await R2Storage.downloadToFile(key, local);
+        res.json(await runConversion(local, name || path.basename(key), userId));
+    } catch (e: any) {
+        logger.warn(`[Convert] failed for ${name || key}: ${e?.message}`);
+        res.status(422).json({ error: e?.message || 'Conversion failed.' });
+    } finally {
+        fs.rm(local, { force: true }, () => {});
+        R2Storage.deleteObject(key).catch(() => undefined);   // the upload was only a handover
+    }
+});
+
+app.post('/api/convert/upload/start', requireAuth, convertLimiter, async (req: any, res) => {
+    const name = String(req.body?.name ?? '');
+    const size = Number(req.body?.size ?? 0);
+    if (!/\.(zip|als)$/i.test(name)) return res.status(400).json({ error: 'Upload a .zip of your Ableton project folder, or an .als file.' });
+    if (!Number.isFinite(size) || size <= 0 || size > MAX_PROJECT_BYTES) {
+        return res.status(400).json({ error: `That file is over the ${Math.round(MAX_PROJECT_BYTES / (1024 * 1024))} MB limit.` });
+    }
+    const userId = (await resolveSessionUserId(req)) ?? String(req.session.user.id);
+    sweepPartialUploads();
+    const uploadId = crypto.randomUUID();
+    const file = path.join(convertTempDir, `part-${uploadId}${path.extname(name).toLowerCase()}`);
+    fs.writeFileSync(file, Buffer.alloc(0));
+    partialUploads.set(uploadId, { userId, name, size, received: 0, file, at: Date.now() });
+    res.json({ uploadId, chunkSize: 40 * 1024 * 1024 });
+});
+
+app.post('/api/convert/upload/chunk', requireAuth, chunkLimiter, (req: any, res) => {
+    chunkUpload.single('chunk')(req, res, async (err: any) => {
+        if (err) return res.status(400).json({ error: err?.code === 'LIMIT_FILE_SIZE' ? 'That piece of the upload is too big.' : 'Upload failed.' });
+        const up = partialUploads.get(String(req.body?.uploadId ?? ''));
+        const userId = (await resolveSessionUserId(req)) ?? String(req.session.user.id);
+        if (!up || up.userId !== userId) return res.status(404).json({ error: 'That upload expired — please start it again.' });
+        if (!req.file?.buffer) return res.status(400).json({ error: 'No chunk uploaded.' });
+        if (up.received + req.file.buffer.length > up.size) {
+            partialUploads.delete(String(req.body.uploadId));
+            fs.rm(up.file, { force: true }, () => {});
+            return res.status(400).json({ error: 'That upload didn’t add up — please try again.' });
+        }
+        fs.appendFileSync(up.file, req.file.buffer);
+        up.received += req.file.buffer.length;
+        up.at = Date.now();
+        res.json({ received: up.received, size: up.size });
+    });
+});
+
+app.post('/api/convert/upload/finish', requireAuth, convertLimiter, async (req: any, res) => {
+    const uploadId = String(req.body?.uploadId ?? '');
+    const up = partialUploads.get(uploadId);
+    const userId = (await resolveSessionUserId(req)) ?? String(req.session.user.id);
+    if (!up || up.userId !== userId) return res.status(404).json({ error: 'That upload expired — please start it again.' });
+    partialUploads.delete(uploadId);
+    try {
+        if (up.received !== up.size) throw new Error('The upload didn’t finish — please try again.');
+        res.json(await runConversion(up.file, up.name, userId));
+    } catch (e: any) {
+        logger.warn(`[Convert] failed for ${up.name}: ${e?.message}`);
+        res.status(422).json({ error: e?.message || 'Conversion failed.' });
+    } finally {
+        fs.rm(up.file, { force: true }, () => {});
+    }
+});
+
 app.post('/api/convert/ableton-to-fl', requireAuth, convertLimiter, (req: any, res) => {
     convertUpload.single('project')(req, res, async (err: any) => {
         if (err) {
             const tooBig = err?.code === 'LIMIT_FILE_SIZE';
-            res.status(400).json({ error: tooBig ? 'That file is over the 200 MB limit.' : err.message || 'Upload failed.' });
+            res.status(400).json({ error: tooBig ? `That file is over the ${Math.round(MAX_PROJECT_BYTES / (1024 * 1024))} MB limit.` : err.message || 'Upload failed.' });
             return;
         }
         if (!req.file) { res.status(400).json({ error: 'No file uploaded.' }); return; }
         const inputPath = req.file.path;
         try {
             const userId = (await resolveSessionUserId(req)) ?? String(req.session.user.id);
-            // Sample libraries from the plugin registry, so the report can name the one a Kontakt
-            // instance is loading (its own saved state doesn't say)
-            const libraries = (await db.knownPlugin.findMany({ where: { isActive: true, category: 'library' }, select: { name: true, displayName: true, aliases: true } }))
-                .map((l) => ({ name: l.displayName || l.name, aliases: [l.name, ...(Array.isArray(l.aliases) ? l.aliases as string[] : [])] }));
-            // Players someone has already named, by the hash of their saved state
-            const fingerprints = Object.fromEntries((await db.sampleLibraryFingerprint.findMany({ where: { status: 'approved' }, select: { hash: true, library: true } }))
-                .map((f) => [f.hash, f.library]));
-            const job = convertQueue.then(() => convertAbletonUpload(inputPath, req.file.originalname, userId, convertOutDir, libraries, fingerprints));
-            convertQueue = job.catch(() => undefined);
-            const meta = await job;
-            logger.info(`[Convert] ${userId} converted "${meta.projectName}" (${meta.report.stats.tracks} tracks, ${meta.samplesIncluded}/${meta.report.stats.samples} samples)`);
-            const named = meta.report.libraries.filter((l) => l.library && fingerprints[l.fingerprint]).map((l) => l.fingerprint);
-            if (named.length) {
-                db.sampleLibraryFingerprint.updateMany({ where: { hash: { in: named } }, data: { uses: { increment: 1 } } })
-                    .catch(() => undefined);
-            }
-            res.json({
-                id: meta.id,
-                projectName: meta.projectName,
-                downloadName: meta.downloadName,
-                report: meta.report,
-                samplesIncluded: meta.samplesIncluded,
-                missingSamples: meta.missingSamples,
-            });
+            res.json(await runConversion(inputPath, req.file.originalname, userId));
         } catch (e: any) {
             logger.warn(`[Convert] failed for ${req.file.originalname}: ${e?.message}`);
             res.status(422).json({ error: e?.message || 'Conversion failed.' });

@@ -7,6 +7,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../components/AuthProvider';
+import { DirectUploadUnavailable, uploadFile } from '../lib/uploadFile';
 import { AltSidebar, BG, S_CONT, S_HIGH, PRIMARY, SECONDARY, TERTIARY, TEXT, SUB, BORDER, FONT, CONTENT_MAX } from '../components/altshell/AltSidebar';
 import { AltHeader } from '../components/altshell/AltHeader';
 import { useAltBreakpoint } from '../components/altshell/useAltBreakpoint';
@@ -52,7 +53,7 @@ interface KnownPlugin {
     description: string | null;
 }
 
-const MAX_MB = 200;
+const MAX_MB = 600;
 const WARNINGS_COLLAPSED = 6;
 
 const FrontpageAltFConvert: React.FC = () => {
@@ -109,19 +110,28 @@ const FrontpageAltFConvert: React.FC = () => {
         }
         setShowAllWarnings(false);
         setPhase({ kind: 'uploading', pct: 0, file: file.name });
-        const form = new FormData();
-        form.append('project', file);
         try {
-            const { data } = await axios.post<ConvertResult>('/api/convert/ableton-to-fl', form, {
-                withCredentials: true,
-                onUploadProgress: (e) => {
-                    const pct = e.total ? Math.round((e.loaded / e.total) * 100) : 0;
-                    setPhase(pct >= 100 ? { kind: 'converting', file: file.name } : { kind: 'uploading', pct, file: file.name });
-                },
-            });
-            setPhase({ kind: 'done', result: data });
+            let result: ConvertResult;
+            try {
+                // Straight to storage, so the project isn't capped at what a proxied request allows
+                const up = await uploadFile(file, 'convert', (pct) => setPhase({ kind: 'uploading', pct, file: file.name }));
+                setPhase({ kind: 'converting', file: file.name });
+                result = (await axios.post<ConvertResult>('/api/convert/from-upload', { key: up.key, name: up.name }, { withCredentials: true })).data;
+            } catch (e) {
+                if (!(e instanceof DirectUploadUnavailable)) throw e;
+                const form = new FormData();
+                form.append('project', file);
+                result = (await axios.post<ConvertResult>('/api/convert/ableton-to-fl', form, {
+                    withCredentials: true,
+                    onUploadProgress: (ev) => {
+                        const pct = ev.total ? Math.round((ev.loaded / ev.total) * 100) : 0;
+                        setPhase(pct >= 100 ? { kind: 'converting', file: file.name } : { kind: 'uploading', pct, file: file.name });
+                    },
+                })).data;
+            }
+            setPhase({ kind: 'done', result });
         } catch (e: any) {
-            setPhase({ kind: 'error', message: e?.response?.data?.error || 'Conversion failed. Please try again.' });
+            setPhase({ kind: 'error', message: e?.response?.data?.error || e?.message || 'Conversion failed. Please try again.' });
         }
     };
 
