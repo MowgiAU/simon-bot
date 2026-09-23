@@ -65,7 +65,7 @@ const FrontpageAltFConvert: React.FC = () => {
     const [registry, setRegistry] = useState<KnownPlugin[]>([]);
     // Libraries the user names for players we couldn't identify: fingerprint -> what they typed / saved
     const [libraryDraft, setLibraryDraft] = useState<Record<string, string>>({});
-    const [namedByYou, setNamedByYou] = useState<Record<string, string>>({});
+    const [namedByYou, setNamedByYou] = useState<Record<string, { library: string; status: string }>>({});
     const [naming, setNaming] = useState<string | null>(null);
     const [namingError, setNamingError] = useState('');
     const inputRef = useRef<HTMLInputElement>(null);
@@ -89,8 +89,8 @@ const FrontpageAltFConvert: React.FC = () => {
         setNaming(fingerprint);
         setNamingError('');
         try {
-            const { data } = await axios.post<{ library: string }>('/api/convert/library-name', { fingerprint, plugin, library }, { withCredentials: true });
-            setNamedByYou((n) => ({ ...n, [fingerprint]: data.library }));
+            const { data } = await axios.post<{ library: string; status: string }>('/api/convert/library-name', { fingerprint, plugin, library }, { withCredentials: true });
+            setNamedByYou((n) => ({ ...n, [fingerprint]: data }));
         } catch (e: any) {
             setNamingError(e?.response?.data?.error || 'That didn’t save — please try again.');
         } finally {
@@ -299,7 +299,7 @@ const FrontpageAltFConvert: React.FC = () => {
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: namedLibraries.length ? 12 : 0 }}>
                                 <p style={{ margin: 0, color: SUB, fontSize: 13 }}>
                                     These keep the library name inside their own saved data, so we can't read it — but if you know it,
-                                    tell us once and every conversion of that same instrument gets named from then on.
+                                    tell us: we check it first, and once it's confirmed every conversion of that same instrument is named for everyone.
                                 </p>
                                 {unknownLibraries.map((l) => {
                                     const saved = namedByYou[l.fingerprint];
@@ -310,7 +310,11 @@ const FrontpageAltFConvert: React.FC = () => {
                                                 <span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>{l.plugin} on “{l.track}”</span>
                                             </div>
                                             {saved ? (
-                                                <div style={{ marginTop: 8, fontSize: 13, color: SECONDARY, fontWeight: 700 }}>Saved as {saved} — thank you</div>
+                                                <div style={{ marginTop: 8, fontSize: 13, color: SECONDARY, fontWeight: 700 }}>
+                                                    {saved.status === 'approved'
+                                                        ? `Already confirmed as ${saved.library} — your next conversion will say so`
+                                                        : `Thanks — “${saved.library}” is with us to confirm before it names anyone else’s project`}
+                                                </div>
                                             ) : (
                                                 <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
                                                     <input

@@ -4389,17 +4389,22 @@ model RedditLinkCode {
 ///
 /// Kontakt and friends keep the library reference inside their own compressed state, so a project
 /// can't say which library an instance needs. The state is byte-identical for the same instrument
-/// in every host, though, so its hash identifies it: once someone names one after converting, every
-/// later conversion of that same instrument is named automatically.
+/// in every host, though, so its hash identifies it. People name them from the conversion result;
+/// a name only starts naming other people's projects once an admin approves it.
 model SampleLibraryFingerprint {
-  id        String   @id @default(cuid())
-  hash      String   @unique // sha1 of the plugin's saved state
-  plugin    String // the player, e.g. "Kontakt 8"
-  library   String // what it loads, e.g. "Shreddage 3"
-  namedById String? // the user who named it
-  uses      Int      @default(0) // conversions this has named
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           String    @id @default(cuid())
+  hash         String // sha1 of the plugin's saved state
+  plugin       String // the player, e.g. "Kontakt 8"
+  library      String // what it loads, e.g. "Shreddage 3"
+  status       String    @default("pending") // pending | approved | rejected — only approved ones name anything
+  namedById    String? // the user who suggested it
+  reviewedById String? // the admin who approved or rejected it
+  reviewedAt   DateTime?
+  uses         Int       @default(0) // conversions this has named
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
+  @@unique([hash, library])
+  @@index([status])
   @@map("sample_library_fingerprints")
 }

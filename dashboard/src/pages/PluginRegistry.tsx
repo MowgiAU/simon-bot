@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { colors, spacing, borderRadius } from '../theme/theme';
-import { Puzzle, Plus, Edit3, Trash2, Upload, X, ExternalLink, Save, Search } from 'lucide-react';
+import { Puzzle, Plus, Edit3, Trash2, Upload, X, ExternalLink, Save, Search, Boxes, Check } from 'lucide-react';
 
 interface KnownPlugin {
     id: string;
@@ -16,7 +16,19 @@ interface KnownPlugin {
     isActive: boolean;
 }
 
+/** A library name someone suggested from a conversion, waiting to be confirmed. */
+interface LibraryName {
+    id: string;
+    hash: string;
+    plugin: string;
+    library: string;
+    uses: number;
+    createdAt: string;
+    suggestedBy: string | null;
+}
+
 const CATEGORIES = [
+    'library',
     'synth',
     'instrument',
     'sampler',
@@ -50,6 +62,9 @@ export const PluginRegistry: React.FC = () => {
     const [msg, setMsg] = useState('');
     const [imageFile, setImageFile] = useState<File | null>(null);
     const [imagePreview, setImagePreview] = useState('');
+    // Library names suggested by people converting projects, for confirmation before they're used
+    const [suggested, setSuggested] = useState<LibraryName[]>([]);
+    const [reviewing, setReviewing] = useState<string | null>(null);
 
     const fetch = useCallback(async () => {
         setLoading(true);
@@ -59,7 +74,25 @@ export const PluginRegistry: React.FC = () => {
         } finally { setLoading(false); }
     }, []);
 
-    useEffect(() => { fetch(); }, [fetch]);
+    const fetchSuggested = useCallback(async () => {
+        try {
+            const r = await axios.get('/api/admin/convert/library-names?status=pending', { withCredentials: true });
+            setSuggested(r.data);
+        } catch { setSuggested([]); }
+    }, []);
+
+    useEffect(() => { fetch(); fetchSuggested(); }, [fetch, fetchSuggested]);
+
+    const review = async (row: LibraryName, action: 'approve' | 'reject') => {
+        setReviewing(row.id);
+        try {
+            await axios.post(`/api/admin/convert/library-names/${row.id}`, { action, library: row.library }, { withCredentials: true });
+            setSuggested((rows) => rows.filter((r) => r.id !== row.id));
+            setMsg(action === 'approve' ? `Confirmed "${row.library}" — conversions will name it from now on` : 'Suggestion discarded');
+        } catch {
+            setMsg('That didn’t go through — please try again');
+        } finally { setReviewing(null); }
+    };
 
     const openNew = () => {
         setEditing(null);
@@ -148,6 +181,45 @@ export const PluginRegistry: React.FC = () => {
                     Add plugin names exactly as they appear in FL Studio project files. When a user uploads a project, the viewer automatically matches plugin names and shows the image and link you set here. Use <strong>Aliases</strong> to catch alternate spellings (e.g. "Xfer Serum" and "SerumFX" both mapping to Serum).
                 </p>
             </div>
+
+            {/* Library names people suggested from their conversions */}
+            {suggested.length > 0 && (
+                <div style={{ backgroundColor: colors.surface, borderRadius: borderRadius.md, padding: spacing.md, marginBottom: spacing.lg, border: `1px solid ${colors.primary}44` }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                        <Boxes size={18} color={colors.primary} />
+                        <h2 style={{ margin: 0, fontSize: '1rem' }}>Sample libraries to confirm ({suggested.length})</h2>
+                    </div>
+                    <p style={{ margin: '0 0 12px', color: colors.textSecondary, fontSize: '12px', lineHeight: 1.6 }}>
+                        People converting projects told us which library a Kontakt-style instrument loads — the project itself can't say.
+                        Confirm one and every conversion of that same instrument is named for everyone; discard it and nothing changes.
+                        Edit the name first if the spelling is off.
+                    </p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        {suggested.map((row) => (
+                            <div key={row.id} style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: borderRadius.sm, padding: '10px 12px' }}>
+                                <div style={{ flex: '1 1 260px', minWidth: 0 }}>
+                                    <input
+                                        value={row.library}
+                                        onChange={(e) => setSuggested((rows) => rows.map((r) => (r.id === row.id ? { ...r, library: e.target.value } : r)))}
+                                        style={inputStyle}
+                                    />
+                                    <div style={{ fontSize: '11px', color: colors.textTertiary, marginTop: '4px' }}>
+                                        {row.plugin} · suggested by {row.suggestedBy || 'a member'} · state {row.hash.slice(0, 10)}…
+                                    </div>
+                                </div>
+                                <button onClick={() => review(row, 'approve')} disabled={reviewing === row.id}
+                                    style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', backgroundColor: colors.primary, color: '#fff', border: 'none', borderRadius: borderRadius.sm, cursor: 'pointer', fontWeight: 700, fontSize: '12px' }}>
+                                    <Check size={13} /> Confirm
+                                </button>
+                                <button onClick={() => review(row, 'reject')} disabled={reviewing === row.id}
+                                    style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', backgroundColor: 'transparent', color: colors.textSecondary, border: '1px solid rgba(255,255,255,0.15)', borderRadius: borderRadius.sm, cursor: 'pointer', fontWeight: 700, fontSize: '12px' }}>
+                                    <X size={13} /> Discard
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             {/* Toolbar */}
             <div style={{ display: 'flex', gap: '12px', marginBottom: '20px', alignItems: 'center' }}>

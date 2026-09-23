@@ -23599,7 +23599,7 @@ app.post('/api/convert/ableton-to-fl', requireAuth, convertLimiter, (req: any, r
             const libraries = (await db.knownPlugin.findMany({ where: { isActive: true, category: 'library' }, select: { name: true, displayName: true, aliases: true } }))
                 .map((l) => ({ name: l.displayName || l.name, aliases: [l.name, ...(Array.isArray(l.aliases) ? l.aliases as string[] : [])] }));
             // Players someone has already named, by the hash of their saved state
-            const fingerprints = Object.fromEntries((await db.sampleLibraryFingerprint.findMany({ select: { hash: true, library: true } }))
+            const fingerprints = Object.fromEntries((await db.sampleLibraryFingerprint.findMany({ where: { status: 'approved' }, select: { hash: true, library: true } }))
                 .map((f) => [f.hash, f.library]));
             const job = convertQueue.then(() => convertAbletonUpload(inputPath, req.file.originalname, userId, convertOutDir, libraries, fingerprints));
             convertQueue = job.catch(() => undefined);
@@ -23640,17 +23640,61 @@ app.post('/api/convert/library-name', requireAuth, convertLimiter, async (req: a
         if (!/^[0-9a-f]{40}$/.test(hash)) return res.status(400).json({ error: 'That conversion result looks wrong — convert the project again.' });
         if (library.length < 2) return res.status(400).json({ error: 'Please type the library name.' });
         const userId = (await resolveSessionUserId(req)) ?? String(req.session.user.id);
-        const existing = await db.sampleLibraryFingerprint.findUnique({ where: { hash } });
-        if (existing) return res.json({ library: existing.library, alreadyNamed: true });
-        // Prefer the registry's spelling when it knows the library
+
+        // An approved name for this instrument already settles it
+        const approved = await db.sampleLibraryFingerprint.findFirst({ where: { hash, status: 'approved' } });
+        if (approved) return res.json({ status: 'approved', library: approved.library });
+
+        // Prefer the registry's spelling when it knows the library, so names don't fragment
         const known = (await db.knownPlugin.findMany({ where: { isActive: true, category: 'library' }, select: { name: true, displayName: true, aliases: true } }))
             .find((k) => [k.name, k.displayName, ...(Array.isArray(k.aliases) ? k.aliases as string[] : [])]
                 .some((n) => n && String(n).trim().toLowerCase() === library.toLowerCase()));
-        const saved = await db.sampleLibraryFingerprint.create({
-            data: { hash, plugin: plugin || 'Kontakt', library: known?.displayName || known?.name || library, namedById: userId },
+        const name = known?.displayName || known?.name || library;
+
+        const existing = await db.sampleLibraryFingerprint.findUnique({ where: { hash_library: { hash, library: name } } });
+        if (existing) return res.json({ status: existing.status === 'rejected' ? 'pending' : existing.status, library: existing.library });
+
+        const saved = await db.sampleLibraryFingerprint.create({ data: { hash, plugin: plugin || 'Kontakt', library: name, namedById: userId } });
+        logger.info(`[Convert] ${userId} suggested "${saved.library}" for a ${saved.plugin} instrument (awaiting review)`);
+        res.json({ status: 'pending', library: saved.library });
+    } catch {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+/** Library names people have suggested from their conversions, for an admin to confirm. */
+app.get('/api/admin/convert/library-names', requireAdmin, async (req: any, res) => {
+    try {
+        const status = ['pending', 'approved', 'rejected'].includes(String(req.query.status)) ? String(req.query.status) : 'pending';
+        const rows = await db.sampleLibraryFingerprint.findMany({ where: { status }, orderBy: { createdAt: 'desc' }, take: 200 });
+        const users = await db.user.findMany({ where: { id: { in: rows.map((r) => r.namedById).filter(Boolean) as string[] } }, select: { id: true, username: true } });
+        const byId = new Map(users.map((u) => [u.id, u.username]));
+        res.json(rows.map((r) => ({ ...r, suggestedBy: r.namedById ? byId.get(r.namedById) ?? null : null })));
+    } catch {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+/** Confirms or rejects a suggested library name; approving it also retires the rival suggestions. */
+app.post('/api/admin/convert/library-names/:id', requireAdmin, async (req: any, res) => {
+    try {
+        const action = String(req.body?.action ?? '');
+        if (!['approve', 'reject'].includes(action)) return res.status(400).json({ error: 'Unknown action' });
+        const row = await db.sampleLibraryFingerprint.findUnique({ where: { id: req.params.id } });
+        if (!row) return res.status(404).json({ error: 'Not found' });
+        const reviewer = (await resolveSessionUserId(req)) ?? String(req.session.user.id);
+        const library = req.body?.library ? String(req.body.library).trim().slice(0, 120) : row.library;
+        const updated = await db.sampleLibraryFingerprint.update({
+            where: { id: row.id },
+            data: { status: action === 'approve' ? 'approved' : 'rejected', library, reviewedById: reviewer, reviewedAt: new Date() },
         });
-        logger.info(`[Convert] ${userId} named a ${saved.plugin} instrument "${saved.library}"`);
-        res.json({ library: saved.library, alreadyNamed: false });
+        if (action === 'approve') {
+            await db.sampleLibraryFingerprint.updateMany({
+                where: { hash: row.hash, id: { not: row.id }, status: 'pending' },
+                data: { status: 'rejected', reviewedById: reviewer, reviewedAt: new Date() },
+            });
+        }
+        res.json(updated);
     } catch {
         res.status(500).json({ error: 'Internal server error' });
     }
