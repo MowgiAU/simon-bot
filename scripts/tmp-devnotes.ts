@@ -1,0 +1,11 @@
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import AdmZip from 'adm-zip';
+import { convertAbletonUpload } from '../src/services/projectConvert/ConvertService.js';
+const out = fs.mkdtempSync(path.join(os.tmpdir(), 'conv-'));
+const meta = convertAbletonUpload(process.argv[2], path.basename(process.argv[2]), 'test-user', out, []);
+const zip = new AdmZip(path.join(out, `${meta.id}.zip`));
+const report = zip.getEntries().find((e) => e.entryName.endsWith('Conversion report.txt'))!.getData().toString('utf8');
+const at = report.indexOf('Why some devices');
+console.log(at < 0 ? '(no device notes)' : report.slice(at));

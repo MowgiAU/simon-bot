@@ -1,0 +1,28 @@
+{
+  "stats": {
+    "tracks": 4,
+    "midiClips": 1,
+    "audioClips": 0,
+    "notes": 400,
+    "samples": 0
+  },
+  "flpBytes": 725536,
+  "flpHash": "22fde4e8f432b4e439b1182ef4483c29b6186c2a",
+  "converted": [
+    "\"A-Reverb\": Reverb (as Fruity Reeverb 2) → mixer insert 5, with their settings.",
+    "\"B-Delay\": Delay (as Fruity Delay 3) → mixer insert 6, with their settings.",
+    "Mixer: 0 groups and 2 returns routed as in Live.",
+    "\"1-Kontakt 8\": 3 extra plugin outputs → the mixer inserts of the tracks that took them in Live.",
+    "\"1-Kontakt 8\": Kontakt 8 → loaded with its preset.",
+    "2 time-signature changes → playlist markers."
+  ],
+  "warnings": [
+    "Install these plugins for FL Studio before opening the project: Kontakt 8. Any that are missing will show FL's \"plugin not found\" message."
+  ],
+  "plugins": [
+    "Kontakt 8"
+  ],
+  "libraries": [
+    "Kontakt 8 on \"1-Kontakt 8\" → unknown"
+  ]
+}

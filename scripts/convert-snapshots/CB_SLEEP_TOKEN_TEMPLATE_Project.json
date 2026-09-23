@@ -1,0 +1,29 @@
+{
+  "stats": {
+    "tracks": 9,
+    "midiClips": 1,
+    "audioClips": 0,
+    "notes": 142,
+    "samples": 0
+  },
+  "flpBytes": 2879451,
+  "flpHash": "eeefc86feee06804e0818bd3a8a5c0380d06312e",
+  "converted": [
+    "\"A-Reverb\": Reverb (as Fruity Reeverb 2) → mixer insert 11, with their settings.",
+    "\"B-Delay\": Delay (as Fruity Delay 3) → mixer insert 12, with their settings.",
+    "Mixer: 1 group and 2 returns routed as in Live.",
+    "\"KICK (MIDI)\": 8 extra plugin outputs → the mixer inserts of the tracks that took them in Live.",
+    "\"KICK (MIDI)\": Kontakt 8 → loaded with its preset.",
+    "\"KICK (MIDI)\": MIDI devices baked into the notes — routed through 56 key zones, as they played in Live.",
+    "MIDI devices: 1 track had its notes shaped the way Live's MIDI devices shaped them (FL has no equivalents to load)."
+  ],
+  "warnings": [
+    "Install these plugins for FL Studio before opening the project: Kontakt 8. Any that are missing will show FL's \"plugin not found\" message."
+  ],
+  "plugins": [
+    "Kontakt 8"
+  ],
+  "libraries": [
+    "Kontakt 8 on \"KICK (MIDI)\" → unknown"
+  ]
+}

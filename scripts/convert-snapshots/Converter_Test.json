@@ -1,0 +1,49 @@
+{
+  "stats": {
+    "tracks": 15,
+    "midiClips": 8,
+    "audioClips": 5,
+    "notes": 568,
+    "samples": 45
+  },
+  "flpBytes": 2336574,
+  "flpHash": "ef9ea585740f3fa5ae838ef29bcf25f1e631fad6",
+  "converted": [
+    "\"VST2 Synth\": OTT_x64 (bypassed) → mixer insert 1, with their settings.",
+    "\"Rack VST3\": ValhallaSupermassive → mixer insert 2, with their settings.",
+    "\"Layered\": Compressor (as Fruity Compressor) → mixer insert 3, with their settings.",
+    "\"A-ValhallaSupermassive\": ValhallaSupermassive → mixer insert 14, with their settings.",
+    "\"B-Delay\": Delay (as Fruity Delay 3) → mixer insert 15, with their settings.",
+    "Mixer: 1 group and 2 returns routed as in Live, with 3 sends.",
+    "\"VST2 Synth\": BA-1 → loaded with its preset.",
+    "\"Rack VST3\": Vital → loaded with its preset.",
+    "\"Layered\": Vital → loaded with its preset.",
+    "\"Drums › a Drum Effects\": EQ Eight (as Fruity Parametric EQ 2), Glue Compressor (as Fruity Compressor) → mixer insert 16, with their settings.",
+    "\"Drums\": \"Hihat Closed Memphis\" played only part of its sample in Live — the sample is included trimmed to that part.",
+    "\"Drums\": Boom Bap Kit → 15 Sampler channels, one per pad.",
+    "\"Simpler Keys\": Simpler → Sampler with \"RVLTYX_ArpShot_Overclocked_C.wav\".",
+    "\"Simpler Slice\": sliced Simpler → Fruity Slicer with the same 57 slices.",
+    "\"Multisample\": Sandblaster Lead → 24 Sampler channels, one per sample zone.",
+    "Drum Rack return chains: 1 → their own mixer inserts, fed by the pads that send to them.",
+    "Automation: 3 lanes → FL automation clips.",
+    "2 time-signature changes → playlist markers."
+  ],
+  "warnings": [
+    "Install these plugins for FL Studio before opening the project: OTT_x64, ValhallaSupermassive, BA-1, Vital. Any that are missing will show FL's \"plugin not found\" message.",
+    "\"Layered\": Compressor — it was keyed from another track (sidechain), which Fruity Compressor can't do — set that up in FL (e.g. Fruity Limiter's sidechain).",
+    "\"Layered\": devices not converted — Drift (in Instrument Rack).",
+    "Return \"B-Delay\" was pre-fader in Live — FL sends are post-fader, so its level now follows each track's fader.",
+    "\"Drums › a Drum Effects\": devices not converted — Redux (in Drum Effects), Drum Buss (in Drum Effects).",
+    "\"Drums › a Drum Effects\": no pad sends to this return in Live either — route a pad's insert to insert 16 in FL to use it.",
+    "\"Drums\": pad \"DS Kick\" used Max for Live instrument, which can't come across — it has an empty channel with its notes; load a sound there in FL.",
+    "\"Simpler Keys\": notes were shifted +2 semitones so \"RVLTYX_ArpShot_Overclocked_C\" plays at the same pitch as in Live.",
+    "\"Rack VST3\": 1 envelope drawn inside clips on device settings or pitch bend was not converted."
+  ],
+  "plugins": [
+    "BA-1",
+    "OTT_x64",
+    "ValhallaSupermassive",
+    "Vital"
+  ],
+  "libraries": []
+}

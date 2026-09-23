@@ -15,7 +15,8 @@
     "db:studio": "prisma studio",
     "migrate": "prisma migrate dev",
     "type-check": "tsc --noEmit",
-    "db:backup": "tsx src/services/DatabaseBackup.ts"
+    "db:backup": "tsx src/services/DatabaseBackup.ts",
+    "convert:check": "tsx scripts/convert-check.ts"
   },
   "keywords": [
     "discord",
