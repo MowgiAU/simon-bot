@@ -237,6 +237,8 @@ export interface ConvTrack {
     /** Set when the track takes its audio from another track's plugin output (multi-output plugins). */
     pluginOutput?: { trackId: string; device: number; output: number };
     clips: ConvClip[];
+    /** Set when the track's audio is Live's frozen render, used because its devices can't open in FL. */
+    frozen?: { devices: string[] };
     /** What the track's MIDI devices do to its notes (baked in — FL has no equivalents). */
     midi?: ConvMidiShape;
     /** Volume/pan/send envelopes drawn inside the track's arrangement clips. */

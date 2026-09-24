@@ -804,7 +804,26 @@ export function readAls(buffer: Buffer, projectName = 'Converted Project'): Conv
             }
             clips.sort((a, b) => a.start - b.start);
 
-            const chain = readInstrument(t);
+            let chain = readInstrument(t);
+            let trackKind = kind;
+            let trackClips = clips;
+            let frozen: ConvTrack['frozen'];
+
+            // A frozen track whose instrument FL can't open: Live has already rendered it, and that
+            // render (instrument and effects together) plays in place of devices that can't convert
+            if (val(t?.Freeze) === 'true' && kind === 'midi' && !chain.instrument) {
+                const render = arr<any>(t?.DeviceChain?.FreezeSequencer?.Sample?.ArrangerAutomation?.Events?.AudioClip)
+                    .map((c) => readAudioClip(c, trackColor))
+                    .filter((c): c is ConvAudioClip => !!c);
+                if (render.length) {
+                    frozen = { devices: chain.devices };
+                    trackClips = render;
+                    trackKind = 'audio';
+                    // The render already contains the effects, so they mustn't be applied again
+                    chain = { instrument: null, effects: [], devices: [], midi: chain.midi };
+                }
+            }
+
             const groupId = val(t?.TrackGroupId);
             tracks.push({
                 _order: order.get(`${tag}:${t['@_Id']}`) ?? 1e6,
@@ -814,7 +833,8 @@ export function readAls(buffer: Buffer, projectName = 'Converted Project'): Conv
                     .sort((a, b) => attrNum(a, 'Id') - attrNum(b, 'Id'))
                     .map((h) => num(h?.Send?.Manual, 0)),
                 name: val(t?.Name?.EffectiveName) || val(t?.Name?.UserName) || `${kind} ${tracks.length + 1}`,
-                kind,
+                kind: trackKind,
+                frozen,
                 color: trackColor,
                 // A track fed by another track's plugin output: "AudioIn/Track.15/DeviceOut.0.S1"
                 // is that track's first device, stereo output 1 (Live shows it as "KT Out 2")
@@ -827,7 +847,7 @@ export function readAls(buffer: Buffer, projectName = 'Converted Project'): Conv
                 pan: num(tMixer?.Pan?.Manual, 0),
                 ...chain,
                 ...readAutomation(t, trackTargets(tMixer, chain)),
-                clips,
+                clips: trackClips,
                 clipEnvelopes,
                 otherClipEnvelopes: allClipEnvelopes - clipEnvelopes.length,
             });

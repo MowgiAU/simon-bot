@@ -337,6 +337,7 @@ export function convertAlsToFlp(als: Buffer, opts: AlsToFlpOptions = {}): AlsToF
     let spillInserts = 0;
     let rackChains = 0;
     let midiShaped = 0;
+    let frozenTracks = 0;
 
     /**
      * A further insert for a chain that has filled its ten slots: it takes over where the chain
@@ -613,6 +614,11 @@ export function convertAlsToFlp(als: Buffer, opts: AlsToFlpOptions = {}): AlsToF
             return;
         }
 
+        if (track.frozen) {
+            converted.push(`"${track.name}": frozen in Live, so its render plays in FL — ${track.frozen.devices.join(', ') || 'its devices'} can't open there.`);
+            frozenTracks++;
+        }
+
         for (const clip of track.clips) {
             if (clip.kind !== 'audio' || clip.length <= 0) continue;
             const outputPath = registerSample(clip.sample);
@@ -770,6 +776,7 @@ export function convertAlsToFlp(als: Buffer, opts: AlsToFlpOptions = {}): AlsToF
         // FL's tempo spans 10–522 BPM; the clip covers all of it (see the writer's automation range)
         addClip('Tempo', null, pts.map((p) => ({ time: p.time, value: Math.min(1, Math.max(0, (p.value - FL_TEMPO_MIN) / FL_TEMPO_SPAN)) })), { param: 0x0005, dest: 0x4000 });
     }
+    if (frozenTracks) converted.push(`Frozen tracks: ${frozenTracks} played from Live's own render, since their instruments have no FL equivalent — unfreeze in Live first if you'd rather have the MIDI.`);
     if (midiShaped) converted.push(`MIDI devices: ${midiShaped} track${midiShaped === 1 ? ' had its' : 's had their'} notes shaped the way Live's MIDI devices shaped them (FL has no equivalents to load).`);
     if (rackChains) converted.push(`Parallel Audio Effect Racks: ${rackChains} chain${rackChains === 1 ? '' : 's'} → their own mixer inserts, fed side by side and summed back into the track.`);
     if (spillInserts) converted.push(`Long effect chains: ${spillInserts} extra mixer insert${spillInserts === 1 ? '' : 's'} chained on, so chains of more than ${MIXER_SLOTS} effects carry over in full.`);
