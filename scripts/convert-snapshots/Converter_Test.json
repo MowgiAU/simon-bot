@@ -6,8 +6,8 @@
     "notes": 568,
     "samples": 45
   },
-  "flpBytes": 2336574,
-  "flpHash": "ef9ea585740f3fa5ae838ef29bcf25f1e631fad6",
+  "flpBytes": 2336701,
+  "flpHash": "0262e625078f57a05bad43b4c93e99f973422563",
   "converted": [
     "\"VST2 Synth\": OTT_x64 (bypassed) → mixer insert 1, with their settings.",
     "\"Rack VST3\": ValhallaSupermassive → mixer insert 2, with their settings.",
@@ -18,7 +18,7 @@
     "\"VST2 Synth\": BA-1 → loaded with its preset.",
     "\"Rack VST3\": Vital → loaded with its preset.",
     "\"Layered\": Vital → loaded with its preset.",
-    "\"Drums › a Drum Effects\": EQ Eight (as Fruity Parametric EQ 2), Glue Compressor (as Fruity Compressor) → mixer insert 16, with their settings.",
+    "\"Drums › a Drum Effects\": EQ Eight (as Fruity Parametric EQ 2), Glue Compressor (as Fruity Compressor), Drum Buss (as Fruity Blood Overdrive) → mixer insert 16, with their settings.",
     "\"Drums\": \"Hihat Closed Memphis\" played only part of its sample in Live — the sample is included trimmed to that part.",
     "\"Drums\": Boom Bap Kit → 15 Sampler channels, one per pad.",
     "\"Simpler Keys\": Simpler → Sampler with \"RVLTYX_ArpShot_Overclocked_C.wav\".",
@@ -33,7 +33,7 @@
     "\"Layered\": Compressor — it was keyed from another track (sidechain), which Fruity Compressor can't do — set that up in FL (e.g. Fruity Limiter's sidechain).",
     "\"Layered\": devices not converted — Drift (in Instrument Rack).",
     "Return \"B-Delay\" was pre-fader in Live — FL sends are post-fader, so its level now follows each track's fader.",
-    "\"Drums › a Drum Effects\": devices not converted — Redux (in Drum Effects), Drum Buss (in Drum Effects).",
+    "\"Drums › a Drum Effects\": devices not converted — Redux (10 bit, 40.0 kHz) (in Drum Effects).",
     "\"Drums › a Drum Effects\": no pad sends to this return in Live either — route a pad's insert to insert 16 in FL to use it.",
     "\"Drums\": pad \"DS Kick\" used Max for Live instrument, which can't come across — it has an empty channel with its notes; load a sound there in FL.",
     "\"Simpler Keys\": notes were shifted +2 semitones so \"RVLTYX_ArpShot_Overclocked_C\" plays at the same pitch as in Live.",

@@ -6,14 +6,14 @@
     "notes": 80,
     "samples": 17
   },
-  "flpBytes": 129030,
-  "flpHash": "50f1102a1fc65ad938364100b047928a84035754",
+  "flpBytes": 129309,
+  "flpHash": "6b6fd54f190f3036e1ce68590cfa7724fed44c5a",
   "converted": [
     "\"A-Reverb\": Reverb (as Fruity Reeverb 2) → mixer insert 5, with their settings.",
     "\"B-Delay\": Delay (as Fruity Delay 3) → mixer insert 6, with their settings.",
     "Mixer: 0 groups and 2 returns routed as in Live.",
     "\"1-Operator\": frozen in Live, so its render plays in FL — Operator can't open there.",
-    "\"2-505 Core Kit › a Mix Bus\": Saturator (as Fruity Blood Overdrive), Glue Compressor (as Fruity Compressor), Limiter (as Fruity Limiter) → mixer insert 7, with their settings.",
+    "\"2-505 Core Kit › a Mix Bus\": Saturator (as Fruity Blood Overdrive), Glue Compressor (as Fruity Compressor), Drum Buss (as Fruity Blood Overdrive), Limiter (as Fruity Limiter) → mixer insert 7, with their settings.",
     "\"2-505 Core Kit › b Reverb\": Reverb (as Fruity Reeverb 2) → mixer insert 8, with their settings.",
     "\"2-505 Core Kit\": 505 Core Kit → 16 Sampler channels, one per pad.",
     "Frozen tracks: 1 played from Live's own render, since their instruments have no FL equivalent — unfreeze in Live first if you'd rather have the MIDI.",
@@ -21,7 +21,10 @@
   ],
   "warnings": [
     "\"2-505 Core Kit › a Mix Bus\": Saturator — FL's overdrive has its own character — the drive and level match, the tone will differ a little.",
-    "\"2-505 Core Kit › a Mix Bus\": devices not converted — Channel Eq (in Audio Effect Rack), Redux (in Audio Effect Rack), Drum Buss (in Audio Effect Rack).",
+    "\"2-505 Core Kit › a Mix Bus\": Drum Buss — FL’s overdrive has its own character — the drive matches, the tone will differ a little.",
+    "\"2-505 Core Kit › a Mix Bus\": Drum Buss — its boom (29% at 50 Hz) isn't included — it's a tuned resonant sub FL has no equivalent for; a Fruity Bass Boost or a sine layer gets close.",
+    "\"2-505 Core Kit › a Mix Bus\": Drum Buss — its transient shaping isn’t included — FL’s Transient Processor on the same insert does the same job.",
+    "\"2-505 Core Kit › a Mix Bus\": devices not converted — Redux (16 bit, 40.0 kHz) (in Audio Effect Rack).",
     "\"2-505 Core Kit › a Mix Bus\": no pad sends to this return in Live either — route a pad's insert to insert 7 in FL to use it.",
     "\"2-505 Core Kit › b Reverb\": no pad sends to this return in Live either — route a pad's insert to insert 8 in FL to use it."
   ],

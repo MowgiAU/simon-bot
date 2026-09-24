@@ -226,6 +226,20 @@ function deviceName(tag: string, dev: any): string {
         ?? (val(dev?.UserName) || DEVICE_LABELS[tag] || tag.replace(/([a-z])([A-Z0-9])/g, '$1 $2'));
 }
 
+/**
+ * The settings worth naming for a device that can't convert, so the report says what to dial in
+ * rather than only what was lost.
+ */
+function deviceDetail(tag: string, dev: any): string {
+    if (tag === 'Redux2') {
+        const bits = Math.round(num(dev?.BitDepth?.Manual, 16));
+        const rate = num(dev?.SampleRate?.Manual, 44100);
+        const wet = num(dev?.DryWet?.Manual, 1);
+        return ` (${bits} bit, ${rate >= 1000 ? `${(rate / 1000).toFixed(1)} kHz` : `${Math.round(rate)} Hz`}${wet < 0.99 ? `, ${Math.round(wet * 100)}% wet` : ''})`;
+    }
+    return '';
+}
+
 /** Flatten a <Devices> node into [tag, node] pairs, in chain order. */
 function deviceList(devices: any): [string, any][] {
     const out: [string, any][] = [];
@@ -535,6 +549,7 @@ function readDeviceChain(list: [string, any][], where = ''): ChainResult {
     const out: ChainResult = { instrument: null, effects: [], devices: [] };
     const midi: ConvMidiShape = { zones: [], transpose: 0 };
     const skip = (name: string) => out.devices.push(where ? `${name} (in ${where})` : name);
+    const skipDevice = (tag: string, dev: any) => skip(`${deviceName(tag, dev)}${deviceDetail(tag, dev)}`);
     const absorb = (inner: ChainResult) => { out.effects.push(...inner.effects); out.devices.push(...inner.devices); };
 
     for (const [tag, dev] of list) {
@@ -607,7 +622,7 @@ function readDeviceChain(list: [string, any][], where = ''): ChainResult {
             out.effects.push({ format: 'live', device: tag, name, enabled: bool(dev?.On?.Manual, true), xml: dev });
             continue;
         }
-        skip(name);
+        skipDevice(tag, dev);
     }
     if (midi.zones.length || midi.transpose) out.midi = midi;
     return out;

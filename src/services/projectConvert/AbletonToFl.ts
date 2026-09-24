@@ -85,6 +85,16 @@ function stateFingerprint(p: ConvPlugin): string {
  * per track (which may carry a "(in Audio Effect Rack)" suffix).
  */
 const DEVICE_NOTES: Record<string, string> = {
+    Redux: [
+        'Redux degrades the signal in two exact ways: it drops the sample rate to a chosen frequency,',
+        'and it quantises the signal to a chosen number of bits, with a shaping curve and jitter on top.',
+        'FL has no effect with those two controls. Fruity Squeeze is the nearest thing by name, but its',
+        'knobs are a drive and a degradation amount rather than a bit depth and a sample rate — measured',
+        'here by rendering, its fields are output level, drive and one degradation control — so a mapping',
+        'would be a knob position picked to look similar rather than settings that reproduce yours.',
+        'Set it by ear instead: Distructor (its crusher and decimator stages) or Fruity Squeeze on the',
+        'same insert will get you there, using the settings named in this report as the target.',
+    ].join(' '),
     'Multiband Dynamics': [
         'Live splits the signal into three bands and each band can compress in two directions at once:',
         'downward above its upper threshold, and upward below its lower threshold, with its own ratio,',
@@ -303,7 +313,8 @@ export function convertAlsToFlp(als: Buffer, opts: AlsToFlpOptions = {}): AlsToF
         }
         if (skipped.length) {
             warnings.push(`"${name}": devices not converted — ${skipped.join(', ')}.`);
-            for (const dev of skipped) skippedDevices.add(dev.replace(/\s*\(in .*\)$/, ''));
+            // "Redux (16 bit, 40.0 kHz) (in Audio Effect Rack)" is keyed on the device itself
+            for (const dev of skipped) skippedDevices.add(dev.replace(/\s*\([^()]*\)\s*$/g, '').replace(/\s*\([^()]*\)\s*$/g, ''));
         }
         if (leftOff.length) {
             const what = `${leftOff.join(', ')} ${leftOff.length === 1 ? 'was' : 'were'} left off`;

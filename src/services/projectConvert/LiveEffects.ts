@@ -10,7 +10,7 @@ import type { ConvLiveEffect } from './types.js';
 import type { FlNativeEffect } from './FlVst.js';
 
 /** Live device tags we can convert (the reader keeps these; everything else is reported). */
-export const LIVE_EFFECTS = new Set(['Eq8', 'Compressor2', 'GlueCompressor', 'Delay', 'Reverb', 'StereoGain', 'AutoFilter', 'Limiter', 'Saturator', 'Overdrive', 'Echo', 'AutoPan', 'AutoPan2', 'Chorus2']);
+export const LIVE_EFFECTS = new Set(['Eq8', 'Compressor2', 'GlueCompressor', 'Delay', 'Reverb', 'StereoGain', 'AutoFilter', 'ChannelEq', 'DrumBuss', 'Limiter', 'Saturator', 'Overdrive', 'Echo', 'AutoPan', 'AutoPan2', 'Chorus2']);
 
 export interface LiveEffectResult {
     /** Empty when the effect does nothing at its settings (a flat EQ, a unity Utility): it's left out. */
@@ -478,6 +478,84 @@ function utility(d: ConvLiveEffect): LiveEffectResult {
     return { effects: [...(neutral ? [] : [{ format: 'native' as const, name: FRUITY_BALANCE, state: st }]), ...shapers], notes };
 }
 
+// ── Channel EQ → Fruity Parametric EQ 2 ───────────────────────────────────────
+//
+// Live's Channel EQ is three fixed bands plus a high-pass: a low shelf and a high shelf at fixed
+// corners, and a sweepable bell. Its gains are stored as linear gain (1 = 0 dB), so they become
+// PEQ2 bands at the same frequencies — see channelEq's note about the corners.
+
+const CHANNEL_EQ_LOW_HZ = 100;      // Live's low shelf corner
+const CHANNEL_EQ_HIGH_HZ = 3500;    // Live's high shelf corner
+const CHANNEL_EQ_HP_HZ = 80;        // the high-pass switch
+const CHANNEL_EQ_Q = 0.7071;
+
+function channelEq(d: ConvLiveEffect): LiveEffectResult {
+    const x = d.xml;
+    const notes: string[] = [];
+    const db = (gain: number) => 20 * Math.log10(Math.max(gain, 1e-6));
+    const bands: EqBand[] = [];
+    if (manualBool(x?.HighpassOn)) {
+        bands.push({ type: PEQ2_HIGHPASS, slope: 0, freq: CHANNEL_EQ_HP_HZ, gainDb: 0, q: CHANNEL_EQ_Q });
+    }
+    const low = db(manual(x?.LowShelfGain, 1)), mid = db(manual(x?.MidGain, 1)), high = db(manual(x?.HighShelfGain, 1));
+    if (Math.abs(low) > 0.05) bands.push({ type: PEQ2_LOWSHELF, slope: 0, freq: CHANNEL_EQ_LOW_HZ, gainDb: low, q: CHANNEL_EQ_Q });
+    if (Math.abs(mid) > 0.05) bands.push({ type: PEQ2_PEAK, slope: 0, freq: manual(x?.MidFrequency, 1000), gainDb: mid, q: CHANNEL_EQ_Q });
+    if (Math.abs(high) > 0.05) bands.push({ type: PEQ2_HIGHSHELF, slope: 0, freq: CHANNEL_EQ_HIGH_HZ, gainDb: high, q: CHANNEL_EQ_Q });
+
+    const out = db(manual(x?.Gain, 1));
+    const effects: FlNativeEffect[] = [];
+    if (bands.length) effects.push({ format: 'native', name: PEQ2, state: peq2State(bands) });
+    if (Math.abs(out) > 0.05) {
+        const st = Buffer.alloc(8);
+        st.writeInt32LE(0, 0);
+        st.writeInt32LE(Math.round(clamp(BALANCE_UNITY * flLevel(manual(x?.Gain, 1)), 0, BALANCE_MAX)), 4);
+        effects.push({ format: 'native', name: FRUITY_BALANCE, state: st });
+        if (out > 5.6) notes.push(`its output gain was +${out.toFixed(1)} dB — Fruity Balance tops out at +5.6 dB`);
+    }
+    if (bands.length) notes.push('its shelves sit at Live’s own corner frequencies (100 Hz and 3.5 kHz), which FL matches by ear rather than exactly');
+    return { effects, notes };
+}
+
+// ── Drum Buss → Fruity Blood Overdrive + Fruity Filter ────────────────────────
+//
+// Drive and crunch become overdrive, damping becomes the low-pass it is. Its boom (a tuned
+// resonant sub) and transient shaping have no FL equivalent and are reported instead of guessed at.
+
+const DRUM_BUSS_MAX_DRIVE_DB = 24;
+
+function drumBuss(d: ConvLiveEffect): LiveEffectResult {
+    const x = d.xml;
+    const notes: string[] = [];
+    const effects: FlNativeEffect[] = [];
+
+    const drive = manual(x?.DriveAmount);
+    const crunch = manual(x?.CrunchAmount);
+    const trim = 20 * Math.log10(Math.max(manual(x?.InputTrim, 1), 1e-6));
+    const output = 20 * Math.log10(Math.max(manual(x?.OutputGain, 1), 1e-6));
+    if (drive > 0.001) {
+        // Live's drive types differ in curve, not in level; crunch adds a brighter edge on top
+        const driveDb = drive * DRUM_BUSS_MAX_DRIVE_DB;
+        effects.push(bloodOverdrive(driveDb, driveDb + trim + output, Math.round(2000 + crunch * 8000), notes));
+        notes.push('FL’s overdrive has its own character — the drive matches, the tone will differ a little');
+    }
+    const damp = manual(x?.DampingFrequency, 20000);
+    if (damp < 19000) {
+        const value = interp(flip(FF_CUTOFF_HZ.lp12.map(([v, f]) => [v, Math.log(f)] as [number, number])), Math.log(damp));
+        const st = Buffer.alloc(29);
+        [2, clamp(value, 0, FF_FULL), 0, FF_FULL, 0, 0, 0].forEach((v, i) => st.writeInt32LE(Math.round(v), i * 4));
+        effects.push({ format: 'native', name: FRUITY_FILTER, state: st });
+    }
+    if (manual(x?.BoomAmount) > 0.005) {
+        notes.push(`its boom (${Math.round(manual(x?.BoomAmount) * 100)}% at ${Math.round(manual(x?.BoomFrequency, 50))} Hz) isn't included — it's a tuned resonant sub FL has no equivalent for; a Fruity Bass Boost or a sine layer gets close`);
+    }
+    if (Math.abs(manual(x?.TransientShaping)) > 0.005) {
+        notes.push('its transient shaping isn’t included — FL’s Transient Processor on the same insert does the same job');
+    }
+    if (manualBool(x?.EnableCompression)) notes.push('its compressor isn’t included — add a Fruity Compressor after it if you want that glue');
+    if (manual(x?.DryWet, 1) < 0.99) notes.push(`its dry/wet (${Math.round(manual(x?.DryWet, 1) * 100)}%) isn't included`);
+    return { effects, notes };
+}
+
 // ── Auto Filter → Fruity Filter ───────────────────────────────────────────────
 //
 // State: 7 × i32 + 1 byte: 2, cutoff (0–1024, table below), resonance (0–1024), low-pass,
@@ -673,6 +751,8 @@ const CONVERTERS: Record<string, (d: ConvLiveEffect, ctx: LiveEffectContext) => 
     Reverb: reverb,
     StereoGain: utility,
     AutoFilter: autoFilter,
+    ChannelEq: channelEq,
+    DrumBuss: drumBuss,
     Limiter: limiter,
     Saturator: saturator,
     Overdrive: overdrive,
@@ -696,6 +776,8 @@ export const LIVE_EFFECT_TARGETS: Record<string, string> = {
     Reverb: FRUITY_REEVERB_2,
     StereoGain: FRUITY_BALANCE,
     AutoFilter: FRUITY_FILTER,
+    ChannelEq: PEQ2,
+    DrumBuss: BLOOD_OVERDRIVE,
     Limiter: FRUITY_LIMITER,
     Saturator: BLOOD_OVERDRIVE,
     Overdrive: BLOOD_OVERDRIVE,
