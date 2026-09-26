@@ -497,7 +497,10 @@ const FrontpageAltFConvert: React.FC = () => {
                             </div>
                         </div>
 
-                        <div style={{ maxWidth: 820, marginTop: 24 }}>
+                        {/* No right rail on this page, so the content takes the full column
+                            width (the page container caps it at CONTENT_MAX). The plugin and
+                            library grids are auto-fill, so they gain columns rather than stretch. */}
+                        <div style={{ marginTop: 24 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 18 }}>
                                 {dawPill('Ableton Live 10–12')}
                                 <ArrowRight size={18} color={PRIMARY} />
