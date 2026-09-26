@@ -19,6 +19,7 @@ import { convertAlsToFlp } from './AbletonToFl.js';
 import { trimAudio } from './SampleTrim.js';
 import type { LibraryEntry } from './AbletonToFl.js';
 import type { ConversionReport } from './types.js';
+import { FLPParser } from '../../bot/utils/FLPParser.js';
 
 export const RETENTION_MS = 60 * 60 * 1000;
 
@@ -31,6 +32,8 @@ export interface ConversionMeta {
     report: ConversionReport;
     samplesIncluded: number;
     missingSamples: string[];
+    /** Whether <id>.arrangement.json exists — the converted FLP read back for the viewer. */
+    hasArrangement?: boolean;
 }
 
 function safeName(s: string): string {
@@ -177,12 +180,26 @@ export function convertAbletonUpload(
     const id = crypto.randomUUID();
     fs.mkdirSync(outDir, { recursive: true });
     out.writeZip(path.join(outDir, `${id}.zip`));
+
+    // Read the FLP we just wrote back through the same parser track pages use, so the
+    // result page can show the converted arrangement. Kept in its own file: it carries
+    // every note, and the meta json is read on every download and save.
+    let hasArrangement = false;
+    try {
+        const arrangement = FLPParser.parse(result.flp);
+        if (arrangement) {
+            fs.writeFileSync(path.join(outDir, `${id}.arrangement.json`), JSON.stringify(arrangement));
+            hasArrangement = true;
+        }
+    } catch { /* the download is what matters — a preview failure must not fail the conversion */ }
+
     const full: ConversionMeta = {
         ...meta,
         id,
         userId,
         downloadName: `${projectName} (FL Studio).zip`,
         createdAt: Date.now(),
+        hasArrangement,
     };
     fs.writeFileSync(path.join(outDir, `${id}.json`), JSON.stringify(full));
     return full;
@@ -193,6 +210,16 @@ export function readConversion(outDir: string, id: string): ConversionMeta | nul
     try {
         const meta = JSON.parse(fs.readFileSync(path.join(outDir, `${id}.json`), 'utf8')) as ConversionMeta;
         return Date.now() - meta.createdAt < RETENTION_MS ? meta : null;
+    } catch {
+        return null;
+    }
+}
+
+/** The parsed arrangement for a conversion, or null if it wasn't produced or has expired. */
+export function readConversionArrangement(outDir: string, id: string): object | null {
+    if (!/^[0-9a-f-]{36}$/i.test(id)) return null;
+    try {
+        return JSON.parse(fs.readFileSync(path.join(outDir, `${id}.arrangement.json`), 'utf8'));
     } catch {
         return null;
     }

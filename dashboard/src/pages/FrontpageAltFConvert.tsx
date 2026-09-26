@@ -10,6 +10,7 @@ import { useAuth } from '../components/AuthProvider';
 import { DirectUploadUnavailable, uploadFile } from '../lib/uploadFile';
 import { AltSidebar, BG, S_CONT, S_HIGH, PRIMARY, SECONDARY, TERTIARY, TEXT, SUB, BORDER, FONT, CONTENT_MAX } from '../components/altshell/AltSidebar';
 import { AltHeader } from '../components/altshell/AltHeader';
+import { ArrangementViewer, type ArrangementData } from '../components/ArrangementViewer';
 import { useAltBreakpoint } from '../components/altshell/useAltBreakpoint';
 import {
     ArrowRightLeft, ArrowRight, UploadCloud, FileArchive, CheckCircle2, AlertTriangle, FileWarning,
@@ -34,6 +35,8 @@ interface ConvertResult {
         deviceNotes: { device: string; why: string }[];
         warnings: string[];
     };
+    /** The converted .flp was parsed back, so a preview can be fetched for it. */
+    hasArrangement?: boolean;
 }
 
 type Phase =
@@ -70,6 +73,13 @@ const FrontpageAltFConvert: React.FC = () => {
     const [naming, setNaming] = useState<string | null>(null);
     const [namingError, setNamingError] = useState('');
     // Keeping a conversion: it becomes a project in the user's library rather than expiring
+    // The converted arrangement, shown read-only — nothing here plays, so the refs the
+    // viewer uses to drive its playhead stay at zero.
+    const [arrangement, setArrangement] = useState<ArrangementData | null>(null);
+    const [zoom, setZoom] = useState(5.5);
+    const previewTimeRef = useRef(0);
+    const previewPlayingRef = useRef(false);
+
     const [saving, setSaving] = useState(false);
     const [savedProject, setSavedProject] = useState<{ id: string; name: string } | null>(null);
     const [saveError, setSaveError] = useState('');
@@ -79,6 +89,22 @@ const FrontpageAltFConvert: React.FC = () => {
     useEffect(() => {
         axios.get<KnownPlugin[]>('/api/plugins/registry').then(({ data }) => setRegistry(data)).catch(() => setRegistry([]));
     }, []);
+
+    // The converted arrangement, fetched once a conversion finishes. Clearing it on any
+    // other phase means starting another upload drops the previous project's preview.
+    useEffect(() => {
+        if (phase.kind !== 'done' || !phase.result.hasArrangement) { setArrangement(null); return; }
+        let live = true;
+        axios.get<ArrangementData>(`/api/convert/${phase.result.id}/arrangement`, { withCredentials: true })
+            .then(({ data }) => {
+                if (!live) return;
+                // Templates convert to an arrangement with no clips — an empty grid says nothing.
+                const clips = (data.tracks ?? []).reduce((n, t) => n + (t.clips?.length ?? 0), 0);
+                setArrangement(clips > 0 ? data : null);
+            })
+            .catch(() => { if (live) setArrangement(null); });
+        return () => { live = false; };
+    }, [phase]);
 
     /** The registry entry for a plugin name as Live had it, by name or alias (case-insensitive). */
     const matchPlugin = (name: string): KnownPlugin | undefined => {
@@ -308,6 +334,23 @@ const FrontpageAltFConvert: React.FC = () => {
                     {tile('Notes', stats.notes.toLocaleString())}
                     {tile('Samples included', `${r.samplesIncluded}/${stats.samples}`)}
                 </div>
+
+                {arrangement && section('Converted arrangement',
+                    <>
+                        <p style={{ margin: '0 0 12px', color: SUB, fontSize: 13 }}>
+                            Read back from the .flp this conversion produced, so it shows what opens in FL Studio.
+                            Click a clip for its notes or its sample.
+                        </p>
+                        <ArrangementViewer
+                            arrangement={arrangement}
+                            duration={0}
+                            currentTimeRef={previewTimeRef}
+                            isPlayingRef={previewPlayingRef}
+                            projectFileUrl={null}
+                            zoom={zoom}
+                            setZoom={setZoom}
+                        />
+                    </>)}
 
                 <p style={{ margin: '18px 0 0', color: SUB, fontSize: 13 }}>
                     Unzip the download and open the .flp from inside its folder so FL Studio finds the Samples folder next to it.

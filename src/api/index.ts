@@ -29,7 +29,7 @@ import { FLPParser } from '../bot/utils/FLPParser.js';
 import { AlsParser } from '../services/AlsParser.js';
 import { MediaConverter } from '../services/MediaConverter.js';
 import { ProjectZipProcessor } from '../services/ProjectZipProcessor.js';
-import { convertAbletonUpload, readConversion, sweepConversions } from '../services/projectConvert/ConvertService.js';
+import { convertAbletonUpload, readConversion, readConversionArrangement, sweepConversions } from '../services/projectConvert/ConvertService.js';
 import { R2Storage } from '../services/R2Storage.js';
 import { ProjectSyncService } from '../services/ProjectSyncService.js';
 import { claimUploadKey, presignUpload, UPLOAD_PURPOSES } from './directUpload.js';
@@ -23905,6 +23905,23 @@ app.get('/api/convert/download/:id', requireAuth, async (req: any, res) => {
         return;
     }
     res.download(path.join(convertOutDir, `${meta.id}.zip`), meta.downloadName);
+});
+
+// The converted arrangement, for the preview on the convert page. Served separately
+// from the conversion result: it carries every note and is only fetched on demand.
+app.get('/api/convert/:id/arrangement', requireAuth, async (req: any, res) => {
+    const meta = readConversion(convertOutDir, req.params.id);
+    const userId = (await resolveSessionUserId(req)) ?? String(req.session.user.id);
+    if (!meta || meta.userId !== userId) {
+        res.status(404).json({ error: 'This conversion has expired — please convert the project again.' });
+        return;
+    }
+    const arrangement = readConversionArrangement(convertOutDir, req.params.id);
+    if (!arrangement) {
+        res.status(404).json({ error: 'No preview available for this conversion.' });
+        return;
+    }
+    res.json(arrangement);
 });
 
 // Public "Contact Us" form → store a ContactMessage row + drop it into the team
