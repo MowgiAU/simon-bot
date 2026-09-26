@@ -370,7 +370,9 @@ export const ArrangementViewer: React.FC<{
     zoom: number;
     setZoom: (v: number) => void;
     samplesMap?: Record<string, number[]>;
-}> = React.memo(({ arrangement, duration, currentTimeRef, isPlayingRef, projectFileUrl, projectZipUrl, trackId, zoom, setZoom, samplesMap = EMPTY_SAMPLES_MAP }) => {
+    /** False where the arrangement is only being displayed, so notes about playback are pointless. */
+    playback?: boolean;
+}> = React.memo(({ arrangement, duration, currentTimeRef, isPlayingRef, projectFileUrl, projectZipUrl, trackId, zoom, setZoom, samplesMap = EMPTY_SAMPLES_MAP, playback = true }) => {
     const [selectedClip, setSelectedClip] = React.useState<{ clip: ArrangementClip; color: string } | null>(null);
     const [fullscreen, setFullscreen] = React.useState(false);
     const [isMobile, setIsMobile] = React.useState(typeof window !== 'undefined' && window.innerWidth < 640);
@@ -598,7 +600,7 @@ export const ArrangementViewer: React.FC<{
     const viewerContent = (
         <>
             {toolbar}
-            {tempoWarning && (
+            {playback && tempoWarning && (
                 <div style={{ marginBottom: '10px', padding: '8px 14px', borderRadius: borderRadius.sm, backgroundColor: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.35)', fontSize: '0.8rem', color: '#fbbf24', display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <span style={{ flexShrink: 0 }}>⚠</span>
                     <span>This project uses tempo automation — the playhead position is approximate and may drift from the audio.</span>

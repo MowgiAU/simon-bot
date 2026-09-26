@@ -351,6 +351,7 @@ const FrontpageAltFConvert: React.FC = () => {
                             projectFileUrl={null}
                             zoom={zoom}
                             setZoom={setZoom}
+                            playback={false}
                         />
                     </>)}
 
