@@ -360,6 +360,16 @@ const FrontpageAltFConvert: React.FC = () => {
             </div>
         );
 
+        // All three actions sit together at the top: saving and converting again were
+        // buried under the report, below everything someone has to scroll past.
+        const actionBtn: React.CSSProperties = {
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+            padding: '12px 18px', borderRadius: 10, fontSize: 14.5, fontWeight: 800,
+            whiteSpace: 'nowrap', cursor: 'pointer', fontFamily: FONT, textDecoration: 'none',
+            background: S_HIGH, color: TEXT, border: `1px solid ${BORDER}`,
+            flex: narrow ? '1 1 100%' : '0 0 auto',
+        };
+
         return (
             <div style={card}>
                 <div style={{ display: 'flex', alignItems: narrow ? 'flex-start' : 'center', gap: 16, flexDirection: narrow ? 'column' : 'row' }}>
@@ -368,11 +378,27 @@ const FrontpageAltFConvert: React.FC = () => {
                         <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800, overflowWrap: 'anywhere' }}>{r.projectName} is ready</h2>
                         <p style={{ margin: '4px 0 0', color: SUB, fontSize: 14 }}>{r.report.source} → {r.report.target} · download available for 1 hour</p>
                     </div>
-                    <a href={`/api/convert/download/${r.id}`} download={r.downloadName}
-                        style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 20px', background: PRIMARY, borderRadius: 10, color: '#fff', fontSize: 15, fontWeight: 800, textDecoration: 'none', whiteSpace: 'nowrap', alignSelf: narrow ? 'stretch' : 'auto', justifyContent: 'center' }}>
-                        <Download size={17} /> Download for FL Studio
-                    </a>
+                    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignSelf: narrow ? 'stretch' : 'auto' }}>
+                        <a href={`/api/convert/download/${r.id}`} download={r.downloadName}
+                            style={{ ...actionBtn, background: PRIMARY, color: '#fff', border: `1px solid ${PRIMARY}`, fontSize: 15, padding: '12px 20px' }}>
+                            <Download size={17} /> Download for FL Studio
+                        </a>
+                        {savedProject ? (
+                            <Link to={`/projects/${savedProject.id}`} style={{ ...actionBtn, border: `1px solid ${SECONDARY}` }}>
+                                <CheckCircle2 size={16} color={SECONDARY} /> Open “{savedProject.name}”
+                            </Link>
+                        ) : (
+                            <button onClick={() => saveAsProject(r.id)} disabled={saving}
+                                style={{ ...actionBtn, opacity: saving ? 0.6 : 1 }}>
+                                <FolderPlus size={16} /> {saving ? 'Saving…' : 'Keep in my projects'}
+                            </button>
+                        )}
+                        <button onClick={() => setPhase({ kind: 'idle' })} style={actionBtn}>
+                            <RotateCcw size={16} /> Convert another
+                        </button>
+                    </div>
                 </div>
+                {saveError && <div style={{ marginTop: 10, fontSize: 13, color: PRIMARY }}>{saveError}</div>}
 
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 22 }}>
                     {tile('Tracks', stats.tracks)}
@@ -504,24 +530,6 @@ const FrontpageAltFConvert: React.FC = () => {
                         ))}
                     </div>)}
 
-                <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginTop: 26 }}>
-                    {savedProject ? (
-                        <Link to={`/projects/${savedProject.id}`}
-                            style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px', background: S_HIGH, border: `1px solid ${SECONDARY}`, borderRadius: 10, color: TEXT, fontSize: 14, fontWeight: 700, textDecoration: 'none' }}>
-                            <CheckCircle2 size={15} color={SECONDARY} /> Saved as “{savedProject.name}” — open it
-                        </Link>
-                    ) : (
-                        <button onClick={() => saveAsProject(r.id)} disabled={saving}
-                            style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px', background: S_HIGH, border: `1px solid ${BORDER}`, borderRadius: 10, color: TEXT, fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: FONT, opacity: saving ? 0.6 : 1 }}>
-                            <FolderPlus size={15} /> {saving ? 'Saving…' : 'Keep in my projects'}
-                        </button>
-                    )}
-                    <button onClick={() => setPhase({ kind: 'idle' })}
-                        style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px', background: S_HIGH, border: `1px solid ${BORDER}`, borderRadius: 10, color: TEXT, fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: FONT }}>
-                        <RotateCcw size={15} /> Convert another project
-                    </button>
-                </div>
-                {saveError && <div style={{ marginTop: 10, fontSize: 13, color: PRIMARY }}>{saveError}</div>}
             </div>
         );
     };
