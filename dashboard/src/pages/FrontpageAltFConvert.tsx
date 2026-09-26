@@ -58,6 +58,7 @@ interface KnownPlugin {
 
 const MAX_MB = 600;
 const WARNINGS_COLLAPSED = 6;
+const SAMPLES_COLLAPSED = 12;
 
 const FrontpageAltFConvert: React.FC = () => {
     const { user } = useAuth();
@@ -66,6 +67,7 @@ const FrontpageAltFConvert: React.FC = () => {
     const [phase, setPhase] = useState<Phase>({ kind: 'idle' });
     const [dragging, setDragging] = useState(false);
     const [showAllWarnings, setShowAllWarnings] = useState(false);
+    const [showAllSamples, setShowAllSamples] = useState(false);
     const [registry, setRegistry] = useState<KnownPlugin[]>([]);
     // Libraries the user names for players we couldn't identify: fingerprint -> what they typed / saved
     const [libraryDraft, setLibraryDraft] = useState<Record<string, string>>({});
@@ -141,6 +143,7 @@ const FrontpageAltFConvert: React.FC = () => {
             return;
         }
         setShowAllWarnings(false);
+        setShowAllSamples(false);
         setPhase({ kind: 'uploading', pct: 0, file: file.name });
         try {
             let result: ConvertResult;
@@ -302,10 +305,53 @@ const FrontpageAltFConvert: React.FC = () => {
                 <div style={{ fontSize: 12, color: SUB, fontWeight: 600, marginTop: 2 }}>{label}</div>
             </div>
         );
-        const listRow = (icon: React.ReactNode, text: string, key: number) => (
-            <li key={key} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', fontSize: 14, lineHeight: 1.5, color: TEXT }}>
-                <span style={{ flexShrink: 0, marginTop: 2 }}>{icon}</span><span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>{text}</span>
-            </li>
+        /** Grid that adds columns as the page widens rather than stretching its cells. */
+        const grid = (min: number): React.CSSProperties => ({
+            display: 'grid',
+            gridTemplateColumns: narrow ? '1fr' : `repeat(auto-fill, minmax(${min}px, 1fr))`,
+            gap: 10,
+        });
+        const itemBox: React.CSSProperties = {
+            display: 'flex', gap: 10, alignItems: 'flex-start',
+            background: BG, border: `1px solid ${BORDER}`, borderRadius: 12, padding: '11px 13px', minWidth: 0,
+        };
+
+        // Converted lines read '"Source name": what happened to it' — splitting them lets the
+        // source stand out, so the list can be scanned by instrument instead of read in full.
+        const convertedItem = (text: string, key: number) => {
+            const m = text.match(/^"([^"]+)":\s*([\s\S]+)$/);
+            return (
+                <div key={key} style={itemBox}>
+                    <CheckCircle2 size={15} color={SECONDARY} style={{ flexShrink: 0, marginTop: 2 }} />
+                    <div style={{ minWidth: 0 }}>
+                        {m && <div style={{ fontSize: 13.5, fontWeight: 800, overflowWrap: 'anywhere' }}>{m[1]}</div>}
+                        <div style={{ fontSize: 13, color: SUB, lineHeight: 1.5, overflowWrap: 'anywhere', marginTop: m ? 2 : 0 }}>
+                            {m ? m[2] : text}
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const sampleItem = (name: string, key: number) => (
+            <div key={key} title={name} style={{ ...itemBox, alignItems: 'center', padding: '9px 11px' }}>
+                <FileAudio size={14} color={TERTIARY} style={{ flexShrink: 0 }} />
+                <span style={{ fontSize: 12.5, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>
+            </div>
+        );
+
+        const warningItem = (text: string, key: number) => (
+            <div key={key} style={{ ...itemBox, borderLeft: `3px solid ${PRIMARY}` }}>
+                <AlertTriangle size={15} color={PRIMARY} style={{ flexShrink: 0, marginTop: 2 }} />
+                <span style={{ fontSize: 13, lineHeight: 1.55, minWidth: 0, overflowWrap: 'anywhere' }}>{text}</span>
+            </div>
+        );
+
+        const moreButton = (label: string, onClick: () => void) => (
+            <button onClick={onClick}
+                style={{ marginTop: 12, background: 'none', border: 'none', color: PRIMARY, fontWeight: 700, fontSize: 13, cursor: 'pointer', padding: 0, fontFamily: FONT }}>
+                {label}
+            </button>
         );
         const section = (title: string, children: React.ReactNode) => (
             <div style={{ marginTop: 24 }}>
@@ -313,7 +359,6 @@ const FrontpageAltFConvert: React.FC = () => {
                 {children}
             </div>
         );
-        const ul: React.CSSProperties = { listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 8 };
 
         return (
             <div style={card}>
@@ -425,26 +470,28 @@ const FrontpageAltFConvert: React.FC = () => {
                         )}
                     </>)}
 
-                {r.report.converted.length > 0 && section('Converted instruments',
-                    <ul style={ul}>{r.report.converted.map((c, i) => listRow(<CheckCircle2 size={15} color={SECONDARY} />, c, i))}</ul>)}
+                {r.report.converted.length > 0 && section(`Converted instruments (${r.report.converted.length})`,
+                    <div style={grid(320)}>{r.report.converted.map(convertedItem)}</div>)}
 
                 {r.missingSamples.length > 0 && section(`Samples missing from your upload (${r.missingSamples.length})`,
                     <>
-                        <p style={{ margin: '0 0 10px', color: SUB, fontSize: 13 }}>
+                        <p style={{ margin: '0 0 12px', color: SUB, fontSize: 13 }}>
                             These channels will open empty. Re-save the set with File → Collect All and Save (tick every option), zip the folder and convert again.
                         </p>
-                        <ul style={ul}>{r.missingSamples.map((s, i) => listRow(<FileAudio size={15} color={TERTIARY} />, s, i))}</ul>
+                        <div style={grid(220)}>
+                            {(showAllSamples ? r.missingSamples : r.missingSamples.slice(0, SAMPLES_COLLAPSED)).map(sampleItem)}
+                        </div>
+                        {r.missingSamples.length > SAMPLES_COLLAPSED && moreButton(
+                            showAllSamples ? 'Show fewer' : `Show all ${r.missingSamples.length}`,
+                            () => setShowAllSamples((v) => !v))}
                     </>)}
 
-                {r.report.warnings.length > 0 && section('Things to check in FL Studio',
+                {r.report.warnings.length > 0 && section(`Things to check in FL Studio (${r.report.warnings.length})`,
                     <>
-                        <ul style={ul}>{warnings.map((w, i) => listRow(<AlertTriangle size={15} color={PRIMARY} />, w, i))}</ul>
-                        {r.report.warnings.length > WARNINGS_COLLAPSED && (
-                            <button onClick={() => setShowAllWarnings((v) => !v)}
-                                style={{ marginTop: 10, background: 'none', border: 'none', color: PRIMARY, fontWeight: 700, fontSize: 13, cursor: 'pointer', padding: 0, fontFamily: FONT }}>
-                                {showAllWarnings ? 'Show fewer' : `Show all ${r.report.warnings.length}`}
-                            </button>
-                        )}
+                        <div style={grid(340)}>{warnings.map(warningItem)}</div>
+                        {r.report.warnings.length > WARNINGS_COLLAPSED && moreButton(
+                            showAllWarnings ? 'Show fewer' : `Show all ${r.report.warnings.length}`,
+                            () => setShowAllWarnings((v) => !v))}
                     </>)}
 
                 {(r.report.deviceNotes ?? []).length > 0 && section('Why some devices couldn’t come across',
