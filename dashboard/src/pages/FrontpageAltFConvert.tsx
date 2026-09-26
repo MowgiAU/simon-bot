@@ -93,7 +93,9 @@ const FrontpageAltFConvert: React.FC = () => {
     // The converted arrangement, fetched once a conversion finishes. Clearing it on any
     // other phase means starting another upload drops the previous project's preview.
     useEffect(() => {
-        if (phase.kind !== 'done' || !phase.result.hasArrangement) { setArrangement(null); return; }
+        // Asked for unconditionally: a conversion that produced no preview just 404s here,
+        // so a missing hasArrangement flag can't quietly hide a preview that does exist.
+        if (phase.kind !== 'done') { setArrangement(null); return; }
         let live = true;
         axios.get<ArrangementData>(`/api/convert/${phase.result.id}/arrangement`, { withCredentials: true })
             .then(({ data }) => {

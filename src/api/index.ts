@@ -23636,6 +23636,7 @@ async function runConversion(inputPath: string, originalName: string, userId: st
         report: meta.report,
         samplesIncluded: meta.samplesIncluded,
         missingSamples: meta.missingSamples,
+        hasArrangement: meta.hasArrangement,
     };
 }
 
