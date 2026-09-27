@@ -122,14 +122,19 @@ function main() {
             for (const [param, value] of Object.entries(m.params)) deviceXml = setParam(deviceXml, param, value);
         }
         // An audio track with no devices writes <Devices />, so both shapes are handled
-        return track.replace(/<Devices\s*\/>|<Devices>[\s\S]*?<\/Devices>/, `<Devices>${deviceXml}</Devices>`);
+        track = track.replace(/<Devices\s*\/>|<Devices>[\s\S]*?<\/Devices>/, `<Devices>${deviceXml}</Devices>`);
+        // Live refuses to load a set whose tracks have more send knobs than it has returns, and
+        // this set has none — so the send holders go with them
+        return track.replace(/<Sends>[\s\S]*?<\/Sends>/, '<Sends />');
     });
 
-    // Replace the set's tracks with ours, and leave its returns and main track alone
+    // Replace the set's tracks with ours, and leave the main track alone
     const tracksStart = base.indexOf('<Tracks>');
     const tracksEnd = base.indexOf('</Tracks>') + '</Tracks>'.length;
     // No returns: a send would colour the measurement, and their plugins would have to be installed
     const out = `${base.slice(0, tracksStart)}<Tracks>${tracks.join('')}</Tracks>${base.slice(tracksEnd)}`
+        // …which means the main track's per-return "sends are pre-fader" flags go too
+        .replace(/<SendsPre>[\s\S]*?<\/SendsPre>/, '<SendsPre />')
         // Keep Live from handing out ids our clones already used
         .replace(/<NextPointeeId Value="\d+"/, '<NextPointeeId Value="900000"');
 
