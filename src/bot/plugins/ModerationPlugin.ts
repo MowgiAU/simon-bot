@@ -530,12 +530,35 @@ export class ModerationPlugin implements IPlugin {
         }
 
         const targetUser = interaction.options.getUser('user');
+        // Discord's user picker only lists current members, so anyone kicked or gone can
+        // only be named by ID or by the username left on their messages.
+        const targetText = interaction.options.getString('user_id')?.trim() ?? null;
         const pickedChannel = interaction.options.getChannel('channel');
         const allChannels = interaction.options.getBoolean('all_channels') ?? false;
 
         if (pickedChannel && allChannels) {
             return interaction.reply({ content: 'Choose a channel or all channels, not both.', flags: MessageFlags.Ephemeral });
         }
+        if (targetUser && targetText) {
+            return interaction.reply({ content: 'Use either `user` or `user_id`, not both.', flags: MessageFlags.Ephemeral });
+        }
+
+        const textId = targetText && /^\d{15,25}$/.test(targetText.replace(/[<@!>]/g, ''))
+            ? targetText.replace(/[<@!>]/g, '')
+            : null;
+        const textName = targetText && !textId ? targetText.replace(/^@/, '').toLowerCase() : null;
+        const filtering = !!(targetUser || targetText);
+        /** Matches the author of a message against whichever way the user was named. */
+        const isTarget = (m: any): boolean => {
+            if (targetUser) return m.author.id === targetUser.id;
+            if (textId) return m.author.id === textId;
+            if (textName) {
+                return m.author.username?.toLowerCase() === textName
+                    || m.author.globalName?.toLowerCase() === textName
+                    || m.author.tag?.toLowerCase() === textName;
+            }
+            return true;
+        };
 
         // Work out which channels to search.
         const guild = interaction.guild!;
@@ -585,10 +608,10 @@ export class ModerationPlugin implements IPlugin {
             try {
                 // With a user filter we have to look past their messages to find them, so
                 // always scan a full page and pick out the ones that match.
-                const fetchLimit = targetUser ? 100 : Math.min(remaining, 100);
+                const fetchLimit = filtering ? 100 : Math.min(remaining, 100);
                 const recent = await channel.messages.fetch({ limit: fetchLimit });
                 const matching = [...recent.values()]
-                    .filter(m => !targetUser || m.author.id === targetUser.id)
+                    .filter(isTarget)
                     .filter(m => !m.pinned);
                 const deletable = matching.filter(m => m.createdTimestamp > cutoff).slice(0, remaining);
                 tooOld += matching.filter(m => m.createdTimestamp <= cutoff).length;
@@ -606,14 +629,15 @@ export class ModerationPlugin implements IPlugin {
             }
         }
 
-        await this.logAction(interaction.guildId!, 'purge', interaction.user.id, targetUser?.id ?? channels[0].id, {
+        await this.logAction(interaction.guildId!, 'purge', interaction.user.id, targetUser?.id ?? textId ?? channels[0].id, {
             amount: totalDeleted,
             requested: amount,
-            user: targetUser?.tag ?? 'everyone',
+            user: targetUser?.tag ?? targetText ?? 'everyone',
             scope: allChannels ? 'all channels' : `#${channels[0].name}`,
         });
 
-        const who = targetUser ? `**${targetUser.tag}**’s messages` : 'messages';
+        const label = targetUser?.tag ?? targetText;
+        const who = label ? `**${label}**’s messages` : 'messages';
         const where = allChannels ? 'across all channels' : `in <#${channels[0].id}>`;
         const lines = [
             totalDeleted > 0
@@ -622,6 +646,9 @@ export class ModerationPlugin implements IPlugin {
         ];
         if (allChannels && perChannel.length > 1) lines.push(perChannel.join(' · '));
         if (totalDeleted < amount && tooOld > 0) lines.push(`${tooOld} were older than 14 days — Discord won’t let bots delete those.`);
+        if (totalDeleted === 0 && textName) {
+            lines.push('Usernames must match exactly. Their user ID is more reliable — turn on Developer Mode, right-click them on a message and Copy User ID.');
+        }
 
         await interaction.editReply({ content: lines.join('\n') });
     }

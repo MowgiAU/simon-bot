@@ -865,6 +865,7 @@ export class SimonBot {
         .setDescription('Delete recent messages, optionally only one user’s')
         .addIntegerOption(opt => opt.setName('amount').setDescription('How many messages to delete (1-100)').setRequired(true).setMinValue(1).setMaxValue(100))
         .addUserOption(opt => opt.setName('user').setDescription('Only this user’s messages (default: everyone’s)').setRequired(false))
+        .addStringOption(opt => opt.setName('user_id').setDescription('User ID or username — for someone who has left or been kicked').setRequired(false))
         .addChannelOption(opt => opt.setName('channel').setDescription('Which channel to clear (default: this one)').setRequired(false))
         .addBooleanOption(opt => opt.setName('all_channels').setDescription('Search every channel instead of just one').setRequired(false));
 
