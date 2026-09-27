@@ -10537,9 +10537,14 @@ app.get('/api/tracks/feed', async (req: any, res) => {
         }
 
         // ── Who is this feed for ──────────────────────────────────────────────
+        // Only the ranked feed is personalised. Asking for 'new' or 'plays' means
+        // exactly that order: mixing in a personalised share and interleaving it
+        // made 'new' look like a reshuffle of the same feed rather than the
+        // newest uploads.
+        const personalised = (sort ?? 'feed') === 'feed';
         let followedProfileIds: string[] = [];
         let viewerGenreIds: string[] = [];
-        if (userId) {
+        if (userId && personalised) {
             const [follows, me] = await Promise.all([
                 db.artistFollow.findMany({ where: { followerId: userId }, select: { artistId: true } }),
                 db.musicianProfile.findFirst({ where: { userId }, select: { genres: { select: { genreId: true } } } }),
@@ -10576,7 +10581,9 @@ app.get('/api/tracks/feed', async (req: any, res) => {
 
         // Tracks the viewer already scrolled past recently — skipped on the first
         // page so a refresh opens on something new (client sends them back).
-        const seen: string[] = !cursor
+        // Skipping what they just watched keeps the ranked feed fresh, but under an
+        // explicit sort it would quietly drop the newest tracks from the top of 'new'.
+        const seen: string[] = !cursor && personalised
             ? String(req.query.exclude || '').split(',').map(s => s.trim()).filter(Boolean).slice(0, 50)
             : [];
 
