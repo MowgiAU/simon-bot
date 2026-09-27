@@ -862,8 +862,11 @@ export class SimonBot {
 
     const purgeCommand = new SlashCommandBuilder()
         .setName('purge')
-        .setDescription('Delete multiple messages')
-        .addIntegerOption(opt => opt.setName('amount').setDescription('Number of messages to delete').setRequired(true).setMinValue(1).setMaxValue(100));
+        .setDescription('Delete recent messages, optionally only one user’s')
+        .addIntegerOption(opt => opt.setName('amount').setDescription('How many messages to delete (1-100)').setRequired(true).setMinValue(1).setMaxValue(100))
+        .addUserOption(opt => opt.setName('user').setDescription('Only this user’s messages (default: everyone’s)').setRequired(false))
+        .addChannelOption(opt => opt.setName('channel').setDescription('Which channel to clear (default: this one)').setRequired(false))
+        .addBooleanOption(opt => opt.setName('all_channels').setDescription('Search every channel instead of just one').setRequired(false));
 
     commands.push(kickCommand.toJSON());
     commands.push(banCommand.toJSON());

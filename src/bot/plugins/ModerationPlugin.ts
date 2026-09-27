@@ -529,18 +529,101 @@ export class ModerationPlugin implements IPlugin {
             return interaction.reply({ content: 'Amount must be between 1 and 100.', flags: MessageFlags.Ephemeral });
         }
 
-        const channel = interaction.channel as TextChannel;
-        if (!channel) return;
+        const targetUser = interaction.options.getUser('user');
+        const pickedChannel = interaction.options.getChannel('channel');
+        const allChannels = interaction.options.getBoolean('all_channels') ?? false;
 
-        try {
-            const deleted = await channel.bulkDelete(amount, true);
-            await this.logAction(interaction.guildId!, 'purge', interaction.user.id, channel.id, { amount: deleted.size, channel: channel.name });
-            
-            await interaction.reply({ content: `Deleted ${deleted.size} messages.`, flags: MessageFlags.Ephemeral });
-        } catch (e) {
-            this.logger.error('Purge failed', e);
-            await interaction.reply({ content: 'Failed to delete messages. Messages older than 14 days cannot be bulk deleted.', flags: MessageFlags.Ephemeral });
+        if (pickedChannel && allChannels) {
+            return interaction.reply({ content: 'Choose a channel or all channels, not both.', flags: MessageFlags.Ephemeral });
         }
+
+        // Work out which channels to search.
+        const guild = interaction.guild!;
+        const me = guild.members.me;
+        const usable = (c: any): boolean => {
+            if (!c?.isTextBased?.() || c.isVoiceBased?.()) return false;
+            const perms = me && c.permissionsFor(me);
+            return !!perms?.has(PermissionFlagsBits.ViewChannel)
+                && !!perms?.has(PermissionFlagsBits.ReadMessageHistory)
+                && !!perms?.has(PermissionFlagsBits.ManageMessages);
+        };
+
+        let channels: TextChannel[];
+        if (allChannels) {
+            // Newest activity first, so "the last N messages" means the most recent ones
+            // server-wide rather than wherever the channel cache happens to start.
+            channels = [...guild.channels.cache.values()]
+                .filter(usable)
+                .sort((a: any, b: any) => (b.lastMessageId ?? '0').localeCompare(a.lastMessageId ?? '0')) as TextChannel[];
+        } else {
+            const one = (pickedChannel ?? interaction.channel) as any;
+            if (!usable(one)) {
+                return interaction.reply({
+                    content: pickedChannel
+                        ? 'I can’t read or manage messages in that channel.'
+                        : 'I can’t manage messages in this channel.',
+                    flags: MessageFlags.Ephemeral,
+                });
+            }
+            channels = [one as TextChannel];
+        }
+        if (channels.length === 0) {
+            return interaction.reply({ content: 'There are no channels here I can manage messages in.', flags: MessageFlags.Ephemeral });
+        }
+
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+        // Discord refuses to bulk delete anything older than 14 days.
+        const cutoff = Date.now() - 14 * 24 * 60 * 60 * 1000;
+        let remaining = amount;
+        let totalDeleted = 0;
+        let tooOld = 0;
+        const perChannel: string[] = [];
+
+        for (const channel of channels) {
+            if (remaining <= 0) break;
+            try {
+                // With a user filter we have to look past their messages to find them, so
+                // always scan a full page and pick out the ones that match.
+                const fetchLimit = targetUser ? 100 : Math.min(remaining, 100);
+                const recent = await channel.messages.fetch({ limit: fetchLimit });
+                const matching = [...recent.values()]
+                    .filter(m => !targetUser || m.author.id === targetUser.id)
+                    .filter(m => !m.pinned);
+                const deletable = matching.filter(m => m.createdTimestamp > cutoff).slice(0, remaining);
+                tooOld += matching.filter(m => m.createdTimestamp <= cutoff).length;
+                if (deletable.length === 0) continue;
+
+                // bulkDelete needs at least two messages; a single one is deleted on its own.
+                if (deletable.length === 1) await deletable[0].delete();
+                else await channel.bulkDelete(deletable, true);
+
+                remaining -= deletable.length;
+                totalDeleted += deletable.length;
+                perChannel.push(`#${channel.name}: ${deletable.length}`);
+            } catch (e: any) {
+                this.logger.warn(`Purge failed in #${(channel as any).name}: ${e?.message}`);
+            }
+        }
+
+        await this.logAction(interaction.guildId!, 'purge', interaction.user.id, targetUser?.id ?? channels[0].id, {
+            amount: totalDeleted,
+            requested: amount,
+            user: targetUser?.tag ?? 'everyone',
+            scope: allChannels ? 'all channels' : `#${channels[0].name}`,
+        });
+
+        const who = targetUser ? `**${targetUser.tag}**’s messages` : 'messages';
+        const where = allChannels ? 'across all channels' : `in <#${channels[0].id}>`;
+        const lines = [
+            totalDeleted > 0
+                ? `Deleted **${totalDeleted}** ${who} ${where}.`
+                : `No ${who} found to delete ${where}.`,
+        ];
+        if (allChannels && perChannel.length > 1) lines.push(perChannel.join(' · '));
+        if (totalDeleted < amount && tooOld > 0) lines.push(`${tooOld} were older than 14 days — Discord won’t let bots delete those.`);
+
+        await interaction.editReply({ content: lines.join('\n') });
     }
 
     // --- Helpers ---
