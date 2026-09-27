@@ -32,6 +32,7 @@ export const FrontpageAltFDesktopFeed: React.FC = () => {
                         <TrackFeed
                             variant="desktop"
                             params={{}}
+                            sortToggle
                             emptyMessage="No tracks have been uploaded yet."
                         />
                     </div>

@@ -20,7 +20,7 @@ import { TrackDetailsSheet } from './TrackDetailsSheet';
 import { FeedSkeleton } from './FeedSkeleton';
 import { useTrackFeed } from './useTrackFeed';
 import { markSeen } from './seen';
-import { FeedParams, FeedTrack, artistName, trackAudioUrl } from './types';
+import { FeedParams, FeedSort, FeedTrack, artistName, trackAudioUrl } from './types';
 
 const FEED_STYLES = `
 @keyframes fujiKenBurns { from{transform:scale(1.04) translate(0,0)} to{transform:scale(1.16) translate(-1.6%,-1.2%)} }
@@ -54,9 +54,11 @@ interface Props {
      * sidebars, each track framed phone-shaped.
      */
     variant?: 'mobile' | 'desktop';
+    /** Show the For you / New switch in the header. */
+    sortToggle?: boolean;
 }
 
-export const TrackFeed: React.FC<Props> = ({ params, title, backTo, browseTo, createLink, headerExtra, emptyMessage, variant = 'mobile' }) => {
+export const TrackFeed: React.FC<Props> = ({ params, title, backTo, browseTo, createLink, headerExtra, emptyMessage, variant = 'mobile', sortToggle = false }) => {
     const desktop = variant === 'desktop';
     const { player, setTrack, togglePlay, seek } = usePlayer();
     const { user, loading: authLoading } = useAuth();
@@ -69,7 +71,16 @@ export const TrackFeed: React.FC<Props> = ({ params, title, backTo, browseTo, cr
         setTimeout(() => setToast(prev => (prev === msg ? null : prev)), 2200);
     }, []);
 
-    const { tracks, loading, hasMore, loadMore, toggleLike, toggleRepost, toggleFollow, bumpCommentCount } = useTrackFeed(params, flash);
+    // The header switch overrides the sort the page asked for, so the viewer can
+    // swap between the ranked feed and newest-first without leaving the page.
+    const [sort, setSort] = useState<FeedSort | undefined>(params.sort);
+    useEffect(() => { setSort(params.sort); }, [params.sort]);
+    const feedParams = useMemo(
+        () => ({ ...params, sort }),
+        [params.genre, params.search, params.artist, params.startTrackId, sort],
+    );
+
+    const { tracks, loading, hasMore, loadMore, toggleLike, toggleRepost, toggleFollow, bumpCommentCount } = useTrackFeed(feedParams, flash);
 
     const scrollerRef = useRef<HTMLDivElement>(null);
     const [active, setActive] = useState(0);
@@ -198,7 +209,7 @@ export const TrackFeed: React.FC<Props> = ({ params, title, backTo, browseTo, cr
     useEffect(() => {
         scrollerRef.current?.scrollTo({ top: 0 });
         setActive(0);
-    }, [params.genre, params.search, params.artist, params.sort]);
+    }, [params.genre, params.search, params.artist, sort]);
 
     // Desktop has no swipe — arrows step between tracks, space toggles playback.
     // Deliberately an instant jump: a mandatory snap container cancels
@@ -281,6 +292,23 @@ export const TrackFeed: React.FC<Props> = ({ params, title, backTo, browseTo, cr
                         </div>
                     )}
                 </div>
+                {sortToggle && (
+                    <div style={{ display: 'flex', gap: 2, padding: 2, borderRadius: 999, background: 'rgba(0,0,0,0.45)', border: `1px solid ${BORDER}`, flexShrink: 0 }}>
+                        {([['feed', 'For you'], ['new', 'New']] as [FeedSort, string][]).map(([value, label]) => {
+                            const on = (sort ?? 'feed') === value;
+                            return (
+                                <button key={value} onClick={() => setSort(value)}
+                                    style={{
+                                        padding: '5px 11px', borderRadius: 999, border: 'none', cursor: 'pointer', fontFamily: FONT,
+                                        fontSize: 11.5, fontWeight: 800, letterSpacing: '0.01em',
+                                        background: on ? PRIMARY : 'transparent', color: on ? '#fff' : 'rgba(255,255,255,0.72)',
+                                    }}>
+                                    {label}
+                                </button>
+                            );
+                        })}
+                    </div>
+                )}
                 {browseTo && <Link to={browseTo} aria-label="Browse" style={iconBtn}><LayoutGrid size={17} /></Link>}
                 {/* Signed out is otherwise invisible here until an action quietly
                     fails, which is exactly how people ended up thinking like and
@@ -291,7 +319,7 @@ export const TrackFeed: React.FC<Props> = ({ params, title, backTo, browseTo, cr
             </div>
             {headerExtra && <div style={{ marginTop: 10, pointerEvents: 'auto' }}>{headerExtra}</div>}
         </div>
-    ), [backTo, browseTo, createLink, title, tracks.length, active, hasMore, headerExtra, user, authLoading]);
+    ), [backTo, browseTo, createLink, title, tracks.length, active, hasMore, headerExtra, user, authLoading, sortToggle, sort]);
 
     const slideProps = (t: FeedTrack, i: number) => ({
         track: t,
