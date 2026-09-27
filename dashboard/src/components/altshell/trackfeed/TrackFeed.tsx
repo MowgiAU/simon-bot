@@ -262,6 +262,26 @@ export const TrackFeed: React.FC<Props> = ({ params, title, backTo, browseTo, cr
         else play(t);
     }, [player.currentTrack?.id, togglePlay, play]);
 
+    // Shared by both layouts: the mobile header row, and the strip above the
+    // desktop column (which has no feed header of its own — the page supplies one).
+    const sortSwitch = useMemo(() => !sortToggle ? null : (
+        <div style={{ display: 'flex', gap: 2, padding: 2, borderRadius: 999, background: 'rgba(0,0,0,0.45)', border: `1px solid ${BORDER}`, flexShrink: 0, pointerEvents: 'auto', width: 'fit-content' }}>
+            {([['feed', 'For you'], ['new', 'New']] as [FeedSort, string][]).map(([value, label]) => {
+                const on = (sort ?? 'feed') === value;
+                return (
+                    <button key={value} onClick={() => setSort(value)}
+                        style={{
+                            padding: '5px 11px', borderRadius: 999, border: 'none', cursor: 'pointer', fontFamily: FONT,
+                            fontSize: 11.5, fontWeight: 800, letterSpacing: '0.01em',
+                            background: on ? PRIMARY : 'transparent', color: on ? '#fff' : 'rgba(255,255,255,0.72)',
+                        }}>
+                        {label}
+                    </button>
+                );
+            })}
+        </div>
+    ), [sortToggle, sort]);
+
     const header = useMemo(() => (
         <div style={{
             position: 'fixed', top: 0, left: 0, right: 0, zIndex: 120,
@@ -292,23 +312,7 @@ export const TrackFeed: React.FC<Props> = ({ params, title, backTo, browseTo, cr
                         </div>
                     )}
                 </div>
-                {sortToggle && (
-                    <div style={{ display: 'flex', gap: 2, padding: 2, borderRadius: 999, background: 'rgba(0,0,0,0.45)', border: `1px solid ${BORDER}`, flexShrink: 0 }}>
-                        {([['feed', 'For you'], ['new', 'New']] as [FeedSort, string][]).map(([value, label]) => {
-                            const on = (sort ?? 'feed') === value;
-                            return (
-                                <button key={value} onClick={() => setSort(value)}
-                                    style={{
-                                        padding: '5px 11px', borderRadius: 999, border: 'none', cursor: 'pointer', fontFamily: FONT,
-                                        fontSize: 11.5, fontWeight: 800, letterSpacing: '0.01em',
-                                        background: on ? PRIMARY : 'transparent', color: on ? '#fff' : 'rgba(255,255,255,0.72)',
-                                    }}>
-                                    {label}
-                                </button>
-                            );
-                        })}
-                    </div>
-                )}
+                {sortSwitch}
                 {browseTo && <Link to={browseTo} aria-label="Browse" style={iconBtn}><LayoutGrid size={17} /></Link>}
                 {/* Signed out is otherwise invisible here until an action quietly
                     fails, which is exactly how people ended up thinking like and
@@ -346,8 +350,11 @@ export const TrackFeed: React.FC<Props> = ({ params, title, backTo, browseTo, cr
         <>
             <style>{desktop ? FEED_STYLES : FEED_STYLES + HIDE_PLAYER_BAR}</style>
             {!desktop && header}
-            {desktop && headerExtra && (
-                <div style={{ flexShrink: 0, padding: '12px 20px 0', fontFamily: FONT }}>{headerExtra}</div>
+            {desktop && (sortSwitch || headerExtra) && (
+                <div style={{ flexShrink: 0, padding: '12px 20px 0', fontFamily: FONT, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    {sortSwitch}
+                    {headerExtra}
+                </div>
             )}
 
             <div
