@@ -61,7 +61,7 @@ const glass: React.CSSProperties = {
 const DIVIDER = 'rgba(87,66,54,0.25)';
 
 export const FrontpageAltFBattles: React.FC = () => {
-    const { player } = usePlayer();
+    const { player, setTrack } = usePlayer();
     const [battles, setBattles] = useState<any[]>([]);
     const [archive, setArchive] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -81,9 +81,40 @@ export const FrontpageAltFBattles: React.FC = () => {
 
     const featured = battles.find((b: any) => b.status === 'active' || b.status === 'open') || battles[0];
     const upcoming = battles.filter((b: any) => b.id !== featured?.id);
+    // One winner per finished battle — the declared winner where there is one, else the
+    // most-voted entry — then the most-voted of those first. The entry itself only
+    // carries ids and a vote count; the title, cover and artist live on its track.
     const topEntries: any[] = archive
-        .flatMap((b: any) => (b.entries || []).slice(0, 1).map((e: any) => ({ ...e, battleTitle: b.title })))
+        .map((b: any) => {
+            const entries: any[] = b.entries || [];
+            const winner = entries.find((e: any) => e.id === b.winnerEntryId) || entries[0];
+            if (!winner?.track) return null;
+            return {
+                id: winner.id,
+                title: winner.track.title || 'Untitled',
+                artist: winner.track.profile?.displayName || winner.track.profile?.username || 'Unknown artist',
+                username: winner.track.profile?.username,
+                cover: winner.track.coverUrl,
+                url: winner.track.url,
+                trackId: winner.track.id,
+                votes: winner.voteCount || 0,
+                battleTitle: b.title,
+                battleSlug: b.slug,
+            };
+        })
+        .filter(Boolean)
+        .sort((a: any, b: any) => b.votes - a.votes)
         .slice(0, 5);
+
+    // The rows have shown a play button since they were built; it never did anything.
+    const playWinner = (e: any) => {
+        if (!e.url) return;
+        const queue = topEntries.filter((w: any) => w.url).map((w: any) => ({
+            id: w.trackId, title: w.title, artist: w.artist,
+            username: w.username, url: w.url, coverUrl: w.cover,
+        }));
+        setTrack(queue.find((q: any) => q.id === e.trackId) || queue[0], queue);
+    };
 
     const featuredStatus = featured ? battleStatus(featured) : null;
     const featuredPrize = featured ? formatPrize(featured) : null;
@@ -103,9 +134,10 @@ export const FrontpageAltFBattles: React.FC = () => {
                 <div style={{ padding: 28, textAlign: 'center', color: SUB, fontSize: 13 }}>No past winners yet.</div>
             ) : topEntries.map((e: any, i: number) => {
                 const rankColor = ['#FFD700', '#C0C0C0', '#CD7F32', SUB, SUB][i];
-                const cover = e.coverUrl || e.track?.coverUrl;
+                const cover = e.cover;
                 return (
-                    <div key={e.id || i} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 16px', borderBottom: i < topEntries.length - 1 ? `1px solid ${DIVIDER}` : 'none', cursor: 'pointer', transition: 'background 0.15s' }}
+                    <div key={e.id || i} onClick={() => playWinner(e)} title={`Play “${e.title}”`}
+                        style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 16px', borderBottom: i < topEntries.length - 1 ? `1px solid ${DIVIDER}` : 'none', cursor: 'pointer', transition: 'background 0.15s' }}
                         onMouseEnter={e2 => (e2.currentTarget.style.background = 'rgba(38,42,53,0.5)')}
                         onMouseLeave={e2 => (e2.currentTarget.style.background = 'transparent')}>
                         {/* Cover with hover play */}
@@ -119,12 +151,13 @@ export const FrontpageAltFBattles: React.FC = () => {
                             </div>
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
-                            <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: TEXT, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.title || e.trackTitle || 'Entry'}</p>
-                            <p style={{ margin: '3px 0 0', fontSize: 11, color: SUB, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.profile?.displayName || e.profile?.username || 'Producer'}</p>
+                            <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: TEXT, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.title}</p>
+                            <p style={{ margin: '3px 0 0', fontSize: 11, color: SUB, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.artist}</p>
+                            <p style={{ margin: '2px 0 0', fontSize: 10, color: SUB, opacity: 0.75, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.battleTitle}</p>
                         </div>
                         <div style={{ textAlign: 'right', flexShrink: 0 }}>
                             <p style={{ margin: 0, fontWeight: 900, fontSize: 14, color: rankColor }}>#{i + 1}</p>
-                            <p style={{ margin: '2px 0 0', fontSize: 10, color: SUB, display: 'flex', alignItems: 'center', gap: 3, justifyContent: 'flex-end' }}><Star size={10} fill={PRIMARY} color={PRIMARY} /> {fmtNum(e.votes || 0)}</p>
+                            <p style={{ margin: '2px 0 0', fontSize: 10, color: SUB, display: 'flex', alignItems: 'center', gap: 3, justifyContent: 'flex-end' }}><Star size={10} fill={PRIMARY} color={PRIMARY} /> {fmtNum(e.votes)}</p>
                         </div>
                     </div>
                 );
