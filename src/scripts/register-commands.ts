@@ -31,7 +31,6 @@ const commands = [
     new SlashCommandBuilder().setName('warn').setDescription('Issue a warning to a user').setDefaultMemberPermissions(0x2).addUserOption(opt => opt.setName('user').setDescription('User').setRequired(true)).addStringOption(opt => opt.setName('reason').setDescription('Reason').setRequired(true)).toJSON(),
     new SlashCommandBuilder().setName('warnings').setDescription('View warnings for a user').setDefaultMemberPermissions(0x2).addUserOption(opt => opt.setName('user').setDescription('User').setRequired(true)).toJSON(),
     new SlashCommandBuilder().setName('purge').setDescription('Delete messages').setDefaultMemberPermissions(0x2000).addIntegerOption(opt => opt.setName('amount').setDescription('Amount').setRequired(true)).toJSON(),
-    new SlashCommandBuilder().setName('remove').setDescription('Remove a single message (alerts moderators)').setDefaultMemberPermissions(0x2000).addStringOption(opt => opt.setName('message_id').setDescription('Message ID to remove').setRequired(true)).addStringOption(opt => opt.setName('reason').setDescription('Reason for removal').setRequired(true)).toJSON(),
 
     // 2b. Booster Colour Roles
     new SlashCommandBuilder().setName('booster').setDescription('Pick your booster name colour').addStringOption(opt => opt.setName('role').setDescription('Colour to apply').setRequired(true).setAutocomplete(true)).toJSON(),

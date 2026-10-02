@@ -12,9 +12,6 @@ import {
     MessageFlags,
     ChannelType,
     AuditLogEvent,
-    ButtonBuilder,
-    ButtonStyle,
-    ActionRowBuilder,
     ButtonInteraction,
 } from 'discord.js';
 import { IPlugin, IPluginContext } from '../types/plugin';
@@ -35,7 +32,7 @@ export class ModerationPlugin implements IPlugin {
         PermissionFlagsBits.ManageMessages
     ];
 
-    readonly commands = ['kick', 'ban', 'timeout', 'warn', 'warnings', 'purge', 'remove', 'modlog'];
+    readonly commands = ['kick', 'ban', 'timeout', 'warn', 'warnings', 'purge', 'modlog'];
     readonly events = ['interactionCreate', 'guildBanAdd', 'guildBanRemove', 'guildMemberRemove'];
     readonly dashboardSections = ['moderation'];
     readonly defaultEnabled = true;
@@ -52,23 +49,6 @@ export class ModerationPlugin implements IPlugin {
 
     // Track actions performed by the bot's slash commands to avoid double-logging
     private recentBotActions = new Set<string>();
-
-    // In-memory store for pending /remove review requests
-    private pendingRemovals = new Map<string, {
-        guildId: string;
-        channelId: string;
-        messageId: string;
-        messageContent: string;
-        attachmentUrls: string[];
-        authorId: string;
-        authorTag: string;
-        authorUsername: string;
-        authorAvatar: string | null;
-        requestorId: string;
-        reason: string;
-        reviewChannelId: string;
-        reviewMessageId: string;
-    }>();
 
     async initialize(context: IPluginContext): Promise<void> {
         this.client = context.client;
@@ -260,21 +240,6 @@ export class ModerationPlugin implements IPlugin {
 
     // Event Handler
     async onInteractionCreate(interaction: ChatInputCommandInteraction | ButtonInteraction | any): Promise<void> {
-        // Handle review approval/denial buttons
-        if (interaction.isButton()) {
-            if (interaction.customId.startsWith('MOD_RM_APPROVE_')) {
-                const key = interaction.customId.slice('MOD_RM_APPROVE_'.length);
-                await this.handleRemoveApprove(interaction, key);
-                return;
-            }
-            if (interaction.customId.startsWith('MOD_RM_DENY_')) {
-                const key = interaction.customId.slice('MOD_RM_DENY_'.length);
-                await this.handleRemoveDeny(interaction, key);
-                return;
-            }
-            return;
-        }
-
         if (!interaction.isChatInputCommand()) return;
 
         // Route commands
@@ -283,7 +248,6 @@ export class ModerationPlugin implements IPlugin {
             case 'ban': await this.handleBan(interaction); break;
             case 'timeout': await this.handleTimeout(interaction); break;
             case 'purge': await this.handlePurge(interaction); break;
-            case 'remove': await this.handleRemove(interaction); break;
             case 'warn': await this.handleWarn(interaction); break;
             case 'warnings': await this.handleWarnings(interaction); break;
         }
@@ -997,224 +961,6 @@ export class ModerationPlugin implements IPlugin {
             this.logger.error('Failed to delete user messages', e);
             return 0;
         }
-    }
-
-    private async handleRemove(interaction: ChatInputCommandInteraction) {
-        if (!await this.checkModerationAccess(interaction, 'canRemove')) {
-            return interaction.reply({ content: 'You do not have permission to use this command.', flags: MessageFlags.Ephemeral });
-        }
-
-        const messageId = interaction.options.getString('message_id', true);
-        const reason = interaction.options.getString('reason', true);
-        const channel = interaction.channel as TextChannel;
-
-        if (!channel) {
-            return interaction.reply({ content: 'This command must be used in a text channel.', flags: MessageFlags.Ephemeral });
-        }
-
-        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-
-        try {
-            const targetMessage = await channel.messages.fetch(messageId).catch(() => null);
-            if (!targetMessage) {
-                return interaction.editReply({ content: 'Message not found. Make sure you are in the same channel as the message.' });
-            }
-
-            const settings = await this.db.moderationSettings.findUnique({ where: { guildId: interaction.guildId! } });
-            const reviewChannelId = settings?.logChannelId;
-            const alertRoleId = settings?.removeAlertRoleId;
-
-            if (!reviewChannelId) {
-                return interaction.editReply({ content: '⚠️ No log channel is configured. Ask an admin to set one in Moderation Settings.' });
-            }
-
-            const reviewChannel = this.client.channels.cache.get(reviewChannelId) as TextChannel;
-            if (!reviewChannel) {
-                return interaction.editReply({ content: '⚠️ The configured log channel was not found.' });
-            }
-
-            const messageContent = targetMessage.content || '';
-            const messageAuthor = targetMessage.author;
-            const attachmentUrls = [...targetMessage.attachments.values()].map(a => a.url);
-
-            // Generate a short unique key for this review
-            const reviewKey = Math.random().toString(36).slice(2, 10);
-
-            const embed = new EmbedBuilder()
-                .setTitle('⏳ Removal Review Request')
-                .setColor(Colors.Yellow)
-                .setDescription(`**${interaction.user}** has requested a message be removed and needs senior staff approval.`)
-                .addFields(
-                    { name: 'Message Author', value: `<@${messageAuthor.id}> (${messageAuthor.tag})`, inline: true },
-                    { name: 'Channel', value: `<#${channel.id}>`, inline: true },
-                    { name: 'Reason', value: reason },
-                    { name: 'Message Content', value: messageContent.substring(0, 1024) || '*No text content*' },
-                )
-                .setFooter({ text: `Review ID: ${reviewKey}` })
-                .setTimestamp();
-
-            if (attachmentUrls.length > 0) {
-                embed.addFields({ name: 'Attachments', value: attachmentUrls.map((u, i) => `[File ${i + 1}](${u})`).join('\n') });
-            }
-
-            const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
-                new ButtonBuilder()
-                    .setCustomId(`MOD_RM_APPROVE_${reviewKey}`)
-                    .setLabel('✅ Approve Removal')
-                    .setStyle(ButtonStyle.Success),
-                new ButtonBuilder()
-                    .setCustomId(`MOD_RM_DENY_${reviewKey}`)
-                    .setLabel('❌ Deny')
-                    .setStyle(ButtonStyle.Danger),
-            );
-
-            const pingContent = alertRoleId ? `<@&${alertRoleId}>` : undefined;
-            const reviewMsg = await reviewChannel.send({ content: pingContent, embeds: [embed], components: [row], allowedMentions: alertRoleId ? { roles: [alertRoleId] } : undefined });
-
-            // Store pending review in memory
-            this.pendingRemovals.set(reviewKey, {
-                guildId: interaction.guildId!,
-                channelId: channel.id,
-                messageId: targetMessage.id,
-                messageContent,
-                attachmentUrls,
-                authorId: messageAuthor.id,
-                authorTag: messageAuthor.tag,
-                authorUsername: messageAuthor.username,
-                authorAvatar: messageAuthor.displayAvatarURL() || null,
-                requestorId: interaction.user.id,
-                reason,
-                reviewChannelId,
-                reviewMessageId: reviewMsg.id,
-            });
-
-            // Auto-expire after 24 hours
-            setTimeout(() => this.pendingRemovals.delete(reviewKey), 24 * 60 * 60 * 1000);
-
-            await interaction.editReply({ content: `📨 Removal request sent for review. Senior staff have been notified in <#${reviewChannelId}>.` });
-        } catch (e) {
-            this.logger.error('Remove command failed', e);
-            await interaction.editReply({ content: 'Failed to submit removal request.' });
-        }
-    }
-
-    /**
-     * Checks if the button interaction user is a moderator or admin level.
-     * Requires Discord Administrator, native BanMembers, or DB canBan permission.
-     * Jr staff / regular staff with only canRemove do NOT qualify.
-     */
-    private async checkApprovalAccess(interaction: ButtonInteraction): Promise<boolean> {
-        const member = interaction.member as GuildMember;
-        if (!member) return false;
-        if (member.permissions.has(PermissionFlagsBits.Administrator)) return true;
-        if (member.permissions.has(PermissionFlagsBits.BanMembers)) return true;
-
-        try {
-            const settings = await this.db.moderationSettings.findUnique({
-                where: { guildId: interaction.guildId! },
-                include: { permissions: true },
-            });
-            if (!settings?.permissions?.length) return false;
-            const memberRoleIds = member.roles.cache.map(r => r.id);
-            return settings.permissions.some(
-                perm => memberRoleIds.includes(perm.roleId) && perm.canBan === true
-            );
-        } catch {
-            return false;
-        }
-    }
-
-    private async handleRemoveApprove(interaction: ButtonInteraction, reviewKey: string) {
-        if (!await this.checkApprovalAccess(interaction)) {
-            return interaction.reply({ content: '❌ Only moderators/admins can approve or deny removal requests.', flags: MessageFlags.Ephemeral });
-        }
-
-        const data = this.pendingRemovals.get(reviewKey);
-        if (!data) {
-            return interaction.reply({ content: '❌ This review request has expired or was already processed.', flags: MessageFlags.Ephemeral });
-        }
-
-        await interaction.deferUpdate();
-        this.pendingRemovals.delete(reviewKey);
-
-        try {
-            // Delete the original message
-            const targetChannel = this.client.channels.cache.get(data.channelId) as TextChannel | null;
-            if (targetChannel) {
-                const targetMessage = await targetChannel.messages.fetch(data.messageId).catch(() => null);
-                if (targetMessage) await targetMessage.delete().catch(() => {});
-            }
-
-            // Update the review embed
-            const disabledRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
-                new ButtonBuilder().setCustomId('done_a').setLabel('✅ Approved').setStyle(ButtonStyle.Success).setDisabled(true),
-                new ButtonBuilder().setCustomId('done_b').setLabel('❌ Deny').setStyle(ButtonStyle.Danger).setDisabled(true),
-            );
-
-            await interaction.editReply({
-                embeds: [EmbedBuilder.from(interaction.message.embeds[0])
-                    .setTitle('✅ Removal Approved')
-                    .setColor(Colors.Green)
-                    .setDescription(`Approved by **${interaction.user.tag}**. Message deleted.`)],
-                components: [disabledRow],
-            });
-
-            // DM the requestor
-            const requestor = await this.client.users.fetch(data.requestorId).catch(() => null);
-            if (requestor) {
-                requestor.send(`✅ Your removal request for a message by **${data.authorTag}** in <#${data.channelId}> was **approved** by ${interaction.user.tag}.`).catch(() => {});
-            }
-
-            await this.logAction(data.guildId, 'remove', interaction.user.id, data.authorId, {
-                reason: data.reason,
-                channel: data.channelId,
-                decision: 'approved',
-                reviewedBy: interaction.user.id,
-            });
-        } catch (e) {
-            this.logger.error('Remove approval failed', e);
-        }
-    }
-
-    private async handleRemoveDeny(interaction: ButtonInteraction, reviewKey: string) {
-        if (!await this.checkApprovalAccess(interaction)) {
-            return interaction.reply({ content: '❌ Only moderators/admins can approve or deny removal requests.', flags: MessageFlags.Ephemeral });
-        }
-
-        const data = this.pendingRemovals.get(reviewKey);
-        if (!data) {
-            return interaction.reply({ content: '❌ This review request has expired or was already processed.', flags: MessageFlags.Ephemeral });
-        }
-
-        await interaction.deferUpdate();
-        this.pendingRemovals.delete(reviewKey);
-
-        // Update the review embed
-        const disabledRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
-            new ButtonBuilder().setCustomId('done_a').setLabel('✅ Approve').setStyle(ButtonStyle.Success).setDisabled(true),
-            new ButtonBuilder().setCustomId('done_b').setLabel('❌ Denied').setStyle(ButtonStyle.Danger).setDisabled(true),
-        );
-
-        await interaction.editReply({
-            embeds: [EmbedBuilder.from(interaction.message.embeds[0])
-                .setTitle('❌ Removal Denied')
-                .setColor(Colors.Red)
-                .setDescription(`Denied by **${interaction.user.tag}**. Message left in place.`)],
-            components: [disabledRow],
-        });
-
-        // DM the requestor
-        const requestor = await this.client.users.fetch(data.requestorId).catch(() => null);
-        if (requestor) {
-            requestor.send(`❌ Your removal request for a message by **${data.authorTag}** in <#${data.channelId}> was **denied** by ${interaction.user.tag}.`).catch(() => {});
-        }
-
-        await this.logAction(data.guildId, 'remove', interaction.user.id, data.authorId, {
-            reason: data.reason,
-            channel: data.channelId,
-            decision: 'denied',
-            reviewedBy: interaction.user.id,
-        }).catch(() => {});
     }
 
     private parseDuration(input: string): number | null {
