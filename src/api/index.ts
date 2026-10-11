@@ -22736,17 +22736,21 @@ app.post('/api/admin/vectorize', requireAdmin, vectorizeUpload.single('image'), 
 
         const detail = (VECTOR_DETAIL as any)[String(req.body?.detail || 'balanced')] ?? VECTOR_DETAIL.balanced;
         const blackAndWhite = String(req.body?.mode || 'colour') === 'bw';
+        // Flips light and dark before tracing — white-on-black art otherwise traces
+        // the background as the subject.
+        const invert = String(req.body?.invert || '') === 'true';
         // Tracing cost and SVG size both scale with pixel count, so cap the long edge.
         const maxSize = Math.min(Math.max(Number(req.body?.maxSize) || 1600, 256), 4000);
 
         const sharp = (await import('sharp')).default;
         const meta = await sharp(file.buffer).metadata();
         const longest = Math.max(meta.width || 0, meta.height || 0);
-        const prepared = await sharp(file.buffer)
+        let pipeline = sharp(file.buffer)
             .rotate()                                  // honour EXIF orientation before tracing
-            .resize({ width: maxSize, height: maxSize, fit: 'inside', withoutEnlargement: true })
-            .png()
-            .toBuffer();
+            .resize({ width: maxSize, height: maxSize, fit: 'inside', withoutEnlargement: true });
+        // alpha:false so transparency survives the flip instead of becoming opaque.
+        if (invert) pipeline = pipeline.negate({ alpha: false });
+        const prepared = await pipeline.png().toBuffer();
         const outMeta = await sharp(prepared).metadata();
 
         const { vectorize, ColorMode, Hierarchical, PathSimplifyMode } = await import('@neplex/vectorizer');

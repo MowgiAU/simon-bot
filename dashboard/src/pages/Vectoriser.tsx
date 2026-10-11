@@ -65,6 +65,7 @@ export const VectoriserPage: React.FC = () => {
     const [mode, setMode] = useState<Mode>('colour');
     const [detail, setDetail] = useState<Detail>('balanced');
     const [maxSize, setMaxSize] = useState(1600);
+    const [invert, setInvert] = useState(false);
     const [busy, setBusy] = useState(false);
     const [result, setResult] = useState<Result | null>(null);
     const [error, setError] = useState('');
@@ -147,6 +148,7 @@ export const VectoriserPage: React.FC = () => {
             fd.append('mode', mode);
             fd.append('detail', detail);
             fd.append('maxSize', String(maxSize));
+            fd.append('invert', String(invert));
             const { data } = await axios.post<Result>(`${API}/api/admin/vectorize`, fd, { withCredentials: true });
             setResult(data);
             setShapes(parseShapes(data.svg));
@@ -276,6 +278,33 @@ export const VectoriserPage: React.FC = () => {
                         <span style={label}>Detail</span>
                         {segmented<Detail>(detail, setDetail, [['low', 'Simple'], ['balanced', 'Balanced'], ['high', 'Fine']])}
                     </div>
+                    <div>
+                        <span style={label}>Invert</span>
+                        <button onClick={() => setInvert(v => !v)}
+                            title="Flip light and dark before tracing — for white artwork on a black background"
+                            style={{
+                                width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px',
+                                background: invert ? 'rgba(242,120,10,0.12)' : colors.background,
+                                border: `1px solid ${invert ? colors.primary : 'rgba(255,255,255,0.1)'}`,
+                                borderRadius: borderRadius.md, cursor: 'pointer', color: colors.textPrimary,
+                                fontSize: '0.85rem', fontWeight: 600, textAlign: 'left',
+                            }}>
+                            <span style={{
+                                width: 34, height: 20, borderRadius: 999, flexShrink: 0, position: 'relative',
+                                background: invert ? colors.primary : 'rgba(255,255,255,0.15)', transition: 'background 0.15s',
+                            }}>
+                                <span style={{
+                                    position: 'absolute', top: 2, left: invert ? 16 : 2, width: 16, height: 16,
+                                    borderRadius: '50%', background: '#fff', transition: 'left 0.15s',
+                                }} />
+                            </span>
+                            {invert ? 'Colours flipped' : 'Flip light & dark'}
+                        </button>
+                        <div style={{ fontSize: '0.72rem', color: colors.textTertiary, marginTop: 6 }}>
+                            For white artwork on a black background.
+                        </div>
+                    </div>
+
                     <div>
                         <span style={label}>Trace at</span>
                         <select value={maxSize} onChange={e => setMaxSize(Number(e.target.value))}
