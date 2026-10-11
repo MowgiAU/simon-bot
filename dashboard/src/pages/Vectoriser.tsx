@@ -7,7 +7,7 @@
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import axios from 'axios';
-import { Shapes, Upload, Download, Copy, Check, RotateCcw, AlertCircle, Loader } from 'lucide-react';
+import { Shapes, Upload, Download, Copy, Check, RotateCcw, AlertCircle, Loader, Eraser, Undo2 } from 'lucide-react';
 import { colors, spacing, borderRadius } from '../theme/theme';
 
 const API = import.meta.env.VITE_API_URL ?? '';
@@ -27,6 +27,36 @@ interface Result {
     ms: number;
 }
 
+/** One traced shape, pulled out of the SVG so it can be shown and removed individually. */
+interface Shape {
+    d: string;
+    fill: string;
+    transform: string | null;
+}
+
+/** Reads the tracer's flat list of <path> elements. Parsed as XML, never injected as HTML. */
+function parseShapes(svg: string): Shape[] {
+    try {
+        const doc = new DOMParser().parseFromString(svg, 'image/svg+xml');
+        if (doc.querySelector('parsererror')) return [];
+        return [...doc.querySelectorAll('path')].map(p => ({
+            d: p.getAttribute('d') || '',
+            fill: p.getAttribute('fill') || '#000000',
+            transform: p.getAttribute('transform'),
+        })).filter(s => s.d);
+    } catch {
+        return [];
+    }
+}
+
+function buildSvg(shapes: Shape[], width: number, height: number): string {
+    const body = shapes
+        .map(s => `<path d="${s.d}" fill="${s.fill}"${s.transform ? ` transform="${s.transform}"` : ''}/>`)
+        .join('\n');
+    // viewBox added so the exported file scales cleanly; the tracer only sets width/height.
+    return `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" version="1.1" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">\n${body}\n</svg>\n`;
+}
+
 const fmtBytes = (n: number) => n >= 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`;
 
 export const VectoriserPage: React.FC = () => {
@@ -37,22 +67,72 @@ export const VectoriserPage: React.FC = () => {
     const [maxSize, setMaxSize] = useState(1600);
     const [busy, setBusy] = useState(false);
     const [result, setResult] = useState<Result | null>(null);
-    const [svgUrl, setSvgUrl] = useState<string | null>(null);
     const [error, setError] = useState('');
     const [copied, setCopied] = useState(false);
     const [dragging, setDragging] = useState(false);
     const inputRef = useRef<HTMLInputElement>(null);
 
+    // Editing state: every traced shape, which ones are dropped, and enough history to undo.
+    const [shapes, setShapes] = useState<Shape[]>([]);
+    const [removed, setRemoved] = useState<Set<number>>(new Set());
+    const [history, setHistory] = useState<Set<number>[]>([]);
+    const [hovered, setHovered] = useState<number | null>(null);
+
+    const kept = shapes.filter((_, i) => !removed.has(i));
+    const currentSvg = result ? buildSvg(kept, result.width, result.height) : '';
+
+    const drop = (next: Set<number>) => {
+        setHistory(h => [...h.slice(-29), new Set(removed)]);
+        setRemoved(next);
+    };
+    const undo = () => {
+        setHistory(h => {
+            if (h.length === 0) return h;
+            setRemoved(h[h.length - 1]);
+            return h.slice(0, -1);
+        });
+    };
+    const restoreAll = () => { if (removed.size) drop(new Set()); };
+    const toggleShape = (i: number) => { const n = new Set(removed); n.add(i); drop(n); };
+    const dropColour = (fill: string) => {
+        const n = new Set(removed);
+        shapes.forEach((s, i) => { if (s.fill.toLowerCase() === fill.toLowerCase()) n.add(i); });
+        drop(n);
+    };
+    /** The background is the shape that covers (near enough) the whole canvas — usually the first. */
+    const backgroundIndex = (() => {
+        if (!result) return -1;
+        const area = result.width * result.height;
+        for (let i = 0; i < Math.min(shapes.length, 3); i++) {
+            const nums = (shapes[i].d.match(/-?\d+(\.\d+)?/g) || []).map(Number);
+            const xs = nums.filter((_, k) => k % 2 === 0);
+            const ys = nums.filter((_, k) => k % 2 === 1);
+            if (!xs.length || !ys.length) continue;
+            const w = Math.max(...xs) - Math.min(...xs);
+            const h = Math.max(...ys) - Math.min(...ys);
+            if (w * h >= area * 0.85) return i;
+        }
+        return -1;
+    })();
+
+    /** Distinct fills, most-used first, for removing a whole colour at once. */
+    const palette = (() => {
+        const counts = new Map<string, number>();
+        shapes.forEach((s, i) => { if (!removed.has(i)) counts.set(s.fill, (counts.get(s.fill) || 0) + 1); });
+        return [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 12);
+    })();
+
     // Object URLs are revoked on replacement so previews don't pile up in memory.
     useEffect(() => () => { if (originalUrl) URL.revokeObjectURL(originalUrl); }, [originalUrl]);
-    useEffect(() => () => { if (svgUrl) URL.revokeObjectURL(svgUrl); }, [svgUrl]);
 
     const choose = useCallback((f: File) => {
         if (!f.type.startsWith('image/')) { setError('That isn’t an image. Use PNG, JPG, GIF or WEBP.'); return; }
         if (f.size > MAX_MB * 1024 * 1024) { setError(`That image is over the ${MAX_MB} MB limit.`); return; }
         setError('');
         setResult(null);
-        setSvgUrl(prev => { if (prev) URL.revokeObjectURL(prev); return null; });
+        setShapes([]);
+        setRemoved(new Set());
+        setHistory([]);
         setOriginalUrl(prev => { if (prev) URL.revokeObjectURL(prev); return URL.createObjectURL(f); });
         setFile(f);
     }, []);
@@ -69,8 +149,9 @@ export const VectoriserPage: React.FC = () => {
             fd.append('maxSize', String(maxSize));
             const { data } = await axios.post<Result>(`${API}/api/admin/vectorize`, fd, { withCredentials: true });
             setResult(data);
-            const blob = new Blob([data.svg], { type: 'image/svg+xml' });
-            setSvgUrl(prev => { if (prev) URL.revokeObjectURL(prev); return URL.createObjectURL(blob); });
+            setShapes(parseShapes(data.svg));
+            setRemoved(new Set());
+            setHistory([]);
         } catch (e: any) {
             setError(e?.response?.data?.error || 'Could not vectorise that image.');
         } finally {
@@ -79,17 +160,19 @@ export const VectoriserPage: React.FC = () => {
     };
 
     const download = () => {
-        if (!result || !svgUrl) return;
+        if (!result) return;
+        const url = URL.createObjectURL(new Blob([currentSvg], { type: 'image/svg+xml' }));
         const a = document.createElement('a');
-        a.href = svgUrl;
+        a.href = url;
         a.download = `${(file?.name || 'image').replace(/\.[^.]+$/, '')}.svg`;
         a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
     };
 
     const copy = async () => {
         if (!result) return;
         try {
-            await navigator.clipboard.writeText(result.svg);
+            await navigator.clipboard.writeText(currentSvg);
             setCopied(true);
             setTimeout(() => setCopied(false), 1800);
         } catch { setError('Could not copy — your browser blocked clipboard access.'); }
@@ -98,9 +181,11 @@ export const VectoriserPage: React.FC = () => {
     const reset = () => {
         setFile(null);
         setResult(null);
+        setShapes([]);
+        setRemoved(new Set());
+        setHistory([]);
         setError('');
         setOriginalUrl(prev => { if (prev) URL.revokeObjectURL(prev); return null; });
-        setSvgUrl(prev => { if (prev) URL.revokeObjectURL(prev); return null; });
     };
 
     const card: React.CSSProperties = { background: colors.surface, borderRadius: borderRadius.lg, padding: spacing.lg, border: '1px solid rgba(255,255,255,0.06)' };
@@ -229,9 +314,72 @@ export const VectoriserPage: React.FC = () => {
                     <div style={{ display: 'flex', gap: spacing.lg, flexWrap: 'wrap' }}>
                         {preview('Original', originalUrl,
                             result ? `${result.sourceWidth} × ${result.sourceHeight} · ${file ? fmtBytes(file.size) : ''}` : (file ? fmtBytes(file.size) : ''), false)}
-                        {preview('Vector', svgUrl,
-                            result ? `${result.width} × ${result.height} · ${result.paths} shapes · ${fmtBytes(result.bytes)} · traced in ${(result.ms / 1000).toFixed(1)}s` : 'Not traced yet', true)}
+
+                        {/* Vector — each shape is clickable so parts can be taken out */}
+                        <div style={{ flex: '1 1 320px', minWidth: 0 }}>
+                            <div style={{ ...label, marginBottom: spacing.sm }}>Vector {result && <span style={{ textTransform: 'none', letterSpacing: 0, color: colors.textTertiary, fontWeight: 500 }}>— click a shape to remove it</span>}</div>
+                            <div style={{
+                                borderRadius: borderRadius.md, border: '1px solid rgba(255,255,255,0.08)', overflow: 'hidden',
+                                height: 340, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                background: 'repeating-conic-gradient(#1b1f2b 0% 25%, #141821 0% 50%) 50% / 18px 18px',
+                            }}>
+                                {result && shapes.length > 0 ? (
+                                    <svg viewBox={`0 0 ${result.width} ${result.height}`} style={{ maxWidth: '100%', maxHeight: '100%' }}>
+                                        {shapes.map((s, i) => removed.has(i) ? null : (
+                                            <path key={i} d={s.d} fill={s.fill} transform={s.transform || undefined}
+                                                onClick={() => toggleShape(i)}
+                                                onMouseEnter={() => setHovered(i)}
+                                                onMouseLeave={() => setHovered(h => (h === i ? null : h))}
+                                                style={{ cursor: 'pointer', opacity: hovered === i ? 0.25 : 1, transition: 'opacity 0.1s' }} />
+                                        ))}
+                                    </svg>
+                                ) : <span style={{ color: colors.textTertiary, fontSize: '0.85rem' }}>Not traced yet</span>}
+                            </div>
+                            <div style={{ fontSize: '0.75rem', color: colors.textTertiary, marginTop: 6 }}>
+                                {result
+                                    ? `${result.width} × ${result.height} · ${kept.length} of ${shapes.length} shapes · ${fmtBytes(new Blob([currentSvg]).size)} · traced in ${(result.ms / 1000).toFixed(1)}s`
+                                    : 'Not traced yet'}
+                            </div>
+                        </div>
                     </div>
+
+                    {/* Editing tools */}
+                    {result && shapes.length > 0 && (
+                        <div style={{ marginTop: spacing.lg, paddingTop: spacing.lg, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                            <div style={{ display: 'flex', gap: spacing.sm, flexWrap: 'wrap', alignItems: 'center' }}>
+                                <button onClick={() => backgroundIndex >= 0 && toggleShape(backgroundIndex)}
+                                    disabled={backgroundIndex < 0 || removed.has(backgroundIndex)}
+                                    title={backgroundIndex < 0 ? 'No full-canvas background shape found' : 'Remove the shape covering the whole canvas'}
+                                    style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 14px', background: 'rgba(255,255,255,0.06)', color: colors.textSecondary, border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.md, fontWeight: 600, fontSize: '0.85rem', cursor: (backgroundIndex < 0 || removed.has(backgroundIndex)) ? 'not-allowed' : 'pointer', opacity: (backgroundIndex < 0 || removed.has(backgroundIndex)) ? 0.45 : 1 }}>
+                                    <Eraser size={14} /> Remove background
+                                </button>
+                                <button onClick={undo} disabled={history.length === 0}
+                                    style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 14px', background: 'rgba(255,255,255,0.06)', color: colors.textSecondary, border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.md, fontWeight: 600, fontSize: '0.85rem', cursor: history.length ? 'pointer' : 'not-allowed', opacity: history.length ? 1 : 0.45 }}>
+                                    <Undo2 size={14} /> Undo
+                                </button>
+                                <button onClick={restoreAll} disabled={removed.size === 0}
+                                    style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 14px', background: 'rgba(255,255,255,0.06)', color: colors.textSecondary, border: '1px solid rgba(255,255,255,0.1)', borderRadius: borderRadius.md, fontWeight: 600, fontSize: '0.85rem', cursor: removed.size ? 'pointer' : 'not-allowed', opacity: removed.size ? 1 : 0.45 }}>
+                                    <RotateCcw size={14} /> Restore all
+                                </button>
+                                {removed.size > 0 && (
+                                    <span style={{ fontSize: '0.8rem', color: colors.textTertiary }}>{removed.size} removed</span>
+                                )}
+                            </div>
+
+                            <div style={{ marginTop: spacing.lg }}>
+                                <span style={label}>Remove a whole colour</span>
+                                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                                    {palette.map(([fill, count]) => (
+                                        <button key={fill} onClick={() => dropColour(fill)} title={`Remove all ${count} ${fill} shape${count > 1 ? 's' : ''}`}
+                                            style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '6px 10px 6px 6px', background: colors.background, border: '1px solid rgba(255,255,255,0.1)', borderRadius: 999, cursor: 'pointer', color: colors.textSecondary, fontSize: '0.78rem', fontWeight: 600 }}>
+                                            <span style={{ width: 18, height: 18, borderRadius: '50%', background: fill, border: '1px solid rgba(255,255,255,0.25)', flexShrink: 0 }} />
+                                            {fill} <span style={{ color: colors.textTertiary }}>×{count}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     {result && (
                         <div style={{ display: 'flex', gap: spacing.md, marginTop: spacing.lg, flexWrap: 'wrap' }}>
