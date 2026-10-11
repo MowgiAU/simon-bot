@@ -149,6 +149,7 @@ const SetupPasswordModal     = lazy(() => import("./components/SetupPasswordModa
 const UniversalSearch        = lazy(() => import("./components/UniversalSearch").then(m => ({ default: m.UniversalSearch })));
 const NotificationMenu       = lazy(() => import("./components/NotificationMenu").then(m => ({ default: m.NotificationMenu })));
 const DrumKitGeneratorPage   = lazy(() => import("./pages/DrumKitGenerator").then(m => ({ default: m.DrumKitGeneratorPage })));
+const VectoriserPage         = lazy(() => import("./pages/Vectoriser").then(m => ({ default: m.VectoriserPage })));
 const ProjectListPage        = lazy(() => import("./pages/ProjectListPage").then(m => ({ default: m.ProjectListPage })));
 const ProjectDetailPage      = lazy(() => import("./pages/ProjectDetailPage").then(m => ({ default: m.ProjectDetailPage })));
 const ServerStatsPage        = lazy(() => import("./pages/ServerStats").then(m => ({ default: m.ServerStats })));
@@ -217,6 +218,7 @@ type Section =
   | "track-announcer"
   | "academy"
   | "drum-kit"
+  | "vectoriser"
   | "stats"
   | "database-management"
   | "anti-external-forward"
@@ -459,6 +461,19 @@ const AdminDashboard: React.FC = () => {
         </div>
       );
     }
+    // Staff tool, admins only — it has no plugin of its own to gate on.
+    if (activeSection === 'vectoriser' && !permissions.canManagePlugins) {
+      return (
+        <div style={{ padding: '60px 24px', textAlign: 'center', maxWidth: '480px', margin: '0 auto' }}>
+          <ShieldAlert size={48} color={colors.textTertiary} style={{ marginBottom: '16px' }} />
+          <h2 style={{ color: colors.textPrimary, marginBottom: '8px' }}>Access Denied</h2>
+          <p style={{ color: colors.textSecondary, marginBottom: '24px' }}>Only administrators can use the image vectoriser.</p>
+          <button onClick={() => handleNavigate('dashboard')} style={{ background: colors.primary, color: '#fff', border: 'none', padding: '10px 24px', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }}>
+            Back to Overview
+          </button>
+        </div>
+      );
+    }
     if (activeSection === 'plugins' && !permissions.canManagePlugins) {
       return (
         <div style={{ padding: '60px 24px', textAlign: 'center', maxWidth: '480px', margin: '0 auto' }}>
@@ -529,6 +544,8 @@ const AdminDashboard: React.FC = () => {
           return <HeadToHeadAdminPage />;
         case "drum-kit":
           return <DrumKitGeneratorPage />;
+        case "vectoriser":
+          return <VectoriserPage />;
         case "battle-archive":
           return <BattleArchivePage onBack={() => handleNavigate('beat-battle')} />;
         case "featured-content":

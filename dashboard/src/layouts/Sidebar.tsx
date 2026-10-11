@@ -46,6 +46,7 @@ import {
   Megaphone,
   GraduationCap,
   Drum,
+  Shapes,
   Database,
   Puzzle,
   Activity,
@@ -411,6 +412,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeSection, onNavigate, use
               <button className={`nav-item ${activeSection === 'drum-kit' ? 'active' : ''}`} onClick={() => onNavigate('drum-kit')} title={collapsed ? "Drum Kit Generator" : ""}>
                 <span className="nav-icon"><AnimatedWrapper icon={Drum} size={20} /></span>
                 <span className="nav-label">Drum Kit Generator</span>
+              </button>
+            )}
+            {permissions.canManagePlugins && (
+              <button className={`nav-item ${activeSection === 'vectoriser' ? 'active' : ''}`} onClick={() => onNavigate('vectoriser')} title={collapsed ? "Image Vectoriser" : ""}>
+                <span className="nav-icon"><AnimatedWrapper icon={Shapes} size={20} /></span>
+                <span className="nav-label">Image Vectoriser</span>
               </button>
             )}
             {permissions.canManagePlugins && (

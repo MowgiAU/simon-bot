@@ -22706,6 +22706,79 @@ app.get('/api/admin/backup/status', requireAdmin, async (_req: any, res) => {
     });
 });
 
+// -- Image vectoriser (admin tool) --------------------------------------------
+// Traces a bitmap into SVG with VTracer. Admin-only and deliberately unlinked
+// from the public site: this is a staff tool, not a site feature.
+
+const vectorizeUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024 } });
+
+/** How hard to chase detail. More detail means more paths and a bigger file. */
+const VECTOR_DETAIL = {
+    low:      { filterSpeckle: 16, colorPrecision: 4, layerDifference: 32, pathPrecision: 2 },
+    balanced: { filterSpeckle: 4,  colorPrecision: 6, layerDifference: 16, pathPrecision: 3 },
+    high:     { filterSpeckle: 1,  colorPrecision: 8, layerDifference: 8,  pathPrecision: 4 },
+} as const;
+
+app.post('/api/admin/vectorize', requireAdmin, vectorizeUpload.single('image'), async (req: any, res) => {
+    const started = Date.now();
+    try {
+        const file = req.file;
+        if (!file?.buffer?.length) return res.status(400).json({ error: 'Choose an image to vectorise.' });
+
+        // Magic-byte check: the extension and the content-type are both caller-supplied.
+        try {
+            FileValidator.validateImage(file.buffer, file.originalname);
+        } catch {
+            return res.status(400).json({ error: 'That file isn’t an image we can read. Use PNG, JPG, GIF or WEBP.' });
+        }
+
+        const detail = (VECTOR_DETAIL as any)[String(req.body?.detail || 'balanced')] ?? VECTOR_DETAIL.balanced;
+        const blackAndWhite = String(req.body?.mode || 'colour') === 'bw';
+        // Tracing cost and SVG size both scale with pixel count, so cap the long edge.
+        const maxSize = Math.min(Math.max(Number(req.body?.maxSize) || 1600, 256), 4000);
+
+        const sharp = (await import('sharp')).default;
+        const meta = await sharp(file.buffer).metadata();
+        const longest = Math.max(meta.width || 0, meta.height || 0);
+        const prepared = await sharp(file.buffer)
+            .rotate()                                  // honour EXIF orientation before tracing
+            .resize({ width: maxSize, height: maxSize, fit: 'inside', withoutEnlargement: true })
+            .png()
+            .toBuffer();
+        const outMeta = await sharp(prepared).metadata();
+
+        const { vectorize, ColorMode, Hierarchical, PathSimplifyMode } = await import('@neplex/vectorizer');
+        const svg = await vectorize(prepared, {
+            colorMode: blackAndWhite ? ColorMode.Binary : ColorMode.Color,
+            hierarchical: Hierarchical.Stacked,
+            mode: PathSimplifyMode.Spline,
+            filterSpeckle: detail.filterSpeckle,
+            colorPrecision: detail.colorPrecision,
+            layerDifference: detail.layerDifference,
+            pathPrecision: detail.pathPrecision,
+            cornerThreshold: 60,
+            lengthThreshold: 4,
+            maxIterations: 10,
+            spliceThreshold: 45,
+        });
+
+        logger.info(`[Vectorise] ${req.session?.user?.username || 'admin'} traced ${file.originalname} (${longest}px → ${outMeta.width}x${outMeta.height}) in ${Date.now() - started}ms`);
+        res.json({
+            svg,
+            width: outMeta.width,
+            height: outMeta.height,
+            sourceWidth: meta.width,
+            sourceHeight: meta.height,
+            paths: (svg.match(/<path/g) || []).length,
+            bytes: Buffer.byteLength(svg),
+            ms: Date.now() - started,
+        });
+    } catch (e: any) {
+        logger.error('[Vectorise] failed', e);
+        res.status(500).json({ error: 'Could not vectorise that image.' });
+    }
+});
+
 // -- Page Embeds (OG / social embed metadata per URL path) ---------------------
 
 app.get('/api/admin/page-embeds', requireAdmin, async (_req, res) => {
