@@ -1037,7 +1037,9 @@ app.use(helmet({
                 'https://static.cloudflareinsights.com', // Cloudflare Web Analytics
             ],
             styleSrc: ["'self'", "'unsafe-inline'"],
-            imgSrc: ["'self'", 'data:', 'https:'],
+            // blob: lets the page preview an image it holds in memory — the vectoriser's
+            // before/after, and anything else built client-side. Same-origin and ephemeral.
+            imgSrc: ["'self'", 'data:', 'blob:', 'https:'],
             mediaSrc: ["'self'", 'blob:', 'https:'],
             connectSrc: [
                 "'self'",
