@@ -168,70 +168,80 @@ const PageSpinner: React.FC = () => (
     </div>
 );
 
-type Section = 
-  | "dashboard" 
-  | "word-filter-settings" 
-  | "moderation" 
-  | "economy" 
-  | "feedback" 
-  | "welcome-gate" 
-  | "bot-identity" 
-  | "email-client" 
-  | "tickets" 
-  | "channel-rules" 
-  | "musician-profiles-admin"
-  | "musician-profiles"
-  | "library"
-  | "genres-list"
-  | "docs"
-  | "logs"
-  | "staging-test"
-  | "plugins"
-  | "beat-battle"
-  | "head-to-head"
-  | "battle-archive"
-  | "featured-content"
-  | "account-management"
-  | "anti-piracy"
-  | "leveling"
-  | "fuji-radio"
-  | "studio-guide"
-  | "bot-messenger"
-  | "private-messages"
-  | "auto-messages"
-  | "auto-responder"
-  | "pause"
-  | "server-boost"
-  | "booster-color"
-  | "boost"
-  | "profile-styles"
-  | "automation"
-  | "progression"
-  | "reports"
-  | "articles"
-  | "article-review"
-  | "voice-stats"
-  | "spam-guard"
-  | "channel-scraper"
-  | "reddit"
-  | "muzzle"
-  | "track-announcer"
-  | "academy"
-  | "drum-kit"
-  | "vectoriser"
-  | "stats"
-  | "database-management"
-  | "anti-external-forward"
-  | "page-embeds"
-  | "plugin-registry"
-  | "bug-reports"
-  | "admin-tools"
-  | "activity-logs"
-  | "vote-fraud"
-  | "platform-analytics"
-  | "article-analytics"
-  | "echo"
-  | "command-guard";
+/**
+ * Every dashboard section. Doubles as the URL: /dashboard/<section>, so a refresh
+ * or a shared link lands back on the same page instead of the overview.
+ */
+const SECTIONS = [
+  'dashboard',
+  'word-filter-settings',
+  'moderation',
+  'economy',
+  'feedback',
+  'welcome-gate',
+  'bot-identity',
+  'email-client',
+  'tickets',
+  'channel-rules',
+  'musician-profiles-admin',
+  'musician-profiles',
+  'library',
+  'genres-list',
+  'docs',
+  'logs',
+  'staging-test',
+  'plugins',
+  'beat-battle',
+  'head-to-head',
+  'battle-archive',
+  'featured-content',
+  'account-management',
+  'anti-piracy',
+  'leveling',
+  'fuji-radio',
+  'studio-guide',
+  'bot-messenger',
+  'private-messages',
+  'auto-messages',
+  'auto-responder',
+  'pause',
+  'server-boost',
+  'booster-color',
+  'boost',
+  'profile-styles',
+  'automation',
+  'progression',
+  'reports',
+  'articles',
+  'article-review',
+  'voice-stats',
+  'spam-guard',
+  'channel-scraper',
+  'reddit',
+  'muzzle',
+  'track-announcer',
+  'academy',
+  'drum-kit',
+  'vectoriser',
+  'slots',
+  'stats',
+  'database-management',
+  'anti-external-forward',
+  'page-embeds',
+  'plugin-registry',
+  'bug-reports',
+  'admin-tools',
+  'activity-logs',
+  'vote-fraud',
+  'platform-analytics',
+  'article-analytics',
+  'echo',
+  'command-guard',
+] as const;
+
+type Section = typeof SECTIONS[number];
+
+const isSection = (value: string): value is Section => (SECTIONS as readonly string[]).includes(value);
 
 const WelcomeScreen: React.FC<{ login: () => void }> = ({ login }) => {
   const navigate = useNavigate();
@@ -325,10 +335,19 @@ const WelcomeScreen: React.FC<{ login: () => void }> = ({ login }) => {
 );};
 
 const AdminDashboard: React.FC = () => {
-  const [activeSection, setActiveSection] = useState<Section>("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [navigationParams, setNavigationParams] = useState<any>(null);
   const navigate = useNavigate();
+  const { pathname } = useLocation();
+
+  // The URL is the source of truth, so refreshing or sharing a link keeps the page.
+  const slug = pathname.replace(/^\/dashboard\/?/, '').split('/')[0] || 'dashboard';
+  const activeSection: Section = isSection(slug) ? slug : 'dashboard';
+
+  // An unknown section would otherwise sit on a blank page with a URL that lies.
+  useEffect(() => {
+    if (slug !== 'dashboard' && !isSection(slug)) navigate('/dashboard', { replace: true });
+  }, [slug, navigate]);
 
   const { user, dashboardGuilds, selectedGuild, setSelectedGuild, permissions, loading, login, logout, impersonating } = useAuth();
 
@@ -394,9 +413,9 @@ const AdminDashboard: React.FC = () => {
   }
 
   const handleNavigate = (section: Section, params: any = null) => {
-    setActiveSection(section);
     setNavigationParams(params);
     setSidebarOpen(false);
+    navigate(section === 'dashboard' ? '/dashboard' : `/dashboard/${section}`);
   };
 
   // Map dashboard sections to their required plugin IDs
